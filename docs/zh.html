@@ -212,7 +212,7 @@ Settings
             <small>创建 Plugin 字段</small>
             <pre><code>Name: CodexPro
 Connection: Server URL
-Server URL: paste copied URL
+Server URL: paste complete copied URL, including codexpro_token
 Authentication: No Authentication / None</code></pre>
           </div>
         </div>
@@ -223,7 +223,7 @@ Authentication: No Authentication / None</code></pre>
             保持 Enforce CSP in developer mode 开启。CodexPro 的小组件按 CSP 开启路径设计，不依赖远程脚本、外部字体、iframe 或第三方图片。
           </p>
           <p>
-            复制的 Server URL 已包含私有 CodexPro token。Authentication 选择 No Authentication / None，不需要单独粘贴 token。
+            复制的完整 Server URL 已包含 <code>codexpro_token</code> query 凭据。Authentication 选择 No Authentication / None，不要删除 query string。这是 Phase 0.5 暂时保留的个人 ChatGPT query-token 兼容流程。请把完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。
           </p>
         </div>
       </section>

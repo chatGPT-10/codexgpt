@@ -31,6 +31,42 @@ export function normalizeRelPath(relPath: string): string {
   return normalized;
 }
 
+const WINDOWS_RESERVED_BASENAME = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
+
+export function assertSafePathInput(inputPath: string, platform: NodeJS.Platform = process.platform): void {
+  if (inputPath.includes("\0")) {
+    throw new CodexProError("Path contains a null byte.");
+  }
+  if (platform !== "win32") return;
+
+  const normalized = inputPath.replace(/\//g, "\\");
+  if (/^\\\\[?.]\\/.test(normalized)) {
+    throw new CodexProError(`Windows device paths are not allowed: ${inputPath}`);
+  }
+  if (/^\\\\/.test(normalized)) {
+    throw new CodexProError(`UNC paths are not allowed: ${inputPath}`);
+  }
+  if (/^[A-Za-z]:(?!\\)/.test(normalized)) {
+    throw new CodexProError(`Drive-relative Windows paths are not allowed: ${inputPath}`);
+  }
+
+  const withoutDrive = /^[A-Za-z]:/.test(normalized) ? normalized.slice(2) : normalized;
+  if (withoutDrive.includes(":")) {
+    throw new CodexProError(`NTFS alternate data stream paths are not allowed: ${inputPath}`);
+  }
+
+  for (const segment of withoutDrive.split(/\\+/).filter(Boolean)) {
+    if (segment === "." || segment === "..") continue;
+    if (segment.endsWith(".") || segment.endsWith(" ")) {
+      throw new CodexProError(`Windows path segments may not end with a dot or space: ${inputPath}`);
+    }
+    const basename = segment.split(".", 1)[0];
+    if (WINDOWS_RESERVED_BASENAME.test(basename)) {
+      throw new CodexProError(`Windows reserved device name is not allowed: ${inputPath}`);
+    }
+  }
+}
+
 export function displayPath(absPath: string, root: string): string {
   const rel = path.relative(root, absPath) || ".";
   return normalizeRelPath(rel);
@@ -42,7 +78,7 @@ function workspaceIdForRoot(realRoot: string): string {
 
 function maybeRealpath(existingPath: string): string | undefined {
   try {
-    return fs.realpathSync(existingPath);
+    return fs.realpathSync.native(existingPath);
   } catch {
     return undefined;
   }
@@ -70,6 +106,7 @@ export class WorkspaceManager {
 
   openWorkspace(rootInput?: string): Workspace {
     const requested = rootInput?.trim() ? expandHome(rootInput.trim()) : this.config.defaultRoot;
+    assertSafePathInput(requested);
     const resolved = path.resolve(requested);
     if (!fs.existsSync(resolved)) {
       throw new CodexProError(`Workspace root does not exist: ${resolved}`);
@@ -78,7 +115,7 @@ export class WorkspaceManager {
     if (!stat.isDirectory()) {
       throw new CodexProError(`Workspace root is not a directory: ${resolved}`);
     }
-    const realRoot = fs.realpathSync(resolved);
+    const realRoot = fs.realpathSync.native(resolved);
     const allowed = this.config.allowedRoots.some((allowedRoot) => isSubpath(realRoot, allowedRoot));
     if (!allowed) {
       throw new CodexProError(
@@ -110,14 +147,17 @@ export class WorkspaceManager {
 }
 
 export class PathGuard {
-  constructor(private readonly config: CodexProConfig) {}
+  constructor(
+    private readonly config: CodexProConfig,
+    private readonly platform: NodeJS.Platform = process.platform
+  ) {}
 
   isBlockedRelativePath(relPath: string): boolean {
     const rel = normalizeRelPath(relPath).replace(/^\.\//, "");
     if (!rel || rel === ".") return false;
     return this.config.blockedGlobs.some((glob) =>
-      minimatch(rel, glob, { dot: true, nocase: false, matchBase: false }) ||
-      minimatch(path.basename(rel), glob, { dot: true, nocase: false, matchBase: true })
+      minimatch(rel, glob, { dot: true, nocase: this.platform === "win32", matchBase: false }) ||
+      minimatch(path.basename(rel), glob, { dot: true, nocase: this.platform === "win32", matchBase: true })
     );
   }
 
@@ -128,6 +168,7 @@ export class PathGuard {
   }
 
   resolve(workspace: Workspace, inputPath = ".", options: { forWrite?: boolean } = {}): { absPath: string; relPath: string } {
+    assertSafePathInput(inputPath || ".", this.platform);
     const expanded = expandHome(inputPath || ".");
     const candidate = path.isAbsolute(expanded) ? expanded : path.join(workspace.root, expanded);
     let absPath = path.resolve(candidate);

@@ -8,7 +8,7 @@ import type { CodexProConfig } from "./config.js";
 import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
 import { repoTree, readTextFile, writeTextFile, editTextFile, ensureAiBridge } from "./fsOps.js";
 import { searchWorkspace } from "./searchOps.js";
-import { runBash } from "./bashOps.js";
+import { probeBashAvailability, runBash } from "./bashOps.js";
 import { gitDiff, gitDiffStatus, gitLog, gitStatus } from "./gitOps.js";
 import { readAiBridgeContext, readCodexContext, workspaceSummary } from "./workspaceOps.js";
 import { buildProContext, exportProContext } from "./proContext.js";
@@ -1030,7 +1030,11 @@ export function createCodexProServer(config: CodexProConfig): McpServer {
         port: config.port,
         widgetDomain: config.widgetDomain,
         authEnabled: Boolean(config.authToken),
+        allowedHosts: config.allowedHosts,
+        allowedOrigins: config.allowedOrigins,
+        allowQueryToken: config.allowQueryToken,
         bashMode: config.bashMode,
+        bashAvailability: config.bashMode === "off" ? null : probeBashAvailability(),
         bashTranscript: config.bashTranscript,
         bashSessionId: config.bashSessionId ?? null,
         requireBashSession: config.requireBashSession,
@@ -1094,6 +1098,12 @@ export function createCodexProServer(config: CodexProConfig): McpServer {
       check("tool mode", config.toolMode === "full" ? "pass" : "warn", `${config.toolMode}; expected tools: ${toolNamesForMode(config).length}`);
       check("write mode", config.writeMode === "off" ? "warn" : "pass", config.writeMode);
       check("bash mode", config.bashMode === "full" ? "warn" : "pass", config.bashMode);
+      if (config.bashMode === "off") {
+        check("bash executable", "pass", "not required because Bash mode is off");
+      } else {
+        const availability = probeBashAvailability();
+        check("bash executable", availability.available ? "pass" : "fail", availability.detail);
+      }
       check(
         "http auth",
         "pass",

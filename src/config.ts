@@ -17,6 +17,9 @@ export interface CodexProConfig {
   widgetDomain: string;
   authToken?: string;
   requireHttpToken: boolean;
+  allowedHosts: string[];
+  allowedOrigins: string[];
+  allowQueryToken: boolean;
   bashMode: BashMode;
   bashTranscript: BashTranscriptMode;
   bashSessionId?: string;
@@ -142,7 +145,12 @@ function toRealDir(input: string): string {
   if (!stat.isDirectory()) {
     throw new Error(`Not a directory: ${resolved}`);
   }
-  return fs.realpathSync(resolved);
+  return fs.realpathSync.native(resolved);
+}
+
+function toCanonicalPath(input: string): string {
+  const resolved = path.resolve(expandHome(input));
+  return fs.existsSync(resolved) ? fs.realpathSync.native(resolved) : resolved;
 }
 
 function numberFrom(value: string | undefined, fallback: number, min: number, max: number): number {
@@ -238,6 +246,50 @@ function isLoopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost" || host === "::1";
 }
 
+function normalizeAllowedHost(value: string): string {
+  let raw = value.trim().toLowerCase();
+  if (!raw) throw new Error("CODEXPRO_ALLOWED_HOSTS contains an empty host.");
+  if (raw.includes("://")) {
+    let parsed: URL;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      throw new Error(`CODEXPRO_ALLOWED_HOSTS contains an invalid host: ${value}`);
+    }
+    raw = parsed.hostname.toLowerCase();
+  }
+  if (raw.startsWith("[") && raw.endsWith("]")) raw = raw.slice(1, -1);
+  const portSeparator = raw.lastIndexOf(":");
+  if (portSeparator > 0 && raw.indexOf(":") === portSeparator && /^\d+$/.test(raw.slice(portSeparator + 1))) {
+    raw = raw.slice(0, portSeparator);
+  }
+  if (!raw || raw === "*" || /[\\/\s]/.test(raw)) {
+    throw new Error(`CODEXPRO_ALLOWED_HOSTS contains an invalid host: ${value}`);
+  }
+  return raw;
+}
+
+function allowedHostsFrom(value: string | undefined, bindHost: string): string[] {
+  const hosts = ["127.0.0.1", "localhost", "::1", ...splitList(value, ",")];
+  if (bindHost !== "0.0.0.0" && bindHost !== "::") hosts.push(bindHost);
+  return [...new Set(hosts.map(normalizeAllowedHost))];
+}
+
+function allowedOriginsFrom(value: string | undefined): string[] {
+  return [...new Set(splitList(value, ",").map((origin) => {
+    let parsed: URL;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      throw new Error(`CODEXPRO_ALLOWED_ORIGINS contains an invalid origin: ${origin}`);
+    }
+    if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+      throw new Error(`CODEXPRO_ALLOWED_ORIGINS must contain HTTP(S) origins only: ${origin}`);
+    }
+    return parsed.origin;
+  }))];
+}
+
 export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
   const args = parseArgs(argv);
 
@@ -290,6 +342,15 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     boolFrom(process.env.CODEXPRO_REQUIRE_HTTP_TOKEN, false) ||
     boolFrom(process.env.CODEXPRO_TUNNEL_MODE, false) ||
     (!isLoopbackHost(host) && !allowNoToken);
+  const allowedHostHints = [
+    process.env.CODEXPRO_ALLOWED_HOSTS,
+    process.env.CODEXPRO_PUBLIC_HOSTNAME,
+    process.env.CODEXPRO_HOSTNAME,
+    process.env.NGROK_DOMAIN
+  ].filter((value): value is string => Boolean(value));
+  const allowedHosts = allowedHostsFrom(allowedHostHints.join(","), host);
+  const allowedOrigins = allowedOriginsFrom(process.env.CODEXPRO_ALLOWED_ORIGINS);
+  const allowQueryToken = boolFrom(process.env.CODEXPRO_ALLOW_QUERY_TOKEN, false);
   const bashSessionId = bashSessionIdFrom(bashSessionArg ?? process.env.CODEXPRO_BASH_SESSION_ID);
   const requireBashSession = boolFrom(requireBashSessionArg ?? process.env.CODEXPRO_REQUIRE_BASH_SESSION, false);
   if (requireBashSession && !bashSessionId) {
@@ -304,12 +365,15 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     widgetDomain: widgetDomainFrom(widgetDomainArg ?? process.env.CODEXPRO_WIDGET_DOMAIN),
     authToken,
     requireHttpToken,
+    allowedHosts,
+    allowedOrigins,
+    allowQueryToken,
     bashMode: bashModeFrom(bashArg ?? process.env.CODEXPRO_BASH_MODE),
     bashTranscript: bashTranscriptFrom(bashTranscriptArg ?? process.env.CODEXPRO_BASH_TRANSCRIPT),
     bashSessionId,
     requireBashSession,
     codexSessions: codexSessionsFrom(codexSessionsArg ?? process.env.CODEXPRO_CODEX_SESSIONS),
-    codexDir: expandHome(codexDirArg || process.env.CODEXPRO_CODEX_DIR || path.join(os.homedir(), ".codex")),
+    codexDir: toCanonicalPath(codexDirArg || process.env.CODEXPRO_CODEX_DIR || path.join(os.homedir(), ".codex")),
     writeMode: writeModeFrom(writeArg ?? process.env.CODEXPRO_WRITE_MODE),
     toolMode: toolModeFrom(toolModeArg ?? process.env.CODEXPRO_TOOL_MODE),
     inheritEnv: process.env.CODEXPRO_INHERIT_ENV === "1",

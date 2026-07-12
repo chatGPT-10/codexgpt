@@ -7,8 +7,13 @@ on:
       - main
 
 jobs:
-  build:
+  ubuntu:
+    name: Ubuntu / Node ${{ matrix.node-version }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 24]
 
     steps:
       - name: Checkout
@@ -17,7 +22,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6.4.0
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
           cache: npm
 
       - name: Install
@@ -25,6 +30,42 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Regression Tests
+        run: node --test
+
+      - name: Smoke Test
+        run: npm run smoke
+
+      - name: Check Package Contents
+        run: npm pack --dry-run
+
+  windows:
+    name: Windows / Node ${{ matrix.node-version }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 24]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Regression Tests
+        run: node --test
 
       - name: Smoke Test
         run: npm run smoke

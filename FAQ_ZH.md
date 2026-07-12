@@ -47,17 +47,17 @@ Settings
 -> Create
 ```
 
-创建 Plugin 时填写：
+创建 Plugin 时使用 Phase 0.5 的个人 ChatGPT 兼容流程：
 
 ```text
 Name: CodexPro
 Description: Local workspace bridge for ChatGPT coding
 Connection: Server URL
-Server URL: 粘贴 CodexPro 复制的 URL
+Server URL: 粘贴 CodexPro 复制的完整地址，包括 codexpro_token
 Authentication: No Authentication / None
 ```
 
-复制的 Server URL 已经包含私有 CodexPro token。
+完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。OAuth 2.1 延后实现；本指南不声称 ChatGPT Web 支持手动配置静态 Bearer header。
 
 ## CSP 要保持开启吗？
 
@@ -184,23 +184,15 @@ Cloudflare quick tunnel 每次重启 URL 都变。把 quick URL 填到 ChatGPT �
 codexpro connection-test --root /path/to/repo
 ```
 
-这个模式保留 `read`、`tree`、`search` 和 `load_skill`，关闭文件写入、bash
-和 tool cards，并记录请求是否到达本地 MCP endpoint。在 ChatGPT 的
-`Settings -> Plugins` 创建 development plugin，粘贴完整 Server URL，
-Authentication 选择 `No Authentication`。
+这个模式保留 `read`、`tree`、`search` 和 `load_skill`，关闭文件写入、bash 和 tool cards，并记录请求是否到达本地 MCP endpoint。在 ChatGPT 的 `Settings -> Plugins` 创建 development plugin，粘贴包含 `codexpro_token` query string 的完整 Server URL，并选择 `Authentication: No Authentication / None`。
 
 - 没有 `POST /mcp received`：请求没有到达 CodexPro，检查 ChatGPT Plugins 页面和 tunnel。
-- `POST /mcp -> 401`：请粘贴包含 `codexpro_token` 的完整 URL。
+- `POST /mcp -> 401`：没有使用完整 URL、query token 被删除，或凭据与当前 CodexPro 进程不匹配。
 - `POST /mcp -> 2xx`：ChatGPT 已到达 CodexPro，MCP endpoint 也已响应。
 
-测试期间保持 CodexPro 运行。Cloudflare quick tunnel 每次重启都会更换 URL。
-如果 Cloudflare 返回 `530` / `Error 1033`，检查运行 `cloudflared` 的机器上的
-DNS 或代理客户端 DNS 设置。
+测试期间保持 CodexPro 运行。Cloudflare quick tunnel 每次重启都会更换 URL。如果 Cloudflare 返回 `530` / `Error 1033`，检查运行 `cloudflared` 的机器上的 DNS 或代理客户端 DNS 设置。
 
-ChatGPT 现在在 Plugins 中管理 development app。浏览器错误
-`Failed to execute 'removeChild' on 'Node'` 发生在 ChatGPT 页面中，早于任何
-CodexPro MCP 请求。请在 Plugins 页面删除或重建旧条目，再使用当前 URL 重试；
-CodexPro 无法修复浏览器端的旧条目。
+ChatGPT 现在在 Plugins 中管理 development app。浏览器错误 `Failed to execute 'removeChild' on 'Node'` 发生在 ChatGPT 页面中，早于任何 CodexPro MCP 请求。请在 Plugins 页面删除或重建旧条目，再使用当前 URL 重试；CodexPro 无法修复浏览器端的旧条目。
 
 ## 能每天使用同一个 ChatGPT App URL 吗？
 
@@ -220,7 +212,7 @@ codexpro setup
 codexpro start
 ```
 
-同一个 hostname 和 CodexPro token 会被当前工作区复用。
+同一个 hostname 和 CodexPro token 会被当前工作区复用。请保护包含凭据的完整 Server URL；每次轮换 token 后，都要在 ChatGPT 中替换这个完整 URL。
 
 ## quick mode 为什么每次都要改 URL？
 

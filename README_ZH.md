@@ -50,7 +50,9 @@ cd /path/to/your/repo
 codexpro setup
 ```
 
-CodexPro 会自动复制 ChatGPT Server URL。先到 `Settings -> Security and login` 打开 Developer mode，再到 `Settings -> Plugins` 创建连接，粘贴这个 URL，并选择 `Authentication: No Authentication / None`。
+CodexPro 会自动复制包含 `codexpro_token` query 凭据的完整 ChatGPT Server URL。先到 `Settings -> Security and login` 打开 Developer mode，再到 `Settings -> Plugins` 创建连接，粘贴完整 URL，并选择 `Authentication: No Authentication / None`。
+
+Phase 0.5 暂时把这个 URL-token 流程作为个人 ChatGPT 兼容方案，OAuth 2.1 延后实现。请把完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交这个 URL。
 
 以后同一个仓库日常启动只需要：
 
@@ -139,11 +141,11 @@ ChatGPT Settings
 Name: CodexPro
 Description: Local workspace bridge for ChatGPT coding
 Connection: Server URL
-Server URL: 粘贴 CodexPro 自动复制的 URL
+Server URL: 粘贴 CodexPro 自动复制的完整地址，包括 codexpro_token query string
 Authentication: No Authentication / None
 ```
 
-复制的 Server URL 已经包含私有 `codexpro_token`。不要单独粘贴 token，除非你的 ChatGPT UI 明确支持自定义 header。
+不要删除 URL 的 query string。这个完整 URL 就是当前个人 ChatGPT 兼容流程的凭据；ChatGPT Web 不需要、也不应按照本指南手动配置静态 Bearer header。
 
 保持终端里的 CodexPro 进程运行。你停止它之后，ChatGPT 就无法继续连接本地仓库。Cloudflare quick tunnel 的 URL 也会失效。
 
@@ -351,6 +353,7 @@ CodexPro 是本地开发桥，不是操作系统级沙箱。
 默认安全行为：
 
 - 公网 tunnel 默认需要私有 CodexPro token。
+- 受支持的公开 CLI 默认使用个人 ChatGPT query-token 兼容流程；只有能主动发送 Bearer header 的高级兼容客户端才应显式设置 `CODEXPRO_ALLOW_QUERY_TOKEN=0`。
 - 写入限制在配置的工作区 root 内。
 - 常见敏感路径会被拒绝：`.env`、私钥、`.git`、`node_modules`、生成目录、缓存目录。
 - symlink 逃逸会被阻止。

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { CodexProConfig } from "./config.js";
@@ -193,6 +193,34 @@ function bashExecutable(): string {
   return fs.existsSync("/bin/bash") ? "/bin/bash" : "bash";
 }
 
+export interface BashAvailability {
+  available: boolean;
+  executable: string;
+  detail: string;
+}
+
+export function probeBashAvailability(platform: NodeJS.Platform = process.platform): BashAvailability {
+  const direct = bashExecutable();
+  if (platform !== "win32" && direct === "/bin/bash") {
+    return { available: true, executable: direct, detail: `${direct} is available.` };
+  }
+
+  const probe = platform === "win32"
+    ? spawnSync("where", ["bash"], { encoding: "utf8", windowsHide: true })
+    : spawnSync("/bin/sh", ["-lc", "command -v bash"], { encoding: "utf8" });
+  const executable = probe.status === 0
+    ? String(probe.stdout ?? "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? "bash"
+    : "bash";
+  if (probe.status === 0) {
+    return { available: true, executable, detail: `${executable} is available.` };
+  }
+
+  const detail = platform === "win32"
+    ? "Bash is not available on PATH. Install Git Bash, or start CodexPro with Bash disabled until the native PowerShell backend is implemented."
+    : "Bash is not available on PATH. Install Bash, or start CodexPro with Bash disabled.";
+  return { available: false, executable, detail };
+}
+
 function trimOutput(value: string, maxBytes: number): { value: string; truncated: boolean } {
   const buffer = Buffer.from(value, "utf8");
   if (buffer.byteLength <= maxBytes) return { value, truncated: false };
@@ -210,6 +238,10 @@ export async function runBash(
   if (!command?.trim()) throw new CodexProError("command is required.");
   const bashSessionId = assertBashSession(config, options.sessionId);
   assertSafeCommand(config, command);
+  const availability = probeBashAvailability();
+  if (!availability.available) {
+    throw new CodexProError(`Bash backend is unavailable. ${availability.detail}`);
+  }
   const cwdResolved = guard.resolve(workspace, options.cwd ?? ".");
   const cwd = cwdResolved.absPath;
   const timeoutMs = Math.max(1_000, Math.min(options.timeoutMs ?? 30_000, 180_000));

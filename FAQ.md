@@ -105,17 +105,17 @@ Settings
 -> Create
 ```
 
-When creating the plugin:
+When creating the plugin, use the Phase 0.5 personal ChatGPT compatibility flow:
 
 ```text
 Name: CodexPro
 Description: Local workspace bridge for ChatGPT coding
 Connection: Server URL
-Server URL: paste the URL copied by CodexPro
+Server URL: paste the complete URL copied by CodexPro, including codexpro_token
 Authentication: No Authentication / None
 ```
 
-The copied Server URL already includes the private CodexPro token.
+The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. OAuth 2.1 is deferred; this guide does not claim ChatGPT Web supports manual static-Bearer configuration.
 
 ## Should CSP stay enabled?
 
@@ -240,25 +240,18 @@ codexpro connection-test --root /path/to/repo
 
 This keeps `read`, `tree`, `search`, and `load_skill`, but disables file writes,
 bash, and tool cards. In ChatGPT, create the development plugin under
-`Settings -> Plugins`, paste the complete Server URL, and choose
-`No Authentication`.
+`Settings -> Plugins`, paste the complete Server URL including its `codexpro_token`
+query string, and choose `Authentication: No Authentication / None`.
 
 The terminal output separates the failure boundary:
 
-- No `POST /mcp received`: the request did not reach CodexPro. Check the ChatGPT
-  Plugins page and the tunnel.
-- `POST /mcp -> 401`: paste the complete URL, including `codexpro_token`.
+- No `POST /mcp received`: the request did not reach CodexPro. Check the ChatGPT Plugins page and the tunnel.
+- `POST /mcp -> 401`: the complete URL was not used, the query token was removed, or the credential no longer matches the running CodexPro process.
 - `POST /mcp -> 2xx`: ChatGPT reached CodexPro and the MCP endpoint responded.
 
-Keep CodexPro running while testing. A Cloudflare quick-tunnel URL changes on
-every restart. If Cloudflare returns `530` / `Error 1033`, check DNS or
-proxy-client DNS handling on the machine running `cloudflared`.
+Keep CodexPro running while testing. A Cloudflare quick-tunnel URL changes on every restart. If Cloudflare returns `530` / `Error 1033`, check DNS or proxy-client DNS handling on the machine running `cloudflared`.
 
-ChatGPT now manages development apps under Plugins. The browser error
-`Failed to execute 'removeChild' on 'Node'` occurs in the ChatGPT page, before
-CodexPro can handle an MCP request. Remove or recreate the stale plugin entry
-from the Plugins page, then retry with the current URL. CodexPro cannot repair
-that browser-side entry.
+ChatGPT now manages development apps under Plugins. The browser error `Failed to execute 'removeChild' on 'Node'` occurs in the ChatGPT page, before CodexPro can handle an MCP request. Remove or recreate the stale plugin entry from the Plugins page, then retry with the current URL. CodexPro cannot repair that browser-side entry.
 
 Official references:
 
@@ -286,7 +279,7 @@ After that:
 codexpro start
 ```
 
-The same hostname and CodexPro token are reused for that workspace.
+The same hostname and CodexPro token are reused for that workspace. Keep the complete credential-bearing Server URL private, and replace it in ChatGPT whenever you rotate the token.
 
 ## What if I run CodexPro in two repos at once?
 

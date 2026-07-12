@@ -110,16 +110,18 @@ codexpro stable \
   --bash safe
 ```
 
-Add this once in ChatGPT Developer Mode:
+Add this once in ChatGPT Developer Mode using the Phase 0.5 personal query-token compatibility flow:
 
 ```text
 Name: CodexPro
 Connection: Server URL
-Server URL: https://local.example.space/mcp?codexpro_token=replace-with-a-long-stable-token
+Server URL: paste the exact complete URL copied by CodexPro, including codexpro_token
 Authentication: None / No Authentication
 ```
 
-After that, restart only the terminal command. You do not need to edit the ChatGPT connector unless you change the hostname or token.
+Do not remove the query string. Treat the complete URL as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. This guide does not claim ChatGPT Web supports manual static-Bearer configuration; OAuth 2.1 is deferred.
+
+After that, restart only the terminal command. You do not need to edit the ChatGPT connector unless you change the hostname or rotate the CodexPro token, in which case replace the complete Server URL.
 
 ## Dashboard-Managed Tunnel Token
 
@@ -182,9 +184,11 @@ Add this once in ChatGPT Developer Mode:
 ```text
 Name: CodexPro
 Connection: Server URL
-Server URL: https://your-domain.ngrok-free.dev/mcp?codexpro_token=replace-with-a-long-stable-token
+Server URL: paste the exact complete URL copied by CodexPro, including codexpro_token
 Authentication: None / No Authentication
 ```
+
+Use the complete copied URL even though the hostname is stable. The query-token credential changes if you rotate the CodexPro token, so replace the ChatGPT Server URL after rotation.
 
 CodexPro starts the local MCP server, runs `ngrok http http://127.0.0.1:8787 --url https://your-domain.ngrok-free.dev`, waits for `/healthz`, copies the Server URL, and keeps both processes alive until you quit.
 

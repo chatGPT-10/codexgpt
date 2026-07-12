@@ -1448,6 +1448,10 @@ async function main(): Promise<void> {
     );
   }
 
+  if (config.allowQueryToken) {
+    console.error("[CodexPro] Warning: personal query-token compatibility is enabled. Treat the complete URL as a secret; it may leak through browser history, clipboard contents, screenshots, logs, and copied links.");
+  }
+
   const app = express();
   const logRequests = process.env.CODEXPRO_LOG_REQUESTS === "1";
 
@@ -1456,6 +1460,30 @@ async function main(): Promise<void> {
     const expected = Buffer.from(config.authToken);
     const actual = Buffer.from(value);
     return expected.length === actual.length && timingSafeEqual(expected, actual);
+  }
+
+  function requestHostName(req: Request): string | undefined {
+    const raw = req.headers.host?.trim().toLowerCase();
+    if (!raw) return undefined;
+    if (raw.startsWith("[")) {
+      const closing = raw.indexOf("]");
+      return closing > 1 ? raw.slice(1, closing) : undefined;
+    }
+    const colon = raw.indexOf(":");
+    return colon >= 0 ? raw.slice(0, colon) : raw;
+  }
+
+  function originAllowed(req: Request, origin: string): boolean {
+    let parsed: URL;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      return false;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    const requestHost = req.headers.host?.trim().toLowerCase();
+    if (requestHost && parsed.host.toLowerCase() === requestHost) return true;
+    return config.allowedOrigins.includes(parsed.origin);
   }
 
   const adminRateWindow = new Map<string, { count: number; resetAt: number }>();
@@ -1498,10 +1526,44 @@ async function main(): Promise<void> {
     });
     next();
   });
-  app.use(cors({ exposedHeaders: ["Mcp-Session-Id"] }));
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+
+    const host = requestHostName(req);
+    if (!host || !config.allowedHosts.includes(host)) {
+      res.status(403).send("Forbidden: Host is not allowed");
+      return;
+    }
+
+    const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
+    if (origin && !originAllowed(req, origin)) {
+      res.status(403).send("Forbidden: Origin is not allowed");
+      return;
+    }
+    next();
+  });
+  app.use(cors({ origin: true, exposedHeaders: ["Mcp-Session-Id"] }));
   app.get("/favicon.ico", (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=86400");
     res.type("image/svg+xml").send(LOCAL_FAVICON);
+  });
+  app.use((req, res, next) => {
+    if (!config.allowQueryToken && req.url.includes("?")) {
+      const parsed = new URL(req.url, "http://localhost");
+      const hasQueryCredential =
+        parsed.searchParams.has("codexpro_" + "token") || parsed.searchParams.has("token");
+      if (hasQueryCredential) {
+        const bearer = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+        if (!tokenMatches(bearer)) {
+          res.status(401).send("Unauthorized");
+          return;
+        }
+      }
+    }
+    next();
   });
   app.use((req, res, next) => {
     if (!config.authToken) {

@@ -36,15 +36,16 @@ cd /path/to/your/repo
 codexpro setup
 ```
 
-CodexPro prints and copies the Server URL. In ChatGPT, open:
+CodexPro prints and copies a Server URL that contains a `codexpro_token` query credential. In ChatGPT, open:
 
 ```text
 Settings -> Security and login -> Developer mode: on
 Settings -> Plugins -> Create
 ```
 
-Paste the Server URL and choose `Authentication: No Authentication / None`.
-CodexPro uses its own URL token.
+Paste the complete copied Server URL, including its query string, and choose `Authentication: No Authentication / None`. During Phase 0.5 this is the supported personal ChatGPT query-token compatibility flow; OAuth 2.1 is deferred.
+
+Treat the complete URL as a password-equivalent secret. It can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it.
 
 Daily use from the same repo:
 
@@ -145,15 +146,12 @@ Tailscale Funnel must already be allowed for your tailnet. It requires MagicDNS,
 tailscale funnel http://127.0.0.1:8787
 ```
 
-Then ChatGPT uses:
-
-```text
-https://your-device.your-tailnet.ts.net/mcp?codexpro_token=keep-this-token-stable
-```
+Then use the complete Server URL copied by CodexPro. It includes the `codexpro_token` query credential; do not remove the query string. In ChatGPT choose `Authentication: No Authentication / None`.
 
 ## Safety Defaults
 
 - Public tunnel mode requires a CodexPro HTTP token.
+- The supported public CLI defaults to the personal ChatGPT query-token compatibility flow; set `CODEXPRO_ALLOW_QUERY_TOKEN=0` only for advanced compatible clients that can send Bearer headers.
 - Generic writes are hidden unless `CODEXPRO_WRITE_MODE=workspace`.
 - Safe bash blocks broad shell patterns and secret/build/cache paths.
 - `apply_patch` is workspace-scoped and rejects blocked paths, symlink patches, and secret-looking patch content.
@@ -226,10 +224,10 @@ codexpro doctor
 Common fixes:
 
 - Quick tunnel URL changed: rerun `codexpro start` and update the ChatGPT app Server URL.
-- Stable URL does not respond: check the tunnel provider first, then the CodexPro token.
+- Stable URL does not respond: check the tunnel provider first, then confirm the ChatGPT app still uses the complete copied URL including `codexpro_token`.
 - ChatGPT cannot call tools in one model/chat: switch to a ChatGPT surface that supports Developer Mode app actions.
 - Local port is busy: start another repo with `--port 8788`.
-- Tool list looks stale: create a new ChatGPT app entry or change the connector URL token.
+- Tool list looks stale: recreate the ChatGPT app entry or rotate the CodexPro token and replace the app's complete Server URL.
 
 ## Development
 

@@ -22,7 +22,7 @@ const home = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-doctor-home-'));
 const port = await getFreePort();
 const packageJson = JSON.parse(await fs.readFile(path.resolve('package.json'), 'utf8'));
 for (const args of [['--version'], ['-v'], ['version'], ['start', '--version']]) {
-  const version = spawnSync(process.execPath, ['scripts/codexpro.mjs', ...args], {
+  const version = spawnSync(process.execPath, ['scripts/codexpro-entry.mjs', ...args], {
     cwd: path.resolve('.'),
     env: { ...process.env, CODEXPRO_HOME: home },
     encoding: 'utf8'
@@ -32,7 +32,7 @@ for (const args of [['--version'], ['-v'], ['version'], ['start', '--version']])
   }
 }
 const result = spawnSync(process.execPath, [
-  'scripts/codexpro.mjs',
+  'scripts/codexpro-entry.mjs',
   'doctor',
   '--root',
   root,
@@ -71,7 +71,7 @@ await fs.writeFile(path.join(home, 'profiles', `${invalidId}.json`), JSON.string
   toolMode: 'banana'
 }, null, 2), 'utf8');
 const invalidDoctor = spawnSync(process.execPath, [
-  'scripts/codexpro.mjs',
+  'scripts/codexpro-entry.mjs',
   'doctor',
   '--root',
   invalidRoot,

@@ -98,6 +98,11 @@ codexpro start \
 
 - Do not run public tunnels with `--no-auth`.
 - Public tunnel mode and non-loopback binds fail closed if `CODEXPRO_HTTP_TOKEN` is missing.
+- During Phase 0.5, the supported public `codexpro` entry uses the personal query-token compatibility flow for ChatGPT Web when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset.
+- The copied Server URL contains `codexpro_token`; select `Authentication: None / No Authentication` in ChatGPT for this temporary personal flow.
+- Treat that URL as a password-equivalent secret. It can leak through browser history, clipboard contents, screenshots, logs, and copied links.
+- Set `CODEXPRO_ALLOW_QUERY_TOKEN=0` only for compatible clients that can send an `Authorization: Bearer` header. Server-side Bearer support remains available for compatible clients, but ChatGPT Web manual static-Bearer setup is not claimed or documented.
+- Direct unsupported server launches still keep query authentication disabled unless `CODEXPRO_ALLOW_QUERY_TOKEN=1` is explicit.
 - Do not commit printed connector URLs that include `codexpro_token`.
 - Do not commit Cloudflare tunnel tokens.
 - Do not paste raw Cloudflare tunnel tokens into browser pages or screenshots. Use `--cloudflare-token-file` or the local page's Cloudflare token file field instead.
@@ -118,18 +123,18 @@ codexpro start \
 
 ## Cloudflare Binary Install
 
-For the one-command public tunnel flow, CodexPro can download the official Cloudflare `cloudflared` release into `~/.codexpro/bin` on supported macOS, Windows, and Linux systems. It does not install a system service, does not use sudo/admin rights, and does not modify shell startup files.
+The supported public `codexpro` entry uses the repository-managed verified installer for Cloudflare start paths: default/start, `stable`, explicit Cloudflare tunnel starts, and `connection-test` whenever its effective tunnel is `cloudflare` or `cloudflare-named`. It selects the platform asset from `scripts/cloudflared-release.mjs`, downloads the pinned release, rejects files larger than 100 MiB, verifies the pinned SHA-256 digest, checks the reported version, and installs the result into `~/.codexpro/bin`. It does not install a system service, use sudo/admin rights, or modify shell startup files.
 
-Resolution order:
+Managed-start flow:
 
 ```text
-1. explicit --cloudflared path or CLOUDFLARED_BIN
-2. cloudflared already available in PATH
-3. ~/.codexpro/bin/cloudflared or cloudflared.exe
-4. download official Cloudflare latest release unless --no-install-cloudflared is set
+1. an explicit --cloudflared <path> remains a manual override
+2. otherwise ensure the pinned managed binary exists and verifies correctly
+3. pass its exact path with --cloudflared <managed-path>
+4. pass --no-install-cloudflared so the legacy CLI cannot select or download another binary
 ```
 
-Use `--install-cloudflared` to refresh the local binary. Use `--no-install-cloudflared` to disable downloads.
+Use `npm run cloudflared:install`, `npm run cloudflared:upgrade`, and `npm run cloudflared:status` for the managed binary. Directly invoking `node scripts/codexpro.mjs` bypasses the verified public entry and is not the supported public launch path.
 
 ## Built-In Guards
 
