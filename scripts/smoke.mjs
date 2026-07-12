@@ -562,7 +562,7 @@ if (!postPatchChanges.structuredContent.changed || !postPatchChanges.structuredC
   throw new Error(`show_changes did not report new patch changes after checkpoint: ${JSON.stringify(postPatchChanges.structuredContent)}`);
 }
 const statsOnlyDiff = await client.request('tools/call', { name: 'git_diff', arguments: { workspace_id: ws, include_diff: false } });
-if (statsOnlyDiff.structuredContent.include_diff !== false || statsOnlyDiff.structuredContent.diff !== '') {
+if (statsOnlyDiff.structuredContent.data.include_diff !== false || statsOnlyDiff.structuredContent.data.diff !== '') {
   throw new Error(`git_diff include_diff=false returned raw diff: ${JSON.stringify(statsOnlyDiff.structuredContent)}`);
 }
 if (!statsOnlyDiff.content?.[0]?.text?.includes('Raw diff omitted by include_diff=false')) {
@@ -1136,11 +1136,16 @@ await nonGitClient.request('initialize', {
 nonGitClient.notify('notifications/initialized');
 const nonGitDiff = await nonGitClient.request('tools/call', { name: 'git_diff', arguments: { include_diff: false } });
 const nonGitPayload = JSON.stringify(nonGitDiff);
-if (!nonGitDiff.structuredContent.diff_error || !nonGitDiff.structuredContent.diff || nonGitDiff.structuredContent.changed) {
-  throw new Error(`git_diff include_diff=false hid non-git diagnostics: ${nonGitPayload}`);
+if (
+  nonGitDiff.isError !== true ||
+  nonGitDiff.structuredContent.ok !== false ||
+  nonGitDiff.structuredContent.error?.code !== 'GIT_NOT_REPOSITORY' ||
+  nonGitDiff.structuredContent.data !== null
+) {
+  throw new Error(`git_diff include_diff=false did not return the non-git failure envelope: ${nonGitPayload}`);
 }
-if (!/not a git repository|git unavailable|fatal:/i.test(nonGitPayload)) {
-  throw new Error(`git_diff include_diff=false did not preserve the git diagnostic text: ${nonGitPayload}`);
+if (!nonGitDiff.content?.[0]?.text?.includes('The workspace is not a Git repository.')) {
+  throw new Error(`git_diff include_diff=false did not preserve the public non-git diagnostic: ${nonGitPayload}`);
 }
 nonGitClient.close();
 

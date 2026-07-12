@@ -58,6 +58,14 @@ import {
   gitStatusOutputShape,
   type GitStatusFailureInput
 } from "./tools/schemas/gitStatus.js";
+import {
+  GIT_DIFF_ERROR_MESSAGES,
+  createGitDiffFailure,
+  createGitDiffSuccess,
+  gitDiffDataSchema,
+  gitDiffOutputShape,
+  type GitDiffFailureInput
+} from "./tools/schemas/gitDiff.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -330,6 +338,76 @@ function classifyGitStatusOutputFailure(
   return undefined;
 }
 
+function classifyGitDiffThrownFailure(
+  error: unknown,
+  args: Record<string, unknown>
+): GitDiffFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return {
+      code: "PATH_BLOCKED",
+      details: { path: safeTreePathDetail(args.path ?? "[path omitted]") }
+    };
+  }
+
+  const outsidePrefixes = [
+    "Path contains a null byte.",
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return {
+      code: "PATH_OUTSIDE_WORKSPACE",
+      details: { path: safeTreePathDetail(args.path ?? "[path omitted]") }
+    };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function classifyGitDiffOutputFailure(
+  output: string
+): GitDiffFailureInput | undefined {
+  const trimmed = output.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower.includes("not a git repository")) {
+    return { code: "GIT_NOT_REPOSITORY", details: {} };
+  }
+
+  if (trimmed.startsWith("git unavailable or failed:")) {
+    return /\bENOENT\b|not found/i.test(trimmed)
+      ? { code: "GIT_UNAVAILABLE", details: {} }
+      : { code: "GIT_COMMAND_FAILED", details: {} };
+  }
+
+  if (
+    trimmed.startsWith("fatal:") ||
+    trimmed.startsWith("error:") ||
+    trimmed.startsWith("git exited with status") ||
+    trimmed.startsWith("usage: git ")
+  ) {
+    return { code: "GIT_COMMAND_FAILED", details: {} };
+  }
+
+  return undefined;
+}
+
 function compactStructuredContent<T>(value: T, depth = 0): T {
   if (depth > 8 || value === null || value === undefined) return value;
   if (typeof value === "string") {
@@ -532,12 +610,23 @@ export interface GitStatusProviderContext {
   path?: string;
 }
 
+export interface GitDiffProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  path?: string;
+  staged: boolean;
+}
+
 export interface CodexProServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
   readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
   gitStatusResultProvider?: (
     context: GitStatusProviderContext
+  ) => string | Promise<string>;
+  gitDiffResultProvider?: (
+    context: GitDiffProviderContext
   ) => string | Promise<string>;
 }
 
@@ -1351,6 +1440,16 @@ export function createCodexProServer(
         context.workspace,
         context.guard,
         context.path
+      ));
+  const gitDiffResultProvider =
+    dependencies.gitDiffResultProvider ??
+    ((context: GitDiffProviderContext) =>
+      gitDiff(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.path,
+        context.staged
       ));
   registeredToolNamesByServer.set(server as object, []);
   registerToolCardResource(server, config);
@@ -2508,6 +2607,7 @@ export function createCodexProServer(
         staged: z.boolean().optional().describe("Show staged diff. Default: false."),
         include_diff: z.boolean().optional().describe("Include the raw unified diff in the response. Default: true. Set false for stats-only checks.")
       },
+      outputSchema: gitDiffOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -2516,37 +2616,80 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const rawDiff = normalizeGitOutput(gitDiff(config, guard, workspace, args.path, parseBool(args.staged, false)));
-      const diffError = rawDiff && looksLikeGitError(rawDiff) ? rawDiff : "";
-      const stats = diffError ? { additions: 0, deletions: 0, changed: false } : diffStats(rawDiff);
-      const includeDiff = parseBool(args.include_diff, true);
-      const text = diffError
-        ? diffError
-        : includeDiff
-        ? rawDiff
-        : [
-            "# Git Diff",
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const staged = parseBool(args.staged, false);
+        const includeDiff = parseBool(args.include_diff, true);
+        const providerResult = await gitDiffResultProvider({
+          config,
+          guard,
+          workspace,
+          path: typeof args.path === "string" ? args.path : undefined,
+          staged
+        });
+
+        if (typeof providerResult !== "string") {
+          throw new CodexProError("git_diff provider returned a non-string result.");
+        }
+
+        const rawDiff = normalizeGitOutput(providerResult);
+        const outputFailure = classifyGitDiffOutputFailure(rawDiff);
+        if (outputFailure) {
+          const structured = createGitDiffFailure(outputFailure);
+          const text = [
+            "# Git Diff Error",
             "",
-            `Workspace: ${workspace.root}`,
-            `Path: ${args.path ?? "workspace diff"}`,
-            `Staged: ${parseBool(args.staged, false)}`,
-            `Diff stats: +${stats.additions} -${stats.deletions}`,
-            "",
-            "Raw diff omitted by include_diff=false."
+            `Code: ${outputFailure.code}`,
+            GIT_DIFF_ERROR_MESSAGES[outputFailure.code]
           ].join("\n");
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        path: args.path ?? "workspace diff",
-        staged: parseBool(args.staged, false),
-        include_diff: includeDiff,
-        diff_error: diffError || undefined,
-        additions: stats.additions,
-        deletions: stats.deletions,
-        changed: !diffError && stats.changed,
-        diff: diffError || includeDiff ? rawDiff : ""
-      });
+
+          return {
+            ...textResult(text, structured),
+            isError: true
+          };
+        }
+
+        const stats = diffStats(rawDiff);
+        const data = gitDiffDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          path: args.path ?? "workspace diff",
+          staged,
+          include_diff: includeDiff,
+          additions: stats.additions,
+          deletions: stats.deletions,
+          changed: stats.changed,
+          diff: includeDiff ? rawDiff : ""
+        });
+        const text = includeDiff
+          ? rawDiff
+          : [
+              "# Git Diff",
+              "",
+              `Workspace: ${workspace.root}`,
+              `Path: ${args.path ?? "workspace diff"}`,
+              `Staged: ${staged}`,
+              `Diff stats: +${stats.additions} -${stats.deletions}`,
+              "",
+              "Raw diff omitted by include_diff=false."
+            ].join("\n");
+
+        return textResult(text, createGitDiffSuccess(data));
+      } catch (error) {
+        const failure = classifyGitDiffThrownFailure(error, args);
+        const structured = createGitDiffFailure(failure);
+        const text = [
+          "# Git Diff Error",
+          "",
+          `Code: ${failure.code}`,
+          GIT_DIFF_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+
+        return {
+          ...textResult(text, structured),
+          isError: true
+        };
+      }
     }
   );
 

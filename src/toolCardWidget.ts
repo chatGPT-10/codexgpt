@@ -618,6 +618,30 @@ export const toolCardWidgetHtml = String.raw`
       '</div></article>';
   }
 
+  function renderGitDiff(data) {
+    const diffData = data?.data ?? {};
+    const error = data?.error ?? {};
+    const failed = data?.ok === false;
+    const pills = failed
+      ? pill(error.code || "error", "bad")
+      : [
+          diffData.changed ? pill("changed", "info") : pill("clean", "good"),
+          pill("+" + (diffData.additions ?? 0), "good"),
+          pill("-" + (diffData.deletions ?? 0), "bad")
+        ].join("");
+    const body = failed
+      ? '<div class="empty">' + esc(error.message || "Git diff failed.") + '</div>'
+      : '<div class="summary">' +
+        summaryItem("Staged", diffData.staged ? "yes" : "no") +
+        summaryItem("Added", "+" + (diffData.additions ?? 0)) +
+        summaryItem("Deleted", "-" + (diffData.deletions ?? 0)) +
+        '</div>' +
+        (diffData.diff
+          ? codebox("diff", renderDiff(diffData.diff), "")
+          : '<div class="empty">' + esc(diffData.changed ? "Raw diff omitted." : "No changes.") + '</div>');
+    return '<article class="card">' + header(data, pills) + '<div class="body">' + body + '</div></article>';
+  }
+
   function renderChanges(data) {
     const files = Array.isArray(data.changed_files) ? data.changed_files : [];
     const hasGitError = Boolean(data.status_error || data.diff_error);
@@ -1134,7 +1158,9 @@ export const toolCardWidgetHtml = String.raw`
       root.innerHTML = data.analysis ? renderChangeAnalysis(data) : renderChanges(data);
     } else if (tool === "handoff_to_agent" || tool === "handoff_to_codex") {
       root.innerHTML = renderHandoff(data);
-    } else if (tool === "write" || tool === "edit" || tool === "apply_patch" || tool === "git_diff" || tool === "export_pro_context") {
+    } else if (tool === "git_diff") {
+      root.innerHTML = renderGitDiff(data);
+    } else if (tool === "write" || tool === "edit" || tool === "apply_patch" || tool === "export_pro_context") {
       root.innerHTML = renderFile(data);
     } else if (tool === "bash") {
       root.innerHTML = renderBash(data);
