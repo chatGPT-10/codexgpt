@@ -1432,3 +1432,42 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - No source, dependency, credential, profile, Cloudflare, workspace, remote, commit, or push rollback is required.
 
 **Next step:** Review this six-file documentation/Memory cleanup. After explicit approval, stage it separately; do not commit or push in the staging step. Do not begin Phase 2 or a third tool implementation.
+
+## 2026-07-12 — STEP-102: Publish the neat-freak reconciliation
+
+**Status:** Follow-up publication record included in the current commit
+
+**Goal:** Publish the approved six-file documentation and Memory reconciliation, verify its CI result, and record the operation without changing source behavior.
+
+**Implementation summary:**
+
+- Staged exactly the six reviewed files from STEP-101.
+- `git diff --cached --check` passed before commit.
+- Created commit `c946cc5` with message `docs: reconcile tree publication records`.
+- The commit changed six documentation/Memory files with 68 insertions and 24 deletions.
+- Pushed `main` from `e7c1646` through `c946cc5` to `origin/main`.
+- Added this STEP-102 entry and the root Memory summary as a separate follow-up publication record.
+- No source, dependency, credential, profile, Cloudflare, workspace lifecycle, Stress fixture, or Phase 2 behavior changed.
+
+**Verification results:**
+
+- Initial staging command: exit code 0; only expected Windows LF-to-CRLF warnings were emitted.
+- `git diff --cached --check`: exit code 0.
+- `git commit -m "docs: reconcile tree publication records"`: exit code 0.
+- `git push origin main`: exit code 0; `e7c1646..c946cc5 main -> main`.
+- GitHub Actions run `29195773978` for `c946cc5` reported `completed / success`.
+- The first polling command printed the successful CI state but then triggered a Windows Node/libuv shutdown assertion and exited abnormally; a separate one-shot API query completed with exit code 0 and confirmed the same successful result. No repository change resulted from the environmental assertion.
+
+**Decisions made:**
+
+- Preserve `c946cc5` as the neat-freak reconciliation commit.
+- Publish this Memory-only follow-up record separately.
+- Remain at the Phase 1 planning boundary after publication.
+
+**Rollback method:**
+
+- Revert this follow-up record commit first, then revert `c946cc5` if the reconciliation must be removed.
+- Do not rewrite history or force-push.
+- No source, dependency, credential, profile, Cloudflare, or workspace rollback is required.
+
+**Next step:** Commit and push this two-file publication record, verify local `main` matches `origin/main`, and check its CI. Do not begin Phase 2 or a third tool implementation.

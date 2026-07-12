@@ -119,6 +119,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - **STEP-099 — Commit and push `tree` implementation:** created commit `6aaeda4` (`feat: add exact tree output schema`) from the reviewed eleven-file set and pushed `main` to `origin`; closeout record publication and CI verification remained.
 - **STEP-100 — Verify and close `tree` publication:** published commits `2ecd4af` and `e7c1646`; CI runs `29194671044`, `29194802582`, and `29194978911` passed, local `main` matched `origin/main`, and the project returned to the Phase 1 planning boundary.
 - **STEP-101 — Neat-freak publication reconciliation:** removed stale staging language and commit history from active rules, synchronized final commit/CI evidence across the roadmap, design, plan, and Memory, and reduced the root index below its practical limit.
+- **STEP-102 — Publish neat-freak reconciliation:** after explicit approval, committed the six-file documentation/Memory cleanup as `c946cc5`, pushed it to `origin/main`, and verified CI run `29195773978` completed successfully; the follow-up publication record is included in the current commit.
 
 ## Archives
 
