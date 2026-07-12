@@ -2,7 +2,7 @@
 
 > **Execution record:** This plan was executed task-by-task with the `executing-plans` workflow. All 41 tracked steps are marked complete; detailed evidence is recorded in `docs/memory/archive/phase-1.md` STEP-093 through STEP-096.
 
-**Status:** Fully executed through Task 4, published in implementation commit `6aaeda4`, and cross-platform CI-validated; closeout record published in commit `2ecd4af`.
+**Status:** Fully executed through Task 4, published in implementation commit `6aaeda4`, and cross-platform CI-validated; closeout records published in commits `2ecd4af` and `e7c1646`.
 
 **Goal:** Migrate only `tree` to an exact advertised output schema with strict success/failure envelopes, six stable safe error codes, preserved readable output, and complete contract tests.
 

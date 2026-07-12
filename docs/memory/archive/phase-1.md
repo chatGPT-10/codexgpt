@@ -1376,3 +1376,59 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - No credential, profile, Cloudflare, dependency, or workspace rollback is required.
 
 **Next step:** Remain at the Phase 1 planning boundary. Do not start Phase 2 or a third tool implementation without a separately reviewed design, plan, and explicit approval.
+
+## 2026-07-12 — STEP-101: Neat-freak publication reconciliation
+
+**Status:** Complete locally; awaiting explicit staging approval
+
+**Goal:** Reconcile active project rules and documentation with the final published `tree` state, remove stale staging language, reduce Memory-index pressure, and preserve the Phase 1 planning boundary.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/plans/2026-07-12-tree-output-schema.md`
+- `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md`
+
+**Implementation summary:**
+
+- Removed implementation commit IDs from the active `AGENTS.md` stopping rule so the rules file describes the current boundary rather than acting as a change log.
+- Updated the `AGENTS.md` documentation map from “completed local” to “published” for the `tree` design and plan.
+- Simplified the Phase 1 roadmap status and pointed detailed publication evidence to this archive.
+- Added final-state commit `e7c1646` to the `tree` design and executed-plan metadata alongside implementation commit `6aaeda4` and publication record `2ecd4af`.
+- Replaced the root Memory staging-boundary text with final published and CI-validated facts.
+- Renamed the second-slice evidence section from local to final and recorded all three successful CI runs.
+- Removed STEP-081 through STEP-087 from the root recent-summary window because their full records remain in this append-only archive.
+- Removed an obsolete pre-migration archive-integrity snapshot from the root index; it was historical metadata rather than active project knowledge.
+- Added STEP-101 while reducing root `Memory.md` from 150 lines and 14,892 bytes to 138 lines and 13,356 bytes before this archive-only append.
+- No README change was needed because no installation, launch, or user-facing workflow changed.
+
+**Verification results:**
+
+- Fresh documentation regression after all edits: 5 passed, 0 failed.
+- `git diff --check`: exit code 0; only expected Windows LF-to-CRLF checkout warnings were emitted.
+- Final state and safety validation: 6 files checked, 13 documentation references resolved, 41 plan steps checked, 0 unchecked, and no conflict marker, NUL, credential-like value, or targeted stale staging phrase remained.
+- Root `Memory.md`: 138 lines and 13,356 bytes. `AGENTS.md`: 186 lines and 9,966 bytes. Phase 1 archive: 1,434 lines and 85,538 bytes before this final verification-note update; all remained within their limits.
+- GitHub Actions API re-verification: runs `29194671044` (`6aaeda4`), `29194802582` (`2ecd4af`), and `29194978911` (`e7c1646`) all reported `completed / success`.
+- The first combined validation command embedded Markdown backticks inside a Bash double-quoted argument and emitted `/usr/bin/bash: tree: command not found`; repository files were not changed by that mistake. The stale-state validation was rerun with the backtick character assembled safely and passed without stderr.
+- CodexPro `show_changes` incorrectly returned an empty result despite edits. Read-only Git fallback confirmed exactly six unstaged files, no staged paths, and local `HEAD` plus `origin/main` both at `e7c16463d646de0914e440890cab376da9601014`.
+
+**Decisions made:**
+
+- Active rules and roadmap state remain concise; detailed commit and CI evidence belongs in Memory and the phase archive.
+- The project remains at the Phase 1 planning boundary with no active implementation task.
+- Phase 2 and a third tool implementation remain closed without a separately approved design and plan.
+
+**Risks or limitations:**
+
+- The reviewed `tree` limitations remain unchanged: local message-prefix classifier, absolute successful `root`, source-contract Tool Card test, and native-Windows Stress fixture.
+- This cleanup changes documentation and Memory only; no source behavior was re-tested beyond the relevant documentation regression.
+
+**Rollback method:**
+
+- Restore the five active documentation/index files to commit `e7c1646` and append a correction entry here rather than rewriting this record.
+- No source, dependency, credential, profile, Cloudflare, workspace, remote, commit, or push rollback is required.
+
+**Next step:** Review this six-file documentation/Memory cleanup. After explicit approval, stage it separately; do not commit or push in the staging step. Do not begin Phase 2 or a third tool implementation.

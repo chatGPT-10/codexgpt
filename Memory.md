@@ -15,7 +15,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first `server_config` and second `tree` vertical slices are published and cross-platform CI-validated. The `tree` implementation is commit `6aaeda4`; its closeout record is commit `2ecd4af`.
+- Phase 1: the first `server_config` and second `tree` vertical slices are published and cross-platform CI-validated. The `tree` implementation is commit `6aaeda4`; its publication records are commits `2ecd4af` and `e7c1646`.
 
 ## Approved stopping point
 
@@ -43,7 +43,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - The second Phase 1 slice is `tree` only. It preserves existing snake_case data fields under `data`: `workspace_id`, `root`, `text`, `entries`, and `truncated`.
 - `tree` introduces only `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_DIRECTORY`, and `INTERNAL_ERROR`; all are non-retryable and use exact safe details.
 - `tree` uses a local error-classification adapter because the global `CodexProError` remains untyped; global error refactoring and Phase 2 workspace lifecycle work are out of scope.
-- The approved `tree` design is recorded in `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md`; its four-task TDD plan in `docs/superpowers/plans/2026-07-12-tree-output-schema.md` is fully executed locally through the staging approval boundary.
+- The approved `tree` design is recorded in `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md`; its four-task TDD plan in `docs/superpowers/plans/2026-07-12-tree-output-schema.md` is fully executed, published, and cross-platform CI-validated.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval.
 
 ## Final Phase 0.5 evidence
@@ -74,7 +74,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - Local `main` and `origin/main` were synchronized at `ec6c0c0` before the documentation-only tidy-up.
 - Neat-freak closeout commit `ca17257` was pushed to `origin/main`; CI run `29189679200` completed successfully on Ubuntu/Windows Node 20/24.
 
-## Second Phase 1 slice local evidence
+## Second Phase 1 slice final evidence
 
 - Baseline before Task 1: complete Node suite 44/44 passed.
 - Task 1 RED: `test/tree-contract.test.mjs` failed with the expected `ERR_MODULE_NOT_FOUND` for `src/tools/schemas/tree.ts`.
@@ -89,7 +89,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - Initial Smoke found one approved direct consumer in `scripts/http-smoke.mjs`; after moving its two reads to `structuredContent.data`, the narrow HTTP Smoke and all 8 full Smoke sections passed.
 - Audit: 0 vulnerabilities. Package dry-run: 103 files; compiled `tree` Schema included and internal tests/Memory/specs/plans excluded. Documentation: 5/5 passed.
 - Stress syntax, whitespace, conflict-marker, NUL, Memory-limit, credential-pattern, stale-consumer, and complete-scope checks passed.
-- The complete local `tree` slice is ready for separate staging review.
+- Implementation commit `6aaeda4`, publication-record commit `2ecd4af`, and final-state commit `e7c1646` were pushed to `origin/main`; CI runs `29194671044`, `29194802582`, and `29194978911` all passed.
 
 ## Known limitations
 
@@ -105,13 +105,6 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 
 ## Recent summaries
 
-- **STEP-081 — Neat-freak reconciliation:** synchronized active status across `AGENTS.md`, the roadmap, and Memory; added design/plan pointers and removed the implementation plan's fixed future STEP number.
-- **STEP-082 — Task 1 exact Schema contracts:** under TDD, added shared metadata/error contracts, the strict `server_config` data and success/failure schemas, and 3 focused contract tests; tests and TypeScript build passed. Real MCP integration remains Task 2.
-- **STEP-083 — Task 2 real MCP integration:** advertised the exact `server_config.outputSchema`, returned strict success/failure envelopes through real in-memory MCP calls, measured `durationMs`, added a constructor-only provider seam, and verified redaction plus `isError: true`; 5 tests and Build passed.
-- **STEP-084 — Task 3 tool-card data path:** migrated only the `server_config` subtitle and detailed card renderer to nested `data`, retained top-level identity for the generic header, and added a focused compatibility assertion; 6 tests and Build passed.
-- **STEP-085 — Complete exact `server_config` output schema:** finished the first Phase 1 vertical slice, migrated all internal consumers to nested `data`, passed 6/6 contract tests, 44/44 full tests, Build, all 8 Smoke sections, audit, package, and 5/5 documentation tests; awaiting final review and Git approval.
-- **STEP-086 — Stage reviewed Phase 1 slice:** after explicit approval, staged the complete 14-file planning, implementation, internal-consumer, test, and Memory set; no unstaged changes, commit, or push followed.
-- **STEP-087 — Commit exact `server_config` slice:** after explicit approval, created the local commit `feat: add exact server_config output schema`; `main` was one commit ahead of `origin/main`, with no push performed at that step.
 - **STEP-088 — Push exact `server_config` slice:** after explicit approval, pushed implementation commit `b989776` to `origin/main` and prepared the publication record.
 - **STEP-089 — Neat-freak Phase 1 slice closeout:** verified both implementation and record CI runs passed on Ubuntu/Windows Node 20/24, confirmed local/remote synchronization, removed completed push/CI items, and restored a planning-only boundary for the next tool.
 - **STEP-090 — Publish and verify neat-freak closeout:** committed and pushed the six-file closeout as `ca17257`, then verified CI run `29189679200` completed successfully on Ubuntu/Windows Node 20/24.
@@ -124,19 +117,14 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - **STEP-097 — Neat-freak `tree` closeout:** synchronized `AGENTS.md`, the Phase 1 roadmap, design status, plan status, all 41 plan checkboxes, and Memory; removed stale “second tool not started” text and established the reviewed eleven-file staging boundary.
 - **STEP-098 — Stage reviewed `tree` slice:** after explicit approval, staged the complete eleven-file implementation, planning, documentation, test, Smoke-consumer, and Memory set; no unstaged changes, commit, or push followed.
 - **STEP-099 — Commit and push `tree` implementation:** created commit `6aaeda4` (`feat: add exact tree output schema`) from the reviewed eleven-file set and pushed `main` to `origin`; closeout record publication and CI verification remained.
-- **STEP-100 — Verify and close `tree` publication:** published closeout record commit `2ecd4af`; CI runs `29194671044` and `29194802582` passed, local `main` matched `origin/main`, and the project returned to the Phase 1 planning boundary.
+- **STEP-100 — Verify and close `tree` publication:** published commits `2ecd4af` and `e7c1646`; CI runs `29194671044`, `29194802582`, and `29194978911` passed, local `main` matched `origin/main`, and the project returned to the Phase 1 planning boundary.
+- **STEP-101 — Neat-freak publication reconciliation:** removed stale staging language and commit history from active rules, synchronized final commit/CI evidence across the roadmap, design, plan, and Memory, and reduced the root index below its practical limit.
 
 ## Archives
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
 - [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
 - [Active Phase 1 planning and implementation — STEP-073 onward](docs/memory/archive/phase-1.md)
-
-Archive integrity for the pre-migration journal:
-
-- Lines: 1089
-- Bytes: 45573
-- SHA-256: `b297808452af0cd49311e03f4365d0770a115a119e6db3eeb14966fadb3ad477`
 
 ## Memory maintenance protocol
 

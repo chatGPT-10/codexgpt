@@ -139,8 +139,8 @@ Memory rules:
 - `docs/memory/archive/phase-1.md` — active Phase 1 planning and implementation record from STEP-073 onward.
 - `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md` — approved design for the first Phase 1 vertical slice.
 - `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` — executed plan for the completed first Phase 1 `server_config` vertical slice.
-- `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md` — approved design for the completed local second Phase 1 `tree` slice.
-- `docs/superpowers/plans/2026-07-12-tree-output-schema.md` — executed four-task plan for the completed local `tree` slice.
+- `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md` — approved design for the published second Phase 1 `tree` slice.
+- `docs/superpowers/plans/2026-07-12-tree-output-schema.md` — executed four-task plan for the published `tree` slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -182,4 +182,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first `server_config` and second `tree` vertical slices are published and cross-platform CI-validated. The `tree` implementation is commit `6aaeda4`; its closeout record is commit `2ecd4af`. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design and plan for one additional tool. Do not begin Phase 2 or a third tool implementation without explicit approval.
+Phase 1 implementation started on 2026-07-12. The first `server_config` and second `tree` vertical slices are published and cross-platform CI-validated. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design and plan for one additional tool. Do not begin Phase 2 or a third tool implementation without explicit approval.
