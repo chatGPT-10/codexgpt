@@ -2925,3 +2925,79 @@ One attempted `npm test` command failed because `package.json` defines no `test`
 **Rollback method:** Revert documentation record `0051543`, adjacent-test commit `c41365a`, consumer commit `9777f32`, handler commit `2329160`, schema commit `69c5fea`, plan commit `8e885ef`, and design commit `5108e8a` in reverse order. No dependency, credential, profile, workspace, remote, Cloudflare, or Phase 2 rollback is required.
 
 **Next step:** No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Do not begin Phase 2 without explicit approval.
+
+
+## STEP-130 — Implement and locally verify direct `search` exact output contract
+
+**Date:** 2026-07-12
+**Status:** Complete locally; publication pending
+
+**Goal**
+
+Migrate only the direct `search` MCP tool to the Phase 1 schema-v1 envelope while preserving lexical search behavior, optional structured analysis, Tool Card behavior, supertool wrapping, and native-Windows compatibility.
+
+**Files changed**
+
+- `src/tools/schemas/search.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `test/search-contract.test.mjs`
+- `scripts/smoke.mjs`
+- `scripts/stress.mjs`
+- `docs/superpowers/specs/2026-07-12-search-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-12-search-output-schema.md`
+- `CHANGELOG.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+**Implementation summary**
+
+- Added an exact strict `search` output schema with nested `data`, stable discriminated errors, and tool-specific constructors.
+- Preserved lexical `matches`, `truncated`, and `used` semantics for ripgrep and Node fallback.
+- Kept aggregate search text only in MCP `content`; structured results no longer duplicate it.
+- Added exact optional structured-analysis data and normalized analysis disablement or failure to `analysis: null` plus one fixed safe warning.
+- Added a test-only injectable search provider seam without public test arguments or production test modes.
+- Migrated direct Tool Card, smoke, stress, and `codexpro` supertool consumers to the nested contract.
+- Kept `src/searchOps.ts`, `src/analysis/*`, search ranking, cache behavior, dependencies, authentication, writes, and Phase 2 unchanged.
+
+**Verification commands**
+
+- `node --test test/search-contract.test.mjs`
+- `node --test test/*.test.mjs`
+- `npm run build`
+- `npm run smoke`
+- `npm run stress`
+- `git diff --check`
+
+**Verification results**
+
+- Focused search contracts: 15/15 passed.
+- Complete Node regression suite: 137/137 passed.
+- Build passed.
+- Smoke passed all eight sections.
+- Native-Windows Stress passed.
+- Final diff-check passed.
+
+**Decisions made**
+
+- Lexical search is the authoritative result; optional analysis may safely degrade without failing valid lexical matches.
+- Analysis disabled and analysis unavailable use separate fixed public warnings.
+- The formal structured contract always includes `analysis` as an exact object or `null`.
+- Eight stable non-retryable errors cover workspace, path, argument, backend, command, and internal failures.
+- Tool Card rendering uses structured match objects so colon-containing paths are not reparsed from aggregate text.
+
+**Risks or limitations**
+
+- Search failure classification remains coupled to current error strings from the existing search implementation.
+- Analysis compacting for Tool Cards preserves current 24-per-group and 80-total display limits.
+- One temporary cleanup script initially converted `src/toolCardWidget.ts` to CRLF and merged two lines; the issue was detected by diff-check, normalized back to the established LF format, and fully reverified.
+
+**Rollback method**
+
+Revert the search-slice commit. This removes the schema module, handler seam, nested consumers, tests, and documentation while leaving search and analysis algorithms unchanged.
+
+**Next step**
+
+Stage, commit, and push the locally verified slice. Then record publication and CI evidence. Phase 2 remains closed.

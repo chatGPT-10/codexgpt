@@ -725,7 +725,8 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderStructuredSearch(data) {
-    const analysis = data.analysis || {};
+    const search = data?.data ?? {};
+    const analysis = search.analysis || {};
     const groups = analysis.groups || {};
     const order = ["definitions", "references", "tests", "configuration", "documentation", "other"];
     const count = order.reduce((sum, name) => sum + (Array.isArray(groups[name]) ? groups[name].length : 0), 0);
@@ -874,15 +875,23 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderSearch(data) {
-    const count = Array.isArray(data.matches) ? data.matches.length : 0;
-    const lines = String(data.text || "").split("\\n").filter(Boolean).slice(0, 90);
-    const hits = lines.map((line) => {
-      const parts = line.split(":");
-      const file = parts.length > 2 ? parts.slice(0, 2).join(":") : (parts[0] || "match");
-      const body = parts.length > 2 ? parts.slice(2).join(":").trim() : line;
+    const search = data?.data ?? {};
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Search unavailable.") +
+        '</div></div></article>';
+    }
+
+    const matches = Array.isArray(search.matches) ? search.matches : [];
+    const hits = matches.slice(0, 90).map((match) => {
+      const file = (match?.path || "match") + ":" + (match?.line || 0);
+      const body = match?.text || "";
       return '<div class="hit"><div class="hit-file">' + esc(file) + '</div><div class="hit-text">' + esc(body) + '</div></div>';
     }).join("") || '<div class="muted">No matches.</div>';
-    return '<article class="card">' + header(data, pill(count + " matches", "info") + pill(data.used || "search")) +
+    return '<article class="card">' + header(data, pill(matches.length + " matches", "info") + pill(search.used || "search")) +
       '<div class="body"><div class="search">' + hits + '</div></div></article>';
   }
 
@@ -1174,7 +1183,8 @@ export const toolCardWidgetHtml = String.raw`
     } else if (tool === "bash") {
       root.innerHTML = renderBash(data);
     } else if (tool === "search") {
-      root.innerHTML = data.analysis ? renderStructuredSearch(data) : renderSearch(data);
+      const search = data?.data ?? {};
+      root.innerHTML = search.analysis ? renderStructuredSearch(data) : renderSearch(data);
     } else if (tool === "read_handoff") {
       root.innerHTML = renderTextSummary(data, "handoff");
     } else if (tool === "codex_context") {

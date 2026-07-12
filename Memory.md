@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: `server_config`, `tree`, `read`, `git_status`, `git_diff`, and `show_changes` are published and cross-platform CI-validated.
+- Phase 1: the first six slices are published and cross-platform CI-validated; the seventh direct `search` slice is implemented and locally verified, with publication pending.
 
 ## Approved stopping point
 
-The sixth Phase 1 vertical slice, direct `show_changes`, is published. Design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`, and documentation record `0051543` are on `origin/main`; CI run `29206887875` passed on Ubuntu/Windows with Node 20/24. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool; Phase 2 remains closed.
+The seventh Phase 1 vertical slice, direct `search`, is implemented and locally verified. It now has an exact schema-v1 envelope, stable search errors, safe optional-analysis degradation, nested Tool Card/supertool consumers, and focused contract coverage. Publication evidence is pending; Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -48,20 +48,22 @@ The sixth Phase 1 vertical slice, direct `show_changes`, is published. Design `5
 - `show_changes` Git, workspace, and path failures use the seven established safe Git/path codes and return `isError: true`.
 - Optional change analysis failure keeps valid Git review data, returns `analysis: null`, and adds only `Change analysis was unavailable; Git review data is still complete.` to `meta.warnings`.
 - `show_changes` analysis data is exact and strict; malformed provider data degrades safely rather than leaking raw diagnostics.
-- `src/gitOps.ts`, `src/analysis/*`, Git writes, authentication, dependencies, and Phase 2 remain out of scope for this slice.
+- Direct `search` preserves lexical matches under nested `data`, keeps aggregate text only in MCP `content`, and returns exact optional analysis or `null`.
+- Structured search disablement and unexpected analysis failure use separate fixed warnings while preserving complete lexical results and excluding raw diagnostics.
+- Direct `search` exposes eight stable non-retryable workspace/path/argument/backend/internal errors; `src/searchOps.ts` and `src/analysis/*` algorithms remain unchanged.
+- `src/gitOps.ts`, Git writes, authentication, dependencies, and Phase 2 remain out of scope for this slice.
 - The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval; the user explicitly approved autonomous completion and publication of this slice.
 
 ## Local verification evidence
 
-- Focused `show_changes` contracts: 14/14 passed.
-- Adjacent `git_status`, `git_diff`, and `show_changes` contracts: 50/50 passed.
-- Complete `node:test` regression suite: 122/122 passed.
+- Focused `search` contracts: 15/15 passed.
+- Complete `node:test` regression suite: 137/137 passed.
 - `npm run build`: passed.
 - `npm run smoke`: all eight sections passed.
 - `npm run stress`: passed on native Windows.
-- `git diff --check`: passed.
-- One attempted `npm test` command failed because no such package script exists; the actual complete regression command then passed.
+- `git diff --check`: passed after restoring the Tool Card file's established LF formatting.
+- One initial `git diff --check` exposed CRLF pollution and two merged Tool Card lines from a temporary cleanup script; normalization fixed both before final verification.
 
 ## Published phase evidence
 
@@ -72,6 +74,7 @@ The sixth Phase 1 vertical slice, direct `show_changes`, is published. Design `5
 - `git_status`: implementation `bc92970`; local gates and CI run `29202896685` passed on Ubuntu/Windows Node 20/24.
 - `git_diff`: design `1bbe240`, plan `8083f53`, implementation `19f0042`, publication record `9103ce4`; CI run `29204692105` passed on Ubuntu/Windows Node 20/24.
 - `show_changes`: design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`, documentation record `0051543`; CI run `29206887875` passed on Ubuntu/Windows Node 20/24.
+- `search`: design, plan, strict schema, handler boundary, Tool Card/supertool consumers, contract tests, and documentation are locally complete; commit, push, and CI evidence remain pending.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are in `docs/memory/archive/phase-1.md`.
 
 ## Known limitations
@@ -85,16 +88,16 @@ The sixth Phase 1 vertical slice, direct `show_changes`, is published. Design `5
 
 ## Open items
 
-1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
-2. Keep Phase 2 closed without a new approved design and plan.
+1. Publish the locally verified direct `search` slice, then record the commit, push, and CI evidence.
+2. Keep Phase 2 closed; after publication, the next permitted feature action is a separately reviewed Phase 1 design for one additional tool.
 
 ## Recent summaries
 
+- **STEP-130 — Implement and verify direct `search`:** added the exact schema-v1 contract, stable failures, safe analysis degradation, nested consumers, and TDD coverage; focused 15/15, complete 137/137, Build, Smoke 8/8, native-Windows Stress, and final diff-check passed.
 - **STEP-129 — Publish `show_changes`:** pushed through documentation record `0051543`, confirmed local/remote synchronization, and verified CI run `29206887875` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-128 — Verify `show_changes` locally:** focused 14/14, adjacent 50/50, complete 122/122, Build, Smoke 8/8, native-Windows Stress, and diff-check passed.
 - **STEP-127 — Complete TDD migration:** added strict schema/provider seams/classifiers, nested Tool Card/supertool consumers, safe analysis degradation, and updated historical adjacent card expectations.
 - **STEP-126 — Approve sixth-slice design and plan:** selected direct `show_changes`, strict Git failures, and safe optional-analysis degradation while keeping Git/analysis services unchanged.
-- **STEP-125 — Publish `git_diff`:** pushed through publication record `9103ce4` and verified CI run `29204692105` on Ubuntu/Windows Node 20/24.
 
 ## Archives
 

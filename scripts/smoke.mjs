@@ -249,8 +249,8 @@ const cardSearch = await cardClient.request('tools/call', {
   name: 'search',
   arguments: { workspace_id: cardOpened.structuredContent.workspace_id, query: 'read', path: 'demo.txt', max_results: 5 }
 });
-if (!cardSearch.structuredContent.text?.includes('read')) {
-  throw new Error(`CODEXPRO_TOOL_CARDS=1 search did not include structured text: ${JSON.stringify(cardSearch.structuredContent)}`);
+if (!cardSearch.structuredContent.data?.matches?.length) {
+  throw new Error(`CODEXPRO_TOOL_CARDS=1 search did not include nested matches: ${JSON.stringify(cardSearch.structuredContent)}`);
 }
 const cardInspect = await cardClient.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: cardOpened.structuredContent.workspace_id } });
 if (cardInspect.structuredContent.codexpro_tool !== 'inspect_workspace' || !cardInspect.structuredContent.coverage) {
@@ -260,7 +260,7 @@ const cardStructuredSearch = await cardClient.request('tools/call', {
   name: 'search',
   arguments: { workspace_id: cardOpened.structuredContent.workspace_id, query: 'authenticate', path: 'src', intent: 'symbol', include_tests: true }
 });
-if (cardStructuredSearch.structuredContent.codexpro_tool !== 'search' || !cardStructuredSearch.structuredContent.analysis?.groups?.definitions?.length) {
+if (cardStructuredSearch.structuredContent.codexpro_tool !== 'search' || !cardStructuredSearch.structuredContent.data.analysis?.groups?.definitions?.length) {
   throw new Error(`structured search card payload missing grouped analysis: ${JSON.stringify(cardStructuredSearch.structuredContent)}`);
 }
 if (spawnSync(process.platform === 'win32' ? 'where' : 'sh', process.platform === 'win32' ? ['rg'] : ['-lc', 'command -v rg >/dev/null 2>&1']).status === 0) {
@@ -268,7 +268,7 @@ if (spawnSync(process.platform === 'win32' ? 'where' : 'sh', process.platform ==
     name: 'search',
     arguments: { workspace_id: cardOpened.structuredContent.workspace_id, query: '(?i)READ', path: 'demo.txt', regex: true, max_results: 5 }
   });
-  if (!cardRegexSearch.structuredContent.matches?.length || cardRegexSearch.structuredContent.used !== 'ripgrep') {
+  if (!cardRegexSearch.structuredContent.data.matches?.length || cardRegexSearch.structuredContent.data.used !== 'ripgrep') {
     throw new Error(`ripgrep regex search did not accept rg syntax: ${JSON.stringify(cardRegexSearch.structuredContent)}`);
   }
 }
@@ -365,15 +365,15 @@ if (!workspaceAnalysis.structuredContent.languages?.includes('typescript') || !w
   throw new Error(`inspect_workspace omitted analysis: ${JSON.stringify(workspaceAnalysis.structuredContent)}`);
 }
 const legacySearch = await client.request('tools/call', { name: 'search', arguments: { workspace_id: ws, query: 'authenticate', path: 'src' } });
-for (const key of ['matches', 'truncated', 'used']) {
-  if (!(key in legacySearch.structuredContent)) throw new Error(`legacy search lost ${key}`);
+for (const key of ['matches', 'truncated', 'used', 'analysis']) {
+  if (!(key in legacySearch.structuredContent.data)) throw new Error(`nested search lost ${key}`);
 }
-if ('analysis' in legacySearch.structuredContent) throw new Error('legacy search unexpectedly paid the structured-analysis cost');
+if (legacySearch.structuredContent.data.analysis !== null) throw new Error('lexical search unexpectedly paid the structured-analysis cost');
 const structuredSearch = await client.request('tools/call', {
   name: 'search',
   arguments: { workspace_id: ws, query: 'authenticate', path: 'src', intent: 'symbol', include_tests: true }
 });
-if (!structuredSearch.structuredContent.analysis?.groups?.definitions?.length || !structuredSearch.structuredContent.analysis.groups.tests?.length) {
+if (!structuredSearch.structuredContent.data.analysis?.groups?.definitions?.length || !structuredSearch.structuredContent.data.analysis.groups.tests?.length) {
   throw new Error(`structured search omitted grouped analysis: ${JSON.stringify(structuredSearch.structuredContent)}`);
 }
 const openedByPath = await client.request('tools/call', { name: 'open_workspace', arguments: { path: tmp, include_tree: false } });

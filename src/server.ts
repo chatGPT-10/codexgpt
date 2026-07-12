@@ -17,7 +17,7 @@ import {
   type TreeOptions,
   type TreeResult
 } from "./fsOps.js";
-import { searchWorkspace } from "./searchOps.js";
+import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
 import { probeBashAvailability, runBash } from "./bashOps.js";
 import { gitDiff, gitDiffStatus, gitLog, gitStatus } from "./gitOps.js";
 import { readAiBridgeContext, readCodexContext, workspaceSummary } from "./workspaceOps.js";
@@ -78,6 +78,20 @@ import {
   type ShowChangesAnalysis,
   type ShowChangesFailureInput
 } from "./tools/schemas/showChanges.js";
+import {
+  SEARCH_ANALYSIS_DISABLED_WARNING,
+  SEARCH_ANALYSIS_UNAVAILABLE_WARNING,
+  SEARCH_ERROR_MESSAGES,
+  createSearchFailure,
+  createSearchSuccess,
+  searchAnalysisSchema,
+  searchDataSchema,
+  searchMatchSchema,
+  searchOutputShape,
+  type SearchAnalysis,
+  type SearchFailureInput,
+  type SearchWarning
+} from "./tools/schemas/search.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -278,6 +292,104 @@ function classifyReadFailure(
   }
 
   return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function classifySearchFailure(
+  error: unknown,
+  args: Record<string, unknown>
+): SearchFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+  const pathDetail = safeTreePathDetail(args.path ?? ".");
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  if (nodeErrorCode(error) === "ENOENT") {
+    return { code: "FILE_NOT_FOUND", details: { path: pathDetail } };
+  }
+
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return { code: "PATH_BLOCKED", details: { path: pathDetail } };
+  }
+
+  const outsidePrefixes = [
+    "Path contains a null byte.",
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return { code: "PATH_OUTSIDE_WORKSPACE", details: { path: pathDetail } };
+  }
+
+  if (message === "query is required.") {
+    return { code: "INVALID_ARGUMENT", details: { argument: "query" } };
+  }
+
+  if (
+    message.startsWith("Invalid regular expression:") ||
+    /regex parse error|invalid regex|error parsing regexp|unterminated group/i.test(message)
+  ) {
+    return { code: "INVALID_ARGUMENT", details: { argument: "regex" } };
+  }
+
+  if (message.startsWith("regex search requires ripgrep.")) {
+    return { code: "SEARCH_BACKEND_UNAVAILABLE", details: {} };
+  }
+
+  if (
+    message.startsWith("ripgrep failed with exit code") ||
+    message.startsWith("rg exited with status") ||
+    message.startsWith("spawn rg")
+  ) {
+    return { code: "SEARCH_COMMAND_FAILED", details: {} };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function structuredSearchRequested(args: Record<string, unknown>): boolean {
+  return args.intent !== undefined || args.symbol !== undefined || args.include_tests !== undefined;
+}
+
+function normalizeSearchAnalysis(
+  config: CodexProConfig,
+  args: Record<string, unknown>,
+  analysis: unknown
+): { analysis: SearchAnalysis | null; warnings: SearchWarning[] } {
+  if (!structuredSearchRequested(args)) return { analysis: null, warnings: [] };
+
+  if (!config.analysisEnabled || (
+    analysis &&
+    typeof analysis === "object" &&
+    "cache" in analysis &&
+    (analysis as { cache?: { key?: unknown } }).cache?.key === "disabled"
+  )) {
+    return { analysis: null, warnings: [SEARCH_ANALYSIS_DISABLED_WARNING] };
+  }
+
+  if (!analysis || (
+    typeof analysis === "object" &&
+    "cache" in analysis &&
+    (analysis as { cache?: { key?: unknown } }).cache?.key === "unavailable"
+  )) {
+    return { analysis: null, warnings: [SEARCH_ANALYSIS_UNAVAILABLE_WARNING] };
+  }
+
+  const parsed = searchAnalysisSchema.safeParse(analysis);
+  return parsed.success
+    ? { analysis: parsed.data, warnings: [] }
+    : { analysis: null, warnings: [SEARCH_ANALYSIS_UNAVAILABLE_WARNING] };
 }
 
 function classifyGitStatusThrownFailure(
@@ -671,6 +783,13 @@ export interface ReadProviderContext {
   };
 }
 
+export interface SearchProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  options: Partial<SearchOptions>;
+}
+
 export interface GitStatusProviderContext {
   config: CodexProConfig;
   guard: PathGuard;
@@ -705,6 +824,7 @@ export interface CodexProServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
   readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
+  searchResultProvider?: (context: SearchProviderContext) => SearchResult | Promise<SearchResult>;
   gitStatusResultProvider?: (
     context: GitStatusProviderContext
   ) => string | Promise<string>;
@@ -1522,6 +1642,15 @@ export function createCodexProServer(
         context.guard,
         context.workspace,
         context.path,
+        context.options
+      ));
+  const searchResultProvider =
+    dependencies.searchResultProvider ??
+    ((context: SearchProviderContext) =>
+      searchWorkspace(
+        context.config,
+        context.guard,
+        context.workspace,
         context.options
       ));
   const gitStatusResultProvider =
@@ -2358,6 +2487,7 @@ export function createCodexProServer(
         symbol: z.string().optional().describe("Optional symbol query. Uses repository analysis and overrides query text."),
         include_tests: z.boolean().optional().describe("Include related tests in structured results. Default: false.")
       },
+      outputSchema: searchOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -2366,39 +2496,67 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const result = await searchWorkspace(config, guard, workspace, {
-        query: args.query,
-        regex: parseBool(args.regex, false),
-        root: args.path ?? ".",
-        glob: args.glob,
-        includeHidden: parseBool(args.include_hidden, false),
-        maxResults: limitInt(args.max_results, config.maxSearchResults, 1, config.maxSearchResults),
-        intent: args.intent,
-        symbol: args.symbol,
-        includeTests: args.include_tests === undefined ? undefined : parseBool(args.include_tests, false)
-      });
-      const structured: Record<string, unknown> = {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        matches: result.matches,
-        truncated: result.truncated,
-        used: result.used
-      };
-      if (result.analysis) {
-        structured.analysis = config.toolCards
-          ? {
-              ...result.analysis,
-              groups: Object.fromEntries(Object.entries(result.analysis.groups).map(([name, matches]) => [name, matches.slice(0, 24)])),
-              matches: result.analysis.matches.slice(0, 80)
-            }
-          : result.analysis;
+      const startedAt = Date.now();
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const options: Partial<SearchOptions> = {
+          query: args.query,
+          regex: parseBool(args.regex, false),
+          root: args.path ?? ".",
+          glob: args.glob,
+          includeHidden: parseBool(args.include_hidden, false),
+          maxResults: limitInt(args.max_results, config.maxSearchResults, 1, config.maxSearchResults),
+          intent: args.intent,
+          symbol: args.symbol,
+          includeTests: args.include_tests === undefined ? undefined : parseBool(args.include_tests, false)
+        };
+        const rawResult: unknown = await searchResultProvider({ config, guard, workspace, options });
+        if (!rawResult || typeof rawResult !== "object" || Array.isArray(rawResult)) {
+          throw new CodexProError("Invalid search provider result.");
+        }
+        const result = rawResult as Partial<SearchResult>;
+        if (typeof result.text !== "string") throw new CodexProError("Invalid search provider text.");
+        const matches = z.array(searchMatchSchema).parse(result.matches);
+        const truncated = z.boolean().parse(result.truncated);
+        const used = z.enum(["ripgrep", "node"]).parse(result.used);
+        const normalizedAnalysis = normalizeSearchAnalysis(config, args, result.analysis);
+        const analysis = normalizedAnalysis.analysis && config.toolCards
+          ? searchAnalysisSchema.parse({
+              ...normalizedAnalysis.analysis,
+              groups: Object.fromEntries(
+                Object.entries(normalizedAnalysis.analysis.groups)
+                  .map(([name, groupMatches]) => [name, groupMatches.slice(0, 24)])
+              ),
+              matches: normalizedAnalysis.analysis.matches.slice(0, 80)
+            })
+          : normalizedAnalysis.analysis;
+        const data = searchDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          matches,
+          truncated,
+          used,
+          analysis
+        });
+
+        return textResult(
+          result.text,
+          createSearchSuccess(data, Date.now() - startedAt, normalizedAnalysis.warnings)
+        );
+      } catch (error) {
+        const failure = classifySearchFailure(error, args);
+        const structured = createSearchFailure(failure, Date.now() - startedAt);
+        const text = [
+          "# Search Files Error",
+          "",
+          `Code: ${failure.code}`,
+          SEARCH_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, structured),
+          isError: true
+        };
       }
-      // The tool card widget renders search hits from structuredContent.text.
-      // When cards are disabled (the default), including it would only duplicate
-      // the human-readable content payload, so omit the large blob in that case.
-      if (config.toolCards) structured.text = result.text;
-      return textResult(result.text, structured);
     }
   );
 

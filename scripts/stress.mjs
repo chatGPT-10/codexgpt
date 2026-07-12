@@ -191,8 +191,8 @@ async function runFullModeStress(root) {
       name: 'search',
       arguments: { workspace_id: ws, query: '--flag', path: 'many', max_results: 2000 }
     });
-    assert(largeSearch.structuredContent.matches.length === 2000, `expected 2000 search matches, got ${largeSearch.structuredContent.matches.length}`);
-    assert(largeSearch.structuredContent.truncated === true, 'large search did not report truncation');
+    assert(largeSearch.structuredContent.data.matches.length === 2000, `expected 2000 search matches, got ${largeSearch.structuredContent.data.matches.length}`);
+    assert(largeSearch.structuredContent.data.truncated === true, 'large search did not report truncation');
     assert(!('text' in largeSearch.structuredContent), 'search duplicated text in structuredContent with cards off');
 
     if (spawnSync(process.platform === 'win32' ? 'where' : 'sh', process.platform === 'win32' ? ['rg'] : ['-lc', 'command -v rg >/dev/null 2>&1']).status === 0) {
@@ -200,21 +200,21 @@ async function runFullModeStress(root) {
         name: 'search',
         arguments: { workspace_id: ws, query: '(?i)STRESS-NEEDLE-3', path: 'many', regex: true, max_results: 10 }
       });
-      assert(rgRegex.structuredContent.used === 'ripgrep' && rgRegex.structuredContent.matches.length === 10, 'ripgrep regex search rejected rg syntax');
+      assert(rgRegex.structuredContent.data.used === 'ripgrep' && rgRegex.structuredContent.data.matches.length === 10, 'ripgrep regex search rejected rg syntax');
     }
 
     const hiddenSearch = await client.request('tools/call', {
       name: 'search',
       arguments: { workspace_id: ws, query: 'needle hidden', include_hidden: true, max_results: 10 }
     });
-    assert(hiddenSearch.structuredContent.matches.some((match) => match.path === '.hidden.txt'), 'include_hidden search missed hidden file');
+    assert(hiddenSearch.structuredContent.data.matches.some((match) => match.path === '.hidden.txt'), 'include_hidden search missed hidden file');
 
     if (process.platform !== 'win32') {
       const colonSearch = await client.request('tools/call', {
         name: 'search',
         arguments: { workspace_id: ws, query: 'needle colon path', max_results: 10 }
       });
-      assert(colonSearch.structuredContent.matches.some((match) => match.path === 'visible:123:file.txt' && match.line === 1), `colon path search parsed incorrectly: ${JSON.stringify(colonSearch.structuredContent.matches)}`);
+      assert(colonSearch.structuredContent.data.matches.some((match) => match.path === 'visible:123:file.txt' && match.line === 1), `colon path search parsed incorrectly: ${JSON.stringify(colonSearch.structuredContent.data.matches)}`);
     }
 
     const superRead = await client.request('tools/call', {
@@ -228,7 +228,7 @@ async function runFullModeStress(root) {
       arguments: { action: 'search', args: { workspace_id: ws, query: 'stress-needle-3', path: 'many', max_results: 20 } }
     });
     assert(superSearch.structuredContent.codexpro_tool === 'search' && superSearch.structuredContent.wrapped_tool === 'search', 'supertool search did not report wrapped tool');
-    assert(superSearch.structuredContent.matches.length === 20, `supertool search returned ${superSearch.structuredContent.matches.length} matches`);
+    assert(superSearch.structuredContent.data.matches.length === 20, `supertool search returned ${superSearch.structuredContent.data.matches.length} matches`);
 
     const safePwd = await client.request('tools/call', {
       name: 'bash',
@@ -283,7 +283,7 @@ async function runFullModeStress(root) {
     const arrows = await Promise.all(Array.from({ length: 12 }, () =>
       client.request('tools/call', { name: 'search', arguments: { workspace_id: ws, query: '->', path: 'many', max_results: 25 } })
     ));
-    assert(arrows.every((result) => result.structuredContent.matches.length === 25), 'concurrent arrow searches failed');
+    assert(arrows.every((result) => result.structuredContent.data.matches.length === 25), 'concurrent arrow searches failed');
 
     await fs.writeFile(path.join(root, '.ai-bridge', 'handoff-run-state.json'), `${JSON.stringify({
       version: 1,
@@ -569,8 +569,8 @@ async function runMaxReadSearchStress() {
       name: 'search',
       arguments: { workspace_id: opened.structuredContent.workspace_id, query: 'needle', max_results: 10 }
     });
-    assert(search.structuredContent.matches.some((match) => match.path === 'large.txt'), `search skipped slightly large file: ${JSON.stringify(search.structuredContent.matches)}`);
-    assert(!search.structuredContent.matches.some((match) => match.path === 'huge.txt'), `search scanned file beyond text scan cap: ${JSON.stringify(search.structuredContent.matches)}`);
+    assert(search.structuredContent.data.matches.some((match) => match.path === 'large.txt'), `search skipped slightly large file: ${JSON.stringify(search.structuredContent.data.matches)}`);
+    assert(!search.structuredContent.data.matches.some((match) => match.path === 'huge.txt'), `search scanned file beyond text scan cap: ${JSON.stringify(search.structuredContent.data.matches)}`);
   } finally {
     client.close();
   }
@@ -587,15 +587,15 @@ async function runNodeFallbackSearchLimitStress() {
       name: 'search',
       arguments: { workspace_id: opened.structuredContent.workspace_id, query: 'needle', path: 'exact.txt', max_results: 2 }
     });
-    assert(exact.structuredContent.used === 'node', `expected node fallback, got ${exact.structuredContent.used}`);
-    assert(exact.structuredContent.matches.length === 2, `node fallback exact-limit search returned ${exact.structuredContent.matches.length} matches`);
-    assert(exact.structuredContent.truncated === false, `node fallback exact-limit search was incorrectly truncated: ${JSON.stringify(exact.structuredContent)}`);
+    assert(exact.structuredContent.data.used === 'node', `expected node fallback, got ${exact.structuredContent.data.used}`);
+    assert(exact.structuredContent.data.matches.length === 2, `node fallback exact-limit search returned ${exact.structuredContent.data.matches.length} matches`);
+    assert(exact.structuredContent.data.truncated === false, `node fallback exact-limit search was incorrectly truncated: ${JSON.stringify(exact.structuredContent)}`);
 
     const overflow = await client.request('tools/call', {
       name: 'search',
       arguments: { workspace_id: opened.structuredContent.workspace_id, query: 'needle', path: 'overflow.txt', max_results: 2 }
     });
-    assert(overflow.structuredContent.matches.length === 2 && overflow.structuredContent.truncated === true, `node fallback overflow search did not report truncation: ${JSON.stringify(overflow.structuredContent)}`);
+    assert(overflow.structuredContent.data.matches.length === 2 && overflow.structuredContent.data.truncated === true, `node fallback overflow search did not report truncation: ${JSON.stringify(overflow.structuredContent)}`);
   } finally {
     client.close();
   }
@@ -648,8 +648,8 @@ async function runGuardEdgeStress() {
       name: 'search',
       arguments: { workspace_id: ws, query: 'needle blocked env', glob: '.env/**', include_hidden: true, max_results: 10 }
     });
-    assert(blockedSearch.structuredContent.matches.length === 0, `blocked search glob leaked matches: ${JSON.stringify(blockedSearch.structuredContent.matches)}`);
-    assert(blockedSearch.structuredContent.truncated === false, `blocked-only search reported truncation: ${JSON.stringify(blockedSearch.structuredContent)}`);
+    assert(blockedSearch.structuredContent.data.matches.length === 0, `blocked search glob leaked matches: ${JSON.stringify(blockedSearch.structuredContent.data.matches)}`);
+    assert(blockedSearch.structuredContent.data.truncated === false, `blocked-only search reported truncation: ${JSON.stringify(blockedSearch.structuredContent)}`);
 
     if (outsideDirLink) {
       await expectToolError(client, 'tree', { workspace_id: ws, path: 'outside-dir-link', include_hidden: true }, /symlink|outside/i);
@@ -662,7 +662,7 @@ async function runGuardEdgeStress() {
       const aliasRead = await client.request('tools/call', { name: 'read', arguments: { workspace_id: ws, path: aliasVisible } });
       assert(aliasRead.isError !== true && aliasRead.structuredContent.data?.path === 'visible.txt', `absolute realpath-inside read failed: ${JSON.stringify(aliasRead.structuredContent)}`);
       const aliasSearch = await client.request('tools/call', { name: 'search', arguments: { workspace_id: ws, query: 'needle visible', path: aliasVisible, max_results: 10 } });
-      assert(aliasSearch.structuredContent.matches.some((match) => match.path === 'visible.txt'), `absolute realpath-inside search failed: ${JSON.stringify(aliasSearch.structuredContent)}`);
+      assert(aliasSearch.structuredContent.data.matches.some((match) => match.path === 'visible.txt'), `absolute realpath-inside search failed: ${JSON.stringify(aliasSearch.structuredContent)}`);
       await expectToolError(client, 'write', { workspace_id: ws, path: path.join(aliasRoot, '.env', 'created.txt'), content: 'blocked\n' }, /blocked/i);
       assert(!(await pathExists(path.join(root, '.env', 'created.txt'))), 'absolute alias write created a blocked file');
     }
@@ -786,14 +786,14 @@ async function runCardStress(root) {
       name: 'search',
       arguments: { workspace_id: opened.structuredContent.workspace_id, query: '--flag', path: 'many', max_results: 2000 }
     });
-    assert(typeof search.structuredContent.text === 'string' && search.structuredContent.text.includes('--flag'), 'tool-card search did not include structured text');
-    assert(search.structuredContent.text.includes('[structured field truncated to 30000 chars]'), 'tool-card search text was not capped');
+    assert(search.structuredContent.data.matches.length === 2000, 'tool-card search did not preserve nested matches');
+    assert(!('text' in search.structuredContent.data), 'tool-card search duplicated aggregate text');
     const structured = await client.request('tools/call', {
       name: 'search',
       arguments: { workspace_id: opened.structuredContent.workspace_id, query: '--flag', path: 'many', intent: 'text', max_results: 2000 }
     });
-    assert(structured.structuredContent.analysis.groups.references.length <= 24, `structured card references were not compacted: ${structured.structuredContent.analysis.groups.references.length}`);
-    assert(structured.structuredContent.analysis.matches.length <= 80, `structured card match summary was not compacted: ${structured.structuredContent.analysis.matches.length}`);
+    assert(structured.structuredContent.data.analysis.groups.references.length <= 24, `structured card references were not compacted: ${structured.structuredContent.data.analysis.groups.references.length}`);
+    assert(structured.structuredContent.data.analysis.matches.length <= 80, `structured card match summary was not compacted: ${structured.structuredContent.data.analysis.matches.length}`);
     const inspected = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: opened.structuredContent.workspace_id } });
     assert(inspected.structuredContent.files.length <= 120, `workspace card file inventory was not compacted: ${inspected.structuredContent.files.length}`);
   } finally {
