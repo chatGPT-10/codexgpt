@@ -415,7 +415,7 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The `server_config`, `tree`, `read`, `git_status`, and `git_diff` vertical slices are implemented. The first four are published and cross-platform CI-validated; `git_diff` implementation commit `19f0042` has passed all local gates and is in publication verification. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
+Status: implementation started on 2026-07-12. The `server_config`, `tree`, `read`, `git_status`, and direct `git_diff` vertical slices are published and cross-platform CI-validated. `git_diff` implementation commit `19f0042` and publication record `9103ce4` are on `origin/main`; CI run `29204692105` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
 - delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, `read`, `git_status`, and direct `git_diff`, with real MCP success/failure contract tests;

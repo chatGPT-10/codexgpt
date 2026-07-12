@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: `server_config`, `tree`, `read`, `git_status`, and `git_diff` are implemented; the first four are cross-platform CI-validated and `git_diff` has passed all local gates.
+- Phase 1: `server_config`, `tree`, `read`, `git_status`, and `git_diff` are published and cross-platform CI-validated.
 
 ## Approved stopping point
 
-The fifth Phase 1 vertical slice, `git_diff`, is implemented in commit `19f0042` with exact schema-v1 success/failure contracts, a dedicated direct Tool Card, preserved `path`/`staged`/`include_diff` behavior, and complete local Build, focused, Smoke, Stress, and diff-check validation. Publication and CI verification are the remaining closure steps. Phase 2 remains closed.
+The fifth Phase 1 vertical slice, `git_diff`, is published. Implementation commit `19f0042` provides exact schema-v1 success/failure contracts, a dedicated direct Tool Card, and preserved `path`/`staged`/`include_diff` behavior. Publication record `9103ce4` is on `origin/main`; CI run `29204692105` passed on Ubuntu/Windows with Node 20/24. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool; Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -56,7 +56,7 @@ The fifth Phase 1 vertical slice, `git_diff`, is implemented in commit `19f0042`
 - `tree`: implementation `6aaeda4`, record `2ecd4af`, final state `e7c1646`; CI runs `29194671044`, `29194802582`, and `29194978911` passed.
 - `read`: implementation `282dcfa`, record `c90246f`; CI runs `29199573321` and `29199802824` passed.
 - `git_status`: implementation `bc92970`; local gates and CI run `29202896685` passed on Ubuntu/Windows Node 20/24.
-- `git_diff`: design `1bbe240`, plan `8083f53`, implementation `19f0042`; local gates passed 19/19 focused, 36/36 adjacent Git contracts, Build, all 8 Smoke sections, full native-Windows Stress, and `git diff --check`.
+- `git_diff`: design `1bbe240`, plan `8083f53`, implementation `19f0042`, publication record `9103ce4`; local gates passed 19/19 focused, 36/36 adjacent Git contracts, 108/108 complete tests, Build, all 8 Smoke sections, full native-Windows Stress, and `git diff --check`; CI run `29204692105` passed on Ubuntu/Windows Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are in `docs/memory/archive/phase-1.md`.
 
 ## Known limitations
@@ -68,12 +68,12 @@ The fifth Phase 1 vertical slice, `git_diff`, is implemented in commit `19f0042`
 
 ## Open items
 
-1. Publish the completed `git_diff` slice, verify remote synchronization and cross-platform CI, then stop with no active implementation task.
-2. The next Phase 1 tool requires its own reviewed design and plan.
-3. Keep Phase 2 closed.
+1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
+2. Keep Phase 2 closed without a new approved design and plan.
 
 ## Recent summaries
 
+- **STEP-125 — Publish `git_diff`:** pushed through publication record `9103ce4`, confirmed local `main` synchronized with `origin/main`, and verified CI run `29204692105` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-124 — Commit `git_diff` implementation:** created `19f0042` after focused contracts, Build, Smoke, Stress, and diff-check passed; production scope remained limited to the direct tool schema/handler and dedicated card.
 - **STEP-123 — Unblock native-Windows Stress:** confirmed the POSIX multi-colon filename and `HOME`-only fake-home assumptions were fixture bugs, then skipped only the incompatible filename case and set `USERPROFILE`; full Stress passed.
 - **STEP-122 — Complete TDD migration:** observed missing-module and legacy-handler RED states, added the strict schema/provider seam/classifiers/card/consumer updates, and reached 19/19 focused plus 36/36 adjacent Git contracts.

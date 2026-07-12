@@ -44,7 +44,7 @@
 - Produces `createGitDiffSuccess(data, durationMs?)` and `createGitDiffFailure(failure, durationMs?)`.
 - Produces `GitDiffFailureInput`.
 
-- [ ] **Step 1: Write failing constructor and invariant tests**
+- [x] **Step 1: Write failing constructor and invariant tests**
 
 Create the opening contract tests with fixtures for changed, clean, stats-only, and metadata-only data. Assert:
 
@@ -74,7 +74,7 @@ Add failure cases for:
 
 Add rejection assertions for unknown fields, `diff_error`, negative counts, `include_diff=false` with non-empty `diff`, `changed=false` with counts/diff, non-empty `diff` with `changed=false`, and inconsistent envelope states.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -84,7 +84,7 @@ node --test test/git-diff-contract.test.mjs
 
 Expected: FAIL because `src/tools/schemas/gitDiff.ts` does not exist.
 
-- [ ] **Step 3: Implement the minimal schema module**
+- [x] **Step 3: Implement the minimal schema module**
 
 Implement strict Zod schemas matching the design. Core data refinement:
 
@@ -104,7 +104,7 @@ export const gitDiffDataSchema = gitDiffDataBaseSchema.superRefine((value, conte
 
 Use `createToolMeta` and `toolMetaSchema` from `./common.js`. Constructors must parse before returning.
 
-- [ ] **Step 4: Run the focused constructor tests and verify GREEN**
+- [x] **Step 4: Run the focused constructor tests and verify GREEN**
 
 Run:
 
@@ -114,7 +114,7 @@ node --test test/git-diff-contract.test.mjs
 
 Expected: constructor/schema tests PASS; runtime tests may not yet exist.
 
-- [ ] **Step 5: Commit the schema boundary**
+- [x] **Step 5: Commit the schema boundary**
 
 ```bash
 git add src/tools/schemas/gitDiff.ts test/git-diff-contract.test.mjs
@@ -134,7 +134,7 @@ git commit -m "feat(schema): add git_diff result contract"
 - Add optional `gitDiffResultProvider` to `CodexProServerDependencies`.
 - Default provider delegates to `gitDiff(config, guard, workspace, path, staged)`.
 
-- [ ] **Step 1: Add failing runtime tests**
+- [x] **Step 1: Add failing runtime tests**
 
 Add in-memory MCP tests that assert:
 
@@ -148,7 +148,7 @@ assert.deepEqual(new Set(descriptor.outputSchema.required), new Set([
 
 Cover clean, changed, stats-only, staged-only, scoped path, blank path, safe nonexistent pathspec, unknown workspace, outside path, blocked path, non-Git root, injected Git absence, injected Git command failure, non-string provider output, and secret-bearing thrown exceptions.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -158,7 +158,7 @@ node --test test/git-diff-contract.test.mjs
 
 Expected: FAIL because `git_diff` does not advertise `outputSchema` and still returns flat structured fields.
 
-- [ ] **Step 3: Add imports, provider seam, and classifiers**
+- [x] **Step 3: Add imports, provider seam, and classifiers**
 
 Import:
 
@@ -189,7 +189,7 @@ if (/^(fatal:|error:|git exited with status|usage: git )/.test(trimmed)) {
 }
 ```
 
-- [ ] **Step 4: Replace the direct handler**
+- [x] **Step 4: Replace the direct handler**
 
 Register `outputSchema: gitDiffOutputShape`. In the handler:
 
@@ -252,7 +252,7 @@ try {
 }
 ```
 
-- [ ] **Step 5: Run the focused test and verify GREEN**
+- [x] **Step 5: Run the focused test and verify GREEN**
 
 Run:
 
@@ -262,7 +262,7 @@ node --test test/git-diff-contract.test.mjs
 
 Expected: all focused runtime contract tests PASS.
 
-- [ ] **Step 6: Build and run the adjacent `git_status` contract**
+- [x] **Step 6: Build and run the adjacent `git_status` contract**
 
 Run:
 
@@ -273,7 +273,7 @@ node --test test/git-status-contract.test.mjs test/git-diff-contract.test.mjs
 
 Expected: build and both Git contract files PASS.
 
-- [ ] **Step 7: Commit the direct handler migration**
+- [x] **Step 7: Commit the direct handler migration**
 
 ```bash
 git add src/server.ts test/git-diff-contract.test.mjs
@@ -294,7 +294,7 @@ git commit -m "feat(schema): migrate git_diff output"
 - Add `renderGitDiff(data)` for the direct nested envelope.
 - Keep `renderChanges(data)` and `show_changes` flat fields unchanged.
 
-- [ ] **Step 1: Add failing direct-card and wrapper tests**
+- [x] **Step 1: Add failing direct-card and wrapper tests**
 
 Assert the widget dispatches direct `git_diff` to a dedicated renderer and that the renderer reads:
 
@@ -307,7 +307,7 @@ Assert it does not read direct `data.diff`, `data.additions`, `data.deletions`, 
 
 Call the `codexpro` supertool with action `git_diff` and assert wrapper metadata plus nested `data`/`error` with no legacy top-level diff fields.
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run:
 
@@ -317,7 +317,7 @@ node --test test/git-diff-contract.test.mjs
 
 Expected: direct-card test FAIL because `git_diff` still routes through `renderFile(data)`.
 
-- [ ] **Step 3: Implement the dedicated renderer**
+- [x] **Step 3: Implement the dedicated renderer**
 
 Add `renderGitDiff(data)` that:
 
@@ -336,7 +336,7 @@ Change only the dispatch branch:
 }
 ```
 
-- [ ] **Step 4: Update smoke and stress field access**
+- [x] **Step 4: Update smoke and stress field access**
 
 Change direct `git_diff` assertions from:
 
@@ -352,7 +352,7 @@ statsOnlyDiff.structuredContent.data.include_diff
 
 Apply the same nesting to `diff`, `additions`, `deletions`, and `changed`. Do not change `show_changes` assertions.
 
-- [ ] **Step 5: Run focused and integration gates**
+- [x] **Step 5: Run focused and integration gates**
 
 Run:
 
@@ -364,7 +364,7 @@ npm run stress
 
 Expected: all PASS.
 
-- [ ] **Step 6: Commit compatibility updates**
+- [x] **Step 6: Commit compatibility updates**
 
 ```bash
 git add src/toolCardWidget.ts scripts/smoke.mjs scripts/stress.mjs test/git-diff-contract.test.mjs
@@ -385,7 +385,7 @@ git commit -m "test(schema): cover git_diff compatibility"
 **Interfaces:**
 - No runtime interface changes.
 
-- [ ] **Step 1: Record the slice**
+- [x] **Step 1: Record the slice**
 
 Document that `git_diff` now has:
 
@@ -398,15 +398,15 @@ Document that `git_diff` now has:
 
 Update `Memory.md` as the concise current-state index and append detailed implementation/verification history to `docs/memory/archive/phase-1.md`.
 
-- [ ] **Step 2: Mark plan checkboxes complete**
+- [x] **Step 2: Mark plan checkboxes complete**
 
 Change every executed `- [ ]` in this plan to `- [x]` only after its command/result has been observed.
 
-- [ ] **Step 3: Run the neat-freak skill**
+- [x] **Step 3: Run the neat-freak skill**
 
 Use the skill to inspect only files changed by this slice. Apply safe, behavior-preserving cleanup; do not broaden scope.
 
-- [ ] **Step 4: Run final verification**
+- [x] **Step 4: Run final verification**
 
 Run each command separately:
 
@@ -421,7 +421,9 @@ git diff --check
 
 Expected: all commands PASS with zero diff-check errors.
 
-- [ ] **Step 5: Review the final diff**
+Execution note: the repository has no `scripts.test` entry (`npm pkg get scripts.test` returned `{}`), so the complete test gate was run with the repository-native `node --test`; 108 tests passed with zero failures.
+
+- [x] **Step 5: Review the final diff**
 
 Use `show_changes` and verify:
 
@@ -430,14 +432,14 @@ Use `show_changes` and verify:
 - `src/gitOps.ts` and `show_changes` remain unchanged;
 - no unrelated formatting churn exists.
 
-- [ ] **Step 6: Commit implementation records**
+- [x] **Step 6: Commit implementation records**
 
 ```bash
 git add CHANGELOG.md docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md docs/memory/archive/phase-1.md Memory.md docs/superpowers/plans/2026-07-12-git-diff-output-schema.md
 git commit -m "docs(schema): record git_diff slice"
 ```
 
-- [ ] **Step 7: Push and verify remote state**
+- [x] **Step 7: Push and verify remote state**
 
 ```bash
 git push origin main

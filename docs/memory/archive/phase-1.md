@@ -2692,3 +2692,62 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - Design and plan remain in their earlier dedicated commits `1bbe240` and `8083f53`.
 
 **Next step:** Update active documentation and Memory, run neat-freak and the complete final gate, then publish and verify CI.
+
+
+## STEP-125 — Publish `git_diff` and verify cross-platform CI
+
+**Date:** 2026-07-12
+
+**Status:** Complete.
+
+**Goal:** Publish the fifth Phase 1 slice, prove local/remote synchronization, and verify the repository's complete Ubuntu/Windows Node matrix.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/plans/2026-07-12-git-diff-output-schema.md`
+
+**Implementation summary:**
+
+- Ran the final local gate after documentation and neat-freak synchronization.
+- Committed the first publication record as `9103ce4 docs(schema): record git_diff slice`.
+- Pushed `main` to `origin` and fetched the remote reference again.
+- Confirmed local `HEAD` and `origin/main` were both `9103ce4208e23002df37d3788d37ebef59ca0f34` with a clean worktree.
+- Queried the GitHub Actions API by exact head SHA and verified run `29204692105`.
+- Closed the executed implementation plan and restored the project stopping point to no active implementation task.
+
+**Verification commands and results:**
+
+- `npm run build`: passed.
+- `node --test test/git-diff-contract.test.mjs test/git-status-contract.test.mjs`: 36 passed, 0 failed.
+- `node --test`: 108 passed, 0 failed.
+- `npm run smoke`: all eight smoke sections passed.
+- `npm run stress`: native-Windows Stress passed.
+- `git diff --check`: passed; only expected LF-to-CRLF working-copy warnings were emitted.
+- Secret-shape scan of the final documentation diff: no matches.
+- `git show --name-only 19f0042`: exactly the six intended implementation/test/consumer files.
+- CI run `29204692105`: overall conclusion `success`.
+- CI jobs: Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24 all completed with conclusion `success`.
+
+**Decisions made:**
+
+- The repository has no `scripts.test` entry (`npm pkg get scripts.test` returned `{}`), so the plan's generic `npm test` step was executed as the repository-native complete command `node --test`.
+- No PR or worktree cleanup was required because the user had approved direct commits and pushes on the normal `main` workspace.
+- The next feature must begin with a separate reviewed Phase 1 design and plan. Phase 2 remains closed.
+
+**Risks or limitations:**
+
+- Git failure classification remains coupled to current string output from `src/gitOps.ts`.
+- Native-Windows Stress conditionally omits only the POSIX-only multi-colon filename fixture; all remaining Stress coverage runs.
+
+**Rollback:**
+
+- Revert publication records separately from implementation if only documentation needs rollback.
+- Revert `19f0042` to remove the direct `git_diff` schema migration and Windows fixture corrections.
+- Revert `8083f53` and `1bbe240` only if the plan and design records must also be removed.
+- No credential, profile, dependency, authentication, workspace, remote, or Cloudflare rollback is required.
+
+**Next step:** No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Do not begin Phase 2 without explicit approval.
