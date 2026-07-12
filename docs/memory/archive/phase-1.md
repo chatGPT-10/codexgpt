@@ -2511,3 +2511,64 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - After publication, use normal revert commits and append a correction record. Do not rewrite history or force-push.
 
 **Next step:** Run fresh pre-publication verification, review the same exact eleven-file scope, then stage, commit, and push under the user's explicit authorization. Record the resulting commit and remote evidence afterward.
+
+## 2026-07-12 — STEP-120: Publish the `git_status` slice
+
+**Status:** Implementation commit published and cross-platform CI-validated; publication-record synchronization is ready for its follow-up commit
+
+**Goal:** Publish the neat-freak-reviewed eleven-file `git_status` slice to `origin/main`, verify the remote CI matrix, and synchronize active project records to the published boundary.
+
+**Files changed:**
+
+- Implementation commit `bc92970` contains the exact eleven-file source, test, consumer, design, plan, roadmap, AGENTS, Memory, and archive slice.
+- The follow-up publication record updates `AGENTS.md`, `Memory.md`, `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`, `docs/memory/archive/phase-1.md`, `docs/superpowers/plans/2026-07-12-git-status-output-schema.md`, and `docs/superpowers/specs/2026-07-12-git-status-output-schema-design.md`.
+
+**Implementation summary:**
+
+- Ran the full pre-publication gate after neat-freak reconciliation: 89/89 Node tests, TypeScript Build, all 8 Smoke sections, dependency audit with 0 vulnerabilities, 107-file package dry-run, documentation-map validation, consumer audit, and explicit eleven-file text/scope safety.
+- Staged exactly the reviewed eleven files. Git emitted only expected native-Windows LF-to-CRLF working-copy warnings.
+- The staged file list was exact. A request for the complete unified staged diff hit the existing synchronous Git output buffer with `ENOBUFS` because the append-only archive is large; prior per-file review, exact scope checks, and text validation remained successful.
+- Created implementation commit `bc92970` with message `feat: add exact git_status output schema`.
+- The commit changed exactly eleven files with 2542 insertions and 44 deletions and created the design, compact executed plan, schema module, and focused contract test.
+- Pushed `main` successfully from `af74296` to `bc92970` on `origin`.
+- Confirmed the local worktree was clean and local `main` matched `origin/main` immediately after the push.
+- The local `gh` executable was unavailable, so CI verification used the public GitHub Actions API without changing repository state.
+- Verified CI run `29202896685` completed successfully for Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24.
+- Updated active documentation and Memory from the local/unpublished boundary to the published/cross-platform-validated boundary.
+
+**Verification commands and results:**
+
+- `node --test`: 89 passed, 0 failed.
+- `npm run build`: exit code 0.
+- `npm run smoke`: all 8 sections passed.
+- `npm audit --audit-level=high`: 0 vulnerabilities.
+- `npm pack --dry-run`: 107 files; compiled `gitStatus` output included and internal Memory/design/plan/test files excluded.
+- Final eleven-file safety check: passed with Memory at 149 lines and compact plan at 216 lines.
+- `git add -- <exact eleven files>`: exit code 0; only expected LF-to-CRLF warnings.
+- `git commit -m "feat: add exact git_status output schema"`: created `bc92970`.
+- `git push origin main`: pushed `af74296..bc92970` successfully.
+- Post-push workspace check: `## main...origin/main` with no changes.
+- `gh run list --commit bc92970 --limit 5`: not available because `gh` is not installed in the current Git Bash environment.
+- GitHub Actions API run `29202896685`: completed with conclusion `success`; all four Ubuntu/Windows Node 20/24 jobs passed.
+
+**Decisions made:**
+
+- Publish implementation and its detailed STEP-113 through STEP-119 evidence in one implementation commit.
+- Use a follow-up documentation commit to record the now-known implementation hash and successful CI run without rewriting the implementation commit.
+- Keep Phase 2 and another tool migration closed. The next Phase 1 tool requires its own design and plan.
+- Do not change the native-Windows Stress fixture, shared Git internals, `show_changes`, `git_diff`, authentication, profiles, dependencies, or Cloudflare state.
+
+**Risks or limitations:**
+
+- Full native-Windows Stress remains platform-blocked by the existing colon-containing fixture.
+- Git failure classification remains coupled to current string output from `src/gitOps.ts`.
+- The dedicated Tool Card test remains primarily source-contract based.
+- The append-only Phase 1 archive can exceed the unified-diff output buffer, so exact file scope and targeted review remain important.
+
+**Rollback method:**
+
+- Use a normal revert commit for implementation commit `bc92970`, rerun focused/full/Build/Smoke gates, and append a correction record.
+- Do not rewrite history or force-push.
+- No credential, profile, dependency, authentication, workspace, remote, or Cloudflare rollback is required.
+
+**Next step:** Commit and push this six-file publication record, verify remote synchronization and its CI state, then stop with no active implementation task. The next feature action requires a separately reviewed Phase 1 design.

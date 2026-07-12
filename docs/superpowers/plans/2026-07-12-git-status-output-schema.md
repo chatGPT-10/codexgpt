@@ -1,14 +1,14 @@
 # Exact `git_status` Output Schema — Executed Plan
 
 **Date:** 2026-07-12
-**Status:** All four implementation tasks are locally complete and verified; publication is authorized but not yet recorded
+**Status:** Published in implementation commit `bc92970`; CI run `29202896685` passed on Ubuntu/Windows with Node 20/24
 **Scope:** Phase 1 fourth vertical slice; `git_status` only
 
 ## Goal
 
 Migrate direct `git_status` to an exact advertised output schema with strict success/failure envelopes, seven stable safe errors, preserved readable MCP output, a nested-data Tool Card, migrated proven consumers, and complete local verification.
 
-The detailed decision history, RED/GREEN evidence, failed attempts, command output, and closeout record are stored in `docs/memory/archive/phase-1.md`, STEP-113 through STEP-118. The source and tests are the authoritative implementation.
+The detailed decision history, RED/GREEN evidence, failed attempts, command output, neat-freak reconciliation, and publication record are stored in `docs/memory/archive/phase-1.md`, STEP-113 through STEP-120. The source and tests are the authoritative implementation.
 
 ## Fixed constraints
 
@@ -194,22 +194,14 @@ Workspace and path details are sanitized and bounded. Unsafe absolute paths use 
 - Large repository status output remains subject to the existing synchronous output-buffer boundary.
 - Tool Card verification remains primarily source-contract based.
 - Full native-Windows Stress remains blocked by the pre-existing colon-containing fixture.
-- Cross-platform CI evidence is unavailable until publication.
+- Cross-platform CI evidence is available from run `29202896685`, which passed on Ubuntu/Windows with Node 20/24.
 
 ## Rollback
 
-Before publication:
-
-1. Restore the former direct `git_status` handler and Tool Card branch.
-2. Restore the six Stress field references.
-3. Remove `src/tools/schemas/gitStatus.ts` and `test/git-status-contract.test.mjs`.
-4. Restore the six documentation and Memory files.
-5. Rebuild and rerun focused, complete, and Smoke gates.
-
-After publication, use normal revert commits and append correction records. Do not rewrite history or force-push.
+The slice is published. Use a normal revert commit for implementation commit `bc92970`, rerun focused, complete, Build, and Smoke gates, and append a correction record. Do not rewrite history or force-push.
 
 No credentials, profiles, dependencies, authentication state, workspaces, remote branches, or Cloudflare state require rollback.
 
 ## Current boundary
 
-The reviewed eleven-file slice is locally complete. The user has authorized neat-freak cleanup followed by staging, commit, and push. CI publication evidence and final synchronization must be recorded after the remote push succeeds.
+Implementation commit `bc92970` is on `origin/main`; CI run `29202896685` passed on Ubuntu/Windows with Node 20/24. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Phase 2 and another tool implementation remain closed without explicit approval.

@@ -1,7 +1,7 @@
 # Phase 1 Fourth Slice Design: Exact `git_status` Output Schema
 
 **Date:** 2026-07-12
-**Status:** Implemented locally through all four TDD tasks; complete local verification passed; unstaged and unpublished
+**Status:** Published in implementation commit `bc92970`; CI run `29202896685` passed on Ubuntu/Windows with Node 20/24
 **Scope:** One vertical slice for `git_status` only
 
 ## 1. Purpose
@@ -892,6 +892,6 @@ The design is implemented only when all of the following are true:
 
 ## 22. Current stopping point
 
-The approved design and four-task TDD plan are implemented locally. Fresh local evidence is: focused contract 17/17, complete Node suite 89/89, TypeScript Build passed, all 8 Smoke sections passed, Stress syntax passed, audit found 0 vulnerabilities, package dry-run contained 107 files with the compiled `gitStatus` schema included, and documentation regression passed 5/5.
+The approved design and four-task TDD plan are implemented and published. Local evidence is: focused contract 17/17, complete Node suite 89/89, TypeScript Build passed, all 8 Smoke sections passed, Stress syntax passed, audit found 0 vulnerabilities, package dry-run contained 107 files with the compiled `gitStatus` schema included, and documentation regression passed 5/5.
 
-The exact slice remains unstaged and unpublished. The next permitted action is explicit approval for staging the reviewed file set. Do not commit, push, alter credentials, change profiles, begin Phase 2, or start another tool migration without the applicable separate approval.
+Implementation commit `bc92970` is on `origin/main`; CI run `29202896685` passed on Ubuntu/Windows with Node 20/24. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Do not begin Phase 2 or another tool implementation without explicit approval.
