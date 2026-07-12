@@ -67,7 +67,8 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published throug
 - Documentation test: 5/5 passed; changed-file text validation passed.
 - Implementation commit `b989776` and record commit `ec6c0c0` were pushed successfully to `origin/main`.
 - CI runs `29189127483` and `29189202711`: Ubuntu/Windows Node 20/24 all passed.
-- Local `main` and `origin/main` are synchronized at `ec6c0c0`; the worktree was clean before this documentation-only tidy-up.
+- Local `main` and `origin/main` were synchronized at `ec6c0c0` before the documentation-only tidy-up.
+- Neat-freak closeout commit `ca17257` was pushed to `origin/main`; CI run `29189679200` completed successfully on Ubuntu/Windows Node 20/24.
 
 ## Known limitations
 
@@ -96,6 +97,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published throug
 - **STEP-087 — Commit exact `server_config` slice:** after explicit approval, created the local commit `feat: add exact server_config output schema`; `main` was one commit ahead of `origin/main`, with no push performed at that step.
 - **STEP-088 — Push exact `server_config` slice:** after explicit approval, pushed implementation commit `b989776` to `origin/main` and prepared the publication record.
 - **STEP-089 — Neat-freak Phase 1 slice closeout:** verified both implementation and record CI runs passed on Ubuntu/Windows Node 20/24, confirmed local/remote synchronization, removed completed push/CI items, and restored a planning-only boundary for the next tool.
+- **STEP-090 — Publish and verify neat-freak closeout:** committed and pushed the six-file closeout as `ca17257`, then verified CI run `29189679200` completed successfully on Ubuntu/Windows Node 20/24.
 
 ## Archives
 

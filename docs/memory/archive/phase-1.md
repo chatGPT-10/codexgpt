@@ -764,3 +764,21 @@ No user configuration, credentials, profiles, workspaces, remote branches, depen
 - No source code, dependency, credential, profile, workspace, or Cloudflare state changed.
 
 **Next step:** No Phase 1 implementation task is active. After explicit approval, plan and design one additional exact-schema tool as a separate vertical slice. Keep the native-Windows Stress fixture filename issue as separate maintenance work.
+
+## 2026-07-12 — STEP-090: Publish and verify neat-freak closeout
+
+**Status:** Complete; final closeout record prepared for publication
+
+**Goal:** Publish the STEP-089 knowledge reconciliation and verify its cross-platform CI result without starting new implementation work.
+
+**Actions and evidence:**
+
+- Re-ran the focused documentation test before publication: 5/5 passed.
+- Re-ran the six-file Markdown whitespace and conflict-marker check: passed.
+- Staged exactly the six reviewed documentation files and created commit `ca17257` (`docs: close first Phase 1 schema slice`).
+- Pushed `ca17257` to `origin/main` successfully.
+- CI run `29189679200` completed with `success`; Ubuntu/Windows Node 20/24 all passed.
+- Updated `Memory.md` and this archive with the publication evidence.
+- No source code, dependency, credential, profile, workspace, or Cloudflare state changed.
+
+**Next step:** Publish this final two-file record, verify its CI, then begin a new session at the Phase 1 planning boundary. Do not start Phase 2 or a second tool implementation without explicit approval.
