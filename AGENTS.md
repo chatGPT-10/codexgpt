@@ -174,6 +174,6 @@ Distinguish clearly between:
 
 ## 9. Current approved stopping point
 
-Phase 0.5 has passed the approved local gates and is committed locally on `main`; it remains unpushed. OAuth 2.1 remains deferred.
+Phase 0.5 has passed the approved local gates, commit `82c24da` is on `origin/main`, workflows are enabled for the fork, and a records-only follow-up commit has been pushed to trigger CI. OAuth 2.1 remains deferred.
 
-Do not amend, create additional commits, or push without explicit approval. The next action requires separate push approval. After push, require remote Ubuntu and Windows CI plus real external Cloudflare tunnel validation before closing Phase 0.5 or beginning Phase 1.
+Do not stage, commit, push, or begin Phase 1 without explicit approval. The next action is verification of all Ubuntu and Windows CI jobs triggered by the records-only push. Real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.

@@ -13,13 +13,13 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5 implementation and final local Windows review: complete.
-- Complete Phase 0.5 change set: committed locally on `main` and unpushed.
-- Staged-diff review blocker: fixed, regression-tested, and included in the local commit.
+- Complete Phase 0.5 change set: commit `82c24da` pushed to `origin/main`.
+- Staged-diff review blocker: fixed, regression-tested, and included in the pushed commit.
 - Phase 1: not started.
 
 ## Approved stopping point
 
-The complete Phase 0.5 change set has been committed locally with explicit approval. Do not amend, create another commit, or push without separate explicit approval. After push, require Ubuntu and Windows CI plus real external Cloudflare Tunnel validation before closing Phase 0.5. Do not begin Phase 1.
+Commit `82c24da` is on `origin/main`, workflows are enabled for the fork, and a records-only follow-up commit has been pushed to trigger CI. Do not stage, commit, push, or begin Phase 1 without further explicit approval. The next step is to verify all Ubuntu and Windows CI jobs from that records-only push; real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.
 
 ## Active decisions and constraints
 
@@ -35,7 +35,7 @@ The complete Phase 0.5 change set has been committed locally with explicit appro
 - OAuth 2.1 is deferred to a later phase.
 - Supported Cloudflare starts must use the pinned verified managed binary path.
 - Do not bypass secret-content protections or weaken workspace/path boundaries.
-- Do not amend, create additional commits, push, rewrite history, rotate credentials, or expand access without explicit approval.
+- Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval.
 
 ## Phase 0.5 local validation
 
@@ -56,16 +56,16 @@ The complete Phase 0.5 change set has been committed locally with explicit appro
 
 ## Remaining validation and limitations
 
-- Remote Ubuntu and Windows GitHub Actions have not run because nothing has been committed or pushed.
+- GitHub recognizes `.github/workflows/ci.yml` as an active workflow, but commit `82c24da` has no workflow run, no GitHub Actions check run, and the Actions page says there are no workflow runs yet.
 - Real external Cloudflare Host forwarding remains unvalidated.
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 
 ## Open items
 
-1. Wait for separate explicit approval before pushing the local Phase 0.5 commit.
-2. After push, require Ubuntu and Windows GitHub Actions plus real external Cloudflare Tunnel validation.
-3. Only after those validations pass may Phase 0.5 close or Phase 1 begin.
+1. Verify all Ubuntu and Windows jobs triggered by the records-only push.
+2. Validate the real external Cloudflare Tunnel Host forwarding path.
+3. Only after both validations pass may Phase 0.5 close or Phase 1 begin.
 
 ## Recent steps
 
@@ -78,10 +78,14 @@ The complete Phase 0.5 change set has been committed locally with explicit appro
 - **STEP-050 — Staged-diff review:** reviewed the staged change set and reproduced one blocker: public doctor calls without `--root` diagnose the package root instead of the caller workspace.
 - **STEP-051 — Doctor workspace fix:** added a failing regression test, propagated the canonical caller root into the legacy Doctor, passed 37/37 regressions and Smoke 8/8, and re-staged the fix.
 - **STEP-052 — Local Phase 0.5 commit:** committed the complete reviewed Phase 0.5 change set locally on `main`; no push was performed.
+- **STEP-053 — Push Phase 0.5:** pushed commit `82c24da` to `origin/main`; remote CI and real external Cloudflare validation remain pending.
+- **STEP-054 — Remote CI inspection:** confirmed the workflow is active but no Actions run/check was created; the repository is a fork and its Actions page reports no workflow runs yet.
+- **STEP-055 — Fork workflows enabled:** confirmed enabling workflows did not retroactively create a run for commit `82c24da`; a new approved `main` push is required to trigger CI.
+- **STEP-056 — Records-only CI trigger:** committed and pushed only `AGENTS.md`, `Memory.md`, and the Phase 0.5 archive to trigger the first GitHub Actions run after workflows were enabled.
 
 ## Archives
 
-- [Phase 0 and Phase 0.5 — STEP-000 through STEP-052](docs/memory/archive/phase-0-and-0.5.md)
+- [Phase 0 and Phase 0.5 — STEP-000 through STEP-056](docs/memory/archive/phase-0-and-0.5.md)
 
 Archive integrity for the pre-migration journal:
 

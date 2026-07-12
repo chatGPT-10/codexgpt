@@ -3651,3 +3651,131 @@ exit 0
 - Before push, rollback would require an explicitly approved local Git operation. Do not amend, reset, revert, or rewrite history without approval.
 
 **Next step:** Wait for separate explicit approval before pushing the local Phase 0.5 commit. Do not begin Phase 1.
+
+## 2026-07-12 — STEP-053: Push the Phase 0.5 commit
+
+**Status:** Completed; pushed to `origin/main`
+
+**Goal:** Push the explicitly approved local Phase 0.5 commit to the configured GitHub remote while preserving the separate validation boundary for remote CI, the real external Cloudflare Tunnel, Phase 0.5 closure, and Phase 1.
+
+**Pushed commit:**
+
+- Commit: `82c24da52bc6c3419712fb3982fd9be3fb56f7de`
+- Short commit: `82c24da`
+- Branch: `main`
+- Remote: `origin`
+- Remote repository: `https://github.com/chatGPT-10/codexpro.git`
+
+**Execution:**
+
+```text
+git push origin main
+```
+
+**Result:**
+
+```text
+7ed691e..82c24da  main -> main
+```
+
+- The push exited successfully.
+- Local `main` and `origin/main` were synchronized immediately after the push.
+- No force push, history rewrite, credential rotation, profile change, additional commit, or Phase 1 work was performed.
+
+**Remaining validation:**
+
+- Verify all Ubuntu and Windows GitHub Actions jobs for commit `82c24da`.
+- Validate the real external Cloudflare Tunnel Host forwarding path.
+- Phase 0.5 cannot close until both validations pass.
+
+**Local recording state:**
+
+- `AGENTS.md`, `Memory.md`, and this archive were updated locally after the push to record STEP-053.
+- These post-push memory updates are intentionally left unstaged and uncommitted because no further staging or commit approval has been given.
+
+**Next step:** Verify the GitHub Actions runs for commit `82c24da`. Do not stage, commit, push, close Phase 0.5, or begin Phase 1 without explicit approval.
+
+## 2026-07-12 — STEP-054: Inspect remote GitHub Actions state
+
+**Status:** Completed; CI validation blocked because no workflow run was created
+
+**Goal:** Verify the Ubuntu and Windows GitHub Actions jobs for pushed commit `82c24da` without changing repository content or starting Phase 1.
+
+**Evidence gathered from GitHub:**
+
+- Remote `main` points to `82c24da52bc6c3419712fb3982fd9be3fb56f7de`.
+- GitHub recognizes `.github/workflows/ci.yml` as workflow `CI` with state `active`.
+- The workflow contains `push` on `main` and `pull_request` triggers.
+- The repository is a public fork of `rebel0789/codexpro`.
+- The Actions runs API returned zero workflow runs for commit `82c24da` and zero workflow runs for the repository overall.
+- The commit has no GitHub Actions check runs.
+- The public Actions page reports: `There are no workflow runs yet.`
+- Other installed applications created empty queued check suites, but these are not GitHub Actions CI jobs and do not validate Ubuntu or Windows.
+
+**Conclusion:**
+
+- Remote CI did not run; this is not a passing or failing test result.
+- The likely next prerequisite is enabling workflows for this fork in the GitHub Actions UI.
+- After workflows are enabled, CI must be triggered and all four matrix jobs verified: Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24.
+- Because the current workflow has no `workflow_dispatch` trigger and no prior run exists to rerun, a later explicit decision may be required on how to trigger the first run after enabling Actions.
+
+**Local recording state:**
+
+- `AGENTS.md`, `Memory.md`, and this archive were updated locally.
+- These records remain unstaged and uncommitted.
+- No code, workflow, credential, profile, commit, push, or Phase 1 change was made during this inspection.
+
+**Next step:** Enable workflows for the fork in the GitHub Actions page. Do not stage, commit, push, modify the workflow, or begin Phase 1 without explicit approval.
+
+## 2026-07-12 — STEP-055: Confirm workflows enabled and reassess CI trigger
+
+**Status:** Completed; workflows enabled, but no retroactive run was created
+
+**Goal:** Confirm whether enabling workflows for the fork caused GitHub Actions to create a run for the already-pushed commit `82c24da`.
+
+**Verification:**
+
+- Queried the GitHub Actions runs API for commit `82c24da52bc6c3419712fb3982fd9be3fb56f7de` after workflows were enabled.
+- The API still returned zero workflow runs.
+- Therefore enabling workflows did not retroactively process the earlier push event.
+
+**Trigger analysis:**
+
+- The current workflow triggers on `push` to `main` and on `pull_request`.
+- It does not define `workflow_dispatch`, so there is no manual **Run workflow** trigger.
+- There is no prior run to rerun.
+- A new approved push to `main` is therefore required to generate the first CI run unless the workflow is separately modified to add manual dispatch.
+
+**Local recording state:**
+
+- Updated `AGENTS.md`, `Memory.md`, and this archive.
+- These updates remain unstaged and uncommitted.
+- No workflow, source code, credential, profile, commit, push, or Phase 1 change was made.
+
+**Next step:** Obtain explicit approval for a minimal new `main` push to trigger CI. Do not stage, commit, or push before that approval.
+
+## 2026-07-12 — STEP-056: Records-only commit and push to trigger CI
+
+**Status:** Completed; records-only follow-up pushed to `origin/main`
+
+**Goal:** Trigger the first GitHub Actions run after workflows were enabled, while changing only project-state records and leaving all runtime, test, workflow, packaging, security, authentication, Cloudflare, and Phase 1 code untouched.
+
+**Files included:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-0-and-0.5.md`
+
+**Commit intent:**
+
+- Record STEP-053 through STEP-056 accurately.
+- Create a new `push` event on `main` because enabling workflows did not retroactively process commit `82c24da`.
+- Trigger the existing CI matrix without adding `workflow_dispatch` or changing `.github/workflows/ci.yml`.
+
+**Safety boundaries:**
+
+- No source code, tests, CI workflow, package metadata, credentials, profiles, or Cloudflare configuration changed.
+- No force push, amend, reset, history rewrite, or Phase 1 work was performed.
+- The records-only commit and push were explicitly approved by the user.
+
+**Next step:** Verify the GitHub Actions run and all four matrix jobs: Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24. Real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.
