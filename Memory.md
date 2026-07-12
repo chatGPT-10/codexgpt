@@ -15,7 +15,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the `server_config`, `tree`, and `read` slices are published and cross-platform CI-validated. The `read` implementation is commit `282dcfa`; CI run `29199573321` passed on Ubuntu/Windows with Node 20/24.
+- Phase 1: the `server_config`, `tree`, and `read` slices are published and cross-platform CI-validated. The `read` implementation is commit `282dcfa` with publication record `c90246f`; CI runs `29199573321` and `29199802824` passed on Ubuntu/Windows with Node 20/24.
 
 ## Approved stopping point
 
@@ -102,7 +102,7 @@ Phase 0.5 is closed. The Phase 1 `server_config`, `tree`, and `read` slices are 
 - Task 3 RED was 15 passed and 1 missing-card failure; GREEN was 16/16 after the dedicated nested-data card and seven approved Stress consumer migrations.
 - Complete local gates: 16/16 focused, 72/72 Node tests, Build, all 8 Smoke sections, audit 0 vulnerabilities, 105-file package, and documentation 5/5.
 - Stress syntax, whitespace, conflict-marker, NUL, Memory-limit, credential-pattern, stale-consumer, and complete-scope checks passed.
-- Implementation commit `282dcfa` was pushed to `origin/main`; CI run `29199573321` passed on Ubuntu/Windows with Node 20/24.
+- Implementation commit `282dcfa` and publication-record commit `c90246f` were pushed to `origin/main`; CI runs `29199573321` and `29199802824` passed on Ubuntu/Windows with Node 20/24.
 
 ## Known limitations
 
@@ -128,6 +128,7 @@ Phase 0.5 is closed. The Phase 1 `server_config`, `tree`, and `read` slices are 
 - **STEP-109 — Neat-freak local closeout:** audited rules, active docs, Memory, links, stale wording, and scope; compressed the executed `read` plan from 1771 lines / 60.7 KB to 218 lines / 9.2 KB without changing the contract or evidence, corrected one misleading present-tense Memory summary, then passed 72/72 tests, Build, reference, whitespace, text-safety, and scope checks while keeping the eleven-file unstaged boundary.
 - **STEP-110 — Authorize `read` publication workflow:** received explicit approval to execute staging, commit, push, and follow-up publication work automatically; reran 72/72 tests, Build, all 8 Smoke sections, audit with 0 vulnerabilities, and the 105-file package check before touching Git.
 - **STEP-111 — Publish `read` implementation:** staged the exact eleven-file slice, fixed two staged Markdown whitespace defects, created and pushed implementation commit `282dcfa`, and verified CI run `29199573321` passed on Ubuntu/Windows with Node 20/24; publication-record synchronization followed.
+- **STEP-112 — Verify publication record:** created and pushed publication-record commit `c90246f`, verified CI run `29199802824` passed on Ubuntu/Windows with Node 20/24, synchronized the final Phase 1 planning boundary, and prepared the final-state commit.
 
 ## Archives
 

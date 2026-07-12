@@ -1,7 +1,7 @@
 # Exact `read` Output Schema — Executed Plan
 
 **Date:** 2026-07-12
-**Status:** All four tasks published in implementation commit `282dcfa`; CI run `29199573321` passed on Ubuntu/Windows with Node 20/24
+**Status:** All four tasks published in implementation commit `282dcfa` with publication record `c90246f`; CI runs `29199573321` and `29199802824` passed on Ubuntu/Windows with Node 20/24
 **Scope:** Phase 1 third vertical slice; `read` only
 
 ## Goal

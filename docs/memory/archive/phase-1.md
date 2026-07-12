@@ -2014,3 +2014,58 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - Do not rewrite history or force-push.
 
 **Next step:** Commit and push the publication-record synchronization, then verify its CI before final-state reconciliation.
+
+## 2026-07-12 — STEP-112: Verify the `read` publication record
+
+**Status:** Publication-record commit pushed and cross-platform CI passed; final-state record prepared
+
+**Goal:** Publish the synchronized `read` status documents, verify their remote CI, and restore the Phase 1 planning boundary.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/plans/2026-07-12-read-output-schema.md`
+- `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`
+
+**Implementation summary:**
+
+- Updated the design, executed plan, roadmap, AGENTS, and root Memory from local-only status to published and cross-platform CI-validated status.
+- Restored the Phase 1 planning-only boundary: no implementation task is active, another tool requires a separately reviewed design and plan, and Phase 2 remains closed.
+- Created commit `c90246f` with message `docs: record read schema publication`.
+- Pushed `c90246f` to `origin/main`.
+- Verified GitHub Actions run `29199802824` completed successfully across the full matrix.
+- Prepared a final-state record that includes both the implementation and publication-record commits and their CI runs.
+
+**Verification commands and results:**
+
+- `node --test test/auth-documentation.test.mjs`: 5 passed, 0 failed.
+- `git diff --check`: no whitespace errors; only native-Windows LF-to-CRLF warnings.
+- `git diff --cached --check`: exit code 0.
+- `git commit -m "docs: record read schema publication"`: created `c90246f`, 6 files changed.
+- `git push origin main`: pushed `282dcfa..c90246f` successfully.
+- GitHub Actions run `29199802824`:
+  - Ubuntu / Node 20: success.
+  - Ubuntu / Node 24: success.
+  - Windows / Node 20: success.
+  - Windows / Node 24: success.
+
+**Decisions made:**
+
+- Record both published commits and both completed CI runs in active status documents.
+- Use one final documentation commit to close the publication workflow and leave the workspace at the Phase 1 planning boundary.
+
+**Risks or limitations:**
+
+- The final-state documentation commit will trigger one additional CI run; its result can be verified after push but cannot be embedded in the same commit without creating an endless self-recording cycle.
+- Native Windows full Stress remains separately blocked by the pre-existing invalid filename fixture.
+
+**Rollback method:**
+
+- Revert `c90246f` to remove only the publication-record synchronization.
+- Revert `282dcfa` separately to withdraw the implementation.
+- Do not rewrite history or force-push.
+
+**Next step:** Commit and push the final-state record, verify its CI, and confirm local `main` matches `origin/main` with a clean worktree.

@@ -415,7 +415,7 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The `server_config`, `tree`, and `read` vertical slices are published and cross-platform CI-validated. The `read` implementation is commit `282dcfa`; CI run `29199573321` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
+Status: implementation started on 2026-07-12. The `server_config`, `tree`, and `read` vertical slices are published and cross-platform CI-validated. The `read` implementation is commit `282dcfa` with publication record `c90246f`; CI runs `29199573321` and `29199802824` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
 - delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, and `read`, with real MCP success/failure contract tests;
