@@ -174,6 +174,6 @@ Distinguish clearly between:
 
 ## 9. Current approved stopping point
 
-Phase 0.5 has passed the approved local gates, commit `82c24da` is on `origin/main`, workflows are enabled for the fork, and a records-only follow-up commit has been pushed to trigger CI. OAuth 2.1 remains deferred.
+Phase 0.5 has passed the approved local gates. Records-only commit `6c9ba9d` exposed a Linux regression-test hang in CI run `29181286011`; the process-tree cleanup fix has now passed local Node 20/24 regression and Smoke verification and is being pushed for fresh CI. OAuth 2.1 remains deferred.
 
-Do not stage, commit, push, or begin Phase 1 without explicit approval. The next action is verification of all Ubuntu and Windows CI jobs triggered by the records-only push. Real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.
+Do not stage, commit, push, alter CI, or begin Phase 1 without explicit approval. The stuck run still requires manual cancellation in GitHub because automated cancellation could not access repository-admin authentication. The next action is to verify the fresh Ubuntu and Windows CI jobs. Real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.

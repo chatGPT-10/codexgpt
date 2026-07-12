@@ -38,6 +38,40 @@ function request(url, headers = {}) {
   });
 }
 
+function signalProcessTree(child, signal, { platform = process.platform, kill = process.kill } = {}) {
+  if (platform !== "win32" && child.pid) {
+    try {
+      kill(-child.pid, signal);
+      return;
+    } catch {}
+  }
+  try {
+    child.kill(signal);
+  } catch {}
+}
+
+test("process-tree cleanup targets the POSIX group and the Windows child", () => {
+  const posixSignals = [];
+  const windowsSignals = [];
+  const child = {
+    pid: 4321,
+    kill(signal) {
+      windowsSignals.push(signal);
+    }
+  };
+
+  signalProcessTree(child, "SIGTERM", {
+    platform: "linux",
+    kill(pid, signal) {
+      posixSignals.push([pid, signal]);
+    }
+  });
+  signalProcessTree(child, "SIGTERM", { platform: "win32" });
+
+  assert.deepEqual(posixSignals, [[-4321, "SIGTERM"]]);
+  assert.deepEqual(windowsSignals, ["SIGTERM"]);
+});
+
 async function startCli({ allowQueryToken, disableQueryToken = false }) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-connector-auth-home-"));
   const port = await freePort();
@@ -62,6 +96,7 @@ async function startCli({ allowQueryToken, disableQueryToken = false }) {
   ], {
     cwd: process.cwd(),
     env,
+    detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"]
   });
 
@@ -97,9 +132,12 @@ async function startCli({ allowQueryToken, disableQueryToken = false }) {
     serverUrl,
     readyOutput,
     async close() {
-      child.kill("SIGTERM");
+      signalProcessTree(child, "SIGTERM");
       await new Promise((resolve) => {
-        const timeout = setTimeout(resolve, 3000);
+        const timeout = setTimeout(() => {
+          signalProcessTree(child, "SIGKILL");
+          resolve();
+        }, 3000);
         child.once("exit", () => {
           clearTimeout(timeout);
           resolve();

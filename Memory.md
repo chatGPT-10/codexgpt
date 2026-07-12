@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Approved stopping point
 
-Commit `82c24da` is on `origin/main`, workflows are enabled for the fork, and a records-only follow-up commit has been pushed to trigger CI. Do not stage, commit, push, or begin Phase 1 without further explicit approval. The next step is to verify all Ubuntu and Windows CI jobs from that records-only push; real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.
+Records-only commit `6c9ba9d` exposed a Linux regression-test hang in CI run `29181286011`. The process-tree cleanup fix has passed local Node 20/24 regression and Smoke verification and is being pushed for fresh CI. Do not stage, commit, push, alter CI, or begin Phase 1 without further explicit approval. The stuck run still requires manual cancellation in GitHub because automated cancellation could not access repository-admin authentication; real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.
 
 ## Active decisions and constraints
 
@@ -56,16 +56,16 @@ Commit `82c24da` is on `origin/main`, workflows are enabled for the fork, and a 
 
 ## Remaining validation and limitations
 
-- GitHub recognizes `.github/workflows/ci.yml` as an active workflow, but commit `82c24da` has no workflow run, no GitHub Actions check run, and the Actions page says there are no workflow runs yet.
+- CI run `29181286011` is stuck and still requires manual cancellation; the Linux process-tree cleanup fix passed local Node 20/24 regressions at 38/38 and Smoke 8/8, but fresh Ubuntu CI remains pending.
 - Real external Cloudflare Host forwarding remains unvalidated.
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 
 ## Open items
 
-1. Verify all Ubuntu and Windows jobs triggered by the records-only push.
-2. Validate the real external Cloudflare Tunnel Host forwarding path.
-3. Only after both validations pass may Phase 0.5 close or Phase 1 begin.
+1. Manually cancel stuck CI run `29181286011` in the GitHub Actions UI.
+2. Verify the fresh Ubuntu/Windows CI run triggered by the process-tree cleanup fix.
+3. Validate the real external Cloudflare Tunnel Host forwarding path; only after CI and tunnel validation pass may Phase 0.5 close or Phase 1 begin.
 
 ## Recent steps
 
@@ -82,10 +82,13 @@ Commit `82c24da` is on `origin/main`, workflows are enabled for the fork, and a 
 - **STEP-054 — Remote CI inspection:** confirmed the workflow is active but no Actions run/check was created; the repository is a fork and its Actions page reports no workflow runs yet.
 - **STEP-055 — Fork workflows enabled:** confirmed enabling workflows did not retroactively create a run for commit `82c24da`; a new approved `main` push is required to trigger CI.
 - **STEP-056 — Records-only CI trigger:** committed and pushed only `AGENTS.md`, `Memory.md`, and the Phase 0.5 archive to trigger the first GitHub Actions run after workflows were enabled.
+- **STEP-057 — CI status check:** Windows Node 20 and 24 completed successfully; Ubuntu Node 20 and 24 remained in progress at `Regression Tests`, so no final CI conclusion was recorded.
+- **STEP-058 — Ubuntu CI hang diagnosis:** confirmed both Ubuntu jobs were stuck for about 82 minutes and traced the likely cause to Linux process-tree cleanup: the test terminates the outer `codexpro-entry.mjs` process while its synchronous legacy CLI child and MCP server descendant can remain alive holding inherited pipes.
+- **STEP-059 — Linux test process-tree fix:** made the CLI test a separate POSIX process group, terminates the whole group with `SIGTERM`/`SIGKILL`, added direct cleanup-logic coverage, and passed Node 20/24 regression 38/38 plus Smoke 8/8 before pushing fresh CI.
 
 ## Archives
 
-- [Phase 0 and Phase 0.5 — STEP-000 through STEP-056](docs/memory/archive/phase-0-and-0.5.md)
+- [Phase 0 and Phase 0.5 — STEP-000 through STEP-059](docs/memory/archive/phase-0-and-0.5.md)
 
 Archive integrity for the pre-migration journal:
 

@@ -3779,3 +3779,130 @@ git push origin main
 - The records-only commit and push were explicitly approved by the user.
 
 **Next step:** Verify the GitHub Actions run and all four matrix jobs: Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24. Real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.
+
+## 2026-07-12 — STEP-057: Check the in-progress CI run
+
+**Status:** Partially complete; Windows passed, Ubuntu still running
+
+**Goal:** Inspect GitHub Actions run `29181286011` and determine whether all four operating-system and Node-version matrix jobs completed successfully.
+
+**Verified results:**
+
+- Records-only commit: `6c9ba9dd9f95bbe27634f5ecef58f124ce872f19`.
+- Repository: `chatGPT-10/codexgpt` after the GitHub repository rename.
+- Windows / Node 20: completed successfully.
+- Windows / Node 24: completed successfully.
+- Both Windows jobs passed checkout, Node setup, install, build, regression tests, smoke tests, and package-content checks.
+
+**Still in progress:**
+
+- Ubuntu / Node 20 remained in `Regression Tests`.
+- Ubuntu / Node 24 remained in `Regression Tests`.
+- The overall workflow run remained `in_progress` with no conclusion.
+- Multiple short polling checks produced the same state, so no final pass or failure was inferred.
+
+**Log limitation:**
+
+- The unauthenticated GitHub API exposed job and step states but rejected job-log download with HTTP 403 because repository-admin authentication is required.
+
+**Local recording state:**
+
+- Updated `Memory.md` and this archive locally.
+- These records remain unstaged and uncommitted.
+- No code, workflow, remote, credential, profile, commit, push, or Phase 1 change was made.
+
+**Next step:** Check run `29181286011` again after the Ubuntu jobs finish. Do not claim CI success, stage, commit, push, validate Cloudflare, close Phase 0.5, or begin Phase 1 before the final result is available.
+
+## 2026-07-12 — STEP-058: Diagnose the Ubuntu CI hang
+
+**Status:** Diagnosed; CI run is stuck and requires cancellation plus a code/test fix
+
+**Goal:** Determine whether the long-running Ubuntu jobs were merely slow or genuinely stuck, and identify the most likely process-level cause without modifying code or cancelling the run.
+
+**Observed state:**
+
+- GitHub Actions run: `29181286011`.
+- Current observation time: `2026-07-12T06:53:13Z`.
+- Run elapsed time: about 82 minutes.
+- Windows / Node 20: completed successfully; its `Regression Tests` step took about 5 seconds.
+- Windows / Node 24: completed successfully; its `Regression Tests` step took about 5 seconds.
+- Ubuntu / Node 20: remained in `Regression Tests` since `2026-07-12T05:31:25Z`.
+- Ubuntu / Node 24: remained in `Regression Tests` since `2026-07-12T05:31:26Z`.
+- The overall run remained `in_progress`; no failure conclusion had been emitted.
+
+**Root-cause trace:**
+
+1. `test/connector-auth-output.test.mjs` starts `scripts/codexpro-entry.mjs` with piped stdout/stderr.
+2. `scripts/codexpro-entry.mjs` invokes the legacy CLI using synchronous `spawnSync(..., { stdio: "inherit" })`.
+3. The legacy CLI starts the MCP HTTP server as another child process.
+4. Test cleanup calls `child.kill("SIGTERM")` only on the outer entry process.
+5. On POSIX/Linux, terminating that outer process does not reliably terminate the synchronous child and MCP-server descendant process tree.
+6. The surviving descendant can retain the inherited stdout/stderr pipes, preventing the Node test worker from exiting even though assertions have likely finished.
+7. This explains why both Ubuntu Node versions hang at the same regression step while both Windows jobs pass quickly.
+
+**Confidence:**
+
+- The hang diagnosis is high confidence based on the 82-minute unchanged state, identical behavior on Ubuntu Node 20 and 24, fast Windows completion, and the verified wrapper/child/descendant process chain.
+- The exact individual test output could not be downloaded through the unauthenticated API; GitHub returned HTTP 403 for job-log download because repository-admin authentication is required.
+
+**Local recording state:**
+
+- Updated `AGENTS.md`, `Memory.md`, and this archive locally.
+- These changes remain unstaged and uncommitted.
+- No code, workflow, remote, credential, profile, CI cancellation, commit, push, or Phase 1 work was performed.
+
+**Next step:** After explicit approval, cancel run `29181286011`, add a regression-safe Linux process-tree cleanup fix, run focused and full local verification, then commit/push to trigger fresh CI. Real external Cloudflare Tunnel validation remains separately required.
+
+## 2026-07-12 — STEP-059: Fix Linux regression-test process-tree cleanup
+
+**Status:** Implemented and locally verified; fresh CI trigger pending push
+
+**Goal:** Prevent Linux GitHub Actions regression tests from hanging after CLI assertions complete by terminating the complete spawned process tree rather than only the outer public-entry process.
+
+**Files changed:**
+
+- `test/connector-auth-output.test.mjs`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-0-and-0.5.md`
+
+**Implementation:**
+
+- The CLI test process is now started with `detached: true` on POSIX platforms, creating a separate process group.
+- Test cleanup sends `SIGTERM` to the negative process-group ID so the outer entry process, synchronous legacy CLI child, and MCP server descendant receive the signal together.
+- If the process does not exit within three seconds, cleanup sends `SIGKILL` to the same process group.
+- Windows retains direct child-process signaling and is not changed to detached process groups.
+- Added direct unit coverage proving POSIX cleanup targets the negative process-group ID and Windows cleanup targets the child process.
+
+**Verification:**
+
+```text
+node --test test/connector-auth-output.test.mjs
+4 pass, 0 fail
+
+node --test
+38 pass, 0 fail on Node 24
+
+npx --yes node@20 --test
+38 pass, 0 fail on Node 20
+
+npm run smoke
+8/8 sequential smoke sections passed
+```
+
+**Environment limitation:**
+
+- WSL is not installed and Docker is unavailable on the Windows development machine, so the actual POSIX process-group behavior cannot be executed locally.
+- Fresh Ubuntu GitHub Actions is the required final Linux verification.
+
+**CI cancellation limitation:**
+
+- Automated cancellation was attempted but blocked because repository-admin GitHub authentication was not available to the execution tool.
+- Stuck run `29181286011` therefore still requires manual cancellation through the GitHub Actions UI.
+
+**Safety boundaries:**
+
+- No runtime source, authentication, HTTP security, Cloudflare, package, profile, or Phase 1 behavior was modified.
+- No workflow change, force push, history rewrite, or credential exposure occurred.
+
+**Next step:** Commit and push these four files to trigger fresh CI, manually cancel run `29181286011`, then verify all Ubuntu and Windows jobs before proceeding to Cloudflare validation.
