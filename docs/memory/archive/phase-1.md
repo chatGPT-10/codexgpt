@@ -1330,3 +1330,49 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - No credential, profile, Cloudflare, or workspace rollback is required.
 
 **Next step:** Commit and push this follow-up closeout record, verify local `main` matches `origin/main`, then inspect the new GitHub Actions run. Do not begin Phase 2 or a third tool migration.
+
+## 2026-07-12 — STEP-100: Verify and close the `tree` publication
+
+**Status:** Complete; Phase 1 returned to the planning boundary
+
+**Goal:** Verify both published `tree` commits, record their CI results, reconcile active project state, and close the slice without beginning another implementation.
+
+**Implementation summary:**
+
+- Published closeout record commit `2ecd4af` with message `docs: record tree schema publication`.
+- Pushed `main` from `6aaeda4` through `2ecd4af` to `origin/main`.
+- Confirmed a clean working tree immediately after the push.
+- Confirmed local `HEAD` and `origin/main` both resolved to `2ecd4af4ff246840fc946960dd83005cf4e1da6f`.
+- GitHub CLI was not installed, so CI status was queried through the public GitHub Actions API using Node `fetch` without credentials.
+- Updated the rules, roadmap, design, executed plan, root Memory, and this archive to return the repository to the Phase 1 planning boundary.
+
+**Verification results:**
+
+- Implementation commit `6aaeda4`: CI run `29194671044`, completed successfully.
+- Closeout record commit `2ecd4af`: CI run `29194802582`, completed successfully.
+- The closeout run was polled until GitHub reported `completed / success`.
+- `git status --short`: no output after the record push.
+- `git rev-parse HEAD` and `git rev-parse origin/main`: identical full hash for `2ecd4af`.
+- The failed `gh run list` attempt was environmental only: `/usr/bin/bash: gh: command not found`; no repository change resulted.
+
+**Decisions made:**
+
+- The `tree` vertical slice is fully closed and cross-platform CI-validated.
+- No Phase 1 implementation task remains active.
+- The next permitted action is selecting and designing one additional Phase 1 tool under a separately reviewed specification and plan.
+- Phase 2 and a third tool implementation remain closed without explicit approval.
+
+**Risks or limitations:**
+
+- The global `CodexProError` remains untyped; `tree` still uses its reviewed local classifier.
+- Successful `tree.data.root` remains absolute for compatibility.
+- Tool Card verification remains source-contract based.
+- Native-Windows Stress remains separately blocked by `visible:123:file.txt`.
+
+**Rollback method:**
+
+- Revert the final state-record publication first, then revert `2ecd4af` and `6aaeda4` in reverse order if the complete published slice must be removed.
+- Do not rewrite history or force-push.
+- No credential, profile, Cloudflare, dependency, or workspace rollback is required.
+
+**Next step:** Remain at the Phase 1 planning boundary. Do not start Phase 2 or a third tool implementation without a separately reviewed design, plan, and explicit approval.

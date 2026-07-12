@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: first `server_config` vertical slice is fully published and CI-validated; the second `tree` vertical slice is published through implementation commit `6aaeda4`, with its follow-up closeout record included in the current publication.
+- Phase 1: the first `server_config` and second `tree` vertical slices are published and cross-platform CI-validated. The `tree` implementation is commit `6aaeda4`; its closeout record is commit `2ecd4af`.
 
 ## Approved stopping point
 
-Phase 0.5 is closed. The first Phase 1 `server_config` slice is published and cross-platform CI-validated. The second Phase 1 `tree` slice is published through implementation commit `6aaeda4`, including the required HTTP Smoke consumer migration; its follow-up closeout record is included in the current publication. Verify the final push and CI, then return to the Phase 1 planning boundary. Do not begin Phase 2 or a third tool migration without a separately reviewed plan and explicit approval.
+Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices are published and cross-platform CI-validated. No implementation task is active. The next permitted action is design and planning for one additional Phase 1 tool after explicit approval. Do not begin Phase 2 or a third tool implementation without a separately reviewed plan and explicit approval.
 
 ## Active decisions and constraints
 
@@ -99,10 +99,9 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published and cr
 
 ## Open items
 
-1. Verify the follow-up closeout-record push and local/remote synchronization.
-2. Check the new GitHub Actions run if available; do not modify code unless a failing gate proves a defect.
-3. After publication verification, return to the Phase 1 planning boundary; keep Phase 2 and a third tool migration closed without a new reviewed plan.
-4. Treat the native-Windows Stress fixture filename issue as separate maintenance work.
+1. No Phase 1 implementation task is active; the next permitted action is selecting and designing one additional tool after explicit approval.
+2. Keep Phase 2 and a third tool implementation closed without a new reviewed design and plan.
+3. Treat the native-Windows Stress fixture filename issue as separate maintenance work.
 
 ## Recent summaries
 
@@ -125,6 +124,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published and cr
 - **STEP-097 — Neat-freak `tree` closeout:** synchronized `AGENTS.md`, the Phase 1 roadmap, design status, plan status, all 41 plan checkboxes, and Memory; removed stale “second tool not started” text and established the reviewed eleven-file staging boundary.
 - **STEP-098 — Stage reviewed `tree` slice:** after explicit approval, staged the complete eleven-file implementation, planning, documentation, test, Smoke-consumer, and Memory set; no unstaged changes, commit, or push followed.
 - **STEP-099 — Commit and push `tree` implementation:** created commit `6aaeda4` (`feat: add exact tree output schema`) from the reviewed eleven-file set and pushed `main` to `origin`; closeout record publication and CI verification remained.
+- **STEP-100 — Verify and close `tree` publication:** published closeout record commit `2ecd4af`; CI runs `29194671044` and `29194802582` passed, local `main` matched `origin/main`, and the project returned to the Phase 1 planning boundary.
 
 ## Archives
 

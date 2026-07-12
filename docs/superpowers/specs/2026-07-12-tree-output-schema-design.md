@@ -1,7 +1,7 @@
 # Phase 1 Second Slice Design: Exact `tree` Output Schema
 
 **Date:** 2026-07-12
-**Status:** Approved, fully implemented, locally verified through Task 4, and published in commit `6aaeda4`; follow-up closeout record included in the current publication
+**Status:** Approved, fully implemented, published in commit `6aaeda4`, and cross-platform CI-validated; closeout record published in commit `2ecd4af`
 **Scope:** One vertical slice for `tree` only
 
 ## 1. Purpose
