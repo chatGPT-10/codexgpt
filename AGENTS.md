@@ -180,4 +180,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first `server_config` vertical slice is committed locally and has passed its contract, full-test, build, Smoke, audit, package, and documentation gates. Local `main` is one commit ahead of `origin/main` and awaits explicit push approval. Do not migrate a second tool, alter the completed Phase 0.5 baseline, or push without explicit approval.
+Phase 1 implementation started on 2026-07-12. The first `server_config` vertical slice is published to `origin/main` through implementation commit `b989776` and has passed its contract, full-test, build, Smoke, audit, package, and documentation gates. Do not migrate a second tool or alter the completed Phase 0.5 baseline without a separately reviewed plan and explicit approval.

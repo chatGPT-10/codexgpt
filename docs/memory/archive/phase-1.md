@@ -732,3 +732,18 @@ No user configuration, credentials, profiles, workspaces, remote branches, depen
 - No push, dependency change, credential change, profile change, or Cloudflare change occurred.
 
 **Next step:** After separate explicit approval, push the local commit. Do not migrate a second tool.
+
+## 2026-07-12 — STEP-088: Push exact `server_config` slice
+
+**Status:** Complete; publication record pending synchronization
+
+**Goal:** Publish the reviewed first Phase 1 `server_config` slice after explicit approval and record the remote state without starting a second migration.
+
+**Actions and evidence:**
+
+- Pushed implementation commit `b989776` (`feat: add exact server_config output schema`) from local `main` to `origin/main`.
+- Git reported the remote update `0009b78..b989776  main -> main` with exit code 0.
+- Updated the active status documents to mark the first slice as published.
+- No dependency, credential, profile, workspace, or Cloudflare state changed.
+
+**Next step:** Publish this documentation-only push record, verify local `main` and `origin/main` are synchronized, then review CI. Do not migrate a second tool without a separately reviewed plan and explicit approval.

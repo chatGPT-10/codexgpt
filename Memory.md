@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: first `server_config` vertical slice is committed locally and awaiting push approval.
+- Phase 1: first `server_config` vertical slice is published to `origin/main` through implementation commit `b989776`.
 
 ## Approved stopping point
 
-Phase 0.5 is closed. The first Phase 1 `server_config` slice is committed locally as `feat: add exact server_config output schema`; `main` is one commit ahead of `origin/main`. Stop here for push approval. Do not migrate a second tool or push without explicit approval.
+Phase 0.5 is closed. The first Phase 1 `server_config` slice was published to `origin/main` as implementation commit `b989776` (`feat: add exact server_config output schema`). Stop here after recording the push. Do not migrate a second tool without a separately reviewed plan and explicit approval.
 
 ## Active decisions and constraints
 
@@ -65,7 +65,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is committed locall
 - `npm audit --audit-level=high`: 0 vulnerabilities.
 - `npm pack --dry-run`: 101 files; internal Memory/spec/plan archives excluded.
 - Documentation test: 5/5 passed; changed-file text validation passed.
-- The reviewed Phase 1 slice is committed locally; `main` is one commit ahead of `origin/main`, and no push has occurred.
+- Implementation commit `b989776` was pushed successfully to `origin/main`.
 
 ## Known limitations
 
@@ -75,9 +75,9 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is committed locall
 
 ## Open items
 
-1. The reviewed first-slice commit exists locally and `main` is ahead of `origin/main` by one commit.
-2. After explicit approval, push the local commit.
-3. Do not migrate a second tool or push without separate approval.
+1. The first `server_config` slice is published and its push record is being finalized.
+2. Review CI for the record commit after publication.
+3. Do not migrate a second tool without a separately reviewed plan and explicit approval.
 
 ## Recent summaries
 
@@ -91,7 +91,8 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is committed locall
 - **STEP-084 — Task 3 tool-card data path:** migrated only the `server_config` subtitle and detailed card renderer to nested `data`, retained top-level identity for the generic header, and added a focused compatibility assertion; 6 tests and Build passed.
 - **STEP-085 — Complete exact `server_config` output schema:** finished the first Phase 1 vertical slice, migrated all internal consumers to nested `data`, passed 6/6 contract tests, 44/44 full tests, Build, all 8 Smoke sections, audit, package, and 5/5 documentation tests; awaiting final review and Git approval.
 - **STEP-086 — Stage reviewed Phase 1 slice:** after explicit approval, staged the complete 14-file planning, implementation, internal-consumer, test, and Memory set; no unstaged changes, commit, or push followed.
-- **STEP-087 — Commit exact `server_config` slice:** after explicit approval, created the local commit `feat: add exact server_config output schema`; `main` is one commit ahead of `origin/main`, with no push performed.
+- **STEP-087 — Commit exact `server_config` slice:** after explicit approval, created the local commit `feat: add exact server_config output schema`; `main` was one commit ahead of `origin/main`, with no push performed at that step.
+- **STEP-088 — Push exact `server_config` slice:** after explicit approval, pushed implementation commit `b989776` to `origin/main` and prepared this publication record for remote synchronization.
 
 ## Archives
 
