@@ -174,6 +174,6 @@ Distinguish clearly between:
 
 ## 9. Current approved stopping point
 
-Phase 0.5 has passed the approved local gates. Records-only commit `6c9ba9d` exposed a Linux regression-test hang in CI run `29181286011`; the process-tree cleanup fix has now passed local Node 20/24 regression and Smoke verification and is being pushed for fresh CI. OAuth 2.1 remains deferred.
+Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Do not stage, commit, push, alter CI, or begin Phase 1 without explicit approval. The stuck run still requires manual cancellation in GitHub because automated cancellation could not access repository-admin authentication. The next action is to verify the fresh Ubuntu and Windows CI jobs. Real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.
+Phase 1 has not started. Do not begin Phase 1, alter the completed Phase 0.5 baseline, or create further commits/pushes without separate explicit approval.

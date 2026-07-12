@@ -3906,3 +3906,212 @@ npm run smoke
 - No workflow change, force push, history rewrite, or credential exposure occurred.
 
 **Next step:** Commit and push these four files to trigger fresh CI, manually cancel run `29181286011`, then verify all Ubuntu and Windows jobs before proceeding to Cloudflare validation.
+
+## 2026-07-12 — STEP-060: Push the Linux process-tree cleanup fix
+
+**Status:** Completed; fresh CI triggered, old stuck run still active
+
+**Goal:** Publish the verified Linux process-tree cleanup fix and trigger a fresh GitHub Actions matrix run without modifying runtime source or the CI workflow.
+
+**Commit and push:**
+
+- Commit: `da83f776d06eb3e8a995b27f97f80ffc1d8cd739`
+- Message: `fix: clean up Linux test process trees`
+- Files: `test/connector-auth-output.test.mjs`, `AGENTS.md`, `Memory.md`, and this archive.
+- Push range: `6c9ba9d..da83f77` on `main`.
+- GitHub again redirected the legacy repository URL to `https://github.com/chatGPT-10/codexgpt.git`; the local remote was not changed.
+
+**Fresh CI:**
+
+- New run: `29183635923`.
+- Trigger: push of commit `da83f77`.
+- Initial state: all four matrix jobs were running.
+
+**Old run:**
+
+- Run `29181286011` remained `in_progress` and unchanged.
+- Automated cancellation could not be completed because the execution tool could not use repository-admin GitHub authentication.
+- The old run still requires manual cancellation in the GitHub Actions UI.
+
+**Local recording state:**
+
+- Updated `AGENTS.md`, `Memory.md`, and this archive after the push.
+- These post-push records remain unstaged and uncommitted.
+- No additional code, workflow, credential, profile, remote, or Phase 1 change was made.
+
+**Next step:** Manually cancel run `29181286011`, then inspect run `29183635923` until all Ubuntu and Windows jobs reach a final conclusion. Real external Cloudflare Tunnel validation remains separately required.
+
+## 2026-07-12 — STEP-061: Verify fresh Ubuntu CI after the cleanup fix
+
+**Status:** Ubuntu verification passed; Windows jobs still running
+
+**Goal:** Confirm that commit `da83f77` resolves the Linux regression-test hang in real GitHub-hosted Ubuntu runners.
+
+**Fresh CI run:**
+
+- Run: `29183635923`.
+- Commit: `da83f776d06eb3e8a995b27f97f80ffc1d8cd739`.
+- Ubuntu / Node 20: completed successfully.
+- Ubuntu / Node 24: completed successfully.
+- Both Ubuntu jobs completed the regression, smoke, and package-content stages instead of hanging in `Regression Tests`.
+- This provides direct Linux evidence that process-group cleanup fixed the original hang.
+
+**Still pending at the stopping point:**
+
+- Windows / Node 20 remained in `Smoke Test`.
+- Windows / Node 24 remained in `Smoke Test`.
+- The overall fresh run therefore remained `in_progress` with no final conclusion.
+
+**Old run:**
+
+- Run `29181286011` remained stuck and still requires manual cancellation in the GitHub Actions UI.
+
+**Local recording state:**
+
+- Updated `AGENTS.md`, `Memory.md`, and this archive locally.
+- These records remain unstaged and uncommitted.
+- No code, workflow, remote, credential, profile, commit, push, or Phase 1 change was made after the fix push.
+
+**Next step:** Manually cancel old run `29181286011`, then recheck run `29183635923` for the final Windows results. Real external Cloudflare Tunnel validation remains separately required.
+
+## 2026-07-12 — STEP-062: Complete fresh cross-platform CI verification
+
+**Status:** Completed; all fresh CI jobs passed
+
+**Goal:** Obtain the final result for CI run `29183635923` after the Linux process-tree cleanup fix.
+
+**Final result:**
+
+- Overall run status: `completed`.
+- Overall conclusion: `success`.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+
+**Conclusion:**
+
+- The Linux regression-test hang is fixed in real GitHub-hosted Ubuntu runners.
+- The process-tree cleanup change did not regress either Windows Node version.
+- Remote Ubuntu and Windows CI is now an approved passed gate for Phase 0.5.
+
+**Remaining items:**
+
+- Old run `29181286011` remains stuck and requires manual cancellation in the GitHub Actions UI.
+- Real external Cloudflare Tunnel Host forwarding remains unvalidated and is the remaining Phase 0.5 gate.
+- Phase 1 must not begin until the tunnel validation passes and Phase 0.5 is explicitly closed.
+
+**Local recording state:**
+
+- Updated `AGENTS.md`, `Memory.md`, and this archive locally.
+- These records remain unstaged and uncommitted.
+- No code, workflow, remote, credential, profile, commit, push, or Phase 1 change was made after the successful CI result.
+
+**Next step:** Manually cancel run `29181286011`, then perform the real external Cloudflare Tunnel validation. Do not stage, commit, push, close Phase 0.5, or begin Phase 1 without explicit approval.
+
+## 2026-07-12 — STEP-063: Cancel the stale CI run
+
+**Status:** Completed; stale run cancelled
+
+**Goal:** Remove the obsolete stuck workflow run after the replacement run had already completed successfully.
+
+**Verification:**
+
+- Old run `29181286011`: `completed` with conclusion `cancelled`.
+- Cancellation update time: `2026-07-12T07:14:42Z`.
+- Fresh authoritative run `29183635923`: `completed` with conclusion `success`.
+- The successful fresh run remains the valid Ubuntu/Windows Node 20/24 CI result for commit `da83f77`.
+
+**Safety boundaries:**
+
+- No code, workflow, remote, credential, profile, commit, push, or Phase 1 change was made.
+- The cancellation affected only the obsolete stuck workflow run.
+
+**Local recording state:**
+
+- Updated `AGENTS.md`, `Memory.md`, and this archive locally.
+- These records remain unstaged and uncommitted.
+
+**Next step:** Validate the real external Cloudflare Tunnel Host forwarding path. Do not stage, commit, push, close Phase 0.5, or begin Phase 1 without explicit approval.
+
+## 2026-07-12 — STEP-064: Validate the real external Cloudflare Host-forwarding path
+
+**Status:** Completed; external Host-forwarding gate passed
+
+**Goal:** Verify that the configured public hostname reaches the live CodexPro server through Cloudflare with the correct Host value, rather than stopping at DNS, TLS, Cloudflare, or the CodexPro Host allowlist.
+
+**Active configuration:**
+
+- Profile root: `D:\\Dev\\codexpro`.
+- Local server: `127.0.0.1:8787`.
+- Tunnel mode: `cloudflare-named`.
+- Public hostname: `codexpro.drliang.uk`.
+- Tunnel name: `codexpro-service-rotated-20260709`.
+- Authentication: enabled; the saved token was not printed or exposed.
+
+**Verification:**
+
+1. Confirmed local TCP port `8787` was open.
+2. Requested `https://codexpro.drliang.uk/healthz` without credentials.
+3. Received HTTP `401 Unauthorized` with Cloudflare response evidence: `Server: cloudflare` and a `CF-Ray` header.
+4. Confirmed the response body was CodexPro's `Unauthorized`, not a Cloudflare 404/502 or tunnel error.
+5. Inspected `src/http.ts`: Host validation occurs before authentication. A rejected Host returns `403 Forbidden: Host is not allowed`; only an accepted Host proceeds to the authentication middleware that returns `401 Unauthorized` without a valid token.
+6. Therefore the real public hostname passed DNS/TLS/Cloudflare forwarding and the CodexPro Host allowlist before reaching authentication.
+7. The active `codexpro_windows` connector continued to serve authenticated tool calls during the validation.
+
+**Security limitation:**
+
+- Automated query-token and Bearer probes were intentionally not performed because the execution safety layer blocked commands or temporary scripts that read the saved token and made network requests.
+- This did not prevent validation of the requested Host-forwarding gate: the observed `401` can only occur after Host validation succeeds in the verified middleware order.
+- No token, credential-bearing URL, private key, or tunnel credential was printed, copied, or modified.
+
+**Conclusion:**
+
+- Real external Cloudflare Host forwarding: passed.
+- Local validation: passed.
+- Remote Ubuntu/Windows Node 20/24 CI: passed.
+- All approved Phase 0.5 gates are now satisfied.
+- Phase 0.5 is ready for an explicit closure decision but is not yet closed.
+
+**Local recording state:**
+
+- Updated `AGENTS.md`, `Memory.md`, and this archive locally.
+- These records remain unstaged and uncommitted.
+- No runtime code, workflow, remote, profile, credential, commit, push, Phase 0.5 closure, or Phase 1 work was performed.
+
+**Next step:** Obtain explicit approval to close Phase 0.5 and commit/push the final records. Do not begin Phase 1 before Phase 0.5 is explicitly closed.
+
+## 2026-07-12 — STEP-065: Formally close Phase 0.5
+
+**Status:** Completed; Phase 0.5 closed
+
+**Goal:** Formally close Phase 0.5 after every approved local, cross-platform CI, and real external Cloudflare Host-forwarding gate passed, then publish the final closure record without beginning Phase 1.
+
+**Closure evidence:**
+
+- Local Node 20 and Node 24 regression suites passed.
+- Smoke suite passed all eight sequential sections.
+- GitHub Actions run `29183635923` passed Ubuntu/Windows on Node 20/24.
+- Stale run `29181286011` was manually cancelled and verified as `completed/cancelled`.
+- Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare, passed Host validation, and returned the expected unauthenticated `401 Unauthorized`.
+- No approved Phase 0.5 validation gate remains open.
+
+**Decision:**
+
+- Phase 0.5 is formally closed on 2026-07-12.
+- The completed Phase 0.5 baseline must be preserved.
+- OAuth 2.1 remains deferred.
+- Phase 1 has not started and requires separate explicit approval.
+
+**Files in the closure record:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-0-and-0.5.md`
+
+**Safety boundaries:**
+
+- No runtime code, tests, workflow, package metadata, remote, profile, token, tunnel credential, or access boundary changed.
+- No Phase 1 planning or implementation was performed.
+
+**Next step:** Stop. Do not begin Phase 1 or alter the closed Phase 0.5 baseline without separate explicit approval.

@@ -12,14 +12,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Package: `codexpro@0.28.6`.
 - Primary platform: native Windows.
 - Phase 0: complete.
-- Phase 0.5 implementation and final local Windows review: complete.
-- Complete Phase 0.5 change set: commit `82c24da` pushed to `origin/main`.
-- Staged-diff review blocker: fixed, regression-tested, and included in the pushed commit.
+- Phase 0.5: formally closed on 2026-07-12 after all approved local, remote CI, and real external Cloudflare gates passed.
+- Final Phase 0.5 runtime fix: commit `da83f77` pushed to `origin/main` and verified by successful cross-platform CI run `29183635923`.
+- Stale CI run `29181286011`: manually cancelled after the replacement run passed.
 - Phase 1: not started.
 
 ## Approved stopping point
 
-Records-only commit `6c9ba9d` exposed a Linux regression-test hang in CI run `29181286011`. The process-tree cleanup fix has passed local Node 20/24 regression and Smoke verification and is being pushed for fresh CI. Do not stage, commit, push, alter CI, or begin Phase 1 without further explicit approval. The stuck run still requires manual cancellation in GitHub because automated cancellation could not access repository-admin authentication; real external Cloudflare Tunnel validation remains separately required before Phase 0.5 can close.
+Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. Phase 1 has not started. Do not begin Phase 1, alter the completed Phase 0.5 baseline, or create further commits/pushes without separate explicit approval.
 
 ## Active decisions and constraints
 
@@ -54,18 +54,19 @@ Records-only commit `6c9ba9d` exposed a Linux regression-test hang in CI run `29
 - npm HOME remains corrected to `C:\Users\Administrator`; npm cache and userconfig stay outside the repository.
 - The pinned Cloudflared `2026.7.1` asset names and SHA-256 values match the reviewed official checksum list.
 
-## Remaining validation and limitations
+## Closed-gate evidence and known limitations
 
-- CI run `29181286011` is stuck and still requires manual cancellation; the Linux process-tree cleanup fix passed local Node 20/24 regressions at 38/38 and Smoke 8/8, but fresh Ubuntu CI remains pending.
-- Real external Cloudflare Host forwarding remains unvalidated.
+- No Phase 0.5 validation gates remain.
+- Fresh CI run `29183635923` passed all Ubuntu/Windows Node 20/24 jobs; old run `29181286011` was manually cancelled and is now `completed/cancelled`.
+- Real external Cloudflare Host forwarding is validated: the public hostname reached CodexPro through Cloudflare and passed Host validation before returning the expected unauthenticated `401`.
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 
 ## Open items
 
-1. Manually cancel stuck CI run `29181286011` in the GitHub Actions UI.
-2. Verify the fresh Ubuntu/Windows CI run triggered by the process-tree cleanup fix.
-3. Validate the real external Cloudflare Tunnel Host forwarding path; only after CI and tunnel validation pass may Phase 0.5 close or Phase 1 begin.
+1. Phase 0.5 is closed; preserve the completed baseline.
+2. Do not begin Phase 1 without separate explicit approval.
+3. When Phase 1 is approved, start with planning only and add one feature at a time.
 
 ## Recent steps
 
@@ -85,10 +86,16 @@ Records-only commit `6c9ba9d` exposed a Linux regression-test hang in CI run `29
 - **STEP-057 — CI status check:** Windows Node 20 and 24 completed successfully; Ubuntu Node 20 and 24 remained in progress at `Regression Tests`, so no final CI conclusion was recorded.
 - **STEP-058 — Ubuntu CI hang diagnosis:** confirmed both Ubuntu jobs were stuck for about 82 minutes and traced the likely cause to Linux process-tree cleanup: the test terminates the outer `codexpro-entry.mjs` process while its synchronous legacy CLI child and MCP server descendant can remain alive holding inherited pipes.
 - **STEP-059 — Linux test process-tree fix:** made the CLI test a separate POSIX process group, terminates the whole group with `SIGTERM`/`SIGKILL`, added direct cleanup-logic coverage, and passed Node 20/24 regression 38/38 plus Smoke 8/8 before pushing fresh CI.
+- **STEP-060 — Push Linux cleanup fix:** pushed commit `da83f77`, which triggered fresh CI run `29183635923`; old run `29181286011` still requires manual cancellation.
+- **STEP-061 — Fresh Ubuntu CI verification:** Ubuntu Node 20 and 24 completed successfully in run `29183635923`, confirming the Linux regression-test hang is fixed; Windows Node 20 and 24 remained in Smoke at the stopping point.
+- **STEP-062 — Fresh CI complete:** run `29183635923` completed successfully across Ubuntu/Windows and Node 20/24; the remaining Phase 0.5 gate is real external Cloudflare Tunnel validation, while old run `29181286011` still needs manual cancellation.
+- **STEP-063 — Cancel stale CI run:** manually cancelled run `29181286011` and verified it is `completed/cancelled`; fresh successful run `29183635923` remains the authoritative CI result.
+- **STEP-064 — External Cloudflare validation:** confirmed `codexpro.drliang.uk` resolves through Cloudflare to CodexPro at local port 8787; the public `/healthz` request passed Host validation and returned the expected unauthenticated `401`, so all Phase 0.5 gates are satisfied.
+- **STEP-065 — Close Phase 0.5:** formally closed Phase 0.5 after all approved gates passed and committed/pushed the final closure records; Phase 1 remains unstarted.
 
 ## Archives
 
-- [Phase 0 and Phase 0.5 — STEP-000 through STEP-059](docs/memory/archive/phase-0-and-0.5.md)
+- [Phase 0 and Phase 0.5 — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
 
 Archive integrity for the pre-migration journal:
 
