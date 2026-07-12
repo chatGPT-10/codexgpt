@@ -139,6 +139,8 @@ Memory rules:
 - `docs/memory/archive/phase-1.md` — active Phase 1 planning and implementation record from STEP-073 onward.
 - `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md` — approved design for the first Phase 1 vertical slice.
 - `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` — executed plan for the completed first Phase 1 `server_config` vertical slice.
+- `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md` — approved design for the completed local second Phase 1 `tree` slice.
+- `docs/superpowers/plans/2026-07-12-tree-output-schema.md` — executed four-task plan for the completed local `tree` slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -180,4 +182,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first `server_config` vertical slice is published through implementation commit `b989776` and record commit `ec6c0c0`; both CI runs passed on Ubuntu/Windows Node 20/24, and local `main` is synchronized with `origin/main`. No Phase 1 implementation task is active. Do not migrate a second tool or alter the completed Phase 0.5 baseline without a separately reviewed plan and explicit approval.
+Phase 1 implementation started on 2026-07-12. The first `server_config` vertical slice is published and cross-platform CI-validated. The second `tree` vertical slice is fully implemented, locally verified, and staged as an eleven-file reviewed change set, including the required HTTP Smoke consumer migration. Stop before commit. Do not commit, push, begin Phase 2, or start a third tool migration without separate explicit approval.

@@ -415,13 +415,14 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The first `server_config` vertical slice is published through implementation commit `b989776` and record commit `ec6c0c0`; both CI runs passed on Ubuntu/Windows Node 20/24. No second tool has been migrated, and no Phase 1 implementation task is active.
+Status: implementation started on 2026-07-12. The first `server_config` vertical slice is published and cross-platform CI-validated. The second `tree` vertical slice is fully implemented, locally verified, and staged as an eleven-file reviewed change set, awaiting separate commit approval. Phase 1 remains active; Phase 2 has not started.
 
-- delivered the common result, metadata, and stable-error primitives required by the first slice;
-- delivered an exact `outputSchema` for `server_config` with real MCP success/failure contract tests;
-- preserved the existing human-readable `content` output and MCP `isError` behavior;
-- migrated the `server_config` tool card and internal consumers to nested `data`;
-- migrate later tools incrementally in separate reviewed steps.
+- delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
+- delivered exact advertised `outputSchema` contracts for `server_config` and `tree` with real MCP success/failure contract tests;
+- preserved human-readable `content` output and MCP `isError` behavior;
+- migrated both tool cards and proven internal consumers to nested `data`;
+- introduced six safe, stable, non-retryable `tree` error codes through a local classifier without refactoring global errors;
+- continue migrating later tools incrementally through separately reviewed designs and plans.
 
 ### Phase 2 — Workspace lifecycle and isolation
 

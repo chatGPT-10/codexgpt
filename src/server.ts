@@ -6,7 +6,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { CodexProConfig } from "./config.js";
 import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
-import { repoTree, readTextFile, writeTextFile, editTextFile, ensureAiBridge } from "./fsOps.js";
+import {
+  repoTree,
+  readTextFile,
+  writeTextFile,
+  editTextFile,
+  ensureAiBridge,
+  type TreeOptions,
+  type TreeResult
+} from "./fsOps.js";
 import { searchWorkspace } from "./searchOps.js";
 import { probeBashAvailability, runBash } from "./bashOps.js";
 import { gitDiff, gitDiffStatus, gitLog, gitStatus } from "./gitOps.js";
@@ -24,12 +32,117 @@ import {
   serverConfigOutputShape,
   type ServerConfigData
 } from "./tools/schemas/serverConfig.js";
+import {
+  TREE_ERROR_MESSAGES,
+  createTreeFailure,
+  createTreeSuccess,
+  treeDataSchema,
+  treeOutputShape,
+  type TreeFailureInput
+} from "./tools/schemas/tree.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
 function errorText(error: unknown): string {
   if (error instanceof Error) return redactSensitiveText(`${error.name}: ${error.message}`);
   return redactSensitiveText(String(error));
+}
+
+const TREE_WINDOWS_RESERVED_SEGMENT = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i;
+
+function cleanTreeDetail(value: unknown, maxLength: number, fallback: string): string {
+  const cleaned = String(value ?? "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (cleaned || fallback).slice(0, maxLength);
+}
+
+function safeTreeWorkspaceIdDetail(value: unknown): string {
+  return cleanTreeDetail(value, 160, "[workspace id omitted]");
+}
+
+function treePathLooksUnsafeForDetails(value: string): boolean {
+  const windows = value.replace(/\//g, "\\");
+  if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value)) return true;
+  if (/^\\\\/.test(windows) || /^[A-Za-z]:/.test(windows)) return true;
+  if (windows.includes(":")) return true;
+
+  return windows
+    .split(/\\+/)
+    .filter(Boolean)
+    .some((segment) =>
+      segment !== "." &&
+      segment !== ".." &&
+      (segment.endsWith(".") ||
+        segment.endsWith(" ") ||
+        TREE_WINDOWS_RESERVED_SEGMENT.test(segment))
+    );
+}
+
+function safeTreePathDetail(value: unknown): string {
+  const raw = String(value ?? ".");
+  if (treePathLooksUnsafeForDetails(raw)) return "[unsafe path omitted]";
+  return cleanTreeDetail(raw, 240, "[path omitted]");
+}
+
+function nodeErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+function classifyTreeFailure(error: unknown, args: Record<string, unknown>): TreeFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  if (nodeErrorCode(error) === "ENOENT") {
+    return {
+      code: "FILE_NOT_FOUND",
+      details: { path: safeTreePathDetail(args.path ?? ".") }
+    };
+  }
+
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return {
+      code: "PATH_BLOCKED",
+      details: { path: safeTreePathDetail(args.path ?? ".") }
+    };
+  }
+
+  if (message.startsWith("Not a directory:")) {
+    return {
+      code: "NOT_A_DIRECTORY",
+      details: { path: safeTreePathDetail(args.path ?? ".") }
+    };
+  }
+
+  const outsidePrefixes = [
+    "Path contains a null byte.",
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return {
+      code: "PATH_OUTSIDE_WORKSPACE",
+      details: { path: safeTreePathDetail(args.path ?? ".") }
+    };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
 }
 
 function compactStructuredContent<T>(value: T, depth = 0): T {
@@ -208,8 +321,16 @@ function registerToolCardResource(server: McpServer, config: CodexProConfig): vo
 
 type CodexToolHandler = (args: any) => Promise<any> | any;
 
+export interface TreeProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  options: TreeOptions;
+}
+
 export interface CodexProServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
+  treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -1000,6 +1121,10 @@ export function createCodexProServer(
   const serverConfigDataProvider =
     dependencies.serverConfigDataProvider ??
     (() => buildServerConfigData(config, server));
+  const treeResultProvider =
+    dependencies.treeResultProvider ??
+    ((context: TreeProviderContext) =>
+      repoTree(context.config, context.guard, context.workspace, context.options));
   registeredToolNamesByServer.set(server as object, []);
   registerToolCardResource(server, config);
 
@@ -1724,6 +1849,7 @@ export function createCodexProServer(
         include_hidden: z.boolean().optional().describe("Include dotfiles/dotfolders that are not blocked. Default: false."),
         max_entries: z.number().int().min(1).max(3000).optional().describe("Maximum entries. Default: 800.")
       },
+      outputSchema: treeOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -1732,14 +1858,37 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const result = await repoTree(config, guard, workspace, {
-        path: args.path ?? ".",
-        maxDepth: limitInt(args.max_depth, 4, 1, 12),
-        includeHidden: parseBool(args.include_hidden, false),
-        maxEntries: limitInt(args.max_entries, 800, 1, 3000)
-      });
-      return textResult(result.text, { workspace_id: workspace.id, root: workspace.root, ...result });
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const options: TreeOptions = {
+          path: args.path ?? ".",
+          maxDepth: limitInt(args.max_depth, 4, 1, 12),
+          includeHidden: parseBool(args.include_hidden, false),
+          maxEntries: limitInt(args.max_entries, 800, 1, 3000)
+        };
+        const result = await treeResultProvider({ config, guard, workspace, options });
+        const data = treeDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          ...result
+        });
+
+        return textResult(result.text, createTreeSuccess(data));
+      } catch (error) {
+        const failure = classifyTreeFailure(error, args);
+        const structured = createTreeFailure(failure);
+        const text = [
+          "# File Tree Error",
+          "",
+          `Code: ${failure.code}`,
+          TREE_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+
+        return {
+          ...textResult(text, structured),
+          isError: true
+        };
+      }
     }
   );
 

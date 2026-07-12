@@ -521,6 +521,11 @@ export const toolCardWidgetHtml = String.raw`
       const session = config?.bashSessionId || config?.bash_session_id;
       return "tools " + (config?.toolMode || config?.tool_mode || "-") + ", bash " + (config?.bashMode || config?.bash_mode || "-") + (session ? ", session " + session : "");
     }
+    if (data?.codexpro_tool === "tree") {
+      if (data?.ok === false) return data?.error?.code || "File tree unavailable";
+      const tree = data?.data ?? {};
+      return tree.root || "File tree";
+    }
     if (data?.codexpro_tool === "workspace_snapshot") return data?.root || "Workspace snapshot";
     if (data?.codexpro_tool === "inspect_workspace") {
       const coverage = data?.coverage || {};
@@ -970,6 +975,39 @@ export const toolCardWidgetHtml = String.raw`
       '</div></article>';
   }
 
+  function renderTree(data) {
+    const tree = data?.data ?? {};
+    const error = data?.error ?? {};
+
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "File tree unavailable.") +
+        '</div></div></article>';
+    }
+
+    const entries = Number.isFinite(tree.entries) ? tree.entries : 0;
+    const truncated = tree.truncated === true;
+    const text = typeof tree.text === "string" ? tree.text : "";
+    const pills = [
+      pill(entries + " entries", "info"),
+      truncated ? pill("truncated", "warn") : pill("complete", "good")
+    ].join("");
+
+    return '<article class="card">' +
+      header(data, pills) +
+      '<div class="body">' +
+      '<div class="metrics">' + metric("root", tree.root || "-") + '</div>' +
+      fold(
+        "Tree",
+        countLines(text) + " lines",
+        codebox("tree", esc(previewLines(text, 40)), ""),
+        false
+      ) +
+      '</div></article>';
+  }
+
   function renderGeneric(data) {
     const keys = Object.keys(data || {}).filter((key) => !key.startsWith("codexpro_"));
     const metrics = keys.slice(0, 3).map((key) => metric(key, typeof data[key] === "object" ? JSON.stringify(data[key]) : data[key])).join("");
@@ -1015,6 +1053,8 @@ export const toolCardWidgetHtml = String.raw`
       root.innerHTML = renderWorkspaces(data);
     } else if (tool === "open_current_workspace" || tool === "open_workspace" || tool === "workspace_snapshot") {
       root.innerHTML = renderWorkspace(data);
+    } else if (tool === "tree") {
+      root.innerHTML = renderTree(data);
     } else if (tool === "inspect_workspace") {
       root.innerHTML = renderWorkspaceAnalysis(data);
     } else if (tool === "git_status") {

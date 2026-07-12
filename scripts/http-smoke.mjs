@@ -584,8 +584,8 @@ try {
     }
 
     const tree = await callTool(client, 'tree', { workspace_id: opened, max_depth: 1, max_entries: 10 });
-    if (tree.structuredContent.workspace_id !== opened) {
-      throw new Error(`tree returned ${tree.structuredContent.workspace_id}, expected ${opened}`);
+    if (tree.structuredContent.data?.workspace_id !== opened) {
+      throw new Error(`tree returned ${tree.structuredContent.data?.workspace_id}, expected ${opened}`);
     }
 
     const codexContext = await callTool(client, 'codex_context', { workspace_id: opened });

@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: first `server_config` vertical slice is fully published and CI-validated through implementation commit `b989776` and record commit `ec6c0c0`.
+- Phase 1: first `server_config` vertical slice is fully published and CI-validated; the second `tree` vertical slice is fully implemented, locally verified, and staged as an eleven-file reviewed change set, awaiting separate commit approval.
 
 ## Approved stopping point
 
-Phase 0.5 is closed. The first Phase 1 `server_config` slice is published through implementation commit `b989776` and record commit `ec6c0c0`; CI runs `29189127483` and `29189202711` both passed on Ubuntu/Windows Node 20/24. Local `main` and `origin/main` are synchronized. Stop at the next planning boundary. Do not migrate a second tool without a separately reviewed plan and explicit approval.
+Phase 0.5 is closed. The first Phase 1 `server_config` slice is published and cross-platform CI-validated. The second Phase 1 `tree` slice is fully implemented, locally verified, and staged as an eleven-file reviewed change set, including the required HTTP Smoke consumer migration. Stop before commit. Do not commit, push, or begin Phase 2 without explicit approval.
 
 ## Active decisions and constraints
 
@@ -40,6 +40,10 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published throug
 - Its stable error object is `code`, `message`, `retryable`, and `details`; the first slice introduces only `INTERNAL_ERROR`, with redacted output and no stack traces or secrets.
 - Schema ownership is split: `src/tools/schemas/common.ts` owns shared envelope contracts, while `src/tools/schemas/serverConfig.ts` owns the exact `server_config` data and output schemas; types are inferred from Zod.
 - Contract tests use a pure handler/result factory with test-only dependency injection; no environment flag, CLI option, hidden MCP argument, HTTP route, or production test mode is allowed.
+- The second Phase 1 slice is `tree` only. It preserves existing snake_case data fields under `data`: `workspace_id`, `root`, `text`, `entries`, and `truncated`.
+- `tree` introduces only `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_DIRECTORY`, and `INTERNAL_ERROR`; all are non-retryable and use exact safe details.
+- `tree` uses a local error-classification adapter because the global `CodexProError` remains untyped; global error refactoring and Phase 2 workspace lifecycle work are out of scope.
+- The approved `tree` design is recorded in `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md`; its four-task TDD plan in `docs/superpowers/plans/2026-07-12-tree-output-schema.md` is fully executed locally through the staging approval boundary.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval.
 
 ## Final Phase 0.5 evidence
@@ -70,23 +74,38 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published throug
 - Local `main` and `origin/main` were synchronized at `ec6c0c0` before the documentation-only tidy-up.
 - Neat-freak closeout commit `ca17257` was pushed to `origin/main`; CI run `29189679200` completed successfully on Ubuntu/Windows Node 20/24.
 
+## Second Phase 1 slice local evidence
+
+- Baseline before Task 1: complete Node suite 44/44 passed.
+- Task 1 RED: `test/tree-contract.test.mjs` failed with the expected `ERR_MODULE_NOT_FOUND` for `src/tools/schemas/tree.ts`.
+- Task 1 GREEN: 4/4 focused Schema/constructor tests passed.
+- TypeScript build passed with exit code 0.
+- Task 2 RED: the original 4 constructor tests passed while 7 real MCP tests failed for the missing descriptor, legacy result shape, and absent provider seam.
+- Task 2 GREEN: 11/11 focused tests passed, including real success, five expected user errors, and redacted `INTERNAL_ERROR`.
+- Existing `server_config` contract regression: 6/6 passed; TypeScript build passed.
+- Task 3 RED: the first 11 tests passed while the new Tool Card source-contract test failed because `renderTree` and the dedicated route were absent.
+- Task 3 GREEN: 12/12 focused tests passed; TypeScript build passed.
+- Task 4 focused/full/build gates: 12/12 focused tests, 56/56 complete Node tests, and TypeScript build passed.
+- Initial Smoke found one approved direct consumer in `scripts/http-smoke.mjs`; after moving its two reads to `structuredContent.data`, the narrow HTTP Smoke and all 8 full Smoke sections passed.
+- Audit: 0 vulnerabilities. Package dry-run: 103 files; compiled `tree` Schema included and internal tests/Memory/specs/plans excluded. Documentation: 5/5 passed.
+- Stress syntax, whitespace, conflict-marker, NUL, Memory-limit, credential-pattern, stale-consumer, and complete-scope checks passed.
+- The complete local `tree` slice is ready for separate staging review.
+
 ## Known limitations
 
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
-- `npm run stress` still fails on native Windows before reaching this slice because its fixture creates the invalid Windows filename `visible:123:file.txt`; script syntax and migrated `server_config` reads were checked separately.
+- `npm run stress` remains separately blocked on native Windows because its fixture creates the invalid filename `visible:123:file.txt`; the fixture was not changed and `node --check scripts/stress.mjs` passed.
 
 ## Open items
 
-1. No Phase 1 implementation task is active; the first `server_config` slice is closed and verified.
-2. The next permitted Phase 1 action is planning and design for one additional tool, after explicit approval.
-3. Treat the native-Windows Stress fixture filename issue as separate maintenance work; do not mix it into the next schema slice.
+1. Review the complete staged eleven-file `tree` slice.
+2. After explicit approval, create one local commit for the reviewed slice; do not push in the commit step.
+3. Keep Phase 2 closed and do not start a third tool migration without a new reviewed plan.
+4. Treat the native-Windows Stress fixture filename issue as separate maintenance work.
 
 ## Recent summaries
 
-- **STEP-077 — Split schema ownership:** approved S2 with shared contracts in `src/tools/schemas/common.ts` and exact `server_config` schemas in `src/tools/schemas/serverConfig.ts`, with TypeScript types inferred from Zod.
-- **STEP-078 — Contract tests with dependency injection:** approved T2 to test success, failure, and advertised schema through a pure construction seam, without adding any production failure switch or test backdoor.
-- **STEP-079 — Formal design specification:** wrote, self-reviewed, and received user approval for `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md`.
 - **STEP-080 — Implementation plan:** wrote and self-reviewed `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` with four TDD tasks, exact interfaces, commands, review gates, and rollback; execution was approved afterward and completed in STEP-085.
 - **STEP-081 — Neat-freak reconciliation:** synchronized active status across `AGENTS.md`, the roadmap, and Memory; added design/plan pointers and removed the implementation plan's fixed future STEP number.
 - **STEP-082 — Task 1 exact Schema contracts:** under TDD, added shared metadata/error contracts, the strict `server_config` data and success/failure schemas, and 3 focused contract tests; tests and TypeScript build passed. Real MCP integration remains Task 2.
@@ -98,6 +117,14 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published throug
 - **STEP-088 — Push exact `server_config` slice:** after explicit approval, pushed implementation commit `b989776` to `origin/main` and prepared the publication record.
 - **STEP-089 — Neat-freak Phase 1 slice closeout:** verified both implementation and record CI runs passed on Ubuntu/Windows Node 20/24, confirmed local/remote synchronization, removed completed push/CI items, and restored a planning-only boundary for the next tool.
 - **STEP-090 — Publish and verify neat-freak closeout:** committed and pushed the six-file closeout as `ca17257`, then verified CI run `29189679200` completed successfully on Ubuntu/Windows Node 20/24.
+- **STEP-091 — Select and specify the `tree` slice:** inspected the current tool list and implementation boundaries, approved `tree` as the second Phase 1 slice, fixed its exact data and six-code failure contract, wrote and self-reviewed `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md`, and stopped before implementation-plan writing.
+- **STEP-092 — Write the `tree` implementation plan:** after written-spec approval, produced and self-reviewed `docs/superpowers/plans/2026-07-12-tree-output-schema.md` with four TDD tasks, 41 tracked steps, exact interfaces and code, per-task Memory/review gates, complete verification, rollback, and a stop before Task 1 pending user approval.
+- **STEP-093 — Task 1 exact `tree` contracts:** under TDD, added `src/tools/schemas/tree.ts` and `test/tree-contract.test.mjs`; observed the expected missing-module RED, then passed 4/4 focused tests and the TypeScript build. Real MCP integration and Tool Card migration remain unstarted.
+- **STEP-094 — Task 2 real `tree` MCP integration:** added the exact advertised Schema, strict success/failure envelopes, constructor-only `treeResultProvider`, safe local error classification, and seven real MCP tests; 11/11 focused tests, 6/6 `server_config` regression tests, and Build passed. Tool Card migration remains Task 3.
+- **STEP-095 — Task 3 nested-data `tree` Tool Card:** under TDD, added a dedicated subtitle, success/error renderer, and route that read tool fields only from `data`; the new source-contract test failed before implementation, then all 12 focused tests and Build passed. Full closeout remained Task 4.
+- **STEP-096 — Complete local `tree` slice:** passed 12/12 focused and 56/56 complete tests, Build, all 8 Smoke sections, audit, 103-file package, 5/5 documentation, Stress syntax, text-safety, consumer, and scope checks; migrated the one proven HTTP Smoke consumer to nested `data` and stopped before staging.
+- **STEP-097 — Neat-freak `tree` closeout:** synchronized `AGENTS.md`, the Phase 1 roadmap, design status, plan status, all 41 plan checkboxes, and Memory; removed stale “second tool not started” text and established the reviewed eleven-file staging boundary.
+- **STEP-098 — Stage reviewed `tree` slice:** after explicit approval, staged the complete eleven-file implementation, planning, documentation, test, Smoke-consumer, and Memory set; no unstaged changes, commit, or push followed.
 
 ## Archives
 
