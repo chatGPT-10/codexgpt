@@ -251,3 +251,47 @@ These maintenance records are committed separately from the main documentation r
 - Do not force-push or rewrite `main` history.
 
 **Next step:** Stop. Do not begin Phase 1 without separate explicit approval and planning.
+
+## 2026-07-12 — STEP-072: Prepare a clean Phase 1 planning boundary
+
+**Status:** Completed locally; unstaged and uncommitted
+
+**Goal:** Run the `neat-freak` workflow after the documentation push and make the next approved project action unambiguous without starting Phase 1.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance.md`
+
+**Implementation summary:**
+
+- Confirmed `main`, `origin/main`, and remote `HEAD` were synchronized at `6dc359e` before this cleanup.
+- Confirmed `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` already defines the Phase 1 scope: result envelope, stable typed errors, exact per-tool `outputSchema`, success/failure contract tests, and incremental compatibility.
+- Kept `AGENTS.md` and the roadmap unchanged because their rules and Phase 1 boundary remain current.
+- Reframed `Memory.md` from post-push closure narration to a concise readiness state: Phase 1 is ready for planning but has not started.
+- Defined the next approved sequence as explicit approval, planning only, creation of `docs/memory/archive/phase-1.md`, plan review, and then one feature at a time.
+
+**Verification commands and results:**
+
+- Active Markdown Phase 1 reference scan: all matches consistently state that Phase 1 has not started and requires separate approval.
+- Size check: `AGENTS.md` remains 181 lines / 9,126 bytes; `Memory.md` remains below its 150-line / 18-KB practical target.
+- `git diff --check`: passed after the cleanup; only expected Windows line-ending warnings may be reported.
+- Workspace change review: only `Memory.md` and this interphase archive changed.
+
+**Decisions made:**
+
+- This cleanup does not constitute Phase 1 approval or commencement.
+- Do not create the Phase 1 archive until Phase 1 planning is explicitly approved.
+- Do not modify source code during the first Phase 1 action; planning must be reviewed first.
+
+**Risks and limitations:**
+
+- The cleanup is unstaged and uncommitted.
+- The exact first Phase 1 implementation slice has not yet been selected or designed.
+
+**Rollback method:**
+
+- Revert the STEP-072 edits in `Memory.md` and remove this appended archive section.
+- No source, runtime, remote, credential, branch, commit, or push rollback is required.
+
+**Next step:** Await explicit approval to begin Phase 1 planning. Do not implement, stage, commit, or push yet.

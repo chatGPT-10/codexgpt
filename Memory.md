@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Approved stopping point
 
-Phase 0.5 is closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Phase 1 requires separate explicit approval and must begin with planning only. Do not alter the closed Phase 0.5 baseline, make further Git remote changes, commit, or push without explicit approval.
+Phase 0.5 is closed and `main` is clean and synchronized with `origin/main` at `6dc359e`. The repository is ready for Phase 1 planning, but Phase 1 has not started. Separate explicit approval is required; the first approved action must be planning only, followed by creation of the Phase 1 archive before implementation. Do not alter the closed Phase 0.5 baseline, stage, commit, or push without explicit approval.
 
 ## Active decisions and constraints
 
@@ -60,17 +60,17 @@ Phase 0.5 is closed. All approved local, Ubuntu/Windows CI, and real external Cl
 
 ## Open items
 
-1. No implementation work is active.
-2. Do not begin Phase 1 without separate explicit approval.
-3. When Phase 1 is approved, create its archive and implement one feature at a time.
+1. Await explicit approval to begin Phase 1 planning.
+2. After approval, create `docs/memory/archive/phase-1.md` and define the first single-feature implementation plan.
+3. Do not modify source code or the closed Phase 0.5 baseline until that plan is reviewed and approved.
 
 ## Recent summaries
 
-- **STEP-067 — Git remote update:** changed local `origin` fetch and push URLs to `https://github.com/chatGPT-10/codexgpt.git` and verified remote `HEAD` resolves to `73d7f8f`.
 - **STEP-068 — Documentation diff review:** reviewed the complete change set, found no blocker, confirmed only documentation/rules/memory files changed, and re-ran the focused 6/6 documentation tests plus the diff check.
 - **STEP-069 — Stage reviewed documentation:** staged all 12 reviewed documentation, rule, website, and memory paths after explicit approval.
 - **STEP-070 — Commit post-Phase 0.5 documentation:** created local commit `7b9c0fe` (`docs: reconcile post-Phase 0.5 documentation`) after explicit approval.
-- **STEP-071 — Push documentation reconciliation:** pushed the documentation reconciliation and its maintenance record to `origin/main` after explicit approval; Phase 1 remains unstarted.
+- **STEP-071 — Push documentation reconciliation:** pushed through record commit `6dc359e`; local `main`, `origin/main`, and remote `HEAD` were synchronized.
+- **STEP-072 — Phase 1 readiness cleanup:** used `neat-freak` to confirm the roadmap already defines Phase 1, condensed the active next action, and marked the repository ready for planning but not started.
 
 ## Archives
 
