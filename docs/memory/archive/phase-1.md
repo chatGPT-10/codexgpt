@@ -1289,3 +1289,44 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - No source rollback, dependency change, credential, profile, Cloudflare, remote, commit, or push rollback is required.
 
 **Next step:** User reviews the complete staged eleven-file slice and explicitly approves one local commit. Do not push in the commit step. Do not begin Phase 2 or a third tool migration.
+
+## 2026-07-12 — STEP-099: Commit and push the `tree` implementation
+
+**Status:** Implementation published; follow-up closeout record included in the current publication
+
+**Goal:** Create the reviewed implementation commit, push it to `origin/main`, and prepare the final publication record without changing feature behavior.
+
+**Implementation summary:**
+
+- Re-ran the cached-diff whitespace check before committing; it passed.
+- Created local commit `6aaeda4` with message `feat: add exact tree output schema`.
+- The commit contains the complete reviewed eleven-file implementation, planning, documentation, test, HTTP Smoke consumer, and Memory set.
+- Pushed `main` from `b0d1875` through `6aaeda4` to `origin/main` successfully.
+- Updated `AGENTS.md`, the Phase 1 roadmap, the `tree` design and executed plan, root Memory, and this archive to record the published implementation.
+- No feature source, dependency, credential, profile, Cloudflare, workspace lifecycle, Stress fixture, or Phase 2 behavior changed in the follow-up record.
+
+**Verification commands and results:**
+
+- `git diff --cached --check`: passed before the implementation commit.
+- `git commit -m "feat: add exact tree output schema"`: exit code 0; 11 files changed, 3,314 insertions, and 28 deletions.
+- `git push origin main`: exit code 0; `b0d1875..6aaeda4 main -> main`.
+- The follow-up record will receive its own local commit and push, followed by local/remote synchronization and GitHub Actions status checks.
+
+**Decisions made:**
+
+- Preserve implementation commit `6aaeda4` as the feature commit.
+- Publish status and Memory reconciliation as a separate follow-up commit.
+- Do not begin Phase 2 or a third tool migration after publication; return to the Phase 1 planning boundary.
+
+**Risks or limitations:**
+
+- GitHub Actions results are not yet recorded in this entry.
+- The local classifier, absolute successful `root`, source-based Tool Card test, and native-Windows Stress limitations remain unchanged.
+
+**Rollback method:**
+
+- Before downstream work, revert the follow-up record commit and then revert `6aaeda4` if the entire `tree` slice must be removed.
+- Do not force-push or rewrite published history.
+- No credential, profile, Cloudflare, or workspace rollback is required.
+
+**Next step:** Commit and push this follow-up closeout record, verify local `main` matches `origin/main`, then inspect the new GitHub Actions run. Do not begin Phase 2 or a third tool migration.

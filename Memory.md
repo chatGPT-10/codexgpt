@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: first `server_config` vertical slice is fully published and CI-validated; the second `tree` vertical slice is fully implemented, locally verified, and staged as an eleven-file reviewed change set, awaiting separate commit approval.
+- Phase 1: first `server_config` vertical slice is fully published and CI-validated; the second `tree` vertical slice is published through implementation commit `6aaeda4`, with its follow-up closeout record included in the current publication.
 
 ## Approved stopping point
 
-Phase 0.5 is closed. The first Phase 1 `server_config` slice is published and cross-platform CI-validated. The second Phase 1 `tree` slice is fully implemented, locally verified, and staged as an eleven-file reviewed change set, including the required HTTP Smoke consumer migration. Stop before commit. Do not commit, push, or begin Phase 2 without explicit approval.
+Phase 0.5 is closed. The first Phase 1 `server_config` slice is published and cross-platform CI-validated. The second Phase 1 `tree` slice is published through implementation commit `6aaeda4`, including the required HTTP Smoke consumer migration; its follow-up closeout record is included in the current publication. Verify the final push and CI, then return to the Phase 1 planning boundary. Do not begin Phase 2 or a third tool migration without a separately reviewed plan and explicit approval.
 
 ## Active decisions and constraints
 
@@ -99,14 +99,13 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published and cr
 
 ## Open items
 
-1. Review the complete staged eleven-file `tree` slice.
-2. After explicit approval, create one local commit for the reviewed slice; do not push in the commit step.
-3. Keep Phase 2 closed and do not start a third tool migration without a new reviewed plan.
+1. Verify the follow-up closeout-record push and local/remote synchronization.
+2. Check the new GitHub Actions run if available; do not modify code unless a failing gate proves a defect.
+3. After publication verification, return to the Phase 1 planning boundary; keep Phase 2 and a third tool migration closed without a new reviewed plan.
 4. Treat the native-Windows Stress fixture filename issue as separate maintenance work.
 
 ## Recent summaries
 
-- **STEP-080 — Implementation plan:** wrote and self-reviewed `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` with four TDD tasks, exact interfaces, commands, review gates, and rollback; execution was approved afterward and completed in STEP-085.
 - **STEP-081 — Neat-freak reconciliation:** synchronized active status across `AGENTS.md`, the roadmap, and Memory; added design/plan pointers and removed the implementation plan's fixed future STEP number.
 - **STEP-082 — Task 1 exact Schema contracts:** under TDD, added shared metadata/error contracts, the strict `server_config` data and success/failure schemas, and 3 focused contract tests; tests and TypeScript build passed. Real MCP integration remains Task 2.
 - **STEP-083 — Task 2 real MCP integration:** advertised the exact `server_config.outputSchema`, returned strict success/failure envelopes through real in-memory MCP calls, measured `durationMs`, added a constructor-only provider seam, and verified redaction plus `isError: true`; 5 tests and Build passed.
@@ -125,6 +124,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice is published and cr
 - **STEP-096 — Complete local `tree` slice:** passed 12/12 focused and 56/56 complete tests, Build, all 8 Smoke sections, audit, 103-file package, 5/5 documentation, Stress syntax, text-safety, consumer, and scope checks; migrated the one proven HTTP Smoke consumer to nested `data` and stopped before staging.
 - **STEP-097 — Neat-freak `tree` closeout:** synchronized `AGENTS.md`, the Phase 1 roadmap, design status, plan status, all 41 plan checkboxes, and Memory; removed stale “second tool not started” text and established the reviewed eleven-file staging boundary.
 - **STEP-098 — Stage reviewed `tree` slice:** after explicit approval, staged the complete eleven-file implementation, planning, documentation, test, Smoke-consumer, and Memory set; no unstaged changes, commit, or push followed.
+- **STEP-099 — Commit and push `tree` implementation:** created commit `6aaeda4` (`feat: add exact tree output schema`) from the reviewed eleven-file set and pushed `main` to `origin`; closeout record publication and CI verification remained.
 
 ## Archives
 

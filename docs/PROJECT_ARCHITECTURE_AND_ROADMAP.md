@@ -415,7 +415,7 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The first `server_config` vertical slice is published and cross-platform CI-validated. The second `tree` vertical slice is fully implemented, locally verified, and staged as an eleven-file reviewed change set, awaiting separate commit approval. Phase 1 remains active; Phase 2 has not started.
+Status: implementation started on 2026-07-12. The first `server_config` vertical slice is published and cross-platform CI-validated. The second `tree` vertical slice is published through implementation commit `6aaeda4`; its follow-up closeout record is included in the current publication. Phase 1 remains active; Phase 2 has not started.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
 - delivered exact advertised `outputSchema` contracts for `server_config` and `tree` with real MCP success/failure contract tests;
