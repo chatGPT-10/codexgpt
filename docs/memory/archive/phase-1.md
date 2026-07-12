@@ -3001,3 +3001,25 @@ Revert the search-slice commit. This removes the schema module, handler seam, ne
 **Next step**
 
 Stage, commit, and push the locally verified slice. Then record publication and CI evidence. Phase 2 remains closed.
+
+
+## STEP-131 — Publish direct `search` exact output contract
+
+**Date:** 2026-07-12
+**Status:** Published and cross-platform CI-validated
+
+**Publication evidence**
+
+- Implementation and publication commit `02153a9` was pushed to `origin/main`.
+- Local `main` and `origin/main` were synchronized with a clean working tree after the push.
+- GitHub Actions run `29209071349` completed successfully.
+- The CI matrix covered Ubuntu and Windows with Node 20 and Node 24.
+- Every matrix job passed Build, Regression Tests, Smoke Test, and Check Package Contents.
+
+**Final state**
+
+The seventh Phase 1 vertical slice, direct `search`, is published and cross-platform CI-validated. No Phase 1 implementation task is active.
+
+**Next step**
+
+The next permitted action is a separately reviewed Phase 1 design for one additional tool. Phase 2 remains closed without explicit approval.

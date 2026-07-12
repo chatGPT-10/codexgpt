@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first six slices are published and cross-platform CI-validated; the seventh direct `search` slice is implemented and locally verified, with publication pending.
+- Phase 1: the first seven slices are published and cross-platform CI-validated.
 
 ## Approved stopping point
 
-The seventh Phase 1 vertical slice, direct `search`, is implemented and locally verified. It now has an exact schema-v1 envelope, stable search errors, safe optional-analysis degradation, nested Tool Card/supertool consumers, and focused contract coverage. Publication evidence is pending; Phase 2 remains closed.
+The seventh Phase 1 vertical slice, direct `search`, is published in commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active; Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -74,7 +74,7 @@ The seventh Phase 1 vertical slice, direct `search`, is implemented and locally 
 - `git_status`: implementation `bc92970`; local gates and CI run `29202896685` passed on Ubuntu/Windows Node 20/24.
 - `git_diff`: design `1bbe240`, plan `8083f53`, implementation `19f0042`, publication record `9103ce4`; CI run `29204692105` passed on Ubuntu/Windows Node 20/24.
 - `show_changes`: design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`, documentation record `0051543`; CI run `29206887875` passed on Ubuntu/Windows Node 20/24.
-- `search`: design, plan, strict schema, handler boundary, Tool Card/supertool consumers, contract tests, and documentation are locally complete; commit, push, and CI evidence remain pending.
+- `search`: implementation and publication commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are in `docs/memory/archive/phase-1.md`.
 
 ## Known limitations
@@ -88,16 +88,16 @@ The seventh Phase 1 vertical slice, direct `search`, is implemented and locally 
 
 ## Open items
 
-1. Publish the locally verified direct `search` slice, then record the commit, push, and CI evidence.
-2. Keep Phase 2 closed; after publication, the next permitted feature action is a separately reviewed Phase 1 design for one additional tool.
+1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
+2. Keep Phase 2 closed without a new approved design and plan.
 
 ## Recent summaries
 
+- **STEP-131 — Publish `search`:** pushed commit `02153a9`, confirmed local/remote synchronization, and verified CI run `29209071349` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-130 — Implement and verify direct `search`:** added the exact schema-v1 contract, stable failures, safe analysis degradation, nested consumers, and TDD coverage; focused 15/15, complete 137/137, Build, Smoke 8/8, native-Windows Stress, and final diff-check passed.
 - **STEP-129 — Publish `show_changes`:** pushed through documentation record `0051543`, confirmed local/remote synchronization, and verified CI run `29206887875` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-128 — Verify `show_changes` locally:** focused 14/14, adjacent 50/50, complete 122/122, Build, Smoke 8/8, native-Windows Stress, and diff-check passed.
 - **STEP-127 — Complete TDD migration:** added strict schema/provider seams/classifiers, nested Tool Card/supertool consumers, safe analysis degradation, and updated historical adjacent card expectations.
-- **STEP-126 — Approve sixth-slice design and plan:** selected direct `show_changes`, strict Git failures, and safe optional-analysis degradation while keeping Git/analysis services unchanged.
 
 ## Archives
 

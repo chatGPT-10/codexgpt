@@ -2,7 +2,7 @@
 
 Date: 2026-07-12  
 Phase: Phase 1, seventh vertical slice  
-Status: Implemented and locally verified; publication pending
+Status: Published and cross-platform CI-validated
 
 ## 1. Goal
 

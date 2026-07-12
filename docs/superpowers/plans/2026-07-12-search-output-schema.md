@@ -1,6 +1,8 @@
 # `search` Exact Output Schema Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+Status: Executed, published in `02153a9`, and cross-platform CI-validated by run `29209071349`.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkboxes for tracking.
 
 **Goal:** Migrate the direct `search` MCP tool to the strict Phase 1 schema-v1 envelope while preserving lexical search behavior and safely degrading optional structured analysis.
 
@@ -29,21 +31,21 @@
 **Interfaces:**
 - Produces: `searchOutputShape`, `searchOutputSchema`, `searchDataSchema`, `searchAnalysisSchema`, `createSearchSuccess`, `createSearchFailure`, warning constants, and `SearchFailureInput`.
 
-- [ ] **Step 1: Write failing constructor and schema tests**
+- [x] **Step 1: Write failing constructor and schema tests**
 
 Cover exact success data, every approved error, unknown-field rejection, invalid line/backend/analysis values, envelope consistency, and fixed warning constraints.
 
-- [ ] **Step 2: Run focused test and confirm RED**
+- [x] **Step 2: Run focused test and confirm RED**
 
 Run: `node --test test/search-contract.test.mjs`
 
 Expected: FAIL because `src/tools/schemas/search.ts` does not exist.
 
-- [ ] **Step 3: Implement the minimal strict schema module**
+- [x] **Step 3: Implement the minimal strict schema module**
 
 Define strict lexical matches, strict structured analysis, discriminated errors, output envelope invariants, constructors, and the two fixed warning constants.
 
-- [ ] **Step 4: Run focused constructor tests and confirm GREEN**
+- [x] **Step 4: Run focused constructor tests and confirm GREEN**
 
 Run: `node --test test/search-contract.test.mjs`
 
@@ -59,21 +61,21 @@ Expected: schema-only tests pass; handler tests may still fail because direct `s
 - Consumes: Task 1 schema exports.
 - Produces: `SearchProviderContext` and optional `searchResultProvider` dependency.
 
-- [ ] **Step 1: Add failing direct-handler tests**
+- [x] **Step 1: Add failing direct-handler tests**
 
 Cover advertised `outputSchema`, real success, no matches, nested fields, optional analysis success, not-requested normalization, disabled/unavailable/malformed analysis degradation, safe failures, `isError`, content, and wrapper metadata.
 
-- [ ] **Step 2: Run focused test and confirm RED**
+- [x] **Step 2: Run focused test and confirm RED**
 
 Run: `node --test test/search-contract.test.mjs`
 
 Expected: FAIL because direct `search` still returns flat structured content and advertises no output schema.
 
-- [ ] **Step 3: Implement the provider seam and handler boundary**
+- [x] **Step 3: Implement the provider seam and handler boundary**
 
 Import schema exports and search types, add `SearchProviderContext`, add `searchResultProvider`, register `outputSchema`, strictly parse lexical fields, normalize optional analysis, create fixed failures, and preserve text content.
 
-- [ ] **Step 4: Run focused test and confirm GREEN**
+- [x] **Step 4: Run focused test and confirm GREEN**
 
 Run: `node --test test/search-contract.test.mjs`
 
@@ -91,21 +93,21 @@ Expected: all focused contract tests pass.
 - Consumes: nested search envelope from Task 2.
 - Produces: Tool Card and smoke/stress consumers that read only `data`.
 
-- [ ] **Step 1: Add failing nested Tool Card and wrapper assertions**
+- [x] **Step 1: Add failing nested Tool Card and wrapper assertions**
 
 Assert direct rendering uses `data.matches` and `data.analysis`, colon-containing paths stay intact, failures use `error`, and wrapper output has no legacy flat search fields.
 
-- [ ] **Step 2: Run focused test and confirm RED**
+- [x] **Step 2: Run focused test and confirm RED**
 
 Run: `node --test test/search-contract.test.mjs`
 
 Expected: FAIL because the current renderer reads flat `matches`, `text`, and `analysis`.
 
-- [ ] **Step 3: Update consumers minimally**
+- [x] **Step 3: Update consumers minimally**
 
 Render lexical hits from structured match objects, render structured groups from `data.analysis`, switch the dispatcher to nested data, and update only direct flat-field assertions in smoke/stress.
 
-- [ ] **Step 4: Run focused and adjacent checks**
+- [x] **Step 4: Run focused and adjacent checks**
 
 Run:
 - `node --test test/search-contract.test.mjs`
@@ -127,15 +129,15 @@ Expected: all pass.
 **Interfaces:**
 - Produces: current documentation and exact verification evidence for the seventh slice.
 
-- [ ] **Step 1: Update project documentation and memory**
+- [x] **Step 1: Update project documentation and memory**
 
 Record the strict `search` contract, fixed degradation warnings, provider seam, verification evidence, limitations, rollback, and next permitted action. Keep `Memory.md` concise and append the Phase 1 archive.
 
-- [ ] **Step 2: Run neat-freak review**
+- [x] **Step 2: Run neat-freak review**
 
 Reconcile rules, documentation map, memory index, archive links, stale stopping-point language, and size limits. Make only minimum relevant corrections.
 
-- [ ] **Step 3: Run complete verification**
+- [x] **Step 3: Run complete verification**
 
 Run:
 - `node --test test/search-contract.test.mjs`
@@ -147,7 +149,7 @@ Run:
 
 Expected: zero failures; Build, Smoke, Stress, and diff check pass.
 
-- [ ] **Step 4: Review final changes and publish**
+- [x] **Step 4: Review final changes and publish**
 
 Use `show_changes` to confirm intended scope and no secrets. Stage all intended files, commit with `feat(schema): add exact search output contract`, push `main`, and verify remote synchronization and CI when available.
 
