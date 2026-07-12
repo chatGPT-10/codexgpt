@@ -415,14 +415,15 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The `server_config`, `tree`, `read`, `git_status`, and direct `git_diff` vertical slices are published and cross-platform CI-validated. `git_diff` implementation commit `19f0042` and publication record `9103ce4` are on `origin/main`; CI run `29204692105` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
+Status: implementation started on 2026-07-12. The `server_config`, `tree`, `read`, `git_status`, and direct `git_diff` vertical slices are published and cross-platform CI-validated. The sixth direct-tool slice, `show_changes`, is implemented and locally verified; publication and remote CI evidence are pending. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
-- delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, `read`, `git_status`, and direct `git_diff`, with real MCP success/failure contract tests;
+- delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, `read`, `git_status`, direct `git_diff`, and direct `show_changes`, with real MCP success/failure contract tests;
 - preserved human-readable `content` output and MCP `isError` behavior;
-- migrated all five dedicated direct tool cards and proven internal consumers to nested `data` while leaving `show_changes` unchanged;
-- introduced six safe `tree`, nine safe `read`, and seven safe Git status/diff non-retryable error codes through tool-local classifiers without refactoring global errors;
-- preserved blank and safe nonexistent Git pathspecs, staged/unstaged selection, stats-only output, supertool wrapping, and the legacy `show_changes` contract;
+- migrated all six dedicated direct tool cards and proven internal consumers to nested `data`;
+- introduced six safe `tree`, nine safe `read`, and seven safe Git/review non-retryable error codes through tool-local classifiers without refactoring global errors;
+- preserved blank and safe nonexistent Git pathspecs, staged/unstaged selection, stats-only output, supertool wrapping, review checkpoints, untracked-file fingerprints, and UTF-8 path/rename analysis;
+- made optional `show_changes` impact-analysis failure degrade to `analysis: null` plus one fixed warning without hiding valid Git review data or exposing raw diagnostics;
 - corrected native-Windows Stress fixture assumptions without changing production behavior;
 - continue migrating later tools incrementally through separately reviewed designs and plans after the current slice is published or otherwise resolved.
 

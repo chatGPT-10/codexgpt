@@ -147,6 +147,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-12-git-status-output-schema.md` — compact executed four-task plan for the published `git_status` slice.
 - `docs/superpowers/specs/2026-07-12-git-diff-output-schema-design.md` — approved design for the fifth Phase 1 `git_diff` slice.
 - `docs/superpowers/plans/2026-07-12-git-diff-output-schema.md` — executed four-task plan for the `git_diff` slice.
+- `docs/superpowers/specs/2026-07-12-show-changes-output-schema-design.md` — implemented design for the sixth Phase 1 `show_changes` slice.
+- `docs/superpowers/plans/2026-07-12-show-changes-output-schema.md` — executed four-task plan for the locally verified `show_changes` slice; publication evidence remains pending.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -188,4 +190,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The `server_config`, `tree`, `read`, `git_status`, and direct `git_diff` vertical slices are published and cross-platform CI-validated. `git_diff` implementation commit `19f0042` and publication record `9103ce4` are on `origin/main`; CI run `29204692105` passed on Ubuntu/Windows with Node 20/24. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Do not begin Phase 2 or another tool implementation without explicit approval.
+Phase 1 implementation started on 2026-07-12. The `server_config`, `tree`, `read`, `git_status`, and direct `git_diff` vertical slices are published and cross-platform CI-validated. The sixth slice, direct `show_changes`, is implemented, locally verified, and neat-freak reconciled in commits `69c5fea`, `2329160`, `9777f32`, and `c41365a`; the documentation commit, publication, and remote CI evidence remain pending. Do not begin Phase 2 or another tool implementation until this slice is published and recorded.

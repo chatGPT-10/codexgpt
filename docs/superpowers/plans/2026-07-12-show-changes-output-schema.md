@@ -395,7 +395,7 @@ Run separately and record exact output:
 ```bash
 node --test test/show-changes-contract.test.mjs
 node --test test/git-status-contract.test.mjs test/git-diff-contract.test.mjs test/show-changes-contract.test.mjs
-npm test
+node --test test/*.test.mjs
 npm run build
 npm run smoke
 npm run stress
@@ -428,7 +428,7 @@ Run:
 
 ```bash
 node --test test/show-changes-contract.test.mjs
-npm test
+node --test test/*.test.mjs
 npm run build
 npm run smoke
 npm run stress
@@ -467,3 +467,22 @@ Then verify local `main` matches `origin/main`. When GitHub Actions is available
 - Type and field names match the approved design.
 - `src/gitOps.ts`, `src/analysis/*`, direct Git contracts, dependencies, authentication, and Phase 2 remain outside scope.
 - No placeholders or unspecified implementation steps remain.
+
+## Local execution record
+
+Tasks 1–3 and the local portion of Task 4 completed on 2026-07-12.
+
+Commits:
+
+- design: `5108e8a`;
+- plan: `8e885ef`;
+- strict schema: `69c5fea`;
+- direct handler: `2329160`;
+- card and consumer migration: `9777f32`;
+- adjacent historical card expectations: `c41365a`.
+
+TDD evidence included missing-module RED, legacy-handler RED, legacy-card RED, Smoke consumer RED, and Stress consumer RED before each corresponding GREEN state.
+
+Fresh local gates passed 14/14 focused contracts, 50/50 adjacent Git/review contracts, 122/122 complete tests, Build, all eight Smoke sections, native-Windows Stress, and `git diff --check`. The attempted `npm test` command failed only because the repository defines no such script; the plan now records the actual complete command, `node --test test/*.test.mjs`.
+
+Documentation reconciliation and neat-freak review are complete. The documentation commit, publication, and remote CI evidence are the remaining Task 4 actions.

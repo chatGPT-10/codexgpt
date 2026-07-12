@@ -2751,3 +2751,138 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - No credential, profile, dependency, authentication, workspace, remote, or Cloudflare rollback is required.
 
 **Next step:** No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Do not begin Phase 2 without explicit approval.
+
+## STEP-126 — Approve the `show_changes` design and implementation plan
+
+**Status:** Complete on 2026-07-12.
+
+**Goal:** Select and specify one sixth Phase 1 vertical slice without entering Phase 2 or widening the Git/analysis architecture.
+
+**Files changed:**
+
+- `docs/superpowers/specs/2026-07-12-show-changes-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-12-show-changes-output-schema.md`
+
+**Implementation summary:**
+
+- Selected direct `show_changes` because it is the review-oriented consumer of the completed `git_status` and `git_diff` slices and remains available in minimal tool mode.
+- Chose strict failure for workspace, path, status, and diff failures.
+- Chose safe optional-analysis degradation: valid Git review data remains successful, `analysis` becomes `null`, and one fixed warning is returned.
+- Kept `src/gitOps.ts`, `src/analysis/*`, Git writes, dependencies, authentication, and Phase 2 outside scope.
+- Committed the design as `5108e8a` and the four-task implementation plan as `8e885ef`.
+
+**Verification commands:**
+
+- placeholder/ambiguity searches over the new specification and plan;
+- `git diff --check` after each document.
+
+**Verification results:** Both documents passed self-review with no placeholders or contradictory scope, and both diff checks passed.
+
+**Decisions made:** Preserve staged/path/diff/checkpoint/untracked/UTF-8 behavior, remove legacy `status_error`/`diff_error`, and use the existing seven safe Git/path codes.
+
+**Risks or limitations:** The direct tool still depends on string Git diagnostics from `src/gitOps.ts`; review checkpoints remain process-local.
+
+**Rollback method:** Revert design commit `5108e8a` and plan commit `8e885ef`; no production source was changed by this step.
+
+**Next step:** Execute the approved plan with TDD, beginning with a missing-module RED contract test.
+
+## STEP-127 — Complete the strict `show_changes` schema, handler, card, and consumer migration
+
+**Status:** Complete on 2026-07-12.
+
+**Goal:** Implement the sixth Phase 1 direct-tool contract while preserving the existing review workflow and keeping Git/analysis services unchanged.
+
+**Files changed:**
+
+- `src/tools/schemas/showChanges.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `test/show-changes-contract.test.mjs`
+- `test/git-status-contract.test.mjs`
+- `test/git-diff-contract.test.mjs`
+- `scripts/smoke.mjs`
+- `scripts/stress.mjs`
+
+**Implementation summary:**
+
+- Added an exact strict schema for the success envelope, seven stable failures, exact change-analysis data, and cross-field review invariants.
+- Added injectable status, diff, and analysis provider seams for deterministic contract tests without exposing a production test mode.
+- Converted Git/workspace/path failures to `ok: false` plus `isError: true` and fixed public text.
+- Converted thrown, malformed, or secret-bearing analysis failures to `analysis: null` plus `Change analysis was unavailable; Git review data is still complete.`
+- Migrated the dedicated Tool Card, direct Smoke/Stress consumers, `codexpro show_changes`, and the `changes` alias to nested child data.
+- Updated historical `git_status` and `git_diff` card expectations after the sixth slice intentionally changed `show_changes` from flat to nested output.
+- Created commits `69c5fea`, `2329160`, `9777f32`, and `c41365a`.
+
+**Verification commands and results:**
+
+- Missing-module RED: `node --test test/show-changes-contract.test.mjs` failed because `showChanges.ts` did not exist.
+- Schema GREEN: the initial five constructor/invariant tests passed.
+- Legacy-handler RED: five tests passed and seven runtime tests failed because the direct handler lacked `outputSchema`, the envelope, and provider seams.
+- Runtime GREEN: 12/12 focused tests passed.
+- Legacy-card RED: 13 tests passed and one card test failed because the renderer still read flat error/data fields.
+- Card/wrapper GREEN: 14/14 focused tests passed.
+- Smoke consumer RED: failed at the first old flat `show_changes` assertion; after the consumer migration, all eight Smoke sections passed.
+- Stress consumer RED: failed at the first old flat stats assertion; after the consumer migration, native-Windows Stress passed.
+- Adjacent historical-card RED: 48/50 passed and two old `show_changes` flat-card assertions failed; after correction, 50/50 passed.
+
+**Decisions made:** Do not return partial Git success; only optional impact analysis may degrade. Strictly parse analysis before exposing it. Preserve human-readable text and wrapper metadata.
+
+**Risks or limitations:** The current ChatGPT-connected server remains the previously published descriptor until restart; source and in-memory MCP tests validate the new contract. Git diagnostic classification remains string-based.
+
+**Rollback method:** Revert commits `c41365a`, `9777f32`, `2329160`, and `69c5fea` in reverse order. `src/gitOps.ts` and `src/analysis/*` require no rollback.
+
+**Next step:** Run a complete fresh local verification matrix, reconcile project documentation and memory, then perform neat-freak review before publication.
+
+## STEP-128 — Verify `show_changes` locally and prepare publication records
+
+**Status:** Local verification complete on 2026-07-12; publication pending.
+
+**Goal:** Establish fresh native-Windows evidence and align active documentation before staging and pushing the sixth slice.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `Memory.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/superpowers/specs/2026-07-12-show-changes-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-12-show-changes-output-schema.md`
+- `docs/memory/archive/phase-1.md`
+
+**Implementation summary:**
+
+- Recorded the exact contract, safe analysis degradation, preserved behavior, commit chain, rollback boundary, and pending publication state.
+- Corrected the implementation plan to use the repository's actual complete regression command.
+- Kept all status text explicit that remote publication and CI are still pending.
+- Ran neat-freak reconciliation: `Memory.md` remained below its practical limit, all 21 mapped documentation paths existed, no current active document retained the obsolete flat `show_changes` state, and docs remained larger than the memory layer.
+- Recorded that the active Phase 1 append-only archive exceeds direct read limits; targeted search remains the safe access method until a separately reviewed phase-closure maintenance decision.
+
+**Verification commands:**
+
+- `node --test test/show-changes-contract.test.mjs`
+- `node --test test/git-status-contract.test.mjs test/git-diff-contract.test.mjs test/show-changes-contract.test.mjs`
+- `node --test test/*.test.mjs`
+- `npm run build`
+- `npm run smoke`
+- `npm run stress`
+- `git diff --check`
+
+**Verification results:**
+
+- focused contracts: 14/14 passed;
+- adjacent Git/review contracts: 50/50 passed;
+- complete regression suite: 122/122 passed;
+- Build passed;
+- all eight Smoke sections passed;
+- native-Windows Stress passed;
+- `git diff --check` passed.
+
+One attempted `npm test` command failed because `package.json` defines no `test` script. This was a plan-command defect, not a code failure; the actual complete command `node --test test/*.test.mjs` then passed 122/122.
+
+**Decisions made:** Record local and remote evidence separately; do not claim publication or CI before push and inspection.
+
+**Risks or limitations:** Remote CI evidence is unavailable until the documentation record is committed and pushed.
+
+**Rollback method:** Revert only the pending documentation/memory commit for STEP-128; implementation commits remain independently reversible.
+
+**Next step:** Re-run final gates after reconciliation, commit the documentation record, push `main`, inspect CI, and append a publication entry.

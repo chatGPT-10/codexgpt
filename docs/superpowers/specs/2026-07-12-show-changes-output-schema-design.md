@@ -2,7 +2,7 @@
 
 Date: 2026-07-12  
 Phase: Phase 1, sixth vertical slice  
-Status: Approved for implementation
+Status: Implemented and locally verified; publication pending
 
 ## 1. Goal
 
@@ -376,3 +376,19 @@ Rollback is limited to removing:
 - this slice's documentation records.
 
 `src/gitOps.ts`, `src/analysis/*`, direct `git_status`, and direct `git_diff` require no rollback because they remain unchanged.
+
+## 16. Local completion evidence
+
+Implemented in commits `69c5fea`, `2329160`, `9777f32`, and `c41365a` after design commit `5108e8a` and plan commit `8e885ef`.
+
+Fresh local verification on native Windows passed:
+
+- focused `show_changes` contracts: 14/14;
+- adjacent `git_status`/`git_diff`/`show_changes` contracts: 50/50;
+- complete `node:test` regression suite: 122/122;
+- TypeScript build;
+- all eight Smoke sections;
+- native-Windows Stress;
+- `git diff --check`.
+
+The repository has no `npm test` script. The complete regression command is `node --test test/*.test.mjs`. Publication and remote CI evidence remain pending until the reviewed documentation record is committed and pushed.

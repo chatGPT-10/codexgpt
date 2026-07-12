@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: `server_config`, `tree`, `read`, `git_status`, and `git_diff` are published and cross-platform CI-validated.
+- Phase 1: `server_config`, `tree`, `read`, `git_status`, and `git_diff` are published; `show_changes` is implemented and locally verified, with publication pending.
 
 ## Approved stopping point
 
-The fifth Phase 1 vertical slice, `git_diff`, is published. Implementation commit `19f0042` provides exact schema-v1 success/failure contracts, a dedicated direct Tool Card, and preserved `path`/`staged`/`include_diff` behavior. Publication record `9103ce4` is on `origin/main`; CI run `29204692105` passed on Ubuntu/Windows with Node 20/24. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool; Phase 2 remains closed.
+The sixth Phase 1 vertical slice, direct `show_changes`, is implemented, locally verified, and neat-freak reconciled. Design commit `5108e8a`, plan commit `8e885ef`, schema commit `69c5fea`, handler commit `2329160`, consumer commit `9777f32`, and adjacent-test correction `c41365a` are on local `main`. Documentation commit, publication, and remote CI evidence remain pending. Do not begin another Phase 1 tool or Phase 2 until this slice is published and recorded.
 
 ## Active decisions and constraints
 
@@ -42,12 +42,26 @@ The fifth Phase 1 vertical slice, `git_diff`, is published. Implementation commi
 - Contract tests use pure constructors and test-only dependency injection; no production test mode or hidden MCP argument is allowed.
 - `tree` preserves five existing snake_case fields and six safe non-retryable errors.
 - `read` preserves ten existing success fields and nine safe non-retryable errors.
-- `git_status` preserves six success fields, removes `status_error`, and uses seven safe Git/path errors.
-- Direct `git_diff` preserves nine success fields under `data`, removes legacy `diff_error`, and uses the same seven safe Git/path errors.
-- `git_diff` preserves blank and safe nonexistent pathspecs, staged selection, stats-only output, legacy text content, and supertool wrapping.
-- `show_changes`, `src/gitOps.ts`, typed Git services, parsed hunks/files, Git writes, authentication, dependencies, and Phase 2 remain out of scope.
-- The approved `git_diff` design and plan are `docs/superpowers/specs/2026-07-12-git-diff-output-schema-design.md` and `docs/superpowers/plans/2026-07-12-git-diff-output-schema.md`.
-- Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval; the user explicitly approved autonomous completion of this slice.
+- `git_status` preserves six success fields and seven safe Git/path errors.
+- Direct `git_diff` preserves nine success fields and the same seven safe Git/path errors.
+- Direct `show_changes` preserves staged/path/diff/checkpoint/untracked/UTF-8 behavior under strict nested `data` and removes legacy `status_error`/`diff_error` partial-success fields.
+- `show_changes` Git, workspace, and path failures use the seven established safe Git/path codes and return `isError: true`.
+- Optional change analysis failure keeps valid Git review data, returns `analysis: null`, and adds only `Change analysis was unavailable; Git review data is still complete.` to `meta.warnings`.
+- `show_changes` analysis data is exact and strict; malformed provider data degrades safely rather than leaking raw diagnostics.
+- `src/gitOps.ts`, `src/analysis/*`, Git writes, authentication, dependencies, and Phase 2 remain out of scope for this slice.
+- The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
+- Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval; the user explicitly approved autonomous completion and publication of this slice.
+
+## Local verification evidence
+
+- Focused `show_changes` contracts: 14/14 passed.
+- Adjacent `git_status`, `git_diff`, and `show_changes` contracts: 50/50 passed.
+- Complete `node:test` regression suite: 122/122 passed.
+- `npm run build`: passed.
+- `npm run smoke`: all eight sections passed.
+- `npm run stress`: passed on native Windows.
+- `git diff --check`: passed.
+- One attempted `npm test` command failed because no such package script exists; the actual complete regression command then passed.
 
 ## Published phase evidence
 
@@ -56,7 +70,8 @@ The fifth Phase 1 vertical slice, `git_diff`, is published. Implementation commi
 - `tree`: implementation `6aaeda4`, record `2ecd4af`, final state `e7c1646`; CI runs `29194671044`, `29194802582`, and `29194978911` passed.
 - `read`: implementation `282dcfa`, record `c90246f`; CI runs `29199573321` and `29199802824` passed.
 - `git_status`: implementation `bc92970`; local gates and CI run `29202896685` passed on Ubuntu/Windows Node 20/24.
-- `git_diff`: design `1bbe240`, plan `8083f53`, implementation `19f0042`, publication record `9103ce4`; local gates passed 19/19 focused, 36/36 adjacent Git contracts, 108/108 complete tests, Build, all 8 Smoke sections, full native-Windows Stress, and `git diff --check`; CI run `29204692105` passed on Ubuntu/Windows Node 20/24.
+- `git_diff`: design `1bbe240`, plan `8083f53`, implementation `19f0042`, publication record `9103ce4`; CI run `29204692105` passed on Ubuntu/Windows Node 20/24.
+- `show_changes`: design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`; publication and remote CI pending.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are in `docs/memory/archive/phase-1.md`.
 
 ## Known limitations
@@ -64,21 +79,22 @@ The fifth Phase 1 vertical slice, `git_diff`, is published. Implementation commi
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 - Git failure classification remains coupled to current string output from `src/gitOps.ts`.
-- Native-Windows Stress skips only the POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`; the full remaining suite runs on Windows.
+- Review checkpoints remain process-local memory state and are not shared across service restarts.
+- Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
+- `docs/memory/archive/phase-1.md` exceeds the direct read-size limit; use targeted search while Phase 1 remains active, and do not split the append-only archive before phase closure without a separate reviewed maintenance decision.
 
 ## Open items
 
-1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
-2. Keep Phase 2 closed without a new approved design and plan.
+1. Commit the reconciled documentation, push local `main`, and verify remote CI for `show_changes`.
+2. After publication, the next permitted action is a separately reviewed design for one additional Phase 1 tool.
+3. Keep Phase 2 closed without a new approved design and plan.
 
 ## Recent summaries
 
-- **STEP-125 — Publish `git_diff`:** pushed through publication record `9103ce4`, confirmed local `main` synchronized with `origin/main`, and verified CI run `29204692105` passed on Ubuntu/Windows with Node 20/24.
-- **STEP-124 — Commit `git_diff` implementation:** created `19f0042` after focused contracts, Build, Smoke, Stress, and diff-check passed; production scope remained limited to the direct tool schema/handler and dedicated card.
-- **STEP-123 — Unblock native-Windows Stress:** confirmed the POSIX multi-colon filename and `HOME`-only fake-home assumptions were fixture bugs, then skipped only the incompatible filename case and set `USERPROFILE`; full Stress passed.
-- **STEP-122 — Complete TDD migration:** observed missing-module and legacy-handler RED states, added the strict schema/provider seam/classifiers/card/consumer updates, and reached 19/19 focused plus 36/36 adjacent Git contracts.
-- **STEP-121 — Approve `git_diff` design and plan:** committed the one-tool design as `1bbe240` and the four-task plan as `8083f53`, preserving `show_changes`, `src/gitOps.ts`, and Phase 2 boundaries.
-- **STEP-120 — Publish `git_status`:** implementation `bc92970` and CI run `29202896685` passed on Ubuntu/Windows with Node 20/24.
+- **STEP-128 — Verify `show_changes` locally:** focused 14/14, adjacent 50/50, complete 122/122, Build, Smoke 8/8, native-Windows Stress, and diff-check passed.
+- **STEP-127 — Complete TDD migration:** added strict schema/provider seams/classifiers, nested Tool Card/supertool consumers, safe analysis degradation, and updated historical adjacent card expectations.
+- **STEP-126 — Approve sixth-slice design and plan:** selected direct `show_changes`, strict Git failures, and safe optional-analysis degradation while keeping Git/analysis services unchanged.
+- **STEP-125 — Publish `git_diff`:** pushed through publication record `9103ce4` and verified CI run `29204692105` on Ubuntu/Windows Node 20/24.
 
 ## Archives
 
