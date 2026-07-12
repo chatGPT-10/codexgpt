@@ -2572,3 +2572,123 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - No credential, profile, dependency, authentication, workspace, remote, or Cloudflare rollback is required.
 
 **Next step:** Commit and push this six-file publication record, verify remote synchronization and its CI state, then stop with no active implementation task. The next feature action requires a separately reviewed Phase 1 design.
+
+
+## STEP-121 — Approve the `git_diff` design and implementation plan
+
+**Date:** 2026-07-12
+
+**Goal:** Start the fifth Phase 1 vertical slice for the direct `git_diff` tool without reopening shared Git internals, `show_changes`, Git writes, or Phase 2.
+
+**Files changed:**
+
+- `docs/superpowers/specs/2026-07-12-git-diff-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-12-git-diff-output-schema.md`
+
+**Implementation summary:**
+
+- Inspected the existing direct registration, `src/gitOps.ts` boundary, Smoke/Stress consumers, Tool Card routing, and the completed `git_status` pattern.
+- Selected a one-tool local boundary: dedicated Zod schema module, injectable provider seam, local Git/path failure classifiers, exact advertised envelope, focused MCP contract tests, and a direct nested-data card.
+- Preserved `path`, `staged`, `include_diff`, raw text output, safe nonexistent pathspecs, and supertool wrapping.
+- Deferred `show_changes`, `src/gitOps.ts`, parsed hunks/files, typed Git services, Git writes, authentication, dependencies, Cloudflare, and Phase 2.
+- Committed the design as `1bbe240` and the four-task TDD plan as `8083f53`.
+
+**Verification:**
+
+- Design placeholder and ambiguity scan found no unresolved placeholders or scope contradictions.
+- Plan self-review replaced schematic handler placeholders with exact intended behavior.
+
+**Next step:** Execute Tasks 1–4 with RED/GREEN evidence and stop only for a real blocker.
+
+## STEP-122 — Complete the strict `git_diff` schema, handler, card, and consumer migration
+
+**Date:** 2026-07-12
+
+**Goal:** Give direct `git_diff` an exact schema-v1 public contract while preserving its useful behavior.
+
+**Files changed:**
+
+- `src/tools/schemas/gitDiff.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `test/git-diff-contract.test.mjs`
+- `scripts/smoke.mjs`
+- `scripts/stress.mjs`
+
+**Implementation summary:**
+
+- Added the strict nine-field success data schema: `workspace_id`, `root`, `path`, `staged`, `include_diff`, `additions`, `deletions`, `changed`, and `diff`.
+- Added invariants rejecting negative counts, legacy `diff_error`, non-empty omitted diffs, and inconsistent clean/changed states while allowing metadata-only or binary diffs with zero ordinary line counts.
+- Added seven exact non-retryable failures: `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `GIT_NOT_REPOSITORY`, `GIT_UNAVAILABLE`, `GIT_COMMAND_FAILED`, and `INTERNAL_ERROR`.
+- Added the test-only `gitDiffResultProvider` seam and narrow thrown/output classifiers. Structured failures contain fixed public messages and safe details only.
+- Registered the exact `outputSchema`, preserved human-readable raw/stats-only text, and set `isError: true` for failures.
+- Added `renderGitDiff`, which reads only nested `data` and `error`; `renderChanges` and `show_changes` remain unchanged.
+- Updated only direct `git_diff` Smoke/Stress field access and non-Git failure expectations.
+- Confirmed the `codexpro` supertool preserves wrapper metadata around the nested child envelope.
+
+**RED/GREEN evidence:**
+
+- Initial focused run failed because `src/tools/schemas/gitDiff.ts` did not exist.
+- Schema-only stage passed four constructor/strictness tests while runtime tests still failed against the legacy flat handler.
+- Handler stage reached 18/19 with only the expected legacy card routing failure.
+- Card stage reached 19/19 focused tests.
+- Adjacent Git contract gate reached 36/36 across `git_status` and `git_diff`.
+
+**Security and compatibility decisions:**
+
+- Raw Git diagnostics, exception messages, stack traces, unsafe absolute paths, and secret-bearing provider errors are excluded from public failures.
+- `src/gitOps.ts` is unchanged.
+- `show_changes` is unchanged.
+- Blank and safe nonexistent pathspecs, staged selection, and `include_diff=false` remain compatible.
+
+**Next step:** Run Smoke and Stress and resolve only directly observed blockers.
+
+## STEP-123 — Correct native-Windows Stress fixture assumptions
+
+**Date:** 2026-07-12
+
+**Goal:** Complete the required Stress verification on native Windows without weakening production behavior or skipping unrelated coverage.
+
+**Root-cause evidence:**
+
+1. The first Stress run failed before MCP assertions while creating `visible:123:file.txt`.
+2. That fixture tests a POSIX filename containing multiple colons. Native Windows interprets colons as alternate-stream syntax and cannot create this name.
+3. After skipping only that POSIX-only fixture/assertion on `win32`, Stress advanced and failed the MCP inventory cap with count `1`.
+4. `codexpro_inventory` uses `os.homedir()`. On Windows, Node resolves it from `USERPROFILE`, while the fixture overrode only `HOME`, so the child read the real user configuration instead of the fake 160-entry fixture.
+
+**Minimal fixes:**
+
+- Create and assert the multi-colon filename only when `process.platform !== "win32"`.
+- On Windows, set both `HOME` and `USERPROFILE` to the fake home for the MCP inventory child process.
+- Keep every other Stress section and assertion active.
+
+**Verification:**
+
+- RED 1: `ENOENT` at `scripts/stress.mjs:110` for the invalid Windows filename.
+- RED 2 after the first correction: `MCP inventory was not capped: 1`.
+- GREEN: `npm run stress` completed successfully and printed `✓ stress test passed`.
+
+**Scope:** Test-fixture portability only. No production path, inventory, Git, auth, profile, or Cloudflare behavior changed.
+
+## STEP-124 — Commit the locally verified `git_diff` implementation
+
+**Date:** 2026-07-12
+
+**Goal:** Create an intentional implementation commit after the exact slice and its Windows verification blockers were resolved.
+
+**Verification before commit:**
+
+- `node --test test/git-diff-contract.test.mjs`: 19 passed, 0 failed.
+- `npm run build`: exit code 0.
+- `node --test test/git-status-contract.test.mjs test/git-diff-contract.test.mjs`: 36 passed, 0 failed.
+- `npm run smoke`: all 8 sections passed.
+- `npm run stress`: full native-Windows Stress passed, with only the POSIX-only filename case conditionally omitted.
+- `git diff --check`: exit code 0; only expected LF-to-CRLF working-copy warnings.
+
+**Commit:**
+
+- `19f0042 feat(schema): migrate git_diff output`
+- The commit contains exactly the six implementation/test/consumer files listed in STEP-122.
+- Design and plan remain in their earlier dedicated commits `1bbe240` and `8083f53`.
+
+**Next step:** Update active documentation and Memory, run neat-freak and the complete final gate, then publish and verify CI.

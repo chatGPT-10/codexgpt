@@ -415,14 +415,15 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The `server_config`, `tree`, `read`, and `git_status` vertical slices are published and cross-platform CI-validated. The `git_status` implementation is commit `bc92970`; CI run `29202896685` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
+Status: implementation started on 2026-07-12. The `server_config`, `tree`, `read`, `git_status`, and `git_diff` vertical slices are implemented. The first four are published and cross-platform CI-validated; `git_diff` implementation commit `19f0042` has passed all local gates and is in publication verification. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
-- delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, `read`, and `git_status`, with real MCP success/failure contract tests;
+- delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, `read`, `git_status`, and direct `git_diff`, with real MCP success/failure contract tests;
 - preserved human-readable `content` output and MCP `isError` behavior;
-- migrated all four dedicated tool cards and proven internal consumers to nested `data` while leaving `show_changes` unchanged;
-- introduced six safe `tree`, nine safe `read`, and seven safe `git_status` stable non-retryable error codes through tool-local classifiers without refactoring global errors;
-- preserved safe nonexistent Git pathspec behavior and legacy `git_diff`/`show_changes` contracts;
+- migrated all five dedicated direct tool cards and proven internal consumers to nested `data` while leaving `show_changes` unchanged;
+- introduced six safe `tree`, nine safe `read`, and seven safe Git status/diff non-retryable error codes through tool-local classifiers without refactoring global errors;
+- preserved blank and safe nonexistent Git pathspecs, staged/unstaged selection, stats-only output, supertool wrapping, and the legacy `show_changes` contract;
+- corrected native-Windows Stress fixture assumptions without changing production behavior;
 - continue migrating later tools incrementally through separately reviewed designs and plans after the current slice is published or otherwise resolved.
 
 ### Phase 2 — Workspace lifecycle and isolation

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an exact schema-v1 `git_diff` result envelope with strict success invariants, stable redacted Git/path failures, a dedicated nested-data tool card, and preserved staged/path/stats-only behavior; corrected native-Windows Stress fixtures so the full suite runs on Windows.
 - Added bounded multi-language repository analysis, grouped search results, change-impact and test recommendations, `codexpro inspect` / `codexpro review` CLI commands, and compact opt-in tool cards.
 - Added `codexpro connection-test`, a read-only connector profile with no bash or tool cards, plus request-arrival logging and current ChatGPT Plugins troubleshooting.
 - Added Tailscale Funnel as a saved tunnel/profile option, including `codexpro tailscale --hostname ...`, launcher support, admin profile support, and settings smoke coverage.
