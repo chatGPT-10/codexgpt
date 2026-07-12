@@ -508,9 +508,11 @@ export const toolCardWidgetHtml = String.raw`
       return data?.root || "Workspace opened";
     }
     if (data?.codexpro_tool === "show_changes") {
-      if (data?.status_error || data?.diff_error) return "Git state unavailable";
-      const count = Array.isArray(data?.changed_files) ? data.changed_files.length : 0;
-      if (!count && !data?.changed) return "Workspace is clean";
+      const review = data?.data ?? {};
+      const error = data?.error ?? {};
+      if (data?.ok === false) return error.code || "Git state unavailable";
+      const count = Array.isArray(review.changed_files) ? review.changed_files.length : 0;
+      if (!count && !review.changed) return "Workspace is clean";
       return count === 1 ? "1 changed file" : count + " changed files";
     }
     if (data?.codexpro_tool === "codexpro_self_test") return data?.status ? "Status " + data.status : "Local diagnostic";
@@ -643,13 +645,16 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderChanges(data) {
-    const files = Array.isArray(data.changed_files) ? data.changed_files : [];
-    const hasGitError = Boolean(data.status_error || data.diff_error);
-    const changed = Boolean(data.changed);
+    const review = data?.data ?? {};
+    const files = Array.isArray(review.changed_files) ? review.changed_files : [];
+    const error = data?.error ?? {};
+    const warnings = Array.isArray(data?.meta?.warnings) ? data.meta.warnings : [];
+    const failed = data?.ok === false;
+    const changed = Boolean(review.changed);
     const pills = [
-      hasGitError ? pill("git unavailable", "warn") : changed ? pill("changed", "info") : pill("clean", "good"),
-      data.additions !== undefined ? pill("+" + data.additions, "good") : "",
-      data.deletions !== undefined ? pill("-" + data.deletions, "bad") : ""
+      failed ? pill("git unavailable", "warn") : changed ? pill("changed", "info") : pill("clean", "good"),
+      review.additions !== undefined ? pill("+" + review.additions, "good") : "",
+      review.deletions !== undefined ? pill("-" + review.deletions, "bad") : ""
     ].join("");
     const fileRows = files.slice(0, 10).map((line) => {
       const status = String(line).slice(0, 2).trim() || "?";
@@ -657,19 +662,21 @@ export const toolCardWidgetHtml = String.raw`
       return '<div class="file-row"><span class="file-code">' + esc(status) + '</span><span class="file-name">' + esc(name) + '</span></div>';
     }).join("");
     const moreFiles = files.length > 10 ? '<div class="empty">+' + esc(files.length - 10) + ' more changed files</div>' : "";
-    const state = hasGitError
-      ? '<div class="empty">' + esc(data.status_error || data.diff_error) + '</div>'
+    const state = failed
+      ? '<div class="empty">' + esc(error.message || "Git state unavailable.") + '</div>'
       : fileRows
         ? '<div class="file-list">' + fileRows + '</div>' + moreFiles
         : '<div class="empty">No changed files.</div>';
-    const diff = data.diff ? codebox("diff", renderDiff(data.diff), "") : "";
+    const warning = warnings.length ? '<div class="empty">' + esc(warnings[0]) + '</div>' : "";
+    const diff = review.diff ? codebox("diff", renderDiff(review.diff), "") : "";
     return '<article class="card">' + header(data, pills) + '<div class="body">' +
       '<div class="summary">' +
       summaryItem("Files", files.length) +
-      summaryItem("Added", "+" + (data.additions ?? 0)) +
-      summaryItem("Deleted", "-" + (data.deletions ?? 0)) +
+      summaryItem("Added", "+" + (review.additions ?? 0)) +
+      summaryItem("Deleted", "-" + (review.deletions ?? 0)) +
       '</div>' +
       state +
+      warning +
       diff +
       '</div></article>';
   }
@@ -740,17 +747,18 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderChangeAnalysis(data) {
-    const analysis = data.analysis || {};
-    const files = Array.isArray(data.changed_files) ? data.changed_files : [];
+    const review = data?.data ?? {};
+    const analysis = review.analysis ?? {};
+    const files = Array.isArray(review.changed_files) ? review.changed_files : [];
     const risks = Array.isArray(analysis.risk_signals) ? analysis.risk_signals : [];
     const tests = Array.isArray(analysis.related_tests) ? analysis.related_tests : [];
     const commands = Array.isArray(analysis.recommended_commands) ? analysis.recommended_commands : [];
     const affected = Array.isArray(analysis.affected_areas) ? analysis.affected_areas : [];
     const pills = [
-      pill(data.changed ? "changed" : "clean", data.changed ? "info" : "good"),
+      pill(review.changed ? "changed" : "clean", review.changed ? "info" : "good"),
       risks.length ? pill(risks.length + " risks", "warn") : pill("no risks", "good"),
-      pill("+" + (data.additions ?? 0), "good"),
-      pill("-" + (data.deletions ?? 0), "bad")
+      pill("+" + (review.additions ?? 0), "good"),
+      pill("-" + (review.deletions ?? 0), "bad")
     ].join("");
     const commandRows = commands.slice(0, 8).map((item) =>
       '<div class="file-row"><span class="file-code">run</span><span class="file-name">' + esc(item?.command || "") + '</span></div>'
@@ -761,7 +769,7 @@ export const toolCardWidgetHtml = String.raw`
       fold("Risk signals", risks.length + " signals", compactRows(risks, "risk"), risks.length > 0) +
       fold("Related tests", tests.length + " tests", compactRows(tests, "test"), false) +
       fold("Verification", commands.length + " commands", '<div class="file-list">' + (commandRows || '<div class="empty">None.</div>') + '</div>', false) +
-      (data.diff ? fold("Diff", "+" + (data.additions ?? 0) + " -" + (data.deletions ?? 0), codebox("diff", renderDiff(data.diff), ""), false) : "") +
+      (review.diff ? fold("Diff", "+" + (review.additions ?? 0) + " -" + (review.deletions ?? 0), codebox("diff", renderDiff(review.diff), ""), false) : "") +
       '</div></article>';
   }
 
@@ -1155,7 +1163,8 @@ export const toolCardWidgetHtml = String.raw`
     } else if (tool === "git_status") {
       root.innerHTML = renderStatus(data);
     } else if (tool === "show_changes") {
-      root.innerHTML = data.analysis ? renderChangeAnalysis(data) : renderChanges(data);
+      const review = data?.data ?? {};
+      root.innerHTML = review.analysis ? renderChangeAnalysis(data) : renderChanges(data);
     } else if (tool === "handoff_to_agent" || tool === "handoff_to_codex") {
       root.innerHTML = renderHandoff(data);
     } else if (tool === "git_diff") {

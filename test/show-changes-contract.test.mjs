@@ -9,6 +9,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
 const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   SHOW_CHANGES_ANALYSIS_WARNING,
   SHOW_CHANGES_ERROR_MESSAGES,
@@ -837,5 +838,76 @@ test("show_changes classifies injected status and diff provider failures without
     const result = await client.callTool({ name: "show_changes", arguments: {} });
     assertShowChangesFailure(result, "INTERNAL_ERROR", {});
     assert.doesNotMatch(JSON.stringify(result), new RegExp(privateMarker));
+  });
+});
+
+test("show_changes tool card reads direct results only from data, error, and meta", () => {
+  const subtitleMatch = toolCardWidgetHtml.match(
+    /if \(data\?\.codexpro_tool === "show_changes"\) \{[\s\S]*?\n    \}/
+  );
+  assert.ok(subtitleMatch, "show_changes subtitle branch must exist");
+  assert.match(subtitleMatch[0], /const review = data\?\.data \?\? \{\};/);
+  assert.match(subtitleMatch[0], /const error = data\?\.error \?\? \{\};/);
+  assert.doesNotMatch(subtitleMatch[0], /status_error|diff_error/);
+
+  const rendererMatch = toolCardWidgetHtml.match(
+    /function renderChanges\(data\) \{[\s\S]*?\n  \}/
+  );
+  assert.ok(rendererMatch, "renderChanges must exist");
+  const renderer = rendererMatch[0];
+  assert.match(renderer, /const review = data\?\.data \?\? \{\};/);
+  assert.match(renderer, /const error = data\?\.error \?\? \{\};/);
+  assert.match(renderer, /const warnings = Array\.isArray\(data\?\.meta\?\.warnings\)/);
+  assert.match(renderer, /review\.changed_files/);
+  assert.match(renderer, /review\.diff/);
+  assert.match(renderer, /error\.message/);
+  assert.doesNotMatch(renderer, /status_error|diff_error/);
+  assert.doesNotMatch(renderer, /data\.(?:changed_files|diff|additions|deletions|changed|analysis)/);
+
+  const analysisRendererMatch = toolCardWidgetHtml.match(
+    /function renderChangeAnalysis\(data\) \{[\s\S]*?\n  \}/
+  );
+  assert.ok(analysisRendererMatch, "renderChangeAnalysis must exist");
+  assert.match(analysisRendererMatch[0], /const review = data\?\.data \?\? \{\};/);
+  assert.match(analysisRendererMatch[0], /const analysis = review\.analysis \?\? \{\};/);
+
+  assert.match(
+    toolCardWidgetHtml,
+    /else if \(tool === "show_changes"\) \{\s*const review = data\?\.data \?\? \{\};\s*root\.innerHTML = review\.analysis \? renderChangeAnalysis\(data\) : renderChanges\(data\);/
+  );
+});
+
+test("codexpro show_changes action and changes alias preserve wrapper metadata and nested child contract", async () => {
+  await withTempGitRepository(async (root) => {
+    await fs.appendFile(path.join(root, "demo.txt"), "beta\n", "utf8");
+
+    await withInMemoryClient({ root, configOverrides: { analysisEnabled: false } }, async (client) => {
+      for (const action of ["show_changes", "changes"]) {
+        const result = await client.callTool({
+          name: "codexpro",
+          arguments: {
+            action,
+            args: { path: "demo.txt", mark_reviewed: false }
+          }
+        });
+        const structured = result.structuredContent;
+
+        assert.equal(structured.codexpro_tool, "show_changes");
+        assert.equal(structured.codexpro_super_action, "show_changes");
+        assert.equal(structured.wrapped_tool, "show_changes");
+        assert.equal(structured.ok, true);
+        assert.equal(structured.error, null);
+        assert.equal(structured.data.path, "demo.txt");
+        assert.equal(structured.data.changed, true);
+        assert.match(structured.data.diff, /demo\.txt/);
+        assert.equal(structured.data.review_marked, false);
+        assert.equal("status" in structured, false);
+        assert.equal("changed_files" in structured, false);
+        assert.equal("diff" in structured, false);
+        assert.equal("analysis" in structured, false);
+        assert.equal("status_error" in structured, false);
+        assert.equal("diff_error" in structured, false);
+      }
+    });
   });
 });

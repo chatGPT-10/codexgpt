@@ -704,18 +704,18 @@ async function runShowChangesStatsStress() {
       name: 'show_changes',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt', include_diff: false }
     });
-    assert(changes.structuredContent.additions === 1 && changes.structuredContent.deletions === 0 && changes.structuredContent.diff === '', `show_changes include_diff=false lost stats: ${JSON.stringify(changes.structuredContent)}`);
+    assert(changes.structuredContent.data.additions === 1 && changes.structuredContent.data.deletions === 0 && changes.structuredContent.data.diff === '', `show_changes include_diff=false lost stats: ${JSON.stringify(changes.structuredContent)}`);
     const fullChanges = await client.request('tools/call', {
       name: 'show_changes',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: './demo.txt' }
     });
-    assert(fullChanges.structuredContent.changed && fullChanges.structuredContent.diff.includes('demo.txt') && fullChanges.structuredContent.review_checkpoint_hit !== true, `show_changes include_diff=false consumed full diff: ${JSON.stringify(fullChanges.structuredContent)}`);
+    assert(fullChanges.structuredContent.data.changed && fullChanges.structuredContent.data.diff.includes('demo.txt') && fullChanges.structuredContent.data.review_checkpoint_hit !== true, `show_changes include_diff=false consumed full diff: ${JSON.stringify(fullChanges.structuredContent)}`);
     const statsOnlyAfterCheckpoint = await client.request('tools/call', {
       name: 'show_changes',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt', include_diff: false }
     });
-    assert(statsOnlyAfterCheckpoint.structuredContent.changed && statsOnlyAfterCheckpoint.structuredContent.additions === 1 && statsOnlyAfterCheckpoint.structuredContent.diff === '', `show_changes include_diff=false lost stats after checkpoint: ${JSON.stringify(statsOnlyAfterCheckpoint.structuredContent)}`);
-    assert(statsOnlyAfterCheckpoint.structuredContent.review_marked === false, `show_changes include_diff=false claimed checkpoint was marked: ${JSON.stringify(statsOnlyAfterCheckpoint.structuredContent)}`);
+    assert(statsOnlyAfterCheckpoint.structuredContent.data.changed && statsOnlyAfterCheckpoint.structuredContent.data.additions === 1 && statsOnlyAfterCheckpoint.structuredContent.data.diff === '', `show_changes include_diff=false lost stats after checkpoint: ${JSON.stringify(statsOnlyAfterCheckpoint.structuredContent)}`);
+    assert(statsOnlyAfterCheckpoint.structuredContent.data.review_marked === false, `show_changes include_diff=false claimed checkpoint was marked: ${JSON.stringify(statsOnlyAfterCheckpoint.structuredContent)}`);
     const stagedDiff = await client.request('tools/call', {
       name: 'git_diff',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'staged file.txt', staged: true, include_diff: false }
@@ -725,24 +725,24 @@ async function runShowChangesStatsStress() {
       name: 'show_changes',
       arguments: { workspace_id: opened.structuredContent.workspace_id, staged: true }
     });
-    assert(stagedChanges.structuredContent.changed && stagedChanges.structuredContent.diff.includes('staged file.txt') && !stagedChanges.structuredContent.diff.includes('demo.txt'), `show_changes staged review mixed unstaged files: ${JSON.stringify(stagedChanges.structuredContent)}`);
+    assert(stagedChanges.structuredContent.data.changed && stagedChanges.structuredContent.data.diff.includes('staged file.txt') && !stagedChanges.structuredContent.data.diff.includes('demo.txt'), `show_changes staged review mixed unstaged files: ${JSON.stringify(stagedChanges.structuredContent)}`);
     const defaultStagedPathChanges = await client.request('tools/call', {
       name: 'show_changes',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'staged file.txt' }
     });
-    assert(!defaultStagedPathChanges.structuredContent.changed && defaultStagedPathChanges.structuredContent.additions === 0 && defaultStagedPathChanges.structuredContent.diff === '', `default show_changes reported staged-only changes: ${JSON.stringify(defaultStagedPathChanges.structuredContent)}`);
+    assert(!defaultStagedPathChanges.structuredContent.data.changed && defaultStagedPathChanges.structuredContent.data.additions === 0 && defaultStagedPathChanges.structuredContent.data.diff === '', `default show_changes reported staged-only changes: ${JSON.stringify(defaultStagedPathChanges.structuredContent)}`);
     await fs.writeFile(path.join(root, 'new-review.txt'), 'new file\n', 'utf8');
     const untrackedChanges = await client.request('tools/call', {
       name: 'show_changes',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'new-review.txt' }
     });
-    assert(untrackedChanges.structuredContent.changed && untrackedChanges.structuredContent.changed_files.some((line) => line.includes('new-review.txt')), `show_changes did not report untracked new file: ${JSON.stringify(untrackedChanges.structuredContent)}`);
+    assert(untrackedChanges.structuredContent.data.changed && untrackedChanges.structuredContent.data.changed_files.some((line) => line.includes('new-review.txt')), `show_changes did not report untracked new file: ${JSON.stringify(untrackedChanges.structuredContent)}`);
     await fs.writeFile(path.join(root, 'new-review.txt'), 'new file changed\n', 'utf8');
     const changedUntrackedChanges = await client.request('tools/call', {
       name: 'show_changes',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'new-review.txt' }
     });
-    assert(changedUntrackedChanges.structuredContent.changed && changedUntrackedChanges.structuredContent.review_checkpoint_hit !== true, `show_changes checkpoint hid changed untracked file content: ${JSON.stringify(changedUntrackedChanges.structuredContent)}`);
+    assert(changedUntrackedChanges.structuredContent.data.changed && changedUntrackedChanges.structuredContent.data.review_checkpoint_hit !== true, `show_changes checkpoint hid changed untracked file content: ${JSON.stringify(changedUntrackedChanges.structuredContent)}`);
   } finally {
     client.close();
   }

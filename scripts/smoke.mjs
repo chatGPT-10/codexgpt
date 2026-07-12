@@ -438,24 +438,24 @@ if (inspectAfterEdit.structuredContent.cache?.hit !== false) {
   throw new Error(`edit did not invalidate workspace analysis: ${JSON.stringify(inspectAfterEdit.structuredContent.cache)}`);
 }
 const changes = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws } });
-if (!changes.structuredContent.changed || !changes.structuredContent.diff.includes('demo.txt')) {
+if (!changes.structuredContent.data.changed || !changes.structuredContent.data.diff.includes('demo.txt')) {
   throw new Error('show_changes did not report the edited demo.txt diff');
 }
-if (!changes.structuredContent.analysis?.risk_signals?.some((risk) => risk.id === 'authentication')) {
-  throw new Error(`show_changes omitted authentication risk analysis: ${JSON.stringify(changes.structuredContent.analysis)}`);
+if (!changes.structuredContent.data.analysis?.risk_signals?.some((risk) => risk.id === 'authentication')) {
+  throw new Error(`show_changes omitted authentication risk analysis: ${JSON.stringify(changes.structuredContent.data.analysis)}`);
 }
-if (!changes.structuredContent.analysis?.related_tests?.some((file) => file.path === 'test/auth.test.ts')) {
-  throw new Error(`show_changes omitted related auth test: ${JSON.stringify(changes.structuredContent.analysis)}`);
+if (!changes.structuredContent.data.analysis?.related_tests?.some((file) => file.path === 'test/auth.test.ts')) {
+  throw new Error(`show_changes omitted related auth test: ${JSON.stringify(changes.structuredContent.data.analysis)}`);
 }
-if (!changes.structuredContent.analysis?.recommended_commands?.some((item) => item.command === 'npm test')) {
-  throw new Error(`show_changes omitted existing npm test recommendation: ${JSON.stringify(changes.structuredContent.analysis)}`);
+if (!changes.structuredContent.data.analysis?.recommended_commands?.some((item) => item.command === 'npm test')) {
+  throw new Error(`show_changes omitted existing npm test recommendation: ${JSON.stringify(changes.structuredContent.data.analysis)}`);
 }
 const repeatedChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws } });
-if (repeatedChanges.structuredContent.changed || repeatedChanges.structuredContent.diff || repeatedChanges.structuredContent.review_checkpoint_hit !== true || repeatedChanges.structuredContent.additions !== 0 || repeatedChanges.structuredContent.deletions !== 0) {
+if (repeatedChanges.structuredContent.data.changed || repeatedChanges.structuredContent.data.diff || repeatedChanges.structuredContent.data.review_checkpoint_hit !== true || repeatedChanges.structuredContent.data.additions !== 0 || repeatedChanges.structuredContent.data.deletions !== 0) {
   throw new Error(`show_changes repeated the same review instead of using the last-shown checkpoint: ${JSON.stringify(repeatedChanges.structuredContent)}`);
 }
-if ('analysis' in repeatedChanges.structuredContent) {
-  throw new Error(`show_changes recomputed analysis for an unchanged checkpoint: ${JSON.stringify(repeatedChanges.structuredContent.analysis)}`);
+if (repeatedChanges.structuredContent.data.analysis !== null) {
+  throw new Error(`show_changes recomputed analysis for an unchanged checkpoint: ${JSON.stringify(repeatedChanges.structuredContent.data.analysis)}`);
 }
 await client.request('tools/call', { name: 'edit', arguments: { workspace_id: ws, path: 'other.txt', old_text: 'keep', new_text: 'unrelated dirty file' } });
 const patchResult = await client.request('tools/call', {
@@ -558,7 +558,7 @@ await expectToolError('apply_patch', {
   ].join('\n') + '\n'
 }, /symlink/i);
 const postPatchChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws } });
-if (!postPatchChanges.structuredContent.changed || !postPatchChanges.structuredContent.diff.includes('omega patched')) {
+if (!postPatchChanges.structuredContent.data.changed || !postPatchChanges.structuredContent.data.diff.includes('omega patched')) {
   throw new Error(`show_changes did not report new patch changes after checkpoint: ${JSON.stringify(postPatchChanges.structuredContent)}`);
 }
 const statsOnlyDiff = await client.request('tools/call', { name: 'git_diff', arguments: { workspace_id: ws, include_diff: false } });
@@ -569,45 +569,45 @@ if (!statsOnlyDiff.content?.[0]?.text?.includes('Raw diff omitted by include_dif
   throw new Error('git_diff include_diff=false did not report omitted diff in text output');
 }
 const statsOnlyChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: 'other.txt', include_diff: false } });
-if (!statsOnlyChanges.structuredContent.changed || statsOnlyChanges.structuredContent.diff !== '') {
+if (!statsOnlyChanges.structuredContent.data.changed || statsOnlyChanges.structuredContent.data.diff !== '') {
   throw new Error(`show_changes include_diff=false should keep stats and omit diff: ${JSON.stringify(statsOnlyChanges.structuredContent)}`);
 }
 const fullChangesAfterStatsOnly = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: './other.txt' } });
-if (!fullChangesAfterStatsOnly.structuredContent.changed || fullChangesAfterStatsOnly.structuredContent.review_checkpoint_hit || !fullChangesAfterStatsOnly.structuredContent.diff.includes('other.txt')) {
+if (!fullChangesAfterStatsOnly.structuredContent.data.changed || fullChangesAfterStatsOnly.structuredContent.data.review_checkpoint_hit || !fullChangesAfterStatsOnly.structuredContent.data.diff.includes('other.txt')) {
   throw new Error(`show_changes include_diff=false consumed the next full diff: ${JSON.stringify(fullChangesAfterStatsOnly.structuredContent)}`);
 }
 const statsOnlyAfterCheckpoint = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: 'other.txt', include_diff: false } });
-if (!statsOnlyAfterCheckpoint.structuredContent.changed || statsOnlyAfterCheckpoint.structuredContent.diff !== '' || statsOnlyAfterCheckpoint.structuredContent.additions !== 1) {
+if (!statsOnlyAfterCheckpoint.structuredContent.data.changed || statsOnlyAfterCheckpoint.structuredContent.data.diff !== '' || statsOnlyAfterCheckpoint.structuredContent.data.additions !== 1) {
   throw new Error(`show_changes include_diff=false lost stats after checkpoint: ${JSON.stringify(statsOnlyAfterCheckpoint.structuredContent)}`);
 }
-if (statsOnlyAfterCheckpoint.structuredContent.review_marked) {
+if (statsOnlyAfterCheckpoint.structuredContent.data.review_marked) {
   throw new Error(`show_changes include_diff=false claimed it updated the review checkpoint: ${JSON.stringify(statsOnlyAfterCheckpoint.structuredContent)}`);
 }
 const demoChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: 'demo.txt' } });
-if (!demoChanges.structuredContent.changed || !demoChanges.structuredContent.changed_files?.some?.((line) => line.includes('demo.txt'))) {
-  throw new Error(`path-scoped show_changes did not report demo.txt: ${JSON.stringify(demoChanges.structuredContent.changed_files)}`);
+if (!demoChanges.structuredContent.data.changed || !demoChanges.structuredContent.data.changed_files?.some?.((line) => line.includes('demo.txt'))) {
+  throw new Error(`path-scoped show_changes did not report demo.txt: ${JSON.stringify(demoChanges.structuredContent.data.changed_files)}`);
 }
-if (demoChanges.structuredContent.changed_files?.some?.((line) => line.includes('env-ref.js'))) {
-  throw new Error(`path-scoped show_changes leaked unrelated env-ref.js status: ${JSON.stringify(demoChanges.structuredContent.changed_files)}`);
+if (demoChanges.structuredContent.data.changed_files?.some?.((line) => line.includes('env-ref.js'))) {
+  throw new Error(`path-scoped show_changes leaked unrelated env-ref.js status: ${JSON.stringify(demoChanges.structuredContent.data.changed_files)}`);
 }
-if (JSON.stringify(demoChanges.structuredContent.analysis?.changed_paths) !== JSON.stringify(['demo.txt'])) {
-  throw new Error(`path-scoped show_changes leaked unrelated analysis: ${JSON.stringify(demoChanges.structuredContent.analysis)}`);
+if (JSON.stringify(demoChanges.structuredContent.data.analysis?.changed_paths) !== JSON.stringify(['demo.txt'])) {
+  throw new Error(`path-scoped show_changes leaked unrelated analysis: ${JSON.stringify(demoChanges.structuredContent.data.analysis)}`);
 }
 await fs.writeFile(path.join(tmp, 'é.ts'), 'export const accent = 2;\n', 'utf8');
 const utf8Changes = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: 'é.ts', since: 'workspace' } });
-if (JSON.stringify(utf8Changes.structuredContent.analysis?.changed_paths) !== JSON.stringify(['é.ts'])) {
-  throw new Error(`show_changes did not decode a Git-quoted UTF-8 path: ${JSON.stringify(utf8Changes.structuredContent.analysis)}`);
+if (JSON.stringify(utf8Changes.structuredContent.data.analysis?.changed_paths) !== JSON.stringify(['é.ts'])) {
+  throw new Error(`show_changes did not decode a Git-quoted UTF-8 path: ${JSON.stringify(utf8Changes.structuredContent.data.analysis)}`);
 }
 const renameResult = spawnSync('git', ['mv', '旧名.ts', '新名.ts'], { cwd: tmp, encoding: 'utf8' });
 if (renameResult.status !== 0) throw new Error(`git mv UTF-8 path failed: ${renameResult.stderr || renameResult.stdout}`);
 const utf8RenameChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, staged: true, since: 'workspace' } });
-if (!utf8RenameChanges.structuredContent.analysis?.changed_paths?.includes?.('新名.ts')) {
-  throw new Error(`show_changes did not decode a Git-quoted UTF-8 rename: ${JSON.stringify(utf8RenameChanges.structuredContent.analysis)}`);
+if (!utf8RenameChanges.structuredContent.data.analysis?.changed_paths?.includes?.('新名.ts')) {
+  throw new Error(`show_changes did not decode a Git-quoted UTF-8 rename: ${JSON.stringify(utf8RenameChanges.structuredContent.data.analysis)}`);
 }
 const restoreRenameResult = spawnSync('git', ['mv', '新名.ts', '旧名.ts'], { cwd: tmp, encoding: 'utf8' });
 if (restoreRenameResult.status !== 0) throw new Error(`git mv UTF-8 fixture restore failed: ${restoreRenameResult.stderr || restoreRenameResult.stdout}`);
 const cleanPathChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: 'package.json' } });
-if (cleanPathChanges.structuredContent.changed || cleanPathChanges.structuredContent.changed_files?.length || cleanPathChanges.structuredContent.diff.includes('demo.txt')) {
+if (cleanPathChanges.structuredContent.data.changed || cleanPathChanges.structuredContent.data.changed_files?.length || cleanPathChanges.structuredContent.data.diff.includes('demo.txt')) {
   throw new Error(`path-scoped show_changes leaked unrelated changes: ${JSON.stringify(cleanPathChanges.structuredContent)}`);
 }
 await fs.writeFile(path.join(tmp, 'staged-only.txt'), 'ready\n', 'utf8');
@@ -615,24 +615,24 @@ const stageOnlyResult = spawnSync('git', ['add', 'staged-only.txt'], { cwd: tmp,
 if (stageOnlyResult.status !== 0) throw new Error(`git add staged-only.txt failed: ${stageOnlyResult.stderr || stageOnlyResult.stdout}`);
 await fs.writeFile(path.join(tmp, 'unstaged-only.txt'), 'dirty\n', 'utf8');
 const defaultStagedPathChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: 'staged-only.txt' } });
-if (defaultStagedPathChanges.structuredContent.changed || defaultStagedPathChanges.structuredContent.diff || defaultStagedPathChanges.structuredContent.additions !== 0) {
+if (defaultStagedPathChanges.structuredContent.data.changed || defaultStagedPathChanges.structuredContent.data.diff || defaultStagedPathChanges.structuredContent.data.additions !== 0) {
   throw new Error(`default show_changes reported staged-only changes as unstaged: ${JSON.stringify(defaultStagedPathChanges.structuredContent)}`);
 }
 const stagedChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, staged: true } });
-if (!stagedChanges.structuredContent.changed || !stagedChanges.structuredContent.diff.includes('staged-only.txt') || stagedChanges.structuredContent.diff.includes('unstaged-only.txt')) {
+if (!stagedChanges.structuredContent.data.changed || !stagedChanges.structuredContent.data.diff.includes('staged-only.txt') || stagedChanges.structuredContent.data.diff.includes('unstaged-only.txt')) {
   throw new Error(`staged show_changes mixed staged and unstaged files: ${JSON.stringify(stagedChanges.structuredContent)}`);
 }
-if (JSON.stringify(stagedChanges.structuredContent.analysis?.changed_paths) !== JSON.stringify(['staged-only.txt'])) {
-  throw new Error(`staged show_changes mixed analysis paths: ${JSON.stringify(stagedChanges.structuredContent.analysis)}`);
+if (JSON.stringify(stagedChanges.structuredContent.data.analysis?.changed_paths) !== JSON.stringify(['staged-only.txt'])) {
+  throw new Error(`staged show_changes mixed analysis paths: ${JSON.stringify(stagedChanges.structuredContent.data.analysis)}`);
 }
 await client.request('tools/call', { name: 'write', arguments: { workspace_id: ws, path: 'new-review.txt', content: 'new file\n' } });
 const untrackedChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: 'new-review.txt' } });
-if (!untrackedChanges.structuredContent.changed || !untrackedChanges.structuredContent.changed_files?.some?.((line) => line.includes('new-review.txt'))) {
+if (!untrackedChanges.structuredContent.data.changed || !untrackedChanges.structuredContent.data.changed_files?.some?.((line) => line.includes('new-review.txt'))) {
   throw new Error(`show_changes did not report untracked new file: ${JSON.stringify(untrackedChanges.structuredContent)}`);
 }
 await fs.writeFile(path.join(tmp, 'new-review.txt'), 'new file changed\n', 'utf8');
 const changedUntrackedChanges = await client.request('tools/call', { name: 'show_changes', arguments: { workspace_id: ws, path: 'new-review.txt' } });
-if (!changedUntrackedChanges.structuredContent.changed || changedUntrackedChanges.structuredContent.review_checkpoint_hit) {
+if (!changedUntrackedChanges.structuredContent.data.changed || changedUntrackedChanges.structuredContent.data.review_checkpoint_hit) {
   throw new Error(`show_changes checkpoint hid changed untracked file content: ${JSON.stringify(changedUntrackedChanges.structuredContent)}`);
 }
 const codexContext = await client.request('tools/call', { name: 'codex_context', arguments: { workspace_id: ws, target_path: 'demo.txt' } });
