@@ -2886,3 +2886,42 @@ One attempted `npm test` command failed because `package.json` defines no `test`
 **Rollback method:** Revert only the pending documentation/memory commit for STEP-128; implementation commits remain independently reversible.
 
 **Next step:** Re-run final gates after reconciliation, commit the documentation record, push `main`, inspect CI, and append a publication entry.
+
+## STEP-129 — Publish `show_changes` and verify cross-platform CI
+
+**Status:** Complete on 2026-07-12.
+
+**Goal:** Publish the complete sixth Phase 1 slice, verify local/remote synchronization, and obtain direct cross-platform CI evidence before reopening Phase 1 design work.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/superpowers/specs/2026-07-12-show-changes-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-12-show-changes-output-schema.md`
+- `docs/memory/archive/phase-1.md`
+
+**Implementation summary:**
+
+- Committed the reconciled documentation and memory record as `0051543`.
+- Pushed all seven local commits from `22e38d8` through `0051543` to `origin/main`.
+- Confirmed local `HEAD` and `origin/main` both resolved to `0051543e5cc6c256d60efee9eb31ff1dd48168a4`.
+- Queried GitHub's official REST API because GitHub CLI was not installed locally.
+- Verified CI run `29206887875` targeted the exact documentation-record SHA and completed successfully.
+- Verified all four jobs independently succeeded: Windows / Node 20, Windows / Node 24, Ubuntu / Node 20, and Ubuntu / Node 24.
+
+**Verification commands and results:**
+
+- `git push origin main`: passed.
+- `git rev-parse HEAD origin/main`: returned the same full SHA twice.
+- GitHub Actions run API for `29206887875`: `completed`, `success`, matching head SHA.
+- GitHub Actions jobs API: all four matrix jobs returned `completed`, `success`.
+
+**Decisions made:** Treat `0051543` and CI run `29206887875` as the publication evidence for the sixth slice. Keep the current connection's old tool descriptor limitation separate from the published source contract; a later service restart will load the new descriptor.
+
+**Risks or limitations:** `gh` is not installed on this Windows environment, so CI inspection used GitHub's official REST API. Review checkpoints remain process-local, and Git error classification remains string-based.
+
+**Rollback method:** Revert documentation record `0051543`, adjacent-test commit `c41365a`, consumer commit `9777f32`, handler commit `2329160`, schema commit `69c5fea`, plan commit `8e885ef`, and design commit `5108e8a` in reverse order. No dependency, credential, profile, workspace, remote, Cloudflare, or Phase 2 rollback is required.
+
+**Next step:** No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Do not begin Phase 2 without explicit approval.

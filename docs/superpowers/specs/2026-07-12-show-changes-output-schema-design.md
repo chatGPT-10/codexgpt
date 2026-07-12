@@ -2,7 +2,7 @@
 
 Date: 2026-07-12  
 Phase: Phase 1, sixth vertical slice  
-Status: Implemented and locally verified; publication pending
+Status: Published and cross-platform CI-validated
 
 ## 1. Goal
 
@@ -391,4 +391,4 @@ Fresh local verification on native Windows passed:
 - native-Windows Stress;
 - `git diff --check`.
 
-The repository has no `npm test` script. The complete regression command is `node --test test/*.test.mjs`. Publication and remote CI evidence remain pending until the reviewed documentation record is committed and pushed.
+The repository has no `npm test` script. The complete regression command is `node --test test/*.test.mjs`. Documentation record `0051543` is on `origin/main`, and CI run `29206887875` passed all Ubuntu/Windows Node 20/24 jobs.

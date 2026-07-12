@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: `server_config`, `tree`, `read`, `git_status`, and `git_diff` are published; `show_changes` is implemented and locally verified, with publication pending.
+- Phase 1: `server_config`, `tree`, `read`, `git_status`, `git_diff`, and `show_changes` are published and cross-platform CI-validated.
 
 ## Approved stopping point
 
-The sixth Phase 1 vertical slice, direct `show_changes`, is implemented, locally verified, and neat-freak reconciled. Design commit `5108e8a`, plan commit `8e885ef`, schema commit `69c5fea`, handler commit `2329160`, consumer commit `9777f32`, and adjacent-test correction `c41365a` are on local `main`. Documentation commit, publication, and remote CI evidence remain pending. Do not begin another Phase 1 tool or Phase 2 until this slice is published and recorded.
+The sixth Phase 1 vertical slice, direct `show_changes`, is published. Design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`, and documentation record `0051543` are on `origin/main`; CI run `29206887875` passed on Ubuntu/Windows with Node 20/24. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool; Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -71,7 +71,7 @@ The sixth Phase 1 vertical slice, direct `show_changes`, is implemented, locally
 - `read`: implementation `282dcfa`, record `c90246f`; CI runs `29199573321` and `29199802824` passed.
 - `git_status`: implementation `bc92970`; local gates and CI run `29202896685` passed on Ubuntu/Windows Node 20/24.
 - `git_diff`: design `1bbe240`, plan `8083f53`, implementation `19f0042`, publication record `9103ce4`; CI run `29204692105` passed on Ubuntu/Windows Node 20/24.
-- `show_changes`: design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`; publication and remote CI pending.
+- `show_changes`: design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`, documentation record `0051543`; CI run `29206887875` passed on Ubuntu/Windows Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are in `docs/memory/archive/phase-1.md`.
 
 ## Known limitations
@@ -85,12 +85,12 @@ The sixth Phase 1 vertical slice, direct `show_changes`, is implemented, locally
 
 ## Open items
 
-1. Commit the reconciled documentation, push local `main`, and verify remote CI for `show_changes`.
-2. After publication, the next permitted action is a separately reviewed design for one additional Phase 1 tool.
-3. Keep Phase 2 closed without a new approved design and plan.
+1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
+2. Keep Phase 2 closed without a new approved design and plan.
 
 ## Recent summaries
 
+- **STEP-129 — Publish `show_changes`:** pushed through documentation record `0051543`, confirmed local/remote synchronization, and verified CI run `29206887875` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-128 — Verify `show_changes` locally:** focused 14/14, adjacent 50/50, complete 122/122, Build, Smoke 8/8, native-Windows Stress, and diff-check passed.
 - **STEP-127 — Complete TDD migration:** added strict schema/provider seams/classifiers, nested Tool Card/supertool consumers, safe analysis degradation, and updated historical adjacent card expectations.
 - **STEP-126 — Approve sixth-slice design and plan:** selected direct `show_changes`, strict Git failures, and safe optional-analysis degradation while keeping Git/analysis services unchanged.
