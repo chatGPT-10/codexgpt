@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first `server_config` and second `tree` vertical slices are published and cross-platform CI-validated. The `tree` implementation is commit `6aaeda4`; its publication records are commits `2ecd4af` and `e7c1646`.
+- Phase 1: the first `server_config` and second `tree` slices are published and cross-platform CI-validated. The third `read` slice is locally complete and fully verified, but remains unstaged, uncommitted, unpushed, and not CI-published.
 
 ## Approved stopping point
 
-Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices are published and cross-platform CI-validated. No implementation task is active. The next permitted action is design and planning for one additional Phase 1 tool after explicit approval. Do not begin Phase 2 or a third tool implementation without a separately reviewed plan and explicit approval.
+Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices are published and cross-platform CI-validated. The third `read` slice is locally complete and reviewed. Stop before staging; the next permitted action is explicit user approval to stage this exact eleven-file slice. Do not begin Phase 2, another tool migration, commit, or push.
 
 ## Active decisions and constraints
 
@@ -44,6 +44,10 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - `tree` introduces only `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_DIRECTORY`, and `INTERNAL_ERROR`; all are non-retryable and use exact safe details.
 - `tree` uses a local error-classification adapter because the global `CodexProError` remains untyped; global error refactoring and Phase 2 workspace lifecycle work are out of scope.
 - The approved `tree` design is recorded in `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md`; its four-task TDD plan in `docs/superpowers/plans/2026-07-12-tree-output-schema.md` is fully executed, published, and cross-platform CI-validated.
+- The third Phase 1 slice is `read` only. Its ten existing success fields remain unchanged under `data`: `workspace_id`, `root`, `path`, `text`, `startLine`, `endLine`, `totalLines`, `bytes`, `sha256`, and `truncated`.
+- `read` permits exactly nine non-retryable errors: `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_FILE`, `FILE_TOO_LARGE`, `FILE_NOT_TEXT`, `INVALID_LINE_RANGE`, and `INTERNAL_ERROR`.
+- The approved `read` design is `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`; it preserves current reading, hashing, redaction, optional workspace fallback, and the unrelated Windows Stress limitation.
+- Its self-reviewed implementation plan is `docs/superpowers/plans/2026-07-12-read-output-schema.md`: four TDD tasks covering Schema, real MCP integration, Tool Card/consumer migration, and complete local verification before a separate staging boundary.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval.
 
 ## Final Phase 0.5 evidence
@@ -91,6 +95,15 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - Stress syntax, whitespace, conflict-marker, NUL, Memory-limit, credential-pattern, stale-consumer, and complete-scope checks passed.
 - Implementation commit `6aaeda4`, publication-record commit `2ecd4af`, and final-state commit `e7c1646` were pushed to `origin/main`; CI runs `29194671044`, `29194802582`, and `29194978911` all passed.
 
+## Third Phase 1 slice local evidence
+
+- Task 1 RED was the expected missing `src/tools/schemas/read.ts`; GREEN was 4/4 strict constructor/schema tests.
+- Task 2 RED was 4 passed and 11 failed against the legacy MCP contract; GREEN was 15/15 after exact handler integration and Windows temp-root canonicalization in tests only.
+- Task 3 RED was 15 passed and 1 missing-card failure; GREEN was 16/16 after the dedicated nested-data card and seven approved Stress consumer migrations.
+- Complete local gates: 16/16 focused, 72/72 Node tests, Build, all 8 Smoke sections, audit 0 vulnerabilities, 105-file package, and documentation 5/5.
+- Stress syntax, whitespace, conflict-marker, NUL, Memory-limit, credential-pattern, stale-consumer, and complete-scope checks passed.
+- The slice is unstaged, uncommitted, unpushed, and not CI-published.
+
 ## Known limitations
 
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
@@ -99,27 +112,21 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 
 ## Open items
 
-1. No Phase 1 implementation task is active; the next permitted action is selecting and designing one additional tool after explicit approval.
-2. Keep Phase 2 and a third tool implementation closed without a new reviewed design and plan.
+1. The user explicitly approved automatic staging, commit, push, and follow-up publication work for the reviewed eleven-file `read` slice.
+2. Complete Git publication and verify cross-platform CI; keep Phase 2 and another tool migration closed.
 3. Treat the native-Windows Stress fixture filename issue as separate maintenance work.
 
 ## Recent summaries
 
-- **STEP-088 — Push exact `server_config` slice:** after explicit approval, pushed implementation commit `b989776` to `origin/main` and prepared the publication record.
-- **STEP-089 — Neat-freak Phase 1 slice closeout:** verified both implementation and record CI runs passed on Ubuntu/Windows Node 20/24, confirmed local/remote synchronization, removed completed push/CI items, and restored a planning-only boundary for the next tool.
-- **STEP-090 — Publish and verify neat-freak closeout:** committed and pushed the six-file closeout as `ca17257`, then verified CI run `29189679200` completed successfully on Ubuntu/Windows Node 20/24.
-- **STEP-091 — Select and specify the `tree` slice:** inspected the current tool list and implementation boundaries, approved `tree` as the second Phase 1 slice, fixed its exact data and six-code failure contract, wrote and self-reviewed `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md`, and stopped before implementation-plan writing.
-- **STEP-092 — Write the `tree` implementation plan:** after written-spec approval, produced and self-reviewed `docs/superpowers/plans/2026-07-12-tree-output-schema.md` with four TDD tasks, 41 tracked steps, exact interfaces and code, per-task Memory/review gates, complete verification, rollback, and a stop before Task 1 pending user approval.
-- **STEP-093 — Task 1 exact `tree` contracts:** under TDD, added `src/tools/schemas/tree.ts` and `test/tree-contract.test.mjs`; observed the expected missing-module RED, then passed 4/4 focused tests and the TypeScript build. Real MCP integration and Tool Card migration remain unstarted.
-- **STEP-094 — Task 2 real `tree` MCP integration:** added the exact advertised Schema, strict success/failure envelopes, constructor-only `treeResultProvider`, safe local error classification, and seven real MCP tests; 11/11 focused tests, 6/6 `server_config` regression tests, and Build passed. Tool Card migration remains Task 3.
-- **STEP-095 — Task 3 nested-data `tree` Tool Card:** under TDD, added a dedicated subtitle, success/error renderer, and route that read tool fields only from `data`; the new source-contract test failed before implementation, then all 12 focused tests and Build passed. Full closeout remained Task 4.
-- **STEP-096 — Complete local `tree` slice:** passed 12/12 focused and 56/56 complete tests, Build, all 8 Smoke sections, audit, 103-file package, 5/5 documentation, Stress syntax, text-safety, consumer, and scope checks; migrated the one proven HTTP Smoke consumer to nested `data` and stopped before staging.
-- **STEP-097 — Neat-freak `tree` closeout:** synchronized `AGENTS.md`, the Phase 1 roadmap, design status, plan status, all 41 plan checkboxes, and Memory; removed stale “second tool not started” text and established the reviewed eleven-file staging boundary.
-- **STEP-098 — Stage reviewed `tree` slice:** after explicit approval, staged the complete eleven-file implementation, planning, documentation, test, Smoke-consumer, and Memory set; no unstaged changes, commit, or push followed.
-- **STEP-099 — Commit and push `tree` implementation:** created commit `6aaeda4` (`feat: add exact tree output schema`) from the reviewed eleven-file set and pushed `main` to `origin`; closeout record publication and CI verification remained.
-- **STEP-100 — Verify and close `tree` publication:** published commits `2ecd4af` and `e7c1646`; CI runs `29194671044`, `29194802582`, and `29194978911` passed, local `main` matched `origin/main`, and the project returned to the Phase 1 planning boundary.
-- **STEP-101 — Neat-freak publication reconciliation:** removed stale staging language and commit history from active rules, synchronized final commit/CI evidence across the roadmap, design, plan, and Memory, and reduced the root index below its practical limit.
 - **STEP-102 — Publish neat-freak reconciliation:** after explicit approval, committed the six-file documentation/Memory cleanup as `c946cc5`, pushed it to `origin/main`, and verified CI run `29195773978` completed successfully; the follow-up publication record is included in the current commit.
+- **STEP-103 — Select and specify the `read` slice:** approved `read` as the third Phase 1 slice, preserved its ten success fields under nested `data`, fixed nine stable non-retryable errors, audited current handler/card/Smoke/Stress consumers, and wrote and self-reviewed `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`; implementation had not started at this step.
+- **STEP-104 — Write the `read` implementation plan:** produced and self-reviewed `docs/superpowers/plans/2026-07-12-read-output-schema.md` with four TDD tasks; corrected an ineffective NUL check, added absolute-path detail redaction coverage, and completed migration instructions for both supertool reads, size/range/path fields, `FILE_TOO_LARGE`, and late-NUL `FILE_NOT_TEXT`; stopped before Task 1.
+- **STEP-105 — Task 1 exact `read` contracts:** observed the expected missing-module RED, then added the strict ten-field data schema, nine error variants, constructors, and passed 4/4 focused tests plus Build.
+- **STEP-106 — Task 2 real `read` MCP integration:** added exact descriptor/envelopes, constructor-only provider injection, local safe classification, and real MCP tests; after canonicalizing Windows temp fixtures, 15/15 focused and 18/18 published-contract regressions passed.
+- **STEP-107 — Task 3 card and consumers:** added dedicated nested-data subtitle/rendering/routing; after explicit approval, applied an exact shell patch for seven Stress assertions blocked by full-file secret scanning; 16/16 focused, Stress syntax, Build, and regressions passed.
+- **STEP-108 — Complete local `read` slice:** passed 72/72 full tests, all 8 Smoke sections, audit, 105-file package, 5/5 documentation, text-safety, consumer, and scope checks; synchronized design, plan, roadmap, AGENTS, and Memory; stopped before staging.
+- **STEP-109 — Neat-freak local closeout:** audited rules, active docs, Memory, links, stale wording, and scope; compressed the executed `read` plan from 1771 lines / 60.7 KB to 218 lines / 9.2 KB without changing the contract or evidence, corrected one misleading present-tense Memory summary, then passed 72/72 tests, Build, reference, whitespace, text-safety, and scope checks while keeping the eleven-file unstaged boundary.
+- **STEP-110 — Authorize `read` publication workflow:** received explicit approval to execute staging, commit, push, and follow-up publication work automatically; reran 72/72 tests, Build, all 8 Smoke sections, audit with 0 vulnerabilities, and the 105-file package check before touching Git.
 
 ## Archives
 

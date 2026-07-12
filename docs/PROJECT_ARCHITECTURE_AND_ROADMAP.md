@@ -415,13 +415,13 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The first `server_config` and second `tree` vertical slices are published and cross-platform CI-validated. No Phase 1 implementation task is active; the next tool requires a separately reviewed design and plan. Phase 2 has not started. Publication evidence is recorded in `docs/memory/archive/phase-1.md`.
+Status: implementation started on 2026-07-12. The first `server_config` and second `tree` vertical slices are published and cross-platform CI-validated. The third `read` slice is locally complete and fully verified on native Windows, but remains unstaged, uncommitted, unpushed, and not CI-published. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
-- delivered exact advertised `outputSchema` contracts for `server_config` and `tree` with real MCP success/failure contract tests;
+- delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, and locally completed `read`, with real MCP success/failure contract tests;
 - preserved human-readable `content` output and MCP `isError` behavior;
-- migrated both tool cards and proven internal consumers to nested `data`;
-- introduced six safe, stable, non-retryable `tree` error codes through a local classifier without refactoring global errors;
+- migrated all three tool cards and proven internal consumers to nested `data`;
+- introduced six safe `tree` and nine safe `read` stable non-retryable error codes through tool-local classifiers without refactoring global errors;
 - continue migrating later tools incrementally through separately reviewed designs and plans.
 
 ### Phase 2 — Workspace lifecycle and isolation

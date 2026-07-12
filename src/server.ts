@@ -9,9 +9,11 @@ import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./gu
 import {
   repoTree,
   readTextFile,
+  textScanByteLimit,
   writeTextFile,
   editTextFile,
   ensureAiBridge,
+  type ReadFileResult,
   type TreeOptions,
   type TreeResult
 } from "./fsOps.js";
@@ -40,6 +42,14 @@ import {
   treeOutputShape,
   type TreeFailureInput
 } from "./tools/schemas/tree.js";
+import {
+  READ_ERROR_MESSAGES,
+  createReadFailure,
+  createReadSuccess,
+  readDataSchema,
+  readOutputShape,
+  type ReadFailureInput
+} from "./tools/schemas/read.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -140,6 +150,103 @@ function classifyTreeFailure(error: unknown, args: Record<string, unknown>): Tre
       code: "PATH_OUTSIDE_WORKSPACE",
       details: { path: safeTreePathDetail(args.path ?? ".") }
     };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function effectiveReadMaxBytes(config: CodexProConfig, args: Record<string, unknown>): number {
+  const requested = typeof args.max_bytes === "number" ? args.max_bytes : config.maxReadBytes;
+  return Math.min(requested, config.maxReadBytes);
+}
+
+function classifyReadFailure(
+  error: unknown,
+  args: Record<string, unknown>,
+  config: CodexProConfig
+): ReadFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+  const pathDetail = safeTreePathDetail(args.path ?? "[path omitted]");
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  const filesystemCode = nodeErrorCode(error);
+  if (filesystemCode === "ENOENT") {
+    return { code: "FILE_NOT_FOUND", details: { path: pathDetail } };
+  }
+
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return { code: "PATH_BLOCKED", details: { path: pathDetail } };
+  }
+
+  if (
+    message.startsWith("Not a file:") ||
+    filesystemCode === "EISDIR" ||
+    filesystemCode === "ENOTDIR"
+  ) {
+    return { code: "NOT_A_FILE", details: { path: pathDetail } };
+  }
+
+  const hasRange = args.start_line !== undefined || args.end_line !== undefined;
+  if (message.startsWith("File is too large (")) {
+    return {
+      code: "FILE_TOO_LARGE",
+      details: {
+        path: pathDetail,
+        scope: "file",
+        limit_bytes: hasRange ? textScanByteLimit(config) : effectiveReadMaxBytes(config, args)
+      }
+    };
+  }
+
+  if (message.startsWith("Selected line range is too large.")) {
+    return {
+      code: "FILE_TOO_LARGE",
+      details: {
+        path: pathDetail,
+        scope: "selection",
+        limit_bytes: effectiveReadMaxBytes(config, args)
+      }
+    };
+  }
+
+  if (message === "Refusing to read binary file.") {
+    return { code: "FILE_NOT_TEXT", details: { path: pathDetail } };
+  }
+
+  if (
+    message.startsWith("end_line (") &&
+    message.includes("must be >= start_line (")
+  ) {
+    return {
+      code: "INVALID_LINE_RANGE",
+      details: {
+        path: pathDetail,
+        start_line: typeof args.start_line === "number" ? args.start_line : 1,
+        end_line: typeof args.end_line === "number" ? args.end_line : null
+      }
+    };
+  }
+
+  const outsidePrefixes = [
+    "Path contains a null byte.",
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return { code: "PATH_OUTSIDE_WORKSPACE", details: { path: pathDetail } };
   }
 
   return { code: "INTERNAL_ERROR", details: {} };
@@ -328,9 +435,22 @@ export interface TreeProviderContext {
   options: TreeOptions;
 }
 
+export interface ReadProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  path: string;
+  options: {
+    startLine?: number;
+    endLine?: number;
+    maxBytes?: number;
+  };
+}
+
 export interface CodexProServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
+  readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -1125,6 +1245,16 @@ export function createCodexProServer(
     dependencies.treeResultProvider ??
     ((context: TreeProviderContext) =>
       repoTree(context.config, context.guard, context.workspace, context.options));
+  const readResultProvider =
+    dependencies.readResultProvider ??
+    ((context: ReadProviderContext) =>
+      readTextFile(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.path,
+        context.options
+      ));
   registeredToolNamesByServer.set(server as object, []);
   registerToolCardResource(server, config);
 
@@ -1969,6 +2099,7 @@ export function createCodexProServer(
         end_line: z.number().int().min(1).optional().describe("Last line to read. Default: end of file."),
         max_bytes: z.number().int().min(1000).max(2000000).optional().describe("Maximum file bytes. Capped by server config.")
       },
+      outputSchema: readOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -1977,14 +2108,44 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const result = await readTextFile(config, guard, workspace, args.path, {
-        startLine: args.start_line,
-        endLine: args.end_line,
-        maxBytes: args.max_bytes
-      });
-      const text = `# Read File\n\nPath: ${result.path}\nLines: ${result.startLine}-${result.endLine} of ${result.totalLines}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\n\n\`\`\`text\n${result.text}\n\`\`\``;
-      return textResult(text, { workspace_id: workspace.id, root: workspace.root, ...result });
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const filePath = String(args.path ?? "");
+        const options = {
+          startLine: args.start_line,
+          endLine: args.end_line,
+          maxBytes: args.max_bytes
+        };
+        const result = await readResultProvider({
+          config,
+          guard,
+          workspace,
+          path: filePath,
+          options
+        });
+        const data = readDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          ...result
+        });
+        const text = `# Read File\n\nPath: ${result.path}\nLines: ${result.startLine}-${result.endLine} of ${result.totalLines}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\n\n\`\`\`text\n${result.text}\n\`\`\``;
+
+        return textResult(text, createReadSuccess(data));
+      } catch (error) {
+        const failure = classifyReadFailure(error, args, config);
+        const structured = createReadFailure(failure);
+        const text = [
+          "# Read File Error",
+          "",
+          `Code: ${failure.code}`,
+          READ_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+
+        return {
+          ...textResult(text, structured),
+          isError: true
+        };
+      }
     }
   );
 

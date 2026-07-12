@@ -526,6 +526,11 @@ export const toolCardWidgetHtml = String.raw`
       const tree = data?.data ?? {};
       return tree.root || "File tree";
     }
+    if (data?.codexpro_tool === "read") {
+      if (data?.ok === false) return data?.error?.code || "File unavailable";
+      const file = data?.data ?? {};
+      return file.path || "Read file";
+    }
     if (data?.codexpro_tool === "workspace_snapshot") return data?.root || "Workspace snapshot";
     if (data?.codexpro_tool === "inspect_workspace") {
       const coverage = data?.coverage || {};
@@ -1008,6 +1013,41 @@ export const toolCardWidgetHtml = String.raw`
       '</div></article>';
   }
 
+  function renderRead(data) {
+    const file = data?.data ?? {};
+    const error = data?.error ?? {};
+
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "File unavailable.") +
+        '</div></div></article>';
+    }
+
+    const text = typeof file.text === "string" ? file.text : "";
+    const bytes = Number.isFinite(file.bytes) ? file.bytes : 0;
+    const startLine = Number.isFinite(file.startLine) ? file.startLine : "-";
+    const endLine = Number.isFinite(file.endLine) ? file.endLine : "-";
+    const totalLines = Number.isFinite(file.totalLines) ? file.totalLines : "-";
+    const truncated = file.truncated === true;
+    const pills = [
+      pill(bytes + " bytes", "info"),
+      pill(startLine + "-" + endLine + " of " + totalLines + " lines"),
+      truncated ? pill("partial", "warn") : pill("complete", "good")
+    ].join("");
+
+    return '<article class="card">' +
+      header(data, pills) +
+      '<div class="body">' +
+      codebox(
+        basename(file.path || "file"),
+        esc(previewLines(text, 80)),
+        ""
+      ) +
+      '</div></article>';
+  }
+
   function renderGeneric(data) {
     const keys = Object.keys(data || {}).filter((key) => !key.startsWith("codexpro_"));
     const metrics = keys.slice(0, 3).map((key) => metric(key, typeof data[key] === "object" ? JSON.stringify(data[key]) : data[key])).join("");
@@ -1055,6 +1095,8 @@ export const toolCardWidgetHtml = String.raw`
       root.innerHTML = renderWorkspace(data);
     } else if (tool === "tree") {
       root.innerHTML = renderTree(data);
+    } else if (tool === "read") {
+      root.innerHTML = renderRead(data);
     } else if (tool === "inspect_workspace") {
       root.innerHTML = renderWorkspaceAnalysis(data);
     } else if (tool === "git_status") {
@@ -1063,7 +1105,7 @@ export const toolCardWidgetHtml = String.raw`
       root.innerHTML = data.analysis ? renderChangeAnalysis(data) : renderChanges(data);
     } else if (tool === "handoff_to_agent" || tool === "handoff_to_codex") {
       root.innerHTML = renderHandoff(data);
-    } else if (tool === "write" || tool === "edit" || tool === "apply_patch" || tool === "git_diff" || tool === "export_pro_context" || tool === "read") {
+    } else if (tool === "write" || tool === "edit" || tool === "apply_patch" || tool === "git_diff" || tool === "export_pro_context") {
       root.innerHTML = renderFile(data);
     } else if (tool === "bash") {
       root.innerHTML = renderBash(data);

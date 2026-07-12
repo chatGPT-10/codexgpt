@@ -217,7 +217,7 @@ async function runFullModeStress(root) {
       name: 'codexpro',
       arguments: { action: 'read', args: { workspace_id: ws, path: 'demo.txt', start_line: 1, end_line: 3 } }
     });
-    assert(superRead.structuredContent.codexpro_tool === 'read' && superRead.structuredContent.wrapped_tool === 'read' && superRead.structuredContent.text.includes('--flag root'), 'supertool read failed');
+    assert(superRead.structuredContent.codexpro_tool === 'read' && superRead.structuredContent.wrapped_tool === 'read' && superRead.structuredContent.data?.text.includes('--flag root'), 'supertool read failed');
 
     const superSearch = await client.request('tools/call', {
       name: 'codexpro',
@@ -503,7 +503,7 @@ async function runSupertoolModeStress(root) {
       name: 'codexpro',
       arguments: { action: 'read', args: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt', start_line: 1, end_line: 2 } }
     });
-    assert(read.structuredContent.codexpro_tool === 'read' && read.structuredContent.wrapped_tool === 'read' && read.structuredContent.text.includes('alpha'), 'minimal supertool read failed');
+    assert(read.structuredContent.codexpro_tool === 'read' && read.structuredContent.wrapped_tool === 'read' && read.structuredContent.data?.text.includes('alpha'), 'minimal supertool read failed');
 
     const blockedSearch = await client.request('tools/call', {
       name: 'codexpro',
@@ -547,17 +547,17 @@ async function runMaxReadSearchStress() {
       name: 'read',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'many-lines.txt' }
     });
-    assert(manyLinesRead.isError !== true && manyLinesRead.structuredContent.endLine === 1201, `full read under maxReadBytes failed after line numbering: ${JSON.stringify(manyLinesRead.structuredContent)}`);
+    assert(manyLinesRead.isError !== true && manyLinesRead.structuredContent.data?.endLine === 1201, `full read under maxReadBytes failed after line numbering: ${JSON.stringify(manyLinesRead.structuredContent)}`);
     const fullRead = await client.request('tools/call', {
       name: 'read',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'large.txt' }
     });
-    assert(fullRead.isError === true && String(fullRead.structuredContent.error).includes('too large'), 'full read ignored maxReadBytes');
+    assert(fullRead.isError === true && fullRead.structuredContent.error?.code === 'FILE_TOO_LARGE', 'full read ignored maxReadBytes');
     const rangedRead = await client.request('tools/call', {
       name: 'read',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'large.txt', start_line: 3, end_line: 3 }
     });
-    assert(rangedRead.isError !== true && rangedRead.structuredContent.text.includes('needle in large file'), `ranged read failed above maxReadBytes: ${JSON.stringify(rangedRead.structuredContent)}`);
+    assert(rangedRead.isError !== true && rangedRead.structuredContent.data?.text.includes('needle in large file'), `ranged read failed above maxReadBytes: ${JSON.stringify(rangedRead.structuredContent)}`);
     const search = await client.request('tools/call', {
       name: 'search',
       arguments: { workspace_id: opened.structuredContent.workspace_id, query: 'needle', max_results: 10 }
@@ -627,7 +627,14 @@ async function runGuardEdgeStress() {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     const ws = opened.structuredContent.workspace_id;
 
-    await expectToolError(client, 'read', { workspace_id: ws, path: 'late-null.txt' }, /binary/i);
+    const lateNullRead = await client.request('tools/call', {
+      name: 'read',
+      arguments: { workspace_id: ws, path: 'late-null.txt' }
+    });
+    assert(
+      lateNullRead.isError === true && lateNullRead.structuredContent.error?.code === 'FILE_NOT_TEXT',
+      `late-NUL read did not return FILE_NOT_TEXT: ${JSON.stringify(lateNullRead.structuredContent)}`
+    );
     await expectToolError(client, 'edit', { workspace_id: ws, path: 'late-null.txt', old_text: 'needle before', new_text: 'changed' }, /binary/i);
 
     const blockedSearch = await client.request('tools/call', {
@@ -646,7 +653,7 @@ async function runGuardEdgeStress() {
     if (aliasRoot) {
       const aliasVisible = path.join(aliasRoot, 'visible.txt');
       const aliasRead = await client.request('tools/call', { name: 'read', arguments: { workspace_id: ws, path: aliasVisible } });
-      assert(aliasRead.isError !== true && aliasRead.structuredContent.path === 'visible.txt', `absolute realpath-inside read failed: ${JSON.stringify(aliasRead.structuredContent)}`);
+      assert(aliasRead.isError !== true && aliasRead.structuredContent.data?.path === 'visible.txt', `absolute realpath-inside read failed: ${JSON.stringify(aliasRead.structuredContent)}`);
       const aliasSearch = await client.request('tools/call', { name: 'search', arguments: { workspace_id: ws, query: 'needle visible', path: aliasVisible, max_results: 10 } });
       assert(aliasSearch.structuredContent.matches.some((match) => match.path === 'visible.txt'), `absolute realpath-inside search failed: ${JSON.stringify(aliasSearch.structuredContent)}`);
       await expectToolError(client, 'write', { workspace_id: ws, path: path.join(aliasRoot, '.env', 'created.txt'), content: 'blocked\n' }, /blocked/i);

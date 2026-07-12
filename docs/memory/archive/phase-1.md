@@ -1471,3 +1471,484 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - No source, dependency, credential, profile, Cloudflare, or workspace rollback is required.
 
 **Next step:** Commit and push this two-file publication record, verify local `main` matches `origin/main`, and check its CI. Do not begin Phase 2 or a third tool implementation.
+
+## 2026-07-12 — STEP-103: Select and specify the `read` Phase 1 slice
+
+**Status:** Design approved and written; implementation planning is authorized; source implementation has not started
+
+**Goal:** Select one low-risk third Phase 1 tool and define its exact output schema, stable errors, consumer migration, testing boundary, risks, and rollback without starting code implementation or Phase 2.
+
+**Files changed:**
+
+- `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+**Implementation summary:**
+
+- Inspected the clean synchronized workspace, current Phase 1 boundary, tool registration list, `read` handler, `readTextFile`, `PathGuard`, common/tree schema patterns, tree contract tests, tool-card routing, and real Smoke/Stress consumers.
+- Compared three low-risk candidates: `read`, `list_workspaces`, and `git_status`; selected `read` because it is a minimal-mode core tool, closely follows the published `tree` path-safety pattern, and avoids premature typed-Git or workspace-lifecycle work.
+- Compared three implementation approaches and approved a tool-local `read` contract rather than a shared file-error framework or global typed-error refactor.
+- Preserved exactly ten current success fields under `data`: `workspace_id`, `root`, `path`, `text`, `startLine`, `endLine`, `totalLines`, `bytes`, `sha256`, and `truncated`.
+- Approved exactly nine non-retryable errors: `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_FILE`, `FILE_TOO_LARGE`, `FILE_NOT_TEXT`, `INVALID_LINE_RANGE`, and `INTERNAL_ERROR`.
+- Defined strict code-specific details, including file-versus-selection limit scope for `FILE_TOO_LARGE` and public request context for `INVALID_LINE_RANGE`.
+- Preserved current optional workspace fallback, file reading, line numbering, byte limits, bounded text scan, NUL-byte binary detection, decoded-text hashing, redaction, readable MCP content, and `isError: true` behavior.
+- Approved a constructor-only `readResultProvider` seam for real MCP `INTERNAL_ERROR` testing; it must not be reachable through public configuration or transport inputs.
+- Required a dedicated `renderRead` card path that reads successful fields only from nested `data` and displays only stable safe failure information.
+- Audited `scripts/smoke.mjs` and `scripts/stress.mjs`; the plan must migrate only proven old top-level structured consumers, primarily Stress assertions for `text`, `endLine`, `path`, and the large-file error.
+- Explicitly kept malformed supertool-argument behavior, global errors, Phase 2, authentication, Cloudflare, shell/process work, and the invalid native-Windows Stress fixture out of scope.
+- Wrote and self-reviewed `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`; placeholder scan found no `TBD`, `TODO`, `FIXME`, or placeholder markers.
+- No source, test, dependency, configuration, credential, profile, Cloudflare, Git index, commit, push, or Phase 2 state changed.
+
+**Verification commands:**
+
+- CodexPro `open_current_workspace` with tree and skill discovery disabled.
+- Targeted CodexPro `read` and `search` inspection of `AGENTS.md`, `Memory.md`, the Phase 1 roadmap and archive, `src/server.ts`, `src/fsOps.ts`, `src/guard.ts`, `src/toolCardWidget.ts`, `src/tools/schemas/common.ts`, `src/tools/schemas/tree.ts`, `test/tree-contract.test.mjs`, `scripts/smoke.mjs`, and `scripts/stress.mjs`.
+- Placeholder scan on `docs/superpowers/specs/2026-07-12-read-output-schema-design.md` using the regex `TBD|TODO|PLACEHOLDER|FIXME`.
+
+**Verification results:**
+
+- Workspace opened at `D:\Dev\codexpro`; branch remained `main`; initial status was `## main...origin/main` with no staged or unstaged changes.
+- The current `read` result fields and all relevant throw-message boundaries were confirmed directly from source.
+- Proven old top-level `read` consumers were found in `scripts/stress.mjs`; Smoke primarily uses readable content, error state, or serialized-result redaction checks.
+- The design placeholder scan returned no matches.
+- The design contains one tool only, no architecture expansion, no Phase 2 work, and an explicit implementation stop.
+- Runtime tests were not required for this design-only step and were not run.
+
+**Decisions made:**
+
+- `read` is the third Phase 1 vertical slice.
+- Use a tool-local strict Zod contract and local message-coupled classifier following the proven `tree` pattern.
+- Keep all ten existing success fields and their current casing; place them only under `structuredContent.data`.
+- Keep top-level identity plus `ok`, `data`, `error`, and `meta` exactly.
+- Keep metadata exactly `schemaVersion`, `durationMs`, and `warnings`; do not add `requestId`.
+- All nine approved errors are non-retryable and return fixed public messages with strict safe details.
+- Preserve existing reading and security behavior; this slice changes protocol shape and consumers, not file semantics.
+- The user's instruction to adopt recommended decisions authorizes moving directly to detailed plan writing, but not source implementation or Git publication.
+
+**Risks or limitations:**
+
+- Error classification remains coupled to current message prefixes because the global error class is still untyped.
+- Successful `root` remains absolute.
+- `sha256` retains decoded-text and pre-redaction semantics.
+- Current NUL-byte detection does not prove complete text encoding validity.
+- Existing tool-card structured-string compaction can bound `data.text` independently of line-selection `truncated`.
+- Tool-card tests remain source-contract oriented.
+- The supertool retains wrapper metadata and legacy malformed-child-argument behavior.
+- Native Windows full Stress remains separately blocked by `visible:123:file.txt`.
+
+**Rollback method:**
+
+- Before any commit, delete the new design file and restore `Memory.md` plus this archive append to the previous content.
+- After publication, use a normal revert commit and append a correction record; do not rewrite history or force-push.
+- No source, dependency, credential, profile, Cloudflare, workspace, or remote rollback is required for this design-only step.
+
+**Next step:** Load the `writing-plans` workflow and create a detailed TDD implementation plan for the approved `read` design. Stop before Task 1 source implementation and before staging, commit, or push.
+
+## 2026-07-12 — STEP-104: Write and self-review the `read` implementation plan
+
+**Status:** Detailed implementation plan complete; awaiting explicit source-implementation approval
+
+**Goal:** Convert the approved `read` design into an exact, executable TDD plan while preserving the one-tool Phase 1 boundary and stopping before source implementation.
+
+**Files changed:**
+
+- `docs/superpowers/plans/2026-07-12-read-output-schema.md`
+- `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+**Planning summary:**
+
+- Loaded and followed the `writing-plans` workflow.
+- Wrote a four-task plan covering: exact Zod contracts; real MCP integration and local failure classification; dedicated Tool Card plus proven consumer migration; and complete regression/documentation/local closeout before a separate staging boundary.
+- Included exact file scope, interfaces, code blocks, RED/GREEN commands, expected results, Memory updates, rollback, and execution gates.
+- Preserved all approved design constraints: one `read` tool only, ten success fields under `data`, nine non-retryable stable errors, current reading semantics, optional workspace fallback, no global error refactor, no Phase 2, and no Git publication.
+- Defined a constructor-only `readResultProvider`, strict descriptor integration, and a message-coupled local classifier without exposing a public test switch.
+- Planned focused contract growth from 4 constructor tests to 15 real MCP tests and 16 tests after Tool Card coverage; the expected complete Node baseline becomes 72 tests from the current 56, subject to recording any legitimate concurrent count increase.
+- Audited consumer assumptions again. Added migration instructions for both supertool `read` text checks, full-read `endLine`, ranged-read `text`, absolute-alias `path`, `FILE_TOO_LARGE`, and late-NUL `FILE_NOT_TEXT`.
+- Kept the generic Stress error helper, symlink expectation, malformed supertool argument behavior, `edit` late-NUL check, and invalid Windows fixture unchanged where the stable contract remains compatible or the behavior is out of scope.
+- Added an absolute outside-path test requiring `[unsafe path omitted]` and prohibiting disclosure of the actual local absolute path.
+- Corrected a text-safety command so an actual NUL byte causes failure instead of being silently ignored.
+- Removed a redundant conditional Tool Card import instruction.
+- During one plan edit, a special replacement-token sequence was interpreted by the editing tool and temporarily damaged a code line. The document-only error was immediately repaired by replacing the brittle dynamic regex with a direct string-containment assertion; a subsequent targeted scan found no remnant.
+- No production source, test implementation, dependency, configuration, credential, profile, authentication, Cloudflare, Git index, commit, push, or Phase 2 state changed.
+
+**Self-review results:**
+
+- Spec coverage: all success fields, metadata, nine errors/details, classifier order, redaction, provider seam, card behavior, consumers, acceptance gates, rollback, and approval boundaries map to explicit tasks.
+- Placeholder scan for `TBD`, `TODO`, `implement later`, `fill in details`, `Similar to`, `appropriate error handling`, `Write tests for the above`, `PLACEHOLDER`, `FIXME`, and the temporary corruption marker returned no matches.
+- Type/name scan confirmed consistent use of `ReadProviderContext`, `readResultProvider`, `READ_ERROR_MESSAGES`, `readDataSchema`, `readOutputShape`, `ReadFailureInput`, `createReadSuccess`, `createReadFailure`, and `renderRead`.
+- Repository consumer scan found the two supertool reads and all direct structured fields listed above; unrelated matches belong to search, skill, patch, or export tools.
+- The plan ends before Task 1 and before staging, commit, push, or CI.
+- Runtime tests were not run because this was a design/plan-only step and no production or test source exists yet.
+
+**Decisions made:**
+
+- Use `executing-plans` in the current workspace after approval; a subagent interface is not assumed.
+- One explicit implementation approval authorizes Tasks 1-4 to continue automatically when checks pass and scope remains exact.
+- Pause only for unexpected failures, required scope expansion, security/contract ambiguity, destructive or irreversible operations, or the final Git approval boundary.
+- Staging, commit, push, CI review, and Phase 2 remain separately closed.
+
+**Risks or limitations:**
+
+- The plan contains expected code that must still be validated through the written RED/GREEN sequence during implementation.
+- Exact test totals may increase only if the baseline legitimately changes; zero failures remain mandatory.
+- Native Windows full Stress remains blocked by the pre-existing invalid fixture filename; syntax and supported checks remain required.
+- The underlying design limitations from STEP-103 remain unchanged.
+
+**Rollback method:**
+
+- Before commit, remove the new plan and restore the design clarification, root Memory changes, and this archive append.
+- After publication, use normal revert commits and append correction records; do not rewrite history or force-push.
+- No source, dependency, credential, profile, authentication, Cloudflare, workspace, or remote rollback is required for this planning-only step.
+
+**Next step:** Obtain explicit approval to execute `docs/superpowers/plans/2026-07-12-read-output-schema.md`. After approval, begin Task 1 with the required failing test and continue automatically through Task 4 unless a real intervention condition occurs. Do not stage, commit, push, or begin Phase 2.
+
+## 2026-07-12 — STEP-105: Task 1 exact `read` contracts
+
+**Status:** Task 1 complete; Task 2 authorized by the approved continuous-execution instruction
+
+**Goal:** Add the strict schema-v1 `read` success/failure contract through an observed TDD RED/GREEN cycle without integrating the MCP handler yet.
+
+**Files changed:**
+
+- `src/tools/schemas/read.ts`
+- `test/read-contract.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/plans/2026-07-12-read-output-schema.md`
+
+**Implementation summary:**
+
+- Created four focused constructor and strict-schema tests first.
+- Observed the expected missing-module RED for `src/tools/schemas/read.ts`.
+- Added the exact ten-field successful `data` contract, nine strict discriminated error variants, exact top-level envelope, metadata reuse, line-relationship validation, SHA-256 format validation, and result constructors.
+- Preserved existing field names and casing.
+- Did not modify the MCP handler, Tool Card, consumers, global errors, file-reading behavior, dependencies, configuration, authentication, Cloudflare, or Phase 2 state.
+- An accidental temporary placeholder file was created while preparing this record and immediately deleted before further work; it is not present in the workspace.
+
+**Verification commands and results:**
+
+- `node --test test/read-contract.test.mjs` before implementation: expected `ERR_MODULE_NOT_FOUND`, exit code 1.
+- `node --test test/read-contract.test.mjs` after implementation: 4 passed, 0 failed.
+- `npm run build`: exit code 0.
+
+**Decisions made:**
+
+- Keep the strict contract tool-local in `src/tools/schemas/read.ts`.
+- Continue automatically to Task 2 because all approved checks passed and no scope or security ambiguity appeared.
+
+**Risks or limitations:**
+
+- Real MCP behavior and error classification are not yet integrated.
+- The schema enforces current line/truncation semantics and may reveal any future divergence in the underlying reader.
+
+**Rollback method:**
+
+- Remove `src/tools/schemas/read.ts` and `test/read-contract.test.mjs`, restore Memory/plan state, and rebuild.
+- No credential, profile, workspace, dependency, remote, or Cloudflare rollback is required.
+
+**Next step:** Execute Task 2 real MCP integration and observe the expanded contract-test RED before changing `src/server.ts`.
+
+## 2026-07-12 — STEP-106: Task 2 real `read` MCP integration
+
+**Status:** Task 2 complete; Task 3 authorized by the approved continuous-execution instruction
+
+**Goal:** Advertise the exact `read` schema and make real MCP success/failure results conform to it without changing file-reading semantics or global error behavior.
+
+**Files changed:**
+
+- `src/server.ts`
+- `test/read-contract.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/plans/2026-07-12-read-output-schema.md`
+
+**Implementation summary:**
+
+- Added 11 real MCP tests covering descriptor registration, success, eight expected failure classes, absolute-path detail redaction, and injected `INTERNAL_ERROR` redaction.
+- Observed the expected RED: the four constructor tests passed while all 11 real MCP tests failed against the legacy descriptor/result shape and missing provider seam.
+- Added `ReadProviderContext`, constructor-only `readResultProvider`, exact `read.outputSchema`, strict success/failure envelopes, and a read-local classifier.
+- Reused existing safe workspace/path detail sanitation and preserved the existing common duration/redaction wrapper.
+- Canonicalized temporary test workspace roots with `fs.realpath` after Windows temp-directory diagnostics showed otherwise-valid fixtures crossing the path guard's symlink/junction boundary. Production path logic was not changed.
+- Preserved current `readTextFile`, input schema, readable content, optional workspace fallback, global errors, dependencies, authentication, Cloudflare, and Phase 2 boundaries.
+
+**Verification commands and results:**
+
+- Expanded focused RED: 4 passed, 11 failed for the expected missing descriptor/strict-envelope/provider behavior.
+- First post-integration run: 11 passed, 4 failed because non-canonical Windows temp roots were rejected at the path boundary.
+- Direct diagnostic confirmed the four fixture failures were `Path resolves outside workspace root through a symlink` before file checks.
+- After canonicalizing only the test fixture root, `node --test test/read-contract.test.mjs`: 15 passed, 0 failed.
+- `node --test test/server-config-contract.test.mjs test/tree-contract.test.mjs`: 18 passed, 0 failed.
+- `npm run build`: exit code 0.
+
+**Decisions made:**
+
+- Keep the message-coupled classifier local to `read`.
+- Treat Windows temporary-root canonicalization as test-fixture setup, not a production behavior change.
+- Continue automatically to Task 3 because all approved checks passed and no scope/security ambiguity remains.
+
+**Risks or limitations:**
+
+- Classifier mappings remain coupled to current error prefixes.
+- Successful `root` remains absolute; hash/redaction and NUL-detection limitations remain as designed.
+
+**Rollback method:**
+
+- Restore the former `read` registration, remove read imports/helpers/interfaces/provider, restore the Task 1-only test file, and rebuild.
+- No dependency, credential, profile, authentication, remote, workspace, or Cloudflare rollback is required.
+
+**Next step:** Execute Task 3 by adding the failing Tool Card source-contract test, then migrate the dedicated renderer and proven Stress consumers.
+
+## 2026-07-12 — STEP-107: Task 3 Tool Card complete; Stress consumer edit blocked
+
+**Status:** Task 3 partially complete; explicit intervention required before modifying `scripts/stress.mjs`
+
+**Goal:** Migrate `read` Tool Card rendering and proven structured consumers while preserving secret-content protections.
+
+**Files changed:**
+
+- `src/toolCardWidget.ts`
+- `test/read-contract.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/plans/2026-07-12-read-output-schema.md`
+
+**Implementation summary:**
+
+- Added the dedicated `read` subtitle, `renderRead`, and route; removed `read` from the generic file renderer.
+- Added the Tool Card source-contract test and observed the expected RED with 15 passing tests plus one missing-renderer failure.
+- The dedicated nested-data card then passed all 16 focused tests.
+- Attempted to migrate the six proven Stress assertions. CodexPro `edit` rejected both whole-line and minimal field-path replacements because `scripts/stress.mjs` already contains token-like fixtures used by redaction tests and the tool performs full-file secret scanning.
+- Did not use shell, direct filesystem writes, or another mechanism to bypass the secret-content protection.
+- `scripts/stress.mjs` remains unmodified and the remaining Task 3/Task 4 work has not started.
+
+**Verification commands and results:**
+
+- Tool Card RED: 15 passed, 1 failed for missing `renderRead`/route.
+- Tool Card GREEN: `node --test test/read-contract.test.mjs` passed 16/16.
+- Controlled edit attempts on `scripts/stress.mjs`: blocked with `Secret-looking content is blocked from edit`.
+
+**Decisions made:**
+
+- Treat the blocked Stress edit as a real security intervention boundary.
+- Do not weaken, disable, or bypass secret-content protection under the existing approval.
+- Request explicit approval for one exact shell-based non-secret patch limited to the six already-reviewed assertion migrations.
+
+**Risks or limitations:**
+
+- Until the Stress assertions are migrated, compatible-platform full Stress would still read old top-level `read` fields.
+- Task 3 and Task 4 cannot be honestly closed without resolving this consumer migration.
+
+**Rollback method:**
+
+- Restore the prior `read` subtitle/route and remove `renderRead` plus its test if Task 3 is abandoned.
+- No Stress, credential, profile, authentication, dependency, remote, or Cloudflare rollback is required because the blocked file was not changed.
+
+**Next step:** After explicit approval, apply one exact shell-based patch to the six non-secret `read` assertions in `scripts/stress.mjs`, verify the diff contains no fixture changes, and continue automatically through Task 4. Otherwise leave the implementation paused and unstaged.
+
+## 2026-07-12 — STEP-108: Complete the local `read` Phase 1 slice
+
+**Status:** Tasks 1-4 complete and fully verified locally; stopped before staging
+
+**Goal:** Resolve the approved Stress-consumer intervention, complete every local verification gate, synchronize project documentation, and establish the separate Git approval boundary.
+
+**Files changed:**
+
+- `src/tools/schemas/read.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `scripts/stress.mjs`
+- `test/read-contract.test.mjs`
+- `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-12-read-output-schema.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+**Implementation summary:**
+
+- Completed the exact tool-local Zod contract for ten successful fields under `data` and nine strict non-retryable errors.
+- Advertised `read.outputSchema`, returned strict real MCP success/failure envelopes, preserved readable `content` and `isError: true`, and added a constructor-only `readResultProvider` for unexpected-failure testing.
+- Added local safe failure classification without refactoring the untyped global `CodexProError` or changing `readTextFile`, `PathGuard`, authentication, configuration, dependencies, Cloudflare, or Phase 2 behavior.
+- Added a dedicated nested-data subtitle, success/error `renderRead`, and route while leaving generic write/edit/patch/diff/export rendering unchanged.
+- After explicit approval, applied one exact shell patch to the actual seven approved Stress assertion locations: two supertool texts, full-read `endLine`, `FILE_TOO_LARGE`, ranged text, late-NUL `FILE_NOT_TEXT`, and absolute-alias `path`.
+- The patch required every old string to match exactly once and reported seven replacements. Follow-up searches confirmed the old direct-field assertions were absent, the new nested/stable-code assertions were present, and `visible:123:file.txt`, token fixtures, late-NUL fixture creation, the `edit` binary expectation, and unrelated Stress behavior were unchanged.
+- Canonicalized only temporary test workspace roots with `fs.realpath` after native-Windows diagnostics showed temp junction semantics otherwise prevented reaching the intended file checks. Production path behavior did not change.
+- Updated the design and plan statuses, marked all 43 plan steps complete, and synchronized the Phase 1 roadmap, AGENTS documentation map/stopping point, root Memory, and this archive.
+- No Smoke source change was required.
+
+**TDD and verification results:**
+
+- Task 1 RED: `ERR_MODULE_NOT_FOUND` for the intentionally absent `src/tools/schemas/read.ts`.
+- Task 1 GREEN: 4/4 strict constructor/schema tests; TypeScript build passed.
+- Task 2 RED: 4 existing tests passed and 11 real MCP tests failed against the legacy descriptor/result/provider boundary.
+- Task 2 first implementation run: 11 passed and 4 temp-fixture tests failed at the Windows canonical path boundary; direct diagnostics confirmed the cause.
+- Task 2 GREEN after test-only canonicalization: 15/15 focused tests; published `server_config` plus `tree` regressions 18/18; Build passed.
+- Task 3 RED: 15 passed and the new Tool Card test failed because `renderRead` and its route were absent.
+- Task 3 GREEN: 16/16 focused tests; Stress syntax, 18/18 published-contract regressions, and Build passed.
+- Task 4 focused suite: 16/16 passed from a fresh process.
+- Complete Node suite: 72/72 passed.
+- TypeScript build: passed.
+- Complete Smoke: all 8 sequential sections passed without a Smoke consumer edit.
+- `npm audit --audit-level=high`: 0 vulnerabilities.
+- `npm pack --dry-run`: 105 files; compiled `dist/tools/schemas/read.js` and source map included; internal Memory/spec/plan/tests excluded.
+- Documentation regression: 5/5 passed.
+- `node --check scripts/stress.mjs`: passed.
+- `git diff --check`: no whitespace errors; only expected native-Windows LF-to-CRLF warnings.
+- Text-safety check: no conflict marker, NUL, or secret-like value across 11 files; root Memory was within hard limits.
+- Repository consumer audit: remaining top-level `structuredContent.text/path/truncated` matches belong to search, skill, export, historical plan, or other unmigrated tools; no stale direct successful `read` field consumer remains.
+
+**Stable contract and compatibility:**
+
+- Successful fields are exactly `workspace_id`, `root`, `path`, `text`, `startLine`, `endLine`, `totalLines`, `bytes`, `sha256`, and `truncated`, only under `data`.
+- Stable errors are exactly `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_FILE`, `FILE_TOO_LARGE`, `FILE_NOT_TEXT`, `INVALID_LINE_RANGE`, and `INTERNAL_ERROR`.
+- Top-level identity, `ok`, `data`, `error`, and `meta` follow the published Phase 1 envelope; metadata remains `schemaVersion`, `durationMs`, and `warnings`.
+- Readable MCP content, optional workspace fallback, current line numbering/clamping, byte limits, text scan, binary detection, decoded-text hash, redaction, and supertool wrapper identity remain compatible.
+- Legacy malformed supertool child-argument validation remains intentionally outside the direct valid `read` contract.
+
+**Risks or limitations:**
+
+- The local classifier remains coupled to current error message prefixes because global errors are untyped.
+- Successful `data.root` remains absolute.
+- `sha256` remains based on decoded text before output redaction.
+- NUL detection does not prove complete text encoding validity.
+- Tool Card structured-string compaction can bound `data.text` independently of line-selection `truncated`.
+- Tool Card verification remains source-contract oriented.
+- Native Windows full `npm run stress` remains separately blocked by the pre-existing invalid fixture filename `visible:123:file.txt`; the fixture was not changed.
+- Cross-platform CI evidence does not exist until the slice is committed and pushed.
+
+**Rollback method:**
+
+- Before staging, restore the former `read` handler/card and Stress assertions, remove `src/tools/schemas/read.ts` plus `test/read-contract.test.mjs`, restore the five documentation/Memory files, and rebuild.
+- No user configuration, credentials, profiles, authentication state, dependencies, workspaces, remote branches, or Cloudflare state require rollback.
+- After publication, use normal revert commits and append correction records; do not rewrite history or force-push.
+
+**Git and security statement:**
+
+- No file is staged.
+- No commit or push occurred.
+- No dependency, credential, profile, authentication, Cloudflare, shell policy, or Phase 2 change occurred.
+- The approved shell operation was limited to exact reviewed assertion replacements in `scripts/stress.mjs`; it did not disable or modify CodexPro secret-content protection.
+
+**Next step:** Present the reviewed eleven-file local slice and obtain explicit approval for staging only. Do not commit, push, begin Phase 2, or migrate another tool.
+
+## 2026-07-12 — STEP-109: Neat-freak local `read` closeout
+
+**Status:** Knowledge-base cleanup complete; implementation remains fully verified and unstaged
+
+**Goal:** Reconcile active documentation and Memory with the completed local `read` slice, remove avoidable documentation bloat, audit project-rule compliance, and preserve the exact staging boundary.
+
+**Files changed:**
+
+- `docs/superpowers/plans/2026-07-12-read-output-schema.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+**Implementation summary:**
+
+- Loaded and followed the `neat-freak` skill.
+- Enumerated the project root and first-level documentation/source/test structure.
+- Re-read the complete active `AGENTS.md` rule file and confirmed that `AGENTS.md`, rather than a `CLAUDE.md` symlink convention, is authoritative for this workspace.
+- Measured the key documentation and Memory files.
+- Found that the executed `read` plan had grown to 1771 lines and 60,681 bytes because it retained large pre-implementation code blocks after the source and tests became authoritative.
+- Replaced that plan with a 218-line, 9,213-byte executed-plan document preserving the exact contract, constraints, file map, four completed tasks, actual verification evidence, compatibility notes, limitations, rollback, and current Git boundary.
+- Did not split or rewrite the active Phase 1 archive because `AGENTS.md` requires phase archives to remain append-only. The archive's historical intermediate statuses remain valid at their original steps; STEP-108 and this entry provide the current correction and resolution.
+- Changed the root Memory STEP-103 summary from misleading present tense to explicit historical tense.
+- Added the STEP-109 concise root summary.
+- Did not change source, tests, Stress fixtures, dependencies, configuration, authentication, Cloudflare, Git state, Phase 2, or any external path.
+
+**Verification commands:**
+
+- CodexPro `tree` for the project root with depth 2.
+- CodexPro `read` for the complete `AGENTS.md` and relevant plan content.
+- CodexPro targeted `search` for stale implementation/blocked wording.
+- Node size checks for `AGENTS.md`, `Memory.md`, the `read` plan/design, Phase 1 archive, and roadmap.
+- Focused/full/build/documentation/text-safety and scope gates listed below.
+
+**Verification results:**
+
+- `AGENTS.md`: 188 lines, 10,363 bytes; below its soft limit and with only two new documentation-map lines plus the current stopping-point update.
+- `Memory.md` after cleanup: below the practical 150-line / 18-KB target and hard limits.
+- Executed plan: reduced from 1771 lines / 60,681 bytes to 218 lines / 9,213 bytes.
+- Design: 804 lines / 25,596 bytes; below the single-document 1500-line soft limit.
+- Active Phase 1 archive: 1837 lines before this entry; retained as the append-only phase history rather than destructively split or rewritten.
+- No active rule contradiction, dead required document reference, stale current stopping point, or unauthorized scope expansion was found.
+- The reviewed changed-file set remains exactly eleven files and remains entirely unstaged.
+
+**Decisions made:**
+
+- Treat actual source plus tests as the authoritative implementation after execution; keep the plan result-oriented rather than duplicating full source code.
+- Preserve historical archive entries as written and append current corrections instead of rewriting history.
+- Keep the active Phase 1 archive as one append-only phase record despite exceeding the general single-document soft limit.
+- Keep the next action unchanged: explicit approval for staging only.
+
+**Risks or limitations:**
+
+- The Phase 1 archive will continue growing until Phase 1 closes; its size is accepted because append-only integrity is a stronger project rule.
+- The condensed executed plan is no longer a copy-paste implementation script; the source, tests, design, and archive now provide the authoritative detailed record.
+
+**Rollback method:**
+
+- Restore the previous plan from the current unstaged Git diff if the full pre-implementation script is specifically required.
+- Restore the two root Memory lines and remove this append if the cleanup is abandoned before staging.
+- No source, test, dependency, credential, profile, authentication, Cloudflare, workspace, branch, or remote rollback is required.
+
+**Next step:** Obtain explicit approval to stage the same reviewed eleven-file `read` slice. Do not commit, push, begin Phase 2, or migrate another tool.
+
+**STEP-109 final verification addendum:**
+
+- Required-document reference check: 16 referenced files exist, 0 missing.
+- Active-doc stale-state scan: no match for implementation-not-started, unresolved Stress block, or obsolete next-tool wording.
+- Relative-time scan across active rules/status docs: no matches.
+- `node --test`: 72 passed, 0 failed.
+- `npm run build`: exit code 0.
+- `git diff --check`: no whitespace errors; only expected native-Windows LF-to-CRLF warnings.
+- Final text-safety check across all eleven intended files: no conflict markers, NUL bytes, or secret-like values.
+- Final root Memory size: 145 lines and below 14 KB.
+- Final changed-file set: exactly eleven intended files, all unstaged.
+
+## 2026-07-12 — STEP-110: Authorize and begin `read` publication workflow
+
+**Status:** Explicit publication approval received; fresh pre-Git verification passed
+
+**Goal:** Record the user's authorization to automatically stage, commit, push, and complete follow-up publication work for the reviewed eleven-file `read` slice.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+**Implementation summary:**
+
+- Received explicit approval to execute the remaining staging, commit, push, and related publication steps automatically.
+- Kept the approved scope at the same eleven reviewed files.
+- Did not begin Phase 2, another tool migration, dependency work, credential changes, profile changes, authentication changes, or Cloudflare changes.
+- Reran the complete pre-commit verification suite before touching the Git index.
+
+**Verification commands and results:**
+
+- `node --test`: 72 passed, 0 failed.
+- `npm run build`: exit code 0.
+- `npm run smoke`: all 8 sequential sections passed.
+- `npm audit --audit-level=high`: 0 vulnerabilities.
+- `npm pack --dry-run`: exit code 0, 105 files.
+
+**Decisions made:**
+
+- Proceed automatically through staging, implementation commit, push, publication-record synchronization, and CI verification while the verified scope remains unchanged.
+- Stop only for a real Git conflict, authentication/permission failure, CI failure requiring code changes, destructive action, or scope expansion.
+
+**Risks or limitations:**
+
+- Cross-platform publication evidence is unavailable until the pushed commit's GitHub Actions run completes.
+- Native Windows full Stress remains separately blocked by the pre-existing invalid filename fixture.
+
+**Rollback method:**
+
+- Before commit, unstage the exact files without discarding their content.
+- After commit or push, use normal revert commits; do not rewrite history or force-push.
+
+**Next step:** Stage the exact eleven-file slice, verify the staged diff, create the implementation commit, and push `main`.
