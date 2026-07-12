@@ -1952,3 +1952,65 @@ No dependency, credential, profile, workspace, remote, Cloudflare, staging, comm
 - After commit or push, use normal revert commits; do not rewrite history or force-push.
 
 **Next step:** Stage the exact eleven-file slice, verify the staged diff, create the implementation commit, and push `main`.
+
+## 2026-07-12 — STEP-111: Publish the `read` implementation
+
+**Status:** Implementation commit pushed; cross-platform CI passed; publication record prepared
+
+**Goal:** Stage, commit, push, and remotely validate the reviewed Phase 1 `read` slice.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/plans/2026-07-12-read-output-schema.md`
+- `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`
+- `scripts/stress.mjs`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `src/tools/schemas/read.ts`
+- `test/read-contract.test.mjs`
+
+**Implementation summary:**
+
+- Staged exactly the reviewed eleven-file slice after explicit approval.
+- Staged review found two trailing-space defects in the condensed executed plan. Removed only those two spaces, re-staged the plan, and reran the staged whitespace check.
+- Created commit `282dcfa` with message `feat: add exact read output schema`.
+- Pushed `main` to `origin/main` successfully.
+- The local GitHub CLI was unavailable, so queried the public GitHub Actions API without changing repository state.
+- GitHub Actions run `29199573321` executed the standard four-job matrix and completed successfully.
+- Updated active design, plan, roadmap, AGENTS, and root Memory from local-only state to published/CI-validated state.
+
+**Verification commands and results:**
+
+- `git diff --cached --check` before correction: failed only for two trailing spaces in plan lines 3-4.
+- Exact plan edit plus `git add -- docs/superpowers/plans/2026-07-12-read-output-schema.md`.
+- `git diff --cached --check` after correction: exit code 0.
+- `git commit -m "feat: add exact read output schema"`: created `282dcfa`, 11 files changed.
+- `show_changes` after commit: clean working tree, `main` ahead of `origin/main` by one.
+- `git push origin main`: pushed `fb9764e..282dcfa` successfully.
+- GitHub Actions run `29199573321`:
+  - Ubuntu / Node 20: success.
+  - Ubuntu / Node 24: success.
+  - Windows / Node 20: success.
+  - Windows / Node 24: success.
+
+**Decisions made:**
+
+- Keep the staged Markdown whitespace correction in the implementation commit because it is part of the reviewed plan file and changes no semantics.
+- Use the GitHub Actions public API for CI inspection because `gh` is not installed locally.
+- Restore the Phase 1 planning-only boundary after publication; Phase 2 remains closed.
+
+**Risks or limitations:**
+
+- The publication-record documentation commit still requires its own push and CI verification.
+- Native Windows full Stress remains separately blocked by the pre-existing invalid filename fixture.
+
+**Rollback method:**
+
+- Use a normal revert of `282dcfa` if the published implementation must be withdrawn.
+- Do not rewrite history or force-push.
+
+**Next step:** Commit and push the publication-record synchronization, then verify its CI before final-state reconciliation.

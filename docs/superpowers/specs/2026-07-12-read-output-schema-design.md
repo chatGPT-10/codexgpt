@@ -1,7 +1,7 @@
 # Phase 1 Third Slice Design: Exact `read` Output Schema
 
 **Date:** 2026-07-12
-**Status:** Locally implemented and fully verified on native Windows; not staged, committed, pushed, or CI-published
+**Status:** Published in implementation commit `282dcfa`; CI run `29199573321` passed on Ubuntu/Windows with Node 20/24
 **Scope:** One vertical slice for `read` only
 
 ## 1. Purpose

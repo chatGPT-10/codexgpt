@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first `server_config` and second `tree` slices are published and cross-platform CI-validated. The third `read` slice is locally complete and fully verified, but remains unstaged, uncommitted, unpushed, and not CI-published.
+- Phase 1: the `server_config`, `tree`, and `read` slices are published and cross-platform CI-validated. The `read` implementation is commit `282dcfa`; CI run `29199573321` passed on Ubuntu/Windows with Node 20/24.
 
 ## Approved stopping point
 
-Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices are published and cross-platform CI-validated. The third `read` slice is locally complete and reviewed. Stop before staging; the next permitted action is explicit user approval to stage this exact eleven-file slice. Do not begin Phase 2, another tool migration, commit, or push.
+Phase 0.5 is closed. The Phase 1 `server_config`, `tree`, and `read` slices are published and cross-platform CI-validated. No implementation task is active. The next permitted action is selecting and designing one additional Phase 1 tool after explicit approval. Do not begin Phase 2 or another tool implementation without a separately reviewed plan.
 
 ## Active decisions and constraints
 
@@ -47,7 +47,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - The third Phase 1 slice is `read` only. Its ten existing success fields remain unchanged under `data`: `workspace_id`, `root`, `path`, `text`, `startLine`, `endLine`, `totalLines`, `bytes`, `sha256`, and `truncated`.
 - `read` permits exactly nine non-retryable errors: `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_FILE`, `FILE_TOO_LARGE`, `FILE_NOT_TEXT`, `INVALID_LINE_RANGE`, and `INTERNAL_ERROR`.
 - The approved `read` design is `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`; it preserves current reading, hashing, redaction, optional workspace fallback, and the unrelated Windows Stress limitation.
-- Its self-reviewed implementation plan is `docs/superpowers/plans/2026-07-12-read-output-schema.md`: four TDD tasks covering Schema, real MCP integration, Tool Card/consumer migration, and complete local verification before a separate staging boundary.
+- Its implementation plan is `docs/superpowers/plans/2026-07-12-read-output-schema.md`: four completed TDD tasks covering Schema, real MCP integration, Tool Card/consumer migration, and complete publication verification.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval.
 
 ## Final Phase 0.5 evidence
@@ -95,14 +95,14 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - Stress syntax, whitespace, conflict-marker, NUL, Memory-limit, credential-pattern, stale-consumer, and complete-scope checks passed.
 - Implementation commit `6aaeda4`, publication-record commit `2ecd4af`, and final-state commit `e7c1646` were pushed to `origin/main`; CI runs `29194671044`, `29194802582`, and `29194978911` all passed.
 
-## Third Phase 1 slice local evidence
+## Third Phase 1 slice final evidence
 
 - Task 1 RED was the expected missing `src/tools/schemas/read.ts`; GREEN was 4/4 strict constructor/schema tests.
 - Task 2 RED was 4 passed and 11 failed against the legacy MCP contract; GREEN was 15/15 after exact handler integration and Windows temp-root canonicalization in tests only.
 - Task 3 RED was 15 passed and 1 missing-card failure; GREEN was 16/16 after the dedicated nested-data card and seven approved Stress consumer migrations.
 - Complete local gates: 16/16 focused, 72/72 Node tests, Build, all 8 Smoke sections, audit 0 vulnerabilities, 105-file package, and documentation 5/5.
 - Stress syntax, whitespace, conflict-marker, NUL, Memory-limit, credential-pattern, stale-consumer, and complete-scope checks passed.
-- The slice is unstaged, uncommitted, unpushed, and not CI-published.
+- Implementation commit `282dcfa` was pushed to `origin/main`; CI run `29199573321` passed on Ubuntu/Windows with Node 20/24.
 
 ## Known limitations
 
@@ -112,8 +112,8 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 
 ## Open items
 
-1. The user explicitly approved automatic staging, commit, push, and follow-up publication work for the reviewed eleven-file `read` slice.
-2. Complete Git publication and verify cross-platform CI; keep Phase 2 and another tool migration closed.
+1. No Phase 1 implementation task is active; the next permitted action is selecting and designing one additional tool after explicit approval.
+2. Keep Phase 2 and another tool implementation closed without a new reviewed design and plan.
 3. Treat the native-Windows Stress fixture filename issue as separate maintenance work.
 
 ## Recent summaries
@@ -127,6 +127,7 @@ Phase 0.5 is closed. The first Phase 1 `server_config` and second `tree` slices 
 - **STEP-108 — Complete local `read` slice:** passed 72/72 full tests, all 8 Smoke sections, audit, 105-file package, 5/5 documentation, text-safety, consumer, and scope checks; synchronized design, plan, roadmap, AGENTS, and Memory; stopped before staging.
 - **STEP-109 — Neat-freak local closeout:** audited rules, active docs, Memory, links, stale wording, and scope; compressed the executed `read` plan from 1771 lines / 60.7 KB to 218 lines / 9.2 KB without changing the contract or evidence, corrected one misleading present-tense Memory summary, then passed 72/72 tests, Build, reference, whitespace, text-safety, and scope checks while keeping the eleven-file unstaged boundary.
 - **STEP-110 — Authorize `read` publication workflow:** received explicit approval to execute staging, commit, push, and follow-up publication work automatically; reran 72/72 tests, Build, all 8 Smoke sections, audit with 0 vulnerabilities, and the 105-file package check before touching Git.
+- **STEP-111 — Publish `read` implementation:** staged the exact eleven-file slice, fixed two staged Markdown whitespace defects, created and pushed implementation commit `282dcfa`, and verified CI run `29199573321` passed on Ubuntu/Windows with Node 20/24; publication-record synchronization followed.
 
 ## Archives
 
