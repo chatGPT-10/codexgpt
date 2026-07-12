@@ -52,7 +52,7 @@ codexpro setup
 
 CodexPro 会自动复制包含 `codexpro_token` query 凭据的完整 ChatGPT Server URL。先到 `Settings -> Security and login` 打开 Developer mode，再到 `Settings -> Plugins` 创建连接，粘贴完整 URL，并选择 `Authentication: No Authentication / None`。
 
-Phase 0.5 暂时把这个 URL-token 流程作为个人 ChatGPT 兼容方案，OAuth 2.1 延后实现。请把完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交这个 URL。
+当前支持的个人 ChatGPT 兼容方案使用这个 URL-token 流程，OAuth 2.1 仍延后实现。请把完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交这个 URL。
 
 以后同一个仓库日常启动只需要：
 

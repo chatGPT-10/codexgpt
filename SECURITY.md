@@ -98,8 +98,8 @@ codexpro start \
 
 - Do not run public tunnels with `--no-auth`.
 - Public tunnel mode and non-loopback binds fail closed if `CODEXPRO_HTTP_TOKEN` is missing.
-- During Phase 0.5, the supported public `codexpro` entry uses the personal query-token compatibility flow for ChatGPT Web when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset.
-- The copied Server URL contains `codexpro_token`; select `Authentication: None / No Authentication` in ChatGPT for this temporary personal flow.
+- The supported public `codexpro` entry uses the personal query-token compatibility flow for ChatGPT Web when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset.
+- The copied Server URL contains `codexpro_token`; select `Authentication: None / No Authentication` in ChatGPT for this personal compatibility flow.
 - Treat that URL as a password-equivalent secret. It can leak through browser history, clipboard contents, screenshots, logs, and copied links.
 - Set `CODEXPRO_ALLOW_QUERY_TOKEN=0` only for compatible clients that can send an `Authorization: Bearer` header. Server-side Bearer support remains available for compatible clients, but ChatGPT Web manual static-Bearer setup is not claimed or documented.
 - Direct unsupported server launches still keep query authentication disabled unless `CODEXPRO_ALLOW_QUERY_TOKEN=1` is explicit.

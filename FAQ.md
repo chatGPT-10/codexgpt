@@ -105,7 +105,7 @@ Settings
 -> Create
 ```
 
-When creating the plugin, use the Phase 0.5 personal ChatGPT compatibility flow:
+When creating the plugin, use the supported personal ChatGPT compatibility flow:
 
 ```text
 Name: CodexPro

@@ -47,7 +47,7 @@ Settings
 -> Create
 ```
 
-创建 Plugin 时使用 Phase 0.5 的个人 ChatGPT 兼容流程：
+创建 Plugin 时使用当前支持的个人 ChatGPT 兼容流程：
 
 ```text
 Name: CodexPro

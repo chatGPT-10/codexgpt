@@ -176,12 +176,12 @@ Long-term public ChatGPT connection:
 - use a mature identity provider or reviewed implementation;
 - do not create a partial ad hoc OAuth system.
 
-Local, test, and migration mode:
+Current compatibility and migration direction:
 
-- scoped bearer tokens in the `Authorization` header;
-- store token hashes rather than reusable plaintext;
-- support token ID, scopes, creation, expiry, revocation, and rotation;
-- query-parameter token support remains an explicit compatibility option and defaults off.
+- the supported public CLI defaults to personal ChatGPT query-token compatibility when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset;
+- `CODEXPRO_ALLOW_QUERY_TOKEN=0` selects Bearer-header output for compatible non-ChatGPT clients;
+- direct unsupported server launches keep query authentication off unless explicitly enabled;
+- the long-term model uses scoped tokens, hashed token storage, token IDs, expiry, revocation, rotation, and OAuth 2.1.
 
 Initial scope vocabulary:
 
@@ -393,7 +393,7 @@ Status: complete. No source implementation changes were made during the audit.
 
 ### Phase 0.5 — Security and Windows test baseline
 
-At STEP-040, the implementation was fully reviewed and locally validated on Windows with no known local staging blocker. STEP-041 later identified stale packaged authentication documentation; the current status is maintained in `Memory.md`.
+Status: formally closed on 2026-07-12. The final baseline passed local verification, Ubuntu/Windows CI on Node 20 and 24, and a real external Cloudflare Host-forwarding check. Current operational state is maintained in `Memory.md`.
 
 Delivered scope:
 
@@ -403,14 +403,15 @@ Delivered scope:
 4. Rejection or safe handling of Windows device paths, UNC paths, NTFS ADS, reserved names, trailing dots/spaces, and cross-drive escapes.
 5. Allowed Host policy.
 6. Explicit Origin policy.
-7. Bearer-header authentication retained.
-8. Query-token authentication disabled by default, with an explicit compatibility switch.
+7. Bearer-header authentication retained for compatible clients.
+8. The supported public CLI defaults to the personal ChatGPT query-token compatibility flow; `CODEXPRO_ALLOW_QUERY_TOKEN=0` explicitly selects the Bearer-client path.
 9. Token query strings excluded from request logs.
 10. Doctor diagnostics for unavailable shell backends.
-11. Pinned, checksum-verified Cloudflared installation and routing.
-12. Default public CLI output aligned with Bearer authentication.
+11. Pinned, checksum-verified Cloudflared installation and exact managed-binary routing.
+12. Public CLI and documentation aligned with the selected compatibility flow and URL-secret exposure warnings.
+13. Linux test process-tree cleanup verified in GitHub-hosted Ubuntu runners.
 
-Remote GitHub Actions and real external Cloudflare tunnel validation remain separate closure gates.
+Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`. Phase 1 has not started.
 
 ### Phase 1 — Exact output schemas and stable errors
 

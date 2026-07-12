@@ -110,7 +110,7 @@ codexpro stable \
   --bash safe
 ```
 
-Add this once in ChatGPT Developer Mode using the Phase 0.5 personal query-token compatibility flow:
+Add this once in ChatGPT Developer Mode using the supported personal query-token compatibility flow:
 
 ```text
 Name: CodexPro

@@ -52,7 +52,7 @@ The repository uses two memory layers:
 
 After every meaningful completed step:
 
-1. Append a dated full entry to the current phase archive.
+1. Append a dated full entry to the active phase archive or, between phases, the interphase maintenance archive.
 2. Update `Memory.md` in place.
 3. Record exact verification commands and results.
 4. Record risks, limitations, rollback, and the next approved action.
@@ -78,7 +78,7 @@ Memory rules:
 - Keep `Memory.md` at or below 150 lines and 18 KB when practical; 200 lines and 25 KB are hard limits.
 - Phase archives are append-only; do not silently rewrite archived history.
 - Append corrections to archived facts as new correction entries.
-- At phase completion, close the current archive and create the next phase archive.
+- At phase completion, close the current archive. Create the next phase archive only when that phase begins; record between-phase maintenance in `docs/memory/archive/interphase-maintenance.md`.
 - Record materially relevant failed attempts and their causes.
 - Do not store secrets, complete tokens, private keys, or sensitive file contents.
 - Keep paths repository-relative unless an absolute path is necessary to explain an environment problem.
@@ -90,12 +90,12 @@ Memory rules:
 
 - `scripts/codexpro-entry.mjs` is the supported public CLI entry.
 - Direct `node scripts/codexpro.mjs` invocation bypasses entry-layer protections and is not the supported public launch path.
-- During Phase 0.5, the supported public CLI uses the personal query-token compatibility flow for ChatGPT Web when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset.
+- The supported public CLI uses the personal query-token compatibility flow for ChatGPT Web when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset.
 - The CLI may print and copy the credential-bearing Server URL for that flow and must instruct `Authentication: None / No Authentication`.
 - Treat the URL as a secret: it may leak through browser history, clipboard contents, screenshots, logs, and copied links.
 - `CODEXPRO_ALLOW_QUERY_TOKEN=0` explicitly disables URL credentials for advanced compatible clients that can send an `Authorization: Bearer` header.
 - Server-side Bearer support remains available for compatible clients, but documentation must not claim ChatGPT Web supports manual static-Bearer configuration.
-- OAuth 2.1 is the later standards-based direction; do not start it during Phase 0.5.
+- OAuth 2.1 is the later standards-based direction and requires separate explicit approval before implementation.
 - Non-loopback and tunnel modes must fail closed without authentication unless an explicit reviewed override exists.
 - Host and Origin checks must run locally.
 
@@ -134,7 +134,8 @@ Memory rules:
 ## 6. Documentation map
 
 - `Memory.md` — current state and next action.
-- `docs/memory/archive/phase-0-and-0.5.md` — full Phase 0 and Phase 0.5 history.
+- `docs/memory/archive/phase-0-and-0.5.md` — closed Phase 0 and Phase 0.5 history through STEP-065.
+- `docs/memory/archive/interphase-maintenance.md` — maintenance records created after Phase 0.5 closure and before Phase 1 begins.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.

@@ -1,25 +1,25 @@
 # CodexPro Memory Index
 
-This is the concise project-memory index. Complete implementation records are stored in phase archives under `docs/memory/archive/`.
+This is the concise project-memory index. Complete implementation and maintenance records are stored under `docs/memory/archive/`.
 
 Do not store secrets, complete tokens, private keys, or sensitive source contents here or in the archives.
 
 ## Current state
 
 - Date: 2026-07-12.
-- Repository: `D:\Dev\codexpro`.
+- Workspace: `D:\Dev\codexpro`.
 - Branch: `main`.
 - Package: `codexpro@0.28.6`.
+- GitHub repository: `chatGPT-10/codexgpt`.
+- Local `origin` fetch and push URLs use `https://github.com/chatGPT-10/codexgpt.git`.
 - Primary platform: native Windows.
 - Phase 0: complete.
-- Phase 0.5: formally closed on 2026-07-12 after all approved local, remote CI, and real external Cloudflare gates passed.
-- Final Phase 0.5 runtime fix: commit `da83f77` pushed to `origin/main` and verified by successful cross-platform CI run `29183635923`.
-- Stale CI run `29181286011`: manually cancelled after the replacement run passed.
+- Phase 0.5: formally closed on 2026-07-12.
 - Phase 1: not started.
 
 ## Approved stopping point
 
-Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. Phase 1 has not started. Do not begin Phase 1, alter the completed Phase 0.5 baseline, or create further commits/pushes without separate explicit approval.
+Phase 0.5 is closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Phase 1 requires separate explicit approval and must begin with planning only. Do not alter the closed Phase 0.5 baseline, make further Git remote changes, commit, or push without explicit approval.
 
 ## Active decisions and constraints
 
@@ -37,65 +37,45 @@ Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real ex
 - Do not bypass secret-content protections or weaken workspace/path boundaries.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval.
 
-## Phase 0.5 local validation
+## Final Phase 0.5 evidence
 
-- `npm ci`: passed; 112 packages installed and 0 vulnerabilities reported.
-- `npm audit --audit-level=high`: passed with 0 vulnerabilities.
-- Build: passed after the final authentication-alignment changes.
-- Complete regression suite after the Doctor fix: 37/37 passed on local Node 24 and 37/37 passed on local Node 20.
-- Focused authentication, HTTP security, and package-content suite: 12/12 passed.
-- Complete Smoke suite: all 8 sequential sections passed.
-- `npm pack --dry-run`: passed with 97 files; website assets and the compatibility shim are included; internal memory archives are excluded.
-- Install-script review: no packages with unreviewed install scripts; only `esbuild@0.28.1` is approved.
-- Tool verification: `esbuild 0.28.1` and `tsx 4.22.4` execute successfully.
-- CodexPro self-test: 7 pass, 0 fail; remaining warnings are expected for standard mode, trusted full Bash, and skipped write/Pro-context probes.
-- Authentication static search found no active ChatGPT static-Bearer guidance.
-- `git diff --check`: passed; only existing Windows LF-to-CRLF warnings were reported.
-- npm HOME remains corrected to `C:\Users\Administrator`; npm cache and userconfig stay outside the repository.
-- The pinned Cloudflared `2026.7.1` asset names and SHA-256 values match the reviewed official checksum list.
+- Baseline commit: `82c24da` (`feat: complete Phase 0.5 security baseline`).
+- Linux process-tree fix: `da83f77` (`fix: clean up Linux test process trees`).
+- Closure record: `73d7f8f` (`docs: close Phase 0.5`).
+- Local Node 24 regression: 38/38 passed.
+- Local Node 20 regression: 38/38 passed.
+- Smoke: 8/8 sequential sections passed.
+- `npm audit --audit-level=high`: 0 vulnerabilities.
+- `npm pack --dry-run`: 97 files; internal memory archives excluded.
+- CodexPro self-test: 7 pass, 0 fail.
+- Runtime-fix CI run `29183635923`: Ubuntu/Windows Node 20/24 all passed.
+- Closure-record CI run `29184298290`: Ubuntu/Windows Node 20/24 all passed.
+- Stale CI run `29181286011`: manually cancelled after the replacement run passed.
+- External Cloudflare validation: the public hostname reached CodexPro through Cloudflare, passed Host validation, and returned the expected unauthenticated `401`.
 
-## Closed-gate evidence and known limitations
+## Known limitations
 
-- No Phase 0.5 validation gates remain.
-- Fresh CI run `29183635923` passed all Ubuntu/Windows Node 20/24 jobs; old run `29181286011` was manually cancelled and is now `completed/cancelled`.
-- Real external Cloudflare Host forwarding is validated: the public hostname reached CodexPro through Cloudflare and passed Host validation before returning the expected unauthenticated `401`.
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 
 ## Open items
 
-1. Phase 0.5 is closed; preserve the completed baseline.
+1. No implementation work is active.
 2. Do not begin Phase 1 without separate explicit approval.
-3. When Phase 1 is approved, start with planning only and add one feature at a time.
+3. When Phase 1 is approved, create its archive and implement one feature at a time.
 
-## Recent steps
+## Recent summaries
 
-- **STEP-044 — Authentication direction:** selected the personal query-token compatibility flow for Phase 0.5 and deferred OAuth 2.1.
-- **STEP-045 — Public CLI restoration:** restored the supported default URL-token flow while preserving explicit Bearer-client opt-out.
-- **STEP-046 — Documentation alignment:** aligned all public guides and website pages and added URL-secret exposure warnings.
-- **STEP-047 — Final local review:** fixed the remaining authentication consistency issues and passed every approved local gate.
-- **STEP-048 — Neat-freak cleanup:** removed duplicated historical narration from the active memory index and rule stopping point; no runtime behavior changed.
-- **STEP-049 — Phase 0.5 staging:** staged the complete reviewed Phase 0.5 change set with explicit approval; no commit or push was performed.
-- **STEP-050 — Staged-diff review:** reviewed the staged change set and reproduced one blocker: public doctor calls without `--root` diagnose the package root instead of the caller workspace.
-- **STEP-051 — Doctor workspace fix:** added a failing regression test, propagated the canonical caller root into the legacy Doctor, passed 37/37 regressions and Smoke 8/8, and re-staged the fix.
-- **STEP-052 — Local Phase 0.5 commit:** committed the complete reviewed Phase 0.5 change set locally on `main`; no push was performed.
-- **STEP-053 — Push Phase 0.5:** pushed commit `82c24da` to `origin/main`; remote CI and real external Cloudflare validation remain pending.
-- **STEP-054 — Remote CI inspection:** confirmed the workflow is active but no Actions run/check was created; the repository is a fork and its Actions page reports no workflow runs yet.
-- **STEP-055 — Fork workflows enabled:** confirmed enabling workflows did not retroactively create a run for commit `82c24da`; a new approved `main` push is required to trigger CI.
-- **STEP-056 — Records-only CI trigger:** committed and pushed only `AGENTS.md`, `Memory.md`, and the Phase 0.5 archive to trigger the first GitHub Actions run after workflows were enabled.
-- **STEP-057 — CI status check:** Windows Node 20 and 24 completed successfully; Ubuntu Node 20 and 24 remained in progress at `Regression Tests`, so no final CI conclusion was recorded.
-- **STEP-058 — Ubuntu CI hang diagnosis:** confirmed both Ubuntu jobs were stuck for about 82 minutes and traced the likely cause to Linux process-tree cleanup: the test terminates the outer `codexpro-entry.mjs` process while its synchronous legacy CLI child and MCP server descendant can remain alive holding inherited pipes.
-- **STEP-059 — Linux test process-tree fix:** made the CLI test a separate POSIX process group, terminates the whole group with `SIGTERM`/`SIGKILL`, added direct cleanup-logic coverage, and passed Node 20/24 regression 38/38 plus Smoke 8/8 before pushing fresh CI.
-- **STEP-060 — Push Linux cleanup fix:** pushed commit `da83f77`, which triggered fresh CI run `29183635923`; old run `29181286011` still requires manual cancellation.
-- **STEP-061 — Fresh Ubuntu CI verification:** Ubuntu Node 20 and 24 completed successfully in run `29183635923`, confirming the Linux regression-test hang is fixed; Windows Node 20 and 24 remained in Smoke at the stopping point.
-- **STEP-062 — Fresh CI complete:** run `29183635923` completed successfully across Ubuntu/Windows and Node 20/24; the remaining Phase 0.5 gate is real external Cloudflare Tunnel validation, while old run `29181286011` still needs manual cancellation.
-- **STEP-063 — Cancel stale CI run:** manually cancelled run `29181286011` and verified it is `completed/cancelled`; fresh successful run `29183635923` remains the authoritative CI result.
-- **STEP-064 — External Cloudflare validation:** confirmed `codexpro.drliang.uk` resolves through Cloudflare to CodexPro at local port 8787; the public `/healthz` request passed Host validation and returned the expected unauthenticated `401`, so all Phase 0.5 gates are satisfied.
-- **STEP-065 — Close Phase 0.5:** formally closed Phase 0.5 after all approved gates passed and committed/pushed the final closure records; Phase 1 remains unstarted.
+- **STEP-066 — Neat-freak reconciliation:** removed obsolete phase-temporary wording, updated the roadmap, condensed this index, and created the interphase maintenance archive.
+- **STEP-067 — Git remote update:** changed local `origin` fetch and push URLs to `https://github.com/chatGPT-10/codexgpt.git` and verified remote `HEAD` resolves to `73d7f8f`.
+- **STEP-068 — Documentation diff review:** reviewed the complete change set, found no blocker, confirmed only documentation/rules/memory files changed, and re-ran the focused 6/6 documentation tests plus the diff check.
+- **STEP-069 — Stage reviewed documentation:** staged all 12 reviewed documentation, rule, website, and memory paths after explicit approval.
+- **STEP-070 — Commit post-Phase 0.5 documentation:** created the local documentation commit `docs: reconcile post-Phase 0.5 documentation` after explicit approval; no push was performed.
 
 ## Archives
 
-- [Phase 0 and Phase 0.5 — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
+- [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
+- [Interphase maintenance — STEP-066 onward](docs/memory/archive/interphase-maintenance.md)
 
 Archive integrity for the pre-migration journal:
 
@@ -105,9 +85,10 @@ Archive integrity for the pre-migration journal:
 
 ## Memory maintenance protocol
 
-- Root `Memory.md`: edit in place; keep only current state, active decisions, validation, open items, recent summaries, and archive links.
-- Target size: no more than 150 lines and 18 KB; hard maximum 200 lines and 25 KB.
-- Phase archives: append complete step records; do not silently rewrite existing history.
-- At phase completion, close the current archive and create the next phase archive.
-- Every meaningful completed step must update this index and append the active phase archive.
-- `AGENTS.md` is authoritative for the complete two-layer protocol.
+- Edit root `Memory.md` in place; keep only current state, active decisions, final evidence, limitations, open items, recent summaries, and archive links.
+- Keep this file at or below 150 lines and 18 KB when practical; 200 lines and 25 KB are hard limits.
+- Phase archives are append-only and close when their phase closes.
+- Create the next phase archive only when that phase begins.
+- Record between-phase work in `docs/memory/archive/interphase-maintenance.md`.
+- Every meaningful completed step must update this index and append the active archive.
+- `AGENTS.md` is authoritative for the complete memory protocol.

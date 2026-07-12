@@ -43,7 +43,7 @@ Settings -> Security and login -> Developer mode: on
 Settings -> Plugins -> Create
 ```
 
-Paste the complete copied Server URL, including its query string, and choose `Authentication: No Authentication / None`. During Phase 0.5 this is the supported personal ChatGPT query-token compatibility flow; OAuth 2.1 is deferred.
+Paste the complete copied Server URL, including its query string, and choose `Authentication: No Authentication / None`. This is the supported personal ChatGPT query-token compatibility flow; OAuth 2.1 remains deferred.
 
 Treat the complete URL as a password-equivalent secret. It can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it.
 
