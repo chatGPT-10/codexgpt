@@ -27,6 +27,7 @@ import { listCodexSessions, readCodexSession } from "./codexSessions.js";
 import { TOOL_CARD_LEGACY_URIS, TOOL_CARD_MIME_TYPE, TOOL_CARD_URI, toolCardWidgetHtml } from "./toolCardWidget.js";
 import { hasSecretValue, redactSensitiveText, redactStructured } from "./redact.js";
 import { inspectWorkspace, invalidateWorkspaceAnalysis, reviewWorkspaceChanges } from "./analysis/index.js";
+import type { ChangeAnalysis } from "./analysis/types.js";
 import {
   createServerConfigFailure,
   createServerConfigSuccess,
@@ -66,6 +67,17 @@ import {
   gitDiffOutputShape,
   type GitDiffFailureInput
 } from "./tools/schemas/gitDiff.js";
+import {
+  SHOW_CHANGES_ANALYSIS_WARNING,
+  SHOW_CHANGES_ERROR_MESSAGES,
+  createShowChangesFailure,
+  createShowChangesSuccess,
+  showChangesAnalysisSchema,
+  showChangesDataSchema,
+  showChangesOutputShape,
+  type ShowChangesAnalysis,
+  type ShowChangesFailureInput
+} from "./tools/schemas/showChanges.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -408,6 +420,62 @@ function classifyGitDiffOutputFailure(
   return undefined;
 }
 
+function classifyShowChangesThrownFailure(
+  error: unknown,
+  args: Record<string, unknown>
+): ShowChangesFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return {
+      code: "PATH_BLOCKED",
+      details: { path: safeTreePathDetail(args.path ?? "[path omitted]") }
+    };
+  }
+
+  const outsidePrefixes = [
+    "Path contains a null byte.",
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return {
+      code: "PATH_OUTSIDE_WORKSPACE",
+      details: { path: safeTreePathDetail(args.path ?? "[path omitted]") }
+    };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function classifyShowChangesStatusOutputFailure(
+  output: string
+): ShowChangesFailureInput | undefined {
+  const failure = classifyGitStatusOutputFailure(output);
+  return failure ? { code: failure.code, details: failure.details } as ShowChangesFailureInput : undefined;
+}
+
+function classifyShowChangesDiffOutputFailure(
+  output: string
+): ShowChangesFailureInput | undefined {
+  const failure = classifyGitDiffOutputFailure(output);
+  return failure ? { code: failure.code, details: failure.details } as ShowChangesFailureInput : undefined;
+}
+
 function compactStructuredContent<T>(value: T, depth = 0): T {
   if (depth > 8 || value === null || value === undefined) return value;
   if (typeof value === "string") {
@@ -618,6 +686,21 @@ export interface GitDiffProviderContext {
   staged: boolean;
 }
 
+export interface ShowChangesGitProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  path?: string;
+  staged: boolean;
+}
+
+export interface ShowChangesAnalysisProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  changedPaths: string[];
+}
+
 export interface CodexProServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
@@ -628,6 +711,15 @@ export interface CodexProServerDependencies {
   gitDiffResultProvider?: (
     context: GitDiffProviderContext
   ) => string | Promise<string>;
+  showChangesStatusProvider?: (
+    context: ShowChangesGitProviderContext
+  ) => string | Promise<string>;
+  showChangesDiffProvider?: (
+    context: ShowChangesGitProviderContext
+  ) => string | Promise<string>;
+  showChangesAnalysisProvider?: (
+    context: ShowChangesAnalysisProviderContext
+  ) => ChangeAnalysis | Promise<ChangeAnalysis>;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -1450,6 +1542,35 @@ export function createCodexProServer(
         context.workspace,
         context.path,
         context.staged
+      ));
+  const showChangesStatusProvider =
+    dependencies.showChangesStatusProvider ??
+    ((context: ShowChangesGitProviderContext) =>
+      gitDiffStatus(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.path,
+        context.staged
+      ));
+  const showChangesDiffProvider =
+    dependencies.showChangesDiffProvider ??
+    ((context: ShowChangesGitProviderContext) =>
+      gitDiff(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.path,
+        context.staged
+      ));
+  const showChangesAnalysisProvider =
+    dependencies.showChangesAnalysisProvider ??
+    ((context: ShowChangesAnalysisProviderContext) =>
+      reviewWorkspaceChanges(
+        context.config,
+        context.guard,
+        context.workspace,
+        { changedPaths: context.changedPaths }
       ));
   registeredToolNamesByServer.set(server as object, []);
   registerToolCardResource(server, config);
@@ -2708,6 +2829,7 @@ export function createCodexProServer(
         since: z.enum(["last_shown", "workspace"]).optional().describe("Use last_shown to suppress unchanged repeated reviews. Default: last_shown."),
         mark_reviewed: z.boolean().optional().describe("Update the last-shown review checkpoint after this call. Default: true.")
       },
+      outputSchema: showChangesOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -2716,97 +2838,169 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const scopedPath = typeof args.path === "string" ? args.path : undefined;
-      const staged = parseBool(args.staged, false);
-      const normalizedScopedPath = scopedPath?.trim() ? guard.resolve(workspace, scopedPath).relPath : undefined;
-      const status = normalizeGitOutput(gitDiffStatus(config, guard, workspace, normalizedScopedPath, staged));
-      const includeDiff = parseBool(args.include_diff, true);
-      const rawDiff = normalizeGitOutput(gitDiff(config, guard, workspace, normalizedScopedPath, staged));
-      const statusError = looksLikeGitError(status) ? status : "";
-      const diffError = rawDiff && looksLikeGitError(rawDiff) ? rawDiff : "";
-      const diff = diffError ? "" : rawDiff;
-      const stats = diffStats(diff);
-      const changedFiles = statusError ? [] : changedStatusLines(status);
-      const untrackedFingerprint = statusError ? "" : await untrackedReviewFingerprint(config, guard, workspace, changedFiles);
-      const since = args.since === "workspace" ? "workspace" : "last_shown";
-      const markReviewed = parseBool(args.mark_reviewed, true);
-      const checkpointKey = reviewCheckpointKey(workspace, { path: normalizedScopedPath, staged });
-      const fingerprint = reviewFingerprint(status, `${diff}\0${untrackedFingerprint}`);
-      const checkpointHit = includeDiff && since === "last_shown" && reviewCheckpoints.get(checkpointKey) === fingerprint;
-      const checkpointWritten = markReviewed && includeDiff;
-      if (checkpointWritten) reviewCheckpoints.set(checkpointKey, fingerprint);
-      const responseDiff = checkpointHit ? "" : includeDiff ? diff : "";
-      const responseStats = checkpointHit ? { additions: 0, deletions: 0, changed: false } : stats;
-      const changedPaths = statusError ? [] : changedPathsFromStatus(changedFiles);
-      let analysis: Record<string, unknown> | undefined;
-      if (config.analysisEnabled && changedPaths.length && !checkpointHit) {
-        try {
-          const impact = await reviewWorkspaceChanges(config, guard, workspace, { changedPaths });
-          analysis = {
-            schema_version: impact.schemaVersion,
-            changed_paths: impact.changedPaths,
-            affected_areas: impact.affectedAreas,
-            dependent_files: impact.dependentFiles,
-            related_tests: impact.relatedTests,
-            risk_signals: impact.riskSignals,
-            recommended_commands: impact.recommendedCommands,
-            coverage: impact.coverage,
-            warnings: impact.warnings,
-            cache: impact.cache
-          };
-        } catch (error) {
-          analysis = {
-            schema_version: 1,
-            changed_paths: changedPaths,
-            affected_areas: [],
-            dependent_files: [],
-            related_tests: [],
-            risk_signals: [],
-            recommended_commands: [],
-            warnings: [`Change analysis unavailable: ${errorText(error)}`]
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const scopedPath = typeof args.path === "string" ? args.path : undefined;
+        const staged = parseBool(args.staged, false);
+        const includeDiff = parseBool(args.include_diff, true);
+        const since = args.since === "workspace" ? "workspace" : "last_shown";
+        const markReviewed = parseBool(args.mark_reviewed, true);
+        const normalizedScopedPath = scopedPath?.trim()
+          ? guard.resolve(workspace, scopedPath).relPath
+          : undefined;
+        const providerContext: ShowChangesGitProviderContext = {
+          config,
+          guard,
+          workspace,
+          path: normalizedScopedPath,
+          staged
+        };
+
+        const statusProviderResult = await showChangesStatusProvider(providerContext);
+        if (typeof statusProviderResult !== "string") {
+          throw new CodexProError("show_changes status provider returned a non-string result.");
+        }
+        const status = normalizeGitOutput(statusProviderResult);
+        const statusFailure = classifyShowChangesStatusOutputFailure(status);
+        if (statusFailure) {
+          const text = [
+            "# Show Changes Error",
+            "",
+            `Code: ${statusFailure.code}`,
+            SHOW_CHANGES_ERROR_MESSAGES[statusFailure.code]
+          ].join("\n");
+          return {
+            ...textResult(text, createShowChangesFailure(statusFailure)),
+            isError: true
           };
         }
-      }
-      const changedText = statusError
-        ? `- Git status unavailable: ${statusError}`
-        : checkpointHit
+
+        const diffProviderResult = await showChangesDiffProvider(providerContext);
+        if (typeof diffProviderResult !== "string") {
+          throw new CodexProError("show_changes diff provider returned a non-string result.");
+        }
+        const diff = normalizeGitOutput(diffProviderResult);
+        const diffFailure = classifyShowChangesDiffOutputFailure(diff);
+        if (diffFailure) {
+          const text = [
+            "# Show Changes Error",
+            "",
+            `Code: ${diffFailure.code}`,
+            SHOW_CHANGES_ERROR_MESSAGES[diffFailure.code]
+          ].join("\n");
+          return {
+            ...textResult(text, createShowChangesFailure(diffFailure)),
+            isError: true
+          };
+        }
+
+        const stats = diffStats(diff);
+        const changedFiles = changedStatusLines(status);
+        const untrackedFingerprint = await untrackedReviewFingerprint(
+          config,
+          guard,
+          workspace,
+          changedFiles
+        );
+        const checkpointKey = reviewCheckpointKey(workspace, {
+          path: normalizedScopedPath,
+          staged
+        });
+        const fingerprint = reviewFingerprint(status, `${diff}\0${untrackedFingerprint}`);
+        const checkpointHit = includeDiff &&
+          since === "last_shown" &&
+          reviewCheckpoints.get(checkpointKey) === fingerprint;
+        const checkpointWritten = markReviewed && includeDiff;
+        if (checkpointWritten) reviewCheckpoints.set(checkpointKey, fingerprint);
+
+        const responseDiff = checkpointHit ? "" : includeDiff ? diff : "";
+        const responseStats = checkpointHit
+          ? { additions: 0, deletions: 0, changed: false }
+          : stats;
+        const responseChangedFiles = checkpointHit ? [] : changedFiles;
+        const responseChanged = !checkpointHit &&
+          (changedFiles.length > 0 || responseStats.changed);
+        const changedPaths = changedPathsFromStatus(changedFiles);
+        let analysis: ShowChangesAnalysis | null = null;
+        let warnings: Array<typeof SHOW_CHANGES_ANALYSIS_WARNING> = [];
+
+        if (config.analysisEnabled && changedPaths.length && !checkpointHit) {
+          try {
+            const impact = await showChangesAnalysisProvider({
+              config,
+              guard,
+              workspace,
+              changedPaths
+            });
+            analysis = showChangesAnalysisSchema.parse({
+              schema_version: impact.schemaVersion,
+              changed_paths: impact.changedPaths,
+              affected_areas: impact.affectedAreas,
+              dependent_files: impact.dependentFiles,
+              related_tests: impact.relatedTests,
+              risk_signals: impact.riskSignals,
+              recommended_commands: impact.recommendedCommands,
+              coverage: impact.coverage,
+              warnings: impact.warnings,
+              cache: impact.cache
+            });
+          } catch {
+            analysis = null;
+            warnings = [SHOW_CHANGES_ANALYSIS_WARNING];
+          }
+        }
+
+        const changedText = checkpointHit
           ? "- No changes since last shown review."
           : changedFiles.length
-          ? changedFiles.map((line) => `- ${line}`).join("\n")
-          : "- No changed files.";
-      const diffText = checkpointHit
-        ? "\n\nNo new diff since last shown review."
-        : includeDiff
-        ? diffError
-          ? `\n\nGit diff unavailable: ${diffError}`
-          : diff
-          ? diffBlock(diff)
-            : "\n\nNo diff output."
-        : "\n\nDiff omitted by request.";
-      const analysisText = analysis
-        ? `\n\n## Analysis\n\nAffected areas: ${(analysis.affected_areas as string[]).join(", ") || "none"}\nRisks: ${((analysis.risk_signals as Array<{ label?: string }>) ?? []).map((risk) => risk.label).filter(Boolean).join(", ") || "none"}\nRelated tests: ${((analysis.related_tests as Array<{ path?: string }>) ?? []).map((file) => file.path).filter(Boolean).join(", ") || "none"}`
-        : "";
-      const text = `# Show Changes\n\nWorkspace: ${workspace.root}\n\n## Changed\n\n${changedText}\n\n## Diff stats\n\n+${responseStats.additions} -${responseStats.deletions}${diffText}${analysisText}`;
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        path: args.path ?? "workspace changes",
-        status,
-        status_error: statusError || undefined,
-        diff_error: diffError || undefined,
-        changed_files: checkpointHit ? [] : changedFiles,
-        staged,
-        include_diff: includeDiff,
-        additions: responseStats.additions,
-        deletions: responseStats.deletions,
-        changed: !statusError && (checkpointHit ? false : changedFiles.length > 0 || responseStats.changed),
-        diff: responseDiff,
-        review_since: since,
-        review_marked: checkpointWritten,
-        review_checkpoint_hit: checkpointHit,
-        ...(analysis ? { analysis } : {})
-      });
+            ? changedFiles.map((line) => `- ${line}`).join("\n")
+            : "- No changed files.";
+        const diffText = checkpointHit
+          ? "\n\nNo new diff since last shown review."
+          : includeDiff
+            ? diff
+              ? diffBlock(diff)
+              : "\n\nNo diff output."
+            : "\n\nDiff omitted by request.";
+        const analysisText = analysis
+          ? `\n\n## Analysis\n\nAffected areas: ${analysis.affected_areas.join(", ") || "none"}\nRisks: ${analysis.risk_signals.map((risk) => risk.label).filter(Boolean).join(", ") || "none"}\nRelated tests: ${analysis.related_tests.map((file) => file.path).filter(Boolean).join(", ") || "none"}`
+          : "";
+        const text = `# Show Changes\n\nWorkspace: ${workspace.root}\n\n## Changed\n\n${changedText}\n\n## Diff stats\n\n+${responseStats.additions} -${responseStats.deletions}${diffText}${analysisText}`;
+        const data = showChangesDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          path: args.path ?? "workspace changes",
+          status,
+          changed_files: responseChangedFiles,
+          staged,
+          include_diff: includeDiff,
+          additions: responseStats.additions,
+          deletions: responseStats.deletions,
+          changed: responseChanged,
+          diff: responseDiff,
+          review_since: since,
+          review_marked: checkpointWritten,
+          review_checkpoint_hit: checkpointHit,
+          analysis
+        });
+
+        return textResult(
+          text,
+          createShowChangesSuccess(data, 0, warnings)
+        );
+      } catch (error) {
+        const failure = classifyShowChangesThrownFailure(error, args);
+        const text = [
+          "# Show Changes Error",
+          "",
+          `Code: ${failure.code}`,
+          SHOW_CHANGES_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, createShowChangesFailure(failure)),
+          isError: true
+        };
+      }
     }
   );
 
