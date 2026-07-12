@@ -537,7 +537,11 @@ export const toolCardWidgetHtml = String.raw`
       return (coverage.analyzedFiles ?? coverage.analyzed_files ?? 0) + " files analyzed, " + (coverage.symbolCount ?? coverage.symbol_count ?? 0) + " symbols";
     }
     if (data?.codexpro_tool === "git_status") {
-      const count = Array.isArray(data?.changed_files) ? data.changed_files.length : 0;
+      if (data?.ok === false) return data?.error?.code || "Git status unavailable";
+      const statusData = data?.data ?? {};
+      const count = Array.isArray(statusData.changed_files)
+        ? statusData.changed_files.length
+        : 0;
       return count ? count + " changed entries" : "Working tree clean";
     }
     if (data?.codexpro_tool === "codex_context") return (data?.agents_files?.length ?? 0) + " AGENTS, " + (data?.ai_context_files?.length ?? 0) + " bridge files";
@@ -954,16 +958,41 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderStatus(data) {
-    const files = Array.isArray(data.changed_files) ? data.changed_files : [];
+    const statusData = data?.data ?? {};
+    const error = data?.error ?? {};
+
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Git status unavailable.") +
+        '</div></div></article>';
+    }
+
+    const files = Array.isArray(statusData.changed_files)
+      ? statusData.changed_files
+      : [];
     const rows = files.slice(0, 14).map((line) => {
       const status = String(line).slice(0, 2).trim() || "?";
       const name = String(line).slice(2).trim() || String(line);
-      return '<div class="file-row"><span class="file-code">' + esc(status) + '</span><span class="file-name">' + esc(name) + '</span></div>';
+      return '<div class="file-row"><span class="file-code">' +
+        esc(status) +
+        '</span><span class="file-name">' +
+        esc(name) +
+        '</span></div>';
     }).join("");
-    const state = data.status_error ? '<div class="empty">' + esc(data.status_error) + '</div>' : rows || '<div class="empty">Working tree clean.</div>';
-    return '<article class="card">' + header(data, pill(files.length ? files.length + " changed" : "clean", files.length ? "info" : "good")) +
+    const state = rows || '<div class="empty">Working tree clean.</div>';
+    const changed = Boolean(statusData.changed);
+
+    return '<article class="card">' +
+      header(data, pill(changed ? files.length + " changed" : "clean", changed ? "info" : "good")) +
       '<div class="body"><div class="file-list">' + state + '</div>' +
-      fold("Raw status", countLines(data.status) + " lines", codebox("git status", esc(previewLines(data.status, 40)), ""), false) +
+      fold(
+        "Raw status",
+        countLines(statusData.status) + " lines",
+        codebox("git status", esc(previewLines(statusData.status, 40)), ""),
+        false
+      ) +
       '</div></article>';
   }
 

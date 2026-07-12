@@ -687,12 +687,12 @@ async function runShowChangesStatsStress() {
       name: 'git_status',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt' }
     });
-    assert(scopedStatus.structuredContent.changed_files.length === 1 && scopedStatus.structuredContent.changed_files[0].includes('demo.txt'), `git_status path leaked unrelated files: ${JSON.stringify(scopedStatus.structuredContent.changed_files)}`);
+    assert(scopedStatus.structuredContent.data.changed_files.length === 1 && scopedStatus.structuredContent.data.changed_files[0].includes('demo.txt'), `git_status path leaked unrelated files: ${JSON.stringify(scopedStatus.structuredContent.data.changed_files)}`);
     const superScopedStatus = await client.request('tools/call', {
       name: 'codexpro',
       arguments: { action: 'git_status', args: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt' } }
     });
-    assert(superScopedStatus.structuredContent.codexpro_tool === 'git_status' && superScopedStatus.structuredContent.changed_files.length === 1 && superScopedStatus.structuredContent.changed_files[0].includes('demo.txt'), `supertool git_status path leaked unrelated files: ${JSON.stringify(superScopedStatus.structuredContent.changed_files)}`);
+    assert(superScopedStatus.structuredContent.codexpro_tool === 'git_status' && superScopedStatus.structuredContent.data.changed_files.length === 1 && superScopedStatus.structuredContent.data.changed_files[0].includes('demo.txt'), `supertool git_status path leaked unrelated files: ${JSON.stringify(superScopedStatus.structuredContent.data.changed_files)}`);
     const changes = await client.request('tools/call', {
       name: 'show_changes',
       arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt', include_diff: false }

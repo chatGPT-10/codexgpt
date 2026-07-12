@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the `server_config`, `tree`, and `read` slices are published and cross-platform CI-validated. The `read` implementation is commit `282dcfa` with publication record `c90246f`; CI runs `29199573321` and `29199802824` passed on Ubuntu/Windows with Node 20/24.
+- Phase 1: the `server_config`, `tree`, and `read` slices are published and cross-platform CI-validated. The fourth `git_status` slice is locally complete, neat-freak reviewed, and authorized for publication; it remains unstaged at this checkpoint.
 
 ## Approved stopping point
 
-Phase 0.5 is closed. The Phase 1 `server_config`, `tree`, and `read` slices are published and cross-platform CI-validated. No implementation task is active. The next permitted action is selecting and designing one additional Phase 1 tool after explicit approval. Do not begin Phase 2 or another tool implementation without a separately reviewed plan.
+Phase 0.5 is closed. The Phase 1 `server_config`, `tree`, and `read` slices are published and cross-platform CI-validated. `git_status` is locally complete: 17/17 focused, 89/89 full tests, Build, 8/8 Smoke, audit 0, 107-file package, and documentation 5/5 passed. Neat-freak reduced the executed plan from 1828 lines / 55.8 KB to 216 lines / 9.9 KB without changing the contract. Staging, commit, and push are now authorized; Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -48,6 +48,10 @@ Phase 0.5 is closed. The Phase 1 `server_config`, `tree`, and `read` slices are 
 - `read` permits exactly nine non-retryable errors: `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_FILE`, `FILE_TOO_LARGE`, `FILE_NOT_TEXT`, `INVALID_LINE_RANGE`, and `INTERNAL_ERROR`.
 - The approved `read` design is `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`; it preserves current reading, hashing, redaction, optional workspace fallback, and the unrelated Windows Stress limitation.
 - Its implementation plan is `docs/superpowers/plans/2026-07-12-read-output-schema.md`: four completed TDD tasks covering Schema, real MCP integration, Tool Card/consumer migration, and complete publication verification.
+- The fourth Phase 1 slice is `git_status` only. It preserves six success fields under `data`: `workspace_id`, `root`, `path`, `status`, `changed_files`, and `changed`; `changed_files` remains a list of Git status lines rather than pure paths.
+- `git_status` removes legacy success-field `status_error` and permits exactly seven non-retryable failures: `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `GIT_NOT_REPOSITORY`, `GIT_UNAVAILABLE`, `GIT_COMMAND_FAILED`, and `INTERNAL_ERROR`.
+- Safe nonexistent Git pathspecs remain successful clean results. `git_diff`, `show_changes`, typed Git services, parsed porcelain entries, Git writes, and Phase 2 remain out of scope.
+- The approved design is `docs/superpowers/specs/2026-07-12-git-status-output-schema-design.md`; all four tasks in `docs/superpowers/plans/2026-07-12-git-status-output-schema.md` are locally complete and verified.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval.
 
 ## Final Phase 0.5 evidence
@@ -112,23 +116,20 @@ Phase 0.5 is closed. The Phase 1 `server_config`, `tree`, and `read` slices are 
 
 ## Open items
 
-1. No Phase 1 implementation task is active; the next permitted action is selecting and designing one additional tool after explicit approval.
-2. Keep Phase 2 and another tool implementation closed without a new reviewed design and plan.
-3. Treat the native-Windows Stress fixture filename issue as separate maintenance work.
+1. Execute the authorized staging, commit, and push workflow for the exact eleven-file `git_status` slice.
+2. Record the resulting commit, remote synchronization, and available CI evidence after publication.
+3. Keep Phase 2 and another tool migration closed.
+4. Treat the native-Windows Stress fixture filename issue as separate maintenance work.
 
 ## Recent summaries
 
-- **STEP-102 — Publish neat-freak reconciliation:** after explicit approval, committed the six-file documentation/Memory cleanup as `c946cc5`, pushed it to `origin/main`, and verified CI run `29195773978` completed successfully; the follow-up publication record is included in the current commit.
-- **STEP-103 — Select and specify the `read` slice:** approved `read` as the third Phase 1 slice, preserved its ten success fields under nested `data`, fixed nine stable non-retryable errors, audited current handler/card/Smoke/Stress consumers, and wrote and self-reviewed `docs/superpowers/specs/2026-07-12-read-output-schema-design.md`; implementation had not started at this step.
-- **STEP-104 — Write the `read` implementation plan:** produced and self-reviewed `docs/superpowers/plans/2026-07-12-read-output-schema.md` with four TDD tasks; corrected an ineffective NUL check, added absolute-path detail redaction coverage, and completed migration instructions for both supertool reads, size/range/path fields, `FILE_TOO_LARGE`, and late-NUL `FILE_NOT_TEXT`; stopped before Task 1.
-- **STEP-105 — Task 1 exact `read` contracts:** observed the expected missing-module RED, then added the strict ten-field data schema, nine error variants, constructors, and passed 4/4 focused tests plus Build.
-- **STEP-106 — Task 2 real `read` MCP integration:** added exact descriptor/envelopes, constructor-only provider injection, local safe classification, and real MCP tests; after canonicalizing Windows temp fixtures, 15/15 focused and 18/18 published-contract regressions passed.
-- **STEP-107 — Task 3 card and consumers:** added dedicated nested-data subtitle/rendering/routing; after explicit approval, applied an exact shell patch for seven Stress assertions blocked by full-file secret scanning; 16/16 focused, Stress syntax, Build, and regressions passed.
-- **STEP-108 — Complete local `read` slice:** passed 72/72 full tests, all 8 Smoke sections, audit, 105-file package, 5/5 documentation, text-safety, consumer, and scope checks; synchronized design, plan, roadmap, AGENTS, and Memory; stopped before staging.
-- **STEP-109 — Neat-freak local closeout:** audited rules, active docs, Memory, links, stale wording, and scope; compressed the executed `read` plan from 1771 lines / 60.7 KB to 218 lines / 9.2 KB without changing the contract or evidence, corrected one misleading present-tense Memory summary, then passed 72/72 tests, Build, reference, whitespace, text-safety, and scope checks while keeping the eleven-file unstaged boundary.
-- **STEP-110 — Authorize `read` publication workflow:** received explicit approval to execute staging, commit, push, and follow-up publication work automatically; reran 72/72 tests, Build, all 8 Smoke sections, audit with 0 vulnerabilities, and the 105-file package check before touching Git.
-- **STEP-111 — Publish `read` implementation:** staged the exact eleven-file slice, fixed two staged Markdown whitespace defects, created and pushed implementation commit `282dcfa`, and verified CI run `29199573321` passed on Ubuntu/Windows with Node 20/24; publication-record synchronization followed.
-- **STEP-112 — Verify publication record:** created and pushed publication-record commit `c90246f`, verified CI run `29199802824` passed on Ubuntu/Windows with Node 20/24, synchronized the final Phase 1 planning boundary, and prepared the final-state commit.
+- **STEP-119 — Neat-freak pre-publication review:** audited project rules, documentation links, Memory limits, current consumers, and the exact eleven-file slice; compressed the executed `git_status` plan from 1828 lines / 55.8 KB to 216 lines / 9.9 KB while preserving contract and evidence; authorized publication workflow remains next.
+- **STEP-118 — Complete local `git_status` slice:** passed 17/17 focused, 89/89 full tests, Build, all 8 Smoke sections, Stress syntax, audit 0, 107-file package, and documentation 5/5; eleven-file text, consumer, and scope audits passed; synchronized design, plan, roadmap, AGENTS, and Memory; stopped unstaged before publication.
+- **STEP-117 — Task 3 card and consumers:** observed 16/17 with only the legacy card failing, then migrated the dedicated `git_status` subtitle/renderer to nested `data` and stable `error`, preserved `show_changes`, and moved exactly six Stress field references through a controlled patch after secret scanning blocked normal edit; 17/17 focused, Stress syntax, 34/34 regressions, and Build passed.
+- **STEP-116 — Task 2 real `git_status` MCP integration:** observed the expected 4-pass/11-fail legacy-handler RED, then added the exact descriptor, constructor-only provider seam, local safe classifiers, strict success/failure envelopes, readable content, and stable error redaction; 15/15 focused, 34/34 published-contract regressions, and Build passed while `git_diff`/`show_changes` remained unchanged.
+- **STEP-115 — Task 1 exact `git_status` contracts:** baseline was 72/72 Node tests and Build; observed the expected missing-module RED, then added the strict six-field data schema, seven error variants, envelope constructors, and passed 4/4 focused tests plus Build; the public handler remained legacy until Task 2.
+- **STEP-114 — Write the `git_status` implementation plan:** produced and self-reviewed the four-task TDD plan, corrected RED counts and cross-platform assertions, and stopped before Task 1.
+- **STEP-113 — Select and specify the `git_status` slice:** approved the fourth Phase 1 tool-local contract, preserved six success fields under nested `data`, fixed seven stable errors, preserved safe nonexistent pathspec behavior, and wrote the approved design.
 
 ## Archives
 

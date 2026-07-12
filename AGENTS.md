@@ -143,6 +143,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-12-tree-output-schema.md` — executed four-task plan for the published `tree` slice.
 - `docs/superpowers/specs/2026-07-12-read-output-schema-design.md` — approved and published design for the third Phase 1 `read` slice.
 - `docs/superpowers/plans/2026-07-12-read-output-schema.md` — executed four-task plan for the published `read` slice.
+- `docs/superpowers/specs/2026-07-12-git-status-output-schema-design.md` — approved design for the locally complete fourth Phase 1 `git_status` slice.
+- `docs/superpowers/plans/2026-07-12-git-status-output-schema.md` — executed four-task TDD plan for the locally complete `git_status` slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -184,4 +186,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The `server_config`, `tree`, and `read` vertical slices are published and cross-platform CI-validated. No implementation task is active. The next permitted action is a separately reviewed Phase 1 design and plan for one additional tool. Do not begin Phase 2 or another tool implementation without explicit approval.
+Phase 1 implementation started on 2026-07-12. The `server_config`, `tree`, and `read` vertical slices are published and cross-platform CI-validated. The fourth `git_status` slice is locally complete and neat-freak reviewed. The user has authorized staging, commit, and push for this exact slice. Record the resulting remote and CI evidence after publication. Do not begin Phase 2 or another tool migration without separate approval.

@@ -50,6 +50,14 @@ import {
   readOutputShape,
   type ReadFailureInput
 } from "./tools/schemas/read.js";
+import {
+  GIT_STATUS_ERROR_MESSAGES,
+  createGitStatusFailure,
+  createGitStatusSuccess,
+  gitStatusDataSchema,
+  gitStatusOutputShape,
+  type GitStatusFailureInput
+} from "./tools/schemas/gitStatus.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -252,6 +260,76 @@ function classifyReadFailure(
   return { code: "INTERNAL_ERROR", details: {} };
 }
 
+function classifyGitStatusThrownFailure(
+  error: unknown,
+  args: Record<string, unknown>
+): GitStatusFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return {
+      code: "PATH_BLOCKED",
+      details: { path: safeTreePathDetail(args.path ?? "[path omitted]") }
+    };
+  }
+
+  const outsidePrefixes = [
+    "Path contains a null byte.",
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return {
+      code: "PATH_OUTSIDE_WORKSPACE",
+      details: { path: safeTreePathDetail(args.path ?? "[path omitted]") }
+    };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function classifyGitStatusOutputFailure(
+  output: string
+): GitStatusFailureInput | undefined {
+  const trimmed = output.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower.includes("not a git repository")) {
+    return { code: "GIT_NOT_REPOSITORY", details: {} };
+  }
+
+  if (trimmed.startsWith("git unavailable or failed:")) {
+    return /\bENOENT\b|not found/i.test(trimmed)
+      ? { code: "GIT_UNAVAILABLE", details: {} }
+      : { code: "GIT_COMMAND_FAILED", details: {} };
+  }
+
+  if (
+    trimmed.startsWith("fatal:") ||
+    trimmed.startsWith("error:") ||
+    trimmed.startsWith("git exited with status") ||
+    trimmed.startsWith("usage: git ")
+  ) {
+    return { code: "GIT_COMMAND_FAILED", details: {} };
+  }
+
+  return undefined;
+}
+
 function compactStructuredContent<T>(value: T, depth = 0): T {
   if (depth > 8 || value === null || value === undefined) return value;
   if (typeof value === "string") {
@@ -447,10 +525,20 @@ export interface ReadProviderContext {
   };
 }
 
+export interface GitStatusProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  path?: string;
+}
+
 export interface CodexProServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
   readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
+  gitStatusResultProvider?: (
+    context: GitStatusProviderContext
+  ) => string | Promise<string>;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -1254,6 +1342,15 @@ export function createCodexProServer(
         context.workspace,
         context.path,
         context.options
+      ));
+  const gitStatusResultProvider =
+    dependencies.gitStatusResultProvider ??
+    ((context: GitStatusProviderContext) =>
+      gitStatus(
+        context.config,
+        context.workspace,
+        context.guard,
+        context.path
       ));
   registeredToolNamesByServer.set(server as object, []);
   registerToolCardResource(server, config);
@@ -2330,6 +2427,7 @@ export function createCodexProServer(
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         path: z.string().optional().describe("Optional file path relative to workspace root.")
       },
+      outputSchema: gitStatusOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -2338,20 +2436,62 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const scopedPath = typeof args.path === "string" ? args.path : undefined;
-      const status = gitStatus(config, workspace, guard, scopedPath);
-      const statusError = looksLikeGitError(status) ? status : "";
-      const changedFiles = statusError ? [] : changedStatusLines(status);
-      return textResult(status, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        path: args.path ?? "workspace status",
-        status,
-        status_error: statusError || undefined,
-        changed_files: changedFiles,
-        changed: !statusError && changedFiles.length > 0
-      });
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const scopedPath = typeof args.path === "string" ? args.path : undefined;
+        const status = await gitStatusResultProvider({
+          config,
+          guard,
+          workspace,
+          path: scopedPath
+        });
+
+        if (typeof status !== "string") {
+          throw new CodexProError("git_status provider returned a non-string result.");
+        }
+
+        const outputFailure = classifyGitStatusOutputFailure(status);
+        if (outputFailure) {
+          const structured = createGitStatusFailure(outputFailure);
+          const text = [
+            "# Git Status Error",
+            "",
+            `Code: ${outputFailure.code}`,
+            GIT_STATUS_ERROR_MESSAGES[outputFailure.code]
+          ].join("\n");
+
+          return {
+            ...textResult(text, structured),
+            isError: true
+          };
+        }
+
+        const changedFiles = changedStatusLines(status);
+        const data = gitStatusDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          path: args.path ?? "workspace status",
+          status,
+          changed_files: changedFiles,
+          changed: changedFiles.length > 0
+        });
+
+        return textResult(status, createGitStatusSuccess(data));
+      } catch (error) {
+        const failure = classifyGitStatusThrownFailure(error, args);
+        const structured = createGitStatusFailure(failure);
+        const text = [
+          "# Git Status Error",
+          "",
+          `Code: ${failure.code}`,
+          GIT_STATUS_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+
+        return {
+          ...textResult(text, structured),
+          isError: true
+        };
+      }
     }
   );
 
