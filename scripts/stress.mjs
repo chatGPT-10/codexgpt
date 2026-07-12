@@ -138,8 +138,8 @@ async function runFullModeStress(root) {
     }
 
     const config = await client.request('tools/call', { name: 'server_config', arguments: {} });
-    assert(config.structuredContent.toolMode === 'full', `expected full tool mode, got ${config.structuredContent.toolMode}`);
-    assert(config.structuredContent.registeredTools.includes('codexpro'), 'server_config missing codexpro supertool');
+    assert(config.structuredContent.data?.toolMode === 'full', `expected full tool mode, got ${config.structuredContent.data?.toolMode}`);
+    assert(config.structuredContent.data?.registeredTools.includes('codexpro'), 'server_config missing codexpro supertool');
 
     const superActions = await client.request('tools/call', {
       name: 'codexpro',

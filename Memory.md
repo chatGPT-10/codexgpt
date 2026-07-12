@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: not started.
+- Phase 1: first `server_config` vertical slice is committed locally and awaiting push approval.
 
 ## Approved stopping point
 
-Phase 0.5 is closed and `main` is clean and synchronized with `origin/main` at `6dc359e`. The repository is ready for Phase 1 planning, but Phase 1 has not started. Separate explicit approval is required; the first approved action must be planning only, followed by creation of the Phase 1 archive before implementation. Do not alter the closed Phase 0.5 baseline, stage, commit, or push without explicit approval.
+Phase 0.5 is closed. The first Phase 1 `server_config` slice is committed locally as `feat: add exact server_config output schema`; `main` is one commit ahead of `origin/main`. Stop here for push approval. Do not migrate a second tool or push without explicit approval.
 
 ## Active decisions and constraints
 
@@ -35,6 +35,11 @@ Phase 0.5 is closed and `main` is clean and synchronized with `origin/main` at `
 - OAuth 2.1 is deferred to a later phase.
 - Supported Cloudflare starts must use the pinned verified managed binary path.
 - Do not bypass secret-content protections or weaken workspace/path boundaries.
+- The first Phase 1 slice uses a strict `server_config` envelope: top-level tool identity plus `ok`, `data`, `error`, and `meta`; configuration fields live only under `data`.
+- Its initial `meta` contract is exactly `schemaVersion`, `durationMs`, and `warnings`; `requestId` is omitted until a trustworthy transport-aware identity exists.
+- Its stable error object is `code`, `message`, `retryable`, and `details`; the first slice introduces only `INTERNAL_ERROR`, with redacted output and no stack traces or secrets.
+- Schema ownership is split: `src/tools/schemas/common.ts` owns shared envelope contracts, while `src/tools/schemas/serverConfig.ts` owns the exact `server_config` data and output schemas; types are inferred from Zod.
+- Contract tests use a pure handler/result factory with test-only dependency injection; no environment flag, CLI option, hidden MCP argument, HTTP route, or production test mode is allowed.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval.
 
 ## Final Phase 0.5 evidence
@@ -53,29 +58,46 @@ Phase 0.5 is closed and `main` is clean and synchronized with `origin/main` at `
 - Stale CI run `29181286011`: manually cancelled after the replacement run passed.
 - External Cloudflare validation: the public hostname reached CodexPro through Cloudflare, passed Host validation, and returned the expected unauthenticated `401`.
 
+## First Phase 1 slice evidence
+
+- Contract test: 6/6 passed; complete Node suite: 44/44 passed.
+- Build passed; all 8 Smoke sections passed.
+- `npm audit --audit-level=high`: 0 vulnerabilities.
+- `npm pack --dry-run`: 101 files; internal Memory/spec/plan archives excluded.
+- Documentation test: 5/5 passed; changed-file text validation passed.
+- The reviewed Phase 1 slice is committed locally; `main` is one commit ahead of `origin/main`, and no push has occurred.
+
 ## Known limitations
 
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
+- `npm run stress` still fails on native Windows before reaching this slice because its fixture creates the invalid Windows filename `visible:123:file.txt`; script syntax and migrated `server_config` reads were checked separately.
 
 ## Open items
 
-1. Await explicit approval to begin Phase 1 planning.
-2. After approval, create `docs/memory/archive/phase-1.md` and define the first single-feature implementation plan.
-3. Do not modify source code or the closed Phase 0.5 baseline until that plan is reviewed and approved.
+1. The reviewed first-slice commit exists locally and `main` is ahead of `origin/main` by one commit.
+2. After explicit approval, push the local commit.
+3. Do not migrate a second tool or push without separate approval.
 
 ## Recent summaries
 
-- **STEP-068 — Documentation diff review:** reviewed the complete change set, found no blocker, confirmed only documentation/rules/memory files changed, and re-ran the focused 6/6 documentation tests plus the diff check.
-- **STEP-069 — Stage reviewed documentation:** staged all 12 reviewed documentation, rule, website, and memory paths after explicit approval.
-- **STEP-070 — Commit post-Phase 0.5 documentation:** created local commit `7b9c0fe` (`docs: reconcile post-Phase 0.5 documentation`) after explicit approval.
-- **STEP-071 — Push documentation reconciliation:** pushed through record commit `6dc359e`; local `main`, `origin/main`, and remote `HEAD` were synchronized.
-- **STEP-072 — Phase 1 readiness cleanup:** used `neat-freak` to confirm the roadmap already defines Phase 1, condensed the active next action, and marked the repository ready for planning but not started.
+- **STEP-077 — Split schema ownership:** approved S2 with shared contracts in `src/tools/schemas/common.ts` and exact `server_config` schemas in `src/tools/schemas/serverConfig.ts`, with TypeScript types inferred from Zod.
+- **STEP-078 — Contract tests with dependency injection:** approved T2 to test success, failure, and advertised schema through a pure construction seam, without adding any production failure switch or test backdoor.
+- **STEP-079 — Formal design specification:** wrote, self-reviewed, and received user approval for `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md`.
+- **STEP-080 — Implementation plan:** wrote and self-reviewed `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` with four TDD tasks, exact interfaces, commands, review gates, and rollback; execution was approved afterward and completed in STEP-085.
+- **STEP-081 — Neat-freak reconciliation:** synchronized active status across `AGENTS.md`, the roadmap, and Memory; added design/plan pointers and removed the implementation plan's fixed future STEP number.
+- **STEP-082 — Task 1 exact Schema contracts:** under TDD, added shared metadata/error contracts, the strict `server_config` data and success/failure schemas, and 3 focused contract tests; tests and TypeScript build passed. Real MCP integration remains Task 2.
+- **STEP-083 — Task 2 real MCP integration:** advertised the exact `server_config.outputSchema`, returned strict success/failure envelopes through real in-memory MCP calls, measured `durationMs`, added a constructor-only provider seam, and verified redaction plus `isError: true`; 5 tests and Build passed.
+- **STEP-084 — Task 3 tool-card data path:** migrated only the `server_config` subtitle and detailed card renderer to nested `data`, retained top-level identity for the generic header, and added a focused compatibility assertion; 6 tests and Build passed.
+- **STEP-085 — Complete exact `server_config` output schema:** finished the first Phase 1 vertical slice, migrated all internal consumers to nested `data`, passed 6/6 contract tests, 44/44 full tests, Build, all 8 Smoke sections, audit, package, and 5/5 documentation tests; awaiting final review and Git approval.
+- **STEP-086 — Stage reviewed Phase 1 slice:** after explicit approval, staged the complete 14-file planning, implementation, internal-consumer, test, and Memory set; no unstaged changes, commit, or push followed.
+- **STEP-087 — Commit exact `server_config` slice:** after explicit approval, created the local commit `feat: add exact server_config output schema`; `main` is one commit ahead of `origin/main`, with no push performed.
 
 ## Archives
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
-- [Interphase maintenance — STEP-066 onward](docs/memory/archive/interphase-maintenance.md)
+- [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
+- [Active Phase 1 planning and implementation — STEP-073 onward](docs/memory/archive/phase-1.md)
 
 Archive integrity for the pre-migration journal:
 

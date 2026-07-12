@@ -135,7 +135,10 @@ Memory rules:
 
 - `Memory.md` — current state and next action.
 - `docs/memory/archive/phase-0-and-0.5.md` — closed Phase 0 and Phase 0.5 history through STEP-065.
-- `docs/memory/archive/interphase-maintenance.md` — maintenance records created after Phase 0.5 closure and before Phase 1 begins.
+- `docs/memory/archive/interphase-maintenance.md` — closed maintenance records from STEP-066 through STEP-072.
+- `docs/memory/archive/phase-1.md` — active Phase 1 planning and implementation record from STEP-073 onward.
+- `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md` — approved design for the first Phase 1 vertical slice.
+- `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` — executed plan for the completed first Phase 1 `server_config` vertical slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -177,4 +180,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 has not started. Do not begin Phase 1, alter the completed Phase 0.5 baseline, or create further commits/pushes without separate explicit approval.
+Phase 1 implementation started on 2026-07-12. The first `server_config` vertical slice is committed locally and has passed its contract, full-test, build, Smoke, audit, package, and documentation gates. Local `main` is one commit ahead of `origin/main` and awaits explicit push approval. Do not migrate a second tool, alter the completed Phase 0.5 baseline, or push without explicit approval.

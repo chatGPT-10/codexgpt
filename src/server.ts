@@ -17,6 +17,13 @@ import { listCodexSessions, readCodexSession } from "./codexSessions.js";
 import { TOOL_CARD_LEGACY_URIS, TOOL_CARD_MIME_TYPE, TOOL_CARD_URI, toolCardWidgetHtml } from "./toolCardWidget.js";
 import { hasSecretValue, redactSensitiveText, redactStructured } from "./redact.js";
 import { inspectWorkspace, invalidateWorkspaceAnalysis, reviewWorkspaceChanges } from "./analysis/index.js";
+import {
+  createServerConfigFailure,
+  createServerConfigSuccess,
+  serverConfigDataSchema,
+  serverConfigOutputShape,
+  type ServerConfigData
+} from "./tools/schemas/serverConfig.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -201,6 +208,10 @@ function registerToolCardResource(server: McpServer, config: CodexProConfig): vo
 
 type CodexToolHandler = (args: any) => Promise<any> | any;
 
+export interface CodexProServerDependencies {
+  serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
+}
+
 const SUPERTOOL_NAME = "codexpro";
 const SUPERTOOL_ACTION_ALIASES: Record<string, string> = {
   actions: "list_actions",
@@ -254,6 +265,23 @@ function assertWriteToolAllowed(config: CodexProConfig, relPath: string): void {
   throw new CodexProError("write/edit/apply_patch tools are disabled because CODEXPRO_WRITE_MODE=off. handoff_to_agent and handoff_to_codex are still available for planning.");
 }
 
+function attachStructuredDuration(result: any, durationMs: number): any {
+  if (!result || typeof result !== "object") return result;
+  const structured = result.structuredContent;
+  if (!structured || typeof structured !== "object" || Array.isArray(structured)) return result;
+  const meta = structured.meta;
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return result;
+
+  result.structuredContent = {
+    ...structured,
+    meta: {
+      ...meta,
+      durationMs: Math.max(0, durationMs)
+    }
+  };
+  return result;
+}
+
 function registerToolCompat(
   server: McpServer,
   name: string,
@@ -263,11 +291,17 @@ function registerToolCompat(
   const wrapped = async (args: any) => {
     const started = Date.now();
     try {
-      const result = tagToolResult(await handler(args ?? {}), name, options);
+      const result = attachStructuredDuration(
+        tagToolResult(await handler(args ?? {}), name, options),
+        Date.now() - started
+      );
       logToolCall(name, result?.isError ? "error" : "ok", started);
       return result;
     } catch (error) {
-      const result = tagToolResult(errorResult(error), name, options);
+      const result = attachStructuredDuration(
+        tagToolResult(errorResult(error), name, options),
+        Date.now() - started
+      );
       logToolCall(name, "error", started);
       return result;
     }
@@ -916,10 +950,56 @@ function getSharedWorkspaceManager(config: CodexProConfig): WorkspaceManager {
   return manager;
 }
 
-export function createCodexProServer(config: CodexProConfig): McpServer {
+function buildServerConfigData(
+  config: CodexProConfig,
+  server: McpServer
+): ServerConfigData {
+  const registeredTools = registeredToolNames(server);
+  return serverConfigDataSchema.parse({
+    defaultRoot: config.defaultRoot,
+    allowedRoots: config.allowedRoots,
+    host: config.host,
+    port: config.port,
+    widgetDomain: config.widgetDomain,
+    authEnabled: Boolean(config.authToken),
+    allowedHosts: config.allowedHosts,
+    allowedOrigins: config.allowedOrigins,
+    allowQueryToken: config.allowQueryToken,
+    bashMode: config.bashMode,
+    bashAvailability: config.bashMode === "off" ? null : probeBashAvailability(),
+    bashTranscript: config.bashTranscript,
+    bashSessionId: config.bashSessionId ?? null,
+    requireBashSession: config.requireBashSession,
+    codexSessions: config.codexSessions,
+    codexDir: config.codexDir,
+    writeMode: config.writeMode,
+    toolMode: config.toolMode,
+    toolCards: config.toolCards,
+    connectionTest: config.connectionTest,
+    analysisEnabled: config.analysisEnabled,
+    analysisLimits: config.analysisLimits,
+    inheritEnv: config.inheritEnv,
+    contextDir: config.contextDir,
+    maxReadBytes: config.maxReadBytes,
+    maxWriteBytes: config.maxWriteBytes,
+    maxOutputBytes: config.maxOutputBytes,
+    maxSearchResults: config.maxSearchResults,
+    blockedGlobs: config.blockedGlobs,
+    registeredTools,
+    registeredToolCount: registeredTools.length
+  });
+}
+
+export function createCodexProServer(
+  config: CodexProConfig,
+  dependencies: CodexProServerDependencies = {}
+): McpServer {
   const workspaces = getSharedWorkspaceManager(config);
   const guard = new PathGuard(config);
   const server = new McpServer({ name: "CodexPro", version: "0.28.6" }, { instructions: serverInstructions(config) });
+  const serverConfigDataProvider =
+    dependencies.serverConfigDataProvider ??
+    (() => buildServerConfigData(config, server));
   registeredToolNamesByServer.set(server as object, []);
   registerToolCardResource(server, config);
 
@@ -1015,6 +1095,7 @@ export function createCodexProServer(config: CodexProConfig): McpServer {
       title: "Server Config",
       description: "Show CodexPro server configuration, safety modes, limits, and blocked paths. Does not reveal auth tokens.",
       inputSchema: {},
+      outputSchema: serverConfigOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -1023,40 +1104,20 @@ export function createCodexProServer(config: CodexProConfig): McpServer {
       }
     },
     async () => {
-      const safeConfig = {
-        defaultRoot: config.defaultRoot,
-        allowedRoots: config.allowedRoots,
-        host: config.host,
-        port: config.port,
-        widgetDomain: config.widgetDomain,
-        authEnabled: Boolean(config.authToken),
-        allowedHosts: config.allowedHosts,
-        allowedOrigins: config.allowedOrigins,
-        allowQueryToken: config.allowQueryToken,
-        bashMode: config.bashMode,
-        bashAvailability: config.bashMode === "off" ? null : probeBashAvailability(),
-        bashTranscript: config.bashTranscript,
-        bashSessionId: config.bashSessionId ?? null,
-        requireBashSession: config.requireBashSession,
-        codexSessions: config.codexSessions,
-        codexDir: config.codexDir,
-        writeMode: config.writeMode,
-        toolMode: config.toolMode,
-        toolCards: config.toolCards,
-        connectionTest: config.connectionTest,
-        analysisEnabled: config.analysisEnabled,
-        analysisLimits: config.analysisLimits,
-        inheritEnv: config.inheritEnv,
-        contextDir: config.contextDir,
-        maxReadBytes: config.maxReadBytes,
-        maxWriteBytes: config.maxWriteBytes,
-        maxOutputBytes: config.maxOutputBytes,
-        maxSearchResults: config.maxSearchResults,
-        blockedGlobs: config.blockedGlobs,
-        registeredTools: registeredToolNames(server),
-        registeredToolCount: registeredToolNames(server).length
-      };
-      return textResult(`# CodexPro Server Config\n\n${JSON.stringify(safeConfig, null, 2)}`, safeConfig);
+      try {
+        const safeConfig = serverConfigDataSchema.parse(await serverConfigDataProvider());
+
+        return textResult(
+          `# CodexPro Server Config\n\n${JSON.stringify(safeConfig, null, 2)}`,
+          createServerConfigSuccess(safeConfig)
+        );
+      } catch (error) {
+        const message = errorText(error);
+        return {
+          ...textResult(message, createServerConfigFailure(message)),
+          isError: true
+        };
+      }
     }
   );
 

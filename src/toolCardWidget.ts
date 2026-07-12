@@ -517,8 +517,9 @@ export const toolCardWidgetHtml = String.raw`
     if (data?.codexpro_tool === "codexpro_inventory") return (data?.skill_count ?? 0) + " skills, " + (data?.mcp_server_count ?? 0) + " MCP servers";
     if (data?.codexpro_tool === "list_workspaces") return (data?.count ?? 0) + " open workspaces";
     if (data?.codexpro_tool === "server_config") {
-      const session = data?.bashSessionId || data?.bash_session_id;
-      return "tools " + (data?.toolMode || data?.tool_mode || "-") + ", bash " + (data?.bashMode || data?.bash_mode || "-") + (session ? ", session " + session : "");
+      const config = data?.data ?? {};
+      const session = config?.bashSessionId || config?.bash_session_id;
+      return "tools " + (config?.toolMode || config?.tool_mode || "-") + ", bash " + (config?.bashMode || config?.bash_mode || "-") + (session ? ", session " + session : "");
     }
     if (data?.codexpro_tool === "workspace_snapshot") return data?.root || "Workspace snapshot";
     if (data?.codexpro_tool === "inspect_workspace") {
@@ -900,14 +901,15 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderServerConfig(data) {
-    const blocked = Array.isArray(data.blockedGlobs) ? data.blockedGlobs : [];
-    const allowed = Array.isArray(data.allowedRoots) ? data.allowedRoots : [];
-    const bashSession = data.bashSessionId || data.bash_session_id || "";
-    const bashSessionRequired = Boolean(data.requireBashSession || data.require_bash_session);
+    const config = data?.data ?? {};
+    const blocked = Array.isArray(config.blockedGlobs) ? config.blockedGlobs : [];
+    const allowed = Array.isArray(config.allowedRoots) ? config.allowedRoots : [];
+    const bashSession = config.bashSessionId || config.bash_session_id || "";
+    const bashSessionRequired = Boolean(config.requireBashSession || config.require_bash_session);
     const rootRows = [
-      '<div class="file-row"><span class="file-code">root</span><span class="file-name">' + esc(data.defaultRoot || "-") + '</span></div>',
-      '<div class="file-row"><span class="file-code">url</span><span class="file-name">' + esc((data.host || "127.0.0.1") + ":" + (data.port || "-")) + '</span></div>',
-      '<div class="file-row"><span class="file-code">ui</span><span class="file-name">' + esc(data.widgetDomain || "-") + '</span></div>',
+      '<div class="file-row"><span class="file-code">root</span><span class="file-name">' + esc(config.defaultRoot || "-") + '</span></div>',
+      '<div class="file-row"><span class="file-code">url</span><span class="file-name">' + esc((config.host || "127.0.0.1") + ":" + (config.port || "-")) + '</span></div>',
+      '<div class="file-row"><span class="file-code">ui</span><span class="file-name">' + esc(config.widgetDomain || "-") + '</span></div>',
       bashSession ? '<div class="file-row"><span class="file-code">bash</span><span class="file-name">' + esc("session " + bashSession + (bashSessionRequired ? " required" : "")) + '</span></div>' : ""
     ].join("");
     const allowedRows = allowed.map((root) =>
@@ -917,27 +919,27 @@ export const toolCardWidgetHtml = String.raw`
       '<div class="file-row"><span class="file-code">block</span><span class="file-name">' + esc(pattern) + '</span></div>'
     ).join("");
     const limits = [
-      summaryItem("Read", data.maxReadBytes ?? "-"),
-      summaryItem("Write", data.maxWriteBytes ?? "-"),
-      summaryItem("Output", data.maxOutputBytes ?? "-")
+      summaryItem("Read", config.maxReadBytes ?? "-"),
+      summaryItem("Write", config.maxWriteBytes ?? "-"),
+      summaryItem("Output", config.maxOutputBytes ?? "-")
     ].join("");
     return '<article class="card">' + header(data, [
-      pill("tools " + (data.toolMode || "-"), "info"),
-      pill("bash " + (data.bashMode || "-")),
+      pill("tools " + (config.toolMode || "-"), "info"),
+      pill("bash " + (config.bashMode || "-")),
       bashSession ? pill("session " + bashSession, bashSessionRequired ? "warn" : "info") : "",
-      pill(data.authEnabled ? "auth on" : "auth off", data.authEnabled ? "good" : "warn")
+      pill(config.authEnabled ? "auth on" : "auth off", config.authEnabled ? "good" : "warn")
     ].join("")) + '<div class="body">' +
       '<div class="summary">' +
-      summaryItem("Write", data.writeMode || "-") +
-      summaryItem("Bash", data.bashMode || "-") +
+      summaryItem("Write", config.writeMode || "-") +
+      summaryItem("Bash", config.bashMode || "-") +
       summaryItem("Session", bashSession ? bashSession + (bashSessionRequired ? " required" : "") : "-") +
-      summaryItem("Tools", data.toolMode || "-") +
+      summaryItem("Tools", config.toolMode || "-") +
       '</div>' +
       '<div class="section-label">Runtime</div><div class="file-list">' + rootRows + '</div>' +
       fold("Allowed roots", allowed.length + " roots", '<div class="file-list">' + (allowedRows || '<div class="empty">No roots configured.</div>') + '</div>', false) +
       fold("Limits", "", '<div class="summary">' + limits + '</div>', false) +
       fold("Blocked paths", blocked.length + " patterns", '<div class="file-list">' + (blockedRows || '<div class="empty">No blocked globs configured.</div>') + '</div>', false) +
-      fold("Raw config", "", codebox("config", esc(truncate(JSON.stringify(data || {}, null, 2), 8000)), ""), false) +
+      fold("Raw config", "", codebox("config", esc(truncate(JSON.stringify(config || {}, null, 2), 8000)), ""), false) +
       '</div></article>';
   }
 

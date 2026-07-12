@@ -646,7 +646,7 @@ try {
   }
   await withClient(`${disabledBase}/mcp?codexpro_token=${encodeURIComponent(disabledToken)}`, async (client) => {
     const config = await callTool(client, 'server_config');
-    if (config.structuredContent.bashMode !== 'off' || config.structuredContent.writeMode !== 'off') {
+    if (config.structuredContent.data?.bashMode !== 'off' || config.structuredContent.data?.writeMode !== 'off') {
       throw new Error(`HTTP disabled mode server_config mismatch: ${JSON.stringify(config.structuredContent)}`);
     }
   });
@@ -709,8 +709,8 @@ try {
   const expectedCliCodexDir = path.join(await fs.realpath(cliRoot), '.codex');
   await withClient(`http://127.0.0.1:${cliPort}/mcp`, async (client) => {
     const config = await callTool(client, 'server_config');
-    if (config.structuredContent.codexDir !== expectedCliCodexDir) {
-      throw new Error(`relative --codex-dir resolved to ${config.structuredContent.codexDir}, expected ${expectedCliCodexDir}`);
+    if (config.structuredContent.data?.codexDir !== expectedCliCodexDir) {
+      throw new Error(`relative --codex-dir resolved to ${config.structuredContent.data?.codexDir}, expected ${expectedCliCodexDir}`);
     }
   });
 } finally {
@@ -760,7 +760,7 @@ try {
   }
   await withClient(`http://127.0.0.1:${connectionTestPort}/mcp`, async (client) => {
     const config = await callTool(client, 'server_config');
-    if (config.structuredContent.connectionTest !== true || config.structuredContent.toolCards !== false) {
+    if (config.structuredContent.data?.connectionTest !== true || config.structuredContent.data?.toolCards !== false) {
       throw new Error(`unexpected connection-test config: ${JSON.stringify(config.structuredContent)}`);
     }
   });

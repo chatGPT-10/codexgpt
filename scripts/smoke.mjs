@@ -868,7 +868,7 @@ for (const hiddenWriteTool of ['write', 'edit', 'apply_patch']) {
   }
 }
 const handoffWriteConfig = await handoffWriteClient.request('tools/call', { name: 'server_config', arguments: {} });
-if (handoffWriteConfig.structuredContent.writeMode !== 'handoff' || handoffWriteConfig.structuredContent.registeredTools?.includes?.('write') || handoffWriteConfig.structuredContent.registeredTools?.includes?.('edit') || handoffWriteConfig.structuredContent.registeredTools?.includes?.('apply_patch')) {
+if (handoffWriteConfig.structuredContent.data?.writeMode !== 'handoff' || handoffWriteConfig.structuredContent.data?.registeredTools?.includes?.('write') || handoffWriteConfig.structuredContent.data?.registeredTools?.includes?.('edit') || handoffWriteConfig.structuredContent.data?.registeredTools?.includes?.('apply_patch')) {
   throw new Error(`server_config did not report write handoff with hidden edit tools: ${JSON.stringify(handoffWriteConfig.structuredContent)}`);
 }
 const handoffSelfTest = await handoffWriteClient.request('tools/call', { name: 'codexpro_self_test', arguments: { write_probe: false, bash_probe: false, pro_context_probe: false } });
@@ -898,7 +898,7 @@ if (noBashToolNames.includes('bash')) {
   throw new Error(`--bash off should not advertise bash tool; got ${noBashToolNames.join(', ')}`);
 }
 const noBashConfig = await noBashClient.request('tools/call', { name: 'server_config', arguments: {} });
-if (noBashConfig.structuredContent.bashMode !== 'off') {
+if (noBashConfig.structuredContent.data?.bashMode !== 'off') {
   throw new Error(`server_config did not report bash off: ${JSON.stringify(noBashConfig.structuredContent)}`);
 }
 noBashClient.close();
@@ -921,7 +921,7 @@ for (const hiddenWriteTool of ['write', 'edit', 'apply_patch']) {
   }
 }
 const disabledWriteConfig = await disabledWriteClient.request('tools/call', { name: 'server_config', arguments: {} });
-if (disabledWriteConfig.structuredContent.writeMode !== 'off') {
+if (disabledWriteConfig.structuredContent.data?.writeMode !== 'off') {
   throw new Error(`server_config did not report write off: ${JSON.stringify(disabledWriteConfig.structuredContent)}`);
 }
 const disabledSelfTest = await disabledWriteClient.request('tools/call', { name: 'codexpro_self_test', arguments: { write_probe: false, bash_probe: false, pro_context_probe: false } });
@@ -999,8 +999,8 @@ await emptyCodexDirClient.request('initialize', {
 emptyCodexDirClient.notify('notifications/initialized');
 const emptyCodexDirConfig = await emptyCodexDirClient.request('tools/call', { name: 'server_config', arguments: {} });
 const expectedDefaultCodexDir = path.join(os.homedir(), '.codex');
-if (emptyCodexDirConfig.structuredContent.codexDir !== expectedDefaultCodexDir) {
-  throw new Error(`empty CODEXPRO_CODEX_DIR resolved to ${emptyCodexDirConfig.structuredContent.codexDir}, expected ${expectedDefaultCodexDir}`);
+if (emptyCodexDirConfig.structuredContent.data?.codexDir !== expectedDefaultCodexDir) {
+  throw new Error(`empty CODEXPRO_CODEX_DIR resolved to ${emptyCodexDirConfig.structuredContent.data?.codexDir}, expected ${expectedDefaultCodexDir}`);
 }
 emptyCodexDirClient.close();
 
@@ -1104,7 +1104,7 @@ await sessionGuardClient.request('initialize', {
 });
 sessionGuardClient.notify('notifications/initialized');
 const guardedConfig = await sessionGuardClient.request('tools/call', { name: 'server_config', arguments: {} });
-if (guardedConfig.structuredContent.bashSessionId !== 'codex-main' || guardedConfig.structuredContent.requireBashSession !== true) {
+if (guardedConfig.structuredContent.data?.bashSessionId !== 'codex-main' || guardedConfig.structuredContent.data?.requireBashSession !== true) {
   throw new Error(`server_config did not expose bash session guard: ${JSON.stringify(guardedConfig.structuredContent)}`);
 }
 await expectToolError('bash', { command: 'pwd' }, /bash session/i, sessionGuardClient);
