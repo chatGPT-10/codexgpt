@@ -66,11 +66,11 @@ Phase 0.5 is closed. All approved local, Ubuntu/Windows CI, and real external Cl
 
 ## Recent summaries
 
-- **STEP-066 — Neat-freak reconciliation:** removed obsolete phase-temporary wording, updated the roadmap, condensed this index, and created the interphase maintenance archive.
 - **STEP-067 — Git remote update:** changed local `origin` fetch and push URLs to `https://github.com/chatGPT-10/codexgpt.git` and verified remote `HEAD` resolves to `73d7f8f`.
 - **STEP-068 — Documentation diff review:** reviewed the complete change set, found no blocker, confirmed only documentation/rules/memory files changed, and re-ran the focused 6/6 documentation tests plus the diff check.
 - **STEP-069 — Stage reviewed documentation:** staged all 12 reviewed documentation, rule, website, and memory paths after explicit approval.
-- **STEP-070 — Commit post-Phase 0.5 documentation:** created the local documentation commit `docs: reconcile post-Phase 0.5 documentation` after explicit approval; no push was performed.
+- **STEP-070 — Commit post-Phase 0.5 documentation:** created local commit `7b9c0fe` (`docs: reconcile post-Phase 0.5 documentation`) after explicit approval.
+- **STEP-071 — Push documentation reconciliation:** pushed the documentation reconciliation and its maintenance record to `origin/main` after explicit approval; Phase 1 remains unstarted.
 
 ## Archives
 

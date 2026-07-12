@@ -212,3 +212,42 @@ These record updates are included with the previously staged 12-path documentati
 - Do not rewrite published history without explicit approval.
 
 **Next step:** Await explicit approval before pushing. Do not begin Phase 1.
+
+## 2026-07-12 — STEP-071: Push the documentation reconciliation
+
+**Status:** Completed; committed and pushed
+
+**Goal:** Publish the reviewed post-Phase 0.5 documentation reconciliation to the renamed GitHub repository after explicit user approval.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance.md`
+
+These maintenance records are committed separately from the main documentation reconciliation so the push action is preserved in project memory.
+
+**Verification commands and results:**
+
+- Pre-push state: `main` was clean and ahead of `origin/main` by one commit, `7b9c0fe` (`docs: reconcile post-Phase 0.5 documentation`).
+- Record commit: `docs: record post-Phase 0.5 documentation push`.
+- `git diff --cached --check`: exit 0 before the record commit.
+- `git push origin main`: completed successfully.
+- Post-push workspace review: clean and synchronized with `origin/main`.
+
+**Decisions made:**
+
+- Pushed only the reviewed documentation reconciliation and its maintenance record.
+- No runtime source, tests, workflows, package metadata, credentials, or Phase 1 implementation were added.
+- Phase 1 remains unstarted.
+
+**Risks and limitations:**
+
+- The pushed commits are now part of published `main` history; rollback should use a new revert commit rather than rewriting history.
+- The local `.git/config` remote URL remains local metadata and is not represented in tracked content.
+
+**Rollback method:**
+
+- If rollback is explicitly approved, create and push a revert commit for the published documentation commits.
+- Do not force-push or rewrite `main` history.
+
+**Next step:** Stop. Do not begin Phase 1 without separate explicit approval and planning.
