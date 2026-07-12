@@ -1,7 +1,7 @@
 # Phase 1 First Slice Design: Exact `server_config` Output Schema
 
 **Date:** 2026-07-12
-**Status:** Approved design; implemented and published to `origin/main` through STEP-088
+**Status:** Approved design; implemented, published, and cross-platform CI-validated through STEP-089
 **Scope:** One vertical slice for `server_config` only
 
 ## 1. Purpose

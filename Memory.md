@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: first `server_config` vertical slice is published to `origin/main` through implementation commit `b989776`.
+- Phase 1: first `server_config` vertical slice is fully published and CI-validated through implementation commit `b989776` and record commit `ec6c0c0`.
 
 ## Approved stopping point
 
-Phase 0.5 is closed. The first Phase 1 `server_config` slice was published to `origin/main` as implementation commit `b989776` (`feat: add exact server_config output schema`). Stop here after recording the push. Do not migrate a second tool without a separately reviewed plan and explicit approval.
+Phase 0.5 is closed. The first Phase 1 `server_config` slice is published through implementation commit `b989776` and record commit `ec6c0c0`; CI runs `29189127483` and `29189202711` both passed on Ubuntu/Windows Node 20/24. Local `main` and `origin/main` are synchronized. Stop at the next planning boundary. Do not migrate a second tool without a separately reviewed plan and explicit approval.
 
 ## Active decisions and constraints
 
@@ -65,7 +65,9 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice was published to `o
 - `npm audit --audit-level=high`: 0 vulnerabilities.
 - `npm pack --dry-run`: 101 files; internal Memory/spec/plan archives excluded.
 - Documentation test: 5/5 passed; changed-file text validation passed.
-- Implementation commit `b989776` was pushed successfully to `origin/main`.
+- Implementation commit `b989776` and record commit `ec6c0c0` were pushed successfully to `origin/main`.
+- CI runs `29189127483` and `29189202711`: Ubuntu/Windows Node 20/24 all passed.
+- Local `main` and `origin/main` are synchronized at `ec6c0c0`; the worktree was clean before this documentation-only tidy-up.
 
 ## Known limitations
 
@@ -75,9 +77,9 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice was published to `o
 
 ## Open items
 
-1. The first `server_config` slice is published and its push record is being finalized.
-2. Review CI for the record commit after publication.
-3. Do not migrate a second tool without a separately reviewed plan and explicit approval.
+1. No Phase 1 implementation task is active; the first `server_config` slice is closed and verified.
+2. The next permitted Phase 1 action is planning and design for one additional tool, after explicit approval.
+3. Treat the native-Windows Stress fixture filename issue as separate maintenance work; do not mix it into the next schema slice.
 
 ## Recent summaries
 
@@ -92,7 +94,8 @@ Phase 0.5 is closed. The first Phase 1 `server_config` slice was published to `o
 - **STEP-085 — Complete exact `server_config` output schema:** finished the first Phase 1 vertical slice, migrated all internal consumers to nested `data`, passed 6/6 contract tests, 44/44 full tests, Build, all 8 Smoke sections, audit, package, and 5/5 documentation tests; awaiting final review and Git approval.
 - **STEP-086 — Stage reviewed Phase 1 slice:** after explicit approval, staged the complete 14-file planning, implementation, internal-consumer, test, and Memory set; no unstaged changes, commit, or push followed.
 - **STEP-087 — Commit exact `server_config` slice:** after explicit approval, created the local commit `feat: add exact server_config output schema`; `main` was one commit ahead of `origin/main`, with no push performed at that step.
-- **STEP-088 — Push exact `server_config` slice:** after explicit approval, pushed implementation commit `b989776` to `origin/main` and prepared this publication record for remote synchronization.
+- **STEP-088 — Push exact `server_config` slice:** after explicit approval, pushed implementation commit `b989776` to `origin/main` and prepared the publication record.
+- **STEP-089 — Neat-freak Phase 1 slice closeout:** verified both implementation and record CI runs passed on Ubuntu/Windows Node 20/24, confirmed local/remote synchronization, removed completed push/CI items, and restored a planning-only boundary for the next tool.
 
 ## Archives
 

@@ -415,7 +415,7 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The first `server_config` vertical slice is published to `origin/main` through implementation commit `b989776`. No second tool has been migrated.
+Status: implementation started on 2026-07-12. The first `server_config` vertical slice is published through implementation commit `b989776` and record commit `ec6c0c0`; both CI runs passed on Ubuntu/Windows Node 20/24. No second tool has been migrated, and no Phase 1 implementation task is active.
 
 - delivered the common result, metadata, and stable-error primitives required by the first slice;
 - delivered an exact `outputSchema` for `server_config` with real MCP success/failure contract tests;

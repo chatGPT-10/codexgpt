@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Executed through Task 4 and published to `origin/main` through STEP-088.
+**Status:** Executed through Task 4, published, and cross-platform CI-validated through STEP-089.
 
 **Goal:** Migrate only `server_config` to an exact advertised output schema with strict success/failure envelopes, stable `INTERNAL_ERROR` failures, preserved text output, and contract tests.
 
