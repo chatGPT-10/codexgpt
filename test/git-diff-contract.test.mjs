@@ -631,8 +631,10 @@ test("git_diff tool card reads direct success and failure only from nested data 
     /function renderChanges\(data\) \{[\s\S]*?\n  \}/
   );
   assert.ok(changesRenderer, "renderChanges must remain present");
-  assert.match(changesRenderer[0], /data\.diff/);
-  assert.match(changesRenderer[0], /data\.additions/);
+  assert.match(changesRenderer[0], /const review = data\?\.data \?\? \{\};/);
+  assert.match(changesRenderer[0], /review\.diff/);
+  assert.match(changesRenderer[0], /review\.additions/);
+  assert.doesNotMatch(changesRenderer[0], /data\.(?:diff|additions)/);
 });
 
 test("codexpro action git_diff preserves wrapper metadata and nested child contract", async () => {
