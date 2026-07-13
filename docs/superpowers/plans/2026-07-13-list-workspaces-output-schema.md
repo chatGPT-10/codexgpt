@@ -1006,7 +1006,7 @@ git diff --cached --check
 
 Review the staged summary and staged diff. Stop if any unrelated, secret-looking, profile, credential, protected-source, dependency, or Phase 2 file appears.
 
-- [ ] **Step 5.4: Create the implementation commit**
+- [x] **Step 5.4: Create the implementation commit**
 
 Use:
 
@@ -1016,11 +1016,11 @@ feat(schema): add exact list_workspaces result contract
 
 Record the short and full commit SHA. Do not amend or rewrite prior history.
 
-- [ ] **Step 5.5: Push only after the explicit publication approval remains valid**
+- [x] **Step 5.5: Push only after the explicit publication approval remains valid**
 
 Push `main` to `origin/main`. Record the exact before/after range. Do not force push.
 
-- [ ] **Step 5.6: Verify exact-head GitHub Actions**
+- [x] **Step 5.6: Verify exact-head GitHub Actions**
 
 Match the full implementation SHA to the public GitHub Actions run and verify all matrix jobs:
 
@@ -1031,7 +1031,7 @@ Match the full implementation SHA to the public GitHub Actions run and verify al
 
 Do not infer CI success from branch status or a different commit.
 
-- [ ] **Step 5.7: Record publication evidence separately**
+- [x] **Step 5.7: Record publication evidence separately**
 
 Update `Memory.md`, `AGENTS.md`, active archive, design status, and plan status with:
 
@@ -1044,7 +1044,7 @@ Update `Memory.md`, `AGENTS.md`, active archive, design status, and plan status 
 
 Create and push a separate documentation record commit if that is still the established project workflow. Verify that record commit's exact-head CI before claiming the final repository head is fully validated.
 
-- [ ] **Step 5.8: Stop with Phase 2 still closed**
+- [x] **Step 5.8: Stop with Phase 2 still closed**
 
 The next action after publication is design review of another remaining Phase 1 direct tool. Do not begin workspace lifecycle redesign until the remaining Phase 1 scope is explicitly reviewed and Phase 2 is opened separately.
 
@@ -1054,18 +1054,18 @@ The next action after publication is design review of another remaining Phase 1 
 
 Before implementation begins, verify:
 
-- [ ] Every requirement in the approved design maps to a task above.
-- [ ] No `TODO`, `TBD`, vague “handle errors,” or unspecified test step remains.
-- [ ] Item names are consistently `id`, `root`, and `openedAt`.
-- [ ] Provider name is consistently `listWorkspacesProvider`.
-- [ ] Public failure codes are only `WORKSPACE_LIST_FAILED` and `INTERNAL_ERROR`.
-- [ ] Success data fields are only `workspaces` and `count`.
-- [ ] Tool mode remains full only.
-- [ ] Protected source files remain unchanged.
-- [ ] Tasks 1–4 stop before staging and commit.
-- [ ] Task 5 is explicitly gated by separate publication approval.
-- [ ] Phase 2 remains closed.
+- [x] Every requirement in the approved design maps to a task above.
+- [x] No `TODO`, `TBD`, vague “handle errors,” or unspecified test step remains.
+- [x] Item names are consistently `id`, `root`, and `openedAt`.
+- [x] Provider name is consistently `listWorkspacesProvider`.
+- [x] Public failure codes are only `WORKSPACE_LIST_FAILED` and `INTERNAL_ERROR`.
+- [x] Success data fields are only `workspaces` and `count`.
+- [x] Tool mode remains full only.
+- [x] Protected source files remain unchanged.
+- [x] Tasks 1–4 stop before staging and commit.
+- [x] Task 5 is explicitly gated by separate publication approval.
+- [x] Phase 2 remains closed.
 
 ## Execution Handoff
 
-The first executable action after explicit approval is Task 1 only: create the complete focused RED contract, run it to capture expected failure evidence, create `src/tools/schemas/listWorkspaces.ts`, rerun the focused contract to reach schema GREEN while handler/consumer tests remain RED, then update `Memory.md` and the active Phase 1 archive. Stop before Task 2 unless the approved execution instruction authorizes continuous execution.
+All five tasks are complete. Implementation commit `c4eb31a` passed exact-head CI run `29267724784` across Ubuntu/Windows Node 20/24. The remaining publication action is this separate durable record commit and its exact-head CI verification; after that, design-review the next remaining Phase 1 direct tool while keeping Phase 2 closed.

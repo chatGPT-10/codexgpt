@@ -169,8 +169,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-13-open-workspace-output-schema.md` — completed, publication-reviewed, published, and CI-validated inline TDD plan for the thirteenth slice, including protected main-Smoke and HTTP-Smoke in-memory compatibility paths.
 - `docs/superpowers/specs/2026-07-13-workspace-snapshot-output-schema-design.md` — published and cross-platform CI-validated design for the fourteenth Phase 1 direct `workspace_snapshot` slice.
 - `docs/superpowers/plans/2026-07-13-workspace-snapshot-output-schema.md` — completed five-task TDD, consumer-migration, review, publication, and exact-head CI plan for the fourteenth slice.
-- `docs/superpowers/specs/2026-07-13-list-workspaces-output-schema-design.md` — locally implemented and fully verified design for the fifteenth Phase 1 direct `list_workspaces` slice; publication is in progress.
-- `docs/superpowers/plans/2026-07-13-list-workspaces-output-schema.md` — executed Tasks 1–4 and approval-gated Task 5 publication plan for the fifteenth slice.
+- `docs/superpowers/specs/2026-07-13-list-workspaces-output-schema-design.md` — published and implementation exact-head CI-validated design for the fifteenth Phase 1 direct `list_workspaces` slice.
+- `docs/superpowers/plans/2026-07-13-list-workspaces-output-schema.md` — completed five-task TDD, consumer-migration, review, publication, and exact-head implementation CI plan for the fifteenth slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -212,4 +212,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first fourteen vertical slices are published and cross-platform CI-validated. The fifteenth full-mode direct `list_workspaces` slice is implemented and locally verified with focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. Task 5 publication is explicitly approved and in progress. Keep Phase 2 and workspace lifecycle expansion closed.
+Phase 1 implementation started on 2026-07-12. The first fifteen vertical slices are published; direct full-mode `list_workspaces` implementation commit `c4eb31a` passed exact-head CI run `29267724784` on Ubuntu and Windows with Node 20 and 24 after focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking passed locally. Publish and exact-head verify the separate durable record before the next functional design review. Keep Phase 2 and workspace lifecycle expansion closed.

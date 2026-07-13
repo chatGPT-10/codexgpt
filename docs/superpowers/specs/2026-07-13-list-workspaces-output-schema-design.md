@@ -3,7 +3,7 @@
 **Date:** 2026-07-13
 **Phase:** Phase 1
 **Slice:** 15
-**Status:** Implemented and fully verified locally; publication not started
+**Status:** Published as implementation commit `c4eb31a`; exact-head implementation CI run `29267724784` passed Ubuntu/Windows Node 20/24
 
 ## 1. Goal
 

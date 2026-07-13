@@ -371,3 +371,51 @@ Before publication, revert only the eleven reviewed Slice 15 files. After public
 **Next step**
 
 Execute Task 5: run `neat-freak`, repeat every local gate, precisely stage only the reviewed files, commit and push the implementation, verify exact-head Ubuntu/Windows Node 20/24 CI, then write and publish a separate durable publication record and verify that final record head.
+
+---
+
+## STEP-171 — Publish direct `list_workspaces` and verify implementation CI
+
+**Status**
+
+Completed. The fifteenth Phase 1 direct-tool implementation is published and its exact implementation head passed the complete cross-platform CI matrix.
+
+**Publication evidence**
+
+- Re-ran `neat-freak` and reconciled AGENTS, Memory, CHANGELOG, the design, the plan, and the active archive.
+- Re-ran focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking after review edits.
+- Precisely staged the eleven reviewed Slice 15 files without `git add .`.
+- `git diff --cached --check` passed.
+- Created implementation commit `c4eb31a` with message `feat(schema): add exact list_workspaces result contract`.
+- Full implementation SHA: `c4eb31acbc36a8eb857484edb13777126f985362`.
+- Pushed `main` to `origin/main`: `4966a46..c4eb31a`.
+- Matched public GitHub Actions run `29267724784` to the exact full implementation SHA.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+- Run conclusion: success.
+
+**Published contract**
+
+- Direct `list_workspaces` remains full-mode only and accepts no arguments.
+- Success contains exactly nested `workspaces` and derived `count`; each ordered item contains exactly `id`, `root`, and `openedAt`.
+- Empty-list success, deterministic process-local IDs, canonical-root reuse, insertion order, and cross-session shared inventory are preserved.
+- `WORKSPACE_LIST_FAILED` and `INTERNAL_ERROR` are the only fixed non-retryable public failures; raw diagnostics remain private.
+- Tool Card consumes nested results first with historical flat fallback; the supertool preserves the exact child envelope.
+- Protected HTTP Smoke migration remains one exact fail-closed in-memory substitution; protected source files remain unchanged.
+- No dependency, authentication, credential, profile, Cloudflare, allowed-root, path-policy, workspace-lifecycle, or Phase 2 change was published.
+
+**Risks and limitations**
+
+- Inventory remains process-local and lacks close, expiry, ownership, persistence, random IDs, or client isolation.
+- Successful authenticated results expose canonical local roots, matching existing behavior.
+- The compatibility loader intentionally depends on an exact protected-source string and fails closed on drift.
+
+**Rollback method**
+
+Use a normal revert commit for `c4eb31a` if the implementation must be withdrawn. Do not reset or rewrite `main`, and do not alter credentials, profiles, protected Smoke sources, or prior archives.
+
+**Next step**
+
+Commit and push this separate publication record, verify that record commit's exact-head Ubuntu/Windows Node 20/24 CI, then design-review the next remaining Phase 1 direct tool. Keep workspace lifecycle expansion and Phase 2 closed.

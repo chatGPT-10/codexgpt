@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first fourteen slices are published and cross-platform CI-validated; Slice 15 direct `list_workspaces` is implemented and fully verified locally, with Task 5 publication in progress.
+- Phase 1: the first fifteen slices are published; direct `list_workspaces` implementation commit `c4eb31a` passed exact-head CI run `29267724784` on Ubuntu/Windows Node 20/24.
 
 ## Approved stopping point
 
-Direct full-mode `list_workspaces` is locally complete with focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. Task 5 publication is explicitly approved: run `neat-freak`, repeat every gate, precisely stage, commit, push, and verify exact-head Ubuntu/Windows Node 20/24 CI. Workspace lifecycle expansion and Phase 2 remain closed.
+Direct full-mode `list_workspaces` is published and implementation exact-head CI-validated after focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking passed. Publish and exact-head verify this separate durable record, then design-review the next remaining Phase 1 direct tool. Workspace lifecycle expansion and Phase 2 remain closed.
 
 ## Active decisions and constraints
 
@@ -66,7 +66,7 @@ Direct full-mode `list_workspaces` is locally complete with focused 13/13, adjac
 - `npm run build`, standalone HTTP Smoke, all eight Smoke sections, and native-Windows `npm run stress` passed.
 - Latest `npm pack --dry-run` passed with 129 files, 340.8 kB compressed, and 1.7 MB unpacked; internal Memory/plan/spec files remain excluded.
 - `git diff --check` passed; only established LF-to-CRLF working-copy warnings were emitted.
-- Exact-head CI for Slice 15 remains pending Task 5 publication; prior Slice 14 run `29258565084` passed Ubuntu/Windows Node 20/24.
+- Exact-head implementation CI run `29267724784` passed Ubuntu/Windows Node 20/24 for full SHA `c4eb31acbc36a8eb857484edb13777126f985362`.
 
 ## Published phase evidence
 
@@ -85,6 +85,7 @@ Direct full-mode `list_workspaces` is locally complete with focused 13/13, adjac
 - `open_current_workspace`: implementation and reconciliation commit `d887849`; final exact-head `e0e5f77` passed CI run `29246163724` on Ubuntu/Windows with Node 20/24.
 - `open_workspace`: implementation and publication-review commit `c31e8a1`; exact-head CI run `29253838423` passed Ubuntu/Windows with Node 20/24.
 - `workspace_snapshot`: implementation and publication-review commit `242315e`; exact-head CI run `29258565084` passed Ubuntu/Windows with Node 20/24.
+- `list_workspaces`: implementation commit `c4eb31a`; exact-head CI run `29267724784` passed Ubuntu/Windows with Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across Phase 1 Volume 1 (STEP-073–139), closed Volume 2 (STEP-140–151), closed Volume 3 (STEP-152–165), and active Volume 4 (STEP-166 onward).
 
 ## Known limitations
@@ -106,11 +107,12 @@ Direct full-mode `list_workspaces` is locally complete with focused 13/13, adjac
 
 ## Open items
 
-1. Execute Task 5 publication: `neat-freak`, fresh full gates, precise staging, implementation commit, push, and exact-head CI verification.
-2. Record publication in a separate documentation commit, verify its exact-head CI, then design-review the next remaining Phase 1 direct tool; keep Phase 2 closed.
+1. Commit and push this separate publication record, then verify its exact-head Ubuntu/Windows Node 20/24 CI.
+2. Design-review the next remaining Phase 1 direct tool; keep workspace lifecycle expansion and Phase 2 closed.
 
 ## Recent summaries
 
+- **STEP-171 — Publish direct `list_workspaces`:** implementation commit `c4eb31a` was pushed and exact-head CI run `29267724784` passed Ubuntu/Windows Node 20/24.
 - **STEP-170 — Complete local verification:** focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking passed.
 - **STEP-169 — Migrate list consumers:** Tool Card became nested-first with flat fallback; one exact in-memory HTTP substitution preserved protected sources; all consumer gates passed.
 - **STEP-168 — Implement direct `list_workspaces`:** added the exact descriptor, provider boundary, staged redacted failures, ordered strict inventory, and nested success envelope.
