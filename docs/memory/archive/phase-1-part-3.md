@@ -542,3 +542,74 @@ Before publication, revert only the STEP-158 review fixes and records to return 
 **Next step**
 
 After explicit approval, stage the complete reviewed diff, commit and push it, then verify exact-head Ubuntu/Windows Node 20/24 CI. Keep Phase 2 closed.
+
+---
+
+## STEP-159 — Publish direct `open_workspace` and verify implementation CI
+
+**Status**
+
+Completed. The thirteenth Phase 1 direct-tool slice is published and its implementation commit passed the complete cross-platform CI matrix.
+
+**Goal**
+
+Publish the reviewed `open_workspace` slice directly to `origin/main`, verify the exact implementation head on Ubuntu and Windows with Node 20 and 24, and update the durable project record.
+
+**Files changed**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1-part-3.md`
+- `docs/superpowers/plans/2026-07-13-open-workspace-output-schema.md`
+- `docs/superpowers/specs/2026-07-13-open-workspace-output-schema-design.md`
+
+**Implementation summary**
+
+- Precisely staged the 14 publication-reviewed files without using `git add .`.
+- Confirmed the staged diff passed `git diff --cached --check`.
+- Created implementation commit `c31e8a1` with message `feat(schema): add exact open_workspace result contract`.
+- Pushed `main` directly to `origin/main` without a pull request or history rewrite.
+- Queried the public GitHub Actions API and matched run `29253838423` to full head SHA `c31e8a12b4467436bd6b45633b0ebb2edf919a0e`.
+- Verified every Ubuntu/Windows Node 20/24 job completed successfully.
+
+**Verification commands**
+
+```text
+git diff --cached --check
+git commit -m "feat(schema): add exact open_workspace result contract"
+git push origin main
+PowerShell Invoke-RestMethod: actions/runs?branch=main&per_page=10
+PowerShell Invoke-RestMethod: actions/runs/29253838423
+PowerShell Invoke-RestMethod: actions/runs/29253838423/jobs?per_page=20
+```
+
+**Verification results**
+
+- Implementation commit: `c31e8a1`.
+- Push: `e0e5f77..c31e8a1 main -> main`.
+- GitHub Actions run: `29253838423`.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+- Run conclusion: success.
+
+**Decisions made**
+
+- Use one implementation commit for the complete reviewed slice.
+- Use one separate documentation commit for this publication record.
+- Keep direct publication to `origin/main`; do not create a pull request or rewrite history.
+- Keep Phase 2 closed and return to one-tool-at-a-time Phase 1 design review.
+
+**Risks or limitations**
+
+- Exact-head CI for the documentation-record commit can only be verified after that commit is pushed.
+- The implementation limitations recorded in STEP-158 remain unchanged.
+
+**Rollback method**
+
+Use a normal revert commit for `c31e8a1` if the published implementation must be withdrawn. Do not reset or rewrite `main`, and do not alter credentials, profiles, protected Smoke sources, or prior archives.
+
+**Next step**
+
+Commit and push this publication record, verify its exact-head Ubuntu/Windows Node 20/24 CI, then design-review the next remaining Phase 1 direct tool. Keep Phase 2 closed.

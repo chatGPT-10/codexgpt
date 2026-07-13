@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Phase: Phase 1, thirteenth vertical slice
-Status: Locally implemented; publication review passed; publication pending
+Status: Published and cross-platform CI-validated
 
 ## 1. Goal
 
@@ -678,4 +678,4 @@ The thirteenth slice is accepted when:
 
 ## 24. Current stopping point
 
-The design is approved, implemented, and publication-reviewed locally. Review fixed two Important findings: both transformed data-URL modules now carry bounded `sourceURL` labels so failure stacks do not identify the full encoded source URL, and Provider validation rejects non-workspace Skill sources when `include_global_skills=false`. The protected `scripts/smoke.mjs` and `scripts/http-smoke.mjs` files remain unchanged; their compatibility entries retain exact fail-closed substitutions and write no transformed source to disk. Final evidence is focused 18/18, adjacent 66/66, complete 220/220, Build, all eight Smoke sections, native-Windows Stress, package dry-run, and diff checking. No Critical or Important review findings remain. Publication, exact-head cross-platform CI, and Phase 2 remain separate gates.
+The design is approved, implemented, publication-reviewed, published, and cross-platform CI-validated. Implementation commit `c31e8a1` passed exact-head CI run `29253838423` on Ubuntu/Windows with Node 20/24. Review fixed bounded `sourceURL` labels for transformed data-URL stacks and rejected non-workspace Skill sources when `include_global_skills=false`. The protected `scripts/smoke.mjs` and `scripts/http-smoke.mjs` files remain unchanged; their compatibility entries retain exact fail-closed substitutions and write no transformed source to disk. Final evidence is focused 18/18, adjacent 66/66, complete 220/220, Build, all eight Smoke sections, native-Windows Stress, package dry-run, and diff checking. No Critical or Important review findings remain. The next action is design review for the next remaining Phase 1 direct tool; Phase 2 remains closed.

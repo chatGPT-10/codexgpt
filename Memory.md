@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first twelve slices are published and cross-platform CI-validated; publication review passed for the thirteenth direct `open_workspace` slice, which is awaiting explicit publication approval.
+- Phase 1: the first thirteen slices are published and cross-platform CI-validated; direct `open_workspace` is published as commit `c31e8a1`.
 
 ## Approved stopping point
 
-The first twelve Phase 1 slices are published and cross-platform CI-validated. Publication review passed for direct `open_workspace` after fixing bounded data-URL stack labels and global-Skill request-scope validation. Final local evidence is focused 18/18, adjacent 66/66, complete 220/220, Build, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. No Critical or Important findings remain. The next action requires explicit approval to stage, commit, and push, then verify exact-head Ubuntu/Windows Node 20/24 CI. Phase 2 remains closed.
+The first thirteen Phase 1 slices are published and cross-platform CI-validated. Direct `open_workspace` implementation commit `c31e8a1` passed exact-head CI run `29253838423` on Ubuntu/Windows with Node 20/24. Final local evidence is focused 18/18, adjacent 66/66, complete 220/220, Build, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. The next action is design review for the next remaining Phase 1 direct tool. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -63,6 +63,7 @@ The first twelve Phase 1 slices are published and cross-platform CI-validated. P
 - `npm run build`, `npm run stress`, and all eight Smoke sections passed on native Windows.
 - `npm pack --dry-run` passed with the new schema build artifacts included and internal Memory/plan/spec files excluded.
 - `git diff --check` passed; only established LF-to-CRLF working-copy warnings were emitted.
+- Exact-head GitHub Actions run `29253838423` passed Ubuntu/Windows on Node 20/24 for implementation commit `c31e8a1`.
 
 ## Published phase evidence
 
@@ -79,6 +80,7 @@ The first twelve Phase 1 slices are published and cross-platform CI-validated. P
 - `apply_patch`: design commit `3279d0c`; implementation commit `c761b4e`; CI run `29233787814` passed Ubuntu/Windows Node 20/24.
 - `bash`: planning `1f66073`, schema `0ddabfc`, handler `7a71421`, consumers `86350df`, publication record `a39b779`; CI run `29239425311` passed Ubuntu/Windows Node 20/24.
 - `open_current_workspace`: implementation and reconciliation commit `d887849`; final exact-head `e0e5f77` passed CI run `29246163724` on Ubuntu/Windows with Node 20/24.
+- `open_workspace`: implementation and publication-review commit `c31e8a1`; exact-head CI run `29253838423` passed Ubuntu/Windows with Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across Phase 1 Volume 1 (STEP-073–139), closed Volume 2 (STEP-140–151), and active Volume 3 (STEP-152 onward).
 
 ## Known limitations
@@ -99,11 +101,12 @@ The first twelve Phase 1 slices are published and cross-platform CI-validated. P
 
 ## Open items
 
-1. After explicit approval, stage, commit, and push the publication-reviewed thirteenth slice, then verify exact-head Ubuntu/Windows Node 20/24 CI.
+1. Design-review the next remaining Phase 1 direct tool.
 2. Keep Phase 2 closed until the remaining Phase 1 scope is explicitly reviewed.
 
 ## Recent summaries
 
+- **STEP-159 — Publish direct `open_workspace`:** committed and pushed `c31e8a1`; exact-head CI run `29253838423` passed Ubuntu/Windows on Node 20/24.
 - **STEP-158 — Neat-freak and publication review:** reconciled all 28 plan steps, reduced Memory to a thinner index, fixed bounded data-URL stack labels and global-Skill request-scope validation, and passed focused 18/18, adjacent 66/66, complete 220/220, Build, Smoke 8/8, Stress, package dry-run, and diff checking.
 - **STEP-157 — Eliminate the protected main-Smoke false green:** added exact-count in-memory migration for four `open_current_workspace` and three `open_workspace` workspace-ID reads; focused 16/16, adjacent 64/64, complete 218/218, and Smoke 8/8 pass.
 - **STEP-156 — Complete the protected HTTP Smoke path:** added the exact fail-closed in-memory compatibility loader; HTTP Smoke and all eight Smoke sections passed.

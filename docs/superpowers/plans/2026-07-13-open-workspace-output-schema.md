@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing `WorkspaceManager`, `PathGuard`, `workspaceSummary`, Tool Card HTML, Smoke/HTTP Smoke/Stress suites, native Windows and Ubuntu CI.
 
-**Status:** All four tasks and publication review are locally complete. Review fixed bounded data-URL stack labels and global-Skill request-scope validation. Focused 18/18, adjacent 66/66, complete 220/220, Build, all eight Smoke sections, Stress, package dry-run, and diff checking pass. Publication is pending.
+**Status:** Published and cross-platform CI-validated. Implementation commit `c31e8a1` passed exact-head CI run `29253838423` on Ubuntu/Windows with Node 20/24. Focused 18/18, adjacent 66/66, complete 220/220, Build, all eight Smoke sections, Stress, package dry-run, and diff checking pass.
 
 ## Global Constraints
 
@@ -616,4 +616,4 @@ Do not stage, commit, push, or query exact-head CI until separately authorized.
 
 ## Current Stopping Point
 
-Inline execution and publication review are locally complete. Review fixed two Important findings: transformed data-URL failures now use bounded `sourceURL` labels instead of exposing encoded source in stack locations, and Provider output now rejects global Skills when `include_global_skills=false`. Final evidence is focused 18/18, adjacent 66/66, complete 220/220, Build, all eight Smoke sections, native-Windows Stress, package dry-run, and diff checking. No Critical or Important findings remain. Explicit approval is required before staging, commit, or push; exact-head cross-platform CI and Phase 2 remain separate gates.
+Inline execution, publication review, publication, and exact-head cross-platform CI are complete. Implementation commit `c31e8a1` passed CI run `29253838423` on Ubuntu/Windows with Node 20/24. Review fixed bounded data-URL stack labels and global-Skill request-scope validation; no Critical or Important findings remain. Final evidence is focused 18/18, adjacent 66/66, complete 220/220, Build, all eight Smoke sections, native-Windows Stress, package dry-run, and diff checking. The next action is design review for the next remaining Phase 1 direct tool; Phase 2 remains closed.
