@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first eight slices are published and cross-platform CI-validated; the ninth direct `edit` slice is implemented and locally validated, with publication pending.
+- Phase 1: the first nine slices are published and cross-platform CI-validated.
 
 ## Approved stopping point
 
-The eighth Phase 1 vertical slice, direct `write`, is published in commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows with Node 20/24. The ninth direct `edit` slice is implemented and locally validated under `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md` and `docs/superpowers/plans/2026-07-13-edit-output-schema.md`; publication and CI verification are pending. Phase 2 remains closed.
+The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -85,6 +85,7 @@ The eighth Phase 1 vertical slice, direct `write`, is published in commit `b807b
 - `show_changes`: design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`, documentation record `0051543`; CI run `29206887875` passed on Ubuntu/Windows Node 20/24.
 - `search`: implementation and publication commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows Node 20/24.
 - `write`: implementation commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows Node 20/24.
+- `edit`: implementation commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are in `docs/memory/archive/phase-1.md`.
 
 ## Known limitations
@@ -99,11 +100,12 @@ The eighth Phase 1 vertical slice, direct `write`, is published in commit `b807b
 
 ## Open items
 
-1. Publish the locally verified direct `edit` slice, verify Ubuntu/Windows Node 20/24 CI, and record the final synchronized branch state.
+1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
 2. Keep Phase 2 closed without a new approved design and plan.
 
 ## Recent summaries
 
+- **STEP-139 — Publish direct `edit`:** pushed implementation commit `89cf2e3` and verified CI run `29226366822` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-138 — Implement and verify direct `edit`:** added the exact schema-v1 contract, fourteen stable failures, validated provider/path boundary, cache-safe nested Tool Card/supertool consumers, and TDD coverage; focused 14/14, adjacent 56/56, complete 163/163, Build, Smoke 8/8, native-Windows Stress, and diff check passed.
 - **STEP-137 — Plan direct `edit`:** wrote and self-reviewed a four-task TDD implementation plan covering the exact schema, handler classification, cache ordering, nested consumers, complete gates, memory reconciliation, and conditional publication.
 - **STEP-136 — Design direct `edit`:** approved the isolated ninth Phase 1 slice with exact nested success data, fourteen stable failures, a validated provider seam, dedicated Tool Card handling, and no expansion into `apply_patch`, atomic editing, or Phase 2.

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexPro file/path/redaction/diff/analysis-cache services.
 
-**Status:** Tasks 1–3 and all local Task 4 gates completed; publication pending.
+**Status:** Completed, published in `89cf2e3`, and cross-platform CI-validated by run `29226366822`.
 
 ## Global Constraints
 
@@ -658,7 +658,7 @@ scripts/stress.mjs
 
 Omit unchanged optional script files. Stop for the approval required by project rules before staging, committing, or pushing unless the user has explicitly authorized autonomous publication for this slice.
 
-- [ ] **Step 9: Stage, commit, push, and verify CI only after approval**
+- [x] **Step 9: Stage, commit, push, and verify CI only after approval**
 
 Use the exact applicable path list from Step 8:
 

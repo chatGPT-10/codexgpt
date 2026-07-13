@@ -3441,3 +3441,53 @@ Rollback method:
 
 Next step:
 - Stage, commit, push, verify Ubuntu/Windows Node 20/24 CI, then append the publication record and leave Phase 2 closed.
+
+## 2026-07-13 — STEP-139: Publish direct `edit`
+
+Status: complete
+
+Goal:
+- Publish the ninth Phase 1 direct `edit` slice and verify its cross-platform CI matrix.
+
+Files changed:
+- `AGENTS.md`
+- `Memory.md`
+- `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-edit-output-schema.md`
+- `docs/memory/archive/phase-1.md`
+
+Implementation summary:
+- Staged the exact thirteen-path approved implementation and documentation set.
+- Created implementation commit `89cf2e32fb78a40d5a4b5bf8218520682b43b038` with message `feat(schema): add exact edit result contract`.
+- Pushed `main` to `origin/main`.
+- Queried GitHub Actions through the public API because the local Git Bash environment does not provide authenticated GitHub administration tooling.
+- Verified CI run `29226366822` for the implementation commit.
+
+Verification commands:
+- `git add AGENTS.md CHANGELOG.md Memory.md docs/memory/archive/phase-1.md docs/superpowers/specs/2026-07-13-edit-output-schema-design.md docs/superpowers/plans/2026-07-13-edit-output-schema.md scripts/stress.mjs src/fsOps.ts src/server.ts src/toolCardWidget.ts src/tools/schemas/edit.ts test/edit-contract.test.mjs test/write-contract.test.mjs`
+- `git commit -m "feat(schema): add exact edit result contract"`
+- `git push origin main`
+- GitHub Actions public runs query for commit `89cf2e32fb78a40d5a4b5bf8218520682b43b038`
+- GitHub Actions public jobs query for run `29226366822`
+
+Verification results:
+- Push updated remote `main` from `442e2ea` to `89cf2e3`.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+- The implementation commit was the branch head when the matrix completed.
+
+Decisions made:
+- Record `89cf2e3` as the canonical ninth-slice implementation commit.
+- Use this separate documentation commit to close the plan and preserve publication evidence.
+- Keep Phase 2 closed.
+
+Risks or limitations:
+- The final publication-record commit will trigger a documentation-only CI run after push; the implementation matrix above is the authoritative behavioral validation for this slice.
+
+Rollback method:
+- Revert the publication-record commit if its evidence is incorrect; revert `89cf2e3` to roll back the direct `edit` implementation.
+
+Next step:
+- Push this publication record, verify the final branch-head CI, and leave Phase 2 closed.

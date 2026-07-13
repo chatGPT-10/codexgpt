@@ -153,8 +153,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-12-search-output-schema.md` — executed four-task plan for the published `search` slice.
 - `docs/superpowers/specs/2026-07-13-write-output-schema-design.md` — published design for the eighth Phase 1 direct `write` slice.
 - `docs/superpowers/plans/2026-07-13-write-output-schema.md` — executed four-task plan for the eighth `write` slice.
-- `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md` — approved design for the ninth Phase 1 direct `edit` slice.
-- `docs/superpowers/plans/2026-07-13-edit-output-schema.md` — executed four-task implementation plan for the ninth direct `edit` slice; local verification passed and publication is pending.
+- `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md` — published design for the ninth Phase 1 direct `edit` slice.
+- `docs/superpowers/plans/2026-07-13-edit-output-schema.md` — executed four-task implementation plan for the published ninth `edit` slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -196,4 +196,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first eight vertical slices are published and cross-platform CI-validated. Direct `write` is published in commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows with Node 20/24. The ninth direct `edit` slice is implemented and locally validated: focused 14/14, adjacent 56/56, complete 163/163, Build, Smoke 8/8, native-Windows Stress, and diff check passed. Publication and CI verification are pending. Do not begin Phase 2 without explicit approval.
+Phase 1 implementation started on 2026-07-12. The first nine vertical slices are published and cross-platform CI-validated. Direct `edit` is published in commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. The next permitted action is a separately reviewed design for one additional Phase 1 tool. Do not begin Phase 2 without explicit approval.

@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Phase: Phase 1, ninth vertical slice
-Status: Implemented and locally validated; publication pending
+Status: Published in `89cf2e3` and cross-platform CI-validated by run `29226366822`
 
 ## 1. Goal
 
