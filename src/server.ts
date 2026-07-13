@@ -16,7 +16,8 @@ import {
   type ReadFileResult,
   type TreeOptions,
   type TreeResult,
-  type WriteFileResult
+  type WriteFileResult,
+  type EditFileResult
 } from "./fsOps.js";
 import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
 import { probeBashAvailability, runBash } from "./bashOps.js";
@@ -101,6 +102,14 @@ import {
   writeOutputShape,
   type WriteFailureInput
 } from "./tools/schemas/write.js";
+import {
+  EDIT_ERROR_MESSAGES,
+  createEditFailure,
+  createEditSuccess,
+  editDataSchema,
+  editOutputShape,
+  type EditFailureInput
+} from "./tools/schemas/edit.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -324,6 +333,27 @@ const writeProviderResultSchema = z.object({
   }
 });
 
+const editProviderResultSchema = z.object({
+  path: z.string().min(1),
+  replacements: z.number().int().positive(),
+  bytes: z.number().int().nonnegative(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  diff: z.object({
+    diff: z.string(),
+    additions: z.number().int().nonnegative(),
+    deletions: z.number().int().nonnegative(),
+    changed: z.boolean()
+  }).strict()
+}).strict().superRefine((value, context) => {
+  if (!value.diff.changed && (value.diff.additions !== 0 || value.diff.deletions !== 0)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["diff", "changed"],
+      message: "Unchanged edit results require zero diff statistics."
+    });
+  }
+});
+
 function classifyWriteFailure(
   error: unknown,
   args: Record<string, unknown>,
@@ -424,6 +454,134 @@ function classifyWriteFailure(
   ]);
   if (filesystemCode && writeFailureCodes.has(filesystemCode)) {
     return { code: "WRITE_FAILED", details: {} };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function classifyEditFailure(
+  error: unknown,
+  args: Record<string, unknown>,
+  config: CodexProConfig
+): EditFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+  const pathDetail = safeTreePathDetail(args.path ?? "[path omitted]");
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  if (
+    message.startsWith("Path is blocked by safety rules:") ||
+    message.startsWith("Refusing to write through a symlink:")
+  ) {
+    return { code: "PATH_BLOCKED", details: { path: pathDetail } };
+  }
+
+  const outsidePrefixes = [
+    "Path contains a null byte.",
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Write path resolves through a parent outside the workspace:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return { code: "PATH_OUTSIDE_WORKSPACE", details: { path: pathDetail } };
+  }
+
+  const filesystemCode = nodeErrorCode(error);
+  if (filesystemCode === "ENOENT") {
+    return { code: "FILE_NOT_FOUND", details: { path: pathDetail } };
+  }
+
+  if (
+    message.startsWith("Not a file:") ||
+    filesystemCode === "EISDIR" ||
+    filesystemCode === "ENOTDIR"
+  ) {
+    return { code: "NOT_A_FILE", details: { path: pathDetail } };
+  }
+
+  if (message === "Refusing to read binary file.") {
+    return { code: "FILE_NOT_TEXT", details: { path: pathDetail } };
+  }
+
+  if (message.startsWith("File is too large (")) {
+    return {
+      code: "FILE_TOO_LARGE",
+      details: {
+        path: pathDetail,
+        scope: "existing_file",
+        limit_bytes: Math.max(config.maxWriteBytes, config.maxReadBytes)
+      }
+    };
+  }
+
+  if (message.startsWith("Edited file would be too large (")) {
+    return {
+      code: "FILE_TOO_LARGE",
+      details: {
+        path: pathDetail,
+        scope: "edited_file",
+        limit_bytes: config.maxWriteBytes
+      }
+    };
+  }
+
+  if (message === "old_text must not be empty.") {
+    return { code: "INVALID_ARGUMENT", details: { argument: "old_text" } };
+  }
+
+  if (message.startsWith("old_text was not found in ")) {
+    return { code: "OLD_TEXT_NOT_FOUND", details: { path: pathDetail } };
+  }
+
+  const ambiguousMatch = /^old_text matched (\d+) times\./.exec(message);
+  if (ambiguousMatch) {
+    return {
+      code: "OLD_TEXT_NOT_UNIQUE",
+      details: { path: pathDetail, matches: Number.parseInt(ambiguousMatch[1], 10) }
+    };
+  }
+
+  const replacementMismatch = /^Expected (\d+) replacements but would perform (\d+)\./.exec(message);
+  if (replacementMismatch) {
+    return {
+      code: "REPLACEMENT_COUNT_MISMATCH",
+      details: {
+        path: pathDetail,
+        expected: Number.parseInt(replacementMismatch[1], 10),
+        actual: Number.parseInt(replacementMismatch[2], 10)
+      }
+    };
+  }
+
+  if (message.startsWith("Secret-looking content is blocked from edit.")) {
+    return { code: "SECRET_CONTENT_BLOCKED", details: { path: pathDetail } };
+  }
+
+  const editFailureCodes = new Set([
+    "EACCES",
+    "EPERM",
+    "EROFS",
+    "ENOSPC",
+    "EDQUOT",
+    "EIO",
+    "EMFILE",
+    "ENFILE",
+    "EBUSY"
+  ]);
+  if (filesystemCode && editFailureCodes.has(filesystemCode)) {
+    return { code: "EDIT_FAILED", details: {} };
   }
 
   return { code: "INTERNAL_ERROR", details: {} };
@@ -930,6 +1088,19 @@ export interface WriteProviderContext {
   };
 }
 
+export interface EditProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  path: string;
+  oldText: string;
+  newText: string;
+  options: {
+    replaceAll: boolean;
+    expectedReplacements?: number;
+  };
+}
+
 export interface SearchProviderContext {
   config: CodexProConfig;
   guard: PathGuard;
@@ -972,6 +1143,7 @@ export interface CodexProServerDependencies {
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
   readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
   writeResultProvider?: (context: WriteProviderContext) => Promise<WriteFileResult>;
+  editResultProvider?: (context: EditProviderContext) => Promise<EditFileResult>;
   searchResultProvider?: (context: SearchProviderContext) => SearchResult | Promise<SearchResult>;
   gitStatusResultProvider?: (
     context: GitStatusProviderContext
@@ -1801,6 +1973,18 @@ export function createCodexProServer(
         context.workspace,
         context.path,
         context.content,
+        context.options
+      ));
+  const editResultProvider =
+    dependencies.editResultProvider ??
+    ((context: EditProviderContext) =>
+      editTextFile(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.path,
+        context.oldText,
+        context.newText,
         context.options
       ));
   const searchResultProvider =
@@ -2872,6 +3056,7 @@ export function createCodexProServer(
         replace_all: z.boolean().optional().describe("Replace all occurrences. Default: false."),
         expected_replacements: z.number().int().min(1).optional().describe("Fail if actual replacement count differs.")
       },
+      outputSchema: editOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -2880,26 +3065,56 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const resolved = guard.resolve(workspace, args.path, { forWrite: true });
-      assertWriteToolAllowed(config, resolved.relPath);
-      const result = await editTextFile(config, guard, workspace, args.path, String(args.old_text ?? ""), String(args.new_text ?? ""), {
-        replaceAll: parseBool(args.replace_all, false),
-        expectedReplacements: args.expected_replacements
-      });
-      if (result.diff.changed) invalidateWorkspaceAnalysis(workspace.id);
-      const text = `# Edit File\n\nPath: ${result.path}\nReplacements: ${result.replacements}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\nDiff stats: +${result.diff.additions} -${result.diff.deletions}${diffBlock(result.diff.diff)}`;
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        path: result.path,
-        replacements: result.replacements,
-        bytes: result.bytes,
-        sha256: result.sha256,
-        additions: result.diff.additions,
-        deletions: result.diff.deletions,
-        diff: result.diff.diff
-      });
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const requestedPath = String(args.path ?? "");
+        const oldText = String(args.old_text ?? "");
+        const newText = String(args.new_text ?? "");
+        const resolved = guard.resolve(workspace, requestedPath, { forWrite: true });
+        assertWriteToolAllowed(config, resolved.relPath);
+        const result = editProviderResultSchema.parse(await editResultProvider({
+          config,
+          guard,
+          workspace,
+          path: requestedPath,
+          oldText,
+          newText,
+          options: {
+            replaceAll: parseBool(args.replace_all, false),
+            expectedReplacements: args.expected_replacements
+          }
+        }));
+        if (result.path !== resolved.relPath) {
+          throw new CodexProError("Edit provider returned a path that does not match the resolved target.");
+        }
+        const data = editDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          path: result.path,
+          replacements: result.replacements,
+          bytes: result.bytes,
+          sha256: result.sha256,
+          additions: result.diff.additions,
+          deletions: result.diff.deletions,
+          diff: result.diff.diff
+        });
+        if (result.diff.changed) invalidateWorkspaceAnalysis(workspace.id);
+        const text = `# Edit File\n\nPath: ${result.path}\nReplacements: ${result.replacements}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\nDiff stats: +${result.diff.additions} -${result.diff.deletions}${diffBlock(result.diff.diff)}`;
+        return textResult(text, createEditSuccess(data));
+      } catch (error) {
+        const failure = classifyEditFailure(error, args, config);
+        const structured = createEditFailure(failure);
+        const text = [
+          "# Edit File Error",
+          "",
+          `Code: ${failure.code}`,
+          EDIT_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, structured),
+          isError: true
+        };
+      }
     }
   );
 

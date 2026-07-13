@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first eight slices are published and cross-platform CI-validated.
+- Phase 1: the first eight slices are published and cross-platform CI-validated; the ninth direct `edit` slice is implemented and locally validated, with publication pending.
 
 ## Approved stopping point
 
-The eighth Phase 1 vertical slice, direct `write`, is published in commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active; Phase 2 remains closed.
+The eighth Phase 1 vertical slice, direct `write`, is published in commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows with Node 20/24. The ninth direct `edit` slice is implemented and locally validated under `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md` and `docs/superpowers/plans/2026-07-13-edit-output-schema.md`; publication and CI verification are pending. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -54,20 +54,25 @@ The eighth Phase 1 vertical slice, direct `write`, is published in commit `b807b
 - Direct `write` preserves nine success fields only under nested `data` and exposes eleven stable non-retryable workspace/path/file/policy/write/internal errors.
 - The direct `write` provider seam validates the returned path and exact result before analysis-cache invalidation; only a validated changed diff invalidates the cache.
 - Fixed `write` failures exclude raw exceptions, absolute unsafe paths, file content, and secrets while retaining safe compatibility wording required by the existing Smoke suite.
-- `edit`, `apply_patch`, atomic editing, expected hashes, transactions, authentication, dependencies, and Phase 2 remain out of scope for this slice.
+- `edit`, `apply_patch`, atomic editing, expected hashes, transactions, authentication, dependencies, and Phase 2 remain out of scope for the published `write` slice.
+- Direct `edit` preserves nine success fields only under nested `data` and exposes fourteen non-retryable workspace/path/file/replacement/policy/edit/internal errors.
+- Empty `old_text`, zero matches, ambiguous matches, and expected-count mismatch are distinct failures: `INVALID_ARGUMENT`, `OLD_TEXT_NOT_FOUND`, `OLD_TEXT_NOT_UNIQUE`, and `REPLACEMENT_COUNT_MISMATCH`.
+- The direct `edit` provider seam validates its exact result and returned path before analysis-cache invalidation; identical-text replacements remain successful but do not invalidate analysis when `diff.changed=false`.
+- Fixed `edit` failures exclude raw exceptions, absolute unsafe paths, replacement text, file content, operating-system diagnostics, and secrets.
+- `apply_patch`, fuzzy or regex editing, expected hashes, atomic replacement, transactions, rollback, undo, authentication, dependencies, and Phase 2 remain out of scope for the `edit` slice.
 - The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
-- Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval; the user explicitly approved autonomous completion and publication of this slice.
+- The user approved autonomous execution and publication of all four direct `edit` tasks; credential changes, history rewriting, access expansion, and Phase 2 remain unapproved.
 
 ## Local verification evidence
 
-- Focused `write` contracts: 12/12 passed.
-- Adjacent `write`/`read`/`show_changes` contracts: 42/42 passed.
-- Complete `node:test` regression suite: 149/149 passed.
+- Focused direct `edit` contracts: 14/14 passed.
+- Adjacent `edit`/`write`/`read`/`show_changes` contracts: 56/56 passed.
+- Complete `node:test` regression suite: 163/163 passed.
 - `npm run build`: passed.
-- `npm run smoke`: all eight sections passed after rebuilding stale `dist` output.
-- `npm run stress`: passed on native Windows.
-- The first Smoke attempt exposed an obsolete raw-error substring expectation; the fixed public error retained safe compatibility wording because direct editing of the secret-bearing fixture file was correctly blocked.
-- Final working-tree and staged diff checks passed after removing two Markdown trailing spaces; Git otherwise emitted only the established Windows LF-to-CRLF working-copy warnings.
+- `npm run smoke`: all eight sections passed.
+- `npm run stress`: passed on native Windows after replacing one obsolete raw `binary` text assertion with the stable `FILE_NOT_TEXT` code.
+- `git diff --check`: passed; Git emitted only the established Windows LF-to-CRLF working-copy warnings.
+- Design and plan self-review found no placeholders, scope expansion, type drift, or changes to `apply_patch`, authentication, dependencies, workspace lifecycle, or Phase 2.
 
 ## Published phase evidence
 
@@ -87,17 +92,21 @@ The eighth Phase 1 vertical slice, direct `write`, is published in commit `b807b
 - The managed pinned Cloudflared binary is not currently installed in the user profile.
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 - Git failure classification remains coupled to current string output from `src/gitOps.ts`.
+- Direct `edit` failure classification remains coupled to current `CodexProError` message prefixes and operating-system error codes.
 - Review checkpoints remain process-local memory state and are not shared across service restarts.
 - Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
 - `docs/memory/archive/phase-1.md` exceeds the direct read-size limit; use targeted search while Phase 1 remains active, and do not split the append-only archive before phase closure without a separate reviewed maintenance decision.
 
 ## Open items
 
-1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
+1. Publish the locally verified direct `edit` slice, verify Ubuntu/Windows Node 20/24 CI, and record the final synchronized branch state.
 2. Keep Phase 2 closed without a new approved design and plan.
 
 ## Recent summaries
 
+- **STEP-138 — Implement and verify direct `edit`:** added the exact schema-v1 contract, fourteen stable failures, validated provider/path boundary, cache-safe nested Tool Card/supertool consumers, and TDD coverage; focused 14/14, adjacent 56/56, complete 163/163, Build, Smoke 8/8, native-Windows Stress, and diff check passed.
+- **STEP-137 — Plan direct `edit`:** wrote and self-reviewed a four-task TDD implementation plan covering the exact schema, handler classification, cache ordering, nested consumers, complete gates, memory reconciliation, and conditional publication.
+- **STEP-136 — Design direct `edit`:** approved the isolated ninth Phase 1 slice with exact nested success data, fourteen stable failures, a validated provider seam, dedicated Tool Card handling, and no expansion into `apply_patch`, atomic editing, or Phase 2.
 - **STEP-135 — Publish `write`:** pushed implementation commit `b807b9e` and verified CI run `29224276725` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-134 — Reconcile the eighth slice:** updated the design, plan, changelog, AGENTS map, and project memory after the full local verification suite passed.
 - **STEP-133 — Implement and verify direct `write`:** added the exact schema-v1 contract, eleven stable failures, validated provider seam, nested Tool Card/supertool consumers, and TDD coverage; focused 12/12, adjacent 42/42, complete 149/149, Build, Smoke 8/8, and native-Windows Stress passed.

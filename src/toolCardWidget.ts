@@ -631,6 +631,30 @@ export const toolCardWidgetHtml = String.raw`
     return '<article class="card">' + header(data, pills) + '<div class="body">' + body + '</div></article>';
   }
 
+  function renderEdit(data) {
+    const editData = data?.data ?? {};
+    const error = data?.error ?? {};
+    const failed = data?.ok === false;
+    const pills = failed
+      ? pill(error.code || "error", "bad")
+      : [
+          editData.replacements !== undefined ? pill(editData.replacements + " replacements", "info") : "",
+          editData.bytes !== undefined ? pill(editData.bytes + " bytes") : "",
+          editData.additions !== undefined ? pill("+" + editData.additions, "good") : "",
+          editData.deletions !== undefined ? pill("-" + editData.deletions, "bad") : ""
+        ].join("");
+    const body = failed
+      ? '<div class="empty">' + esc(error.message || "Edit failed.") + '</div>'
+      : '<div class="summary">' +
+        summaryItem("Path", editData.path || "-") +
+        summaryItem("SHA-256", editData.sha256 || "-") +
+        '</div>' +
+        (editData.diff
+          ? codebox(basename(editData.path || "file"), renderDiff(editData.diff), "")
+          : '<div class="empty">No diff returned.</div>');
+    return '<article class="card">' + header(data, pills) + '<div class="body">' + body + '</div></article>';
+  }
+
   function renderFile(data) {
     const pills = [
       data.bytes !== undefined ? pill(data.bytes + " bytes") : "",
@@ -1204,7 +1228,9 @@ export const toolCardWidgetHtml = String.raw`
       root.innerHTML = renderGitDiff(data);
     } else if (tool === "write") {
       root.innerHTML = renderWrite(data);
-    } else if (tool === "edit" || tool === "apply_patch" || tool === "export_pro_context") {
+    } else if (tool === "edit") {
+      root.innerHTML = renderEdit(data);
+    } else if (tool === "apply_patch" || tool === "export_pro_context") {
       root.innerHTML = renderFile(data);
     } else if (tool === "bash") {
       root.innerHTML = renderBash(data);

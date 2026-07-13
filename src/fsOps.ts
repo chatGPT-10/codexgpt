@@ -47,6 +47,14 @@ export interface WriteFileResult {
   diff: DiffResult;
 }
 
+export interface EditFileResult {
+  path: string;
+  replacements: number;
+  bytes: number;
+  sha256: string;
+  diff: DiffResult;
+}
+
 export function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
@@ -294,7 +302,7 @@ export async function editTextFile(
   oldText: string,
   newText: string,
   options: { replaceAll?: boolean; expectedReplacements?: number } = {}
-): Promise<{ path: string; replacements: number; bytes: number; sha256: string; diff: DiffResult }> {
+): Promise<EditFileResult> {
   if (!oldText) throw new CodexProError("old_text must not be empty.");
   const resolved = guard.resolve(workspace, filePath, { forWrite: true });
   await guard.assertTextFile(resolved.absPath, Math.max(config.maxWriteBytes, config.maxReadBytes));

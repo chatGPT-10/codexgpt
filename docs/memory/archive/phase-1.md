@@ -3260,3 +3260,184 @@ Rollback method:
 
 Next step:
 - Push the publication-record commit, verify the final branch-head CI, and leave Phase 2 closed.
+
+## 2026-07-13 — STEP-136: Design the direct `edit` output-schema slice
+
+Status: complete
+
+Goal:
+- Design one additional Phase 1 vertical slice for direct `edit` without starting implementation or expanding into `apply_patch`, atomic editing, or Phase 2.
+
+Files changed:
+- `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+Implementation summary:
+- Inspected the current direct `edit` handler, `editTextFile` behavior, the published `write` boundary pattern, the Tool Card consumer, and the `codexpro` wrapper.
+- Selected direct `edit` as the ninth Phase 1 slice because it can reuse the established file-write boundary while remaining isolated from `apply_patch` and later atomic-edit work.
+- Wrote an exact schema-v1 design with nine nested success fields and fourteen stable non-retryable errors.
+- Defined separate replacement failures for empty `old_text`, zero matches, ambiguous matches, and expected-count mismatch.
+- Required a narrow injectable provider, strict provider-result validation, returned-path equality, and analysis-cache invalidation only after a validated changed diff.
+- Preserved identical-text replacement as a successful no-diff operation.
+- Added the design to the project documentation map and updated the concise memory index.
+- Did not modify production source, tests, dependencies, authentication, workspace lifecycle, or Phase 2 behavior.
+
+Verification commands:
+- CodexPro targeted reads of `AGENTS.md`, `Memory.md`, `src/server.ts`, `src/fsOps.ts`, `src/tools/schemas/write.ts`, `src/toolCardWidget.ts`, and the published `write` design.
+- CodexPro targeted search for `TBD|TODO|placeholder|apply_patch|expectedHash|old_text|new_text|changed=false` in the new design.
+- CodexPro targeted search for obsolete generic `TEXT_NOT_FOUND|TEXT_NOT_UNIQUE` naming and unresolved placeholders.
+- CodexPro `show_changes` with unstaged unified diff enabled.
+
+Verification results:
+- The design self-review found no `TBD`, `TODO`, placeholder, contradictory scope, or accidental Phase 2 expansion.
+- Error naming was tightened from generic text failures to `OLD_TEXT_NOT_FOUND` and `OLD_TEXT_NOT_UNIQUE`.
+- The reviewed change set contained only the new design, `AGENTS.md`, `Memory.md`, and this append-only archive update.
+- No production-code tests, build, smoke, or stress runs were performed because implementation has not started and no production source changed.
+- Direct archive reading was blocked because this file is 201602 bytes and the configured read limit is 180000 bytes; a unique final STEP-135 anchor was verified before this append, and all temporary probe substitutions were restored before writing STEP-136.
+
+Decisions made:
+- Use direct `edit` as Phase 1 vertical slice nine.
+- Preserve the existing exact-replacement algorithm and all current user-visible options.
+- Use an exact strict envelope with no top-level legacy edit fields and no public `changed`, `old_text`, or `new_text` field.
+- Expose fourteen fixed errors: `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_FILE`, `FILE_NOT_TEXT`, `FILE_TOO_LARGE`, `INVALID_ARGUMENT`, `OLD_TEXT_NOT_FOUND`, `OLD_TEXT_NOT_UNIQUE`, `REPLACEMENT_COUNT_MISMATCH`, `SECRET_CONTENT_BLOCKED`, `EDIT_FAILED`, and `INTERNAL_ERROR`.
+- Keep all errors non-retryable in schema version 1 because `edit` is a file-writing operation.
+- Leave `apply_patch`, fuzzy or regex editing, expected hashes, atomic replacement, transactions, rollback, undo, authentication, dependencies, and Phase 2 out of scope.
+
+Risks or limitations:
+- The implementation classifier will remain coupled to current `CodexProError` and operating-system error messages until a later typed domain-error refactor.
+- The design does not add file-version conflict detection or atomic replacement; those remain later-phase capabilities.
+- The active Phase 1 archive is now larger than the direct read limit and requires targeted anchors for append-only maintenance.
+
+Rollback method:
+- Revert the uncommitted design-only change set. No production behavior or user data migration is involved.
+
+Next step:
+- Write and separately review the implementation plan for the ninth direct `edit` slice. Do not begin implementation or Phase 2 without explicit approval.
+
+## 2026-07-13 — STEP-137: Write the direct `edit` implementation plan
+
+Status: complete
+
+Goal:
+- Convert the approved ninth-slice `edit` design into an executable, TDD-oriented implementation plan without starting production-code implementation.
+
+Files changed:
+- `docs/superpowers/plans/2026-07-13-edit-output-schema.md`
+- `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+Implementation summary:
+- Loaded and followed the `writing-plans` skill.
+- Used the published `write` plan as the local structural precedent while preserving the approved `edit`-specific design.
+- Wrote a four-task implementation plan with checkbox tracking and explicit RED/GREEN cycles.
+- Task 1 defines and proves the strict schema and exported `EditFileResult` type.
+- Task 2 migrates only the direct handler with provider validation, returned-path equality, fourteen safe error classifications, and post-validation cache invalidation.
+- Task 3 proves cache behavior, adds the dedicated nested Tool Card renderer, verifies the `codexpro` wrapper, and preserves `apply_patch` and `export_pro_context`.
+- Task 4 runs focused, adjacent, complete, build, Smoke, Stress, diff, neat-freak, memory, and conditional publication gates.
+- Included exact interfaces, field names, error messages, classifier order, code templates, commands, expected results, approved file scope, rollback boundary, and conditional Git publication procedure.
+- Updated the design status, AGENTS documentation map/current stopping point, and concise project memory.
+- Did not modify production source, tests, dependencies, authentication, workspace behavior, or Phase 2.
+
+Verification commands:
+- CodexPro read of the approved `edit` design.
+- CodexPro read of `docs/superpowers/plans/2026-07-13-write-output-schema.md` as the established local plan precedent.
+- CodexPro search of the new plan for prohibited placeholder patterns.
+- CodexPro exact edits of the design status, AGENTS map/stopping point, and Memory state.
+- CodexPro `show_changes` final scope and diff review.
+
+Verification results:
+- The plan covers all nine success fields, fourteen errors, exact details, provider boundary, returned-path validation, identical-text behavior, cache ordering, fixed text compatibility, Tool Card, supertool wrapper, TDD, complete gates, neat-freak reconciliation, rollback, and conditional publication.
+- The prohibited-marker search found only the self-review statement; it was rewritten, and no prohibited placeholder or vague implementation instruction remains.
+- Type and property names are consistent across all four tasks: `EditFileResult`, `EditProviderContext`, `editResultProvider`, `editProviderResultSchema`, `EditFailureInput`, `editDataSchema`, `editOutputShape`, `editOutputSchema`, `createEditSuccess`, `createEditFailure`, and `renderEdit`.
+- No production-code test, build, Smoke, or Stress run was performed because implementation has not started and no production source changed.
+
+Decisions made:
+- Use four independently reviewable tasks rather than combining schema, handler, consumer, and publication work.
+- Preserve the existing replacement algorithm and isolate all new behavior at the public contract boundary.
+- Keep `apply_patch`, atomic editing, expected hashes, authentication, dependencies, workspace lifecycle, and Phase 2 out of scope.
+- Require an explicit approval before Task 1 implementation begins.
+- Require separate approval before staging, committing, or pushing unless the user later authorizes autonomous publication for this slice.
+
+Risks or limitations:
+- The future classifier remains coupled to current error-message strings and operating-system error codes.
+- The plan is intentionally detailed and larger than earlier compact plans so a fresh implementation worker can execute it without hidden assumptions.
+- The active Phase 1 archive remains larger than the direct read limit and requires unique append anchors.
+
+Rollback method:
+- Revert this uncommitted plan-and-memory change set. No production behavior, dependency, credential, or user-data migration is involved.
+
+Next step:
+- After explicit implementation approval, execute Task 1 of `docs/superpowers/plans/2026-07-13-edit-output-schema.md`. Do not begin Phase 2.
+
+## 2026-07-13 — STEP-138: Implement and locally verify direct `edit`
+
+Status: complete; publication pending
+
+Goal:
+- Execute Tasks 1–4 through all local verification gates for the ninth Phase 1 direct `edit` slice without expanding into `apply_patch`, atomic editing, or Phase 2.
+
+Files changed:
+- `src/tools/schemas/edit.ts`
+- `src/fsOps.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `test/edit-contract.test.mjs`
+- `test/write-contract.test.mjs`
+- `scripts/stress.mjs`
+- `CHANGELOG.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-edit-output-schema.md`
+- `docs/memory/archive/phase-1.md`
+
+Implementation summary:
+- Added a strict schema-v1 direct `edit` envelope with nine nested success fields and fourteen fixed non-retryable errors.
+- Exported the existing `EditFileResult` type without changing the exact replacement algorithm.
+- Added a narrow injectable provider, strict provider-result validation, returned-path equality, and cache invalidation only after a validated changed diff.
+- Preserved single-match default, `replace_all`, `expected_replacements`, Unicode, identical-text success, size/text/path checks, secret blocking, diff output, and human-readable MCP content.
+- Added a dedicated nested Tool Card renderer and preserved the legacy renderer for `apply_patch` and `export_pro_context`.
+- Verified `codexpro` wrapper success/failure envelopes and exclusion of legacy flat fields and raw diagnostics.
+- Updated one adjacent `write` Tool Card assertion to reflect the approved dedicated `edit` renderer.
+- Updated native-Windows Stress to assert stable `FILE_NOT_TEXT` instead of the removed raw `binary` wording.
+- Did not change authentication, dependencies, workspace lifecycle, `apply_patch`, atomic editing, or Phase 2.
+
+TDD evidence:
+- Initial focused RED failed only because `src/tools/schemas/edit.ts` did not exist.
+- Task 1 GREEN: schema/constructor tests 4/4.
+- Handler RED: schema tests remained green while seven direct-handler tests failed because `edit` had no exact output schema, provider seam, or stable errors.
+- Task 2 GREEN: focused tests 11/11.
+- Consumer RED: 13/14 passed; the only failure was the missing dedicated `renderEdit` Tool Card renderer.
+- Task 3 GREEN: focused tests 14/14.
+- First adjacent run exposed one obsolete `write` contract assertion that still grouped `edit` with legacy file renderers; the exact assertion was updated.
+
+Verification commands and results:
+- `node --test test/edit-contract.test.mjs`: 14/14 passed.
+- `node --test test/edit-contract.test.mjs test/write-contract.test.mjs test/read-contract.test.mjs test/show-changes-contract.test.mjs`: 56/56 passed.
+- `node --test test/*.test.mjs`: 163/163 passed.
+- `npm run build`: passed.
+- `npm run smoke`: all eight sections passed.
+- First `npm run stress`: failed because an old stress assertion searched fixed failure text for `/binary/i` although the new result correctly returned `FILE_NOT_TEXT`.
+- The stress assertion was changed to verify `structuredContent.error.code === "FILE_NOT_TEXT"`; the rerun passed on native Windows.
+- `git diff --check`: passed with only established LF-to-CRLF working-copy warnings.
+- Full unstaged diff review found only approved production, contract, stress-compatibility, design, changelog, AGENTS, and memory paths.
+
+Security and compatibility notes:
+- Failures expose no raw provider exception, stack trace, unsafe absolute path, `old_text`, `new_text`, file content, secret-looking value, or operating-system diagnostic.
+- The first precise shell patch attempt for the secret-bearing Stress fixture allowed Git Bash to interpret a JavaScript template expression and temporarily removed only the assertion message expression. The target lines were immediately inspected and repaired with a unique-count patch using string concatenation before any test rerun.
+- `scripts/smoke.mjs` required no change because it does not inspect direct `edit` flat structured fields.
+- `apply_patch` and `export_pro_context` remain behaviorally and structurally unchanged.
+
+Risks or limitations:
+- Edit failure classification remains coupled to current `CodexProError` message prefixes and operating-system error codes.
+- This slice does not provide expected hashes, conflict detection, atomic replacement, locking, transactions, rollback, or undo.
+
+Rollback method:
+- Revert the direct `edit` slice commit. This removes the schema, provider boundary, handler envelope, dedicated renderer, focused tests, and documentation records while preserving the underlying pre-existing edit algorithm.
+
+Next step:
+- Stage, commit, push, verify Ubuntu/Windows Node 20/24 CI, then append the publication record and leave Phase 2 closed.

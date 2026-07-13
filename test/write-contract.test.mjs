@@ -561,7 +561,11 @@ test("write Tool Card consumes nested data and error while adjacent file tools k
   assert.match(toolCardWidgetHtml, /tool === "write"\) \{\s*root\.innerHTML = renderWrite\(data\)/);
   assert.match(
     toolCardWidgetHtml,
-    /tool === "edit" \|\| tool === "apply_patch" \|\| tool === "export_pro_context"/
+    /tool === "edit"\) \{\s*root\.innerHTML = renderEdit\(data\)/
+  );
+  assert.match(
+    toolCardWidgetHtml,
+    /tool === "apply_patch" \|\| tool === "export_pro_context"/
   );
 });
 

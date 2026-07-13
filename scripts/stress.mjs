@@ -642,7 +642,14 @@ async function runGuardEdgeStress() {
       lateNullRead.isError === true && lateNullRead.structuredContent.error?.code === 'FILE_NOT_TEXT',
       `late-NUL read did not return FILE_NOT_TEXT: ${JSON.stringify(lateNullRead.structuredContent)}`
     );
-    await expectToolError(client, 'edit', { workspace_id: ws, path: 'late-null.txt', old_text: 'needle before', new_text: 'changed' }, /binary/i);
+    const lateNullEdit = await client.request('tools/call', {
+      name: 'edit',
+      arguments: { workspace_id: ws, path: 'late-null.txt', old_text: 'needle before', new_text: 'changed' }
+    });
+    assert(
+      lateNullEdit.isError === true && lateNullEdit.structuredContent.error?.code === 'FILE_NOT_TEXT',
+      'late-NUL edit did not return FILE_NOT_TEXT: ' + JSON.stringify(lateNullEdit.structuredContent)
+    );
 
     const blockedSearch = await client.request('tools/call', {
       name: 'search',
