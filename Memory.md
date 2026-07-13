@@ -82,7 +82,7 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 - `apply_patch`: design commit `3279d0c`; implementation commit `c761b4e`; CI run `29233787814` passed Ubuntu/Windows Node 20/24.
 - `bash`: planning `1f66073`, schema `0ddabfc`, handler `7a71421`, consumers `86350df`, publication record `a39b779`; CI run `29239425311` passed Ubuntu/Windows Node 20/24.
 - `open_current_workspace`: implementation and reconciliation commit `d887849` pushed to `origin/main`; exact-head CI verification remains pending because the current environment cannot query GitHub Actions.
-- Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across `docs/memory/archive/phase-1.md` (STEP-073–139) and the active `docs/memory/archive/phase-1-part-2.md` (STEP-140 onward).
+- Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across Phase 1 Volume 1 (STEP-073–139), closed Volume 2 (STEP-140–151), and active Volume 3 (STEP-152 onward).
 
 ## Known limitations
 
@@ -95,8 +95,8 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 - Direct `open_current_workspace` failure classification remains coupled to current `WorkspaceManager` message prefixes and Node error codes; workspace ownership, expiry, and client isolation remain deferred to Phase 2.
 - Review checkpoints remain process-local memory state and are not shared across service restarts.
 - Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
-- `docs/memory/archive/phase-1.md` exceeds the normal direct read-size limit and is now the unchanged first Phase 1 archive volume covering STEP-073–139.
-- `docs/memory/archive/phase-1-part-2.md` is the active bounded continuation from STEP-140 onward; future volumes may open only at complete STEP boundaries without renaming or rewriting earlier volumes.
+- `docs/memory/archive/phase-1.md` exceeds the normal direct read-size limit and is the unchanged first Phase 1 archive volume covering STEP-073–139.
+- `docs/memory/archive/phase-1-part-2.md` is closed at STEP-151 after crossing the rollover threshold; `phase-1-part-3.md` is active from STEP-152 onward.
 
 ## Open items
 
@@ -105,16 +105,17 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 
 ## Recent summaries
 
+- **STEP-152 — Roll over Phase 1 memory:** closed Volume 2 at STEP-151 after it reached approximately 51.4 KB and opened `phase-1-part-3.md` as the active continuation.
 - **STEP-151 — Publish direct `open_current_workspace`:** committed the reconciled slice as `d887849` and pushed `main` to `origin`; exact-head CI remains pending because the current environment lacks `gh` and could not access the public Actions lookup.
 - **STEP-150 — Reconcile the twelfth slice:** ran `neat-freak`, audited rule/document references, reduced `Memory.md` from 145 lines/15.5 KB to a thinner index, and aligned all current stopping points with the authorized publication workflow.
 - **STEP-149 — Implement and verify direct `open_current_workspace`:** added the exact twelve-field envelope, five fixed failures, strict provider identity/path/skill/count/inclusion checks, nested Tool Card/supertool consumers, and real Smoke/HTTP Smoke/Stress migration; focused 13/13, complete 202/202, Build, Smoke 8/8, and native-Windows Stress passed.
-- **STEP-148 — Plan direct `open_current_workspace`:** converted the approved design into a four-task TDD plan covering schema, handler/provider, consumers, verification, rollback, and publication boundaries.
 ## Archives
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
 - [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
 - [Phase 1 Volume 1 — STEP-073 through STEP-139](docs/memory/archive/phase-1.md)
-- [Active Phase 1 Volume 2 — STEP-140 onward](docs/memory/archive/phase-1-part-2.md)
+- [Closed Phase 1 Volume 2 — STEP-140 through STEP-151](docs/memory/archive/phase-1-part-2.md)
+- [Active Phase 1 Volume 3 — STEP-152 onward](docs/memory/archive/phase-1-part-3.md)
 
 ## Memory maintenance protocol
 

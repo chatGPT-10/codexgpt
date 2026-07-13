@@ -138,7 +138,8 @@ Memory rules:
 - `docs/memory/archive/phase-0-and-0.5.md` — closed Phase 0 and Phase 0.5 history through STEP-065.
 - `docs/memory/archive/interphase-maintenance.md` — closed maintenance records from STEP-066 through STEP-072.
 - `docs/memory/archive/phase-1.md` — unchanged Phase 1 Volume 1 covering STEP-073 through STEP-139.
-- `docs/memory/archive/phase-1-part-2.md` — active Phase 1 Volume 2 from STEP-140 onward.
+- `docs/memory/archive/phase-1-part-2.md` — closed Phase 1 Volume 2 covering STEP-140 through STEP-151.
+- `docs/memory/archive/phase-1-part-3.md` — active Phase 1 Volume 3 from STEP-152 onward.
 - `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md` — approved design for the first Phase 1 vertical slice.
 - `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` — executed plan for the completed first Phase 1 `server_config` vertical slice.
 - `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md` — approved design for the published second Phase 1 `tree` slice.
