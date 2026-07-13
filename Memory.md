@@ -6,7 +6,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-12.
+- Date: 2026-07-13.
 - Workspace: `D:\Dev\codexpro`.
 - Branch: `main`.
 - Package: `codexpro@0.28.6`.
@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first seven slices are published and cross-platform CI-validated.
+- Phase 1: the first eight slices are implemented and locally verified; the first seven are published and cross-platform CI-validated.
 
 ## Approved stopping point
 
-The seventh Phase 1 vertical slice, direct `search`, is published in commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active; Phase 2 remains closed.
+The eighth Phase 1 vertical slice, direct `write`, is implemented and locally verified. The first seven slices remain published and cross-platform CI-validated. No further Phase 1 implementation task is active; Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -51,19 +51,23 @@ The seventh Phase 1 vertical slice, direct `search`, is published in commit `021
 - Direct `search` preserves lexical matches under nested `data`, keeps aggregate text only in MCP `content`, and returns exact optional analysis or `null`.
 - Structured search disablement and unexpected analysis failure use separate fixed warnings while preserving complete lexical results and excluding raw diagnostics.
 - Direct `search` exposes eight stable non-retryable workspace/path/argument/backend/internal errors; `src/searchOps.ts` and `src/analysis/*` algorithms remain unchanged.
-- `src/gitOps.ts`, Git writes, authentication, dependencies, and Phase 2 remain out of scope for this slice.
+- Direct `write` preserves nine success fields only under nested `data` and exposes eleven stable non-retryable workspace/path/file/policy/write/internal errors.
+- The direct `write` provider seam validates the returned path and exact result before analysis-cache invalidation; only a validated changed diff invalidates the cache.
+- Fixed `write` failures exclude raw exceptions, absolute unsafe paths, file content, and secrets while retaining safe compatibility wording required by the existing Smoke suite.
+- `edit`, `apply_patch`, atomic editing, expected hashes, transactions, authentication, dependencies, and Phase 2 remain out of scope for this slice.
 - The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
 - Do not stage, commit, push, rewrite history, rotate credentials, or expand access without explicit approval; the user explicitly approved autonomous completion and publication of this slice.
 
 ## Local verification evidence
 
-- Focused `search` contracts: 15/15 passed.
-- Complete `node:test` regression suite: 137/137 passed.
+- Focused `write` contracts: 12/12 passed.
+- Adjacent `write`/`read`/`show_changes` contracts: 42/42 passed.
+- Complete `node:test` regression suite: 149/149 passed.
 - `npm run build`: passed.
-- `npm run smoke`: all eight sections passed.
+- `npm run smoke`: all eight sections passed after rebuilding stale `dist` output.
 - `npm run stress`: passed on native Windows.
-- `git diff --check`: passed after restoring the Tool Card file's established LF formatting.
-- One initial `git diff --check` exposed CRLF pollution and two merged Tool Card lines from a temporary cleanup script; normalization fixed both before final verification.
+- The first Smoke attempt exposed an obsolete raw-error substring expectation; the fixed public error retained safe compatibility wording because direct editing of the secret-bearing fixture file was correctly blocked.
+- Final working-tree and staged diff checks passed after removing two Markdown trailing spaces; Git otherwise emitted only the established Windows LF-to-CRLF working-copy warnings.
 
 ## Published phase evidence
 
@@ -88,16 +92,16 @@ The seventh Phase 1 vertical slice, direct `search`, is published in commit `021
 
 ## Open items
 
-1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
-2. Keep Phase 2 closed without a new approved design and plan.
+1. Publish the locally verified eighth Phase 1 `write` slice and record its commit/CI evidence.
+2. After publication, the next permitted action is a separately reviewed design for one additional Phase 1 tool; keep Phase 2 closed.
 
 ## Recent summaries
 
+- **STEP-134 — Reconcile the eighth slice:** updated the design, plan, changelog, AGENTS map, and project memory after the full local verification suite passed.
+- **STEP-133 — Implement and verify direct `write`:** added the exact schema-v1 contract, eleven stable failures, validated provider seam, nested Tool Card/supertool consumers, and TDD coverage; focused 12/12, adjacent 42/42, complete 149/149, Build, Smoke 8/8, and native-Windows Stress passed.
+- **STEP-132 — Design and plan direct `write`:** approved the isolated eighth Phase 1 slice without expanding into `edit`, `apply_patch`, atomic editing, or Phase 2.
 - **STEP-131 — Publish `search`:** pushed commit `02153a9`, confirmed local/remote synchronization, and verified CI run `29209071349` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-130 — Implement and verify direct `search`:** added the exact schema-v1 contract, stable failures, safe analysis degradation, nested consumers, and TDD coverage; focused 15/15, complete 137/137, Build, Smoke 8/8, native-Windows Stress, and final diff-check passed.
-- **STEP-129 — Publish `show_changes`:** pushed through documentation record `0051543`, confirmed local/remote synchronization, and verified CI run `29206887875` passed on Ubuntu/Windows with Node 20/24.
-- **STEP-128 — Verify `show_changes` locally:** focused 14/14, adjacent 50/50, complete 122/122, Build, Smoke 8/8, native-Windows Stress, and diff-check passed.
-- **STEP-127 — Complete TDD migration:** added strict schema/provider seams/classifiers, nested Tool Card/supertool consumers, safe analysis degradation, and updated historical adjacent card expectations.
 
 ## Archives
 

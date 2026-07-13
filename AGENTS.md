@@ -151,6 +151,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-12-show-changes-output-schema.md` — executed four-task plan for the published `show_changes` slice.
 - `docs/superpowers/specs/2026-07-12-search-output-schema-design.md` — published design for the seventh Phase 1 direct `search` slice.
 - `docs/superpowers/plans/2026-07-12-search-output-schema.md` — executed four-task plan for the published `search` slice.
+- `docs/superpowers/specs/2026-07-13-write-output-schema-design.md` — implemented design for the eighth Phase 1 direct `write` slice.
+- `docs/superpowers/plans/2026-07-13-write-output-schema.md` — executed four-task plan for the eighth `write` slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -192,4 +194,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first seven vertical slices are published and cross-platform CI-validated. Direct `search` is published in commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Do not begin Phase 2 without explicit approval.
+Phase 1 implementation started on 2026-07-12. The first eight vertical slices are implemented and locally verified; the first seven are published and cross-platform CI-validated. Direct `write` is the eighth slice. No further Phase 1 implementation task is active. The next permitted action is a separately reviewed Phase 1 design for one additional tool. Do not begin Phase 2 without explicit approval.

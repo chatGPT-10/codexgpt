@@ -3023,3 +3023,195 @@ The seventh Phase 1 vertical slice, direct `search`, is published and cross-plat
 **Next step**
 
 The next permitted action is a separately reviewed Phase 1 design for one additional tool. Phase 2 remains closed without explicit approval.
+
+
+## STEP-132 — Design and plan direct `write` exact output schema
+
+Status: complete
+
+Goal:
+- Define the eighth Phase 1 vertical slice without expanding into adjacent write tools or later atomic-edit work.
+
+Files changed:
+- `docs/superpowers/specs/2026-07-13-write-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-write-output-schema.md`
+
+Implementation summary:
+- Selected direct `write` as the smallest transition from read-only contracts into write-tool contracts.
+- Approved a strict schema-v1 success envelope with the nine existing public result fields nested under `data`.
+- Approved eleven stable non-retryable public errors with bounded details.
+- Defined a narrow `writeResultProvider` seam, dedicated Tool Card migration, wrapper compatibility, and TDD coverage.
+- Kept `edit`, `apply_patch`, expected hashes, atomic replace, rollback, transactions, authentication, dependencies, and Phase 2 out of scope.
+
+Verification commands:
+- Design and plan self-review against the existing Phase 1 schema pattern.
+
+Verification results:
+- No placeholders, contradictory fields, or unassigned acceptance criteria remained.
+- The plan decomposed implementation into schema, handler, consumer, and publication tasks.
+
+Decisions made:
+- Preserve current `writeTextFile` algorithms.
+- Do not add a new `changed` public field.
+- Validate provider output before cache invalidation.
+- Do not encourage automatic retries of write failures.
+
+Risks or limitations:
+- Current writes remain non-transactional and do not provide expected-hash conflict detection.
+- Error classification remains coupled to established path/file error messages and Node error codes.
+
+Rollback method:
+- Revert the design and plan files.
+
+Next step:
+- Implement the contract through failing tests before production changes.
+
+## STEP-133 — Implement and locally verify direct `write`
+
+Status: complete
+
+Goal:
+- Add the exact direct `write` schema-v1 contract while preserving current file-write behavior and safety boundaries.
+
+Files changed:
+- `src/tools/schemas/write.ts`
+- `src/fsOps.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `test/write-contract.test.mjs`
+- `CHANGELOG.md`
+- `docs/superpowers/specs/2026-07-13-write-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-write-output-schema.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+Implementation summary:
+- Added the strict `write` success schema, eleven discriminated failure schemas, pure constructors, and exact advertised `outputSchema`.
+- Exported the existing `WriteFileResult` type without changing write algorithms.
+- Added an injectable provider seam and strict provider-result validation.
+- Required the returned provider path to match the resolved target before producing success.
+- Preserved analysis-cache invalidation only for validated changed diffs.
+- Converted all direct failures to fixed public messages and bounded details.
+- Added a dedicated nested `renderWrite` Tool Card while preserving legacy adjacent file-tool rendering.
+- Added TDD coverage for creation, overwrite, no-change writes, directories, binary files, limits, content blocking, missing parents, provider failures, malformed results, cache behavior, and wrapper compatibility.
+- Preserved established Smoke compatibility wording after the existing fixture file was correctly protected from direct editing.
+
+Verification commands:
+- `node --test test/write-contract.test.mjs`
+- `node --test test/write-contract.test.mjs test/read-contract.test.mjs test/show-changes-contract.test.mjs`
+- `node --test test/*.test.mjs`
+- `npm run build`
+- `npm run smoke`
+- `npm run stress`
+
+Verification results:
+- Focused contracts: 12/12 passed.
+- Adjacent contracts: 42/42 passed.
+- Complete Node regression: 149/149 passed.
+- TypeScript build: passed.
+- Smoke: all eight sections passed after rebuilding stale `dist` output.
+- Native-Windows Stress: passed.
+- The first Smoke failure was traced to an obsolete raw-error substring expectation; no production boundary was weakened.
+
+Decisions made:
+- Keep fixed public errors free of raw exceptions, stack traces, absolute unsafe paths, file content, and sensitive values.
+- Keep safe compatibility terms in fixed messages rather than weakening content protection.
+- Keep direct `edit` and `apply_patch` on their existing contracts for later separately reviewed slices.
+
+Risks or limitations:
+- Write behavior is still non-atomic and can be affected by concurrent filesystem changes.
+- `WRITE_FAILED` intentionally hides operating-system diagnostics from clients.
+- Cross-platform CI remains required after publication.
+
+Rollback method:
+- Revert the eighth-slice implementation commit to remove the schema module, provider seam, direct envelope, Tool Card consumer, tests, and documentation while preserving prior write behavior.
+
+Next step:
+- Complete neat-freak reconciliation, final diff validation, publication, and cross-platform CI verification.
+
+## STEP-134 — Neat-freak reconciliation and final local validation
+
+Status: complete
+
+Goal:
+- Reconcile repository guidance and memory after the eighth slice, remove temporary side effects, and confirm the final local diff is publishable.
+
+Files changed:
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/specs/2026-07-13-write-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-write-output-schema.md`
+
+Implementation summary:
+- Added the eighth-slice design and plan to the documentation map.
+- Updated the current stopping point, active decisions, verification evidence, open items, and recent summaries.
+- Kept `Memory.md` within its practical line and byte limits.
+- Preserved the oversized Phase 1 archive as append-only rather than splitting it during an active phase.
+- Detected and repaired one uncommitted malformed archive append caused by a truncated long encoded shell argument; the original first 191,215 bytes were preserved and the replacement entries were appended from validated UTF-8 files.
+- Removed an untracked `safe.txt` left by an earlier RED-stage provider test before the provider seam existed.
+
+Verification commands:
+- `node --test test/write-contract.test.mjs`
+- `git diff --check`
+- Node byte/line checks for `AGENTS.md`, `Memory.md`, and the Phase 1 archive.
+- Node UTF-8 and temporary-file checks for the repaired archive tail.
+
+Verification results:
+- Focused contracts: 12/12 passed.
+- `git diff --check`: passed with only established Windows LF-to-CRLF warnings.
+- `AGENTS.md`: 198 lines and 11,592 bytes.
+- `Memory.md`: 119 lines and 10,307 bytes before the final evidence-line adjustment; still within limits afterward.
+- Repaired archive tail contains STEP-132 and STEP-133, has zero replacement characters, and ends with a newline.
+- No temporary archive files or `safe.txt` remain.
+
+Decisions made:
+- Do not split the active append-only Phase 1 archive as part of this feature slice.
+- Record the malformed append as a failed attempt because it materially affected verification.
+- Keep publication and CI evidence for a follow-up memory record after the implementation commit is pushed.
+
+Risks or limitations:
+- Git continues to warn that LF working-copy files may become CRLF when touched on Windows; no whitespace errors were reported.
+
+Rollback method:
+- Revert the documentation changes and truncate only this uncommitted STEP-134 append if publication is abandoned.
+
+Next step:
+- Commit and push the complete eighth slice, verify cross-platform CI, and append the publication record.
+
+## STEP-134 correction — staged whitespace check
+
+Status: complete
+
+Goal:
+- Correct the final verification record after the first staged diff check found two trailing spaces in the new design metadata.
+
+Files changed:
+- `docs/superpowers/specs/2026-07-13-write-output-schema-design.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+
+Implementation summary:
+- Removed the two Markdown line-ending spaces from the Date and Phase metadata lines.
+- Re-staged the design file.
+
+Verification commands:
+- `git diff --cached --check`
+
+Verification results:
+- The first staged check reported exactly two trailing-whitespace findings.
+- The repeated staged check passed with no output.
+
+Decisions made:
+- Treat staged diff validation as the authoritative final whitespace gate.
+
+Risks or limitations:
+- None beyond the existing Windows line-ending warnings on working-tree operations.
+
+Rollback method:
+- Revert this correction with the rest of the uncommitted slice if publication is abandoned.
+
+Next step:
+- Re-stage the updated memory/archive records and commit the eighth slice.

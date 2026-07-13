@@ -607,6 +607,30 @@ export const toolCardWidgetHtml = String.raw`
     }).join("");
   }
 
+  function renderWrite(data) {
+    const writeData = data?.data ?? {};
+    const error = data?.error ?? {};
+    const failed = data?.ok === false;
+    const pills = failed
+      ? pill(error.code || "error", "bad")
+      : [
+          writeData.bytes !== undefined ? pill(writeData.bytes + " bytes") : "",
+          writeData.additions !== undefined ? pill("+" + writeData.additions, "good") : "",
+          writeData.deletions !== undefined ? pill("-" + writeData.deletions, "bad") : ""
+        ].join("");
+    const body = failed
+      ? '<div class="empty">' + esc(error.message || "Write failed.") + '</div>'
+      : '<div class="summary">' +
+        summaryItem("Path", writeData.path || "-") +
+        summaryItem("Existed", writeData.existed ? "yes" : "no") +
+        summaryItem("SHA-256", writeData.sha256 || "-") +
+        '</div>' +
+        (writeData.diff
+          ? codebox(basename(writeData.path || "file"), renderDiff(writeData.diff), "")
+          : '<div class="empty">No diff returned.</div>');
+    return '<article class="card">' + header(data, pills) + '<div class="body">' + body + '</div></article>';
+  }
+
   function renderFile(data) {
     const pills = [
       data.bytes !== undefined ? pill(data.bytes + " bytes") : "",
@@ -1178,7 +1202,9 @@ export const toolCardWidgetHtml = String.raw`
       root.innerHTML = renderHandoff(data);
     } else if (tool === "git_diff") {
       root.innerHTML = renderGitDiff(data);
-    } else if (tool === "write" || tool === "edit" || tool === "apply_patch" || tool === "export_pro_context") {
+    } else if (tool === "write") {
+      root.innerHTML = renderWrite(data);
+    } else if (tool === "edit" || tool === "apply_patch" || tool === "export_pro_context") {
       root.innerHTML = renderFile(data);
     } else if (tool === "bash") {
       root.innerHTML = renderBash(data);

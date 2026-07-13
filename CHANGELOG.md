@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an exact schema-v1 `write` result envelope with strict nested file metadata, stable redacted workspace/path/file/policy/write failures, safe provider validation, dedicated nested Tool Card/supertool output, and preserved create/overwrite/diff/cache-invalidation behavior.
 - Added an exact schema-v1 `search` result envelope with strict lexical matches, stable redacted workspace/path/backend failures, exact optional structured analysis, fixed safe degradation warnings, nested Tool Card/supertool output, and preserved ripgrep/Node fallback behavior.
 - Added an exact schema-v1 `show_changes` result envelope with strict Git/workspace/path failures, exact optional impact-analysis data, fixed safe analysis degradation, nested Tool Card/supertool output, and preserved staged/path/checkpoint/untracked-file behavior.
 - Added an exact schema-v1 `git_diff` result envelope with strict success invariants, stable redacted Git/path failures, a dedicated nested-data tool card, and preserved staged/path/stats-only behavior; corrected native-Windows Stress fixtures so the full suite runs on Windows.

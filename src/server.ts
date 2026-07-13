@@ -15,7 +15,8 @@ import {
   ensureAiBridge,
   type ReadFileResult,
   type TreeOptions,
-  type TreeResult
+  type TreeResult,
+  type WriteFileResult
 } from "./fsOps.js";
 import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
 import { probeBashAvailability, runBash } from "./bashOps.js";
@@ -92,6 +93,14 @@ import {
   type SearchFailureInput,
   type SearchWarning
 } from "./tools/schemas/search.js";
+import {
+  WRITE_ERROR_MESSAGES,
+  createWriteFailure,
+  createWriteSuccess,
+  writeDataSchema,
+  writeOutputShape,
+  type WriteFailureInput
+} from "./tools/schemas/write.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -289,6 +298,132 @@ function classifyReadFailure(
 
   if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
     return { code: "PATH_OUTSIDE_WORKSPACE", details: { path: pathDetail } };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+const writeProviderResultSchema = z.object({
+  path: z.string().min(1),
+  bytes: z.number().int().nonnegative(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  existed: z.boolean(),
+  diff: z.object({
+    diff: z.string(),
+    additions: z.number().int().nonnegative(),
+    deletions: z.number().int().nonnegative(),
+    changed: z.boolean()
+  }).strict()
+}).strict().superRefine((value, context) => {
+  if (!value.diff.changed && (value.diff.additions !== 0 || value.diff.deletions !== 0)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["diff", "changed"],
+      message: "Unchanged write results require zero diff statistics."
+    });
+  }
+});
+
+function classifyWriteFailure(
+  error: unknown,
+  args: Record<string, unknown>,
+  config: CodexProConfig
+): WriteFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+  const pathDetail = safeTreePathDetail(args.path ?? "[path omitted]");
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  if (
+    message.startsWith("Path is blocked by safety rules:") ||
+    message.startsWith("Refusing to write through a symlink:")
+  ) {
+    return { code: "PATH_BLOCKED", details: { path: pathDetail } };
+  }
+
+  const outsidePrefixes = [
+    "Path contains a null byte.",
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Write path resolves through a parent outside the workspace:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return { code: "PATH_OUTSIDE_WORKSPACE", details: { path: pathDetail } };
+  }
+
+  const filesystemCode = nodeErrorCode(error);
+  if (
+    message.startsWith("Not a file:") ||
+    filesystemCode === "EISDIR" ||
+    filesystemCode === "ENOTDIR"
+  ) {
+    return { code: "NOT_A_FILE", details: { path: pathDetail } };
+  }
+
+  if (message === "Refusing to read binary file.") {
+    return { code: "FILE_NOT_TEXT", details: { path: pathDetail } };
+  }
+
+  if (message.startsWith("Write content is too large (")) {
+    return {
+      code: "FILE_TOO_LARGE",
+      details: {
+        path: pathDetail,
+        scope: "content",
+        limit_bytes: config.maxWriteBytes
+      }
+    };
+  }
+
+  if (message.startsWith("File is too large (")) {
+    return {
+      code: "FILE_TOO_LARGE",
+      details: {
+        path: pathDetail,
+        scope: "existing_file",
+        limit_bytes: Math.max(config.maxWriteBytes, config.maxReadBytes)
+      }
+    };
+  }
+
+  if (message.startsWith("Secret-looking content is blocked from write.")) {
+    return { code: "SECRET_CONTENT_BLOCKED", details: { path: pathDetail } };
+  }
+
+  if (message.startsWith("File already exists and overwrite=false:")) {
+    return { code: "FILE_ALREADY_EXISTS", details: { path: pathDetail } };
+  }
+
+  if (filesystemCode === "ENOENT" && args.create_dirs === false) {
+    return { code: "PARENT_DIRECTORY_NOT_FOUND", details: { path: pathDetail } };
+  }
+
+  const writeFailureCodes = new Set([
+    "EACCES",
+    "EPERM",
+    "EROFS",
+    "ENOSPC",
+    "EDQUOT",
+    "EIO",
+    "EMFILE",
+    "ENFILE",
+    "EBUSY",
+    "ENOENT"
+  ]);
+  if (filesystemCode && writeFailureCodes.has(filesystemCode)) {
+    return { code: "WRITE_FAILED", details: {} };
   }
 
   return { code: "INTERNAL_ERROR", details: {} };
@@ -783,6 +918,18 @@ export interface ReadProviderContext {
   };
 }
 
+export interface WriteProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  path: string;
+  content: string;
+  options: {
+    createDirs: boolean;
+    overwrite: boolean;
+  };
+}
+
 export interface SearchProviderContext {
   config: CodexProConfig;
   guard: PathGuard;
@@ -824,6 +971,7 @@ export interface CodexProServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
   readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
+  writeResultProvider?: (context: WriteProviderContext) => Promise<WriteFileResult>;
   searchResultProvider?: (context: SearchProviderContext) => SearchResult | Promise<SearchResult>;
   gitStatusResultProvider?: (
     context: GitStatusProviderContext
@@ -1642,6 +1790,17 @@ export function createCodexProServer(
         context.guard,
         context.workspace,
         context.path,
+        context.options
+      ));
+  const writeResultProvider =
+    dependencies.writeResultProvider ??
+    ((context: WriteProviderContext) =>
+      writeTextFile(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.path,
+        context.content,
         context.options
       ));
   const searchResultProvider =
@@ -2638,6 +2797,7 @@ export function createCodexProServer(
         create_dirs: z.boolean().optional().describe("Create parent directories if missing. Default: true."),
         overwrite: z.boolean().optional().describe("Allow overwriting existing files. Default: true.")
       },
+      outputSchema: writeOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -2646,26 +2806,54 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const resolved = guard.resolve(workspace, args.path, { forWrite: true });
-      assertWriteToolAllowed(config, resolved.relPath);
-      const result = await writeTextFile(config, guard, workspace, args.path, String(args.content ?? ""), {
-        createDirs: args.create_dirs !== false,
-        overwrite: args.overwrite !== false
-      });
-      if (result.diff.changed) invalidateWorkspaceAnalysis(workspace.id);
-      const text = `# Write File\n\nPath: ${result.path}\nExisted before: ${result.existed}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\nDiff stats: +${result.diff.additions} -${result.diff.deletions}${diffBlock(result.diff.diff)}`;
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        path: result.path,
-        existed: result.existed,
-        bytes: result.bytes,
-        sha256: result.sha256,
-        additions: result.diff.additions,
-        deletions: result.diff.deletions,
-        diff: result.diff.diff
-      });
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const requestedPath = String(args.path ?? "");
+        const content = String(args.content ?? "");
+        const resolved = guard.resolve(workspace, requestedPath, { forWrite: true });
+        assertWriteToolAllowed(config, resolved.relPath);
+        const result = writeProviderResultSchema.parse(await writeResultProvider({
+          config,
+          guard,
+          workspace,
+          path: requestedPath,
+          content,
+          options: {
+            createDirs: args.create_dirs !== false,
+            overwrite: args.overwrite !== false
+          }
+        }));
+        if (result.path !== resolved.relPath) {
+          throw new CodexProError("Write provider returned a path that does not match the resolved target.");
+        }
+        const data = writeDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          path: result.path,
+          existed: result.existed,
+          bytes: result.bytes,
+          sha256: result.sha256,
+          additions: result.diff.additions,
+          deletions: result.diff.deletions,
+          diff: result.diff.diff
+        });
+        if (result.diff.changed) invalidateWorkspaceAnalysis(workspace.id);
+        const text = `# Write File\n\nPath: ${result.path}\nExisted before: ${result.existed}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\nDiff stats: +${result.diff.additions} -${result.diff.deletions}${diffBlock(result.diff.diff)}`;
+        return textResult(text, createWriteSuccess(data));
+      } catch (error) {
+        const failure = classifyWriteFailure(error, args, config);
+        const structured = createWriteFailure(failure);
+        const text = [
+          "# Write File Error",
+          "",
+          `Code: ${failure.code}`,
+          WRITE_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, structured),
+          isError: true
+        };
+      }
     }
   );
 

@@ -39,6 +39,14 @@ export interface DiffResult {
   changed: boolean;
 }
 
+export interface WriteFileResult {
+  path: string;
+  bytes: number;
+  sha256: string;
+  existed: boolean;
+  diff: DiffResult;
+}
+
 export function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
@@ -245,7 +253,7 @@ export async function writeTextFile(
   filePath: string,
   content: string,
   options: { createDirs?: boolean; overwrite?: boolean } = {}
-): Promise<{ path: string; bytes: number; sha256: string; existed: boolean; diff: DiffResult }> {
+): Promise<WriteFileResult> {
   const resolved = guard.resolve(workspace, filePath, { forWrite: true });
   const contentBytes = Buffer.byteLength(content, "utf8");
   if (contentBytes > config.maxWriteBytes) {
