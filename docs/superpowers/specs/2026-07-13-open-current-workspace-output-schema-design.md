@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Phase: Phase 1, twelfth vertical slice
-Status: Locally implemented and verified; not staged, committed, pushed, or CI-published
+Status: Published as commit `d887849` on `origin/main`; exact-head CI verification pending
 
 ## 1. Goal
 
@@ -500,4 +500,4 @@ The slice is complete only when:
 
 ## 19. Current stopping point
 
-The design has been implemented locally with a strict schema module, tool-specific provider validation, fixed safe failures, nested Tool Card/supertool compatibility, and migrated Smoke/HTTP Smoke/Stress consumers. Final local evidence includes focused 13/13, complete regression 202/202, Build, Smoke 8/8, and native-Windows Stress. `neat-freak` reconciliation is complete, and the user has authorized staging, commit, and push. Exact-head cross-platform CI must be verified after publication; credential/access changes and Phase 2 remain closed.
+The design was implemented, verified, reconciled with `neat-freak`, committed as `d887849`, and pushed to `origin/main`. Final local evidence includes focused 13/13, complete regression 202/202, Build, Smoke 8/8, and native-Windows Stress. Exact-head cross-platform CI remains pending because the current environment cannot query GitHub Actions; credential/access changes and Phase 2 remain closed.

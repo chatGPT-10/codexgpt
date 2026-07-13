@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first eleven slices are published and cross-platform CI-validated; direct `open_current_workspace` is the locally verified twelfth slice, with publication authorized and in progress.
+- Phase 1: the first eleven slices are published and cross-platform CI-validated; direct `open_current_workspace` is published as commit `d887849`, with exact-head CI verification pending.
 
 ## Approved stopping point
 
-The first eleven Phase 1 slices are published and cross-platform CI-validated. Direct `bash` was published through commit `a39b779`; exact-head CI run `29239425311` passed Ubuntu/Windows with Node 20/24. Direct `open_current_workspace` is locally implemented and verified with focused 13/13, complete regression 202/202, Build, Smoke 8/8, and native-Windows Stress. `neat-freak` reconciliation is complete, and staging, commit, and push are authorized. The next action is publication followed by exact-head CI verification. Phase 2 remains closed.
+The first eleven Phase 1 slices are published and cross-platform CI-validated. Direct `bash` was published through commit `a39b779`; exact-head CI run `29239425311` passed Ubuntu/Windows with Node 20/24. Direct `open_current_workspace` was published as commit `d887849` after focused 13/13, complete regression 202/202, Build, Smoke 8/8, native-Windows Stress, and `neat-freak` reconciliation. Exact-head CI remains unverified because `gh` is unavailable and the public Actions lookup was inaccessible from the current environment. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -81,6 +81,7 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 - `edit`: implementation commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows Node 20/24.
 - `apply_patch`: design commit `3279d0c`; implementation commit `c761b4e`; CI run `29233787814` passed Ubuntu/Windows Node 20/24.
 - `bash`: planning `1f66073`, schema `0ddabfc`, handler `7a71421`, consumers `86350df`, publication record `a39b779`; CI run `29239425311` passed Ubuntu/Windows Node 20/24.
+- `open_current_workspace`: implementation and reconciliation commit `d887849` pushed to `origin/main`; exact-head CI verification remains pending because the current environment cannot query GitHub Actions.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across `docs/memory/archive/phase-1.md` (STEP-073–139) and the active `docs/memory/archive/phase-1-part-2.md` (STEP-140 onward).
 
 ## Known limitations
@@ -99,15 +100,15 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 
 ## Open items
 
-1. Stage, commit, and push the reconciled twelfth-slice changes to `origin/main`.
-2. Verify exact-head Ubuntu/Windows Node 20/24 CI after publication; keep credential/access changes and Phase 2 closed.
+1. Verify exact-head Ubuntu/Windows Node 20/24 CI for the published `open_current_workspace` slice when GitHub Actions access is available.
+2. Keep credential/access changes and Phase 2 closed; do not start the next slice until publication state is reconciled.
 
 ## Recent summaries
 
+- **STEP-151 — Publish direct `open_current_workspace`:** committed the reconciled slice as `d887849` and pushed `main` to `origin`; exact-head CI remains pending because the current environment lacks `gh` and could not access the public Actions lookup.
 - **STEP-150 — Reconcile the twelfth slice:** ran `neat-freak`, audited rule/document references, reduced `Memory.md` from 145 lines/15.5 KB to a thinner index, and aligned all current stopping points with the authorized publication workflow.
 - **STEP-149 — Implement and verify direct `open_current_workspace`:** added the exact twelve-field envelope, five fixed failures, strict provider identity/path/skill/count/inclusion checks, nested Tool Card/supertool consumers, and real Smoke/HTTP Smoke/Stress migration; focused 13/13, complete 202/202, Build, Smoke 8/8, and native-Windows Stress passed.
 - **STEP-148 — Plan direct `open_current_workspace`:** converted the approved design into a four-task TDD plan covering schema, handler/provider, consumers, verification, rollback, and publication boundaries.
-- **STEP-147 — Design direct `open_current_workspace`:** selected the isolated twelfth Phase 1 slice, defined twelve nested success fields and five fixed failures, preserved non-Git workspace success, and kept lifecycle redesign and Phase 2 closed.
 ## Archives
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)

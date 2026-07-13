@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing `WorkspaceManager`, `PathGuard`, `workspaceSummary`, Tool Card HTML, Smoke/HTTP Smoke/Stress suites, native Windows and Ubuntu CI.
 
-**Status:** Locally implemented and verified on the current `main` workspace. Staging, commit and push remain separate approval gates.
+**Status:** Published as commit `d887849` on `origin/main`; exact-head CI verification is pending because GitHub Actions is inaccessible from the current environment.
 
 ## Global Constraints
 
@@ -348,4 +348,4 @@ Run `show_changes(include_diff=false)` after documentation updates and rerun `gi
 
 ## Current Stopping Point
 
-Implementation and `neat-freak` reconciliation are locally complete and verified. The user has authorized staging, commit, and push; exact-head cross-platform CI must be verified after publication. Credential/access changes and Phase 2 remain closed.
+Implementation and `neat-freak` reconciliation were published as commit `d887849` on `origin/main`. Exact-head cross-platform CI remains pending because the current environment cannot query GitHub Actions. Credential/access changes and Phase 2 remain closed.

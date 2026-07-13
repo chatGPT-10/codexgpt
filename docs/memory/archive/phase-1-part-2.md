@@ -831,3 +831,74 @@ Before commit, discard only the STEP-150 reconciliation edits. After normal publ
 **Next step**
 
 Run final verification, stage the complete reconciled slice, create an intentional commit, push `main` to `origin`, and verify exact-head CI. Keep Phase 2 closed.
+
+---
+
+## STEP-151 — Publish direct `open_current_workspace`
+
+**Status**
+
+Implementation and reconciliation commit `d887849` was pushed to `origin/main`. Exact-head GitHub Actions verification remains pending because the current environment cannot query Actions.
+
+**Goal**
+
+Publish the complete twelfth Phase 1 slice and record the exact commit plus any remaining verification limitation.
+
+**Files changed**
+
+- All 13 files listed in STEP-149 and STEP-150 were committed as `d887849`.
+- This follow-up publication record updates `AGENTS.md`, `Memory.md`, the design, the plan, and the active Phase 1 archive.
+
+**Implementation summary**
+
+- Re-ran the complete 202-test regression, TypeScript Build, all eight Smoke sections, native-Windows Stress, and staged diff checks after `neat-freak` reconciliation.
+- Staged exactly the 13 intended implementation, test, consumer, design, plan, changelog, rule, memory, and archive files.
+- Created commit `d887849` with message `feat: stabilize open current workspace contract`.
+- Pushed `main` from `8117aec` to `d887849` on `origin`.
+- Attempted exact-head CI lookup with `gh run list`; the command failed because `gh` is not installed.
+- Attempted public GitHub Actions lookup through the available web path; the repository Actions page/API was inaccessible from the current environment.
+
+**Verification commands**
+
+```text
+node --test test/*.test.mjs
+npm run build
+npm run smoke
+npm run stress
+git diff --check
+git add <13 intended files>
+git diff --cached --check
+git commit -m "feat: stabilize open current workspace contract"
+git push origin main
+gh run list --branch main --limit 5 --json databaseId,headSha,status,conclusion,url,name,createdAt
+```
+
+**Verification results**
+
+- Complete regression: 202/202 passed.
+- Build: passed.
+- Smoke: all eight sections passed.
+- Native-Windows Stress: passed, including its internal Build.
+- Unstaged and staged diff checks passed; only established LF-to-CRLF warnings appeared before staging.
+- Commit: `d887849`.
+- Push: succeeded, `main -> main` on `origin`.
+- Exact-head CI: not verified due tooling/network access limitations, not due a reported CI failure.
+
+**Decisions made**
+
+- Treat the implementation as published but not yet cross-platform CI-validated.
+- Do not claim CI success without direct evidence.
+- Keep the next Phase 1 slice and Phase 2 closed until the publication state is reconciled.
+
+**Risks or limitations**
+
+- The pushed commit may still be running or may require later CI inspection.
+- A future environment with GitHub Actions access must confirm Ubuntu/Windows Node 20/24 status for the final publication-record HEAD.
+
+**Rollback method**
+
+Revert the follow-up publication-state record first, then revert `d887849` without rewriting history. Do not force-push or alter credentials, profiles, allowed roots, or prior Phase 1 commits.
+
+**Next step**
+
+Commit and push this publication-state record. When GitHub Actions access is available, verify exact-head Ubuntu/Windows Node 20/24 CI and append a correction or closure STEP. Keep Phase 2 closed.
