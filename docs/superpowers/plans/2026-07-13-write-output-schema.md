@@ -185,7 +185,7 @@ git diff --check
 
 Expected: PASS.
 
-- [ ] **Step 4: Stage, commit, and push the complete eighth slice**
+- [x] **Step 4: Stage, commit, and push the complete eighth slice**
 
 ```text
 git add AGENTS.md CHANGELOG.md Memory.md docs/memory/archive/phase-1.md docs/superpowers/specs/2026-07-13-write-output-schema-design.md docs/superpowers/plans/2026-07-13-write-output-schema.md src/fsOps.ts src/server.ts src/toolCardWidget.ts src/tools/schemas/write.ts test/write-contract.test.mjs scripts/smoke.mjs scripts/stress.mjs

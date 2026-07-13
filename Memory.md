@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first eight slices are implemented and locally verified; the first seven are published and cross-platform CI-validated.
+- Phase 1: the first eight slices are published and cross-platform CI-validated.
 
 ## Approved stopping point
 
-The eighth Phase 1 vertical slice, direct `write`, is implemented and locally verified. The first seven slices remain published and cross-platform CI-validated. No further Phase 1 implementation task is active; Phase 2 remains closed.
+The eighth Phase 1 vertical slice, direct `write`, is published in commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active; Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -79,6 +79,7 @@ The eighth Phase 1 vertical slice, direct `write`, is implemented and locally ve
 - `git_diff`: design `1bbe240`, plan `8083f53`, implementation `19f0042`, publication record `9103ce4`; CI run `29204692105` passed on Ubuntu/Windows Node 20/24.
 - `show_changes`: design `5108e8a`, plan `8e885ef`, schema `69c5fea`, handler `2329160`, consumers `9777f32`, adjacent tests `c41365a`, documentation record `0051543`; CI run `29206887875` passed on Ubuntu/Windows Node 20/24.
 - `search`: implementation and publication commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows Node 20/24.
+- `write`: implementation commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are in `docs/memory/archive/phase-1.md`.
 
 ## Known limitations
@@ -92,16 +93,16 @@ The eighth Phase 1 vertical slice, direct `write`, is implemented and locally ve
 
 ## Open items
 
-1. Publish the locally verified eighth Phase 1 `write` slice and record its commit/CI evidence.
-2. After publication, the next permitted action is a separately reviewed design for one additional Phase 1 tool; keep Phase 2 closed.
+1. No Phase 1 implementation task is active; the next permitted action is a separately reviewed design for one additional Phase 1 tool.
+2. Keep Phase 2 closed without a new approved design and plan.
 
 ## Recent summaries
 
+- **STEP-135 — Publish `write`:** pushed implementation commit `b807b9e` and verified CI run `29224276725` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-134 — Reconcile the eighth slice:** updated the design, plan, changelog, AGENTS map, and project memory after the full local verification suite passed.
 - **STEP-133 — Implement and verify direct `write`:** added the exact schema-v1 contract, eleven stable failures, validated provider seam, nested Tool Card/supertool consumers, and TDD coverage; focused 12/12, adjacent 42/42, complete 149/149, Build, Smoke 8/8, and native-Windows Stress passed.
 - **STEP-132 — Design and plan direct `write`:** approved the isolated eighth Phase 1 slice without expanding into `edit`, `apply_patch`, atomic editing, or Phase 2.
 - **STEP-131 — Publish `search`:** pushed commit `02153a9`, confirmed local/remote synchronization, and verified CI run `29209071349` passed on Ubuntu/Windows with Node 20/24.
-- **STEP-130 — Implement and verify direct `search`:** added the exact schema-v1 contract, stable failures, safe analysis degradation, nested consumers, and TDD coverage; focused 15/15, complete 137/137, Build, Smoke 8/8, native-Windows Stress, and final diff-check passed.
 
 ## Archives
 

@@ -3215,3 +3215,48 @@ Rollback method:
 
 Next step:
 - Re-stage the updated memory/archive records and commit the eighth slice.
+
+## STEP-135 — Publish direct `write`
+
+Status: complete
+
+Goal:
+- Publish the eighth Phase 1 vertical slice and verify its required cross-platform CI matrix.
+
+Files changed:
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1.md`
+- `docs/superpowers/specs/2026-07-13-write-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-write-output-schema.md`
+
+Implementation summary:
+- Committed the exact direct `write` contract as `b807b9e` with message `feat(schema): add exact write result contract`.
+- Pushed `main` to `origin/main`.
+- Queried GitHub Actions through the public API because `gh` is unavailable in the Git Bash environment.
+- Confirmed CI run `29224276725` completed successfully.
+
+Verification commands:
+- `git push origin main`
+- GitHub Actions public run query for commit `b807b9e1a9f4998a30731fbf4a5244880d3a5e7e`
+- GitHub Actions public jobs query for run `29224276725`
+
+Verification results:
+- Push updated remote `main` from `fe210e4` to `b807b9e`.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+
+Decisions made:
+- Record the implementation commit as the canonical eighth-slice publication commit.
+- Use a separate documentation commit to close the plan and preserve publication evidence.
+
+Risks or limitations:
+- The local Git Bash environment does not contain the `gh` executable; public API checks are sufficient for this public repository but do not provide authenticated administrative operations.
+
+Rollback method:
+- Revert the documentation record separately if its evidence is incorrect; revert `b807b9e` to roll back the implementation.
+
+Next step:
+- Push the publication-record commit, verify the final branch-head CI, and leave Phase 2 closed.
