@@ -41,7 +41,7 @@
 
 ### Step 1.1 — Create the complete focused contract test in RED state
 
-- [ ] Create `test/workspace-snapshot-contract.test.mjs` using the existing in-memory MCP pattern.
+- [x] Create `test/workspace-snapshot-contract.test.mjs` using the existing in-memory MCP pattern.
 
 Use these imports and schema loading rules:
 
@@ -378,7 +378,7 @@ await withConfigClient(createTestConfig(root, { toolMode: "full" }), {}, async (
 });
 ```
 
-- [ ] Run the focused test before creating the schema module.
+- [x] Run the focused test before creating the schema module.
 
 ```text
 node --test test/workspace-snapshot-contract.test.mjs
@@ -388,7 +388,7 @@ node --test test/workspace-snapshot-contract.test.mjs
 
 ### Step 1.2 — Create the exact schema module
 
-- [ ] Create `src/tools/schemas/workspaceSnapshot.ts` with this complete contract structure:
+- [x] Create `src/tools/schemas/workspaceSnapshot.ts` with this complete contract structure:
 
 ```ts
 import { z } from "zod";
@@ -588,7 +588,7 @@ export function createWorkspaceSnapshotFailure(
 }
 ```
 
-- [ ] Run the focused contract again.
+- [x] Run the focused contract again.
 
 ```text
 node --test test/workspace-snapshot-contract.test.mjs
@@ -598,17 +598,17 @@ node --test test/workspace-snapshot-contract.test.mjs
 
 ### Step 1.3 — Record Task 1
 
-- [ ] Append a STEP entry to `docs/memory/archive/phase-1-part-3.md` with:
+- [x] Append a STEP entry to `docs/memory/archive/phase-1-part-3.md` with:
   - status;
   - files changed;
   - RED command and failure reason;
   - schema implementation command and new result;
   - exact contract decisions;
   - risks, rollback, and next task.
-- [ ] Update `Memory.md` concisely: four errors, thirteen data fields, tree non-null, AI filenames approved-only, Task 1 status, and Task 2 next.
-- [ ] Check `Memory.md` remains within hard limits.
-- [ ] Run `show_changes` and confirm only Task 1 files plus records changed.
-- [ ] Stop before staging or commit unless explicitly authorized.
+- [x] Update `Memory.md` concisely: four errors, thirteen data fields, tree non-null, AI filenames approved-only, Task 1 status, and Task 2 next.
+- [x] Check `Memory.md` remains within hard limits.
+- [x] Run `show_changes` and confirm only Task 1 files plus records changed.
+- [x] Stop before staging or commit unless explicitly authorized.
 
 **Proposed commit after approval:**
 
@@ -629,7 +629,7 @@ test(schema): define workspace_snapshot result contract
 
 ### Step 2.1 — Import the schema and define snapshot provider types
 
-- [ ] Add this import adjacent to the existing workspace schema imports:
+- [x] Add this import adjacent to the existing workspace schema imports:
 
 ```ts
 import {
@@ -642,7 +642,7 @@ import {
 } from "./tools/schemas/workspaceSnapshot.js";
 ```
 
-- [ ] Add these exact internal types near the open-workspace provider types:
+- [x] Add these exact internal types near the open-workspace provider types:
 
 ```ts
 type WorkspaceSnapshotSummaryOptions = {
@@ -695,7 +695,7 @@ type WorkspaceSnapshotAiProviderResult = z.infer<
 >;
 ```
 
-- [ ] Export provider contexts beside the existing open-workspace contexts:
+- [x] Export provider contexts beside the existing open-workspace contexts:
 
 ```ts
 export interface WorkspaceSnapshotSummaryProviderContext {
@@ -712,7 +712,7 @@ export interface WorkspaceSnapshotAiContextProviderContext {
 }
 ```
 
-- [ ] Extend `CodexProServerDependencies` exactly:
+- [x] Extend `CodexProServerDependencies` exactly:
 
 ```ts
 workspaceSnapshotSummaryProvider?: (
@@ -725,7 +725,7 @@ workspaceSnapshotAiContextProvider?: (
 
 ### Step 2.2 — Add strict summary validation
 
-- [ ] Add a tool-specific expected-count helper; do not refactor the existing open-tool helpers in this slice:
+- [x] Add a tool-specific expected-count helper; do not refactor the existing open-tool helpers in this slice:
 
 ```ts
 function expectedWorkspaceSnapshotSkillCounts(
@@ -743,7 +743,7 @@ function expectedWorkspaceSnapshotSkillCounts(
 }
 ```
 
-- [ ] Add `validateWorkspaceSnapshotSummary` with these exact invariants:
+- [x] Add `validateWorkspaceSnapshotSummary` with these exact invariants:
 
 ```ts
 function validateWorkspaceSnapshotSummary(
@@ -844,7 +844,7 @@ The strict provider schema already enforces non-empty tree and Git status. Do no
 
 ### Step 2.3 — Add approved AI-context path normalization
 
-- [ ] Add the fixed basename list:
+- [x] Add the fixed basename list:
 
 ```ts
 const WORKSPACE_SNAPSHOT_AI_CONTEXT_NAMES = [
@@ -858,7 +858,7 @@ const WORKSPACE_SNAPSHOT_AI_CONTEXT_NAMES = [
 ] as const;
 ```
 
-- [ ] Add a validator that derives the approved normalized set from `config.contextDir` and `PathGuard`:
+- [x] Add a validator that derives the approved normalized set from `config.contextDir` and `PathGuard`:
 
 ```ts
 function validateWorkspaceSnapshotAiFiles(
@@ -899,7 +899,7 @@ Do not include AI provider text in structured data.
 
 ### Step 2.4 — Add safe workspace-resolution details and failure rendering
 
-- [ ] Add this classifier:
+- [x] Add this classifier:
 
 ```ts
 function classifyWorkspaceSnapshotWorkspaceFailure(
@@ -923,7 +923,7 @@ function classifyWorkspaceSnapshotWorkspaceFailure(
 }
 ```
 
-- [ ] Add one local helper inside the snapshot handler or a small nearby function to render fixed public text:
+- [x] Add one local helper inside the snapshot handler or a small nearby function to render fixed public text:
 
 ```ts
 function workspaceSnapshotFailureText(
@@ -942,7 +942,7 @@ No raw error argument may enter this text.
 
 ### Step 2.5 — Wire production defaults
 
-- [ ] In `createCodexProServer`, add defaults after the open-workspace providers:
+- [x] In `createCodexProServer`, add defaults after the open-workspace providers:
 
 ```ts
 const workspaceSnapshotSummaryProvider =
@@ -969,9 +969,9 @@ Do not pass `createIfMissing: true`.
 
 ### Step 2.6 — Replace only the direct `workspace_snapshot` handler
 
-- [ ] Add `outputSchema: workspaceSnapshotOutputShape` to the descriptor.
+- [x] Add `outputSchema: workspaceSnapshotOutputShape` to the descriptor.
 
-- [ ] Replace the existing handler with separate resolution, invocation, validation, and construction stages:
+- [x] Replace the existing handler with separate resolution, invocation, validation, and construction stages:
 
 ```ts
 async (args) => {
@@ -1138,7 +1138,7 @@ Do not add flat compatibility fields to the direct result.
 
 ### Step 2.7 — Complete and run the handler tests
 
-- [ ] Implement every behavior test already named in Task 1.
+- [x] Implement every behavior test already named in Task 1.
 
 Use injected providers to prove:
 
@@ -1175,7 +1175,7 @@ Use injected providers to prove:
 - `../private.md`, absolute paths, and `.ai-bridge/unapproved.md` fail without appearing in output;
 - `fs.stat(root/.ai-bridge)` still rejects with `ENOENT` after a production-provider snapshot on a workspace without the directory.
 
-- [ ] Run the focused contract.
+- [x] Run the focused contract.
 
 ```text
 node --test test/workspace-snapshot-contract.test.mjs
@@ -1183,7 +1183,7 @@ node --test test/workspace-snapshot-contract.test.mjs
 
 **Expected GREEN result:** all focused schema, descriptor, handler, failure, Tool Card source, supertool, and compatibility-source tests that do not yet require Task 3 consumer changes pass; Task 3-specific source assertions remain RED until the consumer migration is applied.
 
-- [ ] Run the adjacent workspace contracts.
+- [x] Run the adjacent workspace contracts.
 
 ```text
 node --test test/workspace-snapshot-contract.test.mjs test/open-current-workspace-contract.test.mjs test/open-workspace-contract.test.mjs test/tree-contract.test.mjs test/server-config-contract.test.mjs
@@ -1193,10 +1193,10 @@ node --test test/workspace-snapshot-contract.test.mjs test/open-current-workspac
 
 ### Step 2.8 — Record Task 2
 
-- [ ] Append the complete Task 2 STEP evidence to the active archive.
-- [ ] Update `Memory.md` with provider boundaries, exact stage errors, focused and adjacent counts, limitations, rollback, and Task 3 next.
-- [ ] Run `show_changes` and verify no unrelated source changed.
-- [ ] Stop before staging or commit unless explicitly authorized.
+- [x] Append the complete Task 2 STEP evidence to the active archive.
+- [x] Update `Memory.md` with provider boundaries, exact stage errors, focused and adjacent counts, limitations, rollback, and Task 3 next.
+- [x] Run `show_changes` and verify no unrelated source changed.
+- [x] Stop before staging or commit unless explicitly authorized.
 
 **Proposed commit after approval:**
 
@@ -1221,7 +1221,7 @@ feat(schema): add exact workspace_snapshot result contract
 
 ### Step 3.1 — Unwrap nested snapshot data with flat fallback
 
-- [ ] Change `workspaceResultData` so the recognized nested workspace tools are exactly:
+- [x] Change `workspaceResultData` so the recognized nested workspace tools are exactly:
 
 ```js
 function workspaceResultData(data) {
@@ -1237,7 +1237,7 @@ function workspaceResultData(data) {
 
 This retains historical flat snapshot fallback when `data` is absent.
 
-- [ ] Replace the snapshot subtitle branch with nested failure-aware logic:
+- [x] Replace the snapshot subtitle branch with nested failure-aware logic:
 
 ```js
 if (data?.codexpro_tool === "workspace_snapshot") {
@@ -1251,7 +1251,7 @@ if (data?.codexpro_tool === "workspace_snapshot") {
 
 ### Step 3.2 — Render approved AI filenames without contents
 
-- [ ] In `renderWorkspace`, add:
+- [x] In `renderWorkspace`, add:
 
 ```js
 const aiContextFiles = Array.isArray(workspace.ai_context_files)
@@ -1270,7 +1270,7 @@ const aiContextText = aiContextFiles.length
   : '<div class="empty">No readable AI handoff files.</div>';
 ```
 
-- [ ] Add this fold after Git and before Skills:
+- [x] Add this fold after Git and before Skills:
 
 ```js
 fold(
@@ -1300,7 +1300,7 @@ Then concatenate `aiContextSection` after the Git fold.
 
 ### Step 3.3 — Add exact protected-consumer substitutions
 
-- [ ] In `scripts/smoke-platform-compat.mjs`, add this replacement before appending the source label:
+- [x] In `scripts/smoke-platform-compat.mjs`, add this replacement before appending the source label:
 
 ```js
 source = replaceExactCount(
@@ -1311,7 +1311,7 @@ source = replaceExactCount(
 );
 ```
 
-- [ ] In `scripts/http-smoke-compat.mjs`, add this exact tuple to `replacements`:
+- [x] In `scripts/http-smoke-compat.mjs`, add this exact tuple to `replacements`:
 
 ```js
 [
@@ -1324,7 +1324,7 @@ Do not loosen the exact-once guard.
 
 ### Step 3.4 — Complete Tool Card, supertool, and compatibility tests
 
-- [ ] Make the Tool Card test assert all of the following source evidence:
+- [x] Make the Tool Card test assert all of the following source evidence:
 
 ```js
 assert.match(toolCardWidgetHtml, /workspace_snapshot/);
@@ -1335,9 +1335,9 @@ assert.match(toolCardWidgetHtml, /AI handoff/);
 assert.match(toolCardWidgetHtml, /No readable AI handoff files/);
 ```
 
-- [ ] Add a rendered nested failure source assertion that fixed `error.code` is used and no raw provider exception branch exists.
+- [x] Add a rendered nested failure source assertion that fixed `error.code` is used and no raw provider exception branch exists.
 
-- [ ] In full mode, call both:
+- [x] In full mode, call both:
 
 ```js
 { action: "workspace_snapshot", args: {} }
@@ -1359,7 +1359,7 @@ structured.data.root === root
 
 Inject a summary-provider failure and assert the wrapped failure keeps `SNAPSHOT_SUMMARY_FAILED` and the same strict wrapper tags.
 
-- [ ] Assert compatibility-loader source contains:
+- [x] Assert compatibility-loader source contains:
 
 ```text
 snapshotAlias.structuredContent.data?.tree
@@ -1370,11 +1370,11 @@ sourceURL=codexpro-http-smoke-compat.mjs
 data:text/javascript;base64
 ```
 
-- [ ] Assert both protected sources remain unchanged by checking `show_changes` does not list them.
+- [x] Assert both protected sources remain unchanged by checking `show_changes` does not list them.
 
 ### Step 3.5 — Run focused and actual consumer verification
 
-- [ ] Run the focused contract:
+- [x] Run the focused contract:
 
 ```text
 node --test test/workspace-snapshot-contract.test.mjs
@@ -1382,7 +1382,7 @@ node --test test/workspace-snapshot-contract.test.mjs
 
 **Expected:** all focused tests pass.
 
-- [ ] Run protected main Smoke through its compatibility loader:
+- [x] Run protected main Smoke through its compatibility loader:
 
 ```text
 node scripts/smoke-platform-compat.mjs
@@ -1390,7 +1390,7 @@ node scripts/smoke-platform-compat.mjs
 
 **Expected:** pass; the source drift guards find exactly the approved occurrences.
 
-- [ ] Run protected HTTP Smoke through its compatibility loader:
+- [x] Run protected HTTP Smoke through its compatibility loader:
 
 ```text
 node scripts/http-smoke-compat.mjs
@@ -1398,7 +1398,7 @@ node scripts/http-smoke-compat.mjs
 
 **Expected:** pass; the snapshot ID consumer reads `structuredContent.data.workspace_id` in memory.
 
-- [ ] Re-run adjacent workspace contracts:
+- [x] Re-run adjacent workspace contracts:
 
 ```text
 node --test test/workspace-snapshot-contract.test.mjs test/open-current-workspace-contract.test.mjs test/open-workspace-contract.test.mjs test/tree-contract.test.mjs test/server-config-contract.test.mjs
@@ -1408,10 +1408,10 @@ node --test test/workspace-snapshot-contract.test.mjs test/open-current-workspac
 
 ### Step 3.6 — Record Task 3
 
-- [ ] Append exact consumer and adjacent results to the active archive.
-- [ ] Update `Memory.md` with nested Tool Card behavior, flat fallback, protected-source status, exact replacements, risks, and Task 4 next.
-- [ ] Use `show_changes` to confirm both protected source files remain unchanged.
-- [ ] Stop before staging or commit unless explicitly authorized.
+- [x] Append exact consumer and adjacent results to the active archive.
+- [x] Update `Memory.md` with nested Tool Card behavior, flat fallback, protected-source status, exact replacements, risks, and Task 4 next.
+- [x] Use `show_changes` to confirm both protected source files remain unchanged.
+- [x] Stop before staging or commit unless explicitly authorized.
 
 **Proposed commit after approval:**
 
@@ -1433,49 +1433,49 @@ fix(compat): migrate workspace_snapshot consumers
 
 ### Step 4.1 — Run complete local verification
 
-- [ ] Focused contract:
+- [x] Focused contract:
 
 ```text
 node --test test/workspace-snapshot-contract.test.mjs
 ```
 
-- [ ] Adjacent contracts:
+- [x] Adjacent contracts:
 
 ```text
 node --test test/workspace-snapshot-contract.test.mjs test/open-current-workspace-contract.test.mjs test/open-workspace-contract.test.mjs test/tree-contract.test.mjs test/server-config-contract.test.mjs
 ```
 
-- [ ] Complete regression:
+- [x] Complete regression:
 
 ```text
 node --test test/*.test.mjs
 ```
 
-- [ ] Build:
+- [x] Build:
 
 ```text
 npm run build
 ```
 
-- [ ] Full Smoke:
+- [x] Full Smoke:
 
 ```text
 npm run smoke
 ```
 
-- [ ] Native-Windows Stress:
+- [x] Native-Windows Stress:
 
 ```text
 npm run stress
 ```
 
-- [ ] Package dry-run:
+- [x] Package dry-run:
 
 ```text
 npm pack --dry-run
 ```
 
-- [ ] Diff check:
+- [x] Diff check:
 
 ```text
 git diff --check
@@ -1485,15 +1485,15 @@ Record exact counts, package file count, compressed/unpacked sizes, warnings, an
 
 ### Step 4.2 — Update durable documentation
 
-- [ ] Add one concise unreleased CHANGELOG entry stating:
+- [x] Add one concise unreleased CHANGELOG entry stating:
 
 ```text
 - Added an exact schema-v1 `workspace_snapshot` result contract with validated workspace and AI-context providers, stable redacted failures, nested Tool Card/supertool support, and fail-closed protected Smoke compatibility.
 ```
 
-- [ ] Update `AGENTS.md` documentation map with the new design and plan paths.
+- [x] Update `AGENTS.md` documentation map with the new design and plan paths.
 
-- [ ] Update the current stopping point to say:
+- [x] Update the current stopping point to say:
 
 ```text
 The first fourteen Phase 1 vertical slices are implemented and locally verified. Direct `workspace_snapshot` is awaiting publication review and explicit staging/commit/push approval. Phase 2 remains closed.
@@ -1501,7 +1501,7 @@ The first fourteen Phase 1 vertical slices are implemented and locally verified.
 
 Do not claim publication or CI before a commit has been pushed and exact-head CI has passed.
 
-- [ ] Update `Memory.md` with:
+- [x] Update `Memory.md` with:
   - Slice 14 tool name and status;
   - exact thirteen-field success data;
   - four failure codes;
@@ -1513,20 +1513,20 @@ Do not claim publication or CI before a commit has been pushed and exact-head CI
   - rollback;
   - next action: `neat-freak` and publication review, not Phase 2.
 
-- [ ] Append the complete Task 4 STEP record to `docs/memory/archive/phase-1-part-3.md`.
+- [x] Append the complete Task 4 STEP record to `docs/memory/archive/phase-1-part-3.md`.
 
 ### Step 4.3 — Run `neat-freak` and reconcile
 
-- [ ] Load and run the `neat-freak` skill against only the current slice.
-- [ ] Accept only behavior-preserving cleanup within the approved file set.
-- [ ] Reject broad formatting, schema extraction, shared workspace refactors, or unrelated documentation edits.
-- [ ] Re-run every gate affected by cleanup.
-- [ ] Reconcile CHANGELOG, AGENTS, Memory, and archive evidence with the final diff.
+- [x] Load and run the `neat-freak` skill against only the current slice.
+- [x] Accept only behavior-preserving cleanup within the approved file set.
+- [x] Reject broad formatting, schema extraction, shared workspace refactors, or unrelated documentation edits.
+- [x] Re-run every gate affected by cleanup.
+- [x] Reconcile CHANGELOG, AGENTS, Memory, and archive evidence with the final diff.
 
 ### Step 4.4 — Perform final review
 
-- [ ] Use CodexPro `show_changes` with the unified diff.
-- [ ] Verify the changed-file set is limited to:
+- [x] Use CodexPro `show_changes` with the unified diff.
+- [x] Verify the changed-file set is limited to:
 
 ```text
 src/tools/schemas/workspaceSnapshot.ts
@@ -1543,7 +1543,7 @@ docs/superpowers/specs/2026-07-13-workspace-snapshot-output-schema-design.md
 docs/superpowers/plans/2026-07-13-workspace-snapshot-output-schema.md
 ```
 
-- [ ] Confirm explicitly that these files are unchanged:
+- [x] Confirm explicitly that these files are unchanged:
 
 ```text
 scripts/smoke.mjs
@@ -1552,16 +1552,16 @@ package.json
 package-lock.json
 ```
 
-- [ ] Search the diff for secret-looking values and raw private diagnostics.
-- [ ] Confirm no new environment variables, authentication behavior, dependencies, or public tool membership changes exist.
-- [ ] Confirm `workspace_snapshot` still performs no writes.
-- [ ] Confirm direct and supertool success/failure both parse through the exact schema.
-- [ ] Confirm the implementation can be reverted independently.
+- [x] Search the diff for secret-looking values and raw private diagnostics.
+- [x] Confirm no new environment variables, authentication behavior, dependencies, or public tool membership changes exist.
+- [x] Confirm `workspace_snapshot` still performs no writes.
+- [x] Confirm direct and supertool success/failure both parse through the exact schema.
+- [x] Confirm the implementation can be reverted independently.
 
 ### Step 4.5 — Stop at the publication gate
 
-- [ ] Do not stage, commit, push, or check exact-head CI yet.
-- [ ] Report:
+- [x] Do not stage, commit, push, or check exact-head CI yet.
+- [x] Report:
   - design and plan paths;
   - changed files;
   - focused, adjacent, complete, Build, Smoke, Stress, package, and diff results;
@@ -1600,9 +1600,9 @@ verify the documentation-record exact head
 
 ### Step 5.1 — Stage precisely
 
-- [ ] Stage only the reviewed Slice 14 files. Do not use `git add .`.
-- [ ] Inspect staged status and diff.
-- [ ] Run:
+- [x] Stage only the reviewed Slice 14 files. Do not use `git add .`.
+- [x] Inspect staged status and diff.
+- [x] Run:
 
 ```text
 git diff --cached --check
@@ -1612,13 +1612,13 @@ git diff --cached --check
 
 ### Step 5.2 — Commit and push
 
-- [ ] Commit:
+- [x] Commit:
 
 ```text
 git commit -m "feat(schema): add exact workspace_snapshot result contract"
 ```
 
-- [ ] Push directly to `origin/main` only if that remains the explicitly approved publication route:
+- [x] Push directly to `origin/main` only if that remains the explicitly approved publication route:
 
 ```text
 git push origin main
@@ -1628,26 +1628,26 @@ Do not force push or rewrite history.
 
 ### Step 5.3 — Verify exact-head CI
 
-- [ ] Resolve the full pushed head SHA.
-- [ ] Query the public GitHub Actions API for the run whose `head_sha` equals that exact SHA.
-- [ ] Verify all four matrix jobs:
+- [x] Resolve the full pushed head SHA.
+- [x] Query the public GitHub Actions API for the run whose `head_sha` equals that exact SHA.
+- [x] Verify all four matrix jobs:
   - Ubuntu / Node 20;
   - Ubuntu / Node 24;
   - Windows / Node 20;
   - Windows / Node 24.
-- [ ] If any job fails, read the failed job log, fix only the demonstrated defect, repeat local affected gates, and publish a normal follow-up commit.
+- [x] If any job fails, read the failed job log, fix only the demonstrated defect, repeat local affected gates, and publish a normal follow-up commit.
 
 ### Step 5.4 — Record publication separately
 
-- [ ] Append the implementation commit SHA, push range, workflow run ID, full head SHA, four job results, risks, rollback, and next action to the active archive.
-- [ ] Update `Memory.md` and `AGENTS.md` to say Slice 14 is published only after all exact-head jobs succeed.
-- [ ] Commit the publication record separately.
-- [ ] Push and verify the publication-record exact head.
+- [x] Append the implementation commit SHA, push range, workflow run ID, full head SHA, four job results, risks, rollback, and next action to the active archive.
+- [x] Update `Memory.md` and `AGENTS.md` to say Slice 14 is published only after all exact-head jobs succeed.
+- [x] Commit the publication record separately.
+- [x] Push and verify the publication-record exact head.
 
 ### Step 5.5 — Stop before the next slice
 
-- [ ] Return to design review of the next remaining Phase 1 direct tool.
-- [ ] Do not assume Phase 1 is complete and do not begin Phase 2 without an explicit remaining-scope review.
+- [x] Return to design review of the next remaining Phase 1 direct tool.
+- [x] Do not assume Phase 1 is complete and do not begin Phase 2 without an explicit remaining-scope review.
 
 ---
 

@@ -874,3 +874,48 @@ Before publication, revert only the reviewed Slice 14 source, tests, compatibili
 **Next step**
 
 Precisely stage the twelve reviewed files, run staged diff checking, create and push the implementation commit, verify exact-head Ubuntu/Windows Node 20/24 CI, then record publication in a separate commit. Keep Phase 2 closed.
+
+---
+
+## STEP-165 — Publish direct `workspace_snapshot` and verify implementation CI
+
+**Status**
+
+Completed. The fourteenth Phase 1 direct-tool implementation is published and its exact implementation head passed the complete cross-platform CI matrix.
+
+**Publication evidence**
+
+- Precisely staged the twelve reviewed Slice 14 files without `git add .`.
+- `git diff --cached --check` passed.
+- Created implementation commit `242315e` with message `feat(schema): add exact workspace_snapshot result contract`.
+- Full implementation SHA: `242315e000c05e3de9258bbef764ed701dbec3d7`.
+- Pushed `main` directly to `origin/main`: `0ad68e4..242315e`.
+- Matched public GitHub Actions run `29258565084` to the exact full implementation SHA.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+- Run conclusion: success.
+
+**Published contract**
+
+- Direct `workspace_snapshot` remains full-mode only.
+- Success contains exactly thirteen nested fields under the schema-v1 envelope.
+- Four fixed redacted failures and staged provider boundaries are active.
+- Tool Card, direct supertool action, `snapshot` alias, main Smoke, and HTTP Smoke consume the nested result.
+- Protected Smoke source files remain unchanged.
+- No dependency, authentication, credential, profile, Cloudflare, tool-mode membership, workspace-lifecycle, or Phase 2 change was published.
+
+**Risks and limitations**
+
+- Tool-local snapshot validation duplicates some open-tool invariants.
+- Compatibility loaders intentionally fail closed when protected-source strings drift.
+- Workspace ownership, expiry, persistence, client isolation, close operations, and explicit-ID requirements remain deferred.
+
+**Rollback**
+
+Use a normal revert commit for `242315e` if the implementation must be withdrawn. Do not reset or rewrite `main`, and do not alter credentials, profiles, protected Smoke sources, or prior archives.
+
+**Next step**
+
+Commit and push this publication record separately, verify that record commit's exact-head Ubuntu/Windows Node 20/24 CI, then design-review the next remaining Phase 1 direct tool. Keep Phase 2 closed.

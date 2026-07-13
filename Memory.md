@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first thirteen slices are published and cross-platform CI-validated; the fourteenth direct-tool slice, `workspace_snapshot`, is implemented and locally verified, awaiting publication.
+- Phase 1: the first fourteen slices are published and cross-platform CI-validated; direct `workspace_snapshot` is published as commit `242315e`.
 
 ## Approved stopping point
 
-The first thirteen Phase 1 slices are published and cross-platform CI-validated. Direct full-mode `workspace_snapshot` is implemented and locally verified with focused 20/20, adjacent 69/69, complete 240/240, Build, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. The next action is precise publication, exact-head CI verification, and a separate publication record. Phase 2 remains closed.
+The first fourteen Phase 1 slices are published and cross-platform CI-validated. Direct `workspace_snapshot` implementation commit `242315e` passed exact-head CI run `29258565084` on Ubuntu/Windows with Node 20/24. Local evidence is focused 20/20, adjacent 69/69, complete 240/240, Build, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. The next action is design review of the next remaining Phase 1 direct tool. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -66,7 +66,7 @@ The first thirteen Phase 1 slices are published and cross-platform CI-validated.
 - `npm run build`, all eight Smoke sections, and native-Windows `npm run stress` passed.
 - `npm pack --dry-run` passed with 127 files, 338.7 kB compressed, and 1.7 MB unpacked; internal Memory/plan/spec files remain excluded.
 - `git diff --check` passed; only established LF-to-CRLF working-copy warnings were emitted.
-- The previous exact-head GitHub Actions run `29253838423` passed Ubuntu/Windows Node 20/24 for thirteenth-slice commit `c31e8a1`; fourteenth-slice CI awaits publication.
+- Exact-head GitHub Actions run `29258565084` passed Ubuntu/Windows Node 20/24 for `workspace_snapshot` implementation commit `242315e`.
 
 ## Published phase evidence
 
@@ -84,6 +84,7 @@ The first thirteen Phase 1 slices are published and cross-platform CI-validated.
 - `bash`: planning `1f66073`, schema `0ddabfc`, handler `7a71421`, consumers `86350df`, publication record `a39b779`; CI run `29239425311` passed Ubuntu/Windows Node 20/24.
 - `open_current_workspace`: implementation and reconciliation commit `d887849`; final exact-head `e0e5f77` passed CI run `29246163724` on Ubuntu/Windows with Node 20/24.
 - `open_workspace`: implementation and publication-review commit `c31e8a1`; exact-head CI run `29253838423` passed Ubuntu/Windows with Node 20/24.
+- `workspace_snapshot`: implementation and publication-review commit `242315e`; exact-head CI run `29258565084` passed Ubuntu/Windows with Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across Phase 1 Volume 1 (STEP-073–139), closed Volume 2 (STEP-140–151), and active Volume 3 (STEP-152 onward).
 
 ## Known limitations
@@ -105,11 +106,12 @@ The first thirteen Phase 1 slices are published and cross-platform CI-validated.
 
 ## Open items
 
-1. Precisely stage, commit, and push the reviewed `workspace_snapshot` slice, then verify exact-head Ubuntu/Windows Node 20/24 CI.
-2. Record publication separately and keep Phase 2 closed until the remaining Phase 1 scope is explicitly reviewed.
+1. Design-review the next remaining Phase 1 direct tool.
+2. Keep Phase 2 closed until the remaining Phase 1 scope is explicitly reviewed.
 
 ## Recent summaries
 
+- **STEP-165 — Publish direct `workspace_snapshot`:** pushed implementation commit `242315e`; exact-head CI run `29258565084` passed Ubuntu/Windows on Node 20/24.
 - **STEP-164 — Neat-freak and publication review:** reconciled all Slice 14 records and passed focused 20/20, adjacent 69/69, complete 240/240, Build, Smoke 8/8, Stress, package dry-run, and diff checking.
 - **STEP-163 — Migrate snapshot consumers:** nested Tool Card and supertool paths plus exact main/HTTP Smoke compatibility pass; protected sources remain unchanged.
 - **STEP-162 — Implement snapshot providers:** added strict staged provider validation and fixed redacted failures; focused progress reached 17/20 before consumer migration.

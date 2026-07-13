@@ -3,7 +3,7 @@
 **Date:** 2026-07-13
 **Phase:** Phase 1
 **Slice:** 14
-**Status:** Approved design; implementation not started
+**Status:** Published and exact-head cross-platform CI-validated
 
 ## 1. Goal
 
