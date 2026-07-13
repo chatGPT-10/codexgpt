@@ -20,7 +20,7 @@ import {
   type EditFileResult
 } from "./fsOps.js";
 import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
-import { probeBashAvailability, runBash } from "./bashOps.js";
+import { probeBashAvailability, runBash, type BashResult } from "./bashOps.js";
 import { gitDiff, gitDiffStatus, gitLog, gitStatus } from "./gitOps.js";
 import { readAiBridgeContext, readCodexContext, workspaceSummary } from "./workspaceOps.js";
 import { buildProContext, exportProContext } from "./proContext.js";
@@ -118,6 +118,14 @@ import {
   createApplyPatchSuccess,
   type ApplyPatchFailureInput
 } from "./tools/schemas/applyPatch.js";
+import {
+  BASH_ERROR_MESSAGES,
+  bashDataSchema,
+  bashOutputShape,
+  createBashFailure,
+  createBashSuccess,
+  type BashFailureInput
+} from "./tools/schemas/bash.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -173,10 +181,119 @@ function safeApplyPatchPathDetail(value: unknown): string {
   return safeTreePathDetail(raw);
 }
 
+function safeBashWorkspaceIdDetail(value: unknown): string {
+  return safeTreeWorkspaceIdDetail(value);
+}
+
+function safeBashSessionDetail(value: unknown): string {
+  const text = typeof value === "string" ? value.trim() : "";
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(text)
+    ? text
+    : "session-id-omitted";
+}
+
+function safeBashPathDetail(value: unknown): string {
+  const raw = String(value ?? ".");
+  const segments = raw.replace(/\\/g, "/").split("/");
+  if (segments.some((segment) => segment === "..")) {
+    return "[unsafe path omitted]";
+  }
+  return safeTreePathDetail(raw);
+}
+
+const BASH_OUTSIDE_PATH_PREFIXES = [
+  "Path contains a null byte.",
+  "Path escapes workspace root:",
+  "Path resolves outside workspace root through a symlink:",
+  "Windows device paths are not allowed:",
+  "UNC paths are not allowed:",
+  "Drive-relative Windows paths are not allowed:",
+  "NTFS alternate data stream paths are not allowed:",
+  "Windows path segments may not end with a dot or space:",
+  "Windows reserved device name is not allowed:"
+] as const;
+
 function nodeErrorCode(error: unknown): string | undefined {
   if (!error || typeof error !== "object" || !("code" in error)) return undefined;
   const code = (error as { code?: unknown }).code;
   return typeof code === "string" ? code : undefined;
+}
+
+function classifyBashFailure(
+  error: unknown,
+  args: Record<string, unknown>,
+  config: CodexProConfig
+): BashFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+  const filesystemCode = nodeErrorCode(error);
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeBashWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+  if (!String(args.command ?? "").trim() || message === "command is required.") {
+    return {
+      code: "INVALID_ARGUMENT",
+      details: { argument: "command", reason: "empty" }
+    };
+  }
+  if (message === "bash session guard is enabled but no server bash session id is configured.") {
+    return {
+      code: "BASH_SESSION_CONFIGURATION_INVALID",
+      details: { reason: "missing_server_session_id" }
+    };
+  }
+  if (message.startsWith("bash session id is required.")) {
+    return {
+      code: "BASH_SESSION_REQUIRED",
+      details: { expected_session_id: safeBashSessionDetail(config.bashSessionId) }
+    };
+  }
+  if (message.startsWith("bash session id mismatch.")) {
+    return {
+      code: "BASH_SESSION_MISMATCH",
+      details: { expected_session_id: safeBashSessionDetail(config.bashSessionId) }
+    };
+  }
+  if (message.startsWith("Command is blocked in CODEXPRO_BASH_MODE=safe:")) {
+    return {
+      code: "COMMAND_POLICY_DENIED",
+      details: { reason: "blocked_pattern" }
+    };
+  }
+  if (message.startsWith("Command is not in the safe bash allowlist:")) {
+    return {
+      code: "COMMAND_POLICY_DENIED",
+      details: { reason: "not_allowlisted" }
+    };
+  }
+  if (message.startsWith("Bash backend is unavailable.")) {
+    return {
+      code: "SHELL_BACKEND_UNAVAILABLE",
+      details: { backend: "bash" }
+    };
+  }
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return {
+      code: "PATH_BLOCKED",
+      details: { path: safeBashPathDetail(args.cwd ?? ".") }
+    };
+  }
+  if (BASH_OUTSIDE_PATH_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return {
+      code: "PATH_OUTSIDE_WORKSPACE",
+      details: { path: safeBashPathDetail(args.cwd ?? ".") }
+    };
+  }
+  if (filesystemCode === "ENOENT" || filesystemCode === "EACCES" || filesystemCode === "EPERM") {
+    return {
+      code: "COMMAND_START_FAILED",
+      details: { backend: "bash" }
+    };
+  }
+  return { code: "INTERNAL_ERROR", details: {} };
 }
 
 function classifyTreeFailure(error: unknown, args: Record<string, unknown>): TreeFailureInput {
@@ -388,6 +505,24 @@ const applyPatchProviderResultSchema = z.object({
     });
   }
 });
+
+const bashProviderResultSchema = z.object({
+  command: z.string().min(1),
+  cwd: z.string().min(1),
+  exitCode: z.number().int().nonnegative().nullable(),
+  signal: z.custom<NodeJS.Signals>((value) =>
+    typeof value === "string" && value.length > 0 && value.length <= 64
+  ).nullable(),
+  durationMs: z.number().nonnegative(),
+  stdout: z.string(),
+  stderr: z.string(),
+  truncated: z.boolean(),
+  bashSessionId: z.string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
+    .optional()
+}).strict();
 
 function classifyWriteFailure(
   error: unknown,
@@ -1229,6 +1364,18 @@ export interface ApplyPatchProviderContext {
   patch: string;
 }
 
+export interface BashProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  command: string;
+  options: {
+    cwd?: string;
+    timeoutMs?: number;
+    sessionId?: string;
+  };
+}
+
 export interface SearchProviderContext {
   config: CodexProConfig;
   guard: PathGuard;
@@ -1275,6 +1422,9 @@ export interface CodexProServerDependencies {
   applyPatchResultProvider?: (
     context: ApplyPatchProviderContext
   ) => ApplyPatchProviderResult | Promise<ApplyPatchProviderResult>;
+  bashResultProvider?: (
+    context: BashProviderContext
+  ) => BashResult | Promise<BashResult>;
   searchResultProvider?: (context: SearchProviderContext) => SearchResult | Promise<SearchResult>;
   gitStatusResultProvider?: (
     context: GitStatusProviderContext
@@ -2170,6 +2320,16 @@ export function createCodexProServer(
         context.guard,
         context.workspace,
         context.patch
+      ));
+  const bashResultProvider =
+    dependencies.bashResultProvider ??
+    ((context: BashProviderContext) =>
+      runBash(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.command,
+        context.options
       ));
   const searchResultProvider =
     dependencies.searchResultProvider ??
@@ -3418,6 +3578,7 @@ export function createCodexProServer(
         cwd: z.string().optional().describe("Working directory relative to workspace root. Default: ."),
         timeout_ms: z.number().int().min(1000).max(180000).optional().describe("Timeout in milliseconds. Default: 30000.")
       },
+      outputSchema: bashOutputShape,
       annotations: BASH_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -3426,14 +3587,72 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const result = await runBash(config, guard, workspace, String(args.command ?? ""), {
-        cwd: args.cwd,
-        timeoutMs: args.timeout_ms,
-        sessionId: args.session_id
-      });
-      const text = bashTextResult(config, result);
-      return textResult(text, { workspace_id: workspace.id, root: workspace.root, ...result, bash_session_id: result.bashSessionId ?? null });
+      const startedAt = Date.now();
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const command = String(args.command ?? "");
+        const requestedCwd = typeof args.cwd === "string" ? args.cwd : undefined;
+        const providerResult = bashProviderResultSchema.parse(
+          await bashResultProvider({
+            config,
+            guard,
+            workspace,
+            command,
+            options: {
+              cwd: requestedCwd,
+              timeoutMs: typeof args.timeout_ms === "number" ? args.timeout_ms : undefined,
+              sessionId: typeof args.session_id === "string" ? args.session_id : undefined
+            }
+          })
+        );
+        const resolvedCwd = guard.resolve(workspace, requestedCwd ?? ".");
+        const expectedCwd = path.relative(workspace.root, resolvedCwd.absPath) || ".";
+
+        if (providerResult.command !== command) {
+          throw new CodexProError("Bash provider returned a mismatched command.");
+        }
+        if (providerResult.cwd !== expectedCwd) {
+          throw new CodexProError("Bash provider returned a mismatched working directory.");
+        }
+        if (config.bashSessionId) {
+          if (providerResult.bashSessionId !== config.bashSessionId) {
+            throw new CodexProError("Bash provider returned a mismatched session id.");
+          }
+        } else if (providerResult.bashSessionId !== undefined) {
+          throw new CodexProError("Bash provider returned an unexpected session id.");
+        }
+
+        const data = bashDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          command: providerResult.command,
+          cwd: providerResult.cwd,
+          exitCode: providerResult.exitCode,
+          signal: providerResult.signal,
+          durationMs: providerResult.durationMs,
+          stdout: providerResult.stdout,
+          stderr: providerResult.stderr,
+          truncated: providerResult.truncated,
+          bash_session_id: providerResult.bashSessionId ?? null
+        });
+
+        return textResult(
+          bashTextResult(config, providerResult),
+          createBashSuccess(data, Date.now() - startedAt)
+        );
+      } catch (error) {
+        const failure = classifyBashFailure(error, args, config);
+        const text = [
+          "# Bash Error",
+          "",
+          `Code: ${failure.code}`,
+          BASH_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, createBashFailure(failure, Date.now() - startedAt)),
+          isError: true
+        };
+      }
     }
   );
 
