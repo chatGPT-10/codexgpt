@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Phase: Phase 1, eleventh vertical slice
-Status: Design approved by the user's standing recommendation rule; implementation not started or authorized
+Status: Complete locally; implementation commits `0ddabfc`, `7a71421`, and `86350df`; publication and cross-platform CI pending
 
 ## 1. Goal
 
@@ -501,3 +501,24 @@ Rollback does not require changing the underlying Bash execution algorithm, user
 - Security: raw commands, output, executable paths, environment data, unsafe paths, supplied mismatch ids, and operating-system diagnostics are excluded from failures.
 - Scope: only direct `bash` protocol stabilization and necessary consumers/tests are included.
 - Phase boundary: PowerShell, process sessions, PTY, Job Objects, shell abstraction, atomic editing, authentication, workspace lifecycle, and Phase 2/3/4 remain excluded.
+
+## 19. Local implementation evidence
+
+The implementation was completed with test-first checkpoints:
+
+- Planning record: `1f66073`.
+- Schema contract: `0ddabfc`.
+- Direct handler and stable failures: `7a71421`.
+- Tool Card, wrapper, Smoke, and Stress consumers: `86350df`.
+
+Fresh verification on native Windows:
+
+- Focused `bash` contracts: 12/12 passed.
+- Adjacent `bash`/`server_config`/`apply_patch`/`show_changes` contracts: 46/46 passed.
+- Complete `node --test test/*.test.mjs`: 189/189 passed.
+- `npm run build`: passed.
+- `npm run smoke`: all eight sections passed.
+- `npm run stress`: passed, including its internal build.
+- `git diff --check`: passed.
+
+The production Bash algorithm, safe allowlist/blocklist, environment policy, timeout and direct-child termination behavior, dependencies, authentication, profiles, and workspace lifecycle remain unchanged. Publication still requires an exact reviewed documentation commit, push approval, and a branch-head GitHub Actions matrix pass on Ubuntu/Windows with Node 20/24.

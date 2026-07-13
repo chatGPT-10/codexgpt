@@ -357,3 +357,116 @@ Before any planning commit, delete the two new planning documents and restore on
 **Next step**
 
 Ask the user to choose between committing only this planning record or executing the four-task TDD plan. Do not implement, stage, publish, change credentials, expand access, rewrite history, or begin Phase 2 without the applicable approval.
+
+---
+
+## STEP-145 — Implement and verify direct `bash` exact output schema
+
+**Status**
+
+Complete locally. The four-task TDD plan was executed and committed through schema, handler, and consumer checkpoints. All local gates passed. Publication, push, cross-platform CI, credential changes, access expansion, history rewriting, and Phase 2 remain pending.
+
+**Goal**
+
+Migrate only the direct `bash` MCP tool to the strict Phase 1 schema-v1 envelope while preserving the current synchronous Git Bash execution algorithm, safe/full policy, transcript behavior, Session Guard, output redaction/truncation, and command-level non-zero exit semantics.
+
+**Commits**
+
+- `1f66073` — `docs: design bash schema contract`.
+- `0ddabfc` — `test(schema): define bash result contract`.
+- `7a71421` — `feat(schema): migrate bash result envelope`.
+- `86350df` — `test(schema): migrate bash consumers`.
+
+**Files changed**
+
+- `src/tools/schemas/bash.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `test/bash-contract.test.mjs`
+- `scripts/smoke.mjs`
+- `scripts/stress.mjs`
+- `CHANGELOG.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/superpowers/specs/2026-07-13-bash-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-bash-output-schema.md`
+- `docs/memory/archive/phase-1-part-2.md`
+
+**Implementation summary**
+
+- Added `src/tools/schemas/bash.ts` with the exact schema-v1 envelope and eleven strict nested success fields.
+- Added eleven fixed non-retryable tool-level errors for workspace, input, Session Guard, policy, backend, path, process start, and internal failures.
+- Preserved non-zero exit codes, signals, truncation, and the existing timeout marker as valid command outcomes under `ok:true`.
+- Added an injectable `bashResultProvider`, strict provider-result parsing, and exact command/normalized-`cwd`/session identity validation.
+- Removed the accidental public camelCase `bashSessionId`; only nullable `bash_session_id` remains under `data`.
+- Preserved compact and full human transcripts while making tool-level failure content fixed and redacted.
+- Migrated `renderBash` to the nested envelope with separate bounded stdout/stderr previews, signal/truncation/session indicators, and a stable failure branch.
+- Verified that the `codexpro` wrapper preserves child `ok/data/error/meta` and adds only wrapper identity.
+- Migrated Smoke and Stress from legacy flat Bash fields to nested fields and exact stable policy codes without weakening file-noncreation assertions.
+- Left `src/bashOps.ts`, allowlists/blocklists, executable probing, environment policy, timeout and direct-child termination behavior, dependencies, authentication, profiles, and workspace lifecycle unchanged.
+
+**TDD evidence**
+
+- Task 1 RED: focused test failed only because `src/tools/schemas/bash.ts` did not exist.
+- Task 1 GREEN: constructor/schema tests 4/4 passed; committed as `0ddabfc`.
+- Task 2 RED: descriptor, nested envelope, provider seam, and fixed failures failed as expected.
+- Task 2 GREEN: direct Bash contracts 10/10 passed and TypeScript build passed; committed as `7a71421`.
+- Task 3 RED: wrapper already preserved the child envelope, while the Tool Card still read flat fields.
+- Task 3 GREEN: focused contracts 12/12, Build, Smoke 8/8, and native-Windows Stress passed; committed as `86350df`.
+
+**Final verification commands**
+
+```text
+node --test test/bash-contract.test.mjs
+node --test test/bash-contract.test.mjs test/server-config-contract.test.mjs test/apply-patch-contract.test.mjs test/show-changes-contract.test.mjs
+node --test test/*.test.mjs
+npm run build
+npm run smoke
+npm run stress
+git diff --check
+```
+
+**Final verification results**
+
+- Focused direct `bash`: 12/12 passed.
+- Adjacent contracts: 46/46 passed.
+- Complete regression suite: 189/189 passed.
+- Build: passed.
+- Smoke: all eight sections passed.
+- Native-Windows Stress: passed, including its internal build.
+- Pre-documentation `git diff --check`: passed.
+- Real end-to-end coverage includes compact/full transcripts, allowed package scripts, Session Guard, disabled Bash registration, direct and wrapped policy rejection, and file-noncreation assertions.
+
+**Material failed attempts and corrections**
+
+- The first direct-handler test workspace used a Windows temporary path whose long and 8.3 forms differed. The fixture was corrected with `fs.realpath`; production code was unchanged.
+- The focused test process could not discover Git Bash through `where bash`, so deterministic handler contracts use the injected provider while existing Smoke/Stress remain the authoritative real Git Bash coverage.
+- Standard `edit` correctly refused `scripts/smoke.mjs` and `scripts/stress.mjs` because those files contain established secret-lookalike safety fixtures.
+- Two exact Node replacement attempts stopped before writing when match-count assertions found a broad or incorrectly quoted pattern. The successful replacement used exact `\x27`-encoded single-quote strings and asserted every match count before one write.
+
+**Decisions made**
+
+- Tool envelope success and command success remain separate concepts.
+- No `COMMAND_FAILED` error or `timed_out` field was added.
+- Provider identity mismatch and malformed provider data map to fixed `INTERNAL_ERROR`.
+- Session mismatch failures expose only the configured expected id and never echo the submitted mismatch.
+- Production validation order in `runBash` remains unchanged; the handler independently normalizes `cwd` after provider return before constructing success.
+- Publication remains a separate approval gate.
+
+**Risks or limitations**
+
+- Safe Bash remains a policy filter, not an operating-system sandbox.
+- Repository verification commands execute with the current user's permissions.
+- Timeout does not guarantee termination of the complete Windows process tree.
+- Timeout and output-pressure termination still lack separate typed public state.
+- Failure classification remains coupled to current internal message prefixes and Node error codes.
+- Git Bash remains the temporary Windows backend; native PowerShell is deferred to Phase 4.
+- Cross-platform CI has not run for these commits because they have not been pushed.
+
+**Rollback method**
+
+Revert documentation/implementation commits in reverse order without rewriting history: `86350df`, `7a71421`, `0ddabfc`, and optionally planning commit `1f66073`. Then run the complete local gates. No user profiles, credentials, dependencies, branches, prior Phase 1 slices, or earlier archive volumes require changes.
+
+**Next step**
+
+Commit the reconciled documentation record after final diff review. Then stop for explicit approval before pushing `main`. After approval, verify that the exact branch-head GitHub Actions run matches the pushed SHA and passes Ubuntu/Windows Node 20/24. Do not begin Phase 2.

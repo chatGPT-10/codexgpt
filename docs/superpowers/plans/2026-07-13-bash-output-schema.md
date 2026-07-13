@@ -8,7 +8,9 @@
 
 **Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexPro `PathGuard`, Bash policy and redaction services, Tool Card HTML, Git Bash on native Windows, and current Smoke/Stress suites.
 
-**Status:** Planned and self-reviewed; implementation, staging, commits, push, and Phase 2/3/4 are not authorized by this document.
+**Status:** Complete locally through Task 4 verification; commits `0ddabfc`, `7a71421`, and `86350df`; documentation record, push, cross-platform CI, and Phase 2/3/4 remain pending.
+
+**Execution note:** The focused handler contract uses the injected provider because the standalone Node test process could not discover Git Bash through `where bash`; real native-Windows Git Bash execution, compact/full transcripts, Session Guard, safe package scripts, and policy rejection remain covered by the passing Smoke and Stress suites. Exact Node replacements were used only for existing Smoke/Stress files whose secret-lookalike safety fixtures correctly block generic `edit`.
 
 ## Global Constraints
 
@@ -51,7 +53,7 @@
 - Consumes: `createToolMeta` and `toolMetaSchema` from `src/tools/schemas/common.ts`.
 - Produces: `BASH_ERROR_MESSAGES`, `bashDataSchema`, `bashErrorSchema`, `bashOutputShape`, `bashOutputSchema`, `createBashSuccess`, `createBashFailure`, `BashData`, `BashFailureInput`, and `BashStructuredResult`.
 
-- [ ] **Step 1: Create the focused test file with failing constructor and strictness tests**
+- [x] **Step 1: Create the focused test file with failing constructor and strictness tests**
 
 Create `test/bash-contract.test.mjs` with these initial imports:
 
@@ -127,7 +129,7 @@ Assert all of the following:
 - `COMMAND_POLICY_DENIED` accepts only `blocked_pattern` or `not_allowlisted`;
 - public legacy fields such as top-level `command`, `exitCode`, `durationMs`, and `bashSessionId` are rejected.
 
-- [ ] **Step 2: Run the focused test and confirm RED**
+- [x] **Step 2: Run the focused test and confirm RED**
 
 Run:
 
@@ -137,7 +139,7 @@ node --test test/bash-contract.test.mjs
 
 Expected: FAIL with module-not-found for `src/tools/schemas/bash.ts`. No production source should have changed before this RED result.
 
-- [ ] **Step 3: Implement `src/tools/schemas/bash.ts` with fixed public messages**
+- [x] **Step 3: Implement `src/tools/schemas/bash.ts` with fixed public messages**
 
 Create the file with these fixed messages:
 
@@ -365,7 +367,7 @@ export const bashOutputSchema = bashOutputBaseSchema.superRefine((value, context
 
 Export `BashData`, `BashStructuredResult`, `createBashSuccess`, and `createBashFailure`. Both constructors must parse through `bashOutputSchema` and call `createToolMeta(durationMs)`.
 
-- [ ] **Step 4: Run focused constructor tests and confirm GREEN**
+- [x] **Step 4: Run focused constructor tests and confirm GREEN**
 
 Run:
 
@@ -375,7 +377,7 @@ node --test test/bash-contract.test.mjs
 
 Expected: constructor/schema tests PASS. Direct-handler tests are not yet present.
 
-- [ ] **Step 5: Review Task 1 diff and conditional checkpoint**
+- [x] **Step 5: Review Task 1 diff and conditional checkpoint**
 
 Use `show_changes` restricted to `src/tools/schemas/bash.ts` and `test/bash-contract.test.mjs`. Confirm no server, Bash algorithm, Tool Card, authentication, dependency, or workspace-lifecycle change exists.
 
@@ -398,7 +400,7 @@ git commit -m "test(schema): define bash result contract"
 - Consumes: all schema exports from Task 1; `BashResult` and `runBash` from `src/bashOps.ts`; existing `PathGuard`, workspace manager, `nodeErrorCode`, safe detail helpers, `bashTextResult`, and duration attachment behavior.
 - Produces: `BashProviderContext`, optional `bashResultProvider`, strict `bashProviderResultSchema`, `classifyBashFailure`, and the migrated direct handler.
 
-- [ ] **Step 1: Add direct-handler test helpers**
+- [x] **Step 1: Add direct-handler test helpers**
 
 Following the existing direct-tool contract tests, add:
 
@@ -483,7 +485,7 @@ function assertBashFailure(result, expectedCode, expectedDetails) {
 
 Keep this helper aligned with the current complete direct-tool contract configuration. The Bash-specific differences are exactly `bashMode: "safe"` and `toolMode: "full"`; do not omit unrelated required configuration fields.
 
-- [ ] **Step 2: Add failing descriptor, outcome, provider, and classification tests**
+- [x] **Step 2: Add failing descriptor, outcome, provider, and classification tests**
 
 Add focused tests for:
 
@@ -512,7 +514,7 @@ Add focused tests for:
 
 Use dependency injection for provider shape/start/backend marker cases. Use real current behavior for workspace, input, session, policy, and path cases where deterministic on the test platform.
 
-- [ ] **Step 3: Run focused tests and confirm RED**
+- [x] **Step 3: Run focused tests and confirm RED**
 
 Run:
 
@@ -522,7 +524,7 @@ node --test test/bash-contract.test.mjs
 
 Expected: FAIL because direct `bash` has no exact `outputSchema`, returns flat mixed-case fields, uses generic error output, has no injectable provider, and does not validate provider-returned identity.
 
-- [ ] **Step 4: Add schema imports and provider types to `src/server.ts`**
+- [x] **Step 4: Add schema imports and provider types to `src/server.ts`**
 
 Import:
 
@@ -564,7 +566,7 @@ bashResultProvider?: (
 ) => BashResult | Promise<BashResult>;
 ```
 
-- [ ] **Step 5: Add strict provider-result validation**
+- [x] **Step 5: Add strict provider-result validation**
 
 Near the existing direct-tool provider schemas, add:
 
@@ -601,7 +603,7 @@ const bashResultProvider =
     ));
 ```
 
-- [ ] **Step 6: Add safe Bash failure classification helpers**
+- [x] **Step 6: Add safe Bash failure classification helpers**
 
 Add these exact bounded helpers and path-prefix list beside the established direct-tool classifiers:
 
@@ -723,7 +725,7 @@ function classifyBashFailure(
 
 Keep this classification order exact. Provider command/cwd/session validation failures intentionally fall through to `INTERNAL_ERROR`; no raw provider message is published.
 
-- [ ] **Step 7: Migrate the direct handler**
+- [x] **Step 7: Migrate the direct handler**
 
 Replace only the direct `bash` handler with this flow:
 
@@ -828,7 +830,7 @@ registerCodexTool(
 
 Preserve the existing registration position and annotations. Ensure the generic registration wrapper does not overwrite the nested `meta.durationMs`; its existing attachment behavior may update the constructor value with the full call duration.
 
-- [ ] **Step 8: Run focused tests and confirm GREEN**
+- [x] **Step 8: Run focused tests and confirm GREEN**
 
 Run:
 
@@ -838,7 +840,7 @@ node --test test/bash-contract.test.mjs
 
 Expected: schema, descriptor, direct handler, process-outcome, provider-validation, session, policy, backend, path, start, and fixed-failure tests PASS.
 
-- [ ] **Step 9: Review Task 2 diff and conditional checkpoint**
+- [x] **Step 9: Review Task 2 diff and conditional checkpoint**
 
 Use `show_changes` for `src/server.ts` and `test/bash-contract.test.mjs`. Confirm:
 
@@ -869,7 +871,7 @@ git commit -m "feat(schema): migrate bash result envelope"
 - Consumes: the nested direct `bash` envelope from Task 2.
 - Produces: nested Tool Card rendering and end-to-end consumers that never read legacy top-level Bash result fields.
 
-- [ ] **Step 1: Add failing Tool Card and supertool tests**
+- [x] **Step 1: Add failing Tool Card and supertool tests**
 
 Add tests that supply a successful nested envelope and require the rendered widget source to:
 
@@ -904,7 +906,7 @@ assert.equal(wrapped.structuredContent.data.exitCode, 0);
 assert.equal("exitCode" in wrapped.structuredContent, false);
 ```
 
-- [ ] **Step 2: Run focused tests and confirm RED**
+- [x] **Step 2: Run focused tests and confirm RED**
 
 Run:
 
@@ -914,7 +916,7 @@ node --test test/bash-contract.test.mjs
 
 Expected: FAIL because the Tool Card still reads flat fields. The supertool may already preserve the nested child result after Task 2; keep the test as a regression lock.
 
-- [ ] **Step 3: Migrate `renderBash` to the nested envelope**
+- [x] **Step 3: Migrate `renderBash` to the nested envelope**
 
 Replace only `renderBash` with a nested implementation shaped as follows:
 
@@ -965,7 +967,7 @@ function renderBash(data) {
 
 Keep all output previews bounded and escaped. Do not render raw failure details or submitted failure command text.
 
-- [ ] **Step 4: Update Smoke's old flat Bash accesses**
+- [x] **Step 4: Update Smoke's old flat Bash accesses**
 
 In `scripts/smoke.mjs`, update only assertions that read direct successful Bash data:
 
@@ -990,7 +992,7 @@ if (
 
 Replace generic `expectToolError` checks for direct Bash with exact stable code assertions where the helper can accept a code. Preserve all existing real safe-policy, package-script, transcript, no-Bash, and session tests.
 
-- [ ] **Step 5: Update Stress's old flat Bash accesses**
+- [x] **Step 5: Update Stress's old flat Bash accesses**
 
 Change successful checks from:
 
@@ -1022,7 +1024,7 @@ blockedSuperNewline.structuredContent.error?.code === "COMMAND_POLICY_DENIED"
 
 Do not weaken any file-noncreation assertion or policy-bypass fixture.
 
-- [ ] **Step 6: Run focused and end-to-end consumer tests**
+- [x] **Step 6: Run focused and end-to-end consumer tests**
 
 Run:
 
@@ -1039,7 +1041,7 @@ Expected:
 - native-Windows Stress passes, including its internal build;
 - compact/full transcript, session guard, safe-policy, supertool, and no-Bash behavior remain covered.
 
-- [ ] **Step 7: Review Task 3 diff and conditional checkpoint**
+- [x] **Step 7: Review Task 3 diff and conditional checkpoint**
 
 Use `show_changes` for `src/toolCardWidget.ts`, `scripts/smoke.mjs`, `scripts/stress.mjs`, and `test/bash-contract.test.mjs`. Confirm only nested field access and stable errors changed.
 
@@ -1067,7 +1069,7 @@ git commit -m "test(schema): migrate bash consumers"
 - Consumes: the complete eleventh Phase 1 slice.
 - Produces: fresh local evidence, reconciled documentation and memory, an independently reversible implementation set, and a separate publication decision point.
 
-- [ ] **Step 1: Run focused Bash contracts**
+- [x] **Step 1: Run focused Bash contracts**
 
 Run:
 
@@ -1077,7 +1079,7 @@ node --test test/bash-contract.test.mjs
 
 Expected: all focused cases pass. Record the exact passed/failed/skipped counts.
 
-- [ ] **Step 2: Run adjacent contracts**
+- [x] **Step 2: Run adjacent contracts**
 
 Run:
 
@@ -1087,7 +1089,7 @@ node --test test/bash-contract.test.mjs test/server-config-contract.test.mjs tes
 
 Expected: all pass. These cover shared envelope/meta behavior, server Bash configuration, adjacent edit-and-verify workflow, Tool Card routing, and wrapper behavior.
 
-- [ ] **Step 3: Run the complete Node regression suite**
+- [x] **Step 3: Run the complete Node regression suite**
 
 Run:
 
@@ -1097,7 +1099,7 @@ node --test test/*.test.mjs
 
 Expected: all tests pass. Record exact counts rather than copying historical values.
 
-- [ ] **Step 4: Run build**
+- [x] **Step 4: Run build**
 
 Run:
 
@@ -1107,7 +1109,7 @@ npm run build
 
 Expected: TypeScript compilation succeeds with no schema/provider type errors.
 
-- [ ] **Step 5: Run Smoke**
+- [x] **Step 5: Run Smoke**
 
 Run:
 
@@ -1117,7 +1119,7 @@ npm run smoke
 
 Expected: all eight sections pass, including real Bash execution, compact/full transcript, session guard, safe policy, and no-Bash mode.
 
-- [ ] **Step 6: Run native-Windows Stress**
+- [x] **Step 6: Run native-Windows Stress**
 
 Run:
 
@@ -1127,7 +1129,7 @@ npm run stress
 
 Expected: pass, including the internal build and all direct/supertool safe-Bash bypass protections.
 
-- [ ] **Step 7: Run whitespace and diff validation**
+- [x] **Step 7: Run whitespace and diff validation**
 
 Run:
 
@@ -1137,7 +1139,7 @@ git diff --check
 
 Expected: no errors. Established Windows LF-to-CRLF working-copy warnings may be recorded separately but are not failures.
 
-- [ ] **Step 8: Review the exact change set**
+- [x] **Step 8: Review the exact change set**
 
 Use one final `show_changes` with the full intended scope. Confirm:
 
@@ -1149,7 +1151,7 @@ Use one final `show_changes` with the full intended scope. Confirm:
 - non-zero command exits remain `ok:true`;
 - no raw command, output, executable path, environment value, unsafe path, mismatching input id, token, private key, or process diagnostic appears in public failure fixtures or docs.
 
-- [ ] **Step 9: Reconcile documentation and memory with fresh evidence**
+- [x] **Step 9: Reconcile documentation and memory with fresh evidence**
 
 Update:
 
@@ -1162,7 +1164,7 @@ Update:
 
 Do not rewrite earlier archive entries. Check the active archive byte size after the complete STEP and open a numbered continuation volume only if it reaches the configured 80% threshold.
 
-- [ ] **Step 10: Run final documentation diff check**
+- [x] **Step 10: Run final documentation diff check**
 
 Run:
 
@@ -1172,7 +1174,7 @@ git diff --check
 
 Expected: pass after documentation reconciliation.
 
-- [ ] **Step 11: Stop for explicit publication approval**
+- [x] **Step 11: Stop for explicit publication approval**
 
 Report:
 
