@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Phase: Phase 1, tenth vertical slice
-Status: Implemented and fully verified locally; publication pending
+Status: Published in commit `c761b4e`; CI run `29233787814` passed Ubuntu/Windows Node 20/24
 
 ## 1. Goal
 

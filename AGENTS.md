@@ -157,8 +157,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-13-write-output-schema.md` — executed four-task plan for the eighth `write` slice.
 - `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md` — published design for the ninth Phase 1 direct `edit` slice.
 - `docs/superpowers/plans/2026-07-13-edit-output-schema.md` — executed four-task implementation plan for the published ninth `edit` slice.
-- `docs/superpowers/specs/2026-07-13-apply-patch-output-schema-design.md` — approved, committed design for the tenth Phase 1 direct `apply_patch` slice.
-- `docs/superpowers/plans/2026-07-13-apply-patch-output-schema.md` — executed four-task TDD plan for the locally verified tenth `apply_patch` slice; publication remains pending.
+- `docs/superpowers/specs/2026-07-13-apply-patch-output-schema-design.md` — published design for the tenth Phase 1 direct `apply_patch` slice.
+- `docs/superpowers/plans/2026-07-13-apply-patch-output-schema.md` — executed four-task TDD plan for the published tenth `apply_patch` slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -200,4 +200,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first nine vertical slices are published and cross-platform CI-validated. Direct `edit` is published in commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows with Node 20/24. The tenth direct `apply_patch` slice is implemented and fully verified locally: focused 14/14, adjacent 89/89, complete 177/177, Build, Smoke 8/8, native-Windows Stress, and diff check passed. The design remains committed in `3279d0c`; implementation changes are unstaged and unpublished. The next permitted action requires explicit approval to stage, commit, push, and verify CI. Do not begin Phase 2 without explicit approval.
+Phase 1 implementation started on 2026-07-12. The first ten vertical slices are published and cross-platform CI-validated. Direct `apply_patch` is published in commit `c761b4e`; CI run `29233787814` passed on Ubuntu/Windows with Node 20/24. The next permitted action is a separately reviewed design for one additional Phase 1 tool. Do not begin Phase 2 without explicit approval.

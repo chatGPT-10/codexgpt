@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, synchronous Git subprocesses, existing CodexPro path guard, write policy, redaction, diff statistics, Tool Card, and analysis-cache services.
 
-**Status:** Tasks 1–4 implemented and fully verified locally; publication Step 9 pending explicit approval.
+**Status:** Complete and published; implementation commit `c761b4e`, CI run `29233787814` passed Ubuntu/Windows Node 20/24.
 
 **Execution note:** Final review centralized the original size/secret/symlink/path validation order in `validateApplyPatchInput` and added `safeApplyPatchPathDetail` so relative escapes are omitted from public details. These verified corrections supersede the earlier illustrative Task 2 snippets where they differ.
 
@@ -996,7 +996,7 @@ test/write-contract.test.mjs
 
 Stop for the Git/publication approval required by project rules unless the user has explicitly authorized autonomous publication for the implementation slice.
 
-- [ ] **Step 9: Stage, commit, push, and verify CI only after explicit publication approval**
+- [x] **Step 9: Stage, commit, push, and verify CI only after explicit publication approval**
 
 Use exactly:
 
@@ -1017,7 +1017,7 @@ After push, verify the branch-head GitHub Actions run on Ubuntu and Windows with
 - `npm run smoke`: all eight sections passed.
 - `npm run stress`: passed on native Windows, including its internal build.
 - `git diff --check`: passed before documentation reconciliation, with only established LF-to-CRLF working-copy warnings.
-- Publication remains pending; no implementation files have been staged, committed, or pushed.
+- Publication complete: implementation commit `c761b4e` was pushed to `origin/main`; CI run `29233787814` passed all Ubuntu/Windows Node 20/24 jobs.
 
 ## Self-Review
 

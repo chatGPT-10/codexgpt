@@ -229,3 +229,54 @@ Before publication, restore the listed unstaged implementation/documentation fil
 **Next step**
 
 Obtain explicit approval to stage the exact reviewed change set, commit, push to `origin/main`, verify the branch-head GitHub Actions matrix on Ubuntu/Windows with Node 20/24, and record the publication result. Do not begin Phase 2.
+
+---
+
+## STEP-143 — Publish direct `apply_patch`
+
+**Status**
+
+Complete. The tenth Phase 1 slice is published and cross-platform CI-validated. Phase 2 remains closed.
+
+**Goal**
+
+Publish the exact reviewed implementation set, verify the branch-head Actions matrix, and synchronize the concise project state and append-only active archive.
+
+**Publication actions**
+
+- Re-ran the focused direct contract immediately before staging: 14/14 passed.
+- Staged exactly the 13 reviewed implementation, test, Smoke, plan, design, changelog, AGENTS, Memory, and archive files.
+- `git diff --cached --check` passed with no output.
+- Created implementation commit `c761b4e` (`feat(schema): add exact apply_patch result contract`), containing 13 files, 2,548 insertions, 58 deletions, and three new files.
+- Pushed `main` to `origin/main`; the remote advanced from `a182393` to `c761b4e`.
+- Confirmed the full implementation SHA as `c761b4e9fb3ffa219ff7ab314bb28f351d062db9`.
+
+**CI verification**
+
+- GitHub Actions run: `29233787814`.
+- Workflow: `CI`.
+- Head SHA exactly matched `c761b4e9fb3ffa219ff7ab314bb28f351d062db9`.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+- The installed Git Bash environment did not contain `gh`; Windows PowerShell also confirmed no `gh` command. CI was therefore verified through the public GitHub Actions REST API by exact run id and head SHA, not inferred from push success.
+
+**Repository state**
+
+- Immediately after the implementation push, `show_changes` reported `## main...origin/main` with no changed files.
+- This STEP and the concise state updates form a separate documentation record authorized by the same publication approval.
+- Active archive size after this STEP: 16,263 bytes; no new volume is required.
+
+**Risks or limitations**
+
+- The operation remains synchronous and non-atomic, without transaction, rollback, crash recovery, expected hashes, fuzzy patching, or automatic repair.
+- Input/path failure classification still recognizes internal message prefixes; Git operation stages use typed tool-local markers.
+
+**Rollback method**
+
+Revert implementation commit `c761b4e` without rewriting history, then run the complete local gates and push the revert. Do not remove user configuration, credentials, branches, archives, or Phase 1 Volume 1.
+
+**Next step**
+
+Design-review one additional Phase 1 tool as a separate vertical slice. Do not begin Phase 2 without explicit approval.

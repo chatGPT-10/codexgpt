@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first nine slices are published and cross-platform CI-validated; the tenth `apply_patch` slice is implemented and fully verified locally, with publication pending.
+- Phase 1: the first ten slices are published and cross-platform CI-validated; direct `apply_patch` is the tenth completed slice.
 
 ## Approved stopping point
 
-The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows with Node 20/24. The tenth direct `apply_patch` slice is implemented and fully verified locally but remains unstaged and unpublished; its design is committed in `3279d0c`. The next action requires explicit publication approval. Phase 2 remains closed.
+The tenth Phase 1 vertical slice, direct `apply_patch`, is published in commit `c761b4e`; CI run `29233787814` passed on Ubuntu/Windows with Node 20/24. Local `main` and `origin/main` were synchronized after the implementation push. The next permitted action is a separately reviewed design for one additional Phase 1 tool. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -66,7 +66,7 @@ The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3
 - Atomic transactions, rollback, undo, expected hashes, fuzzy patching, authentication, dependencies, workspace lifecycle, and Phase 2/3 remain outside the `apply_patch` slice.
 - Phase archives use bounded numbered volumes: after each complete STEP, open the next volume when the active file reaches 80% of the configured direct-read byte limit; earlier volumes remain unchanged.
 - The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
-- The user approved autonomous execution and publication of all four direct `edit` tasks; credential changes, history rewriting, access expansion, and Phase 2 remain unapproved.
+- The user approved execution and publication of the direct `apply_patch` slice; credential changes, history rewriting, access expansion, and Phase 2 remain unapproved.
 
 ## Local verification evidence
 
@@ -91,7 +91,7 @@ The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3
 - `search`: implementation and publication commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows Node 20/24.
 - `write`: implementation commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows Node 20/24.
 - `edit`: implementation commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows Node 20/24.
-- `apply_patch`: design commit `3279d0c`; implementation fully verified locally; implementation commit, push, and CI remain pending.
+- `apply_patch`: design commit `3279d0c`; implementation commit `c761b4e`; CI run `29233787814` passed Ubuntu/Windows Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across `docs/memory/archive/phase-1.md` (STEP-073–139) and the active `docs/memory/archive/phase-1-part-2.md` (STEP-140 onward).
 
 ## Known limitations
@@ -108,11 +108,12 @@ The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3
 
 ## Open items
 
-1. Direct `apply_patch` is implemented and fully verified locally; the next permitted action is explicit approval to stage, commit, push, and verify CI.
-2. Publication is pending. Keep Phase 2 closed.
+1. Direct `apply_patch` is published and cross-platform CI-validated.
+2. The next permitted action is a separately reviewed design for one additional Phase 1 tool. Keep Phase 2 closed.
 
 ## Recent summaries
 
+- **STEP-143 — Publish direct `apply_patch`:** pushed implementation commit `c761b4e`, verified CI run `29233787814` passed Ubuntu/Windows Node 20/24, and confirmed local `main` matched `origin/main` before the publication-record update.
 - **STEP-142 — Implement and verify direct `apply_patch`:** added the exact schema-v1 envelope, twelve fixed failures, normalized provider/path-set validation, cache-safe invalidation, dedicated Tool Card/supertool consumers, and TDD coverage; focused 14/14, adjacent 89/89, complete 177/177, Build, Smoke 8/8, native-Windows Stress, and diff check passed; publication remains pending.
 - **STEP-141 — Commit and plan direct `apply_patch`:** committed the approved design as `3279d0c`, wrote and self-reviewed the four-task TDD plan, corrected returned-path normalization, bounded Tool Card previews, and deterministic Git-stage test interfaces, and kept implementation and Phase 2 closed.
 - **STEP-140 — Design direct `apply_patch`:** approved and self-reviewed the isolated tenth Phase 1 slice with nine nested success fields, twelve stable non-retryable failures, exact returned-path-set validation, cache-safe provider ordering, a dedicated Tool Card path, and no expansion into atomic transactions, rollback, authentication, or Phase 2/3; opened bounded Phase 1 Volume 2 from STEP-140 without rewriting Volume 1.
