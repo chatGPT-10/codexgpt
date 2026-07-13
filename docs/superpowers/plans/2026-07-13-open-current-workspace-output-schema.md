@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing `WorkspaceManager`, `PathGuard`, `workspaceSummary`, Tool Card HTML, Smoke/HTTP Smoke/Stress suites, native Windows and Ubuntu CI.
 
-**Status:** Published as commit `d887849` on `origin/main`; exact-head CI verification is pending because GitHub Actions is inaccessible from the current environment.
+**Status:** Published and cross-platform CI-validated. Implementation commit `d887849`; final exact-head `e0e5f77`; CI run `29246163724` passed Ubuntu/Windows with Node 20/24.
 
 ## Global Constraints
 
@@ -348,4 +348,4 @@ Run `show_changes(include_diff=false)` after documentation updates and rerun `gi
 
 ## Current Stopping Point
 
-Implementation and `neat-freak` reconciliation were published as commit `d887849` on `origin/main`. Exact-head cross-platform CI remains pending because the current environment cannot query GitHub Actions. Credential/access changes and Phase 2 remain closed.
+Implementation and `neat-freak` reconciliation were published in commit `d887849`. Final exact-head `e0e5f77` passed CI run `29246163724` on Ubuntu and Windows with Node 20 and 24. The next permitted action is the next Phase 1 design review; credential/access changes and Phase 2 remain closed.

@@ -162,8 +162,10 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-13-apply-patch-output-schema.md` — executed four-task TDD plan for the published tenth `apply_patch` slice.
 - `docs/superpowers/specs/2026-07-13-bash-output-schema-design.md` — published design for the eleventh Phase 1 direct `bash` slice.
 - `docs/superpowers/plans/2026-07-13-bash-output-schema.md` — executed four-task TDD plan for the published eleventh `bash` slice.
-- `docs/superpowers/specs/2026-07-13-open-current-workspace-output-schema-design.md` — published design for the twelfth Phase 1 direct `open_current_workspace` slice; exact-head CI verification is pending.
-- `docs/superpowers/plans/2026-07-13-open-current-workspace-output-schema.md` — executed four-task TDD plan for the locally verified twelfth `open_current_workspace` slice.
+- `docs/superpowers/specs/2026-07-13-open-current-workspace-output-schema-design.md` — published and cross-platform CI-validated design for the twelfth Phase 1 direct `open_current_workspace` slice.
+- `docs/superpowers/plans/2026-07-13-open-current-workspace-output-schema.md` — executed four-task TDD plan for the published and CI-validated twelfth `open_current_workspace` slice.
+- `docs/superpowers/specs/2026-07-13-open-workspace-output-schema-design.md` — locally implemented design for the thirteenth Phase 1 direct `open_workspace` slice; publication review passed and publication is pending.
+- `docs/superpowers/plans/2026-07-13-open-workspace-output-schema.md` — completed and publication-reviewed inline TDD plan for the thirteenth slice, including protected main-Smoke and HTTP-Smoke in-memory compatibility paths.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -205,4 +207,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first eleven vertical slices are published and cross-platform CI-validated. Direct `bash` was published through commit `a39b779`; CI run `29239425311` passed on Ubuntu/Windows with Node 20/24. The twelfth direct `open_current_workspace` slice was published as commit `d887849` after focused 13/13, complete regression 202/202, Build, Smoke 8/8, native-Windows Stress, and `neat-freak` reconciliation. Exact-head CI remains pending because the current environment cannot query GitHub Actions. Do not begin Phase 2 until the remaining Phase 1 scope is explicitly reviewed.
+Phase 1 implementation started on 2026-07-12. The first twelve vertical slices are published and cross-platform CI-validated. Publication review passed for the thirteenth direct `open_workspace` slice after fixing bounded data-URL stack labels and global-Skill request-scope validation. Final local evidence is focused 18/18, adjacent 66/66, complete 220/220, Build, all eight Smoke sections, native-Windows Stress, package dry-run, and diff checking. No Critical or Important review findings remain. The next action requires explicit approval to stage, commit, and push, followed by exact-head Ubuntu/Windows Node 20/24 CI verification. Do not begin Phase 2 until the remaining Phase 1 scope is explicitly reviewed.

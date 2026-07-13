@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an exact schema-v1 `open_workspace` result envelope with twelve strict nested workspace fields, seven stable redacted alias/path/root/open/internal failures, deterministic trimmed `root`/`path` alias handling, stage-separated root and summary validation, global-Skill request-scope enforcement, nested Tool Card/supertool compatibility, preserved deterministic workspace reuse and non-Git success, plus fail-closed in-memory main-Smoke and HTTP-Smoke compatibility loaders with bounded stack labels that keep protected test fixtures unchanged on disk.
 - Added an exact schema-v1 `open_current_workspace` result envelope with twelve strict nested workspace fields, five stable redacted default-root/internal failures, validated workspace/root/AGENTS/skill/count/inclusion provider boundaries, nested Tool Card/supertool compatibility, and preserved non-Git workspace success plus recent-commit human summaries.
 
 - Added an exact schema-v1 `bash` result envelope with eleven strict nested process fields, eleven stable redacted workspace/session/policy/backend/path/start failures, validated provider command/cwd/session identity, dedicated nested Tool Card/supertool output, preserved compact/full transcripts, and preserved non-zero exits as successful command-level verification results.

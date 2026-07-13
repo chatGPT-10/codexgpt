@@ -504,8 +504,11 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function workspaceResultData(data) {
-    return data?.codexpro_tool === "open_current_workspace"
-      ? (data?.data ?? {})
+    const isDirectOpen =
+      data?.codexpro_tool === "open_current_workspace" ||
+      data?.codexpro_tool === "open_workspace";
+    return isDirectOpen && data?.data && typeof data.data === "object"
+      ? data.data
       : (data ?? {});
   }
 

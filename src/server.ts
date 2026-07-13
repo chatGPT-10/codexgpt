@@ -139,6 +139,15 @@ import {
   openCurrentWorkspaceOutputShape,
   type OpenCurrentWorkspaceFailureInput
 } from "./tools/schemas/openCurrentWorkspace.js";
+import {
+  OPEN_WORKSPACE_ERROR_MESSAGES,
+  createOpenWorkspaceFailure,
+  createOpenWorkspaceSuccess,
+  openWorkspaceDataSchema,
+  openWorkspaceOutputShape,
+  type OpenWorkspaceFailureInput,
+  type OpenWorkspaceRootSource
+} from "./tools/schemas/openWorkspace.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -352,6 +361,175 @@ function classifyOpenCurrentWorkspaceFailure(error: unknown): OpenCurrentWorkspa
     return { code: "WORKSPACE_OPEN_FAILED", details };
   }
   return { code: "INTERNAL_ERROR", details: {} };
+}
+
+type OpenWorkspaceSummaryOptions = {
+  includeTree: boolean;
+  maxDepth: number;
+  maxEntries: number;
+  includeSkills: boolean;
+  includeGlobalSkills: boolean;
+};
+
+const openWorkspaceProviderSkillSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  source: z.enum(["workspace", "user", "plugin", "other"]),
+  path: z.string().min(1)
+}).strict();
+
+const openWorkspaceProviderCountsSchema = z.object({
+  total: z.number().int().nonnegative(),
+  workspace: z.number().int().nonnegative(),
+  user: z.number().int().nonnegative(),
+  plugin: z.number().int().nonnegative(),
+  other: z.number().int().nonnegative()
+}).strict();
+
+const openWorkspaceProviderResultSchema = z.object({
+  text: z.string().min(1),
+  workspaceId: z.string().min(1),
+  root: z.string().min(1),
+  agentsLoaded: z.boolean(),
+  agentsPath: z.string().min(1).optional(),
+  skills: z.array(z.string().min(1)),
+  skillInventory: z.array(openWorkspaceProviderSkillSchema),
+  skillCounts: openWorkspaceProviderCountsSchema,
+  tree: z.string().min(1).optional(),
+  gitStatus: z.string().min(1)
+}).strict();
+
+type OpenWorkspaceProviderResult = z.infer<typeof openWorkspaceProviderResultSchema>;
+
+function expectedOpenWorkspaceSkillCounts(
+  inventory: OpenWorkspaceProviderResult["skillInventory"]
+): OpenWorkspaceProviderResult["skillCounts"] {
+  const counts = { total: inventory.length, workspace: 0, user: 0, plugin: 0, other: 0 };
+  for (const skill of inventory) counts[skill.source] += 1;
+  return counts;
+}
+
+function validateOpenWorkspaceProviderResult(
+  result: OpenWorkspaceProviderResult,
+  workspace: Workspace,
+  guard: PathGuard,
+  options: OpenWorkspaceSummaryOptions
+): Array<{
+  name: string;
+  description: string | null;
+  source: "workspace" | "user" | "plugin" | "other";
+  path: string;
+}> {
+  if (result.workspaceId !== workspace.id) {
+    throw new CodexProError("Open workspace provider returned a mismatched workspace id.");
+  }
+  if (result.root !== workspace.root) {
+    throw new CodexProError("Open workspace provider returned a mismatched root.");
+  }
+  if (result.agentsLoaded !== Boolean(result.agentsPath)) {
+    throw new CodexProError("Open workspace provider returned inconsistent AGENTS state.");
+  }
+  if (result.agentsPath) {
+    const resolvedAgents = guard.resolve(workspace, result.agentsPath);
+    if (resolvedAgents.relPath !== result.agentsPath) {
+      throw new CodexProError("Open workspace provider returned a non-normalized AGENTS path.");
+    }
+  }
+
+  const expectedNames = result.skillInventory.map((skill) => skill.name);
+  if (
+    expectedNames.length !== result.skills.length ||
+    expectedNames.some((name, index) => result.skills[index] !== name)
+  ) {
+    throw new CodexProError("Open workspace provider returned mismatched skill names.");
+  }
+
+  const expectedCounts = expectedOpenWorkspaceSkillCounts(result.skillInventory);
+  for (const key of ["total", "workspace", "user", "plugin", "other"] as const) {
+    if (result.skillCounts[key] !== expectedCounts[key]) {
+      throw new CodexProError("Open workspace provider returned mismatched skill counts.");
+    }
+  }
+
+  if (!options.includeSkills && (result.skills.length || result.skillInventory.length || result.skillCounts.total)) {
+    throw new CodexProError("Open workspace provider returned skills when discovery was disabled.");
+  }
+  if (
+    options.includeSkills &&
+    !options.includeGlobalSkills &&
+    result.skillInventory.some((skill) => skill.source !== "workspace")
+  ) {
+    throw new CodexProError("Open workspace provider returned global skills when global discovery was disabled.");
+  }
+  if (options.includeTree !== Boolean(result.tree)) {
+    throw new CodexProError("Open workspace provider returned inconsistent tree inclusion.");
+  }
+
+  return result.skillInventory.map((skill) => ({
+    name: skill.name,
+    description: skill.description ?? null,
+    source: skill.source,
+    path: skill.path
+  }));
+}
+
+class OpenWorkspaceAliasConflictError extends CodexProError {
+  constructor() {
+    super("open_workspace root/path alias conflict");
+  }
+}
+
+type OpenWorkspaceRootSelection = {
+  requestedRoot?: string;
+  source: OpenWorkspaceRootSource;
+};
+
+function resolveOpenWorkspaceRoot(args: Record<string, unknown>): OpenWorkspaceRootSelection {
+  const root = typeof args.root === "string" ? args.root.trim() : "";
+  const alias = typeof args.path === "string" ? args.path.trim() : "";
+  if (root && alias && root !== alias) {
+    throw new OpenWorkspaceAliasConflictError();
+  }
+  if (root) return { requestedRoot: root, source: "root" };
+  if (alias) return { requestedRoot: alias, source: "path" };
+  return { source: "configured_default_root" };
+}
+
+const OPEN_WORKSPACE_INVALID_PATH_PREFIXES = [
+  "Path contains a null byte.",
+  "Windows device paths are not allowed:",
+  "UNC paths are not allowed:",
+  "Drive-relative Windows paths are not allowed:",
+  "NTFS alternate data stream paths are not allowed:",
+  "Windows path segments may not end with a dot or space:",
+  "Windows reserved device name is not allowed:"
+] as const;
+
+function classifyOpenWorkspaceRootFailure(
+  error: unknown,
+  source: OpenWorkspaceRootSource
+): OpenWorkspaceFailureInput {
+  if (error instanceof OpenWorkspaceAliasConflictError) {
+    return { code: "ROOT_ALIAS_CONFLICT", details: { fields: ["root", "path"] } };
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  const filesystemCode = nodeErrorCode(error);
+  const details = { source };
+
+  if (OPEN_WORKSPACE_INVALID_PATH_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return { code: "ROOT_PATH_INVALID", details };
+  }
+  if (message.startsWith("Workspace root does not exist:") || filesystemCode === "ENOENT") {
+    return { code: "ROOT_NOT_FOUND", details };
+  }
+  if (message.startsWith("Workspace root is not a directory:") || filesystemCode === "ENOTDIR") {
+    return { code: "ROOT_NOT_DIRECTORY", details };
+  }
+  if (message.startsWith("Workspace root is outside allowed roots:")) {
+    return { code: "ROOT_NOT_ALLOWED", details };
+  }
+  return { code: "WORKSPACE_OPEN_FAILED", details };
 }
 
 function classifyBashFailure(
@@ -1506,6 +1684,13 @@ export interface OpenCurrentWorkspaceSummaryProviderContext {
   options: OpenCurrentWorkspaceSummaryOptions;
 }
 
+export interface OpenWorkspaceSummaryProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  options: OpenWorkspaceSummaryOptions;
+}
+
 export interface BashProviderContext {
   config: CodexProConfig;
   guard: PathGuard;
@@ -1566,6 +1751,10 @@ export interface CodexProServerDependencies {
   ) => ApplyPatchProviderResult | Promise<ApplyPatchProviderResult>;
   openCurrentWorkspaceSummaryProvider?: (
     context: OpenCurrentWorkspaceSummaryProviderContext
+  ) => WorkspaceSummary | Promise<WorkspaceSummary>;
+  openWorkspaceProvider?: (root?: string) => Workspace;
+  openWorkspaceSummaryProvider?: (
+    context: OpenWorkspaceSummaryProviderContext
   ) => WorkspaceSummary | Promise<WorkspaceSummary>;
   bashResultProvider?: (
     context: BashProviderContext
@@ -2473,6 +2662,16 @@ export function createCodexProServer(
         ...context.options,
         bootstrapContext: false
       }));
+  const openWorkspaceProvider =
+    dependencies.openWorkspaceProvider ??
+    ((root?: string) => workspaces.openWorkspace(root));
+  const openWorkspaceSummaryProvider =
+    dependencies.openWorkspaceSummaryProvider ??
+    ((context: OpenWorkspaceSummaryProviderContext) =>
+      workspaceSummary(context.config, context.guard, context.workspace, {
+        ...context.options,
+        bootstrapContext: false
+      }));
   const bashResultProvider =
     dependencies.bashResultProvider ??
     ((context: BashProviderContext) =>
@@ -3110,6 +3309,7 @@ export function createCodexProServer(
         include_global_skills: z.boolean().optional().describe("Also scan installed user/plugin skills when include_skills=true. Default: false."),
         bootstrap_context: z.boolean().optional().describe("Deprecated and ignored. Use handoff_to_agent to create .ai-bridge files.")
       },
+      outputSchema: openWorkspaceOutputShape,
       annotations: SESSION_READ_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -3118,32 +3318,77 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      if (args.root && args.path && args.root !== args.path) {
-        throw new CodexProError("open_workspace accepts either root or path. If both are provided, they must match.");
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      let source: OpenWorkspaceRootSource = "configured_default_root";
+
+      try {
+        const selection = resolveOpenWorkspaceRoot(args);
+        source = selection.source;
+        workspace = openWorkspaceProvider(selection.requestedRoot);
+      } catch (error) {
+        const failure = classifyOpenWorkspaceRootFailure(error, source);
+        const text = [
+          "# Open Workspace Error",
+          "",
+          `Code: ${failure.code}`,
+          OPEN_WORKSPACE_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, createOpenWorkspaceFailure(failure, Date.now() - startedAt)),
+          isError: true
+        };
       }
-      const workspace = workspaces.openWorkspace(args.root ?? args.path);
-      const summary = await workspaceSummary(config, guard, workspace, {
-        includeTree: args.include_tree !== false,
-        maxDepth: limitInt(args.max_depth, 3, 1, 8),
-        maxEntries: limitInt(args.max_files, 500, 1, 3000),
-        includeSkills: parseBool(args.include_skills, false),
-        includeGlobalSkills: parseBool(args.include_global_skills, false),
-        bootstrapContext: false
-      });
-      return textResult(summary.text, {
-        workspace_id: summary.workspaceId,
-        root: summary.root,
-        agents_loaded: summary.agentsLoaded,
-        agents_path: summary.agentsPath,
-        skills: summary.skills,
-        skill_inventory: summary.skillInventory,
-        skill_counts: summary.skillCounts,
-        tree: summary.tree,
-        git_status: summary.gitStatus,
-        bash_mode: config.bashMode,
-        write_mode: config.writeMode,
-        tool_mode: config.toolMode
-      });
+
+      try {
+        const options: OpenWorkspaceSummaryOptions = {
+          includeTree: args.include_tree !== false,
+          maxDepth: limitInt(args.max_depth, 3, 1, 8),
+          maxEntries: limitInt(args.max_files, 500, 1, 3000),
+          includeSkills: parseBool(args.include_skills, false),
+          includeGlobalSkills: parseBool(args.include_global_skills, false)
+        };
+        const summary = openWorkspaceProviderResultSchema.parse(
+          await openWorkspaceSummaryProvider({ config, guard, workspace, options })
+        );
+        const normalizedInventory = validateOpenWorkspaceProviderResult(
+          summary,
+          workspace,
+          guard,
+          options
+        );
+        const data = openWorkspaceDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          agents_loaded: summary.agentsLoaded,
+          agents_path: summary.agentsPath ?? null,
+          skills: summary.skills,
+          skill_inventory: normalizedInventory,
+          skill_counts: summary.skillCounts,
+          tree: summary.tree ?? null,
+          git_status: summary.gitStatus,
+          bash_mode: config.bashMode,
+          write_mode: config.writeMode,
+          tool_mode: config.toolMode
+        });
+
+        return textResult(
+          summary.text,
+          createOpenWorkspaceSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        const failure: OpenWorkspaceFailureInput = { code: "INTERNAL_ERROR", details: {} };
+        const text = [
+          "# Open Workspace Error",
+          "",
+          `Code: ${failure.code}`,
+          OPEN_WORKSPACE_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, createOpenWorkspaceFailure(failure, Date.now() - startedAt)),
+          isError: true
+        };
+      }
     }
   );
 

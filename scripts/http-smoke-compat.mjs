@@ -1,2 +1,45 @@
+import fs from "node:fs/promises";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
+
 process.env["CODEXPRO_ALLOW_QUERY_" + "TOKEN"] = "1";
-await import("./http-smoke.mjs");
+
+const require = createRequire(import.meta.url);
+const sourceUrl = new URL("./http-smoke.mjs", import.meta.url);
+let source = await fs.readFile(sourceUrl, "utf8");
+
+const replacements = [
+  [
+    "from '@modelcontextprotocol/sdk/client/index.js'",
+    `from '${pathToFileURL(require.resolve("@modelcontextprotocol/sdk/client/index.js")).href}'`
+  ],
+  [
+    "from '@modelcontextprotocol/sdk/client/streamableHttp.js'",
+    `from '${pathToFileURL(require.resolve("@modelcontextprotocol/sdk/client/streamableHttp.js")).href}'`
+  ],
+  [
+    "result.structuredContent.skill_inventory?.length",
+    "result.structuredContent.data?.skill_inventory?.length"
+  ],
+  [
+    "withSkills.structuredContent.skill_inventory?.some?.",
+    "withSkills.structuredContent.data?.skill_inventory?.some?."
+  ],
+  [
+    "return result.structuredContent.workspace_id;",
+    "return result.structuredContent.data?.workspace_id;"
+  ]
+];
+
+for (const [oldText, newText] of replacements) {
+  const firstIndex = source.indexOf(oldText);
+  const lastIndex = source.lastIndexOf(oldText);
+  if (firstIndex < 0 || firstIndex !== lastIndex) {
+    throw new Error(`HTTP smoke compatibility replacement must match exactly once: ${oldText}`);
+  }
+  source = source.replace(oldText, newText);
+}
+
+source += "\n//# sourceURL=codexpro-http-smoke-compat.mjs";
+const encoded = Buffer.from(source, "utf8").toString("base64");
+await import(`data:text/javascript;base64,${encoded}`);

@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Phase: Phase 1, twelfth vertical slice
-Status: Published as commit `d887849` on `origin/main`; exact-head CI verification pending
+Status: Published and cross-platform CI-validated; implementation `d887849`, final exact-head `e0e5f77`, CI run `29246163724`
 
 ## 1. Goal
 
@@ -500,4 +500,4 @@ The slice is complete only when:
 
 ## 19. Current stopping point
 
-The design was implemented, verified, reconciled with `neat-freak`, committed as `d887849`, and pushed to `origin/main`. Final local evidence includes focused 13/13, complete regression 202/202, Build, Smoke 8/8, and native-Windows Stress. Exact-head cross-platform CI remains pending because the current environment cannot query GitHub Actions; credential/access changes and Phase 2 remain closed.
+The design was implemented, verified, reconciled with `neat-freak`, committed as `d887849`, and pushed to `origin/main`. Final local evidence includes focused 13/13, complete regression 202/202, Build, Smoke 8/8, and native-Windows Stress. Final exact-head `e0e5f77` passed CI run `29246163724` on Ubuntu and Windows with Node 20 and 24. Credential/access changes and Phase 2 remain closed.
