@@ -76,9 +76,10 @@ Next step
 Memory rules:
 
 - Keep `Memory.md` at or below 150 lines and 18 KB when practical; 200 lines and 25 KB are hard limits.
-- Phase archives are append-only; do not silently rewrite archived history.
+- Phase archive volumes are append-only; do not silently rewrite archived history.
 - Append corrections to archived facts as new correction entries.
-- At phase completion, close the current archive. Create the next phase archive only when that phase begins; record between-phase maintenance in `docs/memory/archive/interphase-maintenance.md`.
+- After each complete STEP, check the active phase archive size. If it is at or above 80% of the configured direct-read byte limit, close that volume, leave it unchanged, and start the next STEP in a numbered continuation volume. Do not rename or repartition earlier volumes.
+- At phase completion, close the active volume. Create the next phase archive only when that phase begins; record between-phase maintenance in `docs/memory/archive/interphase-maintenance.md`.
 - Record materially relevant failed attempts and their causes.
 - Do not store secrets, complete tokens, private keys, or sensitive file contents.
 - Keep paths repository-relative unless an absolute path is necessary to explain an environment problem.
@@ -136,7 +137,8 @@ Memory rules:
 - `Memory.md` — current state and next action.
 - `docs/memory/archive/phase-0-and-0.5.md` — closed Phase 0 and Phase 0.5 history through STEP-065.
 - `docs/memory/archive/interphase-maintenance.md` — closed maintenance records from STEP-066 through STEP-072.
-- `docs/memory/archive/phase-1.md` — active Phase 1 planning and implementation record from STEP-073 onward.
+- `docs/memory/archive/phase-1.md` — unchanged Phase 1 Volume 1 covering STEP-073 through STEP-139.
+- `docs/memory/archive/phase-1-part-2.md` — active Phase 1 Volume 2 from STEP-140 onward.
 - `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md` — approved design for the first Phase 1 vertical slice.
 - `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` — executed plan for the completed first Phase 1 `server_config` vertical slice.
 - `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md` — approved design for the published second Phase 1 `tree` slice.
@@ -155,6 +157,7 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-13-write-output-schema.md` — executed four-task plan for the eighth `write` slice.
 - `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md` — published design for the ninth Phase 1 direct `edit` slice.
 - `docs/superpowers/plans/2026-07-13-edit-output-schema.md` — executed four-task implementation plan for the published ninth `edit` slice.
+- `docs/superpowers/specs/2026-07-13-apply-patch-output-schema-design.md` — approved, self-reviewed design for the tenth Phase 1 direct `apply_patch` slice; implementation has not started.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -196,4 +199,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first nine vertical slices are published and cross-platform CI-validated. Direct `edit` is published in commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. The next permitted action is a separately reviewed design for one additional Phase 1 tool. Do not begin Phase 2 without explicit approval.
+Phase 1 implementation started on 2026-07-12. The first nine vertical slices are published and cross-platform CI-validated. Direct `edit` is published in commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows with Node 20/24. The tenth direct `apply_patch` design and STEP-140 record are complete in the new bounded Phase 1 Volume 2, but no implementation plan or implementation task is active. The next permitted action requires explicit approval to commit the design record and write its separate TDD implementation plan. Do not begin Phase 2 without explicit approval.
