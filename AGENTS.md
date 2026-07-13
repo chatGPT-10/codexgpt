@@ -159,6 +159,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-13-edit-output-schema.md` — executed four-task implementation plan for the published ninth `edit` slice.
 - `docs/superpowers/specs/2026-07-13-apply-patch-output-schema-design.md` — published design for the tenth Phase 1 direct `apply_patch` slice.
 - `docs/superpowers/plans/2026-07-13-apply-patch-output-schema.md` — executed four-task TDD plan for the published tenth `apply_patch` slice.
+- `docs/superpowers/specs/2026-07-13-bash-output-schema-design.md` — approved design for the planned eleventh Phase 1 direct `bash` slice.
+- `docs/superpowers/plans/2026-07-13-bash-output-schema.md` — unexecuted four-task TDD plan for the planned eleventh `bash` slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -200,4 +202,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first ten vertical slices are published and cross-platform CI-validated. Direct `apply_patch` is published in commit `c761b4e`; CI run `29233787814` passed on Ubuntu/Windows with Node 20/24. The next permitted action is a separately reviewed design for one additional Phase 1 tool. Do not begin Phase 2 without explicit approval.
+Phase 1 implementation started on 2026-07-12. The first ten vertical slices are published and cross-platform CI-validated. Direct `apply_patch` is published in commit `c761b4e`; CI run `29233787814` passed on Ubuntu/Windows with Node 20/24. The eleventh direct-tool slice, `bash`, now has an approved design and an unexecuted four-task TDD plan. The next permitted action is an explicit decision to commit the planning record or execute that plan; do not begin implementation, publication, or Phase 2 without the applicable approval.

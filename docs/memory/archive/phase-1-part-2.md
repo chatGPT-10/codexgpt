@@ -280,3 +280,80 @@ Revert implementation commit `c761b4e` without rewriting history, then run the c
 **Next step**
 
 Design-review one additional Phase 1 tool as a separate vertical slice. Do not begin Phase 2 without explicit approval.
+
+---
+
+## STEP-144 — Design and plan direct `bash` exact output schema
+
+**Status**
+
+Complete. The eleventh Phase 1 vertical-slice design and its four-task TDD implementation plan are approved under the user's standing recommendation rule. Production implementation, staging, commit, push, and Phase 2 have not started.
+
+**Goal**
+
+Define a stable schema-v1 contract for only the direct `bash` MCP tool and create an executable TDD plan while preserving the current synchronous Bash verification behavior and excluding PowerShell, persistent processes, PTY, Windows Job Objects, shell abstraction, and later-phase architecture.
+
+**Files changed**
+
+- `docs/superpowers/specs/2026-07-13-bash-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-bash-output-schema.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1-part-2.md`
+
+**Design and planning summary**
+
+- Selected direct `bash` as the eleventh Phase 1 slice because it completes the high-frequency direct edit-and-verify workflow without crossing into Phase 2/3/4.
+- Chose the isolated direct-tool migration pattern: one exact schema module, one injectable provider seam around existing `runBash`, strict provider validation, stable failure classification, nested Tool Card consumption, and focused contract tests.
+- Defined the critical outcome boundary: envelope `ok` represents the tool operation; `exitCode` and `signal` represent the command. Non-zero exit, signal, truncation, and the current timeout marker remain valid command outcomes under `ok:true`.
+- Preserved eleven intentional success fields under nested `data`: workspace, root, command, normalized working directory, exit code, signal, execution duration, stdout, stderr, truncation, and optional normalized session id.
+- Removed the accidental public duplicate `bashSessionId`; only `bash_session_id` is planned publicly.
+- Defined eleven fixed non-retryable tool-level errors for workspace, argument, session configuration, required/mismatched session, policy, backend, path, process start, and internal failure.
+- Required safe fixed failure messages that exclude raw commands, output, environment values, executable paths, supplied mismatch ids, unsafe absolute paths, system diagnostics, stack traces, and secret-looking values.
+- Preserved the production `runBash` validation order, then required the handler to independently normalize the requested `cwd` and validate returned command, `cwd`, and session identity before success construction.
+- Kept `src/bashOps.ts`, the safe allowlist/blocklist, output redaction/truncation, timeout and termination behavior, environment policy, transcript modes, registration, annotations, dependencies, authentication, and workspace lifecycle unchanged.
+- Wrote four independently reviewable TDD tasks: exact schema, direct handler/provider/classification, Tool Card/Smoke/Stress consumers, and complete verification/documentation/publication gate.
+
+**Verification commands**
+
+```text
+git diff --check
+```
+
+The design and plan were also self-reviewed for placeholder-free instructions, complete spec coverage, consistent types and field names, outcome semantics, safe error boundaries, implementation scope, and Phase boundaries.
+
+**Verification results**
+
+- Design self-review: passed.
+- Plan spec-coverage review: passed.
+- Placeholder and unresolved-choice scan: passed.
+- Type/field/error consistency review: passed.
+- Security and phase-boundary review: passed.
+- Pre-archive `git diff --check`: passed.
+- Git emitted only the established Windows LF-to-CRLF working-copy warnings for `AGENTS.md` and `Memory.md`.
+- No production source, tests, Bash algorithm, dependencies, authentication, profiles, workspace lifecycle, process architecture, or Phase 2/3/4 behavior was changed.
+
+**Decisions made**
+
+- Use the current direct `bash` tool rather than a workspace summary tool because the edit-and-verify protocol is the next highest-value unfinished direct contract.
+- Do not combine this slice with PowerShell or process management; those remain Phase 4.
+- Keep non-zero command exits as successful tool-level results so failed builds/tests remain structured verification evidence.
+- Do not invent a `timed_out` field until the execution layer exposes a trustworthy typed state.
+- All public Bash tool-level failures are non-retryable in schema version 1.
+- Keep implementation, Git checkpointing, publication, and CI as separately approved gates.
+
+**Risks or limitations**
+
+- Safe Bash remains a policy filter rather than an operating-system sandbox; verification commands can execute repository code with the current user's permissions.
+- Timeout currently targets the direct child and does not guarantee termination of the complete Windows process tree.
+- Planned failure classification remains coupled to current internal message prefixes and Node error codes until a later typed shell error refactor.
+- Git Bash remains the temporary native-Windows backend; native PowerShell is deferred.
+- The implementation plan is detailed but unexecuted, so final code shapes remain subject to RED/GREEN evidence, TypeScript compilation, Smoke, Stress, and cross-platform CI.
+
+**Rollback method**
+
+Before any planning commit, delete the two new planning documents and restore only the uncommitted `AGENTS.md`, `Memory.md`, and this STEP append. If the planning record is committed later, revert that planning commit without rewriting history. No production files, profiles, credentials, dependencies, or prior archive volumes require changes.
+
+**Next step**
+
+Ask the user to choose between committing only this planning record or executing the four-task TDD plan. Do not implement, stage, publish, change credentials, expand access, rewrite history, or begin Phase 2 without the applicable approval.

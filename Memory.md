@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first ten slices are published and cross-platform CI-validated; direct `apply_patch` is the tenth completed slice.
+- Phase 1: the first ten slices are published and cross-platform CI-validated; direct `bash` is the approved, planned, but unimplemented eleventh slice.
 
 ## Approved stopping point
 
-The tenth Phase 1 vertical slice, direct `apply_patch`, is published in commit `c761b4e`; CI run `29233787814` passed on Ubuntu/Windows with Node 20/24. Local `main` and `origin/main` were synchronized after the implementation push. The next permitted action is a separately reviewed design for one additional Phase 1 tool. Phase 2 remains closed.
+The first ten Phase 1 slices remain published and cross-platform CI-validated. Direct `bash` is selected as the eleventh slice; its isolated schema-v1 design and four-task TDD implementation plan are complete but uncommitted and unexecuted. The next permitted action is an explicit decision to commit the planning record or execute the plan. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -66,7 +66,10 @@ The tenth Phase 1 vertical slice, direct `apply_patch`, is published in commit `
 - Atomic transactions, rollback, undo, expected hashes, fuzzy patching, authentication, dependencies, workspace lifecycle, and Phase 2/3 remain outside the `apply_patch` slice.
 - Phase archives use bounded numbered volumes: after each complete STEP, open the next volume when the active file reaches 80% of the configured direct-read byte limit; earlier volumes remain unchanged.
 - The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
-- The user approved execution and publication of the direct `apply_patch` slice; credential changes, history rewriting, access expansion, and Phase 2 remain unapproved.
+- Direct `bash` is the approved eleventh Phase 1 slice; it stabilizes only the current synchronous Bash protocol and does not introduce PowerShell or process management.
+- Bash `ok:true` means a valid process outcome; non-zero exit, signal, truncation, or the current timeout marker remain command-level results rather than tool-level errors.
+- The planned public Bash result has eleven nested success fields and eleven fixed non-retryable tool-level errors; the accidental public camelCase `bashSessionId` is removed.
+- Bash implementation, staging, publication, credential changes, history rewriting, access expansion, and Phase 2 remain unapproved.
 
 ## Local verification evidence
 
@@ -77,7 +80,7 @@ The tenth Phase 1 vertical slice, direct `apply_patch`, is published in commit `
 - `npm run smoke`: all eight sections passed.
 - `npm run stress`: passed on native Windows, including its internal build.
 - `git diff --check`: passed before reconciliation; only established Windows LF-to-CRLF working-copy warnings were emitted.
-- Final review preserved size/secret/symlink/path rejection order and omitted relative escape paths from public details.
+- Planning-only `bash` design and TDD-plan self-review passed; final `git diff --check` passed with only established Windows LF-to-CRLF warnings. No source test was run because production code is unchanged.
 
 ## Published phase evidence
 
@@ -101,6 +104,7 @@ The tenth Phase 1 vertical slice, direct `apply_patch`, is published in commit `
 - Git failure classification remains coupled to current string output from `src/gitOps.ts`.
 - Direct `edit` failure classification remains coupled to current `CodexProError` message prefixes and operating-system error codes.
 - Direct `apply_patch` input/path classification remains coupled to current internal message prefixes; Git stage classification now uses tool-local typed markers.
+- Planned direct `bash` failure classification remains coupled to current message prefixes and Node error codes; safe Bash is not a sandbox, and timeout does not reliably terminate the complete Windows process tree.
 - Review checkpoints remain process-local memory state and are not shared across service restarts.
 - Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
 - `docs/memory/archive/phase-1.md` exceeds the normal direct read-size limit and is now the unchanged first Phase 1 archive volume covering STEP-073–139.
@@ -108,11 +112,12 @@ The tenth Phase 1 vertical slice, direct `apply_patch`, is published in commit `
 
 ## Open items
 
-1. Direct `apply_patch` is published and cross-platform CI-validated.
-2. The next permitted action is a separately reviewed design for one additional Phase 1 tool. Keep Phase 2 closed.
+1. Direct `bash` design and the four-task TDD implementation plan are complete, uncommitted, and unexecuted.
+2. Decide whether to commit the planning record or execute the plan. Keep Phase 2 closed.
 
 ## Recent summaries
 
+- **STEP-144 — Design and plan direct `bash`:** selected the isolated eleventh Phase 1 slice, fixed the tool-level versus command-level outcome boundary, defined eleven nested success fields and eleven stable failures, wrote a four-task TDD plan, and kept Bash behavior, PowerShell/process work, implementation, publication, and Phase 2 closed.
 - **STEP-143 — Publish direct `apply_patch`:** pushed implementation commit `c761b4e`, verified CI run `29233787814` passed Ubuntu/Windows Node 20/24, and confirmed local `main` matched `origin/main` before the publication-record update.
 - **STEP-142 — Implement and verify direct `apply_patch`:** added the exact schema-v1 envelope, twelve fixed failures, normalized provider/path-set validation, cache-safe invalidation, dedicated Tool Card/supertool consumers, and TDD coverage; focused 14/14, adjacent 89/89, complete 177/177, Build, Smoke 8/8, native-Windows Stress, and diff check passed; publication remains pending.
 - **STEP-141 — Commit and plan direct `apply_patch`:** committed the approved design as `3279d0c`, wrote and self-reviewed the four-task TDD plan, corrected returned-path normalization, bounded Tool Card previews, and deterministic Git-stage test interfaces, and kept implementation and Phase 2 closed.
@@ -125,8 +130,6 @@ The tenth Phase 1 vertical slice, direct `apply_patch`, is published in commit `
 - **STEP-134 — Reconcile the eighth slice:** updated the design, plan, changelog, AGENTS map, and project memory after the full local verification suite passed.
 - **STEP-133 — Implement and verify direct `write`:** added the exact schema-v1 contract, eleven stable failures, validated provider seam, nested Tool Card/supertool consumers, and TDD coverage; focused 12/12, adjacent 42/42, complete 149/149, Build, Smoke 8/8, and native-Windows Stress passed.
 - **STEP-132 — Design and plan direct `write`:** approved the isolated eighth Phase 1 slice without expanding into `edit`, `apply_patch`, atomic editing, or Phase 2.
-- **STEP-131 — Publish `search`:** pushed commit `02153a9`, confirmed local/remote synchronization, and verified CI run `29209071349` passed on Ubuntu/Windows with Node 20/24.
-
 ## Archives
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
