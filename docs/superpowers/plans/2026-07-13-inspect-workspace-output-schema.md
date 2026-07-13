@@ -1786,7 +1786,7 @@ git diff --cached --check
 
 Expected: pass.
 
-- [ ] **Step 5.5: Create and push the implementation commit**
+- [x] **Step 5.5: Create and push the implementation commit**
 
 Recommended commit message:
 
@@ -1796,7 +1796,7 @@ feat(schema): add exact inspect_workspace result contract
 
 Push `main` to `origin/main` only after the commit succeeds and the staged diff is exact.
 
-- [ ] **Step 5.6: Verify exact implementation-head CI**
+- [x] **Step 5.6: Verify exact implementation-head CI**
 
 Identify the public GitHub Actions run whose `head_sha` exactly equals the full implementation commit SHA.
 
@@ -1811,7 +1811,7 @@ Windows / Node 24
 
 Do not accept a run for an earlier or later commit as implementation evidence.
 
-- [ ] **Step 5.7: Write the separate durable publication record**
+- [x] **Step 5.7: Write the separate durable publication record**
 
 Update:
 

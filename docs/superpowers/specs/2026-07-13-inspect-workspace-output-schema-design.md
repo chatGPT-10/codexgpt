@@ -3,7 +3,7 @@
 **Date:** 2026-07-13
 **Phase:** Phase 1
 **Slice:** 16
-**Status:** Tasks 1–4 locally complete; publication and exact-head CI pending
+**Status:** Published as implementation commit `4cea9bd`; exact-head CI run `29272546666` passed Ubuntu/Windows Node 20/24
 
 ## 1. Goal
 

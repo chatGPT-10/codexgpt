@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first fifteen slices are published; Slice 16 direct `inspect_workspace` Tasks 1–4 are locally complete and Task 5 publication is in progress.
+- Phase 1: the first sixteen slices are published; direct `inspect_workspace` implementation commit `4cea9bd` passed exact-head CI run `29272546666` on Ubuntu/Windows Node 20/24.
 
 ## Approved stopping point
 
-Slice 16 direct `inspect_workspace` is locally complete through Task 4. Exact schema/provider/handler/consumer work passed initial RED 0/10, schema-only GREEN 3/10, focused 10/10, adjacent 79/79, complete 263/263, Build, analysis Smoke, analysis CLI Smoke, standalone HTTP Smoke, complete Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. The next approved step is Task 5 publication and exact-head CI verification, followed by a separate durable record. Workspace lifecycle, semantic-provider expansion, and Phase 2 remain closed.
+Direct `inspect_workspace` is published and implementation exact-head CI-validated after initial RED 0/10, schema-only GREEN 3/10, focused 10/10, adjacent 79/79, complete 263/263, Build, analysis Smoke, analysis CLI Smoke, standalone HTTP Smoke, complete Smoke 8/8, native-Windows Stress, package dry-run, and diff checking passed. Publish and exact-head verify this separate durable record, then design-review the next remaining Phase 1 direct tool; default to `codexpro_inventory` unless fresh inventory finds a smaller prerequisite. Workspace lifecycle, semantic-provider expansion, and Phase 2 remain closed.
 
 ## Active decisions and constraints
 
@@ -69,7 +69,7 @@ Slice 16 direct `inspect_workspace` is locally complete through Task 4. Exact sc
 - `npm run build`, analysis Smoke, analysis CLI Smoke, protected main Smoke, standalone HTTP Smoke, all eight complete Smoke sections, and native-Windows Stress passed.
 - Latest `npm pack --dry-run` passed with 131 files, 346.4 kB compressed, and 1.8 MB unpacked; internal Memory/plan/spec files remain excluded.
 - `git diff --check` passed; only established LF-to-CRLF working-copy warnings were emitted.
-- Slice 16 publication and exact-head CI have not yet run.
+- Exact-head implementation CI run `29272546666` passed Ubuntu/Windows Node 20/24 for full SHA `4cea9bd29d1abad97e511d65acf6a57c591a2b74`.
 
 ## Published phase evidence
 
@@ -89,6 +89,7 @@ Slice 16 direct `inspect_workspace` is locally complete through Task 4. Exact sc
 - `open_workspace`: implementation and publication-review commit `c31e8a1`; exact-head CI run `29253838423` passed Ubuntu/Windows with Node 20/24.
 - `workspace_snapshot`: implementation and publication-review commit `242315e`; exact-head CI run `29258565084` passed Ubuntu/Windows with Node 20/24.
 - `list_workspaces`: implementation commit `c4eb31a`; exact-head CI run `29267724784` passed Ubuntu/Windows with Node 20/24.
+- `inspect_workspace`: implementation commit `4cea9bd`; exact-head CI run `29272546666` passed Ubuntu/Windows with Node 20/24.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across Phase 1 Volume 1 (STEP-073–139), closed Volume 2 (STEP-140–151), closed Volume 3 (STEP-152–165), and active Volume 4 (STEP-166 onward).
 
 ## Known limitations
@@ -111,11 +112,12 @@ Slice 16 direct `inspect_workspace` is locally complete through Task 4. Exact sc
 
 ## Open items
 
-1. Execute Slice 16 Task 5: run `neat-freak`, repeat release gates, precisely stage, commit, push, and verify implementation exact-head CI.
-2. Publish and verify a separate durable record; keep workspace lifecycle, semantic-provider expansion, and Phase 2 closed.
+1. Commit and push this separate publication record, then verify its exact-head Ubuntu/Windows Node 20/24 CI.
+2. Design-review the next remaining Phase 1 direct tool; default to `codexpro_inventory` unless fresh inventory finds a smaller prerequisite, and keep Phase 2 closed.
 
 ## Recent summaries
 
+- **STEP-176 — Publish direct `inspect_workspace`:** implementation commit `4cea9bd` was pushed and exact-head CI run `29272546666` passed Ubuntu/Windows Node 20/24.
 - **STEP-175 — Complete local Slice 16 verification:** focused 10/10, adjacent 79/79, complete 263/263, all Build/Smoke/Stress/package/diff gates passed.
 - **STEP-174 — Implement handler and migrate consumers:** added exact provider validation and staged failures; Tool Card, protected Smoke, Stress, and cache consumers now use nested data.
 - **STEP-173 — Establish Slice 16 RED and schema GREEN:** initial RED was 0/10; schema-only intermediate was 3/10 before handler and consumer migration.

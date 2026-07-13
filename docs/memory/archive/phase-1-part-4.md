@@ -587,3 +587,52 @@ Completed locally. Tasks 1–4 are complete and Task 5 publication is approved a
 **Next step**
 
 Execute Task 5: run `neat-freak`, repeat release gates, precisely stage only reviewed Slice 16 files, commit and push the implementation, verify exact-head Ubuntu/Windows Node 20/24 CI, then publish and verify a separate durable record.
+
+---
+
+## STEP-176 — Publish direct `inspect_workspace` and verify implementation CI
+
+**Status**
+
+Completed. The sixteenth Phase 1 direct-tool implementation is published and its exact implementation head passed the complete cross-platform CI matrix.
+
+**Publication evidence**
+
+- Ran `neat-freak`; AGENTS remained 218 lines/15.5 kB and Memory remained 143 lines/15.2 kB before the publication record, both inside project limits.
+- Re-ran focused 10/10, adjacent 79/79, complete 263/263, Build, analysis Smoke, analysis CLI Smoke, standalone HTTP Smoke, complete Smoke 8/8, native-Windows Stress, package dry-run, and diff checking after final review edits.
+- Precisely staged the fifteen reviewed Slice 16 files without `git add .` or `git add -A`.
+- `git diff --cached --check` passed.
+- Created implementation commit `4cea9bd` with message `feat(schema): add exact inspect_workspace result contract`.
+- Full implementation SHA: `4cea9bd29d1abad97e511d65acf6a57c591a2b74`.
+- Pushed `main` to `origin/main`: `2426c1a..4cea9bd`.
+- The local Git Bash backend did not have `gh`; verification used the public GitHub Actions REST API with exact `head_sha` matching.
+- Matched public GitHub Actions run `29272546666` to the exact full implementation SHA.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+- Run conclusion: success.
+
+**Published contract**
+
+- Direct `inspect_workspace` remains standard/full when analysis is enabled and absent in minimal or analysis-disabled modes.
+- Success contains exactly sixteen nested data fields; full-workspace coverage remains distinct from scoped/capped returned records.
+- Provider workspace/root identity, normalized path sets, coverage counts, warnings, cache, returned counts, and output-limit semantics are validated before public construction.
+- Five fixed non-retryable failures separate workspace, path, provider execution, and internal validation without exposing raw diagnostics.
+- Tool Card consumes nested results first with historical flat fallback; the direct supertool preserves the exact child envelope.
+- Protected main and HTTP Smoke source files remain unchanged; compatibility migration is exact, fail-closed, and in-memory.
+- The analysis engine, cache implementation, dependencies, authentication, credentials, profiles, Cloudflare, allowed roots, workspace lifecycle, and Phase 2 remain unchanged.
+
+**Risks and limitations**
+
+- Tool-local validation intentionally duplicates some analysis schemas from direct `search` until a later separately reviewed extraction.
+- Workspace/path failure classification still depends on bounded internal message prefixes.
+- Compatibility loaders intentionally depend on exact protected-source strings and fail closed on drift.
+
+**Rollback method**
+
+Use a normal revert commit for `4cea9bd` if the implementation must be withdrawn. Do not reset or rewrite `main`, and do not alter credentials, profiles, protected Smoke sources, prior archives, or published Phase 1 commits.
+
+**Next step**
+
+Commit and push this separate publication record, verify its exact-head Ubuntu/Windows Node 20/24 CI, then design-review the next remaining Phase 1 direct tool. Use `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite. Keep Phase 2 closed.
