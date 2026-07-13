@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Phase: Phase 1, eleventh vertical slice
-Status: Complete locally; implementation commits `0ddabfc`, `7a71421`, and `86350df`; publication and cross-platform CI pending
+Status: Published through commit `a39b779`; CI run `29239425311` passed Ubuntu/Windows Node 20/24
 
 ## 1. Goal
 
@@ -521,4 +521,4 @@ Fresh verification on native Windows:
 - `npm run stress`: passed, including its internal build.
 - `git diff --check`: passed.
 
-The production Bash algorithm, safe allowlist/blocklist, environment policy, timeout and direct-child termination behavior, dependencies, authentication, profiles, and workspace lifecycle remain unchanged. Publication still requires an exact reviewed documentation commit, push approval, and a branch-head GitHub Actions matrix pass on Ubuntu/Windows with Node 20/24.
+The production Bash algorithm, safe allowlist/blocklist, environment policy, timeout and direct-child termination behavior, dependencies, authentication, profiles, and workspace lifecycle remain unchanged. Publication record `a39b779` was pushed on 2026-07-13, and exact-head CI run `29239425311` passed Ubuntu/Windows with Node 20/24.

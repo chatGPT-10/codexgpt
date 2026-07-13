@@ -470,3 +470,76 @@ Revert documentation/implementation commits in reverse order without rewriting h
 **Next step**
 
 Commit the reconciled documentation record after final diff review. Then stop for explicit approval before pushing `main`. After approval, verify that the exact branch-head GitHub Actions run matches the pushed SHA and passes Ubuntu/Windows Node 20/24. Do not begin Phase 2.
+
+---
+
+## STEP-146 — Publish direct `bash`
+
+**Status**
+
+Published and cross-platform CI-validated. The implementation and reconciled record were pushed to `main`; the exact pushed head passed the full GitHub Actions matrix.
+
+**Goal**
+
+Publish the completed eleventh Phase 1 slice without expanding scope, then verify that the exact remote branch head passes Ubuntu/Windows with Node 20/24.
+
+**Files changed**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1-part-2.md`
+- `docs/superpowers/plans/2026-07-13-bash-output-schema.md`
+- `docs/superpowers/specs/2026-07-13-bash-output-schema-design.md`
+
+**Implementation summary**
+
+- Ran `neat-freak` and reconciled the Bash design, plan, changelog, project rules, memory index, and active archive.
+- Reduced `Memory.md` from 150 lines to leave capacity for future step records while preserving STEP-140 onward in the recent-summary window.
+- Committed the implementation record as `a39b779` and pushed `main`.
+- Confirmed local `main` matched `origin/main` immediately after the push.
+- Matched GitHub Actions run `29239425311` to exact head `a39b7791908a1b193c2ae653a706785846d3bf10`.
+
+**Verification commands**
+
+```text
+node --test test/*.test.mjs
+npm run build
+npm run smoke
+npm run stress
+git diff --check
+git push origin main
+GitHub REST: actions/runs?head_sha=<exact SHA>
+GitHub REST: actions/runs/29239425311/jobs
+```
+
+**Verification results**
+
+- Complete regression: 189/189 passed.
+- Build: passed.
+- Smoke: all eight sections passed.
+- Native-Windows Stress: passed, including its internal build.
+- Diff check: passed; only established LF-to-CRLF working-copy warnings were emitted before staging.
+- Push: `main` advanced to `a39b779`.
+- CI run `29239425311`: success.
+- Matrix jobs passed: Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, Windows Node 24.
+
+**Decisions made**
+
+- The direct `bash` slice is now published and closed.
+- No credentials, profiles, dependencies, authentication, Bash policy, process architecture, or Phase 2 behavior changed during publication.
+- The next work remains another Phase 1 design review rather than entering Phase 2.
+
+**Risks or limitations**
+
+- Safe Bash remains a policy filter rather than an operating-system sandbox.
+- Timeout still does not guarantee termination of the complete Windows process tree.
+- Bash failure classification remains coupled to current message prefixes and Node error codes.
+- The final publication-state documentation commit will trigger a new docs-only branch-head CI run after this record is written.
+
+**Rollback method**
+
+Revert the final publication-state documentation commit, then revert `a39b779` and the implementation commits in reverse order only if the published slice itself must be withdrawn. Do not rewrite history or alter user credentials/profiles.
+
+**Next step**
+
+Commit and push this final publication-state record, verify its docs-only exact-head CI run, then design-review the next Phase 1 vertical slice. Keep Phase 2 closed.

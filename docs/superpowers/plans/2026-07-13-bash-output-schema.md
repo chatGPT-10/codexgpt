@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexPro `PathGuard`, Bash policy and redaction services, Tool Card HTML, Git Bash on native Windows, and current Smoke/Stress suites.
 
-**Status:** Complete locally through Task 4 verification; commits `0ddabfc`, `7a71421`, and `86350df`; documentation record, push, cross-platform CI, and Phase 2/3/4 remain pending.
+**Status:** Published through commit `a39b779`; CI run `29239425311` passed Ubuntu/Windows Node 20/24; Phase 2/3/4 remain closed.
 
 **Execution note:** The focused handler contract uses the injected provider because the standalone Node test process could not discover Git Bash through `where bash`; real native-Windows Git Bash execution, compact/full transcripts, Session Guard, safe package scripts, and policy rejection remain covered by the passing Smoke and Stress suites. Exact Node replacements were used only for existing Smoke/Stress files whose secret-lookalike safety fixtures correctly block generic `edit`.
 
