@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first sixteen slices are published; direct `inspect_workspace` implementation commit `4cea9bd` passed exact-head CI run `29272546666` on Ubuntu/Windows Node 20/24.
+- Phase 1: the first sixteen slices are published; direct `inspect_workspace` implementation `4cea9bd` and publication record `1f39996` passed exact-head CI runs `29272546666` and `29273060702` on Ubuntu/Windows Node 20/24.
 
 ## Approved stopping point
 
-Direct `inspect_workspace` is published and implementation exact-head CI-validated after initial RED 0/10, schema-only GREEN 3/10, focused 10/10, adjacent 79/79, complete 263/263, Build, analysis Smoke, analysis CLI Smoke, standalone HTTP Smoke, complete Smoke 8/8, native-Windows Stress, package dry-run, and diff checking passed. Publish and exact-head verify this separate durable record, then design-review the next remaining Phase 1 direct tool; default to `codexpro_inventory` unless fresh inventory finds a smaller prerequisite. Workspace lifecycle, semantic-provider expansion, and Phase 2 remain closed.
+Direct `inspect_workspace` is published and fully exact-head CI-validated: implementation `4cea9bd` passed run `29272546666`, and publication record `1f39996` passed run `29273060702`; both four-job matrices succeeded. The next approved action is design review of the next remaining Phase 1 direct tool, using `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite. Workspace lifecycle, semantic-provider expansion, and Phase 2 remain closed.
 
 ## Active decisions and constraints
 
@@ -69,7 +69,7 @@ Direct `inspect_workspace` is published and implementation exact-head CI-validat
 - `npm run build`, analysis Smoke, analysis CLI Smoke, protected main Smoke, standalone HTTP Smoke, all eight complete Smoke sections, and native-Windows Stress passed.
 - Latest `npm pack --dry-run` passed with 131 files, 346.4 kB compressed, and 1.8 MB unpacked; internal Memory/plan/spec files remain excluded.
 - `git diff --check` passed; only established LF-to-CRLF working-copy warnings were emitted.
-- Exact-head implementation CI run `29272546666` passed Ubuntu/Windows Node 20/24 for full SHA `4cea9bd29d1abad97e511d65acf6a57c591a2b74`.
+- Exact-head implementation CI run `29272546666` passed Ubuntu/Windows Node 20/24 for full SHA `4cea9bd29d1abad97e511d65acf6a57c591a2b74`; publication-record run `29273060702` passed the same four-job matrix for full SHA `1f39996d375b6191fba0bb8972c35bb3b15136ad`.
 
 ## Published phase evidence
 
@@ -89,7 +89,7 @@ Direct `inspect_workspace` is published and implementation exact-head CI-validat
 - `open_workspace`: implementation and publication-review commit `c31e8a1`; exact-head CI run `29253838423` passed Ubuntu/Windows with Node 20/24.
 - `workspace_snapshot`: implementation and publication-review commit `242315e`; exact-head CI run `29258565084` passed Ubuntu/Windows with Node 20/24.
 - `list_workspaces`: implementation commit `c4eb31a`; exact-head CI run `29267724784` passed Ubuntu/Windows with Node 20/24.
-- `inspect_workspace`: implementation commit `4cea9bd`; exact-head CI run `29272546666` passed Ubuntu/Windows with Node 20/24.
+- `inspect_workspace`: implementation `4cea9bd` / run `29272546666`; publication record `1f39996` / run `29273060702`; both exact-head Ubuntu/Windows Node 20/24 matrices passed.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across Phase 1 Volume 1 (STEP-073–139), closed Volume 2 (STEP-140–151), closed Volume 3 (STEP-152–165), and active Volume 4 (STEP-166 onward).
 
 ## Known limitations
@@ -112,11 +112,12 @@ Direct `inspect_workspace` is published and implementation exact-head CI-validat
 
 ## Open items
 
-1. Commit and push this separate publication record, then verify its exact-head Ubuntu/Windows Node 20/24 CI.
-2. Design-review the next remaining Phase 1 direct tool; default to `codexpro_inventory` unless fresh inventory finds a smaller prerequisite, and keep Phase 2 closed.
+1. Design-review the next remaining Phase 1 direct tool, using `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite.
+2. Keep workspace lifecycle, semantic-provider expansion, and Phase 2 closed until separately approved.
 
 ## Recent summaries
 
+- **STEP-177 — Verify publication-record head:** record commit `1f39996` passed exact-head CI run `29273060702` across Ubuntu/Windows Node 20/24.
 - **STEP-176 — Publish direct `inspect_workspace`:** implementation commit `4cea9bd` was pushed and exact-head CI run `29272546666` passed Ubuntu/Windows Node 20/24.
 - **STEP-175 — Complete local Slice 16 verification:** focused 10/10, adjacent 79/79, complete 263/263, all Build/Smoke/Stress/package/diff gates passed.
 - **STEP-174 — Implement handler and migrate consumers:** added exact provider validation and staged failures; Tool Card, protected Smoke, Stress, and cache consumers now use nested data.

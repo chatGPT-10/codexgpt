@@ -1823,7 +1823,7 @@ Update:
 
 This record commit must not change production behavior.
 
-- [ ] **Step 5.8: Commit, push, and verify the publication-record head**
+- [x] **Step 5.8: Commit, push, and verify the publication-record head**
 
 Use a documentation-only commit message such as:
 
@@ -1833,7 +1833,7 @@ docs(memory): record inspect_workspace publication
 
 Push it and verify that its exact-head Ubuntu/Windows Node 20/24 matrix also succeeds.
 
-- [ ] **Step 5.9: Confirm final clean synchronized state**
+- [x] **Step 5.9: Confirm final clean synchronized state**
 
 Use `show_changes(include_diff=false)` and the repository/CI tools to confirm:
 
@@ -1844,7 +1844,7 @@ Use `show_changes(include_diff=false)` and the repository/CI tools to confirm:
 - exact-head CI evidence is recorded;
 - no token or credential appears in durable records.
 
-- [ ] **Step 5.10: Report the next approved stopping point**
+- [x] **Step 5.10: Report the next approved stopping point**
 
 State that Slice 16 is published and CI-validated. Recommend design-reviewing the next remaining Phase 1 direct tool, with `codexpro_inventory` as the default candidate unless fresh inventory shows a smaller prerequisite.
 
@@ -1877,4 +1877,4 @@ Before executing this plan, verify:
 
 ## Execution handoff
 
-The recommended execution method is subagent-driven task execution with a fresh review gate after each task. In this project, execute only Task 1 first after explicit implementation approval, record it in `Memory.md` and the active archive, then continue according to the user's granted execution scope. Publication remains a separate approval even when Tasks 1–4 are approved for continuous execution.
+All five tasks are complete. Implementation `4cea9bd29d1abad97e511d65acf6a57c591a2b74` passed exact-head CI run `29272546666`; publication record `1f39996d375b6191fba0bb8972c35bb3b15136ad` passed exact-head CI run `29273060702`. Both Ubuntu/Windows Node 20/24 matrices succeeded. The next approved action is design review of another remaining Phase 1 direct tool, using `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite. Phase 2 remains closed.

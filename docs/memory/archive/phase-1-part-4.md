@@ -636,3 +636,35 @@ Use a normal revert commit for `4cea9bd` if the implementation must be withdrawn
 **Next step**
 
 Commit and push this separate publication record, verify its exact-head Ubuntu/Windows Node 20/24 CI, then design-review the next remaining Phase 1 direct tool. Use `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite. Keep Phase 2 closed.
+
+---
+
+## STEP-177 — Verify publication-record head and close Slice 16
+
+**Status**
+
+Completed. The separate durable publication record is pushed, exact-head CI-validated, and Slice 16 is fully closed.
+
+**Record publication evidence**
+
+- Publication-record commit: `1f39996`.
+- Full record SHA: `1f39996d375b6191fba0bb8972c35bb3b15136ad`.
+- Commit message: `docs(memory): record inspect_workspace publication`.
+- Push range: `4cea9bd..1f39996`.
+- Exact-head GitHub Actions run: `29273060702`.
+- Ubuntu / Node 20: success.
+- Ubuntu / Node 24: success.
+- Windows / Node 20: success.
+- Windows / Node 24: success.
+- Run conclusion: success.
+
+**Final state**
+
+- Implementation and publication-record SHAs and CI runs are recorded in `Memory.md`, `AGENTS.md`, the design, and the plan.
+- All Task 1–5 checkboxes are complete.
+- No production behavior changed after implementation commit `4cea9bd`.
+- Phase 2, workspace lifecycle, and semantic-provider expansion remain closed.
+
+**Next step**
+
+Design-review the next remaining Phase 1 direct tool. Use `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite.

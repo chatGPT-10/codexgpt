@@ -3,7 +3,7 @@
 **Date:** 2026-07-13
 **Phase:** Phase 1
 **Slice:** 16
-**Status:** Published as implementation commit `4cea9bd`; exact-head CI run `29272546666` passed Ubuntu/Windows Node 20/24
+**Status:** Published as implementation `4cea9bd` / CI `29272546666`; publication record `1f39996` / CI `29273060702`; both Ubuntu/Windows Node 20/24 matrices passed
 
 ## 1. Goal
 
