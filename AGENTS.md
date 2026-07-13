@@ -161,6 +161,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-13-apply-patch-output-schema.md` — executed four-task TDD plan for the published tenth `apply_patch` slice.
 - `docs/superpowers/specs/2026-07-13-bash-output-schema-design.md` — published design for the eleventh Phase 1 direct `bash` slice.
 - `docs/superpowers/plans/2026-07-13-bash-output-schema.md` — executed four-task TDD plan for the published eleventh `bash` slice.
+- `docs/superpowers/specs/2026-07-13-open-current-workspace-output-schema-design.md` — locally implemented design for the twelfth Phase 1 direct `open_current_workspace` slice; publication is authorized and in progress.
+- `docs/superpowers/plans/2026-07-13-open-current-workspace-output-schema.md` — executed four-task TDD plan for the locally verified twelfth `open_current_workspace` slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -202,4 +204,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first eleven vertical slices are published and cross-platform CI-validated. Direct `bash` was published through commit `a39b779`; CI run `29239425311` passed on Ubuntu/Windows with Node 20/24. The next permitted action is to design-review the next Phase 1 vertical slice using the established exact-schema workflow. Do not begin Phase 2 until the remaining Phase 1 scope is explicitly reviewed.
+Phase 1 implementation started on 2026-07-12. The first eleven vertical slices are published and cross-platform CI-validated. Direct `bash` was published through commit `a39b779`; CI run `29239425311` passed on Ubuntu/Windows with Node 20/24. The twelfth direct `open_current_workspace` slice is locally implemented and verified with focused 13/13, complete regression 202/202, Build, Smoke 8/8, and native-Windows Stress. `neat-freak` reconciliation is complete, and the user has authorized staging, commit, and push. Exact-head cross-platform CI must be verified after publication. Do not begin Phase 2 until the remaining Phase 1 scope is explicitly reviewed.

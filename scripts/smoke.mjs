@@ -301,23 +301,23 @@ if (!(legacyWidget.contents?.[0]?.text ?? '').includes('Waiting for tool result'
 }
 const current = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
 const realTmp = await fs.realpath(tmp);
-if (current.structuredContent.root !== realTmp) throw new Error(`open_current_workspace opened ${current.structuredContent.root}, expected ${realTmp}`);
+if (current.structuredContent.data?.root !== realTmp) throw new Error(`open_current_workspace opened ${current.structuredContent.data?.root}, expected ${realTmp}`);
 if (current.structuredContent.codexpro_tool !== 'open_current_workspace') throw new Error('tool result was not tagged for widget rendering');
-if (current.structuredContent.tool_mode !== 'full') throw new Error(`open_current_workspace did not expose tool_mode: ${current.structuredContent.tool_mode}`);
-if (current.structuredContent.skill_inventory?.length) {
+if (current.structuredContent.data?.tool_mode !== 'full') throw new Error(`open_current_workspace did not expose tool_mode: ${current.structuredContent.data?.tool_mode}`);
+if (current.structuredContent.data?.skill_inventory?.length) {
   throw new Error('open_current_workspace discovered skills by default');
 }
 const currentWithSkills = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false, include_skills: true } });
-if (!currentWithSkills.structuredContent.skill_inventory?.some?.((skill) => skill.name === 'smoke-skill')) {
+if (!currentWithSkills.structuredContent.data?.skill_inventory?.some?.((skill) => skill.name === 'smoke-skill')) {
   throw new Error('open_current_workspace did not discover workspace skill inventory when requested');
 }
-if (currentWithSkills.structuredContent.skill_inventory?.some?.((skill) => skill.name === 'outside-skill')) {
+if (currentWithSkills.structuredContent.data?.skill_inventory?.some?.((skill) => skill.name === 'outside-skill')) {
   throw new Error('open_current_workspace followed a symlinked workspace skill root outside the workspace');
 }
 const selfTest = await client.request('tools/call', {
   name: 'codexpro_self_test',
   arguments: {
-    workspace_id: current.structuredContent.workspace_id,
+    workspace_id: current.structuredContent.data?.workspace_id,
     max_skills: 12
   }
 });
@@ -333,7 +333,7 @@ if (!selfTest.structuredContent.files_touched?.includes?.('.ai-bridge/codexpro-s
 const snapshotAlias = await client.request('tools/call', {
   name: 'workspace_snapshot',
   arguments: {
-    workspace_id: current.structuredContent.workspace_id,
+    workspace_id: current.structuredContent.data?.workspace_id,
     max_depth: 1,
     max_files: 20,
     include_skills: false
@@ -1166,8 +1166,8 @@ await lowerClient.request('initialize', {
 });
 lowerClient.notify('notifications/initialized');
 const lowerOpened = await lowerClient.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
-if (lowerOpened.structuredContent.agents_path !== 'agents.md') {
-  throw new Error(`lowercase agents.md was reported as ${lowerOpened.structuredContent.agents_path}`);
+if (lowerOpened.structuredContent.data?.agents_path !== 'agents.md') {
+  throw new Error(`lowercase agents.md was reported as ${lowerOpened.structuredContent.data?.agents_path}`);
 }
 const lowerContext = await lowerClient.request('tools/call', { name: 'codex_context', arguments: { target_path: 'src/demo.ts', include_ai_bridge: false, include_git: false } });
 if (!lowerContext.structuredContent.agents_files.includes('agents.md')) {

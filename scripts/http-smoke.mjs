@@ -512,20 +512,20 @@ try {
     if (result.structuredContent.codexpro_tool !== 'open_current_workspace') {
       throw new Error('HTTP tool result was not tagged for widget rendering');
     }
-    if (result.structuredContent.tool_mode !== 'full') {
-      throw new Error(`open_current_workspace did not expose tool_mode: ${result.structuredContent.tool_mode}`);
+    if (result.structuredContent.data?.tool_mode !== 'full') {
+      throw new Error(`open_current_workspace did not expose tool_mode: ${result.structuredContent.data?.tool_mode}`);
     }
-    if (result.structuredContent.skill_inventory?.length) {
+    if (result.structuredContent.data?.skill_inventory?.length) {
       throw new Error('HTTP open_current_workspace discovered skills by default');
     }
     const withSkills = await callTool(client, 'open_current_workspace', {
       include_tree: false,
       include_skills: true
     });
-    if (!withSkills.structuredContent.skill_inventory?.some?.((skill) => skill.name === 'http-smoke-skill')) {
+    if (!withSkills.structuredContent.data?.skill_inventory?.some?.((skill) => skill.name === 'http-smoke-skill')) {
       throw new Error('HTTP open_current_workspace did not discover workspace skill inventory when requested');
     }
-    return result.structuredContent.workspace_id;
+    return result.structuredContent.data?.workspace_id;
   });
 
   await withClient(mcpUrl, async (client) => {

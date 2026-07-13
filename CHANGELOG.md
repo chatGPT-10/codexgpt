@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added an exact schema-v1 `open_current_workspace` result envelope with twelve strict nested workspace fields, five stable redacted default-root/internal failures, validated workspace/root/AGENTS/skill/count/inclusion provider boundaries, nested Tool Card/supertool compatibility, and preserved non-Git workspace success plus recent-commit human summaries.
+
 - Added an exact schema-v1 `bash` result envelope with eleven strict nested process fields, eleven stable redacted workspace/session/policy/backend/path/start failures, validated provider command/cwd/session identity, dedicated nested Tool Card/supertool output, preserved compact/full transcripts, and preserved non-zero exits as successful command-level verification results.
 - Added an exact schema-v1 `apply_patch` result envelope with nine strict nested fields, twelve stable redacted workspace/path/input/policy/Git/patch failures, validated normalized provider path sets, cache-safe invalidation, dedicated nested Tool Card/supertool output, and preserved guarded non-atomic `git apply` behavior.
 - Added an exact schema-v1 `edit` result envelope with strict nested replacement metadata, fourteen stable redacted workspace/path/file/replacement/policy/edit failures, validated provider and returned-path boundaries, dedicated nested Tool Card/supertool output, and preserved exact-match, diff, Unicode, and cache-invalidation behavior.

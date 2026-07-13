@@ -22,7 +22,12 @@ import {
 import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
 import { probeBashAvailability, runBash, type BashResult } from "./bashOps.js";
 import { gitDiff, gitDiffStatus, gitLog, gitStatus } from "./gitOps.js";
-import { readAiBridgeContext, readCodexContext, workspaceSummary } from "./workspaceOps.js";
+import {
+  readAiBridgeContext,
+  readCodexContext,
+  workspaceSummary,
+  type WorkspaceSummary
+} from "./workspaceOps.js";
 import { buildProContext, exportProContext } from "./proContext.js";
 import { codexproInventory, loadSkill } from "./capabilitiesOps.js";
 import { listCodexSessions, readCodexSession } from "./codexSessions.js";
@@ -126,6 +131,14 @@ import {
   createBashSuccess,
   type BashFailureInput
 } from "./tools/schemas/bash.js";
+import {
+  OPEN_CURRENT_WORKSPACE_ERROR_MESSAGES,
+  createOpenCurrentWorkspaceFailure,
+  createOpenCurrentWorkspaceSuccess,
+  openCurrentWorkspaceDataSchema,
+  openCurrentWorkspaceOutputShape,
+  type OpenCurrentWorkspaceFailureInput
+} from "./tools/schemas/openCurrentWorkspace.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -217,6 +230,128 @@ function nodeErrorCode(error: unknown): string | undefined {
   if (!error || typeof error !== "object" || !("code" in error)) return undefined;
   const code = (error as { code?: unknown }).code;
   return typeof code === "string" ? code : undefined;
+}
+
+type OpenCurrentWorkspaceSummaryOptions = {
+  includeTree: boolean;
+  maxDepth: number;
+  includeSkills: boolean;
+  includeGlobalSkills: boolean;
+};
+
+const openCurrentWorkspaceProviderSkillSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  source: z.enum(["workspace", "user", "plugin", "other"]),
+  path: z.string().min(1)
+}).strict();
+
+const openCurrentWorkspaceProviderCountsSchema = z.object({
+  total: z.number().int().nonnegative(),
+  workspace: z.number().int().nonnegative(),
+  user: z.number().int().nonnegative(),
+  plugin: z.number().int().nonnegative(),
+  other: z.number().int().nonnegative()
+}).strict();
+
+const openCurrentWorkspaceProviderResultSchema = z.object({
+  text: z.string().min(1),
+  workspaceId: z.string().min(1),
+  root: z.string().min(1),
+  agentsLoaded: z.boolean(),
+  agentsPath: z.string().min(1).optional(),
+  skills: z.array(z.string().min(1)),
+  skillInventory: z.array(openCurrentWorkspaceProviderSkillSchema),
+  skillCounts: openCurrentWorkspaceProviderCountsSchema,
+  tree: z.string().min(1).optional(),
+  gitStatus: z.string().min(1)
+}).strict();
+
+type OpenCurrentWorkspaceProviderResult = z.infer<typeof openCurrentWorkspaceProviderResultSchema>;
+
+function expectedOpenCurrentWorkspaceSkillCounts(
+  inventory: OpenCurrentWorkspaceProviderResult["skillInventory"]
+): OpenCurrentWorkspaceProviderResult["skillCounts"] {
+  const counts = { total: inventory.length, workspace: 0, user: 0, plugin: 0, other: 0 };
+  for (const skill of inventory) counts[skill.source] += 1;
+  return counts;
+}
+
+function validateOpenCurrentWorkspaceProviderResult(
+  result: OpenCurrentWorkspaceProviderResult,
+  workspace: Workspace,
+  guard: PathGuard,
+  options: OpenCurrentWorkspaceSummaryOptions
+): Array<{
+  name: string;
+  description: string | null;
+  source: "workspace" | "user" | "plugin" | "other";
+  path: string;
+}> {
+  if (result.workspaceId !== workspace.id) {
+    throw new CodexProError("Open current workspace provider returned a mismatched workspace id.");
+  }
+  if (result.root !== workspace.root) {
+    throw new CodexProError("Open current workspace provider returned a mismatched root.");
+  }
+  if (result.agentsLoaded !== Boolean(result.agentsPath)) {
+    throw new CodexProError("Open current workspace provider returned inconsistent AGENTS state.");
+  }
+  if (result.agentsPath) {
+    const resolvedAgents = guard.resolve(workspace, result.agentsPath);
+    if (resolvedAgents.relPath !== result.agentsPath) {
+      throw new CodexProError("Open current workspace provider returned a non-normalized AGENTS path.");
+    }
+  }
+
+  const expectedNames = result.skillInventory.map((skill) => skill.name);
+  if (
+    expectedNames.length !== result.skills.length ||
+    expectedNames.some((name, index) => result.skills[index] !== name)
+  ) {
+    throw new CodexProError("Open current workspace provider returned mismatched skill names.");
+  }
+
+  const expectedCounts = expectedOpenCurrentWorkspaceSkillCounts(result.skillInventory);
+  for (const key of ["total", "workspace", "user", "plugin", "other"] as const) {
+    if (result.skillCounts[key] !== expectedCounts[key]) {
+      throw new CodexProError("Open current workspace provider returned mismatched skill counts.");
+    }
+  }
+
+  if (!options.includeSkills && (result.skills.length || result.skillInventory.length || result.skillCounts.total)) {
+    throw new CodexProError("Open current workspace provider returned skills when discovery was disabled.");
+  }
+  if (options.includeTree !== Boolean(result.tree)) {
+    throw new CodexProError("Open current workspace provider returned inconsistent tree inclusion.");
+  }
+
+  return result.skillInventory.map((skill) => ({
+    name: skill.name,
+    description: skill.description ?? null,
+    source: skill.source,
+    path: skill.path
+  }));
+}
+
+function classifyOpenCurrentWorkspaceFailure(error: unknown): OpenCurrentWorkspaceFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+  const filesystemCode = nodeErrorCode(error);
+  const details = { source: "configured_default_root" } as const;
+
+  if (message.startsWith("Workspace root does not exist:") || filesystemCode === "ENOENT") {
+    return { code: "DEFAULT_ROOT_NOT_FOUND", details };
+  }
+  if (message.startsWith("Workspace root is not a directory:")) {
+    return { code: "DEFAULT_ROOT_NOT_DIRECTORY", details };
+  }
+  if (message.startsWith("Workspace root is outside allowed roots:")) {
+    return { code: "ROOT_NOT_ALLOWED", details };
+  }
+  if (filesystemCode === "EACCES" || filesystemCode === "EPERM" || filesystemCode === "EBUSY") {
+    return { code: "WORKSPACE_OPEN_FAILED", details };
+  }
+  return { code: "INTERNAL_ERROR", details: {} };
 }
 
 function classifyBashFailure(
@@ -1364,6 +1499,13 @@ export interface ApplyPatchProviderContext {
   patch: string;
 }
 
+export interface OpenCurrentWorkspaceSummaryProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  options: OpenCurrentWorkspaceSummaryOptions;
+}
+
 export interface BashProviderContext {
   config: CodexProConfig;
   guard: PathGuard;
@@ -1422,6 +1564,9 @@ export interface CodexProServerDependencies {
   applyPatchResultProvider?: (
     context: ApplyPatchProviderContext
   ) => ApplyPatchProviderResult | Promise<ApplyPatchProviderResult>;
+  openCurrentWorkspaceSummaryProvider?: (
+    context: OpenCurrentWorkspaceSummaryProviderContext
+  ) => WorkspaceSummary | Promise<WorkspaceSummary>;
   bashResultProvider?: (
     context: BashProviderContext
   ) => BashResult | Promise<BashResult>;
@@ -2321,6 +2466,13 @@ export function createCodexProServer(
         context.workspace,
         context.patch
       ));
+  const openCurrentWorkspaceSummaryProvider =
+    dependencies.openCurrentWorkspaceSummaryProvider ??
+    ((context: OpenCurrentWorkspaceSummaryProviderContext) =>
+      workspaceSummary(context.config, context.guard, context.workspace, {
+        ...context.options,
+        bootstrapContext: false
+      }));
   const bashResultProvider =
     dependencies.bashResultProvider ??
     ((context: BashProviderContext) =>
@@ -2875,6 +3027,7 @@ export function createCodexProServer(
         include_skills: z.boolean().optional().describe("Discover skills by name/description. Default: false for speed."),
         include_global_skills: z.boolean().optional().describe("Also scan installed user/plugin skills when include_skills=true. Default: false.")
       },
+      outputSchema: openCurrentWorkspaceOutputShape,
       annotations: SESSION_READ_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -2883,28 +3036,59 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.defaultWorkspace();
-      const summary = await workspaceSummary(config, guard, workspace, {
-        includeTree: parseBool(args.include_tree, false),
-        maxDepth: limitInt(args.max_depth, 2, 1, 8),
-        includeSkills: parseBool(args.include_skills, false),
-        includeGlobalSkills: parseBool(args.include_global_skills, false),
-        bootstrapContext: false
-      });
-      return textResult(summary.text, {
-        workspace_id: summary.workspaceId,
-        root: summary.root,
-        agents_loaded: summary.agentsLoaded,
-        agents_path: summary.agentsPath,
-        skills: summary.skills,
-        skill_inventory: summary.skillInventory,
-        skill_counts: summary.skillCounts,
-        tree: summary.tree,
-        git_status: summary.gitStatus,
-        bash_mode: config.bashMode,
-        write_mode: config.writeMode,
-        tool_mode: config.toolMode
-      });
+      const startedAt = Date.now();
+      try {
+        const options: OpenCurrentWorkspaceSummaryOptions = {
+          includeTree: parseBool(args.include_tree, false),
+          maxDepth: limitInt(args.max_depth, 2, 1, 8),
+          includeSkills: parseBool(args.include_skills, false),
+          includeGlobalSkills: parseBool(args.include_global_skills, false)
+        };
+        const workspace = workspaces.defaultWorkspace();
+        const summary = openCurrentWorkspaceProviderResultSchema.parse(
+          await openCurrentWorkspaceSummaryProvider({ config, guard, workspace, options })
+        );
+        const normalizedInventory = validateOpenCurrentWorkspaceProviderResult(
+          summary,
+          workspace,
+          guard,
+          options
+        );
+        const data = openCurrentWorkspaceDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          agents_loaded: summary.agentsLoaded,
+          agents_path: summary.agentsPath ?? null,
+          skills: summary.skills,
+          skill_inventory: normalizedInventory,
+          skill_counts: summary.skillCounts,
+          tree: summary.tree ?? null,
+          git_status: summary.gitStatus,
+          bash_mode: config.bashMode,
+          write_mode: config.writeMode,
+          tool_mode: config.toolMode
+        });
+
+        return textResult(
+          summary.text,
+          createOpenCurrentWorkspaceSuccess(data, Date.now() - startedAt)
+        );
+      } catch (error) {
+        const failure = classifyOpenCurrentWorkspaceFailure(error);
+        const text = [
+          "# Open Current Workspace Error",
+          "",
+          `Code: ${failure.code}`,
+          OPEN_CURRENT_WORKSPACE_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(
+            text,
+            createOpenCurrentWorkspaceFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
     }
   );
 

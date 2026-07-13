@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first eleven slices are published and cross-platform CI-validated; direct `bash` is the published eleventh slice.
+- Phase 1: the first eleven slices are published and cross-platform CI-validated; direct `open_current_workspace` is the locally verified twelfth slice, with publication authorized and in progress.
 
 ## Approved stopping point
 
-The first eleven Phase 1 slices are published and cross-platform CI-validated. Direct `bash` was published through commit `a39b779`; exact-head CI run `29239425311` passed Ubuntu/Windows with Node 20/24. The next action is to design-review the next Phase 1 vertical slice. Phase 2 remains closed.
+The first eleven Phase 1 slices are published and cross-platform CI-validated. Direct `bash` was published through commit `a39b779`; exact-head CI run `29239425311` passed Ubuntu/Windows with Node 20/24. Direct `open_current_workspace` is locally implemented and verified with focused 13/13, complete regression 202/202, Build, Smoke 8/8, and native-Windows Stress. `neat-freak` reconciliation is complete, and staging, commit, and push are authorized. The next action is publication followed by exact-head CI verification. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -40,30 +40,10 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 - Stable errors use `code`, `message`, `retryable`, and `details`; raw exceptions, stack traces, unsafe paths, and secrets are excluded.
 - Schema ownership remains split between `src/tools/schemas/common.ts` and one exact tool schema module per migrated tool.
 - Contract tests use pure constructors and test-only dependency injection; no production test mode or hidden MCP argument is allowed.
-- `tree` preserves five existing snake_case fields and six safe non-retryable errors.
-- `read` preserves ten existing success fields and nine safe non-retryable errors.
-- `git_status` preserves six success fields and seven safe Git/path errors.
-- Direct `git_diff` preserves nine success fields and the same seven safe Git/path errors.
-- Direct `show_changes` preserves staged/path/diff/checkpoint/untracked/UTF-8 behavior under strict nested `data` and removes legacy `status_error`/`diff_error` partial-success fields.
-- `show_changes` Git, workspace, and path failures use the seven established safe Git/path codes and return `isError: true`.
-- Optional change analysis failure keeps valid Git review data, returns `analysis: null`, and adds only `Change analysis was unavailable; Git review data is still complete.` to `meta.warnings`.
-- `show_changes` analysis data is exact and strict; malformed provider data degrades safely rather than leaking raw diagnostics.
-- Direct `search` preserves lexical matches under nested `data`, keeps aggregate text only in MCP `content`, and returns exact optional analysis or `null`.
-- Structured search disablement and unexpected analysis failure use separate fixed warnings while preserving complete lexical results and excluding raw diagnostics.
-- Direct `search` exposes eight stable non-retryable workspace/path/argument/backend/internal errors; `src/searchOps.ts` and `src/analysis/*` algorithms remain unchanged.
-- Direct `write` preserves nine success fields only under nested `data` and exposes eleven stable non-retryable workspace/path/file/policy/write/internal errors.
-- The direct `write` provider seam validates the returned path and exact result before analysis-cache invalidation; only a validated changed diff invalidates the cache.
-- Fixed `write` failures exclude raw exceptions, absolute unsafe paths, file content, and secrets while retaining safe compatibility wording required by the existing Smoke suite.
-- `edit`, `apply_patch`, atomic editing, expected hashes, transactions, authentication, dependencies, and Phase 2 remain out of scope for the published `write` slice.
-- Direct `edit` preserves nine success fields only under nested `data` and exposes fourteen non-retryable workspace/path/file/replacement/policy/edit/internal errors.
-- Empty `old_text`, zero matches, ambiguous matches, and expected-count mismatch are distinct failures: `INVALID_ARGUMENT`, `OLD_TEXT_NOT_FOUND`, `OLD_TEXT_NOT_UNIQUE`, and `REPLACEMENT_COUNT_MISMATCH`.
-- The direct `edit` provider seam validates its exact result and returned path before analysis-cache invalidation; identical-text replacements remain successful but do not invalidate analysis when `diff.changed=false`.
-- Fixed `edit` failures exclude raw exceptions, absolute unsafe paths, replacement text, file content, operating-system diagnostics, and secrets.
-- `apply_patch`, fuzzy or regex editing, expected hashes, atomic replacement, transactions, rollback, undo, authentication, dependencies, and Phase 2 remain out of scope for the `edit` slice.
-- The approved direct `apply_patch` design preserves its nine success fields only under nested `data`; `changed` is literal `true`, returned paths are non-empty and unique, and the submitted patch diff excludes unrelated dirty changes.
-- Direct `apply_patch` uses twelve fixed non-retryable workspace/path/argument/policy/Git/patch/internal errors; raw patch content, Git diagnostics, unsafe absolute paths, file content, and secrets remain private.
-- The direct `apply_patch` provider seam validates the exact result, requires safe normalized returned paths, compares the complete set against normalized submitted paths, and invalidates analysis only after full success validation.
-- Atomic transactions, rollback, undo, expected hashes, fuzzy patching, authentication, dependencies, workspace lifecycle, and Phase 2/3 remain outside the `apply_patch` slice.
+- Published Phase 1 tools through direct `apply_patch` use strict nested schema-v1 envelopes and stable redacted failures; exact field/error contracts remain in the Phase 1 archives and design documents.
+- `show_changes` and `search` preserve complete core results when optional analysis is unavailable, using only fixed safe warnings and excluding raw diagnostics.
+- `write`, `edit`, and `apply_patch` validate provider identity and normalized returned paths before cache invalidation; raw content, unsafe paths, diagnostics, and secrets stay private.
+- Atomic transactions, rollback, undo, fuzzy editing, authentication, dependency changes, workspace lifecycle, and Phase 2/3 remain outside the published Phase 1 slices.
 - Phase archives use bounded numbered volumes: after each complete STEP, open the next volume when the active file reaches 80% of the configured direct-read byte limit; earlier volumes remain unchanged.
 - The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
 - Direct `bash` is the locally complete eleventh Phase 1 slice; it stabilizes only the current synchronous Bash protocol and does not introduce PowerShell or process management.
@@ -71,17 +51,21 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 - Direct `bash` exposes eleven nested success fields and eleven fixed non-retryable tool-level errors; the accidental public camelCase `bashSessionId` is removed.
 - The handler validates exact provider command, normalized `cwd`, and configured session identity; Tool Card, supertool, Smoke, and Stress consumers use only the nested contract.
 - Direct `bash` is published; credential changes, history rewriting, access expansion, and Phase 2 remain unapproved.
+- Direct `open_current_workspace` is the locally complete twelfth Phase 1 slice; `open_workspace`, `workspace_snapshot`, and workspace lifecycle remain outside it.
+- Its strict success `data` has twelve fields; absent `agents_path`, `tree`, and skill descriptions normalize to `null`, while recent commits remain human MCP content only.
+- Provider workspace/root identity, AGENTS path, skill-name/count, and request-inclusion mismatches fail closed as `INTERNAL_ERROR`.
+- Five fixed non-retryable failures cover missing/non-directory/disallowed default roots, workspace-open failure, and internal validation failure; non-Git directories remain successful workspaces.
 
 ## Local verification evidence
 
-- Focused direct `bash` contracts: 12/12 passed.
-- Adjacent `bash`/`server_config`/`apply_patch`/`show_changes` contracts: 46/46 passed.
-- Complete `node:test` regression suite: 189/189 passed.
+- Focused direct `open_current_workspace` contracts: 13/13 passed.
+- Adjacent `open_current_workspace`/`server_config`/`tree`/`git_status` contracts: 48/48 passed after final documentation reconciliation.
+- Complete `node:test` regression suite: 202/202 passed.
 - `npm run build`: passed.
-- `npm run smoke`: all eight sections passed.
+- `npm run smoke`: all eight sections passed after one RED/GREEN lowercase-`agents.md` consumer correction.
 - `npm run stress`: passed on native Windows, including its internal build.
-- `git diff --check`: passed before documentation reconciliation.
-- Real coverage preserves compact/full transcripts, safe package scripts, Session Guard, disabled-Bash registration, direct/supertool policy rejection, and file-noncreation assertions.
+- `git diff --check`: passed; only established LF-to-CRLF working-copy warnings were emitted.
+- Real coverage preserves minimal/standard/full registration, non-Git success, workspace/global skill discovery, symlink-root rejection, Tool Card compatibility, supertool nesting, and lowercase AGENTS discovery.
 
 ## Published phase evidence
 
@@ -107,6 +91,7 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 - Direct `edit` failure classification remains coupled to current `CodexProError` message prefixes and operating-system error codes.
 - Direct `apply_patch` input/path classification remains coupled to current internal message prefixes; Git stage classification now uses tool-local typed markers.
 - Direct `bash` failure classification remains coupled to current message prefixes and Node error codes; safe Bash is not a sandbox, and timeout does not reliably terminate the complete Windows process tree.
+- Direct `open_current_workspace` failure classification remains coupled to current `WorkspaceManager` message prefixes and Node error codes; workspace ownership, expiry, and client isolation remain deferred to Phase 2.
 - Review checkpoints remain process-local memory state and are not shared across service restarts.
 - Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
 - `docs/memory/archive/phase-1.md` exceeds the normal direct read-size limit and is now the unchanged first Phase 1 archive volume covering STEP-073–139.
@@ -114,18 +99,15 @@ The first eleven Phase 1 slices are published and cross-platform CI-validated. D
 
 ## Open items
 
-1. Design-review the next Phase 1 vertical slice using the established exact-schema workflow.
-2. Keep Phase 2 closed until the remaining Phase 1 scope is explicitly reviewed.
+1. Stage, commit, and push the reconciled twelfth-slice changes to `origin/main`.
+2. Verify exact-head Ubuntu/Windows Node 20/24 CI after publication; keep credential/access changes and Phase 2 closed.
 
 ## Recent summaries
 
-- **STEP-146 — Publish direct `bash`:** pushed publication record `a39b779`, verified exact-head CI run `29239425311` passed Ubuntu/Windows Node 20/24, and confirmed local `main` matched `origin/main` before the final publication-record update.
-- **STEP-145 — Implement and verify direct `bash`:** added the exact schema-v1 envelope, eleven fixed tool-level failures, validated provider identity, nested Tool Card/supertool consumers, and preserved command-level non-zero exits; focused 12/12, adjacent 46/46, complete 189/189, Build, Smoke 8/8, native-Windows Stress, and diff checks passed; publication remains pending.
-- **STEP-144 — Design and plan direct `bash`:** selected the isolated eleventh Phase 1 slice, fixed the tool-level versus command-level outcome boundary, defined eleven nested success fields and eleven stable failures, wrote a four-task TDD plan, and kept Bash behavior, PowerShell/process work, implementation, publication, and Phase 2 closed.
-- **STEP-143 — Publish direct `apply_patch`:** pushed implementation commit `c761b4e`, verified CI run `29233787814` passed Ubuntu/Windows Node 20/24, and confirmed local `main` matched `origin/main` before the publication-record update.
-- **STEP-142 — Implement and verify direct `apply_patch`:** added the exact schema-v1 envelope, twelve fixed failures, normalized provider/path-set validation, cache-safe invalidation, dedicated Tool Card/supertool consumers, and TDD coverage; focused 14/14, adjacent 89/89, complete 177/177, Build, Smoke 8/8, native-Windows Stress, and diff check passed; publication remains pending.
-- **STEP-141 — Commit and plan direct `apply_patch`:** committed the approved design as `3279d0c`, wrote and self-reviewed the four-task TDD plan, corrected returned-path normalization, bounded Tool Card previews, and deterministic Git-stage test interfaces, and kept implementation and Phase 2 closed.
-- **STEP-140 — Design direct `apply_patch`:** approved and self-reviewed the isolated tenth Phase 1 slice with nine nested success fields, twelve stable non-retryable failures, exact returned-path-set validation, cache-safe provider ordering, a dedicated Tool Card path, and no expansion into atomic transactions, rollback, authentication, or Phase 2/3; opened bounded Phase 1 Volume 2 from STEP-140 without rewriting Volume 1.
+- **STEP-150 — Reconcile the twelfth slice:** ran `neat-freak`, audited rule/document references, reduced `Memory.md` from 145 lines/15.5 KB to a thinner index, and aligned all current stopping points with the authorized publication workflow.
+- **STEP-149 — Implement and verify direct `open_current_workspace`:** added the exact twelve-field envelope, five fixed failures, strict provider identity/path/skill/count/inclusion checks, nested Tool Card/supertool consumers, and real Smoke/HTTP Smoke/Stress migration; focused 13/13, complete 202/202, Build, Smoke 8/8, and native-Windows Stress passed.
+- **STEP-148 — Plan direct `open_current_workspace`:** converted the approved design into a four-task TDD plan covering schema, handler/provider, consumers, verification, rollback, and publication boundaries.
+- **STEP-147 — Design direct `open_current_workspace`:** selected the isolated twelfth Phase 1 slice, defined twelve nested success fields and five fixed failures, preserved non-Git workspace success, and kept lifecycle redesign and Phase 2 closed.
 ## Archives
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)

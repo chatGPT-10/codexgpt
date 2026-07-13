@@ -503,9 +503,17 @@ export const toolCardWidgetHtml = String.raw`
     return "C";
   }
 
+  function workspaceResultData(data) {
+    return data?.codexpro_tool === "open_current_workspace"
+      ? (data?.data ?? {})
+      : (data ?? {});
+  }
+
   function subtitleFor(data) {
     if (data?.codexpro_tool === "open_current_workspace" || data?.codexpro_tool === "open_workspace") {
-      return data?.root || "Workspace opened";
+      if (data?.ok === false) return data?.error?.code || "Workspace unavailable";
+      const workspace = workspaceResultData(data);
+      return workspace.root || "Workspace opened";
     }
     if (data?.codexpro_tool === "show_changes") {
       const review = data?.data ?? {};
@@ -864,20 +872,32 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderWorkspace(data) {
-    const skills = Array.isArray(data.skill_inventory) ? data.skill_inventory : (Array.isArray(data.skills) ? data.skills : []);
-    const skillCount = Number(data.skill_counts?.total ?? skills.length);
-    const changedRows = gitStatusRows(data.git_status, 8);
-    const gitLines = String(data.git_status || "").split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith("##"));
-    const agentsLabel = data.agents_loaded ? (data.agents_path || "AGENTS.md") : "no AGENTS";
+    const workspace = workspaceResultData(data);
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Workspace unavailable.") +
+        '</div></div></article>';
+    }
+
+    const skills = Array.isArray(workspace.skill_inventory)
+      ? workspace.skill_inventory
+      : (Array.isArray(workspace.skills) ? workspace.skills : []);
+    const skillCount = Number(workspace.skill_counts?.total ?? skills.length);
+    const changedRows = gitStatusRows(workspace.git_status, 8);
+    const gitLines = String(workspace.git_status || "").split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith("##"));
+    const agentsLabel = workspace.agents_loaded ? (workspace.agents_path || "AGENTS.md") : "no AGENTS";
     const pills = [
-      pill(agentsLabel, data.agents_loaded ? "good" : "warn"),
+      pill(agentsLabel, workspace.agents_loaded ? "good" : "warn"),
       pill(skillCount + " skills", skillCount ? "info" : ""),
-      data.tool_mode ? pill("tools " + data.tool_mode) : ""
+      workspace.tool_mode ? pill("tools " + workspace.tool_mode) : ""
     ].join("");
     const contextRows = [
-      '<div class="file-row"><span class="file-code">root</span><span class="file-name">' + esc(data.root || ".") + '</span></div>',
-      data.workspace_id ? '<div class="file-row"><span class="file-code">id</span><span class="file-name">' + esc(data.workspace_id) + '</span></div>' : "",
-      data.agents_loaded ? '<div class="file-row"><span class="file-code">rules</span><span class="file-name">' + esc(data.agents_path || "AGENTS.md") + '</span></div>' : ""
+      '<div class="file-row"><span class="file-code">root</span><span class="file-name">' + esc(workspace.root || ".") + '</span></div>',
+      workspace.workspace_id ? '<div class="file-row"><span class="file-code">id</span><span class="file-name">' + esc(workspace.workspace_id) + '</span></div>' : "",
+      workspace.agents_loaded ? '<div class="file-row"><span class="file-code">rules</span><span class="file-name">' + esc(workspace.agents_path || "AGENTS.md") + '</span></div>' : ""
     ].join("");
     const skillRows = skills.slice(0, 16).map((skill) => {
       const value = typeof skill === "string" ? skill : (skill?.name || "skill");
@@ -890,17 +910,17 @@ export const toolCardWidgetHtml = String.raw`
     const gitText = changedRows
       ? '<div class="file-list">' + changedRows + '</div>' + (gitLines.length > 8 ? '<div class="empty">+' + esc(gitLines.length - 8) + ' more changed files</div>' : "")
       : '<div class="empty">Working tree clean.</div>';
-    const tree = data.tree ? codebox("tree", esc(previewLines(data.tree, 18)), "") : "";
+    const tree = workspace.tree ? codebox("tree", esc(previewLines(workspace.tree, 18)), "") : "";
     return '<article class="card">' + header(data, pills) + '<div class="body">' +
       '<div class="summary">' +
-      summaryItem("Write", data.write_mode || "-") +
-      summaryItem("Bash", data.bash_mode || "-") +
-      summaryItem("Tools", data.tool_mode || "-") +
+      summaryItem("Write", workspace.write_mode || "-") +
+      summaryItem("Bash", workspace.bash_mode || "-") +
+      summaryItem("Tools", workspace.tool_mode || "-") +
       '</div>' +
       '<div class="section-label">Context</div><div class="file-list">' + contextRows + '</div>' +
       fold("Git", gitLines.length ? gitLines.length + " changed" : "clean", gitText, false) +
       fold("Skills", skillCount + " discovered", skillText, false) +
-      fold("Tree", data.tree ? "available" : "", tree, false) +
+      fold("Tree", workspace.tree ? "available" : "", tree, false) +
       '</div></article>';
   }
 

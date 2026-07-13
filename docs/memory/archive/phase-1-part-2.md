@@ -543,3 +543,291 @@ Revert the final publication-state documentation commit, then revert `a39b779` a
 **Next step**
 
 Commit and push this final publication-state record, verify its docs-only exact-head CI run, then design-review the next Phase 1 vertical slice. Keep Phase 2 closed.
+
+---
+
+## STEP-147 — Design direct `open_current_workspace`
+
+**Status**
+
+Design approved and self-reviewed. The written specification exists locally; no implementation plan, source change, test change, staging, commit, push, access change, or Phase 2 work has started.
+
+**Goal**
+
+Select and fully specify the next isolated Phase 1 exact-output-schema slice after the published direct `bash` contract.
+
+**Files changed**
+
+- `docs/superpowers/specs/2026-07-13-open-current-workspace-output-schema-design.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1-part-2.md`
+
+**Implementation summary**
+
+- Inspected the remaining unmigrated direct tools, the existing `open_current_workspace` handler, `WorkspaceSummary`, `WorkspaceManager`, Git summary behavior, skill inventory records, Tool Card consumers, and Smoke/HTTP Smoke/Stress callers.
+- Compared three boundaries: direct `open_current_workspace` only, combined `open_current_workspace` plus `open_workspace`, and a smaller auxiliary tool.
+- Selected direct `open_current_workspace` only because it is the required normal session entry and is exposed in minimal, standard, and full modes.
+- Defined a strict schema-v1 envelope with twelve nested success fields, explicit nullable optional values, a tool-specific injectable summary provider, and cross-field validation for workspace/root identity, AGENTS paths, skill names/counts, and request-controlled inclusion.
+- Defined five fixed non-retryable failures for post-start default-root and internal validation conditions.
+- Preserved non-Git directories as valid successful workspaces and kept recent commits in human MCP content only.
+- Required Tool Card compatibility for the still-flat `open_workspace` and `workspace_snapshot` results and nested compatibility for the `codexpro` `open` alias.
+- Self-review removed the initially proposed `DEFAULT_ROOT_INVALID` error after confirming `loadConfig()` validates and canonicalizes the default root before MCP server startup, making that error unreachable at tool-call time.
+
+**Verification commands**
+
+```text
+Targeted repository inspection through open_current_workspace, read, tree, and search
+design placeholder/contradiction search: TBD|TODO|PLACEHOLDER|DEFAULT_ROOT_INVALID|all six|Six fixed
+git diff --check
+show_changes(include_diff=false)
+```
+
+**Verification results**
+
+- The design self-review found no remaining placeholders, stale six-error wording, or `DEFAULT_ROOT_INVALID` references.
+- `git diff --check` exited 0; only the established Windows LF-to-CRLF working-copy warnings appeared for `AGENTS.md` and `Memory.md`.
+- Pre-archive `show_changes` confirmed the scope contained only `AGENTS.md`, `Memory.md`, and the new design specification.
+- No source, test, dependency, package, profile, credential, transport, CI workflow, or Phase 2 file changed.
+- Build, regression, Smoke, and Stress were not run because this step changes design and project records only.
+
+**Decisions made**
+
+- The twelfth Phase 1 vertical slice is direct `open_current_workspace` only.
+- The current deterministic workspace identifier and existing default-workspace behavior remain unchanged.
+- Success data contains exactly twelve fields under `data`; `agents_path`, `tree`, and missing skill descriptions normalize to `null`.
+- Skill names must exactly match inventory names in order, and all five source counts must match the inventory.
+- Five failures are public: `DEFAULT_ROOT_NOT_FOUND`, `DEFAULT_ROOT_NOT_DIRECTORY`, `ROOT_NOT_ALLOWED`, `WORKSPACE_OPEN_FAILED`, and `INTERNAL_ERROR`.
+- Non-Git workspace diagnostics remain bounded success data rather than a tool-level failure.
+- `open_workspace`, `workspace_snapshot`, workspace lifecycle, authentication, dependencies, implementation, publication, and Phase 2 remain out of scope.
+
+**Risks or limitations**
+
+- Failure classification will remain coupled to current `WorkspaceManager` message prefixes and Node error codes until a later typed workspace-error refactor.
+- The shared workspace Tool Card currently serves migrated and unmigrated result shapes, so implementation must retain an explicit compatibility path.
+- Default-root missing, non-directory, or allowed-root failures are mainly post-start filesystem-change conditions because configuration validates the root before server creation.
+- Skill trust, AGENTS precedence, workspace ownership, expiration, and client isolation remain deferred.
+
+**Rollback method**
+
+Before any commit, discard only the four listed design/record changes if the design is withdrawn. After a future normal commit, revert that design-record commit without rewriting history. Do not alter user profiles, credentials, allowed roots, prior Phase 1 commits, or earlier archive entries.
+
+**Next step**
+
+The user reviews `docs/superpowers/specs/2026-07-13-open-current-workspace-output-schema-design.md`. After approval, create a separate detailed TDD implementation plan using the established Phase 1 workflow. Do not implement, stage, commit, push, expand access, or begin Phase 2 yet.
+
+---
+
+## STEP-148 — Plan direct `open_current_workspace`
+
+**Status**
+
+Completed. The approved design was converted into a four-task TDD implementation plan and approved for inline execution; publication remained a separate gate.
+
+**Goal**
+
+Translate the twelfth-slice design into exact schema, handler/provider, consumer, verification, rollback, and record tasks without expanding into `open_workspace` or Phase 2.
+
+**Files changed**
+
+- `docs/superpowers/plans/2026-07-13-open-current-workspace-output-schema.md`
+
+**Implementation summary**
+
+- Defined Task 1 for the strict twelve-field success schema and five-error union.
+- Defined Task 2 for a tool-specific injected `workspaceSummary` provider, cross-field validation, and safe failure classification.
+- Defined Task 3 for nested Tool Card/supertool handling and exact Smoke/HTTP Smoke/Stress consumer migration while retaining flat `open_workspace` and `workspace_snapshot` compatibility.
+- Defined Task 4 for full local gates, secret/scope review, project records, rollback, and the separate publication boundary.
+
+**Verification commands**
+
+```text
+Plan self-review for placeholders, interface names, task ownership, scope, rollback, and publication boundaries
+```
+
+**Verification results**
+
+- Every approved design requirement had an owning task.
+- No undefined interface, placeholder, dependency change, authentication change, workspace lifecycle change, or Phase 2 work remained in scope.
+
+**Decisions made**
+
+- Execute in the current `main` workspace because the approved uncommitted design and memory records were already present there.
+- Keep staging, commit, push, credential/access changes, and exact-head CI as separate approvals.
+
+**Risks or limitations**
+
+- The plan relies on existing message-prefix classification rather than introducing a project-wide typed workspace-error hierarchy.
+- Large Smoke/Stress files contain intentional secret-lookalike fixtures and may require the established exact temporary Node patch method rather than generic edit.
+
+**Rollback method**
+
+Discard the uncommitted plan file or later revert its normal commit. No source, configuration, profile, credential, dependency, or prior slice changes are required.
+
+**Next step**
+
+Execute Tasks 1–4 in TDD order, then stop before staging or publication.
+
+---
+
+## STEP-149 — Implement and verify direct `open_current_workspace`
+
+**Status**
+
+Locally implemented and fully verified. Nothing is staged, committed, or pushed; exact-head cross-platform CI has not run for this slice.
+
+**Goal**
+
+Publish a trustworthy local schema-v1 implementation for the mandatory startup tool while preserving current default-workspace behavior and keeping Phase 2 closed.
+
+**Files changed**
+
+- `src/tools/schemas/openCurrentWorkspace.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `test/open-current-workspace-contract.test.mjs`
+- `scripts/smoke.mjs`
+- `scripts/http-smoke.mjs`
+- `scripts/stress.mjs`
+- `CHANGELOG.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/superpowers/specs/2026-07-13-open-current-workspace-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-open-current-workspace-output-schema.md`
+- `docs/memory/archive/phase-1-part-2.md`
+
+**Implementation summary**
+
+- Added the exact schema module with twelve strict success fields, nullable AGENTS/tree/description values, five fixed non-retryable errors, strict details, envelope consistency, and pure constructors.
+- Added a tool-specific injected summary provider and strict internal result schema.
+- The handler validates workspace/root identity, normalized in-workspace AGENTS path, exact skill-name order, exact five-source counts, and request-controlled tree/skill inclusion before constructing success.
+- Mode values come from server configuration rather than provider output; recent commits remain human MCP content only.
+- Non-Git directories remain successful workspaces with bounded Git diagnostics.
+- Updated the shared workspace Tool Card through a compatibility normalizer: nested direct `open_current_workspace`, flat unmigrated `open_workspace` and `workspace_snapshot`.
+- Preserved the nested child envelope through the `codexpro` `open` alias.
+- Migrated direct/wrapped consumers in Smoke, HTTP Smoke, and Stress without changing flat `open_workspace` consumers.
+- Added a real regression for lowercase `agents.md` after the first full Smoke run exposed one missed flat consumer.
+
+**Verification commands**
+
+```text
+node --test test/open-current-workspace-contract.test.mjs
+node --test test/open-current-workspace-contract.test.mjs test/server-config-contract.test.mjs test/tree-contract.test.mjs test/git-status-contract.test.mjs
+node --test test/*.test.mjs
+npm run build
+npm run smoke
+npm run stress
+targeted stale-consumer searches
+show_changes(include_diff=false)
+git diff --check
+```
+
+**Verification results**
+
+- Final focused contracts: 13/13 passed.
+- Final adjacent contracts: 48/48 passed.
+- Complete regression: 202/202 passed.
+- Build: passed.
+- Smoke: all eight sections passed.
+- Native-Windows Stress: passed, including its internal Build.
+- `git diff --check`: passed; only established LF-to-CRLF working-copy warnings were emitted.
+- Targeted searches found no stale direct `open_current_workspace` flat reads for workspace id, tool mode, lowercase AGENTS path, or wrapped Skills.
+- `show_changes` listed only the intended implementation, tests, consumer scripts, design/plan, changelog, project rules, memory, and active archive files.
+
+**Material failed attempts and corrections**
+
+- Initial focused RED failed with `ERR_MODULE_NOT_FOUND` for the intentionally absent schema module.
+- After the schema module, 4 pure schema tests passed while 8 integration tests failed as intended.
+- After the handler, 11/12 focused tests passed; the remaining failure identified the flat Tool Card consumer.
+- The first exact consumer patch stopped after Smoke because an HTTP field name also appeared in unmigrated `open_workspace`; HTTP and Stress were not written. The corrected patch used ordered first-occurrence replacement for the earlier direct block and exact-count replacement for Stress.
+- A whole-block HTTP replacement stopped before writing because the file used CRLF while the template used LF. The ordered replacement avoided newline coupling.
+- The first full Smoke run failed on the lowercase `agents.md` compatibility assertion. A focused regression was added and observed RED before migrating both reads to nested `data`; focused and full Smoke then passed.
+- Generic edits to the large Smoke script were blocked by established secret-lookalike fixtures, so bounded exact-count temporary Node patch scripts were used and self-deleted after success.
+
+**Decisions made**
+
+- Keep exactly twelve structured success fields and five public failures.
+- Provider/path/count/inclusion mismatches fail closed as `INTERNAL_ERROR`.
+- `open_workspace`, `workspace_snapshot`, workspace lifecycle, AGENTS precedence, Skill trust, authentication, dependencies, credentials, and Phase 2 remain unchanged.
+- The current deterministic workspace id remains unchanged.
+
+**Risks or limitations**
+
+- Failure classification remains coupled to current `WorkspaceManager` diagnostic prefixes and Node error codes.
+- Default-root missing/non-directory/disallowed failures are mainly post-start filesystem-change cases because config loading validates the root before server creation.
+- The shared workspace Tool Card intentionally carries a migrated/unmigrated compatibility branch until later slices migrate the adjacent tools.
+- Workspace ownership, expiry, close, persistence, and client isolation remain deferred to Phase 2.
+
+**Rollback method**
+
+Before commit, discard only the listed twelfth-slice changes. After a future normal commit, revert consumer changes, handler/Tool Card changes, schema/tests, and documentation records in reverse order without rewriting history. Do not alter profiles, credentials, allowed roots, dependencies, prior Phase 1 commits, or earlier archive entries.
+
+**Next step**
+
+Optionally run `neat-freak`, review the complete local diff, then obtain separate approval for staging, commit, push, and exact-head Ubuntu/Windows Node 20/24 CI verification. Keep Phase 2 closed.
+
+---
+
+## STEP-150 — Reconcile the twelfth slice before publication
+
+**Status**
+
+Completed. `neat-freak` reconciliation is complete, and the user has authorized staging, commit, and push.
+
+**Goal**
+
+Reconcile rules, design/plan status, project memory, and archive references against the verified implementation before publication.
+
+**Files changed**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/superpowers/specs/2026-07-13-open-current-workspace-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-open-current-workspace-output-schema.md`
+- `docs/memory/archive/phase-1-part-2.md`
+
+**Implementation summary**
+
+- Audited the current root rules, memory index, design, implementation plan, active archive, changed-file set, and all Markdown references to the twelfth slice.
+- Confirmed README, security, installation, architecture, and external integration guides require no change because this slice stabilizes an existing internal MCP result contract without changing user setup, authentication, routing, or dependencies.
+- Reduced `Memory.md` from 145 lines and 15.5 KB by graduating published per-tool contract detail to the existing Phase 1 archives and design documents.
+- Kept the current `bash` and `open_current_workspace` decisions, verification evidence, limitations, and next actions in the root index.
+- Aligned current stopping points with the user's publication authorization while preserving earlier archive entries as historical facts.
+
+**Verification commands**
+
+```text
+open_current_workspace(include_skills=true, include_global_skills=true)
+tree(path=".", max_depth=2, include_hidden=true)
+read AGENTS.md
+read Memory.md
+search Markdown for stale twelfth-slice implementation/publication states
+show_changes(include_diff=true)
+git diff --check
+```
+
+**Verification results**
+
+- `AGENTS.md`: 208 lines and 13.4 KB, below its soft limit.
+- `Memory.md`: reduced below its prior 145-line/15.5-KB state and remains below practical and hard limits.
+- Active Phase 1 Volume 2 remains below the configured archive rollover threshold.
+- No dead design/plan references, contradictory current stopping points, or unrelated documentation requirements were found.
+- No source behavior, dependency, profile, credential, authentication, transport, CI workflow, or Phase 2 scope changed during reconciliation.
+
+**Decisions made**
+
+- Preserve historical archive next-step text; record changed authorization as this new append-only STEP instead of rewriting STEP-149.
+- Publish the complete reconciled slice on the existing `main` branch as explicitly authorized by the user.
+
+**Risks or limitations**
+
+- Exact-head Ubuntu/Windows Node 20/24 CI can only be verified after the pushed commit exists.
+- Publication records will need a follow-up memory/archive update with the actual commit and CI run identifiers.
+
+**Rollback method**
+
+Before commit, discard only the STEP-150 reconciliation edits. After normal publication, revert the resulting commit without rewriting history. Do not modify credentials, profiles, allowed roots, prior commits, or earlier archive entries.
+
+**Next step**
+
+Run final verification, stage the complete reconciled slice, create an intentional commit, push `main` to `origin`, and verify exact-head CI. Keep Phase 2 closed.

@@ -151,23 +151,23 @@ async function runFullModeStress(root) {
     assert(superActions.structuredContent.actions.includes('export_pro_context'), 'supertool actions missing export_pro_context');
 
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
-    assert(opened.structuredContent.skill_inventory.length === 0, 'default workspace open loaded skills');
-    const ws = opened.structuredContent.workspace_id;
+    assert(opened.structuredContent.data?.skill_inventory.length === 0, 'default workspace open loaded skills');
+    const ws = opened.structuredContent.data?.workspace_id;
 
     const superOpened = await client.request('tools/call', {
       name: 'codexpro',
       arguments: { action: 'open', args: { include_tree: false } }
     });
     assert(superOpened.structuredContent.wrapped_tool === 'open_current_workspace', 'supertool open alias did not wrap open_current_workspace');
-    assert(superOpened.structuredContent.skill_inventory.length === 0, 'supertool default workspace open loaded skills');
+    assert(superOpened.structuredContent.data?.skill_inventory.length === 0, 'supertool default workspace open loaded skills');
 
     const withSkills = await client.request('tools/call', {
       name: 'open_current_workspace',
       arguments: { include_tree: false, include_skills: true, include_global_skills: false }
     });
-    assert(withSkills.structuredContent.skill_inventory.length === 120, `expected capped 120 skills, got ${withSkills.structuredContent.skill_inventory.length}`);
+    assert(withSkills.structuredContent.data?.skill_inventory.length === 120, `expected capped 120 skills, got ${withSkills.structuredContent.data?.skill_inventory.length}`);
 
-    const firstSkill = withSkills.structuredContent.skill_inventory[0];
+    const firstSkill = withSkills.structuredContent.data?.skill_inventory[0];
     const loaded = await client.request('tools/call', {
       name: 'load_skill',
       arguments: { workspace_id: ws, name: firstSkill.name, source: firstSkill.source, path: firstSkill.path }
@@ -396,18 +396,18 @@ async function runGlobalSkillStress(root) {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     const inventory = await client.request('tools/call', {
       name: 'codexpro_inventory',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, include_mcp_servers: false, max_skills: 500 }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, include_mcp_servers: false, max_skills: 500 }
     });
     const skill = inventory.structuredContent.skills.find((item) => item.name === name);
     assert(skill, 'default inventory did not include global skill');
     const loaded = await client.request('tools/call', {
       name: 'load_skill',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, name: skill.name, source: skill.source, path: skill.path }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, name: skill.name, source: skill.source, path: skill.path }
     });
     assert(loaded.structuredContent.text.includes('# Global Only Skill'), 'default load_skill did not load inventory global skill');
     const loadedByName = await client.request('tools/call', {
       name: 'load_skill',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, name }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, name }
     });
     assert(loadedByName.structuredContent.text.includes('# Global Only Skill'), 'load_skill did not load unique user skill by name');
   } finally {
@@ -431,8 +431,8 @@ async function runRedactionStress() {
   try {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     for (const request of [
-      { name: 'read', arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'tokens.txt' } },
-      { name: 'codexpro', arguments: { action: 'read', args: { workspace_id: opened.structuredContent.workspace_id, path: 'tokens.txt' } } }
+      { name: 'read', arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'tokens.txt' } },
+      { name: 'codexpro', arguments: { action: 'read', args: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'tokens.txt' } } }
     ]) {
       const result = await client.request('tools/call', request);
       const payload = JSON.stringify(result);
@@ -468,11 +468,11 @@ async function runMcpInventoryStress() {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     const inventory = await client.request('tools/call', {
       name: 'codexpro_inventory',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, include_global_skills: false, include_mcp_servers: true }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, include_global_skills: false, include_mcp_servers: true }
     });
     const superInventory = await client.request('tools/call', {
       name: 'codexpro',
-      arguments: { action: 'inventory', args: { workspace_id: opened.structuredContent.workspace_id, include_global_skills: false, include_mcp_servers: true } }
+      arguments: { action: 'inventory', args: { workspace_id: opened.structuredContent.data?.workspace_id, include_global_skills: false, include_mcp_servers: true } }
     });
     assert(inventory.structuredContent.mcp_server_count === 120, `MCP inventory was not capped: ${inventory.structuredContent.mcp_server_count}`);
     assert(superInventory.structuredContent.codexpro_tool === 'codexpro_inventory' && superInventory.structuredContent.mcp_server_count === 120, 'supertool MCP inventory was not capped');
@@ -508,25 +508,25 @@ async function runSupertoolModeStress(root) {
     });
     const read = await client.request('tools/call', {
       name: 'codexpro',
-      arguments: { action: 'read', args: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt', start_line: 1, end_line: 2 } }
+      arguments: { action: 'read', args: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'demo.txt', start_line: 1, end_line: 2 } }
     });
     assert(read.structuredContent.codexpro_tool === 'read' && read.structuredContent.wrapped_tool === 'read' && read.structuredContent.data?.text.includes('alpha'), 'minimal supertool read failed');
 
     const blockedSearch = await client.request('tools/call', {
       name: 'codexpro',
-      arguments: { action: 'search', args: { workspace_id: opened.structuredContent.workspace_id, query: 'alpha' } }
+      arguments: { action: 'search', args: { workspace_id: opened.structuredContent.data?.workspace_id, query: 'alpha' } }
     });
     assert(blockedSearch.isError === true && String(blockedSearch.structuredContent.error).includes('not available'), 'supertool allowed disabled search action');
 
     const missingRead = await client.request('tools/call', {
       name: 'codexpro',
-      arguments: { action: 'read', args: { workspace_id: opened.structuredContent.workspace_id, path: 'missing.txt' } }
+      arguments: { action: 'read', args: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'missing.txt' } }
     });
     assert(missingRead.isError === true && missingRead.structuredContent.codexpro_tool === 'read' && missingRead.structuredContent.wrapped_tool === 'read', 'supertool failed read was not tagged as read');
 
     const malformedRead = await client.request('tools/call', {
       name: 'codexpro',
-      arguments: { action: 'read', args: { workspace_id: opened.structuredContent.workspace_id, path: ['demo.txt'] } }
+      arguments: { action: 'read', args: { workspace_id: opened.structuredContent.data?.workspace_id, path: ['demo.txt'] } }
     });
     const malformedReadError = String(malformedRead.structuredContent.error ?? '');
     assert(malformedRead.isError === true && malformedRead.structuredContent.codexpro_tool === 'read' && malformedRead.structuredContent.wrapped_tool === 'read', 'supertool malformed read was not tagged as read');
@@ -534,7 +534,7 @@ async function runSupertoolModeStress(root) {
 
     const blockedBash = await client.request('tools/call', {
       name: 'codexpro',
-      arguments: { action: 'bash', args: { workspace_id: opened.structuredContent.workspace_id, command: 'pwd' } }
+      arguments: { action: 'bash', args: { workspace_id: opened.structuredContent.data?.workspace_id, command: 'pwd' } }
     });
     assert(blockedBash.isError === true && String(blockedBash.structuredContent.error).includes('not available'), 'supertool allowed disabled bash action');
   } finally {
@@ -552,22 +552,22 @@ async function runMaxReadSearchStress() {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     const manyLinesRead = await client.request('tools/call', {
       name: 'read',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'many-lines.txt' }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'many-lines.txt' }
     });
     assert(manyLinesRead.isError !== true && manyLinesRead.structuredContent.data?.endLine === 1201, `full read under maxReadBytes failed after line numbering: ${JSON.stringify(manyLinesRead.structuredContent)}`);
     const fullRead = await client.request('tools/call', {
       name: 'read',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'large.txt' }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'large.txt' }
     });
     assert(fullRead.isError === true && fullRead.structuredContent.error?.code === 'FILE_TOO_LARGE', 'full read ignored maxReadBytes');
     const rangedRead = await client.request('tools/call', {
       name: 'read',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'large.txt', start_line: 3, end_line: 3 }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'large.txt', start_line: 3, end_line: 3 }
     });
     assert(rangedRead.isError !== true && rangedRead.structuredContent.data?.text.includes('needle in large file'), `ranged read failed above maxReadBytes: ${JSON.stringify(rangedRead.structuredContent)}`);
     const search = await client.request('tools/call', {
       name: 'search',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, query: 'needle', max_results: 10 }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, query: 'needle', max_results: 10 }
     });
     assert(search.structuredContent.data.matches.some((match) => match.path === 'large.txt'), `search skipped slightly large file: ${JSON.stringify(search.structuredContent.data.matches)}`);
     assert(!search.structuredContent.data.matches.some((match) => match.path === 'huge.txt'), `search scanned file beyond text scan cap: ${JSON.stringify(search.structuredContent.data.matches)}`);
@@ -585,7 +585,7 @@ async function runNodeFallbackSearchLimitStress() {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     const exact = await client.request('tools/call', {
       name: 'search',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, query: 'needle', path: 'exact.txt', max_results: 2 }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, query: 'needle', path: 'exact.txt', max_results: 2 }
     });
     assert(exact.structuredContent.data.used === 'node', `expected node fallback, got ${exact.structuredContent.data.used}`);
     assert(exact.structuredContent.data.matches.length === 2, `node fallback exact-limit search returned ${exact.structuredContent.data.matches.length} matches`);
@@ -593,7 +593,7 @@ async function runNodeFallbackSearchLimitStress() {
 
     const overflow = await client.request('tools/call', {
       name: 'search',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, query: 'needle', path: 'overflow.txt', max_results: 2 }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, query: 'needle', path: 'overflow.txt', max_results: 2 }
     });
     assert(overflow.structuredContent.data.matches.length === 2 && overflow.structuredContent.data.truncated === true, `node fallback overflow search did not report truncation: ${JSON.stringify(overflow.structuredContent)}`);
   } finally {
@@ -632,7 +632,7 @@ async function runGuardEdgeStress() {
   const client = await initClient(root);
   try {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
-    const ws = opened.structuredContent.workspace_id;
+    const ws = opened.structuredContent.data?.workspace_id;
 
     const lateNullRead = await client.request('tools/call', {
       name: 'read',
@@ -699,55 +699,55 @@ async function runShowChangesStatsStress() {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     const scopedStatus = await client.request('tools/call', {
       name: 'git_status',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt' }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'demo.txt' }
     });
     assert(scopedStatus.structuredContent.data.changed_files.length === 1 && scopedStatus.structuredContent.data.changed_files[0].includes('demo.txt'), `git_status path leaked unrelated files: ${JSON.stringify(scopedStatus.structuredContent.data.changed_files)}`);
     const superScopedStatus = await client.request('tools/call', {
       name: 'codexpro',
-      arguments: { action: 'git_status', args: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt' } }
+      arguments: { action: 'git_status', args: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'demo.txt' } }
     });
     assert(superScopedStatus.structuredContent.codexpro_tool === 'git_status' && superScopedStatus.structuredContent.data.changed_files.length === 1 && superScopedStatus.structuredContent.data.changed_files[0].includes('demo.txt'), `supertool git_status path leaked unrelated files: ${JSON.stringify(superScopedStatus.structuredContent.data.changed_files)}`);
     const changes = await client.request('tools/call', {
       name: 'show_changes',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt', include_diff: false }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'demo.txt', include_diff: false }
     });
     assert(changes.structuredContent.data.additions === 1 && changes.structuredContent.data.deletions === 0 && changes.structuredContent.data.diff === '', `show_changes include_diff=false lost stats: ${JSON.stringify(changes.structuredContent)}`);
     const fullChanges = await client.request('tools/call', {
       name: 'show_changes',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: './demo.txt' }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: './demo.txt' }
     });
     assert(fullChanges.structuredContent.data.changed && fullChanges.structuredContent.data.diff.includes('demo.txt') && fullChanges.structuredContent.data.review_checkpoint_hit !== true, `show_changes include_diff=false consumed full diff: ${JSON.stringify(fullChanges.structuredContent)}`);
     const statsOnlyAfterCheckpoint = await client.request('tools/call', {
       name: 'show_changes',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'demo.txt', include_diff: false }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'demo.txt', include_diff: false }
     });
     assert(statsOnlyAfterCheckpoint.structuredContent.data.changed && statsOnlyAfterCheckpoint.structuredContent.data.additions === 1 && statsOnlyAfterCheckpoint.structuredContent.data.diff === '', `show_changes include_diff=false lost stats after checkpoint: ${JSON.stringify(statsOnlyAfterCheckpoint.structuredContent)}`);
     assert(statsOnlyAfterCheckpoint.structuredContent.data.review_marked === false, `show_changes include_diff=false claimed checkpoint was marked: ${JSON.stringify(statsOnlyAfterCheckpoint.structuredContent)}`);
     const stagedDiff = await client.request('tools/call', {
       name: 'git_diff',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'staged file.txt', staged: true, include_diff: false }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'staged file.txt', staged: true, include_diff: false }
     });
     assert(stagedDiff.structuredContent.data.additions === 1 && stagedDiff.structuredContent.data.deletions === 0 && stagedDiff.structuredContent.data.diff === '', `git_diff staged path stats failed: ${JSON.stringify(stagedDiff.structuredContent)}`);
     const stagedChanges = await client.request('tools/call', {
       name: 'show_changes',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, staged: true }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, staged: true }
     });
     assert(stagedChanges.structuredContent.data.changed && stagedChanges.structuredContent.data.diff.includes('staged file.txt') && !stagedChanges.structuredContent.data.diff.includes('demo.txt'), `show_changes staged review mixed unstaged files: ${JSON.stringify(stagedChanges.structuredContent)}`);
     const defaultStagedPathChanges = await client.request('tools/call', {
       name: 'show_changes',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'staged file.txt' }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'staged file.txt' }
     });
     assert(!defaultStagedPathChanges.structuredContent.data.changed && defaultStagedPathChanges.structuredContent.data.additions === 0 && defaultStagedPathChanges.structuredContent.data.diff === '', `default show_changes reported staged-only changes: ${JSON.stringify(defaultStagedPathChanges.structuredContent)}`);
     await fs.writeFile(path.join(root, 'new-review.txt'), 'new file\n', 'utf8');
     const untrackedChanges = await client.request('tools/call', {
       name: 'show_changes',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'new-review.txt' }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'new-review.txt' }
     });
     assert(untrackedChanges.structuredContent.data.changed && untrackedChanges.structuredContent.data.changed_files.some((line) => line.includes('new-review.txt')), `show_changes did not report untracked new file: ${JSON.stringify(untrackedChanges.structuredContent)}`);
     await fs.writeFile(path.join(root, 'new-review.txt'), 'new file changed\n', 'utf8');
     const changedUntrackedChanges = await client.request('tools/call', {
       name: 'show_changes',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, path: 'new-review.txt' }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, path: 'new-review.txt' }
     });
     assert(changedUntrackedChanges.structuredContent.data.changed && changedUntrackedChanges.structuredContent.data.review_checkpoint_hit !== true, `show_changes checkpoint hid changed untracked file content: ${JSON.stringify(changedUntrackedChanges.structuredContent)}`);
   } finally {
@@ -791,17 +791,17 @@ async function runCardStress(root) {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     const search = await client.request('tools/call', {
       name: 'search',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, query: '--flag', path: 'many', max_results: 2000 }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, query: '--flag', path: 'many', max_results: 2000 }
     });
     assert(search.structuredContent.data.matches.length === 2000, 'tool-card search did not preserve nested matches');
     assert(!('text' in search.structuredContent.data), 'tool-card search duplicated aggregate text');
     const structured = await client.request('tools/call', {
       name: 'search',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, query: '--flag', path: 'many', intent: 'text', max_results: 2000 }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, query: '--flag', path: 'many', intent: 'text', max_results: 2000 }
     });
     assert(structured.structuredContent.data.analysis.groups.references.length <= 24, `structured card references were not compacted: ${structured.structuredContent.data.analysis.groups.references.length}`);
     assert(structured.structuredContent.data.analysis.matches.length <= 80, `structured card match summary was not compacted: ${structured.structuredContent.data.analysis.matches.length}`);
-    const inspected = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: opened.structuredContent.workspace_id } });
+    const inspected = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: opened.structuredContent.data?.workspace_id } });
     assert(inspected.structuredContent.files.length <= 120, `workspace card file inventory was not compacted: ${inspected.structuredContent.files.length}`);
   } finally {
     client.close();
@@ -821,13 +821,13 @@ async function runAnalysisBudgetStress() {
   });
   try {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
-    const inspected = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: opened.structuredContent.workspace_id } });
+    const inspected = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: opened.structuredContent.data?.workspace_id } });
     assert(inspected.structuredContent.coverage.truncated === true, `analysis inventory did not report truncation: ${JSON.stringify(inspected.structuredContent.coverage)}`);
     assert(inspected.structuredContent.files.length === 100, `expected 100 bounded inventory files, got ${inspected.structuredContent.files.length}`);
     assert(!inspected.structuredContent.files.some((file) => file.path === '.env'), 'analysis inventory exposed blocked .env');
     const limitedOutput = await client.request('tools/call', {
       name: 'inspect_workspace',
-      arguments: { workspace_id: opened.structuredContent.workspace_id, max_files: 25, max_symbols: 10, max_relationships: 5 }
+      arguments: { workspace_id: opened.structuredContent.data?.workspace_id, max_files: 25, max_symbols: 10, max_relationships: 5 }
     });
     assert(limitedOutput.structuredContent.files.length === 25, `inspect max_files returned ${limitedOutput.structuredContent.files.length} records`);
     assert(limitedOutput.structuredContent.symbols.length === 10, `inspect max_symbols returned ${limitedOutput.structuredContent.symbols.length} records`);
