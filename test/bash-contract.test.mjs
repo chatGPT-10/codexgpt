@@ -567,3 +567,78 @@ test("bash rejects malformed or identity-mismatched provider results as internal
     });
   });
 });
+
+test("bash Tool Card consumes nested data and stable failures", () => {
+  const renderBashMatch = toolCardWidgetHtml.match(/function renderBash\(data\) \{[\s\S]*?\n  \}/);
+  assert.ok(renderBashMatch, "bash must have a Tool Card renderer");
+  const renderer = renderBashMatch[0];
+
+  assert.match(renderer, /data\?\.data/);
+  assert.match(renderer, /commandResult\.command/);
+  assert.match(renderer, /commandResult\.exitCode/);
+  assert.match(renderer, /commandResult\.signal/);
+  assert.match(renderer, /commandResult\.durationMs/);
+  assert.match(renderer, /commandResult\.stdout/);
+  assert.match(renderer, /commandResult\.stderr/);
+  assert.match(renderer, /commandResult\.truncated/);
+  assert.match(renderer, /commandResult\.bash_session_id/);
+  assert.match(renderer, /data\?\.error/);
+  assert.doesNotMatch(renderer, /data\.(?:command|exitCode|stdout|stderr|durationMs)/);
+  assert.match(toolCardWidgetHtml, /tool === "bash"\) \{\s*root\.innerHTML = renderBash\(data\)/);
+});
+
+test("codexpro wrapper action bash preserves strict success and failure envelopes", async () => {
+  await withTempWorkspace(async (root) => {
+    await withInMemoryClient({
+      root,
+      dependencies: { bashResultProvider: async () => providerResult() }
+    }, async (client) => {
+      const result = await client.callTool({
+        name: "codexpro",
+        arguments: {
+          action: "bash",
+          args: { command: "pwd" }
+        }
+      });
+      const structured = result.structuredContent;
+
+      assert.equal(structured.codexpro_tool, "bash");
+      assert.equal(structured.codexpro_title, "Bash");
+      assert.equal(structured.codexpro_super_action, "bash");
+      assert.equal(structured.wrapped_tool, "bash");
+      assert.equal(structured.ok, true);
+      assert.equal(structured.error, null);
+      assert.equal(structured.data.exitCode, 0);
+      assert.equal(structured.data.command, "pwd");
+      assert.equal("exitCode" in structured, false);
+      assert.equal("bashSessionId" in structured, false);
+    });
+
+    await withInMemoryClient({
+      root,
+      dependencies: {
+        bashResultProvider: async () => {
+          throw new Error("Bash backend is unavailable. private diagnostic");
+        }
+      }
+    }, async (client) => {
+      const result = await client.callTool({
+        name: "codexpro",
+        arguments: {
+          action: "bash",
+          args: { command: "pwd" }
+        }
+      });
+      const structured = result.structuredContent;
+
+      assert.equal(result.isError, true);
+      assert.equal(structured.codexpro_tool, "bash");
+      assert.equal(structured.codexpro_super_action, "bash");
+      assert.equal(structured.wrapped_tool, "bash");
+      assert.equal(structured.ok, false);
+      assert.equal(structured.data, null);
+      assert.equal(structured.error.code, "SHELL_BACKEND_UNAVAILABLE");
+      assert.equal(resultText(result).includes("private diagnostic"), false);
+    });
+  });
+});

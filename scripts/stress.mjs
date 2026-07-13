@@ -234,14 +234,14 @@ async function runFullModeStress(root) {
       name: 'bash',
       arguments: { workspace_id: ws, command: 'pwd' }
     });
-    assert(safePwd.isError !== true && safePwd.structuredContent.exitCode === 0, 'safe bash rejected allowed pwd command');
+    assert(safePwd.isError !== true && safePwd.structuredContent.ok === true && safePwd.structuredContent.data?.exitCode === 0, 'safe bash rejected allowed pwd command');
 
     const newlineDirectTarget = path.join(root, 'newline-direct-owned');
     const blockedNewline = await client.request('tools/call', {
       name: 'bash',
       arguments: { workspace_id: ws, command: 'pwd\ntouch newline-direct-owned' }
     });
-    assert(blockedNewline.isError === true && String(blockedNewline.structuredContent.error).includes('blocked'), 'safe bash allowed newline command chaining');
+    assert(blockedNewline.isError === true && blockedNewline.structuredContent.ok === false && blockedNewline.structuredContent.error?.code === 'COMMAND_POLICY_DENIED', 'safe bash allowed newline command chaining');
     assert(!(await pathExists(newlineDirectTarget)), 'safe bash newline command created a file');
 
     const newlineSuperTarget = path.join(root, 'newline-supertool-owned');
@@ -249,28 +249,28 @@ async function runFullModeStress(root) {
       name: 'codexpro',
       arguments: { action: 'bash', args: { workspace_id: ws, command: 'pwd\ntouch newline-supertool-owned' } }
     });
-    assert(blockedSuperNewline.isError === true && blockedSuperNewline.structuredContent.codexpro_tool === 'bash', 'supertool safe bash newline error was not tagged as bash');
+    assert(blockedSuperNewline.isError === true && blockedSuperNewline.structuredContent.codexpro_tool === 'bash' && blockedSuperNewline.structuredContent.ok === false && blockedSuperNewline.structuredContent.error?.code === 'COMMAND_POLICY_DENIED', 'supertool safe bash newline error was not tagged as bash');
     assert(!(await pathExists(newlineSuperTarget)), 'supertool safe bash newline command created a file');
 
     const blockedOutputFlag = await client.request('tools/call', {
       name: 'bash',
       arguments: { workspace_id: ws, command: 'git diff "--output=safe-bash-owned.patch"' }
     });
-    assert(blockedOutputFlag.isError === true && String(blockedOutputFlag.structuredContent.error).includes('blocked'), 'safe bash allowed quoted git output path');
+    assert(blockedOutputFlag.isError === true && blockedOutputFlag.structuredContent.ok === false && blockedOutputFlag.structuredContent.error?.code === 'COMMAND_POLICY_DENIED', 'safe bash allowed quoted git output path');
     assert(!(await pathExists(path.join(root, 'safe-bash-owned.patch'))), 'safe bash git output path created a file');
 
     const blockedDollarExpansion = await client.request('tools/call', {
       name: 'codexpro',
       arguments: { action: 'bash', args: { workspace_id: ws, command: "git diff $'--output=supertool-owned.patch'" } }
     });
-    assert(blockedDollarExpansion.isError === true && blockedDollarExpansion.structuredContent.codexpro_tool === 'bash', 'supertool safe bash allowed dollar-quoted expansion');
+    assert(blockedDollarExpansion.isError === true && blockedDollarExpansion.structuredContent.codexpro_tool === 'bash' && blockedDollarExpansion.structuredContent.ok === false && blockedDollarExpansion.structuredContent.error?.code === 'COMMAND_POLICY_DENIED', 'supertool safe bash allowed dollar-quoted expansion');
     assert(!(await pathExists(path.join(root, 'supertool-owned.patch'))), 'supertool dollar-quoted git output path created a file');
 
     const blockedFindFprint0 = await client.request('tools/call', {
       name: 'bash',
       arguments: { workspace_id: ws, command: 'find . "-fprint0" find-owned.txt' }
     });
-    assert(blockedFindFprint0.isError === true && String(blockedFindFprint0.structuredContent.error).includes('blocked'), 'safe bash allowed quoted find -fprint0 path write');
+    assert(blockedFindFprint0.isError === true && blockedFindFprint0.structuredContent.ok === false && blockedFindFprint0.structuredContent.error?.code === 'COMMAND_POLICY_DENIED', 'safe bash allowed quoted find -fprint0 path write');
     assert(!(await pathExists(path.join(root, 'find-owned.txt'))), 'safe bash find -fprint0 created a file');
 
     const blockedEnvWrite = await client.request('tools/call', {

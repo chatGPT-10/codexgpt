@@ -924,28 +924,45 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderBash(data) {
-    const ok = Number(data.exitCode) === 0;
-    const stdoutLines = countLines(data.stdout);
-    const stderrLines = countLines(data.stderr);
+    const commandResult = data?.data ?? {};
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Bash unavailable.") +
+        '</div></div></article>';
+    }
+
+    const commandPassed = Number(commandResult.exitCode) === 0;
+    const stdoutLines = countLines(commandResult.stdout);
+    const stderrLines = countLines(commandResult.stderr);
     const totalLines = stdoutLines + stderrLines;
     const pills = [
-      pill(ok ? "passed" : "failed", ok ? "good" : "bad"),
+      pill(commandPassed ? "passed" : "failed", commandPassed ? "good" : "bad"),
+      commandResult.signal ? pill(commandResult.signal, "warn") : "",
+      commandResult.truncated ? pill("truncated", "warn") : "",
+      commandResult.bash_session_id ? pill("session " + commandResult.bash_session_id, "info") : "",
       pill(totalLines + " lines", "info"),
-      pill((data.durationMs ?? "-") + " ms")
+      pill((commandResult.durationMs ?? "-") + " ms")
     ].join("");
-    const command = '<span class="prompt">$</span> ' + esc(data.command || "");
-    const output = previewLines(data.stdout || data.stderr || "", 18);
-    const outputBox = output
-      ? fold("Output preview", totalLines + " lines", codebox("output preview", esc(truncate(output, 5000)), "terminal"), false)
-      : '<div class="empty">Command produced no output.</div>';
+    const command = '<span class="prompt">$</span> ' + esc(truncate(commandResult.command || "", 1000));
+    const stdout = previewLines(commandResult.stdout || "", 18);
+    const stderr = previewLines(commandResult.stderr || "", 18);
+    const outputBoxes = [
+      stdout ? fold("stdout", stdoutLines + " lines", codebox("stdout preview", esc(truncate(stdout, 5000)), "terminal"), false) : "",
+      stderr ? fold("stderr", stderrLines + " lines", codebox("stderr preview", esc(truncate(stderr, 5000)), "terminal"), false) : ""
+    ].join("") || '<div class="empty">Command produced no output.</div>';
+
     return '<article class="card">' + header(data, pills) + '<div class="body">' +
       '<div class="summary">' +
-      summaryItem("Exit", data.exitCode ?? "-") +
+      summaryItem("Exit", commandResult.exitCode ?? "-") +
+      summaryItem("Signal", commandResult.signal || "-") +
       summaryItem("Lines", totalLines) +
-      summaryItem("Duration", (data.durationMs ?? "-") + " ms") +
+      summaryItem("Duration", (commandResult.durationMs ?? "-") + " ms") +
       '</div>' +
       codebox("command", command, "terminal") +
-      outputBox +
+      outputBoxes +
       '</div></article>';
   }
 

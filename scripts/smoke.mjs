@@ -645,15 +645,16 @@ const pwdBashText = pwdBash.content?.[0]?.text ?? '';
 if (!pwdBashText.includes('Exit: 0') || pwdBashText.includes('## stdout') || pwdBashText.includes('## stderr')) {
   throw new Error(`default bash transcript should be compact: ${pwdBashText}`);
 }
-if (!pwdBash.structuredContent.stdout?.includes(tmp)) {
-  throw new Error(`compact bash transcript dropped structured stdout: ${JSON.stringify(pwdBash.structuredContent)}`);
+const pwdBashData = pwdBash.structuredContent.data;
+if (!pwdBashData?.stdout?.includes(tmp) || pwdBashData.exitCode !== 0) {
+  throw new Error(`compact bash transcript dropped nested structured output: ${JSON.stringify(pwdBash.structuredContent)}`);
 }
-await expectToolError('bash', { workspace_id: ws, command: 'find /tmp' }, /blocked/i);
-await expectToolError('bash', { workspace_id: ws, command: 'find . -fprint leaked.txt' }, /blocked/i);
-await expectToolError('bash', { workspace_id: ws, command: 'git show HEAD:.env' }, /blocked/i);
-await expectToolError('bash', { workspace_id: ws, command: 'ls $HOME' }, /blocked/i);
+await expectToolError('bash', { workspace_id: ws, command: 'find /tmp' }, /not allowed/i);
+await expectToolError('bash', { workspace_id: ws, command: 'find . -fprint leaked.txt' }, /not allowed/i);
+await expectToolError('bash', { workspace_id: ws, command: 'git show HEAD:.env' }, /not allowed/i);
+await expectToolError('bash', { workspace_id: ws, command: 'ls $HOME' }, /not allowed/i);
 const clientBuild = await client.request('tools/call', { name: 'bash', arguments: { workspace_id: ws, command: 'npm run build:clients', timeout_ms: 60000 } });
-if (!clientBuild.structuredContent.stdout?.includes('clients ok')) {
+if (!clientBuild.structuredContent.data?.stdout?.includes('clients ok')) {
   throw new Error('safe bash did not run npm run build:clients');
 }
 const exported = await client.request('tools/call', { name: 'export_pro_context', arguments: { workspace_id: ws, selected_paths: ['demo.txt'], max_files: 4, max_total_bytes: 80000 } });
@@ -1109,9 +1110,9 @@ if (guardedConfig.structuredContent.data?.bashSessionId !== 'codex-main' || guar
   throw new Error(`server_config did not expose bash session guard: ${JSON.stringify(guardedConfig.structuredContent)}`);
 }
 await expectToolError('bash', { command: 'pwd' }, /bash session/i, sessionGuardClient);
-await expectToolError('bash', { command: 'pwd', session_id: 'other-session' }, /codex-main/i, sessionGuardClient);
+await expectToolError('bash', { command: 'pwd', session_id: 'other-session' }, /does not match/i, sessionGuardClient);
 const guardedBash = await sessionGuardClient.request('tools/call', { name: 'bash', arguments: { command: 'pwd', session_id: 'codex-main' } });
-if (guardedBash.structuredContent.bash_session_id !== 'codex-main' || !guardedBash.content?.[0]?.text?.includes('Exit: 0')) {
+if (guardedBash.structuredContent.data?.bash_session_id !== 'codex-main' || guardedBash.structuredContent.data?.exitCode !== 0 || !guardedBash.content?.[0]?.text?.includes('Exit: 0')) {
   throw new Error(`bash session guard did not allow matching session id: ${JSON.stringify(guardedBash.structuredContent)}`);
 }
 const guardedSelfTest = await sessionGuardClient.request('tools/call', {
