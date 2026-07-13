@@ -156,6 +156,14 @@ import {
   workspaceSnapshotOutputShape,
   type WorkspaceSnapshotFailureInput
 } from "./tools/schemas/workspaceSnapshot.js";
+import {
+  LIST_WORKSPACES_ERROR_MESSAGES,
+  createListWorkspacesFailure,
+  createListWorkspacesSuccess,
+  listWorkspacesDataSchema,
+  listWorkspacesOutputShape,
+  type ListWorkspacesFailureInput
+} from "./tools/schemas/listWorkspaces.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -289,6 +297,14 @@ const workspaceSnapshotAiProviderResultSchema = z.object({
   text: z.string(),
   files: z.array(z.string().min(1))
 }).strict();
+
+const listWorkspacesProviderItemSchema = z.object({
+  id: z.string().min(1),
+  root: z.string().min(1),
+  openedAt: z.string().min(1)
+}).strict();
+
+const listWorkspacesProviderResultSchema = z.array(listWorkspacesProviderItemSchema);
 
 type WorkspaceSnapshotSummaryProviderResult = z.infer<
   typeof workspaceSnapshotSummaryProviderResultSchema
@@ -670,6 +686,15 @@ function workspaceSnapshotFailureText(failure: WorkspaceSnapshotFailureInput): s
     "",
     `Code: ${failure.code}`,
     WORKSPACE_SNAPSHOT_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function listWorkspacesFailureText(failure: ListWorkspacesFailureInput): string {
+  return [
+    "# List Workspaces Error",
+    "",
+    `Code: ${failure.code}`,
+    LIST_WORKSPACES_ERROR_MESSAGES[failure.code]
   ].join("\n");
 }
 
@@ -1975,6 +2000,7 @@ export interface CodexProServerDependencies {
   workspaceSnapshotAiContextProvider?: (
     context: WorkspaceSnapshotAiContextProviderContext
   ) => { text: string; files: string[] } | Promise<{ text: string; files: string[] }>;
+  listWorkspacesProvider?: () => Workspace[] | Promise<Workspace[]>;
   bashResultProvider?: (
     context: BashProviderContext
   ) => BashResult | Promise<BashResult>;
@@ -2908,6 +2934,9 @@ export function createCodexProServer(
         context.guard,
         context.workspace
       ));
+  const listWorkspacesProvider =
+    dependencies.listWorkspacesProvider ??
+    (() => workspaces.listWorkspaces());
   const bashResultProvider =
     dependencies.bashResultProvider ??
     ((context: BashProviderContext) =>
@@ -3432,6 +3461,7 @@ export function createCodexProServer(
       title: "List Workspaces",
       description: "List currently opened CodexPro workspaces for this server/config.",
       inputSchema: {},
+      outputSchema: listWorkspacesOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -3440,11 +3470,61 @@ export function createCodexProServer(
       }
     },
     async () => {
-      const current = workspaces.listWorkspaces();
-      const text = current.length
-        ? current.map((workspace) => `- ${workspace.id} — ${workspace.root} (opened ${workspace.openedAt})`).join("\n")
-        : "No workspaces opened on this CodexPro server/config yet. Call open_workspace first.";
-      return textResult(text, { workspaces: current, count: current.length });
+      const startedAt = Date.now();
+      let rawWorkspaces: unknown;
+
+      try {
+        rawWorkspaces = await listWorkspacesProvider();
+      } catch {
+        const failure: ListWorkspacesFailureInput = {
+          code: "WORKSPACE_LIST_FAILED",
+          details: {}
+        };
+        return {
+          ...textResult(
+            listWorkspacesFailureText(failure),
+            createListWorkspacesFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      try {
+        const current = listWorkspacesProviderResultSchema.parse(rawWorkspaces);
+        const data = listWorkspacesDataSchema.parse({
+          workspaces: current.map((workspace) => ({
+            id: workspace.id,
+            root: workspace.root,
+            openedAt: workspace.openedAt
+          })),
+          count: current.length
+        });
+        const text = current.length
+          ? current
+              .map(
+                (workspace) =>
+                  `- ${workspace.id} — ${workspace.root} (opened ${workspace.openedAt})`
+              )
+              .join("\n")
+          : "No workspaces opened on this CodexPro server/config yet. Call open_workspace first.";
+
+        return textResult(
+          text,
+          createListWorkspacesSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        const failure: ListWorkspacesFailureInput = {
+          code: "INTERNAL_ERROR",
+          details: {}
+        };
+        return {
+          ...textResult(
+            listWorkspacesFailureText(failure),
+            createListWorkspacesFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
     }
   );
 

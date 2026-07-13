@@ -513,6 +513,14 @@ export const toolCardWidgetHtml = String.raw`
       : (data ?? {});
   }
 
+  function listWorkspacesResultData(data) {
+    const nested =
+      data?.codexpro_tool === "list_workspaces" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : (data ?? {});
+  }
+
   function subtitleFor(data) {
     if (data?.codexpro_tool === "open_current_workspace" || data?.codexpro_tool === "open_workspace") {
       if (data?.ok === false) return data?.error?.code || "Workspace unavailable";
@@ -529,7 +537,11 @@ export const toolCardWidgetHtml = String.raw`
     }
     if (data?.codexpro_tool === "codexpro_self_test") return data?.status ? "Status " + data.status : "Local diagnostic";
     if (data?.codexpro_tool === "codexpro_inventory") return (data?.skill_count ?? 0) + " skills, " + (data?.mcp_server_count ?? 0) + " MCP servers";
-    if (data?.codexpro_tool === "list_workspaces") return (data?.count ?? 0) + " open workspaces";
+    if (data?.codexpro_tool === "list_workspaces") {
+      if (data?.ok === false) return data?.error?.code || "Workspace list unavailable";
+      const listed = listWorkspacesResultData(data);
+      return (listed?.count ?? 0) + " open workspaces";
+    }
     if (data?.codexpro_tool === "server_config") {
       const config = data?.data ?? {};
       const session = config?.bashSessionId || config?.bash_session_id;
@@ -1080,11 +1092,21 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderWorkspaces(data) {
-    const spaces = Array.isArray(data.workspaces) ? data.workspaces : [];
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Workspace list unavailable.") +
+        '</div></div></article>';
+    }
+
+    const listed = listWorkspacesResultData(data);
+    const spaces = Array.isArray(listed.workspaces) ? listed.workspaces : [];
     const rows = spaces.map((workspace) =>
       '<div class="file-row"><span class="file-code">ws</span><span class="file-name">' + esc((workspace?.id || "workspace") + " — " + (workspace?.root || "")) + '</span></div>'
     ).join("");
-    return '<article class="card">' + header(data, pill((data.count ?? spaces.length) + " open", "info")) +
+    return '<article class="card">' + header(data, pill((listed.count ?? spaces.length) + " open", "info")) +
       '<div class="body"><div class="file-list">' + (rows || '<div class="empty">No workspaces opened yet.</div>') + '</div></div></article>';
   }
 

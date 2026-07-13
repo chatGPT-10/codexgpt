@@ -36,6 +36,10 @@ const replacements = [
   [
     "${snapshot.structuredContent.workspace_id}, expected",
     "${snapshot.structuredContent.data?.workspace_id}, expected"
+  ],
+  [
+    "list.structuredContent.workspaces.map",
+    "list.structuredContent.data?.workspaces.map"
   ]
 ];
 

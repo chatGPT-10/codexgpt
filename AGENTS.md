@@ -139,7 +139,8 @@ Memory rules:
 - `docs/memory/archive/interphase-maintenance.md` — closed maintenance records from STEP-066 through STEP-072.
 - `docs/memory/archive/phase-1.md` — unchanged Phase 1 Volume 1 covering STEP-073 through STEP-139.
 - `docs/memory/archive/phase-1-part-2.md` — closed Phase 1 Volume 2 covering STEP-140 through STEP-151.
-- `docs/memory/archive/phase-1-part-3.md` — active Phase 1 Volume 3 from STEP-152 onward.
+- `docs/memory/archive/phase-1-part-3.md` — closed Phase 1 Volume 3 covering STEP-152 through STEP-165.
+- `docs/memory/archive/phase-1-part-4.md` — active Phase 1 Volume 4 from STEP-166 onward.
 - `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md` — approved design for the first Phase 1 vertical slice.
 - `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` — executed plan for the completed first Phase 1 `server_config` vertical slice.
 - `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md` — approved design for the published second Phase 1 `tree` slice.
@@ -168,6 +169,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-13-open-workspace-output-schema.md` — completed, publication-reviewed, published, and CI-validated inline TDD plan for the thirteenth slice, including protected main-Smoke and HTTP-Smoke in-memory compatibility paths.
 - `docs/superpowers/specs/2026-07-13-workspace-snapshot-output-schema-design.md` — published and cross-platform CI-validated design for the fourteenth Phase 1 direct `workspace_snapshot` slice.
 - `docs/superpowers/plans/2026-07-13-workspace-snapshot-output-schema.md` — completed five-task TDD, consumer-migration, review, publication, and exact-head CI plan for the fourteenth slice.
+- `docs/superpowers/specs/2026-07-13-list-workspaces-output-schema-design.md` — locally implemented and fully verified design for the fifteenth Phase 1 direct `list_workspaces` slice; publication is in progress.
+- `docs/superpowers/plans/2026-07-13-list-workspaces-output-schema.md` — executed Tasks 1–4 and approval-gated Task 5 publication plan for the fifteenth slice.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -209,4 +212,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first fourteen vertical slices are published and cross-platform CI-validated. Direct full-mode `workspace_snapshot` was published as implementation commit `242315e`; exact-head CI run `29258565084` passed Ubuntu and Windows on Node 20 and 24. The next action is design review of the next remaining Phase 1 direct tool. Do not begin Phase 2 until the remaining Phase 1 scope is explicitly reviewed.
+Phase 1 implementation started on 2026-07-12. The first fourteen vertical slices are published and cross-platform CI-validated. The fifteenth full-mode direct `list_workspaces` slice is implemented and locally verified with focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. Task 5 publication is explicitly approved and in progress. Keep Phase 2 and workspace lifecycle expansion closed.
