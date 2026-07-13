@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first nine slices are published and cross-platform CI-validated; the tenth `apply_patch` design is approved, with implementation not started.
+- Phase 1: the first nine slices are published and cross-platform CI-validated; the tenth `apply_patch` slice is implemented and fully verified locally, with publication pending.
 
 ## Approved stopping point
 
-The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows with Node 20/24. The isolated tenth `apply_patch` design is approved in `docs/superpowers/specs/2026-07-13-apply-patch-output-schema-design.md`; no implementation plan or implementation task is active. Phase 2 remains closed.
+The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows with Node 20/24. The tenth direct `apply_patch` slice is implemented and fully verified locally but remains unstaged and unpublished; its design is committed in `3279d0c`. The next action requires explicit publication approval. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -62,7 +62,7 @@ The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3
 - `apply_patch`, fuzzy or regex editing, expected hashes, atomic replacement, transactions, rollback, undo, authentication, dependencies, and Phase 2 remain out of scope for the `edit` slice.
 - The approved direct `apply_patch` design preserves its nine success fields only under nested `data`; `changed` is literal `true`, returned paths are non-empty and unique, and the submitted patch diff excludes unrelated dirty changes.
 - Direct `apply_patch` uses twelve fixed non-retryable workspace/path/argument/policy/Git/patch/internal errors; raw patch content, Git diagnostics, unsafe absolute paths, file content, and secrets remain private.
-- The planned provider seam validates the exact provider result and returned path set against normalized submitted-patch paths before analysis-cache invalidation.
+- The direct `apply_patch` provider seam validates the exact result, requires safe normalized returned paths, compares the complete set against normalized submitted paths, and invalidates analysis only after full success validation.
 - Atomic transactions, rollback, undo, expected hashes, fuzzy patching, authentication, dependencies, workspace lifecycle, and Phase 2/3 remain outside the `apply_patch` slice.
 - Phase archives use bounded numbered volumes: after each complete STEP, open the next volume when the active file reaches 80% of the configured direct-read byte limit; earlier volumes remain unchanged.
 - The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
@@ -70,14 +70,14 @@ The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3
 
 ## Local verification evidence
 
-- Focused direct `edit` contracts: 14/14 passed.
-- Adjacent `edit`/`write`/`read`/`show_changes` contracts: 56/56 passed.
-- Complete `node:test` regression suite: 163/163 passed.
+- Focused direct `apply_patch` contracts: 14/14 passed.
+- Adjacent `apply_patch`/`edit`/`write`/`read`/`git_diff`/`show_changes` contracts: 89/89 passed.
+- Complete `node:test` regression suite: 177/177 passed.
 - `npm run build`: passed.
 - `npm run smoke`: all eight sections passed.
-- `npm run stress`: passed on native Windows after replacing one obsolete raw `binary` text assertion with the stable `FILE_NOT_TEXT` code.
-- `git diff --check`: passed; Git emitted only the established Windows LF-to-CRLF working-copy warnings.
-- Design and plan self-review found no placeholders, scope expansion, type drift, or changes to `apply_patch`, authentication, dependencies, workspace lifecycle, or Phase 2.
+- `npm run stress`: passed on native Windows, including its internal build.
+- `git diff --check`: passed before reconciliation; only established Windows LF-to-CRLF working-copy warnings were emitted.
+- Final review preserved size/secret/symlink/path rejection order and omitted relative escape paths from public details.
 
 ## Published phase evidence
 
@@ -91,6 +91,7 @@ The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3
 - `search`: implementation and publication commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows Node 20/24.
 - `write`: implementation commit `b807b9e`; CI run `29224276725` passed on Ubuntu/Windows Node 20/24.
 - `edit`: implementation commit `89cf2e3`; CI run `29226366822` passed on Ubuntu/Windows Node 20/24.
+- `apply_patch`: design commit `3279d0c`; implementation fully verified locally; implementation commit, push, and CI remain pending.
 - Detailed RED/GREEN evidence, blockers, rollback, and publication records are split across `docs/memory/archive/phase-1.md` (STEP-073–139) and the active `docs/memory/archive/phase-1-part-2.md` (STEP-140 onward).
 
 ## Known limitations
@@ -99,6 +100,7 @@ The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3
 - macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 - Git failure classification remains coupled to current string output from `src/gitOps.ts`.
 - Direct `edit` failure classification remains coupled to current `CodexProError` message prefixes and operating-system error codes.
+- Direct `apply_patch` input/path classification remains coupled to current internal message prefixes; Git stage classification now uses tool-local typed markers.
 - Review checkpoints remain process-local memory state and are not shared across service restarts.
 - Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
 - `docs/memory/archive/phase-1.md` exceeds the normal direct read-size limit and is now the unchanged first Phase 1 archive volume covering STEP-073–139.
@@ -106,11 +108,13 @@ The ninth Phase 1 vertical slice, direct `edit`, is published in commit `89cf2e3
 
 ## Open items
 
-1. The tenth `apply_patch` design and STEP-140 archive record are complete; the next permitted action is explicit approval to commit the design record and write a separate TDD implementation plan.
-2. No `apply_patch` implementation task is active. Keep Phase 2 closed without a new approved design and plan.
+1. Direct `apply_patch` is implemented and fully verified locally; the next permitted action is explicit approval to stage, commit, push, and verify CI.
+2. Publication is pending. Keep Phase 2 closed.
 
 ## Recent summaries
 
+- **STEP-142 — Implement and verify direct `apply_patch`:** added the exact schema-v1 envelope, twelve fixed failures, normalized provider/path-set validation, cache-safe invalidation, dedicated Tool Card/supertool consumers, and TDD coverage; focused 14/14, adjacent 89/89, complete 177/177, Build, Smoke 8/8, native-Windows Stress, and diff check passed; publication remains pending.
+- **STEP-141 — Commit and plan direct `apply_patch`:** committed the approved design as `3279d0c`, wrote and self-reviewed the four-task TDD plan, corrected returned-path normalization, bounded Tool Card previews, and deterministic Git-stage test interfaces, and kept implementation and Phase 2 closed.
 - **STEP-140 — Design direct `apply_patch`:** approved and self-reviewed the isolated tenth Phase 1 slice with nine nested success fields, twelve stable non-retryable failures, exact returned-path-set validation, cache-safe provider ordering, a dedicated Tool Card path, and no expansion into atomic transactions, rollback, authentication, or Phase 2/3; opened bounded Phase 1 Volume 2 from STEP-140 without rewriting Volume 1.
 - **STEP-139 — Publish direct `edit`:** pushed implementation commit `89cf2e3` and verified CI run `29226366822` passed on Ubuntu/Windows with Node 20/24.
 - **STEP-138 — Implement and verify direct `edit`:** added the exact schema-v1 contract, fourteen stable failures, validated provider/path boundary, cache-safe nested Tool Card/supertool consumers, and TDD coverage; focused 14/14, adjacent 56/56, complete 163/163, Build, Smoke 8/8, native-Windows Stress, and diff check passed.

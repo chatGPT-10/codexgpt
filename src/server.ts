@@ -110,6 +110,14 @@ import {
   editOutputShape,
   type EditFailureInput
 } from "./tools/schemas/edit.js";
+import {
+  APPLY_PATCH_ERROR_MESSAGES,
+  applyPatchDataSchema,
+  applyPatchOutputShape,
+  createApplyPatchFailure,
+  createApplyPatchSuccess,
+  type ApplyPatchFailureInput
+} from "./tools/schemas/applyPatch.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -154,6 +162,15 @@ function safeTreePathDetail(value: unknown): string {
   const raw = String(value ?? ".");
   if (treePathLooksUnsafeForDetails(raw)) return "[unsafe path omitted]";
   return cleanTreeDetail(raw, 240, "[path omitted]");
+}
+
+function safeApplyPatchPathDetail(value: unknown): string {
+  const raw = String(value ?? ".");
+  const segments = raw.replace(/\\/g, "/").split("/");
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    return "[unsafe path omitted]";
+  }
+  return safeTreePathDetail(raw);
 }
 
 function nodeErrorCode(error: unknown): string | undefined {
@@ -350,6 +367,24 @@ const editProviderResultSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["diff", "changed"],
       message: "Unchanged edit results require zero diff statistics."
+    });
+  }
+});
+
+const applyPatchProviderResultSchema = z.object({
+  paths: z.array(z.string().min(1)).min(1),
+  stdout: z.string(),
+  stderr: z.string(),
+  additions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+  changed: z.literal(true),
+  diff: z.string().min(1)
+}).strict().superRefine((value, context) => {
+  if (new Set(value.paths).size !== value.paths.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["paths"],
+      message: "Patch provider paths must be unique."
     });
   }
 });
@@ -582,6 +617,82 @@ function classifyEditFailure(
   ]);
   if (filesystemCode && editFailureCodes.has(filesystemCode)) {
     return { code: "EDIT_FAILED", details: {} };
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function classifyApplyPatchFailure(
+  error: unknown,
+  args: Record<string, unknown>,
+  config: CodexProConfig
+): ApplyPatchFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+
+  if (error instanceof ApplyPatchTargetError) {
+    const targetMessage = error.targetCause instanceof Error
+      ? error.targetCause.message
+      : String(error.targetCause);
+    const pathDetail = safeApplyPatchPathDetail(error.targetPath);
+    if (
+      targetMessage.startsWith("Path is blocked by safety rules:") ||
+      targetMessage.startsWith("Refusing to write through a symlink:")
+    ) {
+      return { code: "PATH_BLOCKED", details: { path: pathDetail } };
+    }
+
+    const outsidePrefixes = [
+      "Path contains a null byte.",
+      "Path escapes workspace root:",
+      "Path resolves outside workspace root through a symlink:",
+      "Write path resolves through a parent outside the workspace:",
+      "Windows device paths are not allowed:",
+      "UNC paths are not allowed:",
+      "Drive-relative Windows paths are not allowed:",
+      "NTFS alternate data stream paths are not allowed:",
+      "Windows path segments may not end with a dot or space:",
+      "Windows reserved device name is not allowed:"
+    ];
+    if (outsidePrefixes.some((prefix) => targetMessage.startsWith(prefix))) {
+      return { code: "PATH_OUTSIDE_WORKSPACE", details: { path: pathDetail } };
+    }
+    return { code: "INTERNAL_ERROR", details: {} };
+  }
+
+  if (message === "patch is required.") {
+    return { code: "INVALID_ARGUMENT", details: { argument: "patch", reason: "empty" } };
+  }
+  if (message.startsWith("Patch is too large.")) {
+    return { code: "PATCH_TOO_LARGE", details: { limit_bytes: config.maxWriteBytes } };
+  }
+  if (message.startsWith("Secret-looking content is blocked from apply_patch.")) {
+    return { code: "SECRET_CONTENT_BLOCKED", details: {} };
+  }
+  if (message.startsWith("Symlink patches are blocked from apply_patch.")) {
+    return { code: "SYMLINK_PATCH_BLOCKED", details: {} };
+  }
+  if (message === "Patch must include at least one file path.") {
+    return { code: "PATCH_INVALID", details: { reason: "no_file_paths" } };
+  }
+  if (message.startsWith("Invalid quoted Git path:")) {
+    return { code: "PATCH_INVALID", details: { reason: "invalid_path_encoding" } };
+  }
+
+  if (error instanceof ApplyPatchOperationError) {
+    if (error.applyPatchFailureKind === "git_unavailable") {
+      return { code: "GIT_UNAVAILABLE", details: {} };
+    }
+    if (error.applyPatchFailureKind === "check_failed") {
+      return { code: "PATCH_CHECK_FAILED", details: {} };
+    }
+    return { code: "PATCH_APPLY_FAILED", details: {} };
   }
 
   return { code: "INTERNAL_ERROR", details: {} };
@@ -1101,6 +1212,23 @@ export interface EditProviderContext {
   };
 }
 
+export interface ApplyPatchProviderResult {
+  paths: string[];
+  stdout: string;
+  stderr: string;
+  additions: number;
+  deletions: number;
+  changed: true;
+  diff: string;
+}
+
+export interface ApplyPatchProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  patch: string;
+}
+
 export interface SearchProviderContext {
   config: CodexProConfig;
   guard: PathGuard;
@@ -1144,6 +1272,9 @@ export interface CodexProServerDependencies {
   readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
   writeResultProvider?: (context: WriteProviderContext) => Promise<WriteFileResult>;
   editResultProvider?: (context: EditProviderContext) => Promise<EditFileResult>;
+  applyPatchResultProvider?: (
+    context: ApplyPatchProviderContext
+  ) => ApplyPatchProviderResult | Promise<ApplyPatchProviderResult>;
   searchResultProvider?: (context: SearchProviderContext) => SearchResult | Promise<SearchResult>;
   gitStatusResultProvider?: (
     context: GitStatusProviderContext
@@ -1583,6 +1714,28 @@ function normalizePatchPath(rawPath: string, stripComponents = 1): string | unde
   return stripPatchPathComponents(unquoted, stripComponents);
 }
 
+type ApplyPatchOperationFailureKind =
+  | "git_unavailable"
+  | "check_failed"
+  | "apply_failed";
+
+export class ApplyPatchOperationError extends CodexProError {
+  constructor(
+    public readonly applyPatchFailureKind: ApplyPatchOperationFailureKind
+  ) {
+    super(`apply_patch ${applyPatchFailureKind}`);
+  }
+}
+
+class ApplyPatchTargetError extends CodexProError {
+  constructor(
+    public readonly targetPath: string,
+    public readonly targetCause: unknown
+  ) {
+    super(targetCause instanceof Error ? targetCause.message : String(targetCause));
+  }
+}
+
 function patchHasSymlinkMode(patch: string): boolean {
   return patch.split(/\r?\n/).some((line) => /^(?:new|old|deleted) file mode 120000\s*$/.test(line) || /^new mode 120000\s*$/.test(line) || /^old mode 120000\s*$/.test(line));
 }
@@ -1601,12 +1754,7 @@ function patchTouchedPaths(patch: string): string[] {
   return [...paths];
 }
 
-function applyWorkspacePatch(
-  config: CodexProConfig,
-  guard: PathGuard,
-  workspace: Workspace,
-  patch: string
-): { paths: string[]; stdout: string; stderr: string; diff: string; additions: number; deletions: number; changed: boolean } {
+function validateApplyPatchInput(config: CodexProConfig, patch: string): string[] {
   if (!patch.trim()) throw new CodexProError("patch is required.");
   if (Buffer.byteLength(patch, "utf8") > config.maxWriteBytes) {
     throw new CodexProError(`Patch is too large. Limit: ${config.maxWriteBytes} bytes.`);
@@ -1618,12 +1766,27 @@ function applyWorkspacePatch(
     throw new CodexProError("Symlink patches are blocked from apply_patch.");
   }
 
-  const paths = patchTouchedPaths(patch);
-  if (!paths.length) throw new CodexProError("Patch must include at least one file path.");
-  for (const touchedPath of paths) {
-    guard.resolve(workspace, touchedPath, { forWrite: true });
-    assertWriteToolAllowed(config, touchedPath);
-  }
+  const touchedPaths = patchTouchedPaths(patch);
+  if (!touchedPaths.length) throw new CodexProError("Patch must include at least one file path.");
+  return touchedPaths;
+}
+
+function applyWorkspacePatch(
+  config: CodexProConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  patch: string
+): ApplyPatchProviderResult {
+  const touchedPaths = validateApplyPatchInput(config, patch);
+  const paths = [...new Set(touchedPaths.map((touchedPath) => {
+    try {
+      const resolved = guard.resolve(workspace, touchedPath, { forWrite: true });
+      assertWriteToolAllowed(config, resolved.relPath);
+      return resolved.relPath;
+    } catch (error) {
+      throw new ApplyPatchTargetError(touchedPath, error);
+    }
+  }))];
 
   const check = spawnSync("git", ["apply", "--check", "--whitespace=nowarn"], {
     cwd: workspace.root,
@@ -1632,8 +1795,14 @@ function applyWorkspacePatch(
     maxBuffer: config.maxOutputBytes,
     env: { ...process.env, NO_COLOR: "1" }
   });
-  if (check.error || check.status !== 0) {
-    throw new CodexProError(redactSensitiveText(check.stderr?.trim() || check.stdout?.trim() || check.error?.message || "git apply --check failed"));
+  if (check.error) {
+    if (nodeErrorCode(check.error) === "ENOENT") {
+      throw new ApplyPatchOperationError("git_unavailable");
+    }
+    throw new ApplyPatchOperationError("check_failed");
+  }
+  if (check.status !== 0) {
+    throw new ApplyPatchOperationError("check_failed");
   }
 
   const applied = spawnSync("git", ["apply", "--whitespace=nowarn"], {
@@ -1643,8 +1812,14 @@ function applyWorkspacePatch(
     maxBuffer: config.maxOutputBytes,
     env: { ...process.env, NO_COLOR: "1" }
   });
-  if (applied.error || applied.status !== 0) {
-    throw new CodexProError(redactSensitiveText(applied.stderr?.trim() || applied.stdout?.trim() || applied.error?.message || "git apply failed"));
+  if (applied.error) {
+    if (nodeErrorCode(applied.error) === "ENOENT") {
+      throw new ApplyPatchOperationError("git_unavailable");
+    }
+    throw new ApplyPatchOperationError("apply_failed");
+  }
+  if (applied.status !== 0) {
+    throw new ApplyPatchOperationError("apply_failed");
   }
 
   const diff = redactSensitiveText(patch.trimEnd());
@@ -1986,6 +2161,15 @@ export function createCodexProServer(
         context.oldText,
         context.newText,
         context.options
+      ));
+  const applyPatchResultProvider =
+    dependencies.applyPatchResultProvider ??
+    ((context: ApplyPatchProviderContext) =>
+      applyWorkspacePatch(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.patch
       ));
   const searchResultProvider =
     dependencies.searchResultProvider ??
@@ -3130,6 +3314,7 @@ export function createCodexProServer(
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         patch: z.string().describe("Unified diff patch to apply. File paths must stay inside the workspace and avoid blocked paths.")
       },
+      outputSchema: applyPatchOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -3138,28 +3323,83 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const result = applyWorkspacePatch(config, guard, workspace, String(args.patch ?? ""));
-      if (result.changed) invalidateWorkspaceAnalysis(workspace.id);
-      const text = [
-        "# Apply Patch",
-        "",
-        `Paths: ${result.paths.join(", ")}`,
-        `Diff stats: +${result.additions} -${result.deletions}`,
-        result.stderr ? `stderr: ${result.stderr}` : "",
-        result.diff ? diffBlock(result.diff) : "No diff output."
-      ].filter(Boolean).join("\n");
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        paths: result.paths,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        additions: result.additions,
-        deletions: result.deletions,
-        changed: result.changed,
-        diff: result.diff
-      });
+      try {
+        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const patch = String(args.patch ?? "");
+        const touchedPaths = validateApplyPatchInput(config, patch);
+        const expectedPaths = [...new Set(touchedPaths.map((touchedPath) => {
+          try {
+            const resolved = guard.resolve(workspace, touchedPath, { forWrite: true });
+            assertWriteToolAllowed(config, resolved.relPath);
+            return resolved.relPath;
+          } catch (error) {
+            throw new ApplyPatchTargetError(touchedPath, error);
+          }
+        }))];
+
+        const result = applyPatchProviderResultSchema.parse(
+          await applyPatchResultProvider({ config, guard, workspace, patch })
+        );
+
+        let normalizedReturnedPaths: string[];
+        try {
+          normalizedReturnedPaths = result.paths.map((returnedPath) => {
+            const resolved = guard.resolve(workspace, returnedPath, { forWrite: true });
+            assertWriteToolAllowed(config, resolved.relPath);
+            if (returnedPath !== resolved.relPath) {
+              throw new CodexProError("Apply patch provider returned a non-normalized path.");
+            }
+            return resolved.relPath;
+          });
+        } catch {
+          throw new CodexProError("Apply patch provider returned an unsafe or non-normalized path.");
+        }
+
+        const expectedSet = new Set(expectedPaths);
+        const returnedSet = new Set(normalizedReturnedPaths);
+        if (
+          expectedSet.size !== returnedSet.size ||
+          Array.from(expectedSet).some((value) => !returnedSet.has(value))
+        ) {
+          throw new CodexProError("Apply patch provider returned a mismatched path set.");
+        }
+
+        const data = applyPatchDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          paths: normalizedReturnedPaths,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          additions: result.additions,
+          deletions: result.deletions,
+          changed: result.changed,
+          diff: result.diff
+        });
+
+        invalidateWorkspaceAnalysis(workspace.id);
+        const text = [
+          "# Apply Patch",
+          "",
+          `Paths: ${normalizedReturnedPaths.join(", ")}`,
+          `Diff stats: +${result.additions} -${result.deletions}`,
+          result.stderr ? `stderr: ${result.stderr}` : "",
+          diffBlock(result.diff)
+        ].filter(Boolean).join("\n");
+        return textResult(text, createApplyPatchSuccess(data));
+      } catch (error) {
+        const failure = classifyApplyPatchFailure(error, args, config);
+        const structured = createApplyPatchFailure(failure);
+        const text = [
+          "# Apply Patch Error",
+          "",
+          `Code: ${failure.code}`,
+          APPLY_PATCH_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, structured),
+          isError: true
+        };
+      }
     }
   );
 

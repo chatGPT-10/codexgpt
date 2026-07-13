@@ -75,3 +75,157 @@ Delete the uncommitted design specification and this new continuation volume, th
 **Next step**
 
 After explicit approval, commit the approved design and archive-volume record, then invoke the `writing-plans` workflow to create a separate TDD implementation plan. Do not begin implementation or Phase 2.
+
+---
+
+## STEP-141 — Commit design and write direct `apply_patch` implementation plan
+
+**Status**
+
+Complete. The approved design record was committed, and a separate four-task TDD implementation plan was written and self-reviewed. Implementation has not started.
+
+**Goal**
+
+Create an executable, zero-context implementation sequence for the tenth Phase 1 slice without changing production code or authorizing implementation.
+
+**Files changed**
+
+- `docs/superpowers/plans/2026-07-13-apply-patch-output-schema.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1-part-2.md`
+
+**Implementation summary**
+
+- Committed the approved design, memory index, archive Volume 2 opening, and documentation map as commit `3279d0c` (`docs: design apply_patch schema contract`).
+- Wrote a four-task TDD plan covering the exact schema module, direct handler/provider boundary, tool-local patch/Git failure markers, returned-path normalization and exact set comparison, cache ordering, dedicated Tool Card rendering, nested Smoke assertions, adjacent regression coverage, complete local gates, memory reconciliation, and conditional publication.
+- Added exact file paths, interfaces, code shapes, commands, expected RED/GREEN outcomes, checkpoint commits, final verification gates, and publication boundaries.
+- Self-reviewed the plan against the approved design and corrected three issues before recording it: normalized returned paths are required before set comparison, Tool Card path previews are bounded to eight items, and deterministic Git-stage tests import an explicit internal operation error type.
+
+**Verification commands**
+
+```text
+git diff --cached --check
+git commit -m "docs: design apply_patch schema contract"
+```
+
+The plan was also searched for prohibited placeholders and reviewed for spec coverage, type consistency, error consistency, scope drift, unsafe diagnostics, archive-volume references, and execution-boundary wording.
+
+**Verification results**
+
+- Staged design diff check: passed.
+- Design commit: `3279d0c`, four files changed, 512 insertions, 11 deletions.
+- Plan placeholder scan: passed; no unresolved implementation marker or wildcard Git path remains.
+- Plan spec/type/error/scope self-review: passed after the three corrections listed above.
+- No production source, tests, dependencies, authentication, workspace lifecycle, or Phase 2/3 behavior was modified.
+
+**Decisions made**
+
+- Use four independently reviewable TDD tasks: schema, handler/classification, consumers/cache, and complete verification/documentation.
+- Use a tool-local internal `ApplyPatchOperationError` to distinguish unavailable Git, failed preflight, and failed apply stages without exposing raw diagnostics or creating a project-wide error hierarchy.
+- Require provider-returned paths to be safe, already normalized, unique, and exactly equal to the normalized submitted-patch path set before cache invalidation.
+- Keep implementation and publication separately gated; this planning step does not authorize either.
+
+**Risks or limitations**
+
+- The plan is detailed but unexecuted; all code shapes remain subject to RED/GREEN evidence and TypeScript compilation during implementation.
+- The design commit's STEP-140 rollback wording referred to uncommitted files. After commit `3279d0c`, rollback means reverting that commit rather than deleting uncommitted files; this STEP records the correction without rewriting archived history.
+- The current patch operation remains synchronous and non-atomic, with no rollback or crash recovery.
+
+**Rollback method**
+
+Delete the uncommitted plan and revert only the uncommitted STEP-141 updates to `AGENTS.md`, `Memory.md`, and this active archive. To roll back the already committed design record separately, revert commit `3279d0c`; do not rewrite history or alter Phase 1 Volume 1.
+
+**Next step**
+
+Obtain explicit approval to execute the four-task TDD plan. Do not begin implementation, staging, publication, credential changes, history rewriting, access expansion, or Phase 2 without the applicable approval.
+
+---
+
+## STEP-142 — Implement and verify direct `apply_patch` exact output schema
+
+**Status**
+
+Complete locally. All four implementation tasks and local gates passed. The implementation remains unstaged, uncommitted, and unpublished; Phase 2 remains closed.
+
+**Goal**
+
+Migrate only direct `apply_patch` to the exact Phase 1 schema-v1 contract while preserving the guarded synchronous `git apply` workflow and excluding transaction, rollback, authentication, dependency, workspace-lifecycle, and Phase 2/3 work.
+
+**Files changed**
+
+- `src/tools/schemas/applyPatch.ts`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `test/apply-patch-contract.test.mjs`
+- `test/edit-contract.test.mjs`
+- `test/write-contract.test.mjs`
+- `scripts/smoke.mjs`
+- `CHANGELOG.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/superpowers/specs/2026-07-13-apply-patch-output-schema-design.md`
+- `docs/superpowers/plans/2026-07-13-apply-patch-output-schema.md`
+- `docs/memory/archive/phase-1-part-2.md`
+
+**Implementation summary**
+
+- Added a strict `apply_patch` schema module with the nine preserved nested success fields, exact envelope invariants, twelve fixed non-retryable errors, fixed messages, strict details, and pure success/failure constructors.
+- Added an injectable `applyPatchResultProvider`, strict provider-result validation, normalized unique path validation, exact expected/returned path-set comparison, and cache invalidation only after complete success validation.
+- Added tool-local Git-stage markers for unavailable Git, failed `git apply --check`, and failed `git apply`, preventing raw subprocess diagnostics from crossing the public boundary.
+- Centralized the original input rejection order in `validateApplyPatchInput`: empty, size, secret content, symlink mode, patch paths, then path policy.
+- Added `safeApplyPatchPathDetail` so relative escapes and other unsafe path forms return `[unsafe path omitted]` while safe blocked paths remain actionable.
+- Added a dedicated nested `renderApplyPatch` Tool Card with an eight-path preview; `renderFile` now remains only for `export_pro_context`.
+- Preserved the `codexpro` wrapper envelope without restoring legacy flat fields.
+- Updated Smoke to read nested direct success data while preserving real patch, unrelated-diff isolation, cache invalidation, blocked `.env`, quoted path, copy target, and symlink rejection cases.
+
+**Verification commands**
+
+```text
+node --test test/apply-patch-contract.test.mjs
+node --test test/apply-patch-contract.test.mjs test/edit-contract.test.mjs test/write-contract.test.mjs test/read-contract.test.mjs test/git-diff-contract.test.mjs test/show-changes-contract.test.mjs
+node --test test/*.test.mjs
+npm run build
+npm run smoke
+npm run stress
+git diff --check
+```
+
+**Verification results**
+
+- Focused direct `apply_patch`: 14/14 passed.
+- Adjacent contracts: 89/89 passed.
+- Complete regression suite: 177/177 passed.
+- Build: passed.
+- Smoke: all eight sections passed.
+- Native-Windows Stress: passed, including its internal build.
+- Pre-reconciliation `git diff --check`: passed with only established LF-to-CRLF working-copy warnings.
+- Real coverage includes multi-file order, real preflight mismatch, validation precedence, fixed safe failures, malformed providers, unsafe/mismatched returned paths, cache ordering, Tool Card routing, wrapper behavior, and no raw diagnostic leakage.
+
+**Material failed attempts**
+
+- Standard `edit` could not update `scripts/smoke.mjs` because that existing test file intentionally contains secret-lookalike fixtures and the full-result secret scan failed closed.
+- The first exact Node replacement command failed before writing because Bash expanded JavaScript template expressions inside double quotes.
+- A second exact Node replacement used single-quoted program text and asserted exact match counts before writing; it changed only the four intended legacy field accesses. Subsequent Build, Smoke, full regression, Stress, and diff review passed.
+
+**Decisions made**
+
+- Preserve original rejection precedence even though handler/provider validation is duplicated through one shared pure helper.
+- Treat malformed or unsafe provider-returned paths as `INTERNAL_ERROR`; submitted target policy failures retain stable path-specific public errors.
+- Keep relative escapes private in public details.
+- Keep the operation explicitly synchronous and non-atomic; no rollback, undo, expected hash, or change-set identifier was added.
+- Keep implementation publication separately gated.
+
+**Risks or limitations**
+
+- Input/path failure classification still recognizes current internal message prefixes; Git operation stages now use typed local markers.
+- A patch may affect multiple files without transaction, rollback, or crash recovery guarantees.
+- Cross-platform CI has not yet run for this implementation because it has not been pushed.
+
+**Rollback method**
+
+Before publication, restore the listed unstaged implementation/documentation files and remove the two new implementation files plus the untracked plan/test files as applicable; do not revert design commit `3279d0c` unless the design record itself must also be removed. After publication, revert the implementation commit without rewriting history. No user profiles, credentials, dependencies, branches, or Phase 1 Volume 1 records require changes.
+
+**Next step**
+
+Obtain explicit approval to stage the exact reviewed change set, commit, push to `origin/main`, verify the branch-head GitHub Actions matrix on Ubuntu/Windows with Node 20/24, and record the publication result. Do not begin Phase 2.

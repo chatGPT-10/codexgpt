@@ -476,11 +476,12 @@ const patchResult = await client.request('tools/call', {
     ].join('\n') + '\n'
   }
 });
-if (!patchResult.structuredContent.changed || !patchResult.structuredContent.paths?.includes?.('demo.txt')) {
+const patchData = patchResult.structuredContent.data;
+if (!patchData?.changed || !patchData.paths?.includes?.('demo.txt')) {
   throw new Error(`apply_patch did not report the patched file: ${JSON.stringify(patchResult.structuredContent)}`);
 }
-if (patchResult.structuredContent.diff?.includes?.('other.txt')) {
-  throw new Error(`apply_patch leaked unrelated workspace diff: ${patchResult.structuredContent.diff}`);
+if (patchData.diff?.includes?.('other.txt')) {
+  throw new Error(`apply_patch leaked unrelated workspace diff: ${patchData.diff}`);
 }
 const inspectAfterPatch = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: ws } });
 if (inspectAfterPatch.structuredContent.cache?.hit !== false) {

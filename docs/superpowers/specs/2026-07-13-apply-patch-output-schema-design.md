@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Phase: Phase 1, tenth vertical slice
-Status: Approved design; implementation not started
+Status: Implemented and fully verified locally; publication pending
 
 ## 1. Goal
 

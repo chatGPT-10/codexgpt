@@ -675,7 +675,11 @@ test("edit Tool Card consumes nested data and error while adjacent tools keep th
   assert.match(toolCardWidgetHtml, /tool === "edit"\) \{\s*root\.innerHTML = renderEdit\(data\)/);
   assert.match(
     toolCardWidgetHtml,
-    /tool === "apply_patch" \|\| tool === "export_pro_context"/
+    /tool === "apply_patch"\) \{\s*root\.innerHTML = renderApplyPatch\(data\)/
+  );
+  assert.match(
+    toolCardWidgetHtml,
+    /tool === "export_pro_context"\) \{\s*root\.innerHTML = renderFile\(data\)/
   );
   assert.doesNotMatch(
     toolCardWidgetHtml,

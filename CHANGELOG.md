@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an exact schema-v1 `apply_patch` result envelope with nine strict nested fields, twelve stable redacted workspace/path/input/policy/Git/patch failures, validated normalized provider path sets, cache-safe invalidation, dedicated nested Tool Card/supertool output, and preserved guarded non-atomic `git apply` behavior.
 - Added an exact schema-v1 `edit` result envelope with strict nested replacement metadata, fourteen stable redacted workspace/path/file/replacement/policy/edit failures, validated provider and returned-path boundaries, dedicated nested Tool Card/supertool output, and preserved exact-match, diff, Unicode, and cache-invalidation behavior.
 - Added an exact schema-v1 `write` result envelope with strict nested file metadata, stable redacted workspace/path/file/policy/write failures, safe provider validation, dedicated nested Tool Card/supertool output, and preserved create/overwrite/diff/cache-invalidation behavior.
 - Added an exact schema-v1 `search` result envelope with strict lexical matches, stable redacted workspace/path/backend failures, exact optional structured analysis, fixed safe degradation warnings, nested Tool Card/supertool output, and preserved ripgrep/Node fallback behavior.

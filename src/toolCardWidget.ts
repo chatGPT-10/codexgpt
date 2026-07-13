@@ -655,6 +655,33 @@ export const toolCardWidgetHtml = String.raw`
     return '<article class="card">' + header(data, pills) + '<div class="body">' + body + '</div></article>';
   }
 
+  function renderApplyPatch(data) {
+    const patchData = data?.data ?? {};
+    const error = data?.error ?? {};
+    const failed = data?.ok === false;
+    const paths = Array.isArray(patchData.paths) ? patchData.paths : [];
+    const visiblePaths = paths.slice(0, 8);
+    const pathPreview = visiblePaths.join(", ") +
+      (paths.length > visiblePaths.length ? ", … +" + (paths.length - visiblePaths.length) : "");
+    const pills = failed
+      ? pill(error.code || "error", "bad")
+      : [
+          pill(paths.length + " files", "info"),
+          patchData.additions !== undefined ? pill("+" + patchData.additions, "good") : "",
+          patchData.deletions !== undefined ? pill("-" + patchData.deletions, "bad") : ""
+        ].join("");
+    const body = failed
+      ? '<div class="empty">' + esc(error.message || "Apply patch failed.") + '</div>'
+      : '<div class="summary">' +
+        summaryItem("Paths", pathPreview || "-") +
+        summaryItem("Changed", patchData.changed ? "yes" : "no") +
+        '</div>' +
+        (patchData.diff
+          ? codebox("patch", renderDiff(patchData.diff), "")
+          : '<div class="empty">No diff returned.</div>');
+    return '<article class="card">' + header(data, pills) + '<div class="body">' + body + '</div></article>';
+  }
+
   function renderFile(data) {
     const pills = [
       data.bytes !== undefined ? pill(data.bytes + " bytes") : "",
@@ -1230,7 +1257,9 @@ export const toolCardWidgetHtml = String.raw`
       root.innerHTML = renderWrite(data);
     } else if (tool === "edit") {
       root.innerHTML = renderEdit(data);
-    } else if (tool === "apply_patch" || tool === "export_pro_context") {
+    } else if (tool === "apply_patch") {
+      root.innerHTML = renderApplyPatch(data);
+    } else if (tool === "export_pro_context") {
       root.innerHTML = renderFile(data);
     } else if (tool === "bash") {
       root.innerHTML = renderBash(data);
