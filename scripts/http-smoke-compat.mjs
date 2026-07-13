@@ -28,6 +28,14 @@ const replacements = [
   [
     "return result.structuredContent.workspace_id;",
     "return result.structuredContent.data?.workspace_id;"
+  ],
+  [
+    "snapshot.structuredContent.workspace_id !== opened",
+    "snapshot.structuredContent.data?.workspace_id !== opened"
+  ],
+  [
+    "${snapshot.structuredContent.workspace_id}, expected",
+    "${snapshot.structuredContent.data?.workspace_id}, expected"
   ]
 ];
 

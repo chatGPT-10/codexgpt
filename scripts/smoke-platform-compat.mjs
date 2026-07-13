@@ -6,6 +6,7 @@ const previousBashEnv = process.env.BASH_ENV;
 const previousInheritEnv = process.env.CODEXPRO_INHERIT_ENV;
 const previousTemp = process.env.TEMP;
 const previousTmp = process.env.TMP;
+const previousPathext = process.env.PATHEXT;
 let compatibilityDir;
 
 function replaceExactCount(source, oldText, newText, expectedCount) {
@@ -39,6 +40,12 @@ async function importMigratedSmokeSource() {
     'openedByPath.structuredContent.data?.workspace_id',
     2
   );
+  source = replaceExactCount(
+    source,
+    'snapshotAlias.structuredContent.tree',
+    'snapshotAlias.structuredContent.data?.tree',
+    1
+  );
   source += '\n//# sourceURL=codexpro-smoke-compat.mjs';
   const encoded = Buffer.from(source, 'utf8').toString('base64');
   await import(`data:text/javascript;base64,${encoded}`);
@@ -58,6 +65,9 @@ try {
     );
     process.env.BASH_ENV = bashEnvPath;
     process.env.CODEXPRO_INHERIT_ENV = '1';
+    if (!process.env.PATHEXT) {
+      process.env.PATHEXT = '.COM;.EXE;.BAT;.CMD';
+    }
   }
 
   await importMigratedSmokeSource();
@@ -72,6 +82,8 @@ try {
   else process.env.TEMP = previousTemp;
   if (previousTmp === undefined) delete process.env.TMP;
   else process.env.TMP = previousTmp;
+  if (previousPathext === undefined) delete process.env.PATHEXT;
+  else process.env.PATHEXT = previousPathext;
 
   if (compatibilityDir) {
     await fs.rm(compatibilityDir, { recursive: true, force: true });

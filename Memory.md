@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first thirteen slices are published and cross-platform CI-validated; direct `open_workspace` is published as commit `c31e8a1`.
+- Phase 1: the first thirteen slices are published and cross-platform CI-validated; the fourteenth direct-tool slice, `workspace_snapshot`, is implemented and locally verified, awaiting publication.
 
 ## Approved stopping point
 
-The first thirteen Phase 1 slices are published and cross-platform CI-validated. Direct `open_workspace` implementation commit `c31e8a1` passed exact-head CI run `29253838423` on Ubuntu/Windows with Node 20/24. Final local evidence is focused 18/18, adjacent 66/66, complete 220/220, Build, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. The next action is design review for the next remaining Phase 1 direct tool. Phase 2 remains closed.
+The first thirteen Phase 1 slices are published and cross-platform CI-validated. Direct full-mode `workspace_snapshot` is implemented and locally verified with focused 20/20, adjacent 69/69, complete 240/240, Build, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. The next action is precise publication, exact-head CI verification, and a separate publication record. Phase 2 remains closed.
 
 ## Active decisions and constraints
 
@@ -40,7 +40,7 @@ The first thirteen Phase 1 slices are published and cross-platform CI-validated.
 - Stable errors use `code`, `message`, `retryable`, and `details`; raw exceptions, stack traces, unsafe paths, and secrets are excluded.
 - Schema ownership remains split between `src/tools/schemas/common.ts` and one exact tool schema module per migrated tool.
 - Contract tests use pure constructors and test-only dependency injection; no production test mode or hidden MCP argument is allowed.
-- Published Phase 1 tools through direct `open_current_workspace` use strict nested schema-v1 envelopes and stable redacted failures; exact contracts remain in the Phase 1 archives and design documents.
+- Implemented Phase 1 direct tools through `workspace_snapshot` use strict nested schema-v1 envelopes and stable redacted failures; exact contracts remain in the Phase 1 archives and design documents.
 - `show_changes` and `search` preserve complete core results when optional analysis is unavailable, using only fixed safe warnings and excluding raw diagnostics.
 - `write`, `edit`, and `apply_patch` validate provider identity and normalized returned paths before cache invalidation; raw content, unsafe paths, diagnostics, and secrets stay private.
 - Atomic transactions, rollback, undo, fuzzy editing, authentication, dependency changes, workspace lifecycle, and Phase 2/3 remain outside the published Phase 1 slices.
@@ -53,17 +53,20 @@ The first thirteen Phase 1 slices are published and cross-platform CI-validated.
 - Root-opening failures and summary-provider failures are classified in separate stages; provider-time filesystem errors remain `INTERNAL_ERROR`. Workspace lifecycle, shared schema extraction, and Phase 2 remain deferred.
 - Provider Skill output must respect both discovery switches: no Skill data when `include_skills=false`, and only workspace-source Skills when `include_global_skills=false`.
 - Keep `scripts/smoke.mjs` and `scripts/http-smoke.mjs` protected and unchanged; their compatibility entries perform exact fail-closed in-memory substitutions, add bounded `sourceURL` labels, and write no transformed source to disk.
+- The fourteenth slice migrates only full-mode direct `workspace_snapshot`; `list_workspaces`, `inspect_workspace`, workspace lifecycle, and Phase 2 remain out of scope.
+- `workspace_snapshot` success contains exactly thirteen nested fields; `tree` is required, `agents_path` is nullable, and structured AI context contains approved relative filenames only, never file contents.
+- Its fixed failures are `WORKSPACE_NOT_FOUND`, `SNAPSHOT_SUMMARY_FAILED`, `AI_CONTEXT_FAILED`, and `INTERNAL_ERROR`; provider invocation and invariant validation remain separate stages.
+- Two test-only provider boundaries wrap existing `workspaceSummary` and `readAiBridgeContext`; the read-only tool does not create `.ai-bridge` files.
+- Main and HTTP Smoke migrate protected snapshot consumers only in memory; the Windows harness restores a missing standard `PATHEXT` for the test process and then restores caller state.
 
 ## Local verification evidence
 
-- Published `open_current_workspace`: focused 13/13, complete regression 202/202, Build, Smoke 8/8, native-Windows Stress, diff checking, and exact-head cross-platform CI passed.
-- Direct `open_workspace` focused contracts: 18/18 passed, including bounded compatibility-stack labels and global-Skill request-scope validation.
-- Adjacent workspace/config/tree/Git contracts: 66/66 passed.
-- Complete `node:test` regression after publication review: 220/220 passed.
-- `npm run build`, `npm run stress`, and all eight Smoke sections passed on native Windows.
-- `npm pack --dry-run` passed with the new schema build artifacts included and internal Memory/plan/spec files excluded.
+- Direct `workspace_snapshot` focused contracts: 20/20 passed; adjacent workspace/config/tree contracts: 69/69 passed.
+- Complete `node --test test/*.test.mjs`: 240/240 passed.
+- `npm run build`, all eight Smoke sections, and native-Windows `npm run stress` passed.
+- `npm pack --dry-run` passed with 127 files, 338.7 kB compressed, and 1.7 MB unpacked; internal Memory/plan/spec files remain excluded.
 - `git diff --check` passed; only established LF-to-CRLF working-copy warnings were emitted.
-- Exact-head GitHub Actions run `29253838423` passed Ubuntu/Windows on Node 20/24 for implementation commit `c31e8a1`.
+- The previous exact-head GitHub Actions run `29253838423` passed Ubuntu/Windows Node 20/24 for thirteenth-slice commit `c31e8a1`; fourteenth-slice CI awaits publication.
 
 ## Published phase evidence
 
@@ -94,6 +97,7 @@ The first thirteen Phase 1 slices are published and cross-platform CI-validated.
 - Direct `open_current_workspace` failure classification remains coupled to current `WorkspaceManager` message prefixes and Node error codes; workspace ownership, expiry, and client isolation remain deferred to Phase 2.
 - Direct `open_workspace` root-failure classification also depends on bounded `WorkspaceManager` prefixes and Node error codes.
 - Main-Smoke and HTTP-Smoke compatibility loaders depend on exact protected-source strings; source drift fails closed and requires a same-change loader update.
+- Direct `workspace_snapshot` validation remains intentionally tool-local and duplicates some open-tool invariants until a later separately reviewed extraction.
 - Review checkpoints remain process-local memory state and are not shared across service restarts.
 - Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
 - `docs/memory/archive/phase-1.md` exceeds the normal direct read-size limit and is the unchanged first Phase 1 archive volume covering STEP-073–139.
@@ -101,11 +105,16 @@ The first thirteen Phase 1 slices are published and cross-platform CI-validated.
 
 ## Open items
 
-1. Design-review the next remaining Phase 1 direct tool.
-2. Keep Phase 2 closed until the remaining Phase 1 scope is explicitly reviewed.
+1. Precisely stage, commit, and push the reviewed `workspace_snapshot` slice, then verify exact-head Ubuntu/Windows Node 20/24 CI.
+2. Record publication separately and keep Phase 2 closed until the remaining Phase 1 scope is explicitly reviewed.
 
 ## Recent summaries
 
+- **STEP-164 — Neat-freak and publication review:** reconciled all Slice 14 records and passed focused 20/20, adjacent 69/69, complete 240/240, Build, Smoke 8/8, Stress, package dry-run, and diff checking.
+- **STEP-163 — Migrate snapshot consumers:** nested Tool Card and supertool paths plus exact main/HTTP Smoke compatibility pass; protected sources remain unchanged.
+- **STEP-162 — Implement snapshot providers:** added strict staged provider validation and fixed redacted failures; focused progress reached 17/20 before consumer migration.
+- **STEP-161 — Define snapshot contract:** recorded initial RED 1/20, then schema GREEN 5/20 with the strict thirteen-field result and four fixed errors.
+- **STEP-160 — Design direct `workspace_snapshot`:** approved the independent full-mode fourteenth slice while keeping lifecycle and Phase 2 out of scope.
 - **STEP-159 — Publish direct `open_workspace`:** committed and pushed `c31e8a1`; exact-head CI run `29253838423` passed Ubuntu/Windows on Node 20/24.
 - **STEP-158 — Neat-freak and publication review:** reconciled all 28 plan steps, reduced Memory to a thinner index, fixed bounded data-URL stack labels and global-Skill request-scope validation, and passed focused 18/18, adjacent 66/66, complete 220/220, Build, Smoke 8/8, Stress, package dry-run, and diff checking.
 - **STEP-157 — Eliminate the protected main-Smoke false green:** added exact-count in-memory migration for four `open_current_workspace` and three `open_workspace` workspace-ID reads; focused 16/16, adjacent 64/64, complete 218/218, and Smoke 8/8 pass.

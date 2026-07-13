@@ -166,6 +166,8 @@ Memory rules:
 - `docs/superpowers/plans/2026-07-13-open-current-workspace-output-schema.md` — executed four-task TDD plan for the published and CI-validated twelfth `open_current_workspace` slice.
 - `docs/superpowers/specs/2026-07-13-open-workspace-output-schema-design.md` — published and cross-platform CI-validated design for the thirteenth Phase 1 direct `open_workspace` slice.
 - `docs/superpowers/plans/2026-07-13-open-workspace-output-schema.md` — completed, publication-reviewed, published, and CI-validated inline TDD plan for the thirteenth slice, including protected main-Smoke and HTTP-Smoke in-memory compatibility paths.
+- `docs/superpowers/specs/2026-07-13-workspace-snapshot-output-schema-design.md` — approved and locally verified design for the fourteenth Phase 1 direct `workspace_snapshot` slice.
+- `docs/superpowers/plans/2026-07-13-workspace-snapshot-output-schema.md` — implementation-complete five-task TDD, consumer-migration, review, and publication plan for the fourteenth slice; publication evidence is pending.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -207,4 +209,4 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first thirteen vertical slices are published and cross-platform CI-validated. Direct `open_workspace` was published as implementation commit `c31e8a1`; exact-head CI run `29253838423` passed Ubuntu and Windows on Node 20 and 24. Final local evidence remains focused 18/18, adjacent 66/66, complete 220/220, Build, all eight Smoke sections, native-Windows Stress, package dry-run, and diff checking. The next action is to design-review the next remaining Phase 1 direct tool. Do not begin Phase 2 until the remaining Phase 1 scope is explicitly reviewed.
+Phase 1 implementation started on 2026-07-12. The first thirteen vertical slices are published and cross-platform CI-validated. Direct full-mode `workspace_snapshot`, the fourteenth slice, is implemented and locally verified with focused 20/20, adjacent 69/69, complete 240/240, Build, all eight Smoke sections, native-Windows Stress, package dry-run, and diff checking. The next action is precise staging, implementation commit/push, exact-head Ubuntu/Windows Node 20/24 CI verification, and a separate publication record. Keep Phase 2 closed.

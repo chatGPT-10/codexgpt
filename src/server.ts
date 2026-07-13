@@ -148,6 +148,14 @@ import {
   type OpenWorkspaceFailureInput,
   type OpenWorkspaceRootSource
 } from "./tools/schemas/openWorkspace.js";
+import {
+  WORKSPACE_SNAPSHOT_ERROR_MESSAGES,
+  createWorkspaceSnapshotFailure,
+  createWorkspaceSnapshotSuccess,
+  workspaceSnapshotDataSchema,
+  workspaceSnapshotOutputShape,
+  type WorkspaceSnapshotFailureInput
+} from "./tools/schemas/workspaceSnapshot.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -240,6 +248,65 @@ function nodeErrorCode(error: unknown): string | undefined {
   const code = (error as { code?: unknown }).code;
   return typeof code === "string" ? code : undefined;
 }
+
+type WorkspaceSnapshotSummaryOptions = {
+  includeTree: true;
+  maxDepth: number;
+  maxEntries: number;
+  includeSkills: boolean;
+  includeGlobalSkills: boolean;
+};
+
+const workspaceSnapshotProviderSkillSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  source: z.enum(["workspace", "user", "plugin", "other"]),
+  path: z.string().min(1)
+}).strict();
+
+const workspaceSnapshotProviderCountsSchema = z.object({
+  total: z.number().int().nonnegative(),
+  workspace: z.number().int().nonnegative(),
+  user: z.number().int().nonnegative(),
+  plugin: z.number().int().nonnegative(),
+  other: z.number().int().nonnegative()
+}).strict();
+
+const workspaceSnapshotSummaryProviderResultSchema = z.object({
+  text: z.string().min(1),
+  workspaceId: z.string().min(1),
+  root: z.string().min(1),
+  agentsLoaded: z.boolean(),
+  agentsPath: z.string().min(1).optional(),
+  skills: z.array(z.string().min(1)),
+  skillInventory: z.array(workspaceSnapshotProviderSkillSchema),
+  skillCounts: workspaceSnapshotProviderCountsSchema,
+  tree: z.string().min(1),
+  gitStatus: z.string().min(1)
+}).strict();
+
+const workspaceSnapshotAiProviderResultSchema = z.object({
+  text: z.string(),
+  files: z.array(z.string().min(1))
+}).strict();
+
+type WorkspaceSnapshotSummaryProviderResult = z.infer<
+  typeof workspaceSnapshotSummaryProviderResultSchema
+>;
+
+type WorkspaceSnapshotAiProviderResult = z.infer<
+  typeof workspaceSnapshotAiProviderResultSchema
+>;
+
+const WORKSPACE_SNAPSHOT_AI_CONTEXT_NAMES = [
+  "current-plan.md",
+  "agent-status.md",
+  "implementation-diff.patch",
+  "codex-status.md",
+  "decisions.md",
+  "open-questions.md",
+  "execution-log.jsonl"
+] as const;
 
 type OpenCurrentWorkspaceSummaryOptions = {
   includeTree: boolean;
@@ -471,6 +538,139 @@ function validateOpenWorkspaceProviderResult(
     source: skill.source,
     path: skill.path
   }));
+}
+
+function expectedWorkspaceSnapshotSkillCounts(
+  inventory: WorkspaceSnapshotSummaryProviderResult["skillInventory"]
+): WorkspaceSnapshotSummaryProviderResult["skillCounts"] {
+  const counts = {
+    total: inventory.length,
+    workspace: 0,
+    user: 0,
+    plugin: 0,
+    other: 0
+  };
+  for (const skill of inventory) counts[skill.source] += 1;
+  return counts;
+}
+
+function validateWorkspaceSnapshotSummary(
+  result: WorkspaceSnapshotSummaryProviderResult,
+  workspace: Workspace,
+  guard: PathGuard,
+  options: WorkspaceSnapshotSummaryOptions
+): Array<{
+  name: string;
+  description: string | null;
+  source: "workspace" | "user" | "plugin" | "other";
+  path: string;
+}> {
+  if (result.workspaceId !== workspace.id) {
+    throw new CodexProError("Workspace snapshot provider returned a mismatched workspace id.");
+  }
+  if (result.root !== workspace.root) {
+    throw new CodexProError("Workspace snapshot provider returned a mismatched root.");
+  }
+  if (result.agentsLoaded !== Boolean(result.agentsPath)) {
+    throw new CodexProError("Workspace snapshot provider returned inconsistent AGENTS state.");
+  }
+  if (result.agentsPath) {
+    const resolvedAgents = guard.resolve(workspace, result.agentsPath);
+    if (resolvedAgents.relPath !== result.agentsPath) {
+      throw new CodexProError("Workspace snapshot provider returned a non-normalized AGENTS path.");
+    }
+  }
+
+  const expectedNames = result.skillInventory.map((skill) => skill.name);
+  if (
+    expectedNames.length !== result.skills.length ||
+    expectedNames.some((name, index) => result.skills[index] !== name)
+  ) {
+    throw new CodexProError("Workspace snapshot provider returned mismatched skill names.");
+  }
+
+  const expectedCounts = expectedWorkspaceSnapshotSkillCounts(result.skillInventory);
+  for (const key of ["total", "workspace", "user", "plugin", "other"] as const) {
+    if (result.skillCounts[key] !== expectedCounts[key]) {
+      throw new CodexProError("Workspace snapshot provider returned mismatched skill counts.");
+    }
+  }
+
+  if (
+    !options.includeSkills &&
+    (result.skills.length || result.skillInventory.length || result.skillCounts.total)
+  ) {
+    throw new CodexProError("Workspace snapshot provider returned skills when discovery was disabled.");
+  }
+  if (
+    options.includeSkills &&
+    !options.includeGlobalSkills &&
+    result.skillInventory.some((skill) => skill.source !== "workspace")
+  ) {
+    throw new CodexProError("Workspace snapshot provider returned global skills when global discovery was disabled.");
+  }
+
+  return result.skillInventory.map((skill) => ({
+    name: skill.name,
+    description: skill.description ?? null,
+    source: skill.source,
+    path: skill.path
+  }));
+}
+
+function validateWorkspaceSnapshotAiFiles(
+  result: WorkspaceSnapshotAiProviderResult,
+  config: CodexProConfig,
+  guard: PathGuard,
+  workspace: Workspace
+): string[] {
+  const approved = new Set(
+    WORKSPACE_SNAPSHOT_AI_CONTEXT_NAMES.map((name) =>
+      guard.resolve(workspace, `${config.contextDir}/${name}`).relPath
+    )
+  );
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  for (const file of result.files) {
+    const relPath = guard.resolve(workspace, file).relPath;
+    if (!approved.has(relPath)) {
+      throw new CodexProError("Workspace snapshot AI provider returned an unapproved context file.");
+    }
+    if (seen.has(relPath)) {
+      throw new CodexProError("Workspace snapshot AI provider returned a duplicate context file.");
+    }
+    seen.add(relPath);
+    normalized.push(relPath);
+  }
+
+  return normalized;
+}
+
+function classifyWorkspaceSnapshotWorkspaceFailure(
+  args: Record<string, unknown>
+): WorkspaceSnapshotFailureInput {
+  return args.workspace_id
+    ? {
+        code: "WORKSPACE_NOT_FOUND",
+        details: {
+          source: "workspace_id",
+          workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+        }
+      }
+    : {
+        code: "WORKSPACE_NOT_FOUND",
+        details: { source: "default_workspace", workspace_id: null }
+      };
+}
+
+function workspaceSnapshotFailureText(failure: WorkspaceSnapshotFailureInput): string {
+  return [
+    "# Workspace Snapshot Error",
+    "",
+    `Code: ${failure.code}`,
+    WORKSPACE_SNAPSHOT_ERROR_MESSAGES[failure.code]
+  ].join("\n");
 }
 
 class OpenWorkspaceAliasConflictError extends CodexProError {
@@ -1691,6 +1891,19 @@ export interface OpenWorkspaceSummaryProviderContext {
   options: OpenWorkspaceSummaryOptions;
 }
 
+export interface WorkspaceSnapshotSummaryProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  options: WorkspaceSnapshotSummaryOptions;
+}
+
+export interface WorkspaceSnapshotAiContextProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+}
+
 export interface BashProviderContext {
   config: CodexProConfig;
   guard: PathGuard;
@@ -1756,6 +1969,12 @@ export interface CodexProServerDependencies {
   openWorkspaceSummaryProvider?: (
     context: OpenWorkspaceSummaryProviderContext
   ) => WorkspaceSummary | Promise<WorkspaceSummary>;
+  workspaceSnapshotSummaryProvider?: (
+    context: WorkspaceSnapshotSummaryProviderContext
+  ) => WorkspaceSummary | Promise<WorkspaceSummary>;
+  workspaceSnapshotAiContextProvider?: (
+    context: WorkspaceSnapshotAiContextProviderContext
+  ) => { text: string; files: string[] } | Promise<{ text: string; files: string[] }>;
   bashResultProvider?: (
     context: BashProviderContext
   ) => BashResult | Promise<BashResult>;
@@ -2672,6 +2891,23 @@ export function createCodexProServer(
         ...context.options,
         bootstrapContext: false
       }));
+  const workspaceSnapshotSummaryProvider =
+    dependencies.workspaceSnapshotSummaryProvider ??
+    ((context: WorkspaceSnapshotSummaryProviderContext) =>
+      workspaceSummary(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.options
+      ));
+  const workspaceSnapshotAiContextProvider =
+    dependencies.workspaceSnapshotAiContextProvider ??
+    ((context: WorkspaceSnapshotAiContextProviderContext) =>
+      readAiBridgeContext(
+        context.config,
+        context.guard,
+        context.workspace
+      ));
   const bashResultProvider =
     dependencies.bashResultProvider ??
     ((context: BashProviderContext) =>
@@ -3406,6 +3642,7 @@ export function createCodexProServer(
         include_skills: z.boolean().optional().describe("Discover repo-local skills. Default: false for speed."),
         include_global_skills: z.boolean().optional().describe("Also scan home-level skill folders when include_skills=true. Default: false.")
       },
+      outputSchema: workspaceSnapshotOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -3414,31 +3651,144 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const summary = await workspaceSummary(config, guard, workspace, {
+      const startedAt = Date.now();
+      let workspace: Workspace;
+
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const failure = classifyWorkspaceSnapshotWorkspaceFailure(args);
+        return {
+          ...textResult(
+            workspaceSnapshotFailureText(failure),
+            createWorkspaceSnapshotFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      const options: WorkspaceSnapshotSummaryOptions = {
         includeTree: true,
         maxDepth: limitInt(args.max_depth, 3, 1, 8),
         maxEntries: limitInt(args.max_files, 500, 1, 3000),
         includeSkills: parseBool(args.include_skills, false),
         includeGlobalSkills: parseBool(args.include_global_skills, false)
-      });
-      const ai = await readAiBridgeContext(config, guard, workspace);
-      const text = `${summary.text}\n\n## AI handoff context\n\n${ai.text}`;
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        agents_loaded: summary.agentsLoaded,
-        agents_path: summary.agentsPath,
-        skills: summary.skills,
-        skill_inventory: summary.skillInventory,
-        skill_counts: summary.skillCounts,
-        tree: summary.tree,
-        git_status: summary.gitStatus,
-        ai_context_files: ai.files,
-        bash_mode: config.bashMode,
-        write_mode: config.writeMode,
-        tool_mode: config.toolMode
-      });
+      };
+
+      let rawSummary: unknown;
+      try {
+        rawSummary = await workspaceSnapshotSummaryProvider({
+          config,
+          guard,
+          workspace,
+          options
+        });
+      } catch {
+        const failure: WorkspaceSnapshotFailureInput = {
+          code: "SNAPSHOT_SUMMARY_FAILED",
+          details: {}
+        };
+        return {
+          ...textResult(
+            workspaceSnapshotFailureText(failure),
+            createWorkspaceSnapshotFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      let summary: WorkspaceSnapshotSummaryProviderResult;
+      let normalizedInventory: Array<{
+        name: string;
+        description: string | null;
+        source: "workspace" | "user" | "plugin" | "other";
+        path: string;
+      }>;
+      try {
+        summary = workspaceSnapshotSummaryProviderResultSchema.parse(rawSummary);
+        normalizedInventory = validateWorkspaceSnapshotSummary(
+          summary,
+          workspace,
+          guard,
+          options
+        );
+      } catch {
+        const failure: WorkspaceSnapshotFailureInput = {
+          code: "INTERNAL_ERROR",
+          details: {}
+        };
+        return {
+          ...textResult(
+            workspaceSnapshotFailureText(failure),
+            createWorkspaceSnapshotFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      let rawAi: unknown;
+      try {
+        rawAi = await workspaceSnapshotAiContextProvider({
+          config,
+          guard,
+          workspace
+        });
+      } catch {
+        const failure: WorkspaceSnapshotFailureInput = {
+          code: "AI_CONTEXT_FAILED",
+          details: {}
+        };
+        return {
+          ...textResult(
+            workspaceSnapshotFailureText(failure),
+            createWorkspaceSnapshotFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      try {
+        const ai = workspaceSnapshotAiProviderResultSchema.parse(rawAi);
+        const aiContextFiles = validateWorkspaceSnapshotAiFiles(
+          ai,
+          config,
+          guard,
+          workspace
+        );
+        const data = workspaceSnapshotDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          agents_loaded: summary.agentsLoaded,
+          agents_path: summary.agentsPath ?? null,
+          skills: summary.skills,
+          skill_inventory: normalizedInventory,
+          skill_counts: summary.skillCounts,
+          tree: summary.tree,
+          git_status: summary.gitStatus,
+          ai_context_files: aiContextFiles,
+          bash_mode: config.bashMode,
+          write_mode: config.writeMode,
+          tool_mode: config.toolMode
+        });
+        const text = `${summary.text}\n\n## AI handoff context\n\n${ai.text}`;
+
+        return textResult(
+          text,
+          createWorkspaceSnapshotSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        const failure: WorkspaceSnapshotFailureInput = {
+          code: "INTERNAL_ERROR",
+          details: {}
+        };
+        return {
+          ...textResult(
+            workspaceSnapshotFailureText(failure),
+            createWorkspaceSnapshotFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
     }
   );
 

@@ -613,3 +613,264 @@ Use a normal revert commit for `c31e8a1` if the published implementation must be
 **Next step**
 
 Commit and push this publication record, verify its exact-head Ubuntu/Windows Node 20/24 CI, then design-review the next remaining Phase 1 direct tool. Keep Phase 2 closed.
+
+---
+
+## STEP-160 — Design direct `workspace_snapshot` and write the implementation plan
+
+**Status**
+
+Completed. The recommended fourteenth Phase 1 direct-tool slice is selected and fully planned; no source implementation, staging, commit, or push has started.
+
+**Goal**
+
+From first principles, choose the next direct tool after the two workspace-opening contracts, define its exact schema-v1 behavior and safety boundary, and write a task-level TDD plan that remains one-feature-only and keeps Phase 2 closed.
+
+**Context reviewed**
+
+- Clean `main` at published commit `c31e8a1` and the current `Memory.md` stopping point.
+- `AGENTS.md`, the existing Phase 1 schema protocol, the 13 published slice records, and the active archive rollover policy.
+- Direct `workspace_snapshot` registration, full-mode membership, current flat structured result, `workspaceSummary`, `readAiBridgeContext`, shared Tool Card workspace renderer, supertool alias, and protected Smoke/HTTP Smoke consumers.
+- Existing `open_workspace` schema and contract patterns, common meta schema, compatibility loaders, package scripts, and local verification gates.
+- User constraints favoring native Windows, self-hosting, bounded security, and no mandatory WSL.
+- Original project audit direction establishing Phase 1 as exact output schemas and stable error contracts before workspace-lifecycle expansion.
+
+**Alternatives reviewed**
+
+1. Migrate direct `workspace_snapshot` independently.
+2. Migrate smaller full-mode `list_workspaces` first.
+3. Migrate larger analysis-heavy `inspect_workspace` first.
+4. Combine all three workspace-related tools.
+
+**Decision**
+
+Use the independent direct `workspace_snapshot` slice. It is the most useful continuation of `open_current_workspace` and `open_workspace`, stabilizes the main open-then-inspect workflow, removes the remaining flat shared-workspace Tool Card result, and does not require Phase 2 lifecycle work. `list_workspaces`, `inspect_workspace`, shared schema extraction, ownership, expiry, close operations, explicit workspace-ID requirements, and client isolation remain deferred.
+
+**Approved exact contract**
+
+- Tool remains full-mode only.
+- Success uses the standard six-field envelope and exactly thirteen fields under `data`:
+  `workspace_id`, `root`, `agents_loaded`, `agents_path`, `skills`, `skill_inventory`, `skill_counts`, `tree`, `git_status`, `ai_context_files`, `bash_mode`, `write_mode`, and `tool_mode`.
+- `tree` is required and non-null because the tool always requests it.
+- `agents_path` normalizes to a string or `null`.
+- `ai_context_files` contains only ordered, unique, normalized filenames from the fixed approved `.ai-bridge` set; handoff file contents remain text-only behind the existing redacting result boundary.
+- Four fixed non-retryable failures are approved:
+  `WORKSPACE_NOT_FOUND`, `SNAPSHOT_SUMMARY_FAILED`, `AI_CONTEXT_FAILED`, and `INTERNAL_ERROR`.
+- Explicit workspace-ID failure details and default-workspace failure details form a strict discriminated relationship; no root or raw diagnostic is public.
+- Summary-provider invocation, summary validation, AI-provider invocation, and AI validation are separate stages.
+- Two test-only dependency boundaries wrap existing `workspaceSummary` and `readAiBridgeContext`; no production test mode or hidden MCP argument is permitted.
+- The read-only snapshot must not create `.ai-bridge` files.
+- Non-Git workspaces remain successful.
+- Tool Card consumes nested success/failure and retains historical flat snapshot fallback.
+- Supertool direct action and `snapshot` alias preserve the strict envelope.
+- Protected `scripts/smoke.mjs` and `scripts/http-smoke.mjs` remain unchanged; compatibility loaders receive one exact fail-closed in-memory substitution each.
+
+**Files changed**
+
+- Created `docs/superpowers/specs/2026-07-13-workspace-snapshot-output-schema-design.md`.
+- Created `docs/superpowers/plans/2026-07-13-workspace-snapshot-output-schema.md`.
+- Updated `AGENTS.md`.
+- Updated `Memory.md`.
+- Appended this record to `docs/memory/archive/phase-1-part-3.md`.
+
+**Implementation plan structure**
+
+1. Create the complete RED focused contract and exact tool-owned schema module.
+2. Add two provider boundaries, strict provider validation, stable failure stages, and the exact direct handler.
+3. Migrate nested Tool Card/supertool consumers and exact protected Smoke compatibility.
+4. Run focused, adjacent, complete, Build, Smoke, Stress, package, diff, neat-freak, and implementation review gates; update durable records.
+5. Only after separate approval, stage precisely, commit, push, verify exact-head Ubuntu/Windows Node 20/24 CI, and record publication separately.
+
+**Self-review findings**
+
+- Corrected the planned `WORKSPACE_NOT_FOUND` detail schema from a loose nullable pair to a discriminated union, so `source=workspace_id` requires a bounded non-empty ID and `source=default_workspace` requires `workspace_id=null`.
+- Simplified workspace-resolution failure classification to avoid retaining or inspecting raw exception text.
+- Confirmed the plan does not change tool visibility, create context files, add dependencies, modify authentication or Cloudflare behavior, edit protected Smoke sources, or enter Phase 2.
+
+**Verification performed**
+
+- Opened the current workspace and confirmed the tree was clean before planning.
+- Inspected current source and contract consumers through bounded CodexPro reads and exact committed-source GitHub reads where `src/server.ts` exceeded the local direct-read ceiling.
+- Confirmed `workspace_snapshot` is present only in `FULL_TOOL_NAMES`.
+- Confirmed the active archive is approximately 34 KB and remains below the 80% rollover threshold.
+- Confirmed the root Memory index remains below its practical and hard line/byte limits after the update.
+- No source tests were run because no source implementation exists in this step.
+
+**Risks or limitations**
+
+- The planned validation intentionally duplicates some open-tool invariants until a later separately reviewed extraction.
+- `src/server.ts` remains above the current 180 KB direct-read ceiling; implementation must use targeted exact inspection and edits.
+- Compatibility loaders remain coupled to exact protected-source strings and will fail closed on drift.
+- Current workspace IDs remain deterministic process-local identifiers without Phase 2 ownership, expiry, or client isolation.
+
+**Rollback method**
+
+Before implementation, remove only the new design and plan files, revert this concise `Memory.md` update, and remove STEP-160 from the active archive. Do not alter source code, credentials, profiles, protected Smoke sources, published commits, or prior archive records.
+
+**Next step**
+
+After explicit execution approval, begin only Task 1 from `docs/superpowers/plans/2026-07-13-workspace-snapshot-output-schema.md`: create the complete RED focused contract, run it to observe the expected failure, create `src/tools/schemas/workspaceSnapshot.ts`, rerun the focused contract, and update Memory/archive evidence. Keep Phase 2 closed and stop before staging or commit.
+
+---
+
+## STEP-161 — Define the direct `workspace_snapshot` contract in RED/GREEN
+
+**Status**
+
+Completed. The focused contract and strict tool-owned schema are implemented.
+
+**Files changed**
+
+- Created `test/workspace-snapshot-contract.test.mjs`.
+- Created `src/tools/schemas/workspaceSnapshot.ts`.
+
+**Implementation summary**
+
+- Added twenty focused contracts covering exact constructors, descriptor mode visibility, real and injected providers, stable failures, Tool Card/supertool consumers, and protected Smoke compatibility.
+- Added the strict schema-v1 six-field envelope with exactly thirteen nested success fields.
+- Added four stable non-retryable errors and a discriminated `WORKSPACE_NOT_FOUND` detail contract.
+
+**Verification evidence**
+
+- Initial RED: 1/20 passed and 19 failed because the schema and exact handler did not exist.
+- Schema intermediate GREEN: 5/20 passed; all pure schema tests passed while the legacy handler and consumers remained RED.
+
+**Decisions and risks**
+
+- `tree` is required and non-null.
+- AI handoff structured output contains filenames only.
+- Workspace lifecycle and shared schema extraction remain deferred.
+
+**Rollback**
+
+Remove only the new schema/test and this step record before publication.
+
+---
+
+## STEP-162 — Implement validated snapshot providers and staged failures
+
+**Status**
+
+Completed. Direct `workspace_snapshot` now returns the exact nested contract.
+
+**Files changed**
+
+- Modified `src/server.ts`.
+- Continued `test/workspace-snapshot-contract.test.mjs`.
+
+**Implementation summary**
+
+- Added injectable summary and AI-context provider boundaries.
+- Strictly validated workspace identity, canonical root, AGENTS state/path, Skill order/count/scope, required tree, Git status, and provider shape.
+- Normalized only the fixed approved `.ai-bridge` filename set and rejected duplicates, escapes, absolute paths, unapproved names, and extra fields.
+- Separated workspace resolution, summary invocation, summary validation, AI invocation, and final validation/construction into redacted public failure stages.
+- Added the exact descriptor `outputSchema` while preserving full-mode-only visibility and non-Git success.
+
+**Verification evidence**
+
+- Focused intermediate result: 17/20 passed.
+- The only remaining failures were the planned Tool Card and two compatibility-loader consumers.
+
+**Rollback**
+
+Revert only the snapshot imports, types, providers, validation helpers, descriptor, and handler in `src/server.ts`.
+
+---
+
+## STEP-163 — Migrate Tool Card and protected Smoke consumers
+
+**Status**
+
+Completed. All focused and adjacent snapshot consumers are green.
+
+**Files changed**
+
+- Modified `src/toolCardWidget.ts`.
+- Modified `scripts/smoke-platform-compat.mjs`.
+- Modified `scripts/http-smoke-compat.mjs`.
+- Continued `test/workspace-snapshot-contract.test.mjs`.
+
+**Implementation summary**
+
+- Extended the workspace-result normalizer to nested `workspace_snapshot` success/failure while retaining historical flat fallback.
+- Added an `AI handoff` fold that lists approved filenames without displaying contents.
+- Added exact fail-closed in-memory migrations for the main Smoke tree read and both HTTP Smoke workspace-ID reads.
+- Preserved `scripts/smoke.mjs` and `scripts/http-smoke.mjs` unchanged.
+- Restored standard Windows `PATHEXT` only inside the main Smoke compatibility process when the sanitized verification environment omits it, then restored the caller state.
+
+**Debugging evidence**
+
+- The first standalone main Smoke reached self-test but could not discover Bash because the sanitized verification environment omitted `PATHEXT`.
+- After a one-process diagnostic proved `where bash.exe` succeeded while `where bash` failed, the compatibility harness received the bounded environment restoration.
+- A subsequent main Smoke failure showed a correct but flat result from stale `dist/stdio.js`; rebuilding removed the stale-artifact condition.
+- HTTP Smoke failed closed because the protected source contained two workspace-ID reads rather than the planned one broad occurrence; the loader now uses two exact-once replacements matching the real source.
+
+**Verification evidence**
+
+- Focused contract: 20/20 passed.
+- Adjacent workspace/config/tree contracts: 69/69 passed.
+- Main Smoke compatibility: passed after Build.
+- HTTP Smoke compatibility: passed.
+
+**Rollback**
+
+Restore the prior workspace-result renderer and remove only the snapshot/PATHEXT compatibility additions. Do not modify the protected Smoke sources.
+
+---
+
+## STEP-164 — Run full verification, neat-freak, and publication review
+
+**Status**
+
+Completed. The fourteenth slice is locally complete and approved for the explicitly authorized publication task.
+
+**Files reviewed**
+
+- `src/tools/schemas/workspaceSnapshot.ts`
+- `test/workspace-snapshot-contract.test.mjs`
+- `src/server.ts`
+- `src/toolCardWidget.ts`
+- `scripts/smoke-platform-compat.mjs`
+- `scripts/http-smoke-compat.mjs`
+- `CHANGELOG.md`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/phase-1-part-3.md`
+- the Slice 14 design and implementation plan
+
+**Verification evidence**
+
+- Focused contract: 20/20 passed.
+- Adjacent workspace/config/tree contracts: 69/69 passed.
+- Complete Node regression: 240/240 passed.
+- `npm run build`: passed.
+- `npm run smoke`: all eight sections passed.
+- `npm run stress`: passed on native Windows after its own Build.
+- `npm pack --dry-run`: passed with 127 files, 338.7 kB compressed, and 1.7 MB unpacked.
+- `git diff --check`: passed; only established LF-to-CRLF working-copy warnings appeared.
+
+**Neat-freak and review findings**
+
+- Corrected the stale `AGENTS.md` documentation-map entry that still said implementation had not started.
+- Reconciled CHANGELOG, AGENTS, Memory, active archive, design, and plan with the actual implementation and verification evidence.
+- Confirmed `Memory.md` remains below the practical 150-line/18-KB target and hard 200-line/25-KB limits.
+- Confirmed the active archive remains below its 80% rollover threshold.
+- Confirmed `scripts/smoke.mjs`, `scripts/http-smoke.mjs`, `package.json`, and `package-lock.json` are unchanged.
+- Confirmed no dependency, authentication, profile, credential, Cloudflare, tool-mode membership, or Phase 2 change is included.
+- Confirmed the read-only tool creates no `.ai-bridge` files and returns no AI handoff contents in structured data.
+- Confirmed the changed-file set is limited to the approved Slice 14 files and durable records.
+
+**Remaining limitations**
+
+- Snapshot validation intentionally duplicates some open-tool invariants until a separately reviewed extraction.
+- Compatibility loaders intentionally depend on exact protected-source strings and fail closed on drift.
+- Workspace ownership, expiry, client isolation, persistence, close operations, and explicit-ID requirements remain deferred to Phase 2.
+- `src/server.ts` remains above the configured direct-read limit and requires targeted reads/edits.
+
+**Rollback**
+
+Before publication, revert only the reviewed Slice 14 source, tests, compatibility loaders, docs, and records. After publication, use a normal revert commit; do not rewrite `main`.
+
+**Next step**
+
+Precisely stage the twelve reviewed files, run staged diff checking, create and push the implementation commit, verify exact-head Ubuntu/Windows Node 20/24 CI, then record publication in a separate commit. Keep Phase 2 closed.

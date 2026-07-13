@@ -504,10 +504,11 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function workspaceResultData(data) {
-    const isDirectOpen =
+    const isWorkspaceResult =
       data?.codexpro_tool === "open_current_workspace" ||
-      data?.codexpro_tool === "open_workspace";
-    return isDirectOpen && data?.data && typeof data.data === "object"
+      data?.codexpro_tool === "open_workspace" ||
+      data?.codexpro_tool === "workspace_snapshot";
+    return isWorkspaceResult && data?.data && typeof data.data === "object"
       ? data.data
       : (data ?? {});
   }
@@ -544,7 +545,11 @@ export const toolCardWidgetHtml = String.raw`
       const file = data?.data ?? {};
       return file.path || "Read file";
     }
-    if (data?.codexpro_tool === "workspace_snapshot") return data?.root || "Workspace snapshot";
+    if (data?.codexpro_tool === "workspace_snapshot") {
+      if (data?.ok === false) return data?.error?.code || "Workspace snapshot unavailable";
+      const workspace = workspaceResultData(data);
+      return workspace.root || "Workspace snapshot";
+    }
     if (data?.codexpro_tool === "inspect_workspace") {
       const coverage = data?.coverage || {};
       return (coverage.analyzedFiles ?? coverage.analyzed_files ?? 0) + " files analyzed, " + (coverage.symbolCount ?? coverage.symbol_count ?? 0) + " symbols";
@@ -913,6 +918,18 @@ export const toolCardWidgetHtml = String.raw`
     const gitText = changedRows
       ? '<div class="file-list">' + changedRows + '</div>' + (gitLines.length > 8 ? '<div class="empty">+' + esc(gitLines.length - 8) + ' more changed files</div>' : "")
       : '<div class="empty">Working tree clean.</div>';
+    const aiContextFiles = Array.isArray(workspace.ai_context_files)
+      ? workspace.ai_context_files
+      : [];
+    const aiContextRows = aiContextFiles.slice(0, 12).map((file) =>
+      '<div class="file-row"><span class="file-code">ctx</span><span class="file-name">' + esc(file) + '</span></div>'
+    ).join("");
+    const aiContextText = aiContextFiles.length
+      ? '<div class="file-list">' + aiContextRows + '</div>' + (aiContextFiles.length > 12 ? '<div class="empty">+' + esc(aiContextFiles.length - 12) + ' more context files</div>' : "")
+      : '<div class="empty">No readable AI handoff files.</div>';
+    const aiContextSection = data?.codexpro_tool === "workspace_snapshot"
+      ? fold("AI handoff", aiContextFiles.length + " files", aiContextText, false)
+      : "";
     const tree = workspace.tree ? codebox("tree", esc(previewLines(workspace.tree, 18)), "") : "";
     return '<article class="card">' + header(data, pills) + '<div class="body">' +
       '<div class="summary">' +
@@ -922,6 +939,7 @@ export const toolCardWidgetHtml = String.raw`
       '</div>' +
       '<div class="section-label">Context</div><div class="file-list">' + contextRows + '</div>' +
       fold("Git", gitLines.length ? gitLines.length + " changed" : "clean", gitText, false) +
+      aiContextSection +
       fold("Skills", skillCount + " discovered", skillText, false) +
       fold("Tree", workspace.tree ? "available" : "", tree, false) +
       '</div></article>';
