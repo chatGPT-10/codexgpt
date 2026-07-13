@@ -419,3 +419,171 @@ Use a normal revert commit for `c4eb31a` if the implementation must be withdrawn
 **Next step**
 
 Commit and push this separate publication record, verify that record commit's exact-head Ubuntu/Windows Node 20/24 CI, then design-review the next remaining Phase 1 direct tool. Keep workspace lifecycle expansion and Phase 2 closed.
+
+---
+
+## STEP-172 — Design and plan direct `inspect_workspace`
+
+**Status**
+
+Completed design-only step. Slice 16 is approved as direct `inspect_workspace`; the exact specification and five-task implementation plan are written. No production code, focused test, consumer, dependency, staging, commit, or push change was made.
+
+**Why this tool is next**
+
+- The first fifteen direct-tool slices are published.
+- Slice 15 intentionally postponed `inspect_workspace` until the smaller workspace-list contract was stable.
+- Direct `inspect_workspace` is now the highest-leverage remaining foundational result because direct structured `search`, Tool Card analysis rendering, Stress budgets, and write/edit/patch cache-invalidation checks consume the same analysis model or cache semantics.
+- Capability/Skill inventory and `.ai-bridge` tools remain valid later candidates, but migrating them first would leave the shared repository-analysis result legacy-flat.
+
+**Repository evidence inspected**
+
+- Current direct registration in `src/server.ts`, including standard/full mode, analysis-enabled gating, optional workspace/path inputs, include flags, normal output caps, Tool Card caps, flat structured output, and generic failure behavior.
+- `src/analysis/types.ts`, `src/analysis/index.ts`, `src/analysis/inventory.ts`, `src/analysis/extract.ts`, `src/analysis/graph.ts`, `src/analysis/cache.ts`, and `src/analysis/classify.ts`.
+- Existing exact Phase 1 schema patterns in `src/tools/schemas/common.ts`, `src/tools/schemas/search.ts`, and `src/tools/schemas/listWorkspaces.ts`.
+- Existing flat Tool Card analysis consumers in `src/toolCardWidget.ts`.
+- Protected main-Smoke flat analysis accesses in `scripts/smoke.mjs` and the fail-closed in-memory compatibility mechanism in `scripts/smoke-platform-compat.mjs`.
+- Normal Stress consumers in `scripts/stress.mjs`.
+- Analysis-cache consumers in write/edit/apply-patch contract tests.
+- The published Slice 15 design, which identified `inspect_workspace` as the wider follow-on workspace/analysis contract.
+
+**Approved design decisions**
+
+- Migrate only direct `inspect_workspace` in Slice 16.
+- Add one tool-owned schema module; do not extract a shared analysis schema or modify direct `search`.
+- Add one test-only `inspectWorkspaceProvider` boundary around existing full-workspace analysis.
+- Validate complete provider output before applying scope and response caps.
+- Preserve the analysis engine, inventory, classifier, extractor, graph, cache key, LRU size, and cache invalidation.
+- Normalize omitted, empty, or whitespace-only path to `.`.
+- Preserve safe nonexistent-scope success and do not add `FILE_NOT_FOUND`.
+- Keep coverage as full-workspace coverage while `returned` and `output_limited` describe scoped/capped response data.
+- Keep normal caps at 300 files, 500 symbols, and 800 relationships.
+- Keep Tool Card caps at 120 files, 80 symbols, and 120 relationships.
+- Keep include-symbols/include-relationships omission separate from output truncation.
+- Success contains exactly sixteen nested data fields and removes flat `schema_version`.
+- Provider warnings are limited to the existing bounded forms; the handler may append one fixed output-limit warning.
+- Domain warnings remain in `data`; `meta.warnings` stays empty.
+- Use five fixed non-retryable failures: `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `ANALYSIS_FAILED`, and `INTERNAL_ERROR`.
+- Tool Card becomes nested-first with historical flat fallback.
+- Protected `scripts/smoke.mjs` and `scripts/http-smoke.mjs` remain unchanged; main-Smoke migration uses exact-count in-memory substitutions.
+- Phase 2 workspace lifecycle and semantic-provider expansion remain closed.
+
+**Documents created**
+
+- `docs/superpowers/specs/2026-07-13-inspect-workspace-output-schema-design.md`.
+- `docs/superpowers/plans/2026-07-13-inspect-workspace-output-schema.md`.
+
+**Plan structure**
+
+1. Establish complete focused RED and schema-only GREEN.
+2. Add the provider boundary, strict validation, exact descriptor, and staged direct handler.
+3. Migrate Tool Card, protected Smoke compatibility, Stress, and adjacent cache consumers.
+4. Run all local gates and reconcile durable records.
+5. Publish only after separate explicit approval, then verify exact-head Ubuntu/Windows Node 20/24 CI and publish a separate durable record.
+
+**Design review result**
+
+- The design preserves current behavior while making the public protocol exact.
+- The implementation boundary is independently reversible.
+- No analysis-engine file is planned to change.
+- No dependency, authentication, credential, profile, Cloudflare, allowed-root, path-policy, workspace-lifecycle, or Phase 2 change is included.
+- Plan self-review found and corrected the canonical-root test fixture and one undefined Stress-example constant reference.
+- Unfinished-marker scan found no planning placeholders.
+- `git diff --check` passed; only established LF-to-CRLF working-copy warnings appeared.
+- No implementation test was run because implementation has not started.
+
+**Files changed in this design-only step**
+
+- Added the Slice 16 design.
+- Added the Slice 16 plan.
+- Updated `AGENTS.md` documentation map and stopping point.
+- Updated `Memory.md` current state, decisions, open items, and recent summary.
+- Appended this archive entry.
+
+**Rollback method**
+
+Before implementation, remove the two Slice 16 documents and revert only the corresponding AGENTS, Memory, and active-archive record changes. Do not alter published Slice 15 evidence, credentials, profiles, protected Smoke sources, prior archives, or repository history.
+
+**Next step**
+
+After explicit implementation approval, execute Slice 16 Task 1 only: create the focused RED contract and the schema-only GREEN, record exact evidence in `Memory.md` and this active archive, then stop at the review gate. Keep Phase 2, workspace lifecycle expansion, and semantic-provider expansion closed.
+
+---
+
+## STEP-173 — Establish direct `inspect_workspace` RED and schema-only GREEN
+
+**Status**
+
+Completed. Added the focused contract and strict tool-owned schema without changing the direct handler or consumers during the schema-only stage.
+
+**Evidence**
+
+- Created `test/inspect-workspace-contract.test.mjs` with ten focused schema, handler, failure, Tool Card, supertool, and protected-Smoke contracts.
+- Initial RED: 0/10 passed and 10/10 failed for expected missing-schema/handler/consumer reasons; no test syntax error occurred.
+- Created `src/tools/schemas/inspectWorkspace.ts` with the exact sixteen-field success data, strict provider schema, bounded warnings, five stable failures, and exact envelope constructors.
+- Schema-only GREEN: 3/10 passed; the remaining seven tests were the planned handler/consumer RED.
+- `npm run build` passed with the new schema module.
+
+**Decisions**
+
+- Preserve one tool-owned schema instead of extracting shared analysis schemas.
+- Keep provider-domain warnings in `data`; keep `meta.warnings` empty.
+- Preserve the built-in analysis engine and cache unchanged.
+
+---
+
+## STEP-174 — Implement direct handler and migrate analysis consumers
+
+**Status**
+
+Completed. Added exact provider validation and staged direct handling, then migrated Tool Card, protected Smoke compatibility, Stress, and cache-invalidation consumers.
+
+**Implementation**
+
+- Added `inspectWorkspaceProvider` as a test-only dependency boundary around existing full-workspace analysis.
+- Added exact output descriptor, workspace/path/provider/internal failure staging, safe details, strict workspace/root/path/count/warning validation, normalized root scope, response caps, include-flag semantics, and nested success construction.
+- Preserved full-workspace coverage and cache state while filtering only returned records.
+- Added nested-first Tool Card success/failure rendering with historical flat fallback.
+- Extended `scripts/smoke-platform-compat.mjs` with exact-count, fail-closed in-memory replacements while leaving protected `scripts/smoke.mjs` and `scripts/http-smoke.mjs` unchanged.
+- Migrated `scripts/stress.mjs` and write/edit/apply-patch cache tests to current nested data.
+- CodexPro edit protection rejected `scripts/stress.mjs` because of an existing secret-looking fixture; used one count-asserted Node source patch through the approved local Bash backend, then verified the resulting consumer behavior.
+
+**Verification**
+
+- Focused final: 10/10 passed.
+- Adjacent analysis/cache contracts: 79/79 passed.
+- `npm run build` passed.
+
+---
+
+## STEP-175 — Complete local Slice 16 verification and publication review
+
+**Status**
+
+Completed locally. Tasks 1–4 are complete and Task 5 publication is approved and pending execution.
+
+**Fresh verification**
+
+- Focused `inspect_workspace`: 10/10 passed.
+- Adjacent `inspect_workspace`, `search`, `show_changes`, `write`, `edit`, and `apply_patch`: 79/79 passed.
+- Complete Node regression: 263/263 passed.
+- Build: passed.
+- Analysis Smoke: passed.
+- Analysis CLI Smoke: passed.
+- Protected main Smoke compatibility: passed.
+- Standalone HTTP Smoke: passed.
+- Complete Smoke: all eight sections passed.
+- Native-Windows Stress: passed, including internal Build.
+- Package dry-run: 131 files, 346.4 kB compressed, 1.8 MB unpacked; internal Memory/spec/plan records remain excluded.
+- `git diff --check`: passed; only established LF-to-CRLF working-copy warnings appeared.
+
+**Review findings**
+
+- Success exposes exactly sixteen nested data fields and no current flat fields or `schema_version`.
+- Five failures expose fixed messages and bounded details without raw diagnostics.
+- Provider identity, normalized paths, coverage counts, warnings, cache, scope, and returned counts are validated.
+- Analysis engine, cache implementation, package dependencies, authentication, credentials, profiles, Cloudflare, allowed roots, workspace lifecycle, and Phase 2 remain unchanged.
+- Protected Smoke source files remain unchanged.
+
+**Next step**
+
+Execute Task 5: run `neat-freak`, repeat release gates, precisely stage only reviewed Slice 16 files, commit and push the implementation, verify exact-head Ubuntu/Windows Node 20/24 CI, then publish and verify a separate durable record.

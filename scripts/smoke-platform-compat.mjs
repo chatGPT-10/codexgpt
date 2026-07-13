@@ -46,6 +46,48 @@ async function importMigratedSmokeSource() {
     'snapshotAlias.structuredContent.data?.tree',
     1
   );
+  source = replaceExactCount(
+    source,
+    'cardInspect.structuredContent.coverage',
+    'cardInspect.structuredContent.data?.coverage',
+    1
+  );
+  source = replaceExactCount(
+    source,
+    'workspaceAnalysis.structuredContent.languages',
+    'workspaceAnalysis.structuredContent.data?.languages',
+    1
+  );
+  source = replaceExactCount(
+    source,
+    'workspaceAnalysis.structuredContent.coverage',
+    'workspaceAnalysis.structuredContent.data?.coverage',
+    1
+  );
+  source = replaceExactCount(
+    source,
+    'inspectAfterWrite.structuredContent.cache',
+    'inspectAfterWrite.structuredContent.data?.cache',
+    2
+  );
+  source = replaceExactCount(
+    source,
+    'inspectAfterWrite.structuredContent.files',
+    'inspectAfterWrite.structuredContent.data?.files',
+    1
+  );
+  source = replaceExactCount(
+    source,
+    'inspectAfterEdit.structuredContent.cache',
+    'inspectAfterEdit.structuredContent.data?.cache',
+    2
+  );
+  source = replaceExactCount(
+    source,
+    'inspectAfterPatch.structuredContent.cache',
+    'inspectAfterPatch.structuredContent.data?.cache',
+    2
+  );
   source += '\n//# sourceURL=codexpro-smoke-compat.mjs';
   const encoded = Buffer.from(source, 'utf8').toString('base64');
   await import(`data:text/javascript;base64,${encoded}`);

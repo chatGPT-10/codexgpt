@@ -34,7 +34,7 @@ import { listCodexSessions, readCodexSession } from "./codexSessions.js";
 import { TOOL_CARD_LEGACY_URIS, TOOL_CARD_MIME_TYPE, TOOL_CARD_URI, toolCardWidgetHtml } from "./toolCardWidget.js";
 import { hasSecretValue, redactSensitiveText, redactStructured } from "./redact.js";
 import { inspectWorkspace, invalidateWorkspaceAnalysis, reviewWorkspaceChanges } from "./analysis/index.js";
-import type { ChangeAnalysis } from "./analysis/types.js";
+import type { ChangeAnalysis, WorkspaceAnalysis } from "./analysis/types.js";
 import {
   createServerConfigFailure,
   createServerConfigSuccess,
@@ -164,6 +164,17 @@ import {
   listWorkspacesOutputShape,
   type ListWorkspacesFailureInput
 } from "./tools/schemas/listWorkspaces.js";
+import {
+  INSPECT_WORKSPACE_ERROR_MESSAGES,
+  INSPECT_WORKSPACE_OUTPUT_LIMIT_WARNING,
+  createInspectWorkspaceFailure,
+  createInspectWorkspaceSuccess,
+  inspectWorkspaceDataSchema,
+  inspectWorkspaceOutputShape,
+  inspectWorkspaceProviderSchema,
+  type InspectWorkspaceFailureInput,
+  type InspectWorkspaceProviderResult
+} from "./tools/schemas/inspectWorkspace.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -305,6 +316,108 @@ const listWorkspacesProviderItemSchema = z.object({
 }).strict();
 
 const listWorkspacesProviderResultSchema = z.array(listWorkspacesProviderItemSchema);
+
+const INSPECT_OUTSIDE_PATH_PREFIXES = [
+  "Path contains a null byte.",
+  "Path escapes workspace root:",
+  "Path resolves outside workspace root through a symlink:",
+  "Windows device paths are not allowed:",
+  "UNC paths are not allowed:",
+  "Drive-relative Windows paths are not allowed:",
+  "NTFS alternate data stream paths are not allowed:",
+  "Windows path segments may not end with a dot or space:",
+  "Windows reserved device name is not allowed:"
+] as const;
+
+function safeInspectPathDetail(value: unknown): string {
+  const raw = String(value ?? ".");
+  if (raw !== ".") {
+    const segments = raw.replace(/\\/g, "/").split("/");
+    if (segments.some((segment) => segment === "." || segment === "..")) {
+      return "[unsafe path omitted]";
+    }
+  }
+  return safeTreePathDetail(raw);
+}
+
+function classifyInspectWorkspaceFailure(
+  error: unknown,
+  args: Record<string, unknown>
+): InspectWorkspaceFailureInput {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.startsWith("Unknown workspace_id:")) {
+    return {
+      code: "WORKSPACE_NOT_FOUND",
+      details: { workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id) }
+    };
+  }
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return {
+      code: "PATH_BLOCKED",
+      details: { path: safeInspectPathDetail(args.path ?? ".") }
+    };
+  }
+  if (INSPECT_OUTSIDE_PATH_PREFIXES.some((prefix) => message.startsWith(prefix))) {
+    return {
+      code: "PATH_OUTSIDE_WORKSPACE",
+      details: { path: safeInspectPathDetail(args.path ?? ".") }
+    };
+  }
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function inspectWorkspaceFailureText(failure: InspectWorkspaceFailureInput): string {
+  return [
+    "# Inspect Workspace Error",
+    "",
+    `Code: ${failure.code}`,
+    INSPECT_WORKSPACE_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function validateInspectProviderResult(
+  result: InspectWorkspaceProviderResult,
+  workspace: Workspace,
+  guard: PathGuard
+): InspectWorkspaceProviderResult {
+  if (result.workspaceId !== workspace.id || result.root !== workspace.root) {
+    throw new CodexProError("Invalid inspect provider workspace identity.");
+  }
+
+  const canonicalPath = (value: string): string => {
+    const resolved = guard.resolve(workspace, value);
+    const normalized = resolved.relPath.replace(/^\.\/?$/, ".");
+    if (normalized !== value) {
+      throw new CodexProError("Invalid inspect provider path normalization.");
+    }
+    return normalized;
+  };
+
+  const filePaths = new Set(result.files.map((file) => canonicalPath(file.path)));
+  for (const entrypoint of result.entrypoints) {
+    if (!filePaths.has(canonicalPath(entrypoint))) {
+      throw new CodexProError("Invalid inspect provider entrypoint.");
+    }
+  }
+  for (const importantFile of result.importantFiles) {
+    if (!filePaths.has(canonicalPath(importantFile))) {
+      throw new CodexProError("Invalid inspect provider important file.");
+    }
+  }
+  for (const area of result.areas) canonicalPath(area.path);
+  for (const symbol of result.symbols) {
+    if (!filePaths.has(canonicalPath(symbol.path))) {
+      throw new CodexProError("Invalid inspect provider symbol path.");
+    }
+  }
+  for (const relationship of result.relationships) {
+    if (!filePaths.has(canonicalPath(relationship.from)) ||
+        !filePaths.has(canonicalPath(relationship.to))) {
+      throw new CodexProError("Invalid inspect provider relationship path.");
+    }
+  }
+  return result;
+}
 
 type WorkspaceSnapshotSummaryProviderResult = z.infer<
   typeof workspaceSnapshotSummaryProviderResultSchema
@@ -2001,6 +2114,11 @@ export interface CodexProServerDependencies {
     context: WorkspaceSnapshotAiContextProviderContext
   ) => { text: string; files: string[] } | Promise<{ text: string; files: string[] }>;
   listWorkspacesProvider?: () => Workspace[] | Promise<Workspace[]>;
+  inspectWorkspaceProvider?: (input: {
+    config: CodexProConfig;
+    guard: PathGuard;
+    workspace: Workspace;
+  }) => WorkspaceAnalysis | Promise<WorkspaceAnalysis>;
   bashResultProvider?: (
     context: BashProviderContext
   ) => BashResult | Promise<BashResult>;
@@ -2937,6 +3055,10 @@ export function createCodexProServer(
   const listWorkspacesProvider =
     dependencies.listWorkspacesProvider ??
     (() => workspaces.listWorkspaces());
+  const inspectWorkspaceProvider =
+    dependencies.inspectWorkspaceProvider ??
+    ((input: { config: CodexProConfig; guard: PathGuard; workspace: Workspace }) =>
+      inspectWorkspace(input.config, input.guard, input.workspace));
   const bashResultProvider =
     dependencies.bashResultProvider ??
     ((context: BashProviderContext) =>
@@ -3888,6 +4010,7 @@ export function createCodexProServer(
         max_symbols: z.number().int().min(1).max(100000).optional().describe("Maximum returned symbols. Analysis remains bounded by server config."),
         max_relationships: z.number().int().min(1).max(250000).optional().describe("Maximum returned relationships. Analysis remains bounded by server config.")
       },
+      outputSchema: inspectWorkspaceOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -3896,64 +4019,146 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      if (args.path) guard.resolve(workspace, args.path);
-      const result = await inspectWorkspace(config, guard, workspace);
-      const prefix = typeof args.path === "string" && args.path.trim()
-        ? guard.resolve(workspace, args.path).relPath.replace(/^\.\/?$/, "")
-        : "";
-      const inScope = (filePath: string) => !prefix || filePath === prefix || filePath.startsWith(`${prefix}/`);
-      const areaInScope = (areaPath: string) => !prefix || areaPath === "." || inScope(areaPath) || prefix.startsWith(`${areaPath}/`);
-      const fileLimit = config.toolCards ? 120 : limitInt(args.max_files, 300, 1, config.analysisLimits.maxInventoryFiles);
-      const symbolLimit = config.toolCards ? 80 : limitInt(args.max_symbols, 500, 1, config.analysisLimits.maxSymbols);
-      const relationshipLimit = config.toolCards ? 120 : limitInt(args.max_relationships, 800, 1, config.analysisLimits.maxRelationships);
-      const scopedFiles = result.files.filter((file) => inScope(file.path));
-      const scopedSymbols = result.symbols.filter((symbol) => inScope(symbol.path));
-      const scopedRelationships = result.relationships.filter((relationship) => inScope(relationship.from) || inScope(relationship.to));
-      const files = scopedFiles.slice(0, fileLimit);
-      const symbols = args.include_symbols === false
-        ? []
-        : scopedSymbols.slice(0, symbolLimit);
-      const relationships = args.include_relationships === false
-        ? []
-        : scopedRelationships.slice(0, relationshipLimit);
-      const outputLimited = files.length < scopedFiles.length ||
-        (args.include_symbols !== false && symbols.length < scopedSymbols.length) ||
-        (args.include_relationships !== false && relationships.length < scopedRelationships.length);
-      const outputWarnings = [
-        ...result.warnings,
-        ...(outputLimited ? ["Structured output was limited. Use path or max_* arguments to request a narrower or larger result."] : [])
-      ];
-      const text = [
-        "# Workspace Analysis",
-        "",
-        `Workspace: ${workspace.root}`,
-        `Projects: ${result.projectTypes.join(", ") || "unknown"}`,
-        `Languages: ${result.languages.join(", ") || "unknown"}`,
-        `Entrypoints: ${result.entrypoints.filter(inScope).join(", ") || "none detected"}`,
-        `Coverage: ${result.coverage.analyzedFiles}/${result.coverage.inventoryFiles} files analyzed, ${result.coverage.symbolCount} symbols, ${result.coverage.relationshipCount} relationships${result.coverage.truncated ? " (partial)" : ""}`,
-        `Returned: ${files.length} files, ${symbols.length} symbols, ${relationships.length} relationships`,
-        ...(outputWarnings.length ? ["", "## Warnings", "", ...outputWarnings.map((warning) => `- ${warning}`)] : [])
-      ].join("\n");
-      return textResult(text, {
-        schema_version: 1,
-        workspace_id: workspace.id,
-        root: workspace.root,
-        path: args.path ?? ".",
-        languages: result.languages,
-        project_types: result.projectTypes,
-        entrypoints: result.entrypoints.filter(inScope),
-        important_files: result.importantFiles.filter(inScope),
-        areas: result.areas.filter((area) => areaInScope(area.path)),
-        files,
-        symbols,
-        relationships,
-        coverage: result.coverage,
-        warnings: outputWarnings,
-        output_limited: outputLimited,
-        returned: { files: files.length, symbols: symbols.length, relationships: relationships.length },
-        cache: result.cache
-      });
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      let scopePath: string;
+
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+        const requestedPath = typeof args.path === "string" && args.path.trim()
+          ? args.path
+          : ".";
+        const resolved = guard.resolve(workspace, requestedPath);
+        scopePath = resolved.relPath.replace(/^\.\/?$/, ".");
+      } catch (error) {
+        const failure = classifyInspectWorkspaceFailure(error, args);
+        return {
+          ...textResult(
+            inspectWorkspaceFailureText(failure),
+            createInspectWorkspaceFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      let rawAnalysis: unknown;
+      try {
+        rawAnalysis = await inspectWorkspaceProvider({ config, guard, workspace });
+      } catch {
+        const failure: InspectWorkspaceFailureInput = {
+          code: "ANALYSIS_FAILED",
+          details: {}
+        };
+        return {
+          ...textResult(
+            inspectWorkspaceFailureText(failure),
+            createInspectWorkspaceFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      try {
+        const analysis = validateInspectProviderResult(
+          inspectWorkspaceProviderSchema.parse(rawAnalysis),
+          workspace,
+          guard
+        );
+        const inScope = (filePath: string) =>
+          scopePath === "." ||
+          filePath === scopePath ||
+          filePath.startsWith(`${scopePath}/`);
+        const areaInScope = (areaPath: string) =>
+          scopePath === "." ||
+          areaPath === "." ||
+          inScope(areaPath) ||
+          scopePath.startsWith(`${areaPath}/`);
+
+        const fileLimit = config.toolCards
+          ? 120
+          : limitInt(args.max_files, 300, 1, config.analysisLimits.maxInventoryFiles);
+        const symbolLimit = config.toolCards
+          ? 80
+          : limitInt(args.max_symbols, 500, 1, config.analysisLimits.maxSymbols);
+        const relationshipLimit = config.toolCards
+          ? 120
+          : limitInt(args.max_relationships, 800, 1, config.analysisLimits.maxRelationships);
+
+        const scopedFiles = analysis.files.filter((file) => inScope(file.path));
+        const scopedSymbols = analysis.symbols.filter((symbol) => inScope(symbol.path));
+        const scopedRelationships = analysis.relationships.filter(
+          (relationship) => inScope(relationship.from) || inScope(relationship.to)
+        );
+
+        const files = scopedFiles.slice(0, fileLimit);
+        const symbols = args.include_symbols === false
+          ? []
+          : scopedSymbols.slice(0, symbolLimit);
+        const relationships = args.include_relationships === false
+          ? []
+          : scopedRelationships.slice(0, relationshipLimit);
+
+        const outputLimited =
+          files.length < scopedFiles.length ||
+          (args.include_symbols !== false && symbols.length < scopedSymbols.length) ||
+          (args.include_relationships !== false && relationships.length < scopedRelationships.length);
+        const warnings = outputLimited
+          ? [...analysis.warnings, INSPECT_WORKSPACE_OUTPUT_LIMIT_WARNING]
+          : [...analysis.warnings];
+
+        const data = inspectWorkspaceDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          path: scopePath,
+          languages: analysis.languages,
+          project_types: analysis.projectTypes,
+          entrypoints: analysis.entrypoints.filter(inScope),
+          important_files: analysis.importantFiles.filter(inScope),
+          areas: analysis.areas.filter((area) => areaInScope(area.path)),
+          files,
+          symbols,
+          relationships,
+          coverage: analysis.coverage,
+          warnings,
+          output_limited: outputLimited,
+          returned: {
+            files: files.length,
+            symbols: symbols.length,
+            relationships: relationships.length
+          },
+          cache: analysis.cache
+        });
+
+        const text = [
+          "# Workspace Analysis",
+          "",
+          `Workspace: ${workspace.root}`,
+          `Scope: ${scopePath}`,
+          `Projects: ${analysis.projectTypes.join(", ") || "unknown"}`,
+          `Languages: ${analysis.languages.join(", ") || "unknown"}`,
+          `Entrypoints: ${data.entrypoints.join(", ") || "none detected"}`,
+          `Coverage: ${analysis.coverage.analyzedFiles}/${analysis.coverage.inventoryFiles} files analyzed, ${analysis.coverage.symbolCount} symbols, ${analysis.coverage.relationshipCount} relationships${analysis.coverage.truncated ? " (partial)" : ""}`,
+          `Returned: ${files.length} files, ${symbols.length} symbols, ${relationships.length} relationships`,
+          ...(warnings.length ? ["", "## Warnings", "", ...warnings.map((warning) => `- ${warning}`)] : [])
+        ].join("\n");
+
+        return textResult(
+          text,
+          createInspectWorkspaceSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        const failure: InspectWorkspaceFailureInput = {
+          code: "INTERNAL_ERROR",
+          details: {}
+        };
+        return {
+          ...textResult(
+            inspectWorkspaceFailureText(failure),
+            createInspectWorkspaceFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
     }
   );
 

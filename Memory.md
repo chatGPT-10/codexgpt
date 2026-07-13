@@ -15,11 +15,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first fifteen slices are published; direct `list_workspaces` implementation commit `c4eb31a` passed exact-head CI run `29267724784` on Ubuntu/Windows Node 20/24.
+- Phase 1: the first fifteen slices are published; Slice 16 direct `inspect_workspace` Tasks 1–4 are locally complete and Task 5 publication is in progress.
 
 ## Approved stopping point
 
-Direct full-mode `list_workspaces` is published and implementation exact-head CI-validated after focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking passed. Publish and exact-head verify this separate durable record, then design-review the next remaining Phase 1 direct tool. Workspace lifecycle expansion and Phase 2 remain closed.
+Slice 16 direct `inspect_workspace` is locally complete through Task 4. Exact schema/provider/handler/consumer work passed initial RED 0/10, schema-only GREEN 3/10, focused 10/10, adjacent 79/79, complete 263/263, Build, analysis Smoke, analysis CLI Smoke, standalone HTTP Smoke, complete Smoke 8/8, native-Windows Stress, package dry-run, and diff checking. The next approved step is Task 5 publication and exact-head CI verification, followed by a separate durable record. Workspace lifecycle, semantic-provider expansion, and Phase 2 remain closed.
 
 ## Active decisions and constraints
 
@@ -40,7 +40,7 @@ Direct full-mode `list_workspaces` is published and implementation exact-head CI
 - Stable errors use `code`, `message`, `retryable`, and `details`; raw exceptions, stack traces, unsafe paths, and secrets are excluded.
 - Schema ownership remains split between `src/tools/schemas/common.ts` and one exact tool schema module per migrated tool.
 - Contract tests use pure constructors and test-only dependency injection; no production test mode or hidden MCP argument is allowed.
-- Implemented Phase 1 direct tools through `list_workspaces` use strict nested schema-v1 envelopes and stable redacted failures; exact contracts remain in the Phase 1 archives and design documents.
+- Implemented Phase 1 direct tools through `inspect_workspace` use strict nested schema-v1 envelopes and stable redacted failures; exact contracts remain in the Phase 1 archives and design documents.
 - `show_changes` and `search` preserve complete core results when optional analysis is unavailable, using only fixed safe warnings and excluding raw diagnostics.
 - `write`, `edit`, and `apply_patch` validate provider identity and normalized returned paths before cache invalidation; raw content, unsafe paths, diagnostics, and secrets stay private.
 - Atomic transactions, rollback, undo, fuzzy editing, authentication, dependency changes, workspace lifecycle, and Phase 2/3 remain outside the published Phase 1 slices.
@@ -54,19 +54,22 @@ Direct full-mode `list_workspaces` is published and implementation exact-head CI
 - Provider Skill output must respect both discovery switches: no Skill data when `include_skills=false`, and only workspace-source Skills when `include_global_skills=false`.
 - Keep `scripts/smoke.mjs` and `scripts/http-smoke.mjs` protected and unchanged; their compatibility entries perform exact fail-closed in-memory substitutions, add bounded `sourceURL` labels, and write no transformed source to disk.
 - The published fourteenth slice migrates only full-mode direct `workspace_snapshot`; its thirteen-field contract, four failures, provider boundaries, protected-consumer compatibility, and limitations remain unchanged.
-- Slice 15 migrates only full-mode direct `list_workspaces` to nested `data.workspaces` plus derived `data.count`; item names remain `id`, `root`, and `openedAt`.
-- Slice 15 preserves empty-list success, insertion order, deterministic process-local IDs, canonical roots, and cross-session shared inventory; it does not add close, expiry, ownership, persistence, random IDs, or Phase 2 behavior.
-- Its planned fixed failures are `WORKSPACE_LIST_FAILED` for provider invocation and `INTERNAL_ERROR` for malformed/inconsistent output; neither exposes raw diagnostics.
-- Tool Card consumers become nested-first with historical flat fallback, while protected HTTP Smoke changes only through one exact fail-closed in-memory compatibility substitution.
+- Slice 15 published direct full-mode `list_workspaces` with nested ordered inventory and no workspace-lifecycle expansion.
+- Slice 16 migrates only direct `inspect_workspace`; it remains standard/full when analysis is enabled and absent in minimal or analysis-disabled modes.
+- Slice 16 preserves the built-in full-workspace analysis engine and cache, while returned records are path-scoped and independently capped.
+- Slice 16 success has exactly sixteen nested data fields; full coverage stays distinct from `returned` counts and `output_limited`.
+- Provider warnings remain bounded domain data; `meta.warnings` stays empty. Unknown warning forms and malformed provider output fail internally.
+- Five fixed failures separate workspace, path, provider-execution, and internal-validation stages without exposing raw diagnostics.
+- Tool Card becomes nested-first with historical flat fallback; protected main-Smoke changes only through exact fail-closed in-memory substitutions.
 
 ## Local verification evidence
 
-- Direct `list_workspaces` focused contracts: 13/13 passed; adjacent workspace/config contracts: 70/70 passed.
-- Complete `node --test test/*.test.mjs`: 253/253 passed.
-- `npm run build`, standalone HTTP Smoke, all eight Smoke sections, and native-Windows `npm run stress` passed.
-- Latest `npm pack --dry-run` passed with 129 files, 340.8 kB compressed, and 1.7 MB unpacked; internal Memory/plan/spec files remain excluded.
+- Slice 16 initial RED: 0/10; schema-only GREEN: 3/10; focused final: 10/10.
+- Slice 16 adjacent analysis/cache contracts: 79/79; complete `node --test test/*.test.mjs`: 263/263.
+- `npm run build`, analysis Smoke, analysis CLI Smoke, protected main Smoke, standalone HTTP Smoke, all eight complete Smoke sections, and native-Windows Stress passed.
+- Latest `npm pack --dry-run` passed with 131 files, 346.4 kB compressed, and 1.8 MB unpacked; internal Memory/plan/spec files remain excluded.
 - `git diff --check` passed; only established LF-to-CRLF working-copy warnings were emitted.
-- Exact-head implementation CI run `29267724784` passed Ubuntu/Windows Node 20/24 for full SHA `c4eb31acbc36a8eb857484edb13777126f985362`.
+- Slice 16 publication and exact-head CI have not yet run.
 
 ## Published phase evidence
 
@@ -100,6 +103,7 @@ Direct full-mode `list_workspaces` is published and implementation exact-head CI
 - Direct `open_workspace` root-failure classification also depends on bounded `WorkspaceManager` prefixes and Node error codes.
 - Main-Smoke and HTTP-Smoke compatibility loaders depend on exact protected-source strings; source drift fails closed and requires a same-change loader update.
 - Direct `workspace_snapshot` validation remains intentionally tool-local and duplicates some open-tool invariants until a later separately reviewed extraction.
+- Direct `inspect_workspace` validation remains intentionally tool-local, duplicates some analysis schemas from `search`, and depends on bounded internal error-message prefixes for workspace/path classification.
 - Review checkpoints remain process-local memory state and are not shared across service restarts.
 - Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
 - `docs/memory/archive/phase-1.md` exceeds the normal direct read-size limit and is the unchanged first Phase 1 archive volume covering STEP-073–139.
@@ -107,18 +111,18 @@ Direct full-mode `list_workspaces` is published and implementation exact-head CI
 
 ## Open items
 
-1. Commit and push this separate publication record, then verify its exact-head Ubuntu/Windows Node 20/24 CI.
-2. Design-review the next remaining Phase 1 direct tool; keep workspace lifecycle expansion and Phase 2 closed.
+1. Execute Slice 16 Task 5: run `neat-freak`, repeat release gates, precisely stage, commit, push, and verify implementation exact-head CI.
+2. Publish and verify a separate durable record; keep workspace lifecycle, semantic-provider expansion, and Phase 2 closed.
 
 ## Recent summaries
 
+- **STEP-175 — Complete local Slice 16 verification:** focused 10/10, adjacent 79/79, complete 263/263, all Build/Smoke/Stress/package/diff gates passed.
+- **STEP-174 — Implement handler and migrate consumers:** added exact provider validation and staged failures; Tool Card, protected Smoke, Stress, and cache consumers now use nested data.
+- **STEP-173 — Establish Slice 16 RED and schema GREEN:** initial RED was 0/10; schema-only intermediate was 3/10 before handler and consumer migration.
+- **STEP-172 — Design and plan direct `inspect_workspace`:** selected the core repository-analysis result, approved its exact sixteen-field contract and five fixed failures, and wrote the five-task TDD plan.
 - **STEP-171 — Publish direct `list_workspaces`:** implementation commit `c4eb31a` was pushed and exact-head CI run `29267724784` passed Ubuntu/Windows Node 20/24.
 - **STEP-170 — Complete local verification:** focused 13/13, adjacent 70/70, complete 253/253, Build, standalone HTTP Smoke, Smoke 8/8, native-Windows Stress, package dry-run, and diff checking passed.
 - **STEP-169 — Migrate list consumers:** Tool Card became nested-first with flat fallback; one exact in-memory HTTP substitution preserved protected sources; all consumer gates passed.
-- **STEP-168 — Implement direct `list_workspaces`:** added the exact descriptor, provider boundary, staged redacted failures, ordered strict inventory, and nested success envelope.
-- **STEP-167 — Establish RED and schema GREEN:** initial RED was 0/13; pure schema intermediate was 3/13 before handler and consumer migration.
-- **STEP-166 — Design and plan direct `list_workspaces`:** selected the smallest remaining workspace tool and wrote the exact design plus five-task plan.
-- **STEP-165 — Publish direct `workspace_snapshot`:** implementation commit `242315e` passed exact-head CI run `29258565084` on Ubuntu/Windows Node 20/24.
 
 ## Archives
 

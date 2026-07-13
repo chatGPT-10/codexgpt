@@ -524,14 +524,14 @@ test("write invalidates analysis only when the validated diff reports a change",
     }, async (client) => {
       await client.callTool({ name: "inspect_workspace", arguments: {} });
       const warm = await client.callTool({ name: "inspect_workspace", arguments: {} });
-      assert.equal(warm.structuredContent.cache.hit, true);
+      assert.equal(warm.structuredContent.data.cache.hit, true);
 
       await client.callTool({
         name: "write",
         arguments: { path: "src/example.ts", content: "unchanged\n" }
       });
       const afterUnchanged = await client.callTool({ name: "inspect_workspace", arguments: {} });
-      assert.equal(afterUnchanged.structuredContent.cache.hit, true);
+      assert.equal(afterUnchanged.structuredContent.data.cache.hit, true);
 
       changed = true;
       await client.callTool({
@@ -539,7 +539,7 @@ test("write invalidates analysis only when the validated diff reports a change",
         arguments: { path: "src/example.ts", content: "changed\n" }
       });
       const afterChanged = await client.callTool({ name: "inspect_workspace", arguments: {} });
-      assert.equal(afterChanged.structuredContent.cache.hit, false);
+      assert.equal(afterChanged.structuredContent.data.cache.hit, false);
     });
   });
 });

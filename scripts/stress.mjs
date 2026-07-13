@@ -802,7 +802,7 @@ async function runCardStress(root) {
     assert(structured.structuredContent.data.analysis.groups.references.length <= 24, `structured card references were not compacted: ${structured.structuredContent.data.analysis.groups.references.length}`);
     assert(structured.structuredContent.data.analysis.matches.length <= 80, `structured card match summary was not compacted: ${structured.structuredContent.data.analysis.matches.length}`);
     const inspected = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: opened.structuredContent.data?.workspace_id } });
-    assert(inspected.structuredContent.files.length <= 120, `workspace card file inventory was not compacted: ${inspected.structuredContent.files.length}`);
+    assert(inspected.structuredContent.data.files.length <= 120, `workspace card file inventory was not compacted: ${inspected.structuredContent.data.files.length}`);
   } finally {
     client.close();
   }
@@ -822,18 +822,18 @@ async function runAnalysisBudgetStress() {
   try {
     const opened = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
     const inspected = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: opened.structuredContent.data?.workspace_id } });
-    assert(inspected.structuredContent.coverage.truncated === true, `analysis inventory did not report truncation: ${JSON.stringify(inspected.structuredContent.coverage)}`);
-    assert(inspected.structuredContent.files.length === 100, `expected 100 bounded inventory files, got ${inspected.structuredContent.files.length}`);
-    assert(!inspected.structuredContent.files.some((file) => file.path === '.env'), 'analysis inventory exposed blocked .env');
+    assert(inspected.structuredContent.data.coverage.truncated === true, `analysis inventory did not report truncation: ${JSON.stringify(inspected.structuredContent.data.coverage)}`);
+    assert(inspected.structuredContent.data.files.length === 100, `expected 100 bounded inventory files, got ${inspected.structuredContent.data.files.length}`);
+    assert(!inspected.structuredContent.data.files.some((file) => file.path === '.env'), 'analysis inventory exposed blocked .env');
     const limitedOutput = await client.request('tools/call', {
       name: 'inspect_workspace',
       arguments: { workspace_id: opened.structuredContent.data?.workspace_id, max_files: 25, max_symbols: 10, max_relationships: 5 }
     });
-    assert(limitedOutput.structuredContent.files.length === 25, `inspect max_files returned ${limitedOutput.structuredContent.files.length} records`);
-    assert(limitedOutput.structuredContent.symbols.length === 10, `inspect max_symbols returned ${limitedOutput.structuredContent.symbols.length} records`);
-    assert(limitedOutput.structuredContent.returned.files === 25 && limitedOutput.structuredContent.returned.symbols === 10, `inspect returned counts were incorrect: ${JSON.stringify(limitedOutput.structuredContent.returned)}`);
-    assert(limitedOutput.structuredContent.output_limited === true, 'inspect output limit was not exposed in structured content');
-    assert(limitedOutput.structuredContent.warnings.some((warning) => warning.includes('Structured output was limited')), 'inspect output limit did not report a warning');
+    assert(limitedOutput.structuredContent.data.files.length === 25, `inspect max_files returned ${limitedOutput.structuredContent.data.files.length} records`);
+    assert(limitedOutput.structuredContent.data.symbols.length === 10, `inspect max_symbols returned ${limitedOutput.structuredContent.data.symbols.length} records`);
+    assert(limitedOutput.structuredContent.data.returned.files === 25 && limitedOutput.structuredContent.data.returned.symbols === 10, `inspect returned counts were incorrect: ${JSON.stringify(limitedOutput.structuredContent.data.returned)}`);
+    assert(limitedOutput.structuredContent.data.output_limited === true, 'inspect output limit was not exposed in structured content');
+    assert(limitedOutput.structuredContent.data.warnings.some((warning) => warning.includes('Structured output was limited')), 'inspect output limit did not report a warning');
   } finally {
     client.close();
     await fs.rm(root, { recursive: true, force: true });

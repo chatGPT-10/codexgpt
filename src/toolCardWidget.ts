@@ -521,6 +521,14 @@ export const toolCardWidgetHtml = String.raw`
     return nested ? data.data : (data ?? {});
   }
 
+  function inspectWorkspaceResultData(data) {
+    const nested =
+      data?.codexpro_tool === "inspect_workspace" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : (data ?? {});
+  }
+
   function subtitleFor(data) {
     if (data?.codexpro_tool === "open_current_workspace" || data?.codexpro_tool === "open_workspace") {
       if (data?.ok === false) return data?.error?.code || "Workspace unavailable";
@@ -563,8 +571,13 @@ export const toolCardWidgetHtml = String.raw`
       return workspace.root || "Workspace snapshot";
     }
     if (data?.codexpro_tool === "inspect_workspace") {
-      const coverage = data?.coverage || {};
-      return (coverage.analyzedFiles ?? coverage.analyzed_files ?? 0) + " files analyzed, " + (coverage.symbolCount ?? coverage.symbol_count ?? 0) + " symbols";
+      if (data?.ok === false) return data?.error?.code || "Workspace analysis unavailable";
+      const analysis = inspectWorkspaceResultData(data);
+      const coverage = analysis?.coverage || {};
+      return (coverage.analyzedFiles ?? coverage.analyzed_files ?? 0) +
+        " files analyzed, " +
+        (coverage.symbolCount ?? coverage.symbol_count ?? 0) +
+        " symbols";
     }
     if (data?.codexpro_tool === "git_status") {
       if (data?.ok === false) return data?.error?.code || "Git status unavailable";
@@ -796,20 +809,30 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderWorkspaceAnalysis(data) {
-    const coverage = data.coverage || {};
-    const languages = Array.isArray(data.languages) ? data.languages : [];
-    const projects = Array.isArray(data.project_types) ? data.project_types : [];
-    const entrypoints = Array.isArray(data.entrypoints) ? data.entrypoints : [];
-    const areas = Array.isArray(data.areas) ? data.areas : [];
-    const symbols = Array.isArray(data.symbols) ? data.symbols : [];
-    const relationships = Array.isArray(data.relationships) ? data.relationships : [];
-    const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-    const partial = Boolean(coverage.truncated || data.output_limited);
-    const pills = [
-      pill(projects.join(", ") || "project", "info"),
-      pill(languages.length + " languages"),
-      partial ? pill("limited", "warn") : pill("complete", "good")
-    ].join("");
+    const failed = data?.ok === false;
+    const error = data?.error ?? {};
+    const analysis = inspectWorkspaceResultData(data);
+    const coverage = analysis.coverage || {};
+    const languages = Array.isArray(analysis.languages) ? analysis.languages : [];
+    const projects = Array.isArray(analysis.project_types) ? analysis.project_types : [];
+    const entrypoints = Array.isArray(analysis.entrypoints) ? analysis.entrypoints : [];
+    const areas = Array.isArray(analysis.areas) ? analysis.areas : [];
+    const symbols = Array.isArray(analysis.symbols) ? analysis.symbols : [];
+    const relationships = Array.isArray(analysis.relationships) ? analysis.relationships : [];
+    const warnings = Array.isArray(analysis.warnings) ? analysis.warnings : [];
+    const partial = Boolean(coverage.truncated || analysis.output_limited);
+    const pills = failed
+      ? pill(error.code || "error", "bad")
+      : [
+          pill(projects.join(", ") || "project", "info"),
+          pill(languages.length + " languages"),
+          partial ? pill("limited", "warn") : pill("complete", "good")
+        ].join("");
+    if (failed) {
+      return '<article class="card">' + header(data, pills) + '<div class="body">' +
+        '<div class="empty">' + esc(error.message || "Workspace analysis unavailable.") + '</div>' +
+        '</div></article>';
+    }
     const relationshipRows = relationships.slice(0, 8).map((edge) =>
       '<div class="file-row"><span class="file-code">' + esc(edge?.kind || "edge") + '</span><span class="file-name">' + esc((edge?.from || "?") + " → " + (edge?.to || "?")) + '</span></div>'
     ).join("");

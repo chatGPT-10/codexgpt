@@ -633,7 +633,7 @@ test("edit invalidates analysis only after a validated changed result", async ()
     }, async (client) => {
       await client.callTool({ name: "inspect_workspace", arguments: {} });
       const warm = await client.callTool({ name: "inspect_workspace", arguments: {} });
-      assert.equal(warm.structuredContent.cache.hit, true);
+      assert.equal(warm.structuredContent.data.cache.hit, true);
 
       for (const preservedMode of ["unchanged", "throw", "malformed", "mismatch"]) {
         mode = preservedMode;
@@ -642,7 +642,7 @@ test("edit invalidates analysis only after a validated changed result", async ()
           arguments: { path: "src/example.ts", old_text: "value", new_text: "value" }
         });
         const after = await client.callTool({ name: "inspect_workspace", arguments: {} });
-        assert.equal(after.structuredContent.cache.hit, true, `${preservedMode} must preserve cache`);
+        assert.equal(after.structuredContent.data.cache.hit, true, `${preservedMode} must preserve cache`);
       }
 
       mode = "changed";
@@ -651,7 +651,7 @@ test("edit invalidates analysis only after a validated changed result", async ()
         arguments: { path: "src/example.ts", old_text: "value", new_text: "changed" }
       });
       const afterChanged = await client.callTool({ name: "inspect_workspace", arguments: {} });
-      assert.equal(afterChanged.structuredContent.cache.hit, false);
+      assert.equal(afterChanged.structuredContent.data.cache.hit, false);
     });
   });
 });

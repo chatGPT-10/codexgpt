@@ -654,7 +654,7 @@ test("apply_patch invalidates analysis only after a fully validated success", as
     }, async (client) => {
       await client.callTool({ name: "inspect_workspace", arguments: {} });
       const warm = await client.callTool({ name: "inspect_workspace", arguments: {} });
-      assert.equal(warm.structuredContent.cache.hit, true);
+      assert.equal(warm.structuredContent.data.cache.hit, true);
 
       for (const preservedMode of [
         "provider_error",
@@ -671,7 +671,7 @@ test("apply_patch invalidates analysis only after a fully validated success", as
           arguments: { patch }
         });
         const after = await client.callTool({ name: "inspect_workspace", arguments: {} });
-        assert.equal(after.structuredContent.cache.hit, true, `${preservedMode} must preserve cache`);
+        assert.equal(after.structuredContent.data.cache.hit, true, `${preservedMode} must preserve cache`);
       }
 
       mode = "success";
@@ -681,7 +681,7 @@ test("apply_patch invalidates analysis only after a fully validated success", as
       }));
       assert.equal(success.ok, true);
       const afterSuccess = await client.callTool({ name: "inspect_workspace", arguments: {} });
-      assert.equal(afterSuccess.structuredContent.cache.hit, false);
+      assert.equal(afterSuccess.structuredContent.data.cache.hit, false);
     });
   });
 });
