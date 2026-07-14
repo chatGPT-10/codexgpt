@@ -4,6 +4,7 @@ import path from "node:path";
 import { domainToASCII } from "node:url";
 import type { PathGuard, Workspace } from "../guard.js";
 import {
+  auditResourceV1Schema,
   filesystemResourceV1Schema,
   gitResourceV1Schema,
   networkResourceV1Schema,
@@ -11,6 +12,7 @@ import {
   shellResourceV1Schema
 } from "./schemas.js";
 import type {
+  AuditResourceV1,
   FilesystemResourceV1,
   GitResourceV1,
   NetworkAddressClass,
@@ -35,6 +37,20 @@ function stableValue(value: unknown): unknown {
 export function fingerprintResource(value: unknown): string {
   const serialized = JSON.stringify(stableValue(value));
   return `sha256:${createHash("sha256").update(serialized, "utf8").digest("hex")}`;
+}
+
+export function describeAuditResource(input: {
+  workspaceId: string | null;
+  filterDigest: string;
+}): AuditResourceV1 {
+  const base = {
+    schemaVersion: 1 as const,
+    kind: "audit" as const,
+    operation: "query" as const,
+    workspaceId: input.workspaceId,
+    filterDigest: input.filterDigest
+  };
+  return auditResourceV1Schema.parse({ ...base, resourceFingerprint: fingerprintResource(base) });
 }
 
 function normalizedRelativePath(value: string, platform: NodeJS.Platform): string {

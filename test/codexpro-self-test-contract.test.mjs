@@ -67,6 +67,7 @@ const CHECK_NAMES = [
   "policy_revision",
   "policy_identity",
   "policy_enforcement",
+  "persistent_audit",
   "terms_boundary"
 ];
 
@@ -219,6 +220,17 @@ function sampleProviderResult(root, overrides = {}) {
       outcome: "skipped",
       reason_code: "BASH_POLICY_UNAVAILABLE"
     },
+    audit_probe: {
+      outcome: "pass",
+      reason_code: "AUDIT_READY",
+      checks: {
+        stateDirectoryValid: true,
+        installationKeyValid: true,
+        writerLockValid: true,
+        tailValid: true,
+        retentionValid: true
+      }
+    },
     policy: {
       engine_mode: "legacy",
       profile_id: "compat-v1",
@@ -256,6 +268,7 @@ function sampleChecks(overrides = {}) {
     policy_revision: ["pass", "POLICY_REVISION_VALID", "The policy revision is deterministic and available."],
     policy_identity: ["pass", "POLICY_IDENTITY_VALID", "The request identity mapping is valid."],
     policy_enforcement: ["pass", "POLICY_ENFORCEMENT_DECLARED", "The enforcement capability limits are declared."],
+    persistent_audit: ["pass", "AUDIT_READY", "Persistent audit state, key, writer lock, tail, and retention are ready."],
     terms_boundary: ["pass", "TERMS_BOUNDARY_VALID", "The local workspace bridge terms boundary is intact."]
   };
   for (const [name, value] of Object.entries(overrides)) byName[name] = value;
@@ -270,7 +283,7 @@ function sampleChecks(overrides = {}) {
 function sampleData(root, overrides = {}) {
   const checks = overrides.checks ?? sampleChecks();
   const counts = {
-    total: 17,
+    total: 18,
     passed: checks.filter((item) => item.status === "pass").length,
     warned: checks.filter((item) => item.status === "warn").length,
     failed: checks.filter((item) => item.status === "fail").length,
@@ -354,8 +367,8 @@ test("codexpro_self_test schema exports the exact six-field envelope and twenty-
     assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
     assert.deepEqual(success.data.checks.map((item) => item.name), CHECK_NAMES);
     assert.deepEqual(success.data.counts, {
-      total: 17,
-      passed: 16,
+      total: 18,
+      passed: 17,
       warned: 0,
       failed: 0,
       skipped: 1
@@ -378,7 +391,7 @@ test("codexpro_self_test schema derives exact warning order and keeps failed dia
     const data = sampleData(root, {
       status: "fail",
       checks,
-      counts: { total: 17, passed: 14, warned: 1, failed: 1, skipped: 1 },
+      counts: { total: 18, passed: 15, warned: 1, failed: 1, skipped: 1 },
       expected_tools: ["codexpro_self_test", "server_config"],
       registered_tools: ["codexpro_self_test"],
       missing_tools: ["server_config"],
@@ -523,7 +536,7 @@ test("codexpro_self_test normalizes defaults before one Provider call and derive
       assert.deepEqual(Object.keys(parsed.data).sort(), DATA_KEYS);
       assert.deepEqual(parsed.data.request, requestDefaults());
       assert.deepEqual(parsed.data.checks.map((item) => item.name), CHECK_NAMES);
-      assert.equal(parsed.data.counts.total, 17);
+      assert.equal(parsed.data.counts.total, 18);
       assert.equal(parsed.data.probe_artifact, FIXED_ARTIFACT);
       assert.deepEqual(parsed.data.files_touched, [FIXED_ARTIFACT]);
       assert.doesNotMatch(resultText(result), /test-placeholder-token|bash_session_id|Skill name|MCP server name/i);

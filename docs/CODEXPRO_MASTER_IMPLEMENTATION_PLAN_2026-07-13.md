@@ -785,13 +785,16 @@ Phase 3 在继续扩大 Git/Shell 自动化前，先为所有受支持的工作�
 - [`2026-07-14-phase-3c-mutator-migration-and-undo-design.md`](superpowers/specs/2026-07-14-phase-3c-mutator-migration-and-undo-design.md)
 - [`2026-07-14-phase-3d-move-paths-and-acceptance-design.md`](superpowers/specs/2026-07-14-phase-3d-move-paths-and-acceptance-design.md)
 
-Phase 3A 详细 TDD 实施计划：
+Phase 3A/3B 详细 TDD 实施计划：
 
 - [`2026-07-14-phase-3a-atomic-transaction.md`](superpowers/plans/2026-07-14-phase-3a-atomic-transaction.md)
-- 共九个任务，实施记录为 STEP-265 至 STEP-273；Phase 3A 已在本地完成实现与验收，但尚未暂存、提交、推送或发布。
+- [`2026-07-14-phase-3b-persistent-audit.md`](superpowers/plans/2026-07-14-phase-3b-persistent-audit.md)
+- Phase 3A 共九个任务，实施记录为 STEP-265 至 STEP-273；已发布到本地与远端 `main` commit `75b8d54`。
+- Phase 3B 共十个任务，实施记录从 STEP-274 至 STEP-275；已完成本地实现与验收，但尚未暂存、提交、推送或发布。
 - Phase 3C 完成全部 writer 迁移前，`atomic` 仅允许 `CODEXPRO_WRITE_MODE=off`；可写 atomic 配置必须在工具注册前失败关闭，现有公共 writer 仍保持经过审查的 legacy 行为。
-- 本地验收：Phase 3A 聚焦测试 44/44、相邻回归 38/38、完整回归 590 项中 589 pass/0 fail/1 既有平台 skip；TypeScript Build、八段 Smoke、原生 Windows Stress、217 文件 package dry-run 和静态边界检查均通过。
-- 当前停止点位于 Git 暂存之前。发布仍需独立批准；Phase 3B 持久审计是下一个独立切片，但尚未开始。
+- Phase 3B 本地验收：聚焦审计测试 36/36；相邻 Policy/transaction/lifecycle/HTTP/contract 回归 172 项中 171 pass/0 fail/1 既有平台 skip；完整回归 626 项中 625 pass/0 fail/1 既有平台 skip；TypeScript Build、八段 Smoke、原生 Windows Stress、237 文件 package dry-run、精确 28 工具 V1、审计架构与敏感字段检查均通过。
+- Phase 3B 后端、查询、诊断、Policy wrapper 接口和事务参与者已完成；当前 V1 production server 尚不注入 persistent runtime，也不注册 `query_audit_events`。这两个启用动作必须在 Phase 3C 与 coherent contract V2、全 writer 迁移一起完成。
+- 当前停止点位于 Git 暂存之前。Phase 3B 发布仍需独立批准；发布后进入 Phase 3C。
 
 ### 10.2 核心事务决策
 

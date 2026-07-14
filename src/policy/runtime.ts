@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { CodexProConfig } from "../config.js";
+import { resolveAuditRequirement, type CodexProConfig } from "../config.js";
+import { authorizationAuditEventV2Schema } from "../audit/schemas.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import { SessionGrantStore } from "./approval.js";
 import { createAuditEvent } from "./audit.js";
@@ -102,6 +103,12 @@ function workspaceFor(
     return workspaceId ? workspaces.getWorkspace(workspaceId) : null;
   }
   return workspaceId ? workspaces.getWorkspace(workspaceId) : workspaces.resolveWorkspace();
+}
+
+function toolMayMutate(toolName: string, config: CodexProConfig): boolean {
+  const mode = toolPolicyDefinition(toolName).resourceMode;
+  if (mode === "shell") return config.bashMode === "full";
+  return mode === "workspace_write" || mode === "exact_write" || mode === "bridge_write";
 }
 
 function describeResource(
@@ -297,6 +304,7 @@ export interface CreateDefaultPolicyRuntimeInput {
   guard: PathGuard;
   sessionSource: PolicySessionContextSource;
   auditSink?: (event: AuditEventV1) => void | Promise<void>;
+  persistentAudit?: Required<Pick<PolicyRuntime, "persistAuthorization" | "persistExecution">>;
   grants?: SessionGrantStore;
 }
 
@@ -405,10 +413,55 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         exitCode: null,
         boundedByteCounts: {}
       });
-      return { decision, auditEvent };
+      const mutating = toolMayMutate(toolName, input.config);
+      const requirement = resolveAuditRequirement({
+        auditMode: input.config.auditMode ?? "auto",
+        policyEngineMode: input.config.policyEngineMode ?? "legacy"
+      }, described.riskClass, mutating);
+      const auditContext = requirement === "disabled" || !input.persistentAudit
+        ? undefined
+        : {
+            authorizationEvent: authorizationAuditEventV2Schema.parse({
+              schemaVersion: 2,
+              eventId: auditEvent.eventId,
+              eventType: "authorization",
+              timestamp: auditEvent.timestamp,
+              requestId: auditEvent.requestId,
+              authorizationEventId: null,
+              decisionId: auditEvent.decisionId,
+              credentialRef: auditEvent.credentialRef,
+              transportSessionId: auditEvent.transportSessionId,
+              toolName: auditEvent.toolName,
+              canonicalAction: auditEvent.canonicalAction,
+              workspaceId: auditEvent.workspaceId,
+              workspaceRef: null,
+              policyRevision: auditEvent.policyRevision,
+              resourceSummary: auditEvent.relativeResourceSummary,
+              resourceFingerprint: auditEvent.resourceFingerprint.replace(/^sha256:/, ""),
+              outcome: auditEvent.outcome,
+              reasonCode: auditEvent.reasonCode,
+              safeRuleIds: auditEvent.safeRuleIds,
+              approvalState: auditEvent.approvalState,
+              grantId: auditEvent.grantId,
+              sandboxBackend: auditEvent.sandboxBackend,
+              riskClass: described.riskClass
+            }),
+            requirement,
+            riskClass: described.riskClass,
+            mutating
+          };
+      return { decision, auditEvent, auditContext };
     },
     async audit(event): Promise<void> {
       await input.auditSink?.(event);
+    },
+    async persistAuthorization(context): Promise<void> {
+      if (!input.persistentAudit) throw new Error("Persistent audit runtime is unavailable.");
+      await input.persistentAudit.persistAuthorization(context);
+    },
+    async persistExecution(context, execution): Promise<void> {
+      if (!input.persistentAudit) throw new Error("Persistent audit runtime is unavailable.");
+      await input.persistentAudit.persistExecution(context, execution);
     }
   };
 }

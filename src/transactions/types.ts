@@ -169,6 +169,8 @@ export interface PreparedTransaction {
 export interface PendingTransactionCommit {
   readonly transactionId: string;
   readonly changeSetId: string;
+  readonly operationCount: number;
+  readonly mutationKinds: readonly TransactionOperationKind[];
   commitParticipant(name: string, action: () => Promise<void>): Promise<void>;
   finalize(): Promise<CommittedTransaction>;
   rollback(reason: string): Promise<void>;

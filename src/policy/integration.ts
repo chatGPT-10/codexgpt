@@ -1,6 +1,18 @@
 import type { z } from "zod";
+import type { AuditRequirement } from "../config.js";
+import {
+  commitTransactionWithAudit,
+  executionAuditFacts
+} from "../audit/transactionParticipant.js";
+import { type AuditMutationKind, type AuthorizationAuditEventV2, type ExecutionAuditStatus } from "../audit/types.js";
+import { TransactionError } from "../transactions/types.js";
 import { toolPolicyDefinition } from "./toolPolicy.js";
-import type { AuditEventV1, PolicyDecisionV1, PolicyEngineMode } from "./types.js";
+import type {
+  AuditEventV1,
+  PolicyDecisionV1,
+  PolicyEngineMode,
+  RiskClass
+} from "./types.js";
 
 interface ToolCallResult {
   content?: Array<{ type: string; text?: string; [key: string]: unknown }>;
@@ -19,9 +31,29 @@ interface ServerWithRegisteredTools {
   _registeredTools: Record<string, RegisteredToolEntry>;
 }
 
+export interface AuditAuthorizationContextV2 {
+  authorizationEvent: AuthorizationAuditEventV2;
+  requirement: AuditRequirement;
+  riskClass: RiskClass;
+  mutating: boolean;
+}
+
+export interface AuditExecutionInputV2 {
+  status: ExecutionAuditStatus;
+  resultCode: string | null;
+  durationMs: number;
+  exitCode: number | null;
+  boundedByteCounts: Record<string, number>;
+  changeSetId: string | null;
+  operationCount: number;
+  mutationKinds: AuditMutationKind[];
+  recoveryRequired: boolean;
+}
+
 export interface PolicyAuthorizationResult {
   decision: PolicyDecisionV1;
   auditEvent: AuditEventV1 | null;
+  auditContext?: AuditAuthorizationContextV2;
 }
 
 export interface PolicyRuntimeDiagnostics {
@@ -42,6 +74,8 @@ export interface PolicyRuntime {
   diagnostics?(): PolicyRuntimeDiagnostics;
   authorize(toolName: string, args: Record<string, unknown>, extra?: unknown): PolicyAuthorizationResult | Promise<PolicyAuthorizationResult>;
   audit(event: AuditEventV1): void | Promise<void>;
+  persistAuthorization?(context: AuditAuthorizationContextV2): void | Promise<void>;
+  persistExecution?(context: AuditAuthorizationContextV2, execution: AuditExecutionInputV2): void | Promise<void>;
 }
 
 const POLICY_FAILURE = Symbol("codexpro.policy.failure");
@@ -122,10 +156,97 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
         return original(args, extra);
       }
 
+      const auditContext = authorization.auditContext;
+      if (auditContext) {
+        try {
+          if (!runtime.persistAuthorization) throw new Error("Persistent audit runtime is unavailable.");
+          await runtime.persistAuthorization(auditContext);
+        } catch {
+          if (auditContext.requirement === "required") return unavailableFailure();
+        }
+      }
+
       if (runtime.mode === "enforce" && authorization.decision.outcome !== "allow") {
+        if (auditContext) {
+          const notExecuted: AuditExecutionInputV2 = {
+            status: "not_executed",
+            resultCode: authorization.decision.reasonCode,
+            durationMs: 0,
+            exitCode: null,
+            boundedByteCounts: {},
+            changeSetId: null,
+            operationCount: 0,
+            mutationKinds: [],
+            recoveryRequired: false
+          };
+          try {
+            if (!runtime.persistExecution) throw new Error("Persistent audit runtime is unavailable.");
+            await runtime.persistExecution(auditContext, notExecuted);
+          } catch {
+            // A denied operation remains denied even when terminal audit persistence is degraded.
+          }
+        }
         return createPolicyToolFailure(authorization.decision);
       }
-      return original(args, extra);
+
+      const startedAt = Date.now();
+      try {
+        const result = await original(args, extra);
+        if (auditContext) {
+          const facts = executionAuditFacts(result);
+          const execution: AuditExecutionInputV2 = {
+            status: result.isError === true ? "failed" : "succeeded",
+            resultCode: result.isError === true ? "TOOL_ERROR" : facts?.resultCode ?? "OK",
+            durationMs: Math.max(0, Date.now() - startedAt),
+            exitCode: facts?.exitCode ?? null,
+            boundedByteCounts: facts?.boundedByteCounts ?? {},
+            changeSetId: facts?.changeSetId ?? null,
+            operationCount: facts?.operationCount ?? 0,
+            mutationKinds: facts?.mutationKinds ?? [],
+            recoveryRequired: false
+          };
+          try {
+            if (!runtime.persistExecution) throw new Error("Persistent audit runtime is unavailable.");
+            if (facts?.pendingMutationCommit && auditContext.requirement === "required") {
+              await commitTransactionWithAudit({
+                pending: facts.pendingMutationCommit,
+                runtime: { persistExecution: runtime.persistExecution.bind(runtime) },
+                context: auditContext,
+                execution
+              });
+            } else {
+              await runtime.persistExecution(auditContext, execution);
+            }
+          } catch (error) {
+            if (error instanceof TransactionError) throw error;
+            if (auditContext.requirement === "required") return unavailableFailure();
+          }
+        }
+        return result;
+      } catch (error) {
+        if (auditContext) {
+          const execution: AuditExecutionInputV2 = {
+            status: "failed",
+            resultCode: "HANDLER_EXCEPTION",
+            durationMs: Math.max(0, Date.now() - startedAt),
+            exitCode: null,
+            boundedByteCounts: {},
+            changeSetId: null,
+            operationCount: 0,
+            mutationKinds: [],
+            recoveryRequired: false
+          };
+          try {
+            if (!runtime.persistExecution) throw new Error("Persistent audit runtime is unavailable.");
+            await runtime.persistExecution(auditContext, execution);
+          } catch {
+            if (auditContext.requirement === "required") {
+              throw new Error("AUDIT_UNAVAILABLE", { cause: error });
+            }
+          }
+        }
+        throw error;
+      }
     };
   }
 

@@ -21,6 +21,7 @@ import {
   type PreparedTransaction,
   type TransactionFaultInjector,
   type TransactionManifestV1,
+  type TransactionOperationKind,
   type TransactionOperationV1,
   type TransactionRequestOperationV1,
   type TransactionRequestV1
@@ -589,6 +590,8 @@ class PreparedTransactionImpl implements PreparedTransaction {
 class PendingTransactionCommitImpl implements PendingTransactionCommit {
   readonly transactionId: string;
   readonly changeSetId: string;
+  readonly operationCount: number;
+  readonly mutationKinds: readonly TransactionOperationKind[];
 
   constructor(
     private readonly engine: AtomicTransactionEngine,
@@ -596,6 +599,8 @@ class PendingTransactionCommitImpl implements PendingTransactionCommit {
   ) {
     this.transactionId = context.manifest.transactionId;
     this.changeSetId = context.manifest.changeSetId;
+    this.operationCount = context.manifest.operations.length;
+    this.mutationKinds = [...new Set(context.manifest.operations.map((operation) => operation.kind))];
   }
 
   commitParticipant(name: string, action: () => Promise<void>): Promise<void> {

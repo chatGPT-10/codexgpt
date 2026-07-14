@@ -295,12 +295,21 @@ export const networkResourceV1Schema = z.object({
   addressClasses: z.array(z.enum(["loopback", "private", "link_local", "multicast", "unspecified", "reserved", "public"])).max(256)
 }).strict();
 
+export const auditResourceV1Schema = z.object({
+  ...resourceBase,
+  kind: z.literal("audit"),
+  operation: z.literal("query"),
+  workspaceId: safeIdSchema.nullable(),
+  filterDigest: bareSha256Schema
+}).strict();
+
 export const resourceDescriptorV1Schema: z.ZodType<ResourceDescriptorV1> = z.discriminatedUnion("kind", [
   filesystemResourceV1Schema,
   gitResourceV1Schema,
   shellResourceV1Schema,
   processResourceV1Schema,
-  networkResourceV1Schema
+  networkResourceV1Schema,
+  auditResourceV1Schema
 ]);
 
 const platformSchema = z.enum(["aix", "android", "darwin", "freebsd", "haiku", "linux", "openbsd", "sunos", "win32", "cygwin", "netbsd"]);

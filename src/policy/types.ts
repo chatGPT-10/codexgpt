@@ -262,12 +262,22 @@ export interface NetworkResourceV1 {
   resourceFingerprint: string;
 }
 
+export interface AuditResourceV1 {
+  schemaVersion: 1;
+  kind: "audit";
+  operation: "query";
+  workspaceId: string | null;
+  filterDigest: string;
+  resourceFingerprint: string;
+}
+
 export type ResourceDescriptorV1 =
   | FilesystemResourceV1
   | GitResourceV1
   | ShellResourceV1
   | ProcessResourceV1
-  | NetworkResourceV1;
+  | NetworkResourceV1
+  | AuditResourceV1;
 
 export type CapabilityLevel =
   | "none"

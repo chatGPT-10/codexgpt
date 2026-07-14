@@ -254,3 +254,71 @@ This archive is append-only. It records Phase 3 design, implementation, verifica
 **Rollback method:** Before publication, discard the Phase 3A implementation and reconciliation changes together while preserving the previously approved design package if desired. No user workspace, profile, token, system policy, service, registry, firewall, tunnel, or remote Git state was modified.
 
 **Next step:** Stop before Git staging. Await explicit approval for staging/publication or a separately authorized Phase 3B implementation session.
+
+## STEP-274 — Reconcile the published Phase 3A baseline and start Phase 3B
+
+**Status:** Complete locally; Phase 3B implementation in progress and unstaged.
+
+**Goal:** Correct the stale pre-publication stopping point, establish the clean published Phase 3A baseline, write the Phase 3B TDD plan, and add the strict audit configuration boundary.
+
+**Files changed:** `docs/superpowers/plans/2026-07-14-phase-3b-persistent-audit.md`; `src/config.ts`; `test/audit-config.test.mjs`; `config.example.env`; `AGENTS.md`; `Memory.md`; this archive.
+
+**Implementation summary:** Confirmed local and remote `main` at Phase 3A publication commit `75b8d54` with a clean starting tree. Added a ten-task Phase 3B implementation plan, strict `auto|off|best_effort|required` audit mode parsing, bounded 30-day/100-MiB default retention, per-operation audit requirement resolution, and fail-closed invalid-configuration checks. The exact public contract V1 surface remains unchanged.
+
+**Verification commands:** `git log -5 --oneline --decorate`; baseline `npm run build`; baseline `node --test test/*.test.mjs`; RED `node --test test/audit-config.test.mjs`; GREEN `npm run build`; GREEN `node --test test/audit-config.test.mjs`.
+
+**Verification results:** Published HEAD/origin is `75b8d54`. Baseline Build passed. Baseline regression ran 590 tests with 589 pass, 0 fail, and 1 established platform skip. The focused configuration test first failed because the audit exports did not exist, then passed 4/4 after the minimal implementation.
+
+**Decisions made:** Treat Phase 3A publication as an append-only correction to the earlier local-only record. Keep audit persistence outside workspaces. Keep contract V2 query registration dormant until Phase 3C selects the coherent V2 contract.
+
+**Risks or limitations:** Only configuration and planning are implemented at this step; no persistent store, event chain, query engine, policy integration, or transaction participant exists yet.
+
+**Rollback method:** Remove the Phase 3B plan, audit configuration fields/helpers/tests/example values, and this appended entry. Do not alter published Phase 3A history.
+
+**Next step:** Implement exact V2 event schemas and canonical authenticated encoding.
+
+## STEP-275 — Implement and locally accept Phase 3B persistent audit
+
+**Status:** Complete locally; all Phase 3B changes remain unstaged and unpublished.
+
+**Goal:** Implement the approved Phase 3B persistent local audit backend from first principles, preserve the exact contract V1 surface, prove the required transaction/audit ordering, and stop before Git staging.
+
+**Files changed:** Added `src/audit/` types, schemas, canonical JSON/HMAC helpers, writer lock, persistent store, query engine, runtime, transaction participant, diagnostics, and exports; added eight focused audit test files plus the cross-process writer fixture; modified audit configuration, Policy Kernel resource/runtime/integration modules, transaction pending-commit facts, dormant V2 tool schemas/adapters, self-test provider/schema, security/change log/configuration documentation, the Phase 3B implementation plan, `AGENTS.md`, the master plan, `Memory.md`, and this archive.
+
+**Implementation summary:** Implemented strict `AuditEventV2` authorization, execution, recovery, and administrative unions plus strict persisted envelopes/index metadata. Added project-owned canonical JSON, dedicated HKDF labels, monotonic cross-segment HMAC-SHA-256 chaining, opaque keyed workspace references, and an installation-wide conservative writer lock published through an atomic private-claim rename. Added durable fsync-before-index append ordering, identical retry idempotency, one terminal execution per authorization, final incomplete-tail quarantine/truncation with a recovery event, fail-closed non-tail corruption, UTC-date and pre-10-MiB rotation, retention tombstones before prefix deletion, chain anchors after pruning, exact bounded queries, authenticated expiring cursors, and query self-audit containing only digest/count. Added optional V2 Policy wrapper ordering, a persistent runtime, an `audit:query` resource, non-enumerable execution facts, and an `audit` transaction participant that persists terminal evidence before finalize and rolls back installed files on required append failure. Added dormant direct/supertool V2 adapters without changing the production V1 28-tool set. Expanded `codexpro_self_test` from seventeen to eighteen fixed checks with a non-mutating audit-readiness probe.
+
+**Verification commands:** Baseline `npm run build`; baseline `node --test test/*.test.mjs`; repeated RED/GREEN focused tests for every Phase 3B task; final `node --test test/audit-config.test.mjs test/audit-schema.test.mjs test/audit-store.test.mjs test/audit-recovery-retention.test.mjs test/audit-runtime-integration.test.mjs test/audit-transaction-participant.test.mjs test/audit-query.test.mjs test/audit-architecture.test.mjs`; `node --test test/policy-*.test.mjs test/transaction-*.test.mjs test/workspace-lifecycle*.test.mjs test/codexpro-*.test.mjs test/http-*.test.mjs`; final `node --test test/*.test.mjs`; final `npm run build`; `npm run smoke`; `npm run stress`; `npm pack --dry-run`.
+
+**Verification results:** Final focused audit suite passed 36/36. Final adjacent suite ran 172 tests with 171 pass, 0 fail, and 1 established platform skip. Final complete regression ran 626 tests with 625 pass, 0 fail, and 1 established platform skip (`profile store rejects symlinked documents and oversized files`). TypeScript Build passed. All eight protected Smoke sections passed. Native Windows Stress passed with the established POSIX-only multi-colon filename skip. Package dry-run passed with 237 files. Exact V1 registration remained 28 tools and excluded `query_audit_events`. Architecture tests confirmed no audit dependency on child processes, Git, network APIs, third-party databases, or background workers; bounded diagnostics did not expose state paths, keys, event bodies, or quarantine bytes.
+
+**Material failed attempts and fixes:** Two real writer-lock races were found and fixed: publishing the lock directory before `owner.json`, and the owner disappearing between contention detection and read. Query fixtures initially violated the one-authorization/one-terminal invariant and were corrected rather than weakening the store. Adjacent regression found that the default V1 Policy Runtime generated a required audit context without an injected persistent runtime; context generation is now explicitly injection-gated, preserving the dormant Phase 3C activation boundary. Smoke found that Git Bash may omit Windows `LOCALAPPDATA`; best-effort/auto self-test now reports bounded `AUDIT_UNINITIALIZED`, while explicit required audit still fails closed.
+
+**Decisions made:** Keep persistent audit state outside workspaces and Git. Treat HMAC chaining as integrity evidence, not legal WORM or protection against an attacker controlling the same OS account and installation key. Keep current public contract V1 and production server behavior unchanged; Phase 3C must enable persistent runtime injection, `query_audit_events`, coherent contract V2, and all-mutator migration together. Do not introduce WSL, PowerShell, Git, a database, a remote relay, or a background retention service.
+
+**Risks or limitations:** Current V1 production registration does not yet emit persistent events or expose the query tool. Required mutation semantics become active only when Phase 3C injects the persistent runtime and migrates writers. HMAC keys and audit state share the same OS-account trust boundary. Retention deletes only closed prefix segments and may leave `delete_pending` evidence for later retry after deletion failure. External processes remain outside CodexPro transaction and audit locks.
+
+**Rollback method:** Remove the Phase 3B audit modules, tests, configuration fields, Policy/transaction adapters, dormant V2 helpers, eighteenth self-test check, and Phase 3B documentation updates; restore the pre-Phase-3B compiled Policy/transaction schemas and exact seventeen-check self-test. Do not rewrite or remove published Phase 3A history or user audit data without separate destructive-operation approval.
+
+**Next step:** Stop before Git staging. Await explicit approval to stage and publish Phase 3B; after publication, begin the separately gated Phase 3C coherent contract V2 and mutator-migration slice.
+
+## STEP-276 — Reconcile Phase 3B knowledge and public metadata
+
+**Status:** Complete locally; all Phase 3B changes remain unstaged and unpublished.
+
+**Goal:** Run the `neat-freak` knowledge and rules audit, remove stale or duplicated state, align public metadata with the current fork, and preserve the verified Phase 3B activation boundary.
+
+**Files changed:** `README.md`; `README_ZH.md`; `docs/index.html`; `docs/zh.html`; `package.json`; `src/http.ts`; `test/audit-architecture.test.mjs`; `test/package-contents.test.mjs`; `AGENTS.md`; `Memory.md`; this archive.
+
+**Implementation summary:** Corrected the stale `Memory.md` statement that described published Phase 3A changes as unpublished, and compressed detailed older CI narratives into one archive pointer. Added concise bilingual documentation for the three audit environment variables, retention defaults, local HMAC-chain boundary, and the fact that current contract V1 does not inject the persistent runtime or register `query_audit_events`. Updated repository, issue, CI, license, Star, documentation-source, and local-admin repository links from the former upstream location to `chatGPT-10/codexgpt`. Intentionally retained `https://rebel0789.github.io/codexpro/` as the existing Pages/widget host. Added static tests that enforce both distinctions and prevent future documentation drift.
+
+**Verification commands:** `npm run build`; focused `node --test test/audit-architecture.test.mjs test/package-contents.test.mjs`; complete `node --test test/*.test.mjs`; `npm run smoke`; `npm pack --dry-run`; final repository-link, stale-state, size, and Git-scope checks.
+
+**Verification results:** Build passed. Focused reconciliation tests passed 7/7. Complete regression ran 628 tests with 627 pass, 0 fail, and 1 established platform skip (`profile store rejects symlinked documents and oversized files`). All eight Smoke sections passed. Package dry-run passed with 237 files. `Memory.md` remained below its 18-KB practical target, and no files were staged.
+
+**Decisions made:** Repository identity and support links follow the current fork `chatGPT-10/codexgpt`. Website and widget-domain references remain on the existing `rebel0789.github.io` host until a separately verified site migration. Keep `AGENTS.md` as a concise rule manual and keep detailed verification history in the phase archive.
+
+**Risks or limitations:** The existing Pages host was preserved based on repository configuration and was not externally revalidated in this local cleanup. No site deployment, credential, system policy, service, Git history, or remote repository state was changed.
+
+**Rollback method:** Revert only the STEP-276 documentation, metadata, static-test, and memory reconciliation changes. Do not remove Phase 3B implementation or rewrite prior append-only archive entries.
+
+**Next step:** Stop before Git staging and await explicit approval to publish the reconciled Phase 3B change set.

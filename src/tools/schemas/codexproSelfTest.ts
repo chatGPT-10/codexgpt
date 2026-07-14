@@ -21,6 +21,7 @@ export const CODEXPRO_SELF_TEST_CHECK_NAMES = [
   "policy_revision",
   "policy_identity",
   "policy_enforcement",
+  "persistent_audit",
   "terms_boundary"
 ] as const;
 
@@ -79,6 +80,13 @@ export const CODEXPRO_SELF_TEST_DIAGNOSTIC_CODES = [
   "POLICY_IDENTITY_INVALID",
   "POLICY_ENFORCEMENT_DECLARED",
   "POLICY_ENFORCEMENT_INVALID",
+  "AUDIT_READY",
+  "AUDIT_DISABLED",
+  "AUDIT_UNINITIALIZED",
+  "AUDIT_BUSY",
+  "AUDIT_RETENTION_INVALID",
+  "AUDIT_INTEGRITY_FAILURE",
+  "AUDIT_UNAVAILABLE",
   "TERMS_BOUNDARY_VALID"
 ] as const;
 
@@ -147,11 +155,11 @@ export const codexproSelfTestRequestSchema = z.object({
 }).strict();
 
 export const codexproSelfTestCountsSchema = z.object({
-  total: z.literal(17),
-  passed: z.number().int().min(0).max(17),
-  warned: z.number().int().min(0).max(17),
-  failed: z.number().int().min(0).max(17),
-  skipped: z.number().int().min(0).max(17)
+  total: z.literal(18),
+  passed: z.number().int().min(0).max(18),
+  warned: z.number().int().min(0).max(18),
+  failed: z.number().int().min(0).max(18),
+  skipped: z.number().int().min(0).max(18)
 }).strict();
 
 export const codexproSelfTestInventorySchema = z.object({
@@ -281,6 +289,13 @@ const allowedCheckOutcomes = new Set([
   "policy_identity:fail:POLICY_IDENTITY_INVALID",
   "policy_enforcement:pass:POLICY_ENFORCEMENT_DECLARED",
   "policy_enforcement:fail:POLICY_ENFORCEMENT_INVALID",
+  "persistent_audit:pass:AUDIT_READY",
+  "persistent_audit:skipped:AUDIT_DISABLED",
+  "persistent_audit:warn:AUDIT_UNINITIALIZED",
+  "persistent_audit:warn:AUDIT_BUSY",
+  "persistent_audit:fail:AUDIT_RETENTION_INVALID",
+  "persistent_audit:fail:AUDIT_INTEGRITY_FAILURE",
+  "persistent_audit:fail:AUDIT_UNAVAILABLE",
   "terms_boundary:pass:TERMS_BOUNDARY_VALID"
 ]);
 
@@ -311,7 +326,7 @@ export const codexproSelfTestDataSchema = z.object({
   policy: codexproSelfTestPolicySchema,
   probe_artifact: z.literal(CODEXPRO_SELF_TEST_ARTIFACT).nullable(),
   files_touched: fixedTouchedFilesSchema,
-  checks: z.array(codexproSelfTestCheckSchema).length(17),
+  checks: z.array(codexproSelfTestCheckSchema).length(18),
   terms_boundary: codexproSelfTestTermsBoundarySchema
 }).strict().superRefine((value, context) => {
   for (const field of ["expected_tools", "registered_tools", "missing_tools", "unexpected_tools"] as const) {
@@ -355,12 +370,12 @@ export const codexproSelfTestDataSchema = z.object({
     value.counts.warned !== actualCounts.warned ||
     value.counts.failed !== actualCounts.failed ||
     value.counts.skipped !== actualCounts.skipped ||
-    value.counts.passed + value.counts.warned + value.counts.failed + value.counts.skipped !== 17
+    value.counts.passed + value.counts.warned + value.counts.failed + value.counts.skipped !== 18
   ) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["counts"],
-      message: "Outcome counts must exactly match the seventeen checks."
+      message: "Outcome counts must exactly match the eighteen checks."
     });
   }
 
@@ -393,7 +408,7 @@ export const codexproSelfTestDataSchema = z.object({
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["checks", index, "name"],
-        message: "Checks must use the fixed seventeen-check order."
+        message: "Checks must use the fixed eighteen-check order."
       });
     }
     if (!allowedCheckOutcomes.has(`${check.name}:${check.status}:${check.code}`)) {

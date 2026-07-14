@@ -259,6 +259,8 @@ export class ApprovalPolicyV1 {
         if (resource.addressClasses.some((value) => value === "multicast" || value === "unspecified" || value === "reserved")) return "R4";
         if (resource.addressClasses.some((value) => value === "loopback" || value === "private" || value === "link_local")) return "R3";
         return "R2";
+      case "audit":
+        return "R1";
     }
   }
 }

@@ -54,3 +54,9 @@ export function toolPolicyDefinition(toolName: string): ToolPolicyDefinition {
   if (!canonicalSet.has(toolName)) throw new Error("Registered tool is outside the closed Policy Kernel tool set.");
   return TOOL_POLICY_DEFINITIONS[toolName as CanonicalCodexProChildTool];
 }
+
+export const AUDIT_QUERY_TOOL_POLICY_V2 = Object.freeze({
+  riskClass: "R1" as const,
+  requiredScope: "audit:read" as const,
+  resourceMode: "audit_query" as const
+});

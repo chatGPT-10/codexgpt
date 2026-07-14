@@ -1,6 +1,7 @@
 import fsp from "node:fs/promises";
 import { z } from "zod";
 import type { CodexProConfig } from "./config.js";
+import { probeAuditReadiness } from "./audit/diagnostics.js";
 import { probeBashAvailability, runBash } from "./bashOps.js";
 import { codexproInventory } from "./capabilitiesOps.js";
 import { editTextFile, writeTextFile } from "./fsOps.js";
@@ -104,6 +105,25 @@ const providerResultSchema = z.object({
       "BASH_POLICY_FULL",
       "BASH_POLICY_FAILED"
     ])
+  }).strict(),
+  audit_probe: z.object({
+    outcome: providerOutcomeSchema,
+    reason_code: z.enum([
+      "AUDIT_READY",
+      "AUDIT_DISABLED",
+      "AUDIT_UNINITIALIZED",
+      "AUDIT_BUSY",
+      "AUDIT_RETENTION_INVALID",
+      "AUDIT_INTEGRITY_FAILURE",
+      "AUDIT_UNAVAILABLE"
+    ]),
+    checks: z.object({
+      stateDirectoryValid: z.boolean(),
+      installationKeyValid: z.boolean(),
+      writerLockValid: z.boolean(),
+      tailValid: z.boolean(),
+      retentionValid: z.boolean()
+    }).strict()
   }).strict(),
   policy: codexproSelfTestPolicySchema,
   terms_boundary: codexproSelfTestTermsBoundarySchema
@@ -493,6 +513,13 @@ export const defaultCodexProSelfTestProvider: CodexProSelfTestProvider = async (
     context.workspace,
     context.request
   );
+  const auditProbe = await probeAuditReadiness({
+    auditMode: context.config.auditMode ?? "auto",
+    auditRetention: context.config.auditRetention ?? {
+      maxAgeDays: 30,
+      maxClosedBytes: 100 * 1024 * 1024
+    }
+  });
 
   return {
     workspace_id: context.workspace.id,
@@ -516,6 +543,11 @@ export const defaultCodexProSelfTestProvider: CodexProSelfTestProvider = async (
     write_probe: writeProbe,
     pro_context_probe: proContextProbe,
     bash_policy_probe: bashPolicyProbe,
+    audit_probe: {
+      outcome: auditProbe.outcome,
+      reason_code: auditProbe.reasonCode,
+      checks: auditProbe.checks
+    },
     policy: policyFacts(context.config),
     terms_boundary: {
       local_workspace_bridge: true,
@@ -632,6 +664,21 @@ function deriveChecks(
   const policyEnforcementCheck = facts.policy.enforcement_declared
     ? check("policy_enforcement", "pass", "POLICY_ENFORCEMENT_DECLARED", "The enforcement capability limits are declared.")
     : check("policy_enforcement", "fail", "POLICY_ENFORCEMENT_INVALID", "The enforcement capability limits are unavailable.");
+  const auditMessages: Record<CodexProSelfTestProviderResult["audit_probe"]["reason_code"], string> = {
+    AUDIT_READY: "Persistent audit state, key, writer lock, tail, and retention are ready.",
+    AUDIT_DISABLED: "Persistent audit is explicitly disabled.",
+    AUDIT_UNINITIALIZED: "Persistent audit is configured but its installation state is not initialized yet.",
+    AUDIT_BUSY: "Persistent audit is healthy enough to inspect, but the writer lock is currently busy.",
+    AUDIT_RETENTION_INVALID: "Persistent audit retention settings are invalid.",
+    AUDIT_INTEGRITY_FAILURE: "Persistent audit evidence failed integrity verification.",
+    AUDIT_UNAVAILABLE: "Persistent audit readiness could not be verified."
+  };
+  const auditCheck = check(
+    "persistent_audit",
+    facts.audit_probe.outcome,
+    facts.audit_probe.reason_code,
+    auditMessages[facts.audit_probe.reason_code]
+  );
 
   return [
     check("workspace", "pass", "WORKSPACE_READY", "Workspace access is available."),
@@ -650,6 +697,7 @@ function deriveChecks(
     policyRevisionCheck,
     policyIdentityCheck,
     policyEnforcementCheck,
+    auditCheck,
     check("terms_boundary", "pass", "TERMS_BOUNDARY_VALID", "The local workspace bridge terms boundary is intact.")
   ];
 }
@@ -715,7 +763,19 @@ export function buildCodexProSelfTestData(
     )) ||
     (facts.bash_policy_probe.outcome === "warn" && facts.bash_policy_probe.reason_code === "BASH_POLICY_FULL") ||
     (facts.bash_policy_probe.outcome === "fail" && facts.bash_policy_probe.reason_code === "BASH_POLICY_FAILED");
-  if (!inventoryValid || !writeProbeValid || !proContextProbeValid || !bashPolicyProbeValid) {
+  const auditProbeValid =
+    (facts.audit_probe.outcome === "pass" && facts.audit_probe.reason_code === "AUDIT_READY") ||
+    (facts.audit_probe.outcome === "skipped" && facts.audit_probe.reason_code === "AUDIT_DISABLED") ||
+    (facts.audit_probe.outcome === "warn" && (
+      facts.audit_probe.reason_code === "AUDIT_UNINITIALIZED" ||
+      facts.audit_probe.reason_code === "AUDIT_BUSY"
+    )) ||
+    (facts.audit_probe.outcome === "fail" && (
+      facts.audit_probe.reason_code === "AUDIT_RETENTION_INVALID" ||
+      facts.audit_probe.reason_code === "AUDIT_INTEGRITY_FAILURE" ||
+      facts.audit_probe.reason_code === "AUDIT_UNAVAILABLE"
+    ));
+  if (!inventoryValid || !writeProbeValid || !proContextProbeValid || !bashPolicyProbeValid || !auditProbeValid) {
     throw new CodexProSelfTestInternalError();
   }
 
@@ -751,7 +811,7 @@ export function buildCodexProSelfTestData(
   const unexpectedTools = registeredTools.filter((name) => !expectedTools.includes(name));
   const checks = deriveChecks(facts, missingTools, unexpectedTools);
   const counts = {
-    total: 17 as const,
+    total: 18 as const,
     passed: checks.filter((item) => item.status === "pass").length,
     warned: checks.filter((item) => item.status === "warn").length,
     failed: checks.filter((item) => item.status === "fail").length,

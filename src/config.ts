@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DEFAULT_ANALYSIS_LIMITS, type AnalysisLimits } from "./analysis/types.js";
+import type { RiskClass } from "./policy/types.js";
 
 export type BashMode = "off" | "safe" | "full";
 export type BashTranscriptMode = "compact" | "full";
@@ -11,6 +12,13 @@ export type ToolMode = "minimal" | "standard" | "full";
 export type FileTransactionMode = "legacy" | "atomic";
 
 export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
+export type AuditMode = "auto" | "off" | "best_effort" | "required";
+export type AuditRequirement = "disabled" | "best_effort" | "required";
+
+export interface AuditRetentionConfig {
+  maxAgeDays: number;
+  maxClosedBytes: number;
+}
 
 export interface CodexProConfig {
   defaultRoot: string;
@@ -33,6 +41,8 @@ export interface CodexProConfig {
   fileTransactions: FileTransactionMode;
   toolMode: ToolMode;
   policyEngineMode: PolicyEngineMode;
+  auditMode: AuditMode;
+  auditRetention: AuditRetentionConfig;
   permissionProfileId?: string;
   inheritEnv: boolean;
   maxReadBytes: number;
@@ -234,6 +244,51 @@ function policyEngineModeFrom(value: string | undefined): PolicyEngineMode {
   throw new Error("CODEXPRO_POLICY_ENGINE must be legacy, shadow, or enforce.");
 }
 
+function auditModeFrom(value: string | undefined): AuditMode {
+  const normalized = value?.trim();
+  if (!normalized) return "auto";
+  if (
+    normalized === "auto" ||
+    normalized === "off" ||
+    normalized === "best_effort" ||
+    normalized === "required"
+  ) return normalized;
+  throw new Error("CODEXPRO_AUDIT_MODE must be auto, off, best_effort, or required.");
+}
+
+function riskRank(riskClass: RiskClass): number {
+  return Number(riskClass.slice(1));
+}
+
+export function resolveAuditRequirement(
+  config: Pick<CodexProConfig, "auditMode" | "policyEngineMode">,
+  riskClass: RiskClass,
+  mutating: boolean
+): AuditRequirement {
+  if (config.auditMode === "off") return "disabled";
+  if (config.auditMode === "best_effort") return "best_effort";
+  if (config.auditMode === "required") return "required";
+  return config.policyEngineMode === "enforce" && mutating && riskRank(riskClass) >= 2
+    ? "required"
+    : "best_effort";
+}
+
+export interface AuditConfigurationCapabilities {
+  durableStoreAvailable: boolean;
+}
+
+export function assertAuditConfiguration(
+  config: Pick<CodexProConfig, "auditMode" | "policyEngineMode">,
+  capabilities: AuditConfigurationCapabilities
+): void {
+  if (config.policyEngineMode === "enforce" && config.auditMode === "off") {
+    throw new Error("CODEXPRO_AUDIT_MODE cannot be off when CODEXPRO_POLICY_ENGINE=enforce.");
+  }
+  if (config.auditMode === "required" && !capabilities.durableStoreAvailable) {
+    throw new Error("CODEXPRO_AUDIT_MODE=required needs an available durable audit store.");
+  }
+}
+
 function permissionProfileIdFrom(value: string | undefined): string | undefined {
   const normalized = value?.trim();
   if (!normalized) return undefined;
@@ -379,6 +434,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     : undefined;
   const toolModeArg = typeof args["tool-mode"] === "string" ? args["tool-mode"] : undefined;
   const policyEngineArg = typeof args["policy-engine"] === "string" ? args["policy-engine"] : undefined;
+  const auditModeArg = typeof args["audit-mode"] === "string" ? args["audit-mode"] : undefined;
   const permissionProfileArg = typeof args["permission-profile"] === "string" ? args["permission-profile"] : undefined;
   const widgetDomainArg = typeof args["widget-domain"] === "string" ? args["widget-domain"] : undefined;
   const toolCardsArg =
@@ -411,7 +467,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     throw new Error("CODEXPRO_REQUIRE_BASH_SESSION requires CODEXPRO_BASH_SESSION_ID or --bash-session.");
   }
 
-  return {
+  const config: CodexProConfig = {
     defaultRoot,
     allowedRoots,
     host,
@@ -434,6 +490,16 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     ),
     toolMode: toolModeFrom(toolModeArg ?? process.env.CODEXPRO_TOOL_MODE),
     policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXPRO_POLICY_ENGINE),
+    auditMode: auditModeFrom(auditModeArg ?? process.env.CODEXPRO_AUDIT_MODE),
+    auditRetention: {
+      maxAgeDays: numberFrom(process.env.CODEXPRO_AUDIT_RETENTION_DAYS, 30, 1, 365),
+      maxClosedBytes: numberFrom(
+        process.env.CODEXPRO_AUDIT_RETENTION_BYTES,
+        100 * 1024 * 1024,
+        1024 * 1024,
+        2 * 1024 * 1024 * 1024
+      )
+    },
     permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXPRO_PERMISSION_PROFILE),
     inheritEnv: process.env.CODEXPRO_INHERIT_ENV === "1",
     maxReadBytes: numberFrom(process.env.CODEXPRO_MAX_READ_BYTES, 180_000, 4_000, 2_000_000),
@@ -461,4 +527,6 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
       maxRelationships: numberFrom(process.env.CODEXPRO_ANALYSIS_MAX_RELATIONSHIPS, DEFAULT_ANALYSIS_LIMITS.maxRelationships, 100, 2_000_000)
     }
   };
+  assertAuditConfiguration(config, { durableStoreAvailable: true });
+  return config;
 }

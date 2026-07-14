@@ -129,6 +129,16 @@ The V1 backend requires same-volume ordinary-file hard links for no-clobber crea
 
 When atomic read-only mode is connected, persisted recovery runs before a workspace handle is issued or refreshed. Recovery restores before-state for incomplete transactions, finishes cleanup only for durably committed transactions, and freezes the workspace with `TRANSACTION_RECOVERY_REQUIRED` whenever ownership, identity, hash, or artifact evidence cannot be proved. The per-workspace lock coordinates CodexPro processes only; external editors and other applications remain outside it. Multi-file transactions provide staged execution, rollback, and crash recovery, not database-style simultaneous cross-file visibility.
 
+## Persistent Audit Boundaries
+
+Phase 3B adds a local persistent audit backend under the application-state directory, outside authorized workspaces and Git. It stores separate immutable authorization and terminal execution events plus bounded recovery and administrative events. Records use project-owned canonical JSON, monotonic sequence numbers, cross-segment HMAC-SHA-256 chaining, and keys derived from the Phase 3 installation master key with dedicated labels.
+
+Audit records intentionally exclude file bodies, complete diffs, raw command output, canonical workspace roots, Authorization/Cookie values, credential-bearing URLs, private keys, and `.env` contents. Workspace references are keyed opaque identifiers. Queries are exact-filter only, default to the latest 24 hours, are limited to seven days and 100 records, and use authenticated expiring cursors. Raw segment export, regex search, and full-text search are not exposed.
+
+The HMAC chain detects accidental damage and untrusted modification that does not also control the installation key. It is not legal WORM storage, remote attestation, or protection against an attacker running as the same OS account with access to both state and key material. Only an incomplete final line is automatically quarantined and truncated after the preceding chain and index relation verify; any non-tail break fails closed and preserves the original evidence.
+
+`CODEXPRO_AUDIT_MODE=auto` is best-effort for legacy/shadow operation and becomes required for enforce-mode R2+ mutations. Required authorization evidence must be durable before execution. Required terminal evidence participates in the Phase 3A transaction before finalization; an append failure triggers rollback, and an unprovable rollback becomes `TRANSACTION_RECOVERY_REQUIRED`. Phase 3B's V2 query adapters and Policy/Audit production wiring remain dormant until Phase 3C enables one coherent contract V2 surface, so the current public V1 server must not be described as already emitting persistent audit records.
+
 ## Hard Rules
 
 - Do not run public tunnels with `--no-auth`.

@@ -15,6 +15,24 @@ function npmCliPath() {
   return npmCli;
 }
 
+test("public repository metadata points to the current fork while Pages stays on the existing host", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve("package.json"), "utf8"));
+  assert.equal(pkg.repository.url, "git+https://github.com/chatGPT-10/codexgpt.git");
+  assert.equal(pkg.bugs.url, "https://github.com/chatGPT-10/codexgpt/issues");
+  assert.equal(pkg.homepage, "https://rebel0789.github.io/codexpro/");
+
+  for (const relativePath of ["README.md", "README_ZH.md", "docs/index.html", "docs/zh.html", "src/http.ts"]) {
+    const source = fs.readFileSync(path.resolve(relativePath), "utf8");
+    assert.equal(
+      source.includes("https://github.com/rebel0789/codexpro"),
+      false,
+      `${relativePath} still points repository links at the former upstream location`
+    );
+  }
+  assert.match(fs.readFileSync(path.resolve("README.md"), "utf8"), /https:\/\/rebel0789\.github\.io\/codexpro\//);
+  assert.match(fs.readFileSync(path.resolve("src\/http.ts"), "utf8"), /const docsUrl = "https:\/\/rebel0789\.github\.io\/codexpro\/";/);
+});
+
 test("published package keeps website assets but excludes internal memory archives", () => {
   const result = spawnSync(process.execPath, [npmCliPath(), "pack", "--dry-run", "--json", "--ignore-scripts"], {
     cwd: process.cwd(),

@@ -10,8 +10,8 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/codexpro"><img alt="npm" src="https://img.shields.io/npm/v/codexpro?style=flat-square"></a>
-  <a href="https://github.com/rebel0789/codexpro/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/rebel0789/codexpro/ci.yml?branch=main&style=flat-square"></a>
-  <a href="https://github.com/rebel0789/codexpro/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/rebel0789/codexpro?style=flat-square"></a>
+  <a href="https://github.com/chatGPT-10/codexgpt/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/chatGPT-10/codexgpt/ci.yml?branch=main&style=flat-square"></a>
+  <a href="https://github.com/chatGPT-10/codexgpt/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/chatGPT-10/codexgpt?style=flat-square"></a>
   <a href="https://rebel0789.github.io/codexpro/"><img alt="Website" src="https://img.shields.io/badge/site-GitHub%20Pages-67e8f9?style=flat-square"></a>
 </p>
 
@@ -161,6 +161,16 @@ An optional `CODEXPRO_PERMISSION_PROFILE=<id>` selects a strict JSON document at
 Phase 2A intentionally remains restrictive. No approval-management UI or MCP approval tool is exposed yet, so operations classified as approval-required return `APPROVAL_REQUIRED` until a later approved surface issues an exact bounded grant. Safe Bash remains a command filter rather than an OS sandbox. In `enforce` mode, opaque Shell or Process execution returns a sandbox-unavailable error when the required Windows/Linux capabilities have not been demonstrated. Cloudflare Tunnel protects inbound routing; it does not enforce local authorization or outbound network access.
 
 Rollback during the migration cycle is limited to the reviewed `legacy` behavior, the generated compatibility profile, or a narrower read-only profile. Policy-loading failure never falls through to unguarded execution.
+
+## Persistent Audit Status
+
+Phase 3B implements the local persistent-audit backend and its configuration boundary:
+
+- `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`; `auto` is the default, and `off` is rejected with Policy `enforce`.
+- `CODEXPRO_AUDIT_RETENTION_DAYS` defaults to 30 days and `CODEXPRO_AUDIT_RETENTION_BYTES` defaults to 100 MiB for closed segments.
+- Audit state stays outside workspaces and Git, uses HMAC-chained canonical JSONL segments, and excludes raw file contents, complete diffs, command output, and credentials.
+
+The current public contract V1 server still does not inject the persistent runtime or register `query_audit_events`. Those activation steps remain grouped with the coherent contract V2 and all-writer migration in Phase 3C. Do not assume a current V1 server is already emitting persistent audit records. See [SECURITY.md](SECURITY.md) for integrity, retention, and trust-boundary details.
 
 ## Workspace Sessions
 

@@ -10,8 +10,8 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/codexpro"><img alt="npm" src="https://img.shields.io/npm/v/codexpro?style=flat-square"></a>
-  <a href="https://github.com/rebel0789/codexpro/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/rebel0789/codexpro/ci.yml?branch=main&style=flat-square"></a>
-  <a href="https://github.com/rebel0789/codexpro/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/rebel0789/codexpro?style=flat-square"></a>
+  <a href="https://github.com/chatGPT-10/codexgpt/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/chatGPT-10/codexgpt/ci.yml?branch=main&style=flat-square"></a>
+  <a href="https://github.com/chatGPT-10/codexgpt/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/chatGPT-10/codexgpt?style=flat-square"></a>
   <a href="https://rebel0789.github.io/codexpro/zh.html"><img alt="中文站点" src="https://img.shields.io/badge/site-%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3-67e8f9?style=flat-square"></a>
 </p>
 
@@ -20,7 +20,7 @@
   ·
   <a href="https://rebel0789.github.io/codexpro/zh.html">中文网站</a>
   ·
-  <a href="https://github.com/rebel0789/codexpro">GitHub 点星</a>
+  <a href="https://github.com/chatGPT-10/codexgpt">GitHub 点星</a>
   ·
   <a href="https://www.npmjs.com/package/codexpro">npm</a>
   ·
@@ -360,6 +360,16 @@ Phase 2A 有意保持严格限制。目前尚未暴露审批管理 UI 或 MCP �
 
 迁移周期内只允许回滚到经过审查的 `legacy` 行为、生成的兼容 Permission Profile，或更窄的只读 profile。Policy 加载失败不会自动退回无策略执行。
 
+## 持久审计状态
+
+Phase 3B 已实现本地持久审计后端和配置边界：
+
+- `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`；默认是 `auto`，Policy 使用 `enforce` 时不能设为 `off`。
+- `CODEXPRO_AUDIT_RETENTION_DAYS` 默认保留 30 天，`CODEXPRO_AUDIT_RETENTION_BYTES` 默认允许已闭合分段总计 100 MiB。
+- 审计状态位于工作区和 Git 之外，使用 HMAC 链接的规范 JSONL 分段，不记录原始文件内容、完整 diff、命令输出或凭据。
+
+当前公开 contract V1 Server 尚未注入 persistent runtime，也未注册 `query_audit_events`。这些启用动作仍需在 Phase 3C 与 coherent contract V2 和全部 writer 迁移一起完成，因此不能把当前 V1 Server 描述为已经持续写入持久审计。完整性、保留期和信任边界详见 [SECURITY.md](SECURITY.md)。
+
 ## 工作区会话
 
 `workspace_id` 是只属于一个 MCP Server 会话的随机不透明句柄，不再由仓库路径哈希推导。同一活动会话重复打开同一 root 会复用本会话句柄；另一个 HTTP transport session 或 STDIO Server 进程会获得不同句柄，也不能使用或列出前一个会话的工作区。
@@ -468,7 +478,7 @@ q      停止 CodexPro
 
 ## 开源与贡献
 
-项目地址：[github.com/rebel0789/codexpro](https://github.com/rebel0789/codexpro)
+项目地址：[github.com/chatGPT-10/codexgpt](https://github.com/chatGPT-10/codexgpt)
 
 欢迎提 issue、补文档、补平台兼容性、补测试。提交 PR 前请至少运行：
 

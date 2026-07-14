@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  queryAuditEventsInputV2Schema,
+  queryAuditEventsResultV2Schema
+} from "../../audit/schemas.js";
 import { applyPatchOutputSchema } from "./applyPatch.js";
 import { bashOutputSchema } from "./bash.js";
 import { closeWorkspaceOutputSchema } from "./closeWorkspace.js";
@@ -61,6 +65,11 @@ export const CANONICAL_CODEXPRO_CHILD_TOOLS = [
 ] as const;
 
 export type CanonicalCodexProChildTool = typeof CANONICAL_CODEXPRO_CHILD_TOOLS[number];
+
+// Dormant contract V2 helpers. They are intentionally excluded from the V1
+// canonical action arrays and production registration maps until Phase 3C.
+export const queryAuditEventsInputSchemaV2 = queryAuditEventsInputV2Schema;
+export const queryAuditEventsOutputSchemaV2 = queryAuditEventsResultV2Schema;
 
 export const CODEXPRO_ACTION_ALIASES = Object.freeze({
   open: "open_current_workspace",

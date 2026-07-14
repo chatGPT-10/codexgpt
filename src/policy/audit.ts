@@ -37,6 +37,8 @@ export function safePolicySummary(resource: ResourceDescriptorV1): string {
       return `process:${resource.operation}:${resource.persistence ? "persistent" : "transient"}`;
     case "network":
       return `network:${resource.operation}:${safeOneLine(resource.host, 120) || "[host omitted]"}:${resource.port}`;
+    case "audit":
+      return `audit:${resource.operation}:${resource.filterDigest.slice(0, 16)}`;
   }
 }
 

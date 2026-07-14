@@ -225,6 +225,8 @@ export function evaluateProfile(
       };
     case "network":
       return networkProfileEvaluation(profile, resource);
+    case "audit":
+      return { allowed: true, safeRuleId: "profile.audit.query", specificity: [1] };
   }
 }
 
@@ -242,6 +244,8 @@ function scopeForResource(resource: ResourceDescriptorV1): PolicyScope {
       return "process:manage";
     case "network":
       return "network:connect";
+    case "audit":
+      return "audit:read";
   }
 }
 
