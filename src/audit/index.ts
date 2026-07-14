@@ -37,6 +37,7 @@ export { PersistentAuditRuntimeV2, type PersistentAuditRuntimeOptions } from "./
 export { PersistentAuditStore, type PersistentAuditStoreOptions } from "./store.js";
 export {
   attachExecutionAuditFacts,
+  commitAuditParticipant,
   commitTransactionWithAudit,
   executionAuditFacts,
   type CommitTransactionWithAuditInput,

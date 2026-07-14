@@ -184,7 +184,7 @@ Cover manifest/blob creation, exclusive IDs, authenticated read, active/undone/e
 
 Persist manifests with `AtomicJsonFileStore`; write ciphertext exclusively, sync before manifest reference, and remove only authenticated unreferenced artifacts. Retention failure returns an explicit non-undoable reason without throwing after the caller has chosen non-retained commit.
 
-- [ ] **Step 6: Verify and publish**
+- [x] **Step 6: Verify and publish**
 
 Run focused tests, adjacent installation/audit/transaction tests, Build, `git diff --check`, secret/plaintext signature scans, neat-freak, scoped commit `feat: add encrypted change set store`, push, and exact-head CI.
 
@@ -208,19 +208,19 @@ Run focused tests, adjacent installation/audit/transaction tests, Build, `git di
 - One server lifecycle owns one engine/runtime; no process-global sharing.
 - The wrapper sequence is visible install, durable terminal event, audit participant, change-set participant, transaction finalization, public projection.
 
-- [ ] **Step 1: Write handshake RED tests**
+- [x] **Step 1: Write handshake RED tests**
 
 Cover successful create/replace/delete, transaction and change-set correlation, required audit append failure rollback, change-set participant failure rollback, missing handle fail-closed, double finalize rejection, provider throw rollback, cleanup-pending success only after committed manifest proof, and V1 result projection hiding transaction metadata.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: `npm run build && node --test test/mutation-runtime.test.mjs`
 
-- [ ] **Step 3: Implement the private handle and runtime**
+- [x] **Step 3: Implement the private handle and runtime**
 
 The handle must be non-enumerable and unavailable through structured output serialization. It owns rollback until the wrapper finalizes or rolls back; ordinary provider results cannot finalize themselves.
 
-- [ ] **Step 4: Integrate the wrapper**
+- [x] **Step 4: Integrate the wrapper**
 
 Extend `registerToolCompat` with server-local mutation dependencies. In atomic mode, only configured mutator names require a handle; preview/read/failure results do not. Map internal failures to exact V2 errors and existing generic V1 families without changing V1 schemas.
 

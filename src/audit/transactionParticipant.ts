@@ -54,9 +54,9 @@ export interface CommitTransactionWithAuditInput {
   execution: AuditExecutionInputV2;
 }
 
-export async function commitTransactionWithAudit(
+export async function commitAuditParticipant(
   input: CommitTransactionWithAuditInput
-): Promise<CommittedTransaction> {
+): Promise<void> {
   try {
     await input.pending.commitParticipant("audit", async () => {
       await input.runtime.persistExecution(input.context, input.execution);
@@ -75,5 +75,11 @@ export async function commitTransactionWithAudit(
       "Audit completion failed and the transaction was rolled back."
     );
   }
+}
+
+export async function commitTransactionWithAudit(
+  input: CommitTransactionWithAuditInput
+): Promise<CommittedTransaction> {
+  await commitAuditParticipant(input);
   return input.pending.finalize();
 }

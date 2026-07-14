@@ -13,6 +13,7 @@ import {
   createDefaultTransactionRecoveryCoordinator,
   type TransactionRecoveryHook
 } from "./transactions/index.js";
+import type { WorkspaceMutationRuntime } from "./mutations/index.js";
 import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
 import {
   repoTree,
@@ -4051,6 +4052,8 @@ export interface CodexProServerDependencies {
   policySessionContextSource?: PolicySessionContextSource;
   policyAuditSink?: (event: AuditEventV1) => void | Promise<void>;
   transactionRecoveryCoordinator?: TransactionRecoveryHook;
+  workspaceMutationRuntime?: WorkspaceMutationRuntime;
+  atomicMutationToolNames?: ReadonlySet<string>;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -4123,17 +4126,31 @@ function attachStructuredDuration(result: any, durationMs: number): any {
   return result;
 }
 
+interface ServerMutationRegistration {
+  runtime: WorkspaceMutationRuntime;
+  toolNames: ReadonlySet<string>;
+}
+
+const mutationRegistrationByServer = new WeakMap<object, ServerMutationRegistration>();
+
 function registerToolCompat(
   server: McpServer,
   name: string,
   options: Record<string, unknown>,
   handler: (args: any) => Promise<any> | any
-): void {
+): CodexToolHandler {
+  const mutationRegistration = mutationRegistrationByServer.get(server as object);
+  const mutationAwareHandler: CodexToolHandler = mutationRegistration?.toolNames.has(name)
+    ? (args) => mutationRegistration.runtime.invokeProvider({
+        requiresMutation: true,
+        provider: () => handler(args)
+      })
+    : handler;
   const wrapped = async (args: any) => {
     const started = Date.now();
     try {
       const result = attachStructuredDuration(
-        tagToolResult(await handler(args ?? {}), name, options),
+        tagToolResult(await mutationAwareHandler(args ?? {}), name, options),
         Date.now() - started
       );
       logToolCall(name, result?.isError ? "error" : "ok", started);
@@ -4161,12 +4178,12 @@ function registerToolCompat(
   const s = server as any;
   if (typeof s.registerTool === "function") {
     s.registerTool(name, fullOptions, wrapped);
-    return;
+    return mutationAwareHandler;
   }
 
   if (typeof s.tool === "function") {
     s.tool(name, (fullOptions.description as string | undefined) ?? name, fullOptions.inputSchema ?? {}, wrapped);
-    return;
+    return mutationAwareHandler;
   }
 
   throw new Error("Unsupported MCP SDK: McpServer has neither registerTool nor tool.");
@@ -4320,9 +4337,14 @@ function registerCodexTool(
 ): void {
   if (!shouldRegisterTool(config, name)) return;
   const validatedHandler: CodexToolHandler = (args) => handler(validateToolArgs(name, options, args));
-  registerToolCompat(server, name, descriptorOptionsForConfig(config, options), validatedHandler);
+  const mutationAwareHandler = registerToolCompat(
+    server,
+    name,
+    descriptorOptionsForConfig(config, options),
+    validatedHandler
+  );
   rememberRegisteredTool(server, name);
-  rememberRegisteredToolHandler(server, name, validatedHandler);
+  rememberRegisteredToolHandler(server, name, mutationAwareHandler);
 }
 
 function serverInstructions(config: CodexProConfig): string {
@@ -4771,6 +4793,12 @@ export function createCodexProServer(
       : undefined
   );
   const server = new McpServer({ name: "CodexPro", version: "0.28.6" }, { instructions: serverInstructions(config) });
+  if (dependencies.workspaceMutationRuntime) {
+    mutationRegistrationByServer.set(server as object, {
+      runtime: dependencies.workspaceMutationRuntime,
+      toolNames: dependencies.atomicMutationToolNames ?? new Set<string>()
+    });
+  }
   const serverConfigDataProvider =
     dependencies.serverConfigDataProvider ??
     (() => buildServerConfigData(config, server, effectivePolicyRuntime?.diagnostics?.()));

@@ -6,6 +6,7 @@ import {
 } from "../audit/transactionParticipant.js";
 import { type AuditMutationKind, type AuthorizationAuditEventV2, type ExecutionAuditStatus } from "../audit/types.js";
 import { TransactionError } from "../transactions/types.js";
+import { pendingWorkspaceMutation } from "../mutations/index.js";
 import { toolPolicyDefinition } from "./toolPolicy.js";
 import type {
   AuditEventV1,
@@ -191,7 +192,16 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
 
       const startedAt = Date.now();
       try {
-        const result = await original(args, extra);
+        let result = await original(args, extra);
+        const workspaceMutation = pendingWorkspaceMutation(result);
+        if (workspaceMutation && (
+          !auditContext ||
+          auditContext.requirement !== "required" ||
+          !runtime.persistExecution
+        )) {
+          await workspaceMutation.rollback("required_audit_unavailable");
+          return unavailableFailure();
+        }
         if (auditContext) {
           const facts = executionAuditFacts(result);
           const execution: AuditExecutionInputV2 = {
@@ -200,14 +210,19 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
             durationMs: Math.max(0, Date.now() - startedAt),
             exitCode: facts?.exitCode ?? null,
             boundedByteCounts: facts?.boundedByteCounts ?? {},
-            changeSetId: facts?.changeSetId ?? null,
-            operationCount: facts?.operationCount ?? 0,
-            mutationKinds: facts?.mutationKinds ?? [],
+            changeSetId: facts?.changeSetId ?? workspaceMutation?.changeSetId ?? null,
+            operationCount: facts?.operationCount ?? workspaceMutation?.operationCount ?? 0,
+            mutationKinds: facts?.mutationKinds ?? [...(workspaceMutation?.mutationKinds ?? [])],
             recoveryRequired: false
           };
           try {
             if (!runtime.persistExecution) throw new Error("Persistent audit runtime is unavailable.");
-            if (facts?.pendingMutationCommit && auditContext.requirement === "required") {
+            if (workspaceMutation) {
+              result = await workspaceMutation.commit({
+                result,
+                persistAudit: () => runtime.persistExecution!(auditContext, execution)
+              });
+            } else if (facts?.pendingMutationCommit && auditContext.requirement === "required") {
               await commitTransactionWithAudit({
                 pending: facts.pendingMutationCommit,
                 runtime: { persistExecution: runtime.persistExecution.bind(runtime) },
@@ -218,7 +233,10 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
               await runtime.persistExecution(auditContext, execution);
             }
           } catch (error) {
-            if (error instanceof TransactionError) throw error;
+            if (error instanceof TransactionError) {
+              if (workspaceMutation) return unavailableFailure();
+              throw error;
+            }
             if (auditContext.requirement === "required") return unavailableFailure();
           }
         }

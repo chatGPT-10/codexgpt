@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
 - Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
-- Phase 3: Phase 3A and Phase 3B are published and closed. Phase 3C Task 1 commit `a9acc14` passed exact-head CI run `29372615528`. Task 2 authenticated encrypted change-set storage is locally complete and awaiting publication.
+- Phase 3: Phase 3A and Phase 3B are published and closed. Phase 3C Task 1 commit `a9acc14` passed run `29372615528`; Task 2 commit `c01a698` passed run `29374274230`. Task 3 audited mutation commit runtime is locally complete and awaiting publication.
 
 ## Approved execution boundary
 
@@ -52,16 +52,14 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Verification evidence
 
-- Phase 3A/3B CI diagnosis: run `29348287464` exposed Node discovery of executable child fixtures plus raw-byte protected-source hash drift; later commits `70b1060` and `c5b0226` repair those causes. Run `29362153159` then isolated one Windows Node 20 first-open race where another process could observe partial `installation.json` bytes.
+- Phase 3A/3B CI repair: commits `70b1060`, `c5b0226`, and `88bd4b9` fixed fixture discovery, platform-dependent hashes, and atomic installation-state publication; replacement run `29369658101` passed all four matrices.
 - Phase 3C planning gate: commit `02e45fc` passed exact-head run `29371007807` on Ubuntu/Windows Node 20/24; every job completed Build, Regression, Smoke, and Package.
 - Phase 3C Task 1 local gate: Build; 37/37 focused/adjacent contract tests; 3/3 audit-release tests; 20/20 extra concurrent audit append loops; complete 638-test regression with 637 pass, 0 fail, and 1 established platform skip; all eight Smoke sections; native-Windows Stress; and 237-file package dry-run passed. The first complete-regression attempt exposed a transient Windows audit-lock release `EPERM`; the bounded ownership-revalidating repair passed the replacement gate.
 - Phase 3C Task 1 publication: commit `a9acc14` passed exact-head run `29372615528`; every Ubuntu/Windows Node 20/24 job completed Build, Regression, Smoke, and Package.
 - Phase 3C Task 2 local gate: strict schema/AES-GCM/HMAC/store tests passed 13/13; focused plus adjacent transaction/audit tests passed 39/39; complete regression passed 650/651 with 0 failures and 1 established platform skip; Build, all eight Smoke sections, native-Windows Stress, and 249-file package dry-run passed.
-- STEP-277 replacement gate: local Build, focused/concurrency tests, 35 additional Windows Node 20.20.2 iterations, 631-test regression, all eight Smoke sections, native-Windows Stress, and 237-file package dry-run passed. Commit `88bd4b9` then passed exact-head CI run `29369658101` on Ubuntu/Windows Node 20/24; every job completed Build, Regression, Smoke, and Package.
+- Phase 3C Task 2 publication: commit `c01a698` passed exact-head run `29374274230`; every Ubuntu/Windows Node 20/24 job completed Build, Regression, Smoke, and Package.
+- Phase 3C Task 3 local gate: focused handshake plus Policy integration passed 11/11; adjacent audit/transaction group passed 22/22; complete regression passed 661/662 with 0 failures and 1 established platform skip; Build, all eight Smoke sections, native-Windows Stress, and 257-file package dry-run passed. Public V1 writers remain legacy and no atomic mutator name is enabled yet.
 - Phase 3B implementation boundary: persistent storage, query, diagnostics, Policy wrapper integration points, and transaction participant are published, but current V1 production registration still does not inject or expose it. Phase 3C owns runtime/writer/undo preparation; complete public V2 activation is deferred to the Phase 3D 31-tool gate.
-- Phase 3A local gate: focused transaction tests 44/44; adjacent security/lifecycle regression 38/38; complete regression 590 tests with 589 pass, 0 fail, and 1 established platform skip; TypeScript Build, all eight Smoke sections, native-Windows Stress, 217-file package dry-run, protected-source hashes, exact 28-tool contract, static dependency/sensitive-field checks, and the dedicated whitespace/scope review passed.
-- Phase 3A implementation boundary: default transaction mode remains `legacy`; `atomic` is read-only until Phase 3C; public writers are not migrated; same-volume hard links are mandatory with no direct-write fallback; crash recovery runs before atomic-mode workspace reuse and freezes on unprovable evidence. The implementation is published at `75b8d54`; these compatibility boundaries remain active.
-- Published exact-head evidence: Phase 2B replacement closure run `29334446539`, Phase 2A replacement run `29326459987`, and Phase 1 run `29314923948` passed the Ubuntu/Windows Node 20/24 matrices. Detailed failures, repairs, and local gates remain in the linked archives.
 
 ## Known limitations
 
@@ -80,20 +78,16 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish Phase 3C Task 2, require exact-head CI, then start Task 3 server-owned mutation runtime and commit handshake with RED tests.
+1. Publish Phase 3C Task 3, require exact-head CI, then start Task 4 transaction-backed `write` and `edit` with RED contract and behavior tests.
 
 ## Recent summaries
 
-- **STEP-283 — Add authenticated encrypted change-set storage:** added strict HMAC-authenticated manifests, AES-256-GCM rollback blobs, bounded retention/tombstones, safe state paths, shared V2 transaction results, and strict configuration; the complete local gate passed.
+- **STEP-284 — Add the audited mutation commit runtime:** added a private server-owned handle, exact transaction/change-set correlation, required audit/change-set participant ordering, complete rollback, committed-manifest cleanup proof, Policy wrapper integration, and independent-process audit-failure coverage; the complete local gate passed.
+- **STEP-283 — Add authenticated encrypted change-set storage:** added strict HMAC-authenticated manifests, AES-256-GCM rollback blobs, bounded retention/tombstones, safe state paths, shared V2 transaction results, and strict configuration; commit `c01a698` passed run `29374274230`.
 - **STEP-282 — Close Phase 3C Task 1 publication:** commit `a9acc14` passed exact-head CI run `29372615528` across all four Ubuntu/Windows Node 20/24 jobs; Task 2 may begin.
 - **STEP-281 — Harden transient Windows audit-lock release:** the Task 1 publication gate exposed one release-time rename conflict; bounded retries now revalidate ownership and the replacement complete gate passes.
 - **STEP-280 — Add the Phase 3C contract-version gate:** added strict V1/V2 configuration, immutable exact 28/31 name sets, V1 compatibility for omitted programmatic fields, and pre-registration V2 rejection until `move_paths` exists; focused/adjacent 37/37 passed.
 - **STEP-279 — Plan Phase 3C mutator migration and undo:** recorded closure-head CI run `29370073046`, resolved the Phase 3C/3D V2 sequencing conflict fail-closed, and wrote the ten-task RED/GREEN plan.
-- **STEP-278 — Close the Phase 3A/3B CI repair gate:** recorded that `88bd4b9` passed run `29369658101` on all Ubuntu/Windows Node 20/24 jobs and opened Phase 3 archive Volume 2 for the Phase 3C baseline.
-- **STEP-277 — Repair Phase 3A/3B CI portability and state publication:** confirmed both Phase 3A portability fixes, replaced partial installation-state visibility with synced no-clobber publication, and passed Node 20 concurrency stress plus the full local gate.
-- **STEP-276 — Reconcile Phase 3B knowledge and public metadata:** documented audit configuration and the dormant V1 boundary, aligned fork links, and added static drift guards before Phase 3B publication.
-- **STEP-275 — Locally accept Phase 3B:** implemented the persistent local audit backend, strict bounded query and transaction participant, eighteen-check self-test integration, and dormant V2 adapters; focused 36/36, adjacent 171/172 with one established skip, complete 625/626 with one established skip, Build, eight-section Smoke, native-Windows Stress, 237-file package dry-run, and architecture/scope gates passed. Stopped before Git staging.
-- **STEP-260 — Reconcile Phase 2B knowledge and rules:** aligned `AGENTS.md`, dual-language READMEs, `SECURITY.md`, `CHANGELOG.md`, the master plan, Memory, and the active archive; removed unused lifecycle timestamp state; focused 22/22, Build, 541/542 regression with one platform skip, eight-section Smoke, and 197-file package dry-run passed.
 
 ## Archives
 
