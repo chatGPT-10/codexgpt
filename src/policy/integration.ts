@@ -233,6 +233,13 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
               await runtime.persistExecution(auditContext, execution);
             }
           } catch (error) {
+            let projectedFailure: ToolCallResult | null = null;
+            try {
+              projectedFailure = workspaceMutation?.projectFailure(error, result) ?? null;
+            } catch {
+              return unavailableFailure();
+            }
+            if (projectedFailure) return projectedFailure;
             if (error instanceof TransactionError) {
               if (workspaceMutation) return unavailableFailure();
               throw error;

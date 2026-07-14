@@ -224,7 +224,7 @@ The handle must be non-enumerable and unavailable through structured output seri
 
 Extend `registerToolCompat` with server-local mutation dependencies. In atomic mode, only configured mutator names require a handle; preview/read/failure results do not. Map internal failures to exact V2 errors and existing generic V1 families without changing V1 schemas.
 
-- [ ] **Step 5: Verify and publish**
+- [x] **Step 5: Verify and publish**
 
 Run focused, policy audit, transaction participant, full wrapper regression, Build, neat-freak, commit `feat: add audited mutation commit runtime`, push, and exact-head CI.
 
@@ -246,19 +246,19 @@ Run focused, policy audit, transaction participant, full wrapper regression, Bui
 - V2 success adds `transaction` and `before_sha256`; V1 input/output remain exact.
 - Internal write/edit providers return prepared complete bytes plus observed before facts; mutation runtime performs final revalidation.
 
-- [ ] **Step 1: Write RED contract and behavior tests**
+- [x] **Step 1: Write RED contract and behavior tests**
 
 Cover absent/present hash semantics, `overwrite:false` no-clobber, concurrent create, exact UTF-8 bytes, BOM/newline preservation for edit, snippet count errors before transaction, old-version conflicts, complete-reader visibility, required audit rollback, V1 atomic output compatibility, and direct/supertool parity.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: `npm run build && node --test test/write-edit-transaction.test.mjs test/write-contract.test.mjs test/edit-contract.test.mjs`
 
-- [ ] **Step 3: Split preparation from mutation**
+- [x] **Step 3: Split preparation from mutation**
 
 Make legacy functions remain available only to `fileTransactions=legacy`. Atomic providers produce exact `Buffer` operations and never call direct write APIs. Preserve current secret-content and `PathGuard` checks before transaction preparation.
 
-- [ ] **Step 4: Add strict V2 schemas and version-selected registration**
+- [x] **Step 4: Add strict V2 schemas and version-selected registration**
 
 Use shared `transactionResultV2Schema`; do not widen V1 unions. Conflict detail returns only normalized relative path, never current hash.
 

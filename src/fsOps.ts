@@ -7,6 +7,11 @@ import type { CodexProConfig } from "./config.js";
 import type { Workspace } from "./guard.js";
 import { CodexProError, displayPath, normalizeRelPath, PathGuard } from "./guard.js";
 import { hasSecretValue, redactSensitiveText } from "./redact.js";
+import {
+  TransactionError,
+  type FileMetadataV1,
+  type TransactionRequestOperationV1
+} from "./transactions/index.js";
 
 export interface TreeOptions {
   path?: string;
@@ -55,8 +60,253 @@ export interface EditFileResult {
   diff: DiffResult;
 }
 
-export function sha256(text: string): string {
-  return createHash("sha256").update(text).digest("hex");
+export interface PreparedFileBefore {
+  exists: boolean;
+  bytes: Buffer | null;
+  sha256: string | null;
+  metadata: FileMetadataV1 | null;
+}
+
+export interface PreparedFileMutation<TResult extends WriteFileResult | EditFileResult> {
+  result: TResult;
+  before: PreparedFileBefore;
+  operation: Extract<TransactionRequestOperationV1, { kind: "create" | "replace" }>;
+}
+
+export function sha256(value: string | Buffer): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function versionConflict(relativePath: string): TransactionError {
+  return new TransactionError(
+    "FILE_VERSION_CONFLICT",
+    "Workspace file facts do not match the caller's expected version.",
+    { relativePath }
+  );
+}
+
+function assertExpectedSha256(value: string | undefined): void {
+  if (value !== undefined && !/^[a-f0-9]{64}$/.test(value)) {
+    throw new TransactionError(
+      "TRANSACTION_PRECONDITION_FAILED",
+      "Expected SHA-256 must be lowercase hexadecimal."
+    );
+  }
+}
+
+async function inspectPreparedTextTarget(
+  config: CodexProConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  filePath: string
+): Promise<{
+  absPath: string;
+  relPath: string;
+  before: PreparedFileBefore;
+  text: string;
+}> {
+  const resolved = guard.resolve(workspace, filePath, { forWrite: true });
+  try {
+    await guard.assertTextFile(
+      resolved.absPath,
+      Math.max(config.maxWriteBytes, config.maxReadBytes)
+    );
+    const [stat, bytes] = await Promise.all([
+      fsp.lstat(resolved.absPath, { bigint: true }),
+      fsp.readFile(resolved.absPath)
+    ]);
+    if (stat.isSymbolicLink() || !stat.isFile() || bytes.length !== Number(stat.size)) {
+      throw new CodexProError(`Not a file: ${resolved.relPath}`);
+    }
+    const text = bytes.toString("utf8");
+    if (!Buffer.from(text, "utf8").equals(bytes)) {
+      throw new CodexProError("Refusing to read binary file.");
+    }
+    return {
+      absPath: resolved.absPath,
+      relPath: resolved.relPath,
+      before: {
+        exists: true,
+        bytes,
+        sha256: sha256(bytes),
+        metadata: {
+          mode: Number(stat.mode),
+          atimeMs: Number(stat.atimeNs) / 1_000_000,
+          mtimeMs: Number(stat.mtimeNs) / 1_000_000
+        }
+      },
+      text
+    };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return {
+      absPath: resolved.absPath,
+      relPath: resolved.relPath,
+      before: {
+        exists: false,
+        bytes: null,
+        sha256: null,
+        metadata: null
+      },
+      text: ""
+    };
+  }
+}
+
+export async function prepareWriteTextFile(
+  config: CodexProConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  filePath: string,
+  content: string,
+  options: {
+    createDirs?: boolean;
+    overwrite?: boolean;
+    expectedSha256?: string;
+  } = {}
+): Promise<PreparedFileMutation<WriteFileResult>> {
+  assertExpectedSha256(options.expectedSha256);
+  const contentBytes = Buffer.from(content, "utf8");
+  if (contentBytes.length > config.maxWriteBytes) {
+    throw new CodexProError(
+      `Write content is too large (${contentBytes.length} bytes). Limit: ${config.maxWriteBytes} bytes.`
+    );
+  }
+  if (hasSecretValue(content)) {
+    throw new CodexProError(
+      "Secret-looking content is blocked from write. Use placeholders such as [REDACTED_SECRET] in handoff files."
+    );
+  }
+
+  const inspected = await inspectPreparedTextTarget(config, guard, workspace, filePath);
+  if (options.expectedSha256 !== undefined && inspected.before.sha256 !== options.expectedSha256) {
+    throw versionConflict(inspected.relPath);
+  }
+  if (inspected.before.exists && options.overwrite === false) {
+    throw new CodexProError(`File already exists and overwrite=false: ${inspected.relPath}`);
+  }
+  if (!inspected.before.exists) {
+    try {
+      const parent = await fsp.stat(path.dirname(inspected.absPath));
+      if (!parent.isDirectory()) throw new CodexProError(`Not a directory: ${path.dirname(inspected.relPath)}`);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      if (options.createDirs) {
+        throw new TransactionError(
+          "ATOMIC_BACKEND_UNAVAILABLE",
+          "Atomic parent-directory creation is not available for this target."
+        );
+      }
+      throw error;
+    }
+  }
+
+  const diff = makeUnifiedDiff(inspected.text, content, inspected.relPath);
+  const result: WriteFileResult = {
+    path: inspected.relPath,
+    bytes: contentBytes.length,
+    sha256: sha256(contentBytes),
+    existed: inspected.before.exists,
+    diff
+  };
+  const operation: PreparedFileMutation<WriteFileResult>["operation"] = inspected.before.exists
+    ? {
+        operationId: "op_write",
+        kind: "replace",
+        relativePath: inspected.relPath,
+        bytes: contentBytes,
+        expectedSha256: inspected.before.sha256
+      }
+    : {
+        operationId: "op_write",
+        kind: "create",
+        relativePath: inspected.relPath,
+        bytes: contentBytes,
+        expectedAbsent: true
+      };
+  return { result, before: inspected.before, operation };
+}
+
+export async function prepareEditTextFile(
+  config: CodexProConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  filePath: string,
+  oldText: string,
+  newText: string,
+  options: {
+    replaceAll?: boolean;
+    expectedReplacements?: number;
+    expectedSha256?: string;
+  } = {}
+): Promise<PreparedFileMutation<EditFileResult>> {
+  if (!oldText) throw new CodexProError("old_text must not be empty.");
+  assertExpectedSha256(options.expectedSha256);
+  const inspected = await inspectPreparedTextTarget(config, guard, workspace, filePath);
+  if (!inspected.before.exists || !inspected.before.bytes || !inspected.before.sha256) {
+    const missing = new Error(`File not found: ${inspected.relPath}`) as NodeJS.ErrnoException;
+    missing.code = "ENOENT";
+    throw missing;
+  }
+  if (options.expectedSha256 !== undefined && inspected.before.sha256 !== options.expectedSha256) {
+    throw versionConflict(inspected.relPath);
+  }
+
+  const occurrences = inspected.text.split(oldText).length - 1;
+  if (occurrences === 0) {
+    throw new CodexProError(
+      `old_text was not found in ${inspected.relPath}. Read the file and retry with an exact snippet.`
+    );
+  }
+  let replacements: number;
+  let after: string;
+  if (options.replaceAll) {
+    after = inspected.text.split(oldText).join(newText);
+    replacements = occurrences;
+  } else {
+    if (occurrences !== 1) {
+      throw new CodexProError(
+        `old_text matched ${occurrences} times. Provide a more specific old_text or set replace_all=true.`
+      );
+    }
+    after = inspected.text.replace(oldText, newText);
+    replacements = 1;
+  }
+  if (typeof options.expectedReplacements === "number" && replacements !== options.expectedReplacements) {
+    throw new CodexProError(
+      `Expected ${options.expectedReplacements} replacements but would perform ${replacements}.`
+    );
+  }
+
+  const afterBytes = Buffer.from(after, "utf8");
+  if (afterBytes.length > config.maxWriteBytes) {
+    throw new CodexProError(
+      `Edited file would be too large (${afterBytes.length} bytes). Limit: ${config.maxWriteBytes} bytes.`
+    );
+  }
+  if (hasSecretValue(after)) {
+    throw new CodexProError(
+      "Secret-looking content is blocked from edit. Use placeholders such as [REDACTED_SECRET] in handoff files."
+    );
+  }
+
+  return {
+    result: {
+      path: inspected.relPath,
+      replacements,
+      bytes: afterBytes.length,
+      sha256: sha256(afterBytes),
+      diff: makeUnifiedDiff(inspected.text, after, inspected.relPath)
+    },
+    before: inspected.before,
+    operation: {
+      operationId: "op_edit",
+      kind: "replace",
+      relativePath: inspected.relPath,
+      bytes: afterBytes,
+      expectedSha256: inspected.before.sha256
+    }
+  };
 }
 
 // ponytail: bounded scan window covers normal source files over the read cap; add a separate knob only if real repos need larger files.

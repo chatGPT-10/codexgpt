@@ -11,14 +11,21 @@ import {
 } from "./config.js";
 import {
   createDefaultTransactionRecoveryCoordinator,
+  TransactionError,
   type TransactionRecoveryHook
 } from "./transactions/index.js";
-import type { WorkspaceMutationRuntime } from "./mutations/index.js";
+import {
+  attachPreparedFileMutation,
+  type WorkspaceMutationRuntime
+} from "./mutations/index.js";
+import { AuditError } from "./audit/types.js";
 import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
 import {
   repoTree,
   readTextFile,
   textScanByteLimit,
+  prepareWriteTextFile,
+  prepareEditTextFile,
   writeTextFile,
   editTextFile,
   type ReadFileResult,
@@ -175,18 +182,28 @@ import {
 } from "./tools/schemas/search.js";
 import {
   WRITE_ERROR_MESSAGES,
+  WRITE_TRANSACTION_ERROR_MESSAGES,
   createWriteFailure,
   createWriteSuccess,
+  createWriteSuccessV2,
+  createWriteTransactionFailureV2,
   writeDataSchema,
   writeOutputShape,
+  writeOutputShapeV2,
+  type WriteTransactionErrorCode,
   type WriteFailureInput
 } from "./tools/schemas/write.js";
 import {
   EDIT_ERROR_MESSAGES,
+  EDIT_TRANSACTION_ERROR_MESSAGES,
   createEditFailure,
   createEditSuccess,
+  createEditSuccessV2,
+  createEditTransactionFailureV2,
   editDataSchema,
   editOutputShape,
+  editOutputShapeV2,
+  type EditTransactionErrorCode,
   type EditFailureInput
 } from "./tools/schemas/edit.js";
 import {
@@ -2930,6 +2947,48 @@ const editProviderResultSchema = z.object({
   }
 });
 
+const PUBLIC_MUTATION_FAILURE_CODES = new Set<WriteTransactionErrorCode>([
+  "FILE_VERSION_CONFLICT",
+  "TRANSACTION_BUSY",
+  "ATOMIC_BACKEND_UNAVAILABLE",
+  "AUDIT_UNAVAILABLE",
+  "AUDIT_INTEGRITY_FAILURE",
+  "TRANSACTION_FAILED",
+  "ROLLBACK_FAILED",
+  "TRANSACTION_RECOVERY_REQUIRED"
+]);
+
+function publicMutationFailureCode(error: unknown): WriteTransactionErrorCode | null {
+  if (error instanceof AuditError) {
+    return error.code === "AUDIT_UNAVAILABLE" || error.code === "AUDIT_INTEGRITY_FAILURE"
+      ? error.code
+      : "AUDIT_UNAVAILABLE";
+  }
+  if (!(error instanceof TransactionError)) return null;
+  if (PUBLIC_MUTATION_FAILURE_CODES.has(error.code as WriteTransactionErrorCode)) {
+    return error.code as WriteTransactionErrorCode;
+  }
+  return error.code === "TRANSACTION_STATE_CORRUPT"
+    ? "TRANSACTION_RECOVERY_REQUIRED"
+    : "TRANSACTION_FAILED";
+}
+
+function publicMutationFailurePath(error: unknown, fallback: unknown): string {
+  const relativePath = error instanceof TransactionError
+    ? error.safeDetails.relativePath
+    : undefined;
+  return safeTreePathDetail(typeof relativePath === "string" ? relativePath : fallback);
+}
+
+function resultDurationMs(result: unknown): number {
+  const duration = (result as {
+    structuredContent?: { meta?: { durationMs?: unknown } };
+  })?.structuredContent?.meta?.durationMs;
+  return typeof duration === "number" && Number.isFinite(duration) && duration >= 0
+    ? duration
+    : 0;
+}
+
 const applyPatchProviderResultSchema = z.object({
   paths: z.array(z.string().min(1)).min(1),
   stdout: z.string(),
@@ -4679,6 +4738,23 @@ function workspaceIdentityBinding(source?: PolicySessionContextSource): string |
     .slice(0, 24)}`;
 }
 
+function changeSetOwnerBinding(source?: PolicySessionContextSource): string {
+  return `owner_${createHash("sha256")
+    .update(JSON.stringify(source?.identity ?? { kind: "local_unbound" }), "utf8")
+    .digest("hex")}`;
+}
+
+function mutationPolicyRevision(runtime?: PolicyRuntime): string {
+  try {
+    const revision = runtime?.diagnostics?.().policyRevision;
+    return revision && /^[a-z0-9][a-z0-9._-]{0,127}$/.test(revision)
+      ? revision
+      : "policy-unknown";
+  } catch {
+    return "policy-unknown";
+  }
+}
+
 function buildServerConfigData(
   config: CodexProConfig,
   server: McpServer,
@@ -6373,9 +6449,15 @@ export function createCodexProServer(
         path: z.string().describe("File path relative to workspace root."),
         content: z.string().describe("Complete file contents to write."),
         create_dirs: z.boolean().optional().describe("Create parent directories if missing. Default: true."),
-        overwrite: z.boolean().optional().describe("Allow overwriting existing files. Default: true.")
+        overwrite: z.boolean().optional().describe("Allow overwriting existing files. Default: true."),
+        ...(config.toolContractVersion === 2
+          ? {
+              expected_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional()
+                .describe("Optional exact current-file SHA-256 precondition.")
+            }
+          : {})
       },
-      outputSchema: writeOutputShape,
+      outputSchema: config.toolContractVersion === 2 ? writeOutputShapeV2 : writeOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -6390,17 +6472,26 @@ export function createCodexProServer(
         const content = String(args.content ?? "");
         const resolved = guard.resolve(workspace, requestedPath, { forWrite: true });
         assertWriteToolAllowed(config, resolved.relPath);
-        const result = writeProviderResultSchema.parse(await writeResultProvider({
-          config,
-          guard,
-          workspace,
-          path: requestedPath,
-          content,
-          options: {
-            createDirs: args.create_dirs !== false,
-            overwrite: args.overwrite !== false
-          }
-        }));
+        const prepared = config.fileTransactions === "atomic"
+          ? await prepareWriteTextFile(config, guard, workspace, requestedPath, content, {
+              createDirs: args.create_dirs !== false,
+              overwrite: args.overwrite !== false,
+              expectedSha256: args.expected_sha256
+            })
+          : null;
+        const result = writeProviderResultSchema.parse(
+          prepared?.result ?? await writeResultProvider({
+            config,
+            guard,
+            workspace,
+            path: requestedPath,
+            content,
+            options: {
+              createDirs: args.create_dirs !== false,
+              overwrite: args.overwrite !== false
+            }
+          })
+        );
         if (result.path !== resolved.relPath) {
           throw new CodexProError("Write provider returned a path that does not match the resolved target.");
         }
@@ -6417,8 +6508,83 @@ export function createCodexProServer(
         });
         if (result.diff.changed) invalidateWorkspaceAnalysis(workspace.id);
         const text = `# Write File\n\nPath: ${result.path}\nExisted before: ${result.existed}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\nDiff stats: +${result.diff.additions} -${result.diff.deletions}${diffBlock(result.diff.diff)}`;
-        return textResult(text, createWriteSuccess(data));
+        const response = textResult(text, createWriteSuccess(data));
+        if (!prepared) return response;
+        const runtime = dependencies.workspaceMutationRuntime;
+        if (!runtime) {
+          throw new TransactionError(
+            "ATOMIC_BACKEND_UNAVAILABLE",
+            "Atomic write runtime is unavailable."
+          );
+        }
+        return attachPreparedFileMutation({
+          runtime,
+          workspace,
+          prepared,
+          context: {
+            toolName: "write",
+            requestId: null,
+            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+            policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+            contractVersion: config.toolContractVersion,
+            retentionMs: config.changeSetRetention.activeRetentionMs
+          },
+          result: response,
+          project: config.toolContractVersion === 2
+            ? ({ result: committedResult, transaction, beforeSha256 }) => ({
+                ...committedResult,
+                structuredContent: createWriteSuccessV2({
+                  ...data,
+                  transaction,
+                  before_sha256: beforeSha256
+                }, resultDurationMs(committedResult))
+              })
+            : undefined,
+          projectFailure: ({ result: failedResult, error }) => {
+            const durationMs = resultDurationMs(failedResult);
+            if (config.toolContractVersion === 2) {
+              const code = publicMutationFailureCode(error) ?? "TRANSACTION_FAILED";
+              const structured = createWriteTransactionFailureV2({
+                code,
+                details: code === "FILE_VERSION_CONFLICT" ? { path: data.path } : {}
+              }, durationMs);
+              return {
+                ...failedResult,
+                ...textResult(
+                  `# Write File Error\n\nCode: ${code}\n${WRITE_TRANSACTION_ERROR_MESSAGES[code]}`,
+                  structured
+                ),
+                isError: true
+              };
+            }
+            return {
+              ...failedResult,
+              ...textResult(
+                `# Write File Error\n\nCode: WRITE_FAILED\n${WRITE_ERROR_MESSAGES.WRITE_FAILED}`,
+                createWriteFailure({ code: "WRITE_FAILED", details: {} }, durationMs)
+              ),
+              isError: true
+            };
+          }
+        });
       } catch (error) {
+        if (config.toolContractVersion === 2) {
+          const code = publicMutationFailureCode(error);
+          if (code) {
+            const requestedPath = publicMutationFailurePath(error, args.path ?? "[path omitted]");
+            const structured = createWriteTransactionFailureV2({
+              code,
+              details: code === "FILE_VERSION_CONFLICT" ? { path: requestedPath } : {}
+            });
+            return {
+              ...textResult(
+                `# Write File Error\n\nCode: ${code}\n${WRITE_TRANSACTION_ERROR_MESSAGES[code]}`,
+                structured
+              ),
+              isError: true
+            };
+          }
+        }
         const failure = classifyWriteFailure(error, args, config);
         const structured = createWriteFailure(failure);
         const text = [
@@ -6448,9 +6614,15 @@ export function createCodexProServer(
         old_text: z.string().describe("Exact text to replace. Must match once unless replace_all=true."),
         new_text: z.string().describe("Replacement text."),
         replace_all: z.boolean().optional().describe("Replace all occurrences. Default: false."),
-        expected_replacements: z.number().int().min(1).optional().describe("Fail if actual replacement count differs.")
+        expected_replacements: z.number().int().min(1).optional().describe("Fail if actual replacement count differs."),
+        ...(config.toolContractVersion === 2
+          ? {
+              expected_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional()
+                .describe("Optional exact current-file SHA-256 precondition.")
+            }
+          : {})
       },
-      outputSchema: editOutputShape,
+      outputSchema: config.toolContractVersion === 2 ? editOutputShapeV2 : editOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -6466,18 +6638,27 @@ export function createCodexProServer(
         const newText = String(args.new_text ?? "");
         const resolved = guard.resolve(workspace, requestedPath, { forWrite: true });
         assertWriteToolAllowed(config, resolved.relPath);
-        const result = editProviderResultSchema.parse(await editResultProvider({
-          config,
-          guard,
-          workspace,
-          path: requestedPath,
-          oldText,
-          newText,
-          options: {
-            replaceAll: parseBool(args.replace_all, false),
-            expectedReplacements: args.expected_replacements
-          }
-        }));
+        const prepared = config.fileTransactions === "atomic"
+          ? await prepareEditTextFile(config, guard, workspace, requestedPath, oldText, newText, {
+              replaceAll: parseBool(args.replace_all, false),
+              expectedReplacements: args.expected_replacements,
+              expectedSha256: args.expected_sha256
+            })
+          : null;
+        const result = editProviderResultSchema.parse(
+          prepared?.result ?? await editResultProvider({
+            config,
+            guard,
+            workspace,
+            path: requestedPath,
+            oldText,
+            newText,
+            options: {
+              replaceAll: parseBool(args.replace_all, false),
+              expectedReplacements: args.expected_replacements
+            }
+          })
+        );
         if (result.path !== resolved.relPath) {
           throw new CodexProError("Edit provider returned a path that does not match the resolved target.");
         }
@@ -6494,8 +6675,83 @@ export function createCodexProServer(
         });
         if (result.diff.changed) invalidateWorkspaceAnalysis(workspace.id);
         const text = `# Edit File\n\nPath: ${result.path}\nReplacements: ${result.replacements}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\nDiff stats: +${result.diff.additions} -${result.diff.deletions}${diffBlock(result.diff.diff)}`;
-        return textResult(text, createEditSuccess(data));
+        const response = textResult(text, createEditSuccess(data));
+        if (!prepared) return response;
+        const runtime = dependencies.workspaceMutationRuntime;
+        if (!runtime) {
+          throw new TransactionError(
+            "ATOMIC_BACKEND_UNAVAILABLE",
+            "Atomic edit runtime is unavailable."
+          );
+        }
+        return attachPreparedFileMutation({
+          runtime,
+          workspace,
+          prepared,
+          context: {
+            toolName: "edit",
+            requestId: null,
+            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+            policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+            contractVersion: config.toolContractVersion,
+            retentionMs: config.changeSetRetention.activeRetentionMs
+          },
+          result: response,
+          project: config.toolContractVersion === 2
+            ? ({ result: committedResult, transaction, beforeSha256 }) => ({
+                ...committedResult,
+                structuredContent: createEditSuccessV2({
+                  ...data,
+                  transaction,
+                  before_sha256: beforeSha256 ?? data.sha256
+                }, resultDurationMs(committedResult))
+              })
+            : undefined,
+          projectFailure: ({ result: failedResult, error }) => {
+            const durationMs = resultDurationMs(failedResult);
+            if (config.toolContractVersion === 2) {
+              const code = (publicMutationFailureCode(error) ?? "TRANSACTION_FAILED") as EditTransactionErrorCode;
+              const structured = createEditTransactionFailureV2({
+                code,
+                details: code === "FILE_VERSION_CONFLICT" ? { path: data.path } : {}
+              }, durationMs);
+              return {
+                ...failedResult,
+                ...textResult(
+                  `# Edit File Error\n\nCode: ${code}\n${EDIT_TRANSACTION_ERROR_MESSAGES[code]}`,
+                  structured
+                ),
+                isError: true
+              };
+            }
+            return {
+              ...failedResult,
+              ...textResult(
+                `# Edit File Error\n\nCode: EDIT_FAILED\n${EDIT_ERROR_MESSAGES.EDIT_FAILED}`,
+                createEditFailure({ code: "EDIT_FAILED", details: {} }, durationMs)
+              ),
+              isError: true
+            };
+          }
+        });
       } catch (error) {
+        if (config.toolContractVersion === 2) {
+          const code = publicMutationFailureCode(error) as EditTransactionErrorCode | null;
+          if (code) {
+            const requestedPath = publicMutationFailurePath(error, args.path ?? "[path omitted]");
+            const structured = createEditTransactionFailureV2({
+              code,
+              details: code === "FILE_VERSION_CONFLICT" ? { path: requestedPath } : {}
+            });
+            return {
+              ...textResult(
+                `# Edit File Error\n\nCode: ${code}\n${EDIT_TRANSACTION_ERROR_MESSAGES[code]}`,
+                structured
+              ),
+              isError: true
+            };
+          }
+        }
         const failure = classifyEditFailure(error, args, config);
         const structured = createEditFailure(failure);
         const text = [

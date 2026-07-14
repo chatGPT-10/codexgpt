@@ -5,9 +5,9 @@
 > 状态：当前权威实施路线  
 > 工作区：`D:\Dev\codexpro`  
 > 基线版本：`codexpro@0.28.6`  
-> 当前阶段：Phase 3C Task 2 已通过四矩阵 CI；Task 3 server-owned mutation commit runtime 已在本地完成
+> 当前阶段：Phase 3C Task 3 已通过四矩阵 CI；Task 4 transaction-backed `write` / `edit` 已在本地完成
 >
-> 下一门禁：发布 Task 3 并通过精确头 CI，然后以 RED 开始 transaction-backed `write` / `edit`
+> 下一门禁：发布 Task 4 并通过精确头 CI，然后以 RED 开始 multi-file `apply_patch`
 >
 > 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 
@@ -1437,4 +1437,4 @@ Phase 1 Slice 28 codexpro
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1、Policy Kernel、Phase 2A、Phase 2B 已正式关闭；Phase 3A/3B 与三项 CI repair 已发布。Phase 3C Task 1 commit `a9acc14` 通过 run `29372615528`，Task 2 commit `c01a698` 通过 run `29374274230`，均覆盖 Ubuntu/Windows Node 20/24 四矩阵。Task 3 已在本地实现 server-owned private handle、required-audit/change-set participant 握手和完整回滚，但尚未发布；公共 writer 仍未迁移，V1 仍保持 28 tools，V2 仍失败关闭。按 2026-07-14 扩展授权，采用推荐选项连续推进 Phase 3C–Phase 8。每个独立子部分先交付、再审查、再整理、再发布，失败门禁必须修复而不能绕过。Phase 9、生产部署、真实凭据操作、破坏性数据/历史操作和规格外扩权仍未授权。
+Phase 1、Policy Kernel、Phase 2A、Phase 2B 已正式关闭；Phase 3A/3B 与三项 CI repair 已发布。Phase 3C Task 1 commit `a9acc14` 通过 run `29372615528`，Task 2 commit `c01a698` 通过 run `29374274230`，Task 3 commit `68036e8` 通过 run `29375830950`，均覆盖 Ubuntu/Windows Node 20/24 四矩阵。Task 4 已在本地实现 dormant transaction-backed `write`/`edit`、严格 V2 hash/result/failure contracts、V1 精确兼容和真实文件系统回滚测试；公共 writer 仍保持 legacy，缺失父目录的原子创建仍是激活前 blocker，V2 仍失败关闭。按 2026-07-14 扩展授权，采用推荐选项连续推进 Phase 3C–Phase 8。每个独立子部分先交付、再审查、再整理、再发布，失败门禁必须修复而不能绕过。Phase 9、生产部署、真实凭据操作、破坏性数据/历史操作和规格外扩权仍未授权。

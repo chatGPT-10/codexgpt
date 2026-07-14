@@ -1,7 +1,157 @@
+import { createHash } from "node:crypto";
+import type { TransactionResultV2 } from "../changesets/types.js";
+import type {
+  EditFileResult,
+  PreparedFileMutation,
+  WriteFileResult
+} from "../fsOps.js";
+import type { Workspace } from "../guard.js";
+import { attachPendingWorkspaceMutation, type WorkspaceMutationRuntime } from "./runtime.js";
 import type { MutationProjectionInput } from "./types.js";
 
 export function preserveMutationResult<T extends object>(
   input: MutationProjectionInput<T>
 ): T {
   return input.result;
+}
+
+export interface FileMutationContext {
+  toolName: "write" | "edit";
+  requestId: string | null;
+  ownerBinding: string;
+  policyRevision: string;
+  contractVersion: 1 | 2;
+  now?: () => number;
+  retentionMs?: number;
+}
+
+export interface FileMutationPublicProjection<T extends object> {
+  result: T;
+  transaction: TransactionResultV2;
+  beforeSha256: string | null;
+}
+
+export interface AttachPreparedFileMutationInput<T extends object> {
+  runtime: Pick<WorkspaceMutationRuntime, "prepare">;
+  workspace: Workspace;
+  prepared: PreparedFileMutation<WriteFileResult | EditFileResult>;
+  context: FileMutationContext;
+  result: T;
+  project?: (input: FileMutationPublicProjection<T>) => T;
+  projectFailure?: (input: { result: T; error: unknown }) => T | null;
+}
+
+function opaqueBlobId(changeSetId: string, operationId: string): string {
+  return `blob_${createHash("sha256")
+    .update(`${changeSetId}\0${operationId}`, "utf8")
+    .digest("hex")
+    .slice(0, 32)}`;
+}
+
+function validTimestamp(value: number, label: string): string {
+  const timestamp = new Date(value).toISOString();
+  if (timestamp === "Invalid Date") throw new Error(`${label} is invalid.`);
+  return timestamp;
+}
+
+export async function attachPreparedFileMutation<T extends object>(
+  input: AttachPreparedFileMutationInput<T>
+): Promise<T> {
+  const now = input.context.now ?? Date.now;
+  const createdAtMs = now();
+  const retentionMs = input.context.retentionMs ?? 24 * 60 * 60 * 1_000;
+  if (!Number.isSafeInteger(retentionMs) || retentionMs <= 0) {
+    throw new Error("Change-set retention is invalid.");
+  }
+  const createdAt = validTimestamp(createdAtMs, "Change-set creation time");
+  const expiresAt = validTimestamp(createdAtMs + retentionMs, "Change-set expiry time");
+  const before = input.prepared.before;
+  const afterBytes = input.prepared.operation.bytes;
+  const afterSha256 = createHash("sha256").update(afterBytes).digest("hex");
+
+  const pending = await input.runtime.prepare<T>({
+    transaction: {
+      workspace: input.workspace,
+      operations: [input.prepared.operation]
+    },
+    changeSet: ({ transactionId, changeSetId, workspaceStateKey }) => {
+      const blobId = before.exists
+        ? opaqueBlobId(changeSetId, input.prepared.operation.operationId)
+        : null;
+      const plaintextBytes = before.bytes?.length ?? 0;
+      return {
+        manifest: {
+          schemaVersion: 1,
+          changeSetId,
+          transactionId,
+          workspaceStateKey,
+          generation: 1,
+          createdAt,
+          updatedAt: createdAt,
+          expiresAt,
+          toolName: input.context.toolName,
+          requestId: input.context.requestId,
+          ownerBinding: input.context.ownerBinding,
+          policyRevision: input.context.policyRevision,
+          contractVersion: input.context.contractVersion,
+          state: "active",
+          undoSupported: true,
+          undoReason: null,
+          operations: [{
+            operationId: input.prepared.operation.operationId,
+            kind: input.prepared.operation.kind,
+            relativePath: input.prepared.operation.relativePath,
+            destinationRelativePath: null,
+            before: before.exists
+              ? {
+                  exists: true,
+                  sha256: before.sha256,
+                  bytes: plaintextBytes,
+                  metadata: before.metadata
+                }
+              : {
+                  exists: false,
+                  sha256: null,
+                  bytes: 0,
+                  metadata: null
+                },
+            after: {
+              exists: true,
+              sha256: afterSha256,
+              bytes: afterBytes.length
+            },
+            blobId
+          }],
+          plaintextBytes,
+          ciphertextBytes: plaintextBytes + (blobId ? 37 : 0),
+          revertsChangeSetId: null
+        },
+        blobs: blobId && before.bytes && before.sha256
+          ? [{
+              blobId,
+              operationId: input.prepared.operation.operationId,
+              beforeSha256: before.sha256,
+              plaintext: Buffer.from(before.bytes)
+            }]
+          : []
+      };
+    },
+    project: ({ result, committed, changeSet }) => {
+      if (!input.project) return result;
+      return input.project({
+        result,
+        beforeSha256: before.sha256,
+        transaction: {
+          change_set_id: committed.changeSetId,
+          transaction_id: committed.transactionId,
+          before_state: before.exists ? "present" : "absent",
+          operation_count: committed.operationCount,
+          undo_supported: changeSet.undoSupported,
+          committed_at: committed.committedAt
+        }
+      });
+    },
+    projectFailure: input.projectFailure
+  });
+  return attachPendingWorkspaceMutation(input.result, pending);
 }

@@ -6,12 +6,19 @@ export {
 } from "./runtime.js";
 
 export {
+  attachPreparedFileMutation,
   preserveMutationResult
+} from "./writers.js";
+export type {
+  AttachPreparedFileMutationInput,
+  FileMutationContext,
+  FileMutationPublicProjection
 } from "./writers.js";
 
 export type {
   ChangeSetIdentity,
   MutationCommitInput,
+  MutationFailureProjectionInput,
   MutationProjectionInput,
   MutationProviderInvocation,
   MutationToolResult,

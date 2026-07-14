@@ -16,11 +16,9 @@ import {
   type PreparedTransaction,
   type TransactionRequestOperationV1
 } from "../transactions/index.js";
-import {
-  preserveMutationResult
-} from "./writers.js";
 import type {
   MutationCommitInput,
+  MutationFailureProjectionInput,
   MutationProviderInvocation,
   MutationProjectionInput,
   PendingWorkspaceMutation,
@@ -158,6 +156,7 @@ class PendingWorkspaceMutationImpl implements PendingWorkspaceMutation {
     private readonly changeSetInput: CreateChangeSetInput,
     private readonly changeSetStore: WorkspaceMutationRuntimeOptions["changeSetStore"],
     private readonly project: (input: MutationProjectionInput<object>) => object,
+    private readonly failureProjector: ((input: MutationFailureProjectionInput<object>) => object | null) | undefined,
     private readonly now: () => number,
     operations: readonly { kind: "create" | "replace" | "delete" }[],
     private readonly onSettled: (pending: PendingWorkspaceMutationImpl) => void
@@ -215,8 +214,15 @@ class PendingWorkspaceMutationImpl implements PendingWorkspaceMutation {
       }
       this.state = "finalized";
       try {
-        const projected = this.project({ result: input.result, committed, changeSet: createdChangeSet.value }) as T;
-        return attachPendingWorkspaceMutation(projected, this);
+        try {
+          const projected = this.project({ result: input.result, committed, changeSet: createdChangeSet.value }) as T;
+          return attachPendingWorkspaceMutation(projected, this);
+        } catch {
+          throw new TransactionError(
+            "TRANSACTION_RECOVERY_REQUIRED",
+            "Committed mutation result projection failed."
+          );
+        }
       } finally {
         wipeRollbackBlobs(this.changeSetInput);
         this.onSettled(this);
@@ -256,6 +262,11 @@ class PendingWorkspaceMutationImpl implements PendingWorkspaceMutation {
       if (error instanceof TransactionError) throw error;
       throw new TransactionError("TRANSACTION_FAILED", "Workspace mutation commit failed.");
     }
+  }
+
+  projectFailure<T extends object>(error: unknown, result: T): T | null {
+    if (!this.failureProjector) return null;
+    return this.failureProjector({ error, result }) as T | null;
   }
 
   async rollback(reason: string): Promise<void> {
@@ -328,9 +339,12 @@ export class WorkspaceMutationRuntime {
       prepared,
       changeSetInput,
       this.changeSetStore,
-      (input.project ?? preserveMutationResult) as unknown as (
+      (input.project ?? ((projection: MutationProjectionInput<T>) => projection.result)) as unknown as (
         projection: MutationProjectionInput<object>
       ) => object,
+      input.projectFailure as unknown as ((
+        projection: MutationFailureProjectionInput<object>
+      ) => object | null) | undefined,
       this.now,
       input.transaction.operations,
       (settled) => context?.pending.delete(settled)

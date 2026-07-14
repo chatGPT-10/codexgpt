@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import { transactionResultV2Schema } from "./transactionResult.js";
 
 export const WRITE_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not available. Open the workspace before retrying.",
@@ -223,6 +224,125 @@ export function createWriteFailure(
       code: failure.code,
       message: WRITE_ERROR_MESSAGES[failure.code],
       retryable: false,
+      details: failure.details
+    },
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export const WRITE_TRANSACTION_ERROR_MESSAGES = {
+  FILE_VERSION_CONFLICT: "The target changed since the expected version was read. Read the file again before retrying.",
+  TRANSACTION_BUSY: "Another workspace transaction is active. Retry after it completes.",
+  ATOMIC_BACKEND_UNAVAILABLE: "The filesystem cannot provide the required atomic mutation guarantees.",
+  AUDIT_UNAVAILABLE: "The required persistent audit record could not be completed, so the write was rolled back.",
+  AUDIT_INTEGRITY_FAILURE: "Persistent audit integrity verification failed.",
+  TRANSACTION_FAILED: "The atomic write failed and no successful commit was acknowledged.",
+  ROLLBACK_FAILED: "The write failed and rollback could not be proven complete.",
+  TRANSACTION_RECOVERY_REQUIRED: "The workspace requires transaction recovery before another write."
+} as const;
+
+const writeTransactionRetryable = {
+  FILE_VERSION_CONFLICT: false,
+  TRANSACTION_BUSY: true,
+  ATOMIC_BACKEND_UNAVAILABLE: false,
+  AUDIT_UNAVAILABLE: true,
+  AUDIT_INTEGRITY_FAILURE: false,
+  TRANSACTION_FAILED: true,
+  ROLLBACK_FAILED: false,
+  TRANSACTION_RECOVERY_REQUIRED: false
+} as const;
+
+const writeTransactionErrorCodeSchema = z.enum([
+  "FILE_VERSION_CONFLICT",
+  "TRANSACTION_BUSY",
+  "ATOMIC_BACKEND_UNAVAILABLE",
+  "AUDIT_UNAVAILABLE",
+  "AUDIT_INTEGRITY_FAILURE",
+  "TRANSACTION_FAILED",
+  "ROLLBACK_FAILED",
+  "TRANSACTION_RECOVERY_REQUIRED"
+]);
+
+const writeTransactionErrorSchema = z.object({
+  code: writeTransactionErrorCodeSchema,
+  message: z.string().min(1),
+  retryable: z.boolean(),
+  details: z.union([pathDetailsSchema, emptyDetailsSchema])
+}).strict().superRefine((value, context) => {
+  if (value.message !== WRITE_TRANSACTION_ERROR_MESSAGES[value.code]) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["message"], message: "Unexpected transaction error message." });
+  }
+  if (value.retryable !== writeTransactionRetryable[value.code]) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["retryable"], message: "Unexpected transaction retryability." });
+  }
+  const hasPath = Object.prototype.hasOwnProperty.call(value.details, "path");
+  if ((value.code === "FILE_VERSION_CONFLICT") !== hasPath) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["details"], message: "Unexpected transaction error details." });
+  }
+});
+
+export const writeDataSchemaV2 = writeDataSchema.extend({
+  transaction: transactionResultV2Schema,
+  before_sha256: z.string().regex(/^[a-f0-9]{64}$/).nullable()
+}).strict();
+
+export const writeErrorSchemaV2 = z.union([writeErrorSchema, writeTransactionErrorSchema]);
+
+export const writeOutputShapeV2 = {
+  codexpro_tool: z.literal("write"),
+  codexpro_title: z.literal("Write File"),
+  ok: z.boolean(),
+  data: writeDataSchemaV2.nullable(),
+  error: writeErrorSchemaV2.nullable(),
+  meta: toolMetaSchema
+};
+
+const writeOutputBaseSchemaV2 = z.object(writeOutputShapeV2).strict();
+
+export const writeOutputSchemaV2 = writeOutputBaseSchemaV2.superRefine((value, context) => {
+  if (value.ok) {
+    if (value.data === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["data"], message: "Successful write results require data." });
+    if (value.error !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Successful write results require error to be null." });
+    return;
+  }
+  if (value.data !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["data"], message: "Failed write results require data to be null." });
+  if (value.error === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Failed write results require an error object." });
+});
+
+export type WriteDataV2 = z.infer<typeof writeDataSchemaV2>;
+export type WriteStructuredResultV2 = z.infer<typeof writeOutputBaseSchemaV2>;
+export type WriteTransactionErrorCode = z.infer<typeof writeTransactionErrorCodeSchema>;
+
+export function createWriteSuccessV2(
+  data: WriteDataV2,
+  durationMs = 0
+): WriteStructuredResultV2 {
+  return writeOutputSchemaV2.parse({
+    codexpro_tool: "write",
+    codexpro_title: "Write File",
+    ok: true,
+    data: writeDataSchemaV2.parse(data),
+    error: null,
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export function createWriteTransactionFailureV2(
+  failure: {
+    code: WriteTransactionErrorCode;
+    details: { path: string } | Record<string, never>;
+  },
+  durationMs = 0
+): WriteStructuredResultV2 {
+  return writeOutputSchemaV2.parse({
+    codexpro_tool: "write",
+    codexpro_title: "Write File",
+    ok: false,
+    data: null,
+    error: {
+      code: failure.code,
+      message: WRITE_TRANSACTION_ERROR_MESSAGES[failure.code],
+      retryable: writeTransactionRetryable[failure.code],
       details: failure.details
     },
     meta: createToolMeta(durationMs)

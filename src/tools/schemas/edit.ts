@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import { transactionResultV2Schema } from "./transactionResult.js";
 
 export const EDIT_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not available. Open the workspace before retrying.",
@@ -268,6 +269,125 @@ export function createEditFailure(
       code: failure.code,
       message: EDIT_ERROR_MESSAGES[failure.code],
       retryable: false,
+      details: failure.details
+    },
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export const EDIT_TRANSACTION_ERROR_MESSAGES = {
+  FILE_VERSION_CONFLICT: "The target changed since the expected version was read. Read the file again before retrying.",
+  TRANSACTION_BUSY: "Another workspace transaction is active. Retry after it completes.",
+  ATOMIC_BACKEND_UNAVAILABLE: "The filesystem cannot provide the required atomic mutation guarantees.",
+  AUDIT_UNAVAILABLE: "The required persistent audit record could not be completed, so the edit was rolled back.",
+  AUDIT_INTEGRITY_FAILURE: "Persistent audit integrity verification failed.",
+  TRANSACTION_FAILED: "The atomic edit failed and no successful commit was acknowledged.",
+  ROLLBACK_FAILED: "The edit failed and rollback could not be proven complete.",
+  TRANSACTION_RECOVERY_REQUIRED: "The workspace requires transaction recovery before another edit."
+} as const;
+
+const editTransactionRetryable = {
+  FILE_VERSION_CONFLICT: false,
+  TRANSACTION_BUSY: true,
+  ATOMIC_BACKEND_UNAVAILABLE: false,
+  AUDIT_UNAVAILABLE: true,
+  AUDIT_INTEGRITY_FAILURE: false,
+  TRANSACTION_FAILED: true,
+  ROLLBACK_FAILED: false,
+  TRANSACTION_RECOVERY_REQUIRED: false
+} as const;
+
+const editTransactionErrorCodeSchema = z.enum([
+  "FILE_VERSION_CONFLICT",
+  "TRANSACTION_BUSY",
+  "ATOMIC_BACKEND_UNAVAILABLE",
+  "AUDIT_UNAVAILABLE",
+  "AUDIT_INTEGRITY_FAILURE",
+  "TRANSACTION_FAILED",
+  "ROLLBACK_FAILED",
+  "TRANSACTION_RECOVERY_REQUIRED"
+]);
+
+const editTransactionErrorSchema = z.object({
+  code: editTransactionErrorCodeSchema,
+  message: z.string().min(1),
+  retryable: z.boolean(),
+  details: z.union([pathDetailsSchema, emptyDetailsSchema])
+}).strict().superRefine((value, context) => {
+  if (value.message !== EDIT_TRANSACTION_ERROR_MESSAGES[value.code]) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["message"], message: "Unexpected transaction error message." });
+  }
+  if (value.retryable !== editTransactionRetryable[value.code]) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["retryable"], message: "Unexpected transaction retryability." });
+  }
+  const hasPath = Object.prototype.hasOwnProperty.call(value.details, "path");
+  if ((value.code === "FILE_VERSION_CONFLICT") !== hasPath) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["details"], message: "Unexpected transaction error details." });
+  }
+});
+
+export const editDataSchemaV2 = editDataSchema.extend({
+  transaction: transactionResultV2Schema,
+  before_sha256: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict();
+
+export const editErrorSchemaV2 = z.union([editErrorSchema, editTransactionErrorSchema]);
+
+export const editOutputShapeV2 = {
+  codexpro_tool: z.literal("edit"),
+  codexpro_title: z.literal("Edit File"),
+  ok: z.boolean(),
+  data: editDataSchemaV2.nullable(),
+  error: editErrorSchemaV2.nullable(),
+  meta: toolMetaSchema
+};
+
+const editOutputBaseSchemaV2 = z.object(editOutputShapeV2).strict();
+
+export const editOutputSchemaV2 = editOutputBaseSchemaV2.superRefine((value, context) => {
+  if (value.ok) {
+    if (value.data === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["data"], message: "Successful edit results require data." });
+    if (value.error !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Successful edit results require error to be null." });
+    return;
+  }
+  if (value.data !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["data"], message: "Failed edit results require data to be null." });
+  if (value.error === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Failed edit results require an error object." });
+});
+
+export type EditDataV2 = z.infer<typeof editDataSchemaV2>;
+export type EditStructuredResultV2 = z.infer<typeof editOutputBaseSchemaV2>;
+export type EditTransactionErrorCode = z.infer<typeof editTransactionErrorCodeSchema>;
+
+export function createEditSuccessV2(
+  data: EditDataV2,
+  durationMs = 0
+): EditStructuredResultV2 {
+  return editOutputSchemaV2.parse({
+    codexpro_tool: "edit",
+    codexpro_title: "Edit File",
+    ok: true,
+    data: editDataSchemaV2.parse(data),
+    error: null,
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export function createEditTransactionFailureV2(
+  failure: {
+    code: EditTransactionErrorCode;
+    details: { path: string } | Record<string, never>;
+  },
+  durationMs = 0
+): EditStructuredResultV2 {
+  return editOutputSchemaV2.parse({
+    codexpro_tool: "edit",
+    codexpro_title: "Edit File",
+    ok: false,
+    data: null,
+    error: {
+      code: failure.code,
+      message: EDIT_TRANSACTION_ERROR_MESSAGES[failure.code],
+      retryable: editTransactionRetryable[failure.code],
       details: failure.details
     },
     meta: createToolMeta(durationMs)

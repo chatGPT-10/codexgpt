@@ -27,10 +27,16 @@ export interface MutationProjectionInput<T extends object> {
   changeSet: ChangeSetManifestV1;
 }
 
+export interface MutationFailureProjectionInput<T extends object> {
+  result: T;
+  error: unknown;
+}
+
 export interface WorkspaceMutationPreparation<T extends object> {
   transaction: Omit<TransactionRequestV1, "requiredParticipants">;
   changeSet(identity: ChangeSetIdentity): CreateChangeSetInput;
   project?(input: MutationProjectionInput<T>): T;
+  projectFailure?(input: MutationFailureProjectionInput<T>): T | null;
 }
 
 export interface MutationCommitInput<T extends object> {
@@ -44,6 +50,7 @@ export interface PendingWorkspaceMutation {
   readonly operationCount: number;
   readonly mutationKinds: readonly TransactionOperationKind[];
   commit<T extends object>(input: MutationCommitInput<T>): Promise<T>;
+  projectFailure<T extends object>(error: unknown, result: T): T | null;
   rollback(reason: string): Promise<void>;
 }
 
