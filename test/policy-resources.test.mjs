@@ -33,14 +33,28 @@ function withWorkspace(callback) {
   }
 }
 
-test("Windows filesystem comparison keys are case-insensitive and slash normalized", () => {
+test("Windows resource comparison keys are case-insensitive and slash normalized", () => {
   withWorkspace(({ workspace }) => {
-    const guard = new PathGuard(config, "win32");
-    const one = describeFilesystemResource({ platform: "win32", workspace, guard, operation: "read", inputPath: "SRC\\File.ts" });
-    const two = describeFilesystemResource({ platform: "win32", workspace, guard, operation: "read", inputPath: "src/file.ts" });
-    assert.equal(one.comparisonKey, two.comparisonKey);
-    assert.equal(one.relativePath, "src/File.ts");
-    assert.match(one.resourceFingerprint, /^sha256:[a-f0-9]{64}$/);
+    const guard = new PathGuard(config, process.platform);
+    const filesystem = describeFilesystemResource({
+      platform: "win32",
+      workspace,
+      guard,
+      operation: "read",
+      inputPath: "src/File.ts"
+    });
+    assert.equal(filesystem.relativePath, "src/File.ts");
+    assert.equal(filesystem.comparisonKey, "src/file.ts");
+    assert.match(filesystem.resourceFingerprint, /^sha256:[a-f0-9]{64}$/);
+
+    const git = describeGitResource({
+      workspaceId: workspace.id,
+      operation: "read",
+      repositoryKey: "repo_local",
+      relativePaths: ["SRC\\File.ts", "src/file.ts"],
+      platform: "win32"
+    });
+    assert.deepEqual(git.relativePaths, ["src/file.ts", "src/file.ts"]);
   });
 });
 

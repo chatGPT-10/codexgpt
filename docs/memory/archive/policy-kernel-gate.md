@@ -153,3 +153,38 @@ Integrated one explicit policy definition for each of the 27 canonical direct to
 **Rollback method:** Revert only the STEP-251 edits through an ordinary new commit after publication, or discard these five documentation-file changes before publication only with explicit user approval. Do not rewrite prior archive entries, delete the Policy archive, or restore duplicated historical narration to `AGENTS.md` or `Memory.md`.
 
 **Next step:** Await the user's decision on staging, commit, push, and exact-head CI. Keep Phase 2B closed until that decision.
+
+## STEP-252 — Repair the Ubuntu exact-head regression
+
+**Status:** Local repair complete; replacement exact-head CI pending
+
+**Goal:** Publish Phase 2A, inspect the first exact-head four-job matrix, fix any cross-platform defect without weakening production policy behavior, and keep Phase 2B closed until a replacement Ubuntu/Windows Node 20/24 matrix passes.
+
+**Published implementation:** Commit `e6798b6` (`Implement Phase 2A policy kernel`) pushed all 57 approved files to `main`. The working tree was clean after push.
+
+**Initial exact-head result:** GitHub Actions run `29325407247` targeted full SHA `e6798b6890de4276c2d28895a6359129e10578eb`. Windows / Node 20 and Windows / Node 24 passed Build, Regression Tests, Smoke Test, and Check Package Contents. Ubuntu / Node 20 and Ubuntu / Node 24 both passed setup, install, and Build, then failed Regression Tests; their later Smoke and package steps were correctly skipped. The symmetric Linux-only failure excluded a Node-version-specific defect.
+
+**Root cause:** `test/policy-resources.test.mjs` instantiated `PathGuard(config, "win32")` while the actual process ran on Ubuntu. `PathGuard` intentionally uses the host `node:path` implementation for filesystem resolution. On Linux, the test input `SRC\\File.ts` is a single filename containing a backslash rather than a Windows path separator, so the asserted canonical `relativePath` could never equal `src/File.ts`. Production resource normalization was not defective; the test mixed simulated policy semantics with a real filesystem parser from a different platform.
+
+**Repair:** Keep the filesystem guard on `process.platform`, resolve the real existing `src/File.ts`, and pass `platform: "win32"` only to the resource comparison-key normalizer. Assert that the filesystem descriptor preserves canonical `relativePath` while producing lowercase `comparisonKey`. Test slash conversion and case folding separately through `describeGitResource`, which normalizes path strings without touching the host filesystem. No production source, schema, package, dependency, or protected Smoke file changed.
+
+**Files changed:**
+
+- `test/policy-resources.test.mjs`
+- `AGENTS.md`
+- `Memory.md`
+- `docs/memory/archive/policy-kernel-gate.md`
+
+**Local verification:**
+
+- Focused resource tests: 7/7 pass.
+- Complete regression: 525 pass, 0 fail, 1 Windows platform skip across 526 tests.
+- TypeScript Build: pass.
+- All eight Smoke sections: pass.
+- The earlier pre-publication Stress and 195-file package dry-run remained valid because the repair changes only a test and project records; replacement exact-head CI remains authoritative for cross-platform closure.
+
+**Decision:** Preserve the failed run as evidence. Do not rerun the same SHA or skip the Linux assertion. Publish an ordinary test-only repair commit, require a fresh exact-head four-job matrix, then record formal Phase 2A closure separately.
+
+**Rollback:** Revert the repair commit through an ordinary new commit. Do not rewrite `e6798b6`, delete failed-run evidence, weaken path-policy production code, or make Ubuntu tests conditional merely to obtain a green matrix.
+
+**Next step:** Stage and publish this test-only repair, check the exact replacement SHA on Ubuntu/Windows Node 20/24, and keep Phase 2B closed until all four jobs pass.

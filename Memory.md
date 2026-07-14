@@ -17,11 +17,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 0.5: formally closed on 2026-07-12.
 - Phase 1: formally closed on 2026-07-14. Slices 1–16 were published earlier; unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed exact-head CI run `29314923948` on Ubuntu/Windows Node 20/24.
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
-- Phase 2A: all twelve TDD tasks and eighty-four plan steps are locally complete on native Windows; all local acceptance gates passed. Changes remain unstaged, uncommitted, and unpublished.
+- Phase 2A: implementation commit `e6798b6` is published. Exact-head run `29325407247` passed both Windows jobs but failed both Ubuntu regression jobs on one cross-platform test-fixture defect; a test-only repair is prepared and replacement CI is pending.
 
 ## Approved stopping point
 
-Phase 1 is formally closed at published head `e20d84e`. Phase 2A implementation and local acceptance are complete, but all changes remain unstaged and unpublished at HEAD `1f2dc0c`. The user controls staging, commit, push, and exact-head CI; do not begin Phase 2B before that decision. Phase 6–9 remain closed.
+Phase 1 is formally closed at published head `e20d84e`. Phase 2A implementation commit `e6798b6` is published, but exact-head run `29325407247` failed both Ubuntu regression jobs while both Windows jobs passed. A test-only fixture repair is being published; keep Phase 2B closed until the replacement four-job matrix passes and Phase 2A closure is recorded. Phase 6–9 remain closed.
 
 ## Active decisions and constraints
 
@@ -43,7 +43,8 @@ Phase 1 is formally closed at published head `e20d84e`. Phase 2A implementation 
 
 ## Verification evidence
 
-- Phase 2A local gate: Policy focused 69 pass/0 fail/1 platform skip, adjacent security/contracts 149/149, complete regression 525 pass/0 fail/1 platform skip across 526 tests, Build, all eight Smoke sections, native-Windows Stress, 195-file package dry-run, protected-source checks, and the static 27-tool mapping passed. Publication and exact-head CI remain pending.
+- Phase 2A local gate: Policy focused 69 pass/0 fail/1 platform skip, adjacent security/contracts 149/149, complete regression 525 pass/0 fail/1 platform skip across 526 tests, Build, all eight Smoke sections, native-Windows Stress, 195-file package dry-run, protected-source checks, and the static 27-tool mapping passed.
+- Initial exact-head run `29325407247` for `e6798b6` passed Windows Node 20/24 completely but failed Ubuntu Node 20/24 during Regression Tests. Root cause: `test/policy-resources.test.mjs` combined simulated `win32` `PathGuard` parsing with the host Linux `node:path` implementation. The repair keeps the real filesystem guard on the host platform and tests Windows normalization through resource comparison keys.
 - Published Phase 1 head `e20d84e` passed exact-head run `29314923948` on Ubuntu/Windows Node 20/24. Earlier phase and per-slice evidence remains in the linked archives and paired plans.
 
 ## Known limitations
@@ -61,14 +62,14 @@ Phase 1 is formally closed at published head `e20d84e`. Phase 2A implementation 
 
 ## Open items
 
-1. Await the user's decision on Phase 2A staging, commit, push, and exact-head CI. Keep the current implementation unstaged and do not begin Phase 2B before that publication decision.
+1. Publish the test-only cross-platform repair, require a passing exact-head Ubuntu/Windows Node 20/24 matrix, then record Phase 2A closure. Do not begin Phase 2B before that closure.
 
 ## Recent summaries
 
+- **STEP-252 — Repair Ubuntu exact-head regression:** implementation commit `e6798b6` was published; run `29325407247` passed both Windows jobs but exposed one Linux-host test-fixture defect in Windows path normalization. The test-only cross-platform repair passed focused and complete local regressions, Build, and Smoke.
 - **STEP-251 — Reconcile Phase 2A knowledge base:** removed historical narration from `AGENTS.md`, compressed `Memory.md`, aligned active Policy paths in both FAQs, and verified current-state references without changing runtime behavior.
-- **STEP-250 — Implement and locally accept Phase 2A:** completed all 12 TDD tasks and 84 plan steps; all local implementation gates passed. Changes remain unstaged and unpublished.
+- **STEP-250 — Implement and locally accept Phase 2A:** completed all 12 TDD tasks and 84 plan steps; all local implementation gates passed.
 - **STEP-249 — Pass Policy Kernel Gate and write Phase 2A plan:** final approval passed the Gate and produced the 12-task TDD implementation plan.
-- **STEP-248 — Write Policy Kernel Gate design package:** approved compiled-kernel Approach B and wrote the four design records.
 
 ## Archives
 
