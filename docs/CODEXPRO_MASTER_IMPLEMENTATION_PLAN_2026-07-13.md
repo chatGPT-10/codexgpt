@@ -5,9 +5,9 @@
 > 状态：当前权威实施路线  
 > 工作区：`D:\Dev\codexpro`  
 > 基线版本：`codexpro@0.28.6`  
-> 当前阶段：Phase 3A/3B 已发布并在 `88bd4b9` 通过 Ubuntu/Windows Node 20/24 精确头 CI；Phase 3C 规划待 closure 头验证
+> 当前阶段：Phase 3A/3B closure 头 `953e080` 已通过 Ubuntu/Windows Node 20/24 精确头 CI；Phase 3C 详细 TDD 计划已完成
 >
-> 下一门禁：STEP-278 closure 头通过精确头 CI 后，按已批准的 Phase 3C 规格编写并执行 TDD 计划
+> 下一门禁：执行 Phase 3C Task 1，建立严格契约版本选择与不完整 V2 失败关闭边界
 >
 > 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 
@@ -787,16 +787,19 @@ Phase 3 在继续扩大 Git/Shell 自动化前，先为所有受支持的工作�
 - [`2026-07-14-phase-3c-mutator-migration-and-undo-design.md`](superpowers/specs/2026-07-14-phase-3c-mutator-migration-and-undo-design.md)
 - [`2026-07-14-phase-3d-move-paths-and-acceptance-design.md`](superpowers/specs/2026-07-14-phase-3d-move-paths-and-acceptance-design.md)
 
-Phase 3A/3B 详细 TDD 实施计划：
+Phase 3A/3B/3C 详细 TDD 实施计划：
 
 - [`2026-07-14-phase-3a-atomic-transaction.md`](superpowers/plans/2026-07-14-phase-3a-atomic-transaction.md)
 - [`2026-07-14-phase-3b-persistent-audit.md`](superpowers/plans/2026-07-14-phase-3b-persistent-audit.md)
+- [`2026-07-14-phase-3c-mutator-migration-and-undo.md`](superpowers/plans/2026-07-14-phase-3c-mutator-migration-and-undo.md)
 - Phase 3A 共九个任务，实施记录为 STEP-265 至 STEP-273；已发布到本地与远端 `main` commit `75b8d54`。
 - Phase 3B 共十个任务，已发布于 `00cb917`；child fixture 和跨平台 protected-source hash 修复分别发布于 `70b1060` 与 `c5b0226`。
 - Phase 3C 完成全部 writer 迁移前，`atomic` 仅允许 `CODEXPRO_WRITE_MODE=off`；可写 atomic 配置必须在工具注册前失败关闭，现有公共 writer 仍保持经过审查的 legacy 行为。
 - Phase 3B 本地验收：聚焦审计测试 36/36；相邻 Policy/transaction/lifecycle/HTTP/contract 回归 172 项中 171 pass/0 fail/1 既有平台 skip；完整回归 626 项中 625 pass/0 fail/1 既有平台 skip；TypeScript Build、八段 Smoke、原生 Windows Stress、237 文件 package dry-run、精确 28 工具 V1、审计架构与敏感字段检查均通过。
 - Phase 3B 后端、查询、诊断、Policy wrapper 接口和事务参与者已完成；当前 V1 production server 尚不注入 persistent runtime，也不注册 `query_audit_events`。这两个启用动作必须在 Phase 3C 与 coherent contract V2、全 writer 迁移一起完成。
 - STEP-277 以“私有临时文件完整写入并同步，再通过同卷 hard link no-clobber 发布”修复 Windows Node 20 首次状态竞态；commit `88bd4b9` 的 run `29369658101` 已在 Ubuntu/Windows Node 20/24 全部通过 Build、Regression、Smoke 与 Package。
+- STEP-278 closure commit `953e080` 的 run `29370073046` 再次通过相同四矩阵与全部作业。Phase 3A/3B CI repair 门正式关闭。
+- Phase 3C 规格同时要求 V2 精确包含 Phase 3D 的 `move_paths`，又把 `move_paths` 实现留给 Phase 3D。为避免发布名义 31-tool、实际不完整的契约，Phase 3C 完成 writer/runtime/query/undo/版本化基础后仍使 public V2 启动失败关闭；Phase 3D 加入 `move_paths` 后一次性启用并验收完整 31-tool V2。V1 仍是迁移默认。
 
 ### 10.2 核心事务决策
 
@@ -1434,4 +1437,4 @@ Phase 1 Slice 28 codexpro
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1、Policy Kernel、Phase 2A、Phase 2B 已正式关闭；Phase 3A/3B 与三项 CI repair 已发布，`88bd4b9` 的 run `29369658101` 通过 Ubuntu/Windows Node 20/24 四矩阵。STEP-278 只记录 closure 证据并开启 Phase 3 Volume 2；其精确头 CI 通过后，按现有 3C/3D 规格与 2026-07-14 扩展授权，采用推荐选项连续推进 Phase 3C–Phase 8。每个独立子部分先交付、再审查、再整理、再发布，失败门禁必须修复而不能绕过。Phase 9、生产部署、真实凭据操作、破坏性数据/历史操作和规格外扩权仍未授权。
+Phase 1、Policy Kernel、Phase 2A、Phase 2B 已正式关闭；Phase 3A/3B 与三项 CI repair 已发布，closure 头 `953e080` 的 run `29370073046` 通过 Ubuntu/Windows Node 20/24 四矩阵。Phase 3C 十任务 TDD 计划已完成，并以“Phase 3C 准备、Phase 3D 完整激活”的失败关闭顺序解决 V2 必须包含 `move_paths` 的跨切片矛盾。按 2026-07-14 扩展授权，采用推荐选项连续推进 Phase 3C–Phase 8。每个独立子部分先交付、再审查、再整理、再发布，失败门禁必须修复而不能绕过。Phase 9、生产部署、真实凭据操作、破坏性数据/历史操作和规格外扩权仍未授权。
