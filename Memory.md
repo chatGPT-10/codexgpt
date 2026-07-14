@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
 - Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
-- Phase 3: Phase 3A and Phase 3B are published through `c5b0226` (`75b8d54` 3A, `00cb917` 3B, `70b1060` fixture discovery repair, `c5b0226` portable protected-source hashes). STEP-277 locally fixes the remaining Windows Node 20 installation-state publication race; Phase 3C–3D have not started.
+- Phase 3: Phase 3A and Phase 3B are published through `88bd4b9` (`75b8d54` 3A, `00cb917` 3B, `70b1060` fixture discovery repair, `c5b0226` portable protected-source hashes, `88bd4b9` atomic installation-state publication). Replacement exact-head run `29369658101` passed Ubuntu/Windows Node 20/24; Phase 3C–3D have not started.
 
 ## Approved execution boundary
 
@@ -52,7 +52,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 ## Verification evidence
 
 - Phase 3A/3B CI diagnosis: run `29348287464` exposed Node discovery of executable child fixtures plus raw-byte protected-source hash drift; later commits `70b1060` and `c5b0226` repair those causes. Run `29362153159` then isolated one Windows Node 20 first-open race where another process could observe partial `installation.json` bytes.
-- STEP-277 local replacement gate: Build passed; installation state 7/7; the exact audit concurrency regression passed plus 35 additional Windows Node 20.20.2 iterations; complete regression 631 tests with 630 pass, 0 fail, and 1 established skip; all eight Smoke sections, native-Windows Stress, and 237-file package dry-run passed. Exact-head replacement CI is pending publication.
+- STEP-277 replacement gate: local Build, focused/concurrency tests, 35 additional Windows Node 20.20.2 iterations, 631-test regression, all eight Smoke sections, native-Windows Stress, and 237-file package dry-run passed. Commit `88bd4b9` then passed exact-head CI run `29369658101` on Ubuntu/Windows Node 20/24; every job completed Build, Regression, Smoke, and Package.
 - Phase 3B implementation boundary: persistent storage, query, diagnostics, Policy wrapper integration points, and transaction participant are published, but current V1 production registration still does not inject the persistent runtime or expose `query_audit_events`; coherent enablement remains Phase 3C work.
 - Phase 3A local gate: focused transaction tests 44/44; adjacent security/lifecycle regression 38/38; complete regression 590 tests with 589 pass, 0 fail, and 1 established platform skip; TypeScript Build, all eight Smoke sections, native-Windows Stress, 217-file package dry-run, protected-source hashes, exact 28-tool contract, static dependency/sensitive-field checks, and the dedicated whitespace/scope review passed.
 - Phase 3A implementation boundary: default transaction mode remains `legacy`; `atomic` is read-only until Phase 3C; public writers are not migrated; same-volume hard links are mandatory with no direct-write fallback; crash recovery runs before atomic-mode workspace reuse and freezes on unprovable evidence. The implementation is published at `75b8d54`; these compatibility boundaries remain active.
@@ -75,11 +75,12 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish STEP-277 and require its Ubuntu/Windows Node 20/24 exact-head CI to pass. Then create Phase 3 Volume 2, write the Phase 3C TDD plan from the approved specification, and continue through Phase 8 under the recorded gates.
+1. Publish the STEP-278 documentation closure and require its exact-head CI to pass. Then write the Phase 3C TDD plan from the approved specification and continue through Phase 8 under the recorded gates.
 
 ## Recent summaries
 
-- **STEP-277 — Repair Phase 3A/3B CI portability and state publication:** confirmed the two published Phase 3A failures are repaired, replaced partial installation-state visibility with synced no-clobber publication, passed Node 20 concurrency stress plus the full local gate, and closed Phase 3 archive Volume 1 pending exact-head CI.
+- **STEP-278 — Close the Phase 3A/3B CI repair gate:** recorded that `88bd4b9` passed run `29369658101` on all Ubuntu/Windows Node 20/24 jobs and opened Phase 3 archive Volume 2 for the Phase 3C baseline.
+- **STEP-277 — Repair Phase 3A/3B CI portability and state publication:** confirmed both Phase 3A portability fixes, replaced partial installation-state visibility with synced no-clobber publication, and passed Node 20 concurrency stress plus the full local gate.
 - **STEP-276 — Reconcile Phase 3B knowledge and public metadata:** documented audit configuration and the dormant V1 boundary, aligned fork links, and added static drift guards before Phase 3B publication.
 - **STEP-275 — Locally accept Phase 3B:** implemented the persistent local audit backend, strict bounded query and transaction participant, eighteen-check self-test integration, and dormant V2 adapters; focused 36/36, adjacent 171/172 with one established skip, complete 625/626 with one established skip, Build, eight-section Smoke, native-Windows Stress, 237-file package dry-run, and architecture/scope gates passed. Stopped before Git staging.
 - **STEP-274 — Reconcile Phase 3A publication and start Phase 3B:** confirmed local/origin `75b8d54`, wrote the ten-task persistent-audit plan, and added strict audit mode/retention configuration with 4/4 focused tests passing after an observed RED.
@@ -105,6 +106,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - [Policy Kernel Gate — STEP-248 through STEP-253](docs/memory/archive/policy-kernel-gate.md)
 - [Closed Phase 2B Workspace Lifecycle — STEP-254 through STEP-262](docs/memory/archive/phase-2b-workspace-lifecycle.md)
 - [Closed Phase 3 Volume 1 — STEP-263 through STEP-277](docs/memory/archive/phase-3.md)
+- [Active Phase 3 Volume 2 — STEP-278 onward](docs/memory/archive/phase-3-part-2.md)
 
 ## Memory maintenance protocol
 

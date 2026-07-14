@@ -5,9 +5,9 @@
 > 状态：当前权威实施路线  
 > 工作区：`D:\Dev\codexpro`  
 > 基线版本：`codexpro@0.28.6`  
-> 当前阶段：Phase 3A/3B 已发布；STEP-277 正在修复最后一个 Windows Node 20 首次状态发布竞态
+> 当前阶段：Phase 3A/3B 已发布并在 `88bd4b9` 通过 Ubuntu/Windows Node 20/24 精确头 CI；Phase 3C 规划待 closure 头验证
 >
-> 下一门禁：STEP-277 通过 Ubuntu/Windows Node 20/24 精确头 CI 后，按已批准的 Phase 3C 规格编写并执行 TDD 计划
+> 下一门禁：STEP-278 closure 头通过精确头 CI 后，按已批准的 Phase 3C 规格编写并执行 TDD 计划
 >
 > 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 
@@ -100,7 +100,7 @@ mcp.<user-domain>
 | Policy Kernel 设计门 | 已通过 | 2026-07-14 批准 compiled-kernel Approach B；四份设计规格完整并通过自审 |
 | Phase 2A | 正式关闭 | 12 个 TDD 任务与 84 个步骤完成；实现 `e6798b6` 与 Linux 路径测试修复 `dea25ec` 通过 exact-head run `29326459987` 的 Ubuntu/Windows Node 20/24 四矩阵 |
 | Phase 2B | 正式关闭 | 工作区生命周期实现与替换 CI 已通过 Ubuntu/Windows Node 20/24 四矩阵 |
-| Phase 3 | 进行中 | 3A/3B 已发布；STEP-277 本地修复首次状态发布竞态，3C/3D 待精确头 CI 后继续 |
+| Phase 3 | 进行中 | 3A/3B 与 CI repairs 已发布；`88bd4b9` 通过 run `29369658101` 四矩阵，3C/3D 待 closure 头验证后继续 |
 | Phase 4–8 | 已批准、尚未开始 | 采用各设计门的推荐选项连续实施；每个可回滚子部分独立验证、整理、提交、推送并通过精确头 CI |
 | Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
@@ -796,7 +796,7 @@ Phase 3A/3B 详细 TDD 实施计划：
 - Phase 3C 完成全部 writer 迁移前，`atomic` 仅允许 `CODEXPRO_WRITE_MODE=off`；可写 atomic 配置必须在工具注册前失败关闭，现有公共 writer 仍保持经过审查的 legacy 行为。
 - Phase 3B 本地验收：聚焦审计测试 36/36；相邻 Policy/transaction/lifecycle/HTTP/contract 回归 172 项中 171 pass/0 fail/1 既有平台 skip；完整回归 626 项中 625 pass/0 fail/1 既有平台 skip；TypeScript Build、八段 Smoke、原生 Windows Stress、237 文件 package dry-run、精确 28 工具 V1、审计架构与敏感字段检查均通过。
 - Phase 3B 后端、查询、诊断、Policy wrapper 接口和事务参与者已完成；当前 V1 production server 尚不注入 persistent runtime，也不注册 `query_audit_events`。这两个启用动作必须在 Phase 3C 与 coherent contract V2、全 writer 迁移一起完成。
-- STEP-277 以“私有临时文件完整写入并同步，再通过同卷 hard link no-clobber 发布”修复 Windows Node 20 首次状态竞态；本地完整门禁通过，进入 Phase 3C 前仍需替换 exact-head CI 通过。
+- STEP-277 以“私有临时文件完整写入并同步，再通过同卷 hard link no-clobber 发布”修复 Windows Node 20 首次状态竞态；commit `88bd4b9` 的 run `29369658101` 已在 Ubuntu/Windows Node 20/24 全部通过 Build、Regression、Smoke 与 Package。
 
 ### 10.2 核心事务决策
 
@@ -1434,4 +1434,4 @@ Phase 1 Slice 28 codexpro
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1、Policy Kernel、Phase 2A、Phase 2B 已正式关闭；Phase 3A/3B 已发布。当前只处理 STEP-277 的 Phase 3A/3B CI 闭环：本地门禁通过后发布，并要求 Ubuntu/Windows Node 20/24 exact-head CI 全绿。随后按现有 3C/3D 规格与 2026-07-14 扩展授权，采用推荐选项连续推进 Phase 3C–Phase 8；每个独立子部分先交付、再审查、再整理、再发布，失败门禁必须修复而不能绕过。Phase 9、生产部署、真实凭据操作、破坏性数据/历史操作和规格外扩权仍未授权。
+Phase 1、Policy Kernel、Phase 2A、Phase 2B 已正式关闭；Phase 3A/3B 与三项 CI repair 已发布，`88bd4b9` 的 run `29369658101` 通过 Ubuntu/Windows Node 20/24 四矩阵。STEP-278 只记录 closure 证据并开启 Phase 3 Volume 2；其精确头 CI 通过后，按现有 3C/3D 规格与 2026-07-14 扩展授权，采用推荐选项连续推进 Phase 3C–Phase 8。每个独立子部分先交付、再审查、再整理、再发布，失败门禁必须修复而不能绕过。Phase 9、生产部署、真实凭据操作、破坏性数据/历史操作和规格外扩权仍未授权。
