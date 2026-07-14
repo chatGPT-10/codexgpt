@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ToolContractVersion } from "../../config.js";
 import {
   queryAuditEventsInputV2Schema,
   queryAuditEventsResultV2Schema
@@ -33,7 +34,7 @@ import { waitForHandoffOutputSchema } from "./waitForHandoff.js";
 import { workspaceSnapshotOutputSchema } from "./workspaceSnapshot.js";
 import { writeOutputSchema } from "./write.js";
 
-export const CANONICAL_CODEXPRO_CHILD_TOOLS = [
+export const CANONICAL_CODEXPRO_CHILD_TOOLS_V1 = Object.freeze([
   "apply_patch",
   "bash",
   "codex_context",
@@ -62,12 +63,29 @@ export const CANONICAL_CODEXPRO_CHILD_TOOLS = [
   "wait_for_handoff",
   "workspace_snapshot",
   "write"
-] as const;
+] as const);
+
+export const CANONICAL_CODEXPRO_CHILD_TOOLS_V2 = Object.freeze([
+  ...CANONICAL_CODEXPRO_CHILD_TOOLS_V1,
+  "query_audit_events",
+  "undo_change_set",
+  "move_paths"
+] as const);
+
+export const CANONICAL_CODEXPRO_CHILD_TOOLS = CANONICAL_CODEXPRO_CHILD_TOOLS_V1;
 
 export type CanonicalCodexProChildTool = typeof CANONICAL_CODEXPRO_CHILD_TOOLS[number];
+export type CanonicalCodexProChildToolV2 = typeof CANONICAL_CODEXPRO_CHILD_TOOLS_V2[number];
 
-// Dormant contract V2 helpers. They are intentionally excluded from the V1
-// canonical action arrays and production registration maps until Phase 3C.
+export function canonicalCodexProChildTools(version: ToolContractVersion) {
+  if (version === 1) return CANONICAL_CODEXPRO_CHILD_TOOLS_V1;
+  if (version === 2) return CANONICAL_CODEXPRO_CHILD_TOOLS_V2;
+  throw new Error("Unsupported tool contract version.");
+}
+
+// Dormant contract V2 helpers. The final V2 name set is reserved now, but
+// production V2 construction remains fail-closed until Phase 3D implements
+// move_paths and supplies a complete registration and output-schema map.
 export const queryAuditEventsInputSchemaV2 = queryAuditEventsInputV2Schema;
 export const queryAuditEventsOutputSchemaV2 = queryAuditEventsResultV2Schema;
 

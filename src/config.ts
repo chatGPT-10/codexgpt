@@ -10,6 +10,7 @@ export type CodexSessionsMode = "off" | "metadata" | "read";
 export type WriteMode = "off" | "handoff" | "workspace";
 export type ToolMode = "minimal" | "standard" | "full";
 export type FileTransactionMode = "legacy" | "atomic";
+export type ToolContractVersion = 1 | 2;
 
 export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
 export type AuditMode = "auto" | "off" | "best_effort" | "required";
@@ -39,6 +40,7 @@ export interface CodexProConfig {
   codexDir: string;
   writeMode: WriteMode;
   fileTransactions: FileTransactionMode;
+  toolContractVersion: ToolContractVersion;
   toolMode: ToolMode;
   policyEngineMode: PolicyEngineMode;
   auditMode: AuditMode;
@@ -213,6 +215,13 @@ function fileTransactionModeFrom(value: string | undefined): FileTransactionMode
   throw new Error("CODEXPRO_FILE_TRANSACTIONS must be legacy or atomic.");
 }
 
+function toolContractVersionFrom(value: string | undefined): ToolContractVersion {
+  const normalized = value?.trim();
+  if (!normalized || normalized === "1") return 1;
+  if (normalized === "2") return 2;
+  throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION must be 1 or 2.");
+}
+
 export interface FileTransactionCapabilities {
   workspaceMutatorsAtomic: boolean;
 }
@@ -242,6 +251,40 @@ function policyEngineModeFrom(value: string | undefined): PolicyEngineMode {
   if (!normalized) return "legacy";
   if (normalized === "legacy" || normalized === "shadow" || normalized === "enforce") return normalized;
   throw new Error("CODEXPRO_POLICY_ENGINE must be legacy, shadow, or enforce.");
+}
+
+export interface ToolContractCapabilities {
+  durableAuditAvailable: boolean;
+  stateRootAvailable: boolean;
+  movePathsAvailable: boolean;
+}
+
+export function assertToolContractConfiguration(
+  config: Pick<CodexProConfig, "fileTransactions" | "auditMode"> &
+    Partial<Pick<CodexProConfig, "toolContractVersion">>,
+  capabilities: ToolContractCapabilities
+): void {
+  // Existing programmatic callers may omit the new field for one migration
+  // cycle. Missing remains contract V1, matching loadConfig's default.
+  if (config.toolContractVersion === undefined || config.toolContractVersion === 1) return;
+  if (config.toolContractVersion !== 2) {
+    throw new Error("Unsupported tool contract version.");
+  }
+  if (config.fileTransactions !== "atomic") {
+    throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION=2 requires CODEXPRO_FILE_TRANSACTIONS=atomic.");
+  }
+  if (!capabilities.movePathsAvailable) {
+    throw new Error("Contract V2 is incomplete until Phase 3D implements move_paths.");
+  }
+  if (config.auditMode === "off") {
+    throw new Error("Contract V2 requires persistent audit; CODEXPRO_AUDIT_MODE cannot be off.");
+  }
+  if (!capabilities.durableAuditAvailable) {
+    throw new Error("Contract V2 requires an available persistent audit runtime.");
+  }
+  if (!capabilities.stateRootAvailable) {
+    throw new Error("Contract V2 requires an available Phase 3 state root.");
+  }
 }
 
 function auditModeFrom(value: string | undefined): AuditMode {
@@ -432,6 +475,12 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
   const fileTransactionsArg = typeof args["file-transactions"] === "string"
     ? args["file-transactions"]
     : undefined;
+  if (args["tool-contract-version"] === true) {
+    throw new Error("--tool-contract-version requires a value of 1 or 2.");
+  }
+  const toolContractVersionArg = typeof args["tool-contract-version"] === "string"
+    ? args["tool-contract-version"]
+    : undefined;
   const toolModeArg = typeof args["tool-mode"] === "string" ? args["tool-mode"] : undefined;
   const policyEngineArg = typeof args["policy-engine"] === "string" ? args["policy-engine"] : undefined;
   const auditModeArg = typeof args["audit-mode"] === "string" ? args["audit-mode"] : undefined;
@@ -487,6 +536,9 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     writeMode: writeModeFrom(writeArg ?? process.env.CODEXPRO_WRITE_MODE),
     fileTransactions: fileTransactionModeFrom(
       fileTransactionsArg ?? process.env.CODEXPRO_FILE_TRANSACTIONS
+    ),
+    toolContractVersion: toolContractVersionFrom(
+      toolContractVersionArg ?? process.env.CODEXPRO_TOOL_CONTRACT_VERSION
     ),
     toolMode: toolModeFrom(toolModeArg ?? process.env.CODEXPRO_TOOL_MODE),
     policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXPRO_POLICY_ENGINE),

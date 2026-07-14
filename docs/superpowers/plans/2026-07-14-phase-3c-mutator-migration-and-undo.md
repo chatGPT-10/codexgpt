@@ -89,7 +89,9 @@ This preserves both phase ownership and the stronger invariant that every advert
 - Modify: `src/tools/schemas/codexpro.ts`
 - Modify: `src/codexproSupertool.ts`
 - Modify: `src/server.ts`
+- Modify: `src/audit/lock.ts` (publication-gate repair discovered during Task 1)
 - Create: `test/transaction-contract-version.test.mjs`
+- Create: `test/audit-lock-release.test.mjs` (publication-gate repair regression)
 - Modify: `config.example.env`
 - Modify: `Memory.md`
 - Modify: `docs/memory/archive/phase-3-part-2.md`
@@ -99,17 +101,17 @@ This preserves both phase ownership and the stronger invariant that every advert
 - Keeps `CANONICAL_CODEXPRO_CHILD_TOOLS` as an exact V1 compatibility alias.
 - V2 constant contains all 31 names, but `createCodexProServer()` rejects V2 with `CONTRACT_V2_INCOMPLETE` until the injected capability says `movePaths: true`.
 
-- [ ] **Step 1: Write RED tests**
+- [x] **Step 1: Write RED tests**
 
 Assert default/explicit/invalid parsing, exact V1 28 names, exact V2 31 names, V2 superset ordering, immutability, and V2 rejection when atomic/audit/state-root/move capability is absent. Also assert V1 supertool and child schema behavior is byte-for-byte unchanged.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: `npm run build && node --test test/transaction-contract-version.test.mjs test/codexpro-contract.test.mjs`
 
 Expected: focused test fails because versioned configuration and canonical sets do not exist; existing V1 contract test passes.
 
-- [ ] **Step 3: Implement the minimal versioned selector**
+- [x] **Step 3: Implement the minimal versioned selector**
 
 Use numeric internal values and strict parsing:
 
@@ -126,7 +128,7 @@ function toolContractVersionFrom(value: string | undefined): ToolContractVersion
 
 Derive all selected arrays and maps from `config.toolContractVersion`. Do not add an operational `move_paths` placeholder.
 
-- [ ] **Step 4: Confirm GREEN and V1 compatibility**
+- [x] **Step 4: Confirm GREEN and V1 compatibility**
 
 Run: `npm run build && node --test test/transaction-contract-version.test.mjs test/codexpro-contract.test.mjs test/transaction-config-and-path-policy.test.mjs test/audit-architecture.test.mjs`
 
@@ -135,6 +137,8 @@ Expected: all pass; V2 is defined but cannot start; V1 remains exact.
 - [ ] **Step 5: Review, reconcile, publish, and wait for exact-head CI**
 
 Run the phase-part neat-freak checks, update the archive/Memory, stage only listed files, commit `feat: add versioned tool contract gate`, push `main`, and require Ubuntu/Windows Node 20/24 exact-head CI.
+
+Execution note: the first complete-regression gate exposed a transient Windows `EPERM` while releasing the persistent-audit writer lock. The same task therefore includes the minimal TDD repair: retry only `EPERM`, `EACCES`, and `EBUSY` with bounded delays, revalidate ownership before every attempt, and keep all other failures fail-closed.
 
 ---
 

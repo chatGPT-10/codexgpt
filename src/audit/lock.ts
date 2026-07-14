@@ -23,6 +23,20 @@ export interface AuditWriterLockDependencies {
   randomBytes?: (size: number) => Buffer;
   now?: () => number;
   kill?: (pid: number, signal: 0) => void;
+  releaseRenameSync?: (source: string, destination: string) => void;
+  releaseRetryDelay?: (milliseconds: number) => void;
+}
+
+const RELEASE_RETRY_DELAYS_MS = [1, 2, 4] as const;
+const releaseRetrySignal = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+
+function defaultReleaseRetryDelay(milliseconds: number): void {
+  Atomics.wait(releaseRetrySignal, 0, 0, milliseconds);
+}
+
+function isTransientReleaseConflict(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === "EPERM" || code === "EACCES" || code === "EBUSY";
 }
 
 function writeOwner(file: string, owner: AuditLockOwnerV1): void {
@@ -48,11 +62,12 @@ export class AuditWriterLockHandle {
 
   constructor(
     readonly lockDirectory: string,
-    private readonly owner: AuditLockOwnerV1
+    private readonly owner: AuditLockOwnerV1,
+    private readonly releaseRenameSync: (source: string, destination: string) => void,
+    private readonly releaseRetryDelay: (milliseconds: number) => void
   ) {}
 
-  release(): void {
-    if (this.released) return;
+  private assertOwnership(): void {
     const ownerFile = path.join(this.lockDirectory, "owner.json");
     let current: AuditLockOwnerV1;
     try {
@@ -67,14 +82,26 @@ export class AuditWriterLockHandle {
     ) {
       throw new AuditError("AUDIT_BUSY", "Audit writer lock ownership changed before release.");
     }
+  }
+
+  release(): void {
+    if (this.released) return;
     const released = `${this.lockDirectory}.release-${this.owner.lockToken.slice(10, 26)}`;
-    try {
-      fs.renameSync(this.lockDirectory, released);
-      fs.rmSync(released, { recursive: true, force: true });
-      this.released = true;
-    } catch {
-      throw new AuditError("AUDIT_BUSY", "Audit writer lock could not be released safely.");
+    for (let attempt = 0; ; attempt += 1) {
+      this.assertOwnership();
+      try {
+        this.releaseRenameSync(this.lockDirectory, released);
+        break;
+      } catch (error) {
+        const retryDelay = RELEASE_RETRY_DELAYS_MS[attempt];
+        if (!isTransientReleaseConflict(error) || retryDelay === undefined) {
+          throw new AuditError("AUDIT_BUSY", "Audit writer lock could not be released safely.");
+        }
+        this.releaseRetryDelay(retryDelay);
+      }
     }
+    fs.rmSync(released, { recursive: true, force: true });
+    this.released = true;
   }
 }
 
@@ -82,6 +109,8 @@ export class AuditWriterLock {
   private readonly randomBytes: (size: number) => Buffer;
   private readonly now: () => number;
   private readonly kill: (pid: number, signal: 0) => void;
+  private readonly releaseRenameSync: (source: string, destination: string) => void;
+  private readonly releaseRetryDelay: (milliseconds: number) => void;
 
   constructor(
     private readonly stateRoot: string,
@@ -91,6 +120,8 @@ export class AuditWriterLock {
     this.randomBytes = dependencies.randomBytes ?? nodeRandomBytes;
     this.now = dependencies.now ?? Date.now;
     this.kill = dependencies.kill ?? process.kill.bind(process);
+    this.releaseRenameSync = dependencies.releaseRenameSync ?? fs.renameSync;
+    this.releaseRetryDelay = dependencies.releaseRetryDelay ?? defaultReleaseRetryDelay;
   }
 
   private newOwner(): AuditLockOwnerV1 {
@@ -119,7 +150,12 @@ export class AuditWriterLock {
       writeOwner(path.join(claimDirectory, "owner.json"), owner);
       try {
         fs.renameSync(claimDirectory, lockDirectory);
-        return new AuditWriterLockHandle(lockDirectory, owner);
+        return new AuditWriterLockHandle(
+          lockDirectory,
+          owner,
+          this.releaseRenameSync,
+          this.releaseRetryDelay
+        );
       } catch (error) {
         if (!isDestinationExists(error)) {
           throw new AuditError("AUDIT_UNAVAILABLE", "Audit writer claim could not be published.");

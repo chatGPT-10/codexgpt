@@ -4,7 +4,11 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { assertFileTransactionConfiguration, type CodexProConfig } from "./config.js";
+import {
+  assertFileTransactionConfiguration,
+  assertToolContractConfiguration,
+  type CodexProConfig
+} from "./config.js";
 import {
   createDefaultTransactionRecoveryCoordinator,
   type TransactionRecoveryHook
@@ -4730,6 +4734,11 @@ export function createCodexProServer(
   dependencies: CodexProServerDependencies = {}
 ): McpServer {
   assertFileTransactionConfiguration(config, { workspaceMutatorsAtomic: false });
+  assertToolContractConfiguration(config, {
+    durableAuditAvailable: false,
+    stateRootAvailable: false,
+    movePathsAvailable: false
+  });
   const transactionRecoveryCoordinator = config.fileTransactions === "atomic"
     ? dependencies.transactionRecoveryCoordinator ?? createDefaultTransactionRecoveryCoordinator(config)
     : undefined;

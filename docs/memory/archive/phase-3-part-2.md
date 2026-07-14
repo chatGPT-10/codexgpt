@@ -45,3 +45,49 @@ This archive is append-only. It continues Phase 3 after Volume 1 crossed its dir
 **Rollback method:** Revert only the STEP-279 plan and documentation reconciliation. Do not rewrite the approved specifications, closed archives, or passing Phase 3A/3B implementation history.
 
 **Next step:** Publish this planning step, require exact-head CI, then execute Phase 3C Task 1 with a focused RED test before production code.
+
+## STEP-280 — Add the Phase 3C contract-version gate
+
+**Status:** Locally complete and verified; ready for the authorized scoped commit, push, and exact-head CI.
+
+**Goal:** Establish strict server-lifecycle tool-contract selection while preserving the exact public V1 contract and preventing an incomplete V2 from reaching registration.
+
+**Files changed:** `src/config.ts`; `src/server.ts`; `src/tools/schemas/codexpro.ts`; `config.example.env`; `test/transaction-contract-version.test.mjs`; `AGENTS.md`; `Memory.md`; `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`; `docs/superpowers/plans/2026-07-14-phase-3c-mutator-migration-and-undo.md`; this archive.
+
+**Implementation summary:** Added strict `CODEXPRO_TOOL_CONTRACT_VERSION=1|2` and `--tool-contract-version`, with V1 default and a missing-value CLI error. Existing programmatic configuration objects that omit the new field map to V1 for one migration cycle. Split the canonical names into frozen exact V1 and V2 sets, retained `CANONICAL_CODEXPRO_CHILD_TOOLS` as the identical V1 compatibility object, and added a fail-closed selector. V2 reserves the exact 31 names but server construction rejects it before manager/tool creation until atomic mode, persistent audit, Phase 3 state, and especially Phase 3D `move_paths` capability are complete. No placeholder tool or partial public registration was added.
+
+**Verification commands:** initial `npm run build; node --test test/transaction-contract-version.test.mjs` RED; repeated `npm run build`; focused/adjacent `node --test test/transaction-contract-version.test.mjs test/transaction-config-and-path-policy.test.mjs test/audit-config.test.mjs test/audit-architecture.test.mjs test/codexpro-contract.test.mjs test/server-config-contract.test.mjs test/config-realpath.test.mjs`; final focused contract rerun; `git diff --check`; secret-signature, relative-link, stale-state, Memory/archive-size, and intended-file checks.
+
+**Verification results:** The deliberate RED failed because the V1/V2 exports did not exist. The first GREEN run exposed that existing hand-built configurations omit new fields; the compatibility fix treats omission as V1 rather than weakening V2 checks. Final Build passed and the combined focused/adjacent gate passed 37/37 with 0 failures; the last contract rerun passed 17/17. V1 direct/supertool contracts stayed exact.
+
+**Decisions made:** Missing `toolContractVersion` is V1 only for the compatibility cycle; invalid explicit values fail. Keep the complete V2 name reservation separate from operational schema/registration maps until Phase 3D. Check the `move_paths` capability before audit/state readiness in the temporary production gate so the bounded failure reports the actual cross-slice blocker.
+
+**Risks or limitations:** Contract V2 remains intentionally unusable. The V2 name set does not imply a registered handler or output schema. Writable atomic mode is still blocked because writer migration has not begun. Exact-head CI remains required before Task 2.
+
+**Rollback method:** Revert the Task 1 commit. Configuration then returns to implicit V1-only behavior; no workspace, application state, audit evidence, or credentials require migration.
+
+**Next step:** Commit and push Task 1, require exact-head Ubuntu/Windows Node 20/24 CI, then begin Task 2 with failing change-set schema and encryption tests.
+
+## STEP-281 — Harden transient Windows audit-lock release
+
+**Status:** Locally complete and included in the Phase 3C Task 1 publication gate; exact-head CI remains required.
+
+**Goal:** Fix the real Windows concurrency defect exposed by the complete Task 1 regression without weakening persistent-audit ownership or fail-closed behavior.
+
+**Files changed:** `src/audit/lock.ts`; `test/audit-lock-release.test.mjs`; `Memory.md`; `docs/superpowers/plans/2026-07-14-phase-3c-mutator-migration-and-undo.md`; this archive. The Task 1 files listed in STEP-280 remain part of the same unpublished phase-part boundary.
+
+**Implementation summary:** The first complete regression failed when one audit writer had verified ownership but Windows returned a transient `EPERM` while renaming `writer.lock` to its private release directory. Release previously attempted that rename once even though acquisition already treats Windows directory rename conflicts as transient contention. Added injected release primitives and a fixed 1/2/4 ms retry schedule for only `EPERM`, `EACCES`, and `EBUSY`. Every attempt rereads and validates the exact token, instance, and PID before the atomic rename. Unknown failures still fail immediately, and exhausted retries preserve the active lock.
+
+**Verification commands:** deliberate RED `npm run build; node --test test/audit-lock-release.test.mjs`; GREEN `npm run build; node --test test/audit-lock-release.test.mjs test/audit-store.test.mjs`; twenty repeated runs of the two-process audit append test; replacement `npm run build; node --test test/*.test.mjs`; `npm run smoke`; `npm run stress`; `npm pack --dry-run --json`.
+
+**Verification results:** RED produced 0/2 pass because production ignored the injected release operations. GREEN passed 6/6 including three release classifications and the original cross-process append test. The additional concurrency loop passed 20/20. Replacement Build passed; complete regression passed 637/638 with 0 failures and 1 established platform skip; all eight Smoke sections, native-Windows Stress, and the 237-file package dry-run passed. The earlier complete run had failed 1/635 specifically at audit lock release and is superseded by this root-cause repair, not ignored.
+
+**Decisions made:** Retry only errors known to be transient directory-sharing conflicts on supported Windows filesystems. Keep the retry budget synchronous and below 8 ms total because release is a short critical section. Revalidate ownership before each attempt so a retry can never release a changed or foreign lock. Treat this as a Task 1 publication-gate repair rather than stacking later Phase 3C work on a failing baseline.
+
+**Risks or limitations:** This is a filesystem coordination mechanism, not an operating-system sandbox or database lock. Persistent contention still returns `AUDIT_BUSY` after four rename attempts. Exact-head Ubuntu/Windows Node 20/24 CI is still required before Task 2 begins.
+
+**Rollback method:** Revert the Task 1 phase-part commit. The previous one-shot release behavior returns; no audit records, workspace files, credentials, or user configuration require migration.
+
+**Next step:** Complete neat-freak scope and secret checks, publish the combined Task 1 plus gate repair, require exact-head CI, then begin Task 2 with RED change-set schema and encrypted-store tests.
+
+**Post-review correction:** The result-first adversarial review found that a JavaScript caller could supply numeric contract version `3` directly to the configuration assertion despite the strict environment and CLI parser. A new RED reproduced the misclassification as V2; the assertion now accepts only omitted/`1`/`2` and rejects every other runtime value before capability checks. The replacement focused/adjacent gate passed 43/43, and the fresh complete Build/regression/Smoke/Stress/package gate retained the results recorded above.
