@@ -749,9 +749,9 @@ workspaceId
 
 保留旧 ID 解析兼容层，但不得恢复跨客户端共享的隐式授权。数据迁移必须可逆，不删除用户 profile 或工作区记录。
 
-### 9.6 2026-07-14 本地实施状态
+### 9.6 2026-07-14 正式关闭状态
 
-Phase 2B 已完成设计、TDD 实现和本地验收，但尚未暂存、提交、推送或运行 exact-head CI：
+Phase 2B 已完成设计、TDD 实现、本地验收、`neat-freak` 对账和发布。实现与对账提交 `2fb622d` 已推送到 `main`，exact-head CI run `29332007110` 在 Ubuntu/Windows Node 20/24 四个任务上全部成功：
 
 - `workspaceKey` 仅作 manager 内部 canonical-root 去重；公开 `workspaceId` 改为随机 `ws_<32 hex>` 会话句柄。
 - 每个 `createCodexProServer()` 拥有独立 `WorkspaceManager`；HTTP transport session 和 STDIO 进程会话不再共享 inventory 或授权句柄。
@@ -761,7 +761,7 @@ Phase 2B 已完成设计、TDD 实现和本地验收，但尚未暂存、提交�
 - 受保护的 `scripts/http-smoke.mjs` 未修改；兼容 loader 已迁移为跨 HTTP 会话隔离、外来句柄拒绝和会话局部导出检查。
 - Build、完整回归、八段 Smoke、native-Windows Stress 和 197 文件 package dry-run 已通过；最终精确计数记录在 `Memory.md` 与 Phase 2B 归档。
 
-未暂存 diff 已完成 `neat-freak` 规则、用户文档、安全边界、Changelog、Memory 和归档对账。下一步仅在用户明确批准后暂存、提交、推送并验证 exact-head CI；任何回滚不得恢复进程全局 manager、路径派生公开 ID 或跨会话复用。
+四个 CI 任务均完成 Build、Regression Tests、Smoke Test 和 Check Package Contents。Phase 2B 因此正式关闭；下一步进入 Phase 3 设计审查。任何回滚不得恢复进程全局 manager、路径派生公开 ID 或跨会话复用。
 
 ---
 

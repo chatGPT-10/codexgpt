@@ -176,3 +176,31 @@ Review the final unstaged diff. After explicit user approval, run the requested 
 **Rollback method:** Revert only the STEP-260 documentation/rule changes and restore the redundant internal timestamp field if necessary; no public schema, handle format, lifecycle behavior, or persisted user data depends on this reconciliation.
 
 **Next step:** After explicit user approval, stage the reconciled Phase 2B diff, commit, push, and verify exact-head CI. Do not treat Phase 3 as published work until that closure succeeds.
+
+## STEP-261 — Publish and formally close Phase 2B
+
+**Status:** Complete. Phase 2B is published and formally closed.
+
+**Goal:** Publish the reconciled Phase 2B workspace-lifecycle implementation and require exact-head cross-platform CI before closing the phase.
+
+**Files changed:** The published implementation commit contains the 25 reviewed Phase 2B source, schema, test, compatibility-loader, rule, documentation, plan, and archive files. This closure record updates `AGENTS.md`, `Memory.md`, the authoritative master plan, and this archive.
+
+**Implementation summary:** Staged the exact reviewed Phase 2B scope, committed it as `2fb622d` (`feat: add session-scoped workspace lifecycle`), and pushed `main` to `origin`. The commit contains random session-scoped workspace handles, strict core lookup plus the one-cycle resolver boundary, isolated per-server managers, close/expiry/revocation behavior, the 28th canonical `close_workspace` tool, protected-Smoke compatibility migration, tests, user documentation, and the completed `neat-freak` reconciliation.
+
+**Verification commands:**
+
+- `npm run build`
+- `node --test test/*.test.mjs`
+- `npm run smoke`
+- `npm pack --dry-run`
+- GitHub public API queries for workflow run `29332007110` and its jobs
+
+**Verification results:** Fresh pre-publication Build passed. Complete regression ran 542 tests with 541 pass, 0 fail, and 1 established platform-conditional skip. All eight Smoke sections passed. Package dry-run passed with 197 files. Exact-head CI run `29332007110` matched full commit `2fb622d21aac0a8faa207bfc1ef738565a172742` and completed successfully. Windows Node 20, Windows Node 24, Ubuntu Node 20, and Ubuntu Node 24 each passed Build, Regression Tests, Smoke Test, and Check Package Contents.
+
+**Decisions made:** Treat the successful exact-head implementation run as the Phase 2B closure gate. Preserve process-local lifecycle scope and the one-cycle omitted-ID compatibility boundary. Do not claim OAuth owner identity, persistence, or complete filesystem TOCTOU elimination. Move the active sequencing point to Phase 3 design review while retaining all independent high-risk gates.
+
+**Risks or limitations:** Lifecycle state remains process-local; OAuth owner identity and persistent lifecycle storage remain out of scope. The compatibility resolver remains temporary. `AGENTS.md` is near its advisory byte budget and should be compressed rather than expanded in later phases.
+
+**Rollback method:** Revert commit `2fb622d` with a normal inverse commit if Phase 2B must be withdrawn. Do not restore process-global manager sharing, path-derived public IDs, or cross-session handle reuse as an undocumented fallback.
+
+**Next step:** Begin Phase 3 design review under the recorded Phase 2A–5 authorization. Keep staging, commits, pushes, system-policy changes, sandbox installation, OAuth 2.1, credential migration, and Phase 6–9 independently gated.
