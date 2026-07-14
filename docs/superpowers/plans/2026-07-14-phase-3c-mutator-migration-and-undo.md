@@ -134,7 +134,7 @@ Run: `npm run build && node --test test/transaction-contract-version.test.mjs te
 
 Expected: all pass; V2 is defined but cannot start; V1 remains exact.
 
-- [ ] **Step 5: Review, reconcile, publish, and wait for exact-head CI**
+- [x] **Step 5: Review, reconcile, publish, and wait for exact-head CI**
 
 Run the phase-part neat-freak checks, update the archive/Memory, stage only listed files, commit `feat: add versioned tool contract gate`, push `main`, and require Ubuntu/Windows Node 20/24 exact-head CI.
 
@@ -162,25 +162,25 @@ Execution note: the first complete-regression gate exposed a transient Windows `
 - Produces `deriveChangeSetBlobKey(masterKey)`, `encryptChangeSetBlob(...)`, `decryptChangeSetBlob(...)`, and `ChangeSetStore`.
 - Default limits: 8 MiB plaintext/change set, 128 MiB installation ciphertext, 20 active/workspace, 24-hour active retention, 30-day tombstones.
 
-- [ ] **Step 1: Write schema and crypto RED tests**
+- [x] **Step 1: Write schema and crypto RED tests**
 
 Cover strict unknown-field rejection, IDs, timestamps, no canonical roots, no plaintext body field, independent 12-byte nonces, AES-GCM authentication failure, wrong AAD/operation/change-set rejection, and HKDF separation from audit keys.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: `npm run build && node --test test/change-set-schema-and-crypto.test.mjs`
 
 Expected: module import failure.
 
-- [ ] **Step 3: Implement strict types and crypto**
+- [x] **Step 3: Implement strict types and crypto**
 
 Use an envelope with fixed magic/version/nonce/tag/ciphertext lengths and AAD containing schema version, change-set ID, blob ID, operation ID, and before SHA-256. Never serialize the derived key or plaintext.
 
-- [ ] **Step 4: Write store RED tests**
+- [x] **Step 4: Write store RED tests**
 
 Cover manifest/blob creation, exclusive IDs, authenticated read, active/undone/expired/recovery-required transitions, size/count/total pruning, expiry tombstones, corrupt manifest/blob fail-closed, Windows-safe state paths, and concurrent store mutation under the existing state lock discipline.
 
-- [ ] **Step 5: Implement store GREEN**
+- [x] **Step 5: Implement store GREEN**
 
 Persist manifests with `AtomicJsonFileStore`; write ciphertext exclusively, sync before manifest reference, and remove only authenticated unreferenced artifacts. Retention failure returns an explicit non-undoable reason without throwing after the caller has chosen non-retained commit.
 

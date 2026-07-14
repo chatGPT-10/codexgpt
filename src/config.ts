@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { DEFAULT_ANALYSIS_LIMITS, type AnalysisLimits } from "./analysis/types.js";
 import type { RiskClass } from "./policy/types.js";
+import type { ChangeSetRetentionConfig } from "./changesets/types.js";
 
 export type BashMode = "off" | "safe" | "full";
 export type BashTranscriptMode = "compact" | "full";
@@ -45,6 +46,7 @@ export interface CodexProConfig {
   policyEngineMode: PolicyEngineMode;
   auditMode: AuditMode;
   auditRetention: AuditRetentionConfig;
+  changeSetRetention: ChangeSetRetentionConfig;
   permissionProfileId?: string;
   inheritEnv: boolean;
   maxReadBytes: number;
@@ -206,6 +208,24 @@ function bashSessionIdFrom(value: string | undefined): string | undefined {
 function writeModeFrom(value: string | undefined): WriteMode {
   if (value === "off" || value === "handoff" || value === "workspace") return value;
   return "workspace";
+}
+
+function strictNumberFrom(
+  name: string,
+  value: string | undefined,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  if (value === undefined || value.trim() === "") return fallback;
+  if (!/^\d+$/.test(value.trim())) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}.`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}.`);
+  }
+  return parsed;
 }
 
 function fileTransactionModeFrom(value: string | undefined): FileTransactionMode {
@@ -550,6 +570,43 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
         100 * 1024 * 1024,
         1024 * 1024,
         2 * 1024 * 1024 * 1024
+      )
+    },
+    changeSetRetention: {
+      maxPlaintextBytesPerChangeSet: strictNumberFrom(
+        "CODEXPRO_CHANGE_SET_MAX_PLAINTEXT_BYTES",
+        process.env.CODEXPRO_CHANGE_SET_MAX_PLAINTEXT_BYTES,
+        8 * 1024 * 1024,
+        1024,
+        64 * 1024 * 1024
+      ),
+      maxInstallationCiphertextBytes: strictNumberFrom(
+        "CODEXPRO_CHANGE_SET_MAX_INSTALLATION_BYTES",
+        process.env.CODEXPRO_CHANGE_SET_MAX_INSTALLATION_BYTES,
+        128 * 1024 * 1024,
+        1024 * 1024,
+        2 * 1024 * 1024 * 1024
+      ),
+      maxActivePerWorkspace: strictNumberFrom(
+        "CODEXPRO_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE",
+        process.env.CODEXPRO_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE,
+        20,
+        1,
+        1000
+      ),
+      activeRetentionMs: strictNumberFrom(
+        "CODEXPRO_CHANGE_SET_RETENTION_MS",
+        process.env.CODEXPRO_CHANGE_SET_RETENTION_MS,
+        24 * 60 * 60_000,
+        60_000,
+        30 * 24 * 60 * 60_000
+      ),
+      tombstoneRetentionMs: strictNumberFrom(
+        "CODEXPRO_CHANGE_SET_TOMBSTONE_RETENTION_MS",
+        process.env.CODEXPRO_CHANGE_SET_TOMBSTONE_RETENTION_MS,
+        30 * 24 * 60 * 60_000,
+        24 * 60 * 60_000,
+        365 * 24 * 60 * 60_000
       )
     },
     permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXPRO_PERMISSION_PROFILE),

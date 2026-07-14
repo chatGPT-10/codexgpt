@@ -5,9 +5,9 @@
 > 状态：当前权威实施路线  
 > 工作区：`D:\Dev\codexpro`  
 > 基线版本：`codexpro@0.28.6`  
-> 当前阶段：Phase 3C 计划头 `02e45fc` 已通过四矩阵 CI；Task 1 契约版本门已在本地完成
+> 当前阶段：Phase 3C Task 1 已通过四矩阵 CI；Task 2 认证加密 change-set store 已在本地完成
 >
-> 下一门禁：发布 Phase 3C Task 1 并通过精确头 CI，然后以 RED 开始加密 change-set store
+> 下一门禁：发布 Task 2 并通过精确头 CI，然后以 RED 开始 server-owned mutation commit handshake
 >
 > 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 

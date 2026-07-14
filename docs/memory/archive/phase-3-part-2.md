@@ -91,3 +91,47 @@ This archive is append-only. It continues Phase 3 after Volume 1 crossed its dir
 **Next step:** Complete neat-freak scope and secret checks, publish the combined Task 1 plus gate repair, require exact-head CI, then begin Task 2 with RED change-set schema and encrypted-store tests.
 
 **Post-review correction:** The result-first adversarial review found that a JavaScript caller could supply numeric contract version `3` directly to the configuration assertion despite the strict environment and CLI parser. A new RED reproduced the misclassification as V2; the assertion now accepts only omitted/`1`/`2` and rejects every other runtime value before capability checks. The replacement focused/adjacent gate passed 43/43, and the fresh complete Build/regression/Smoke/Stress/package gate retained the results recorded above.
+
+## STEP-282 — Close Phase 3C Task 1 publication
+
+**Status:** Complete; Task 1 is published and its exact-head CI passed.
+
+**Goal:** Verify the published contract-version and audit-lock repair head before any Task 2 work is stacked on it.
+
+**Files changed:** `AGENTS.md`; `Memory.md`; `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`; `docs/superpowers/plans/2026-07-14-phase-3c-mutator-migration-and-undo.md`; this archive. Production source changed: none in this closure record.
+
+**Implementation summary:** Published the reviewed Task 1 boundary as commit `a9acc14` and observed its exact GitHub Actions head through completion. Marked the Task 1 plan gate complete and advanced the active boundary to Task 2 encrypted change-set storage.
+
+**Verification commands:** `git push origin main`; `gh run watch 29372615528 -R chatGPT-10/codexgpt --exit-status --interval 10`; exact-head run/job inspection.
+
+**Verification results:** Run `29372615528` succeeded. Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24 each passed Checkout, Install, Build, Regression Tests, Smoke Test, and Check Package Contents.
+
+**Decisions made:** Treat Task 1 as closed only after its exact published head passed all four matrices. Keep public V2 fail-closed and start Task 2 from this verified baseline.
+
+**Risks or limitations:** Task 2 and later Phase 3C writers remain unimplemented. This closure does not activate V2 or writable atomic mode.
+
+**Rollback method:** Revert `a9acc14` with a new commit if Task 1 must be removed; do not rewrite published history or delete audit/change-set state.
+
+**Next step:** Write and confirm RED tests for strict change-set schemas, HKDF-separated AES-256-GCM blobs, and bounded persistent storage.
+
+## STEP-283 — Add authenticated encrypted change-set storage
+
+**Status:** Locally complete and verified; ready for the authorized scoped commit, push, and exact-head CI.
+
+**Goal:** Persist bounded undo before-state outside workspaces without plaintext disclosure, metadata substitution, path escape, or silent retention drift, while keeping public contract V1 unchanged.
+
+**Files changed:** `src/changesets/types.ts`; `src/changesets/schemas.ts`; `src/changesets/crypto.ts`; `src/changesets/store.ts`; `src/changesets/index.ts`; `src/tools/schemas/transactionResult.ts`; `src/config.ts`; `config.example.env`; `test/change-set-schema-and-crypto.test.mjs`; `test/change-set-store.test.mjs`; Phase 3 plan, rules, master plan, Memory, and this archive. The existing generic HKDF primitive and transaction barrel were sufficient, so no unnecessary `src/transactions/installation.ts` or `src/transactions/index.ts` edit was made.
+
+**Implementation summary:** Added strict change-set draft/persisted manifest, operation, state, retention, error, and shared V2 transaction-result schemas. Derived separate HKDF subkeys for manifest HMAC and rollback encryption. Each rollback blob uses AES-256-GCM with an independent 12-byte nonce and AAD binding schema version, change-set ID, blob ID, operation ID, and before SHA-256. Persisted manifests carry an HMAC over canonical facts, so structurally valid metadata substitution fails. The store validates plaintext hashes in memory, publishes synced ciphertext before the signed manifest, uses exclusive IDs, rejects linked/escaped state directories, authenticates before reads or deletion, enforces stale-safe state transitions, and keeps only small tombstones after expiry. Capacity is made available before publication; inspection failure produces an explicit non-undoable `retention_unavailable` result instead of throwing after success. Added strict bounded configuration with defaults of 8 MiB/change set, 128 MiB/installation, 20 active/workspace, 24-hour active retention, and 30-day tombstones.
+
+**Verification commands:** deliberate schema/crypto import RED; focused schema/crypto GREEN; deliberate store import RED; focused store GREEN; strict-config RED/GREEN; manifest-substitution RED/GREEN; retention-publication and directory-durability RED/GREEN; symlinked-state RED/GREEN; `npm run build`; focused/adjacent transaction, audit, installation, manifest-store, and contract tests; `node --test test/*.test.mjs`; `npm run smoke`; `npm run stress`; `npm pack --dry-run --json`; dependency, write-primitive, whitespace, secret/plaintext, link, size, and scope scans.
+
+**Verification results:** Final change-set focused tests passed 13/13. The adjacent transaction/audit group passed 39/39. Complete regression passed 650/651 with 0 failures and 1 established platform skip. Build, all eight Smoke sections, native-Windows Stress, and the 249-file package dry-run passed. RED runs separately proved missing modules, silent numeric clamping, unauthenticated valid-JSON substitution, post-publication retention failure, missing blob-directory durability enforcement, and state-directory symlink escape before each root cause was repaired.
+
+**Decisions made:** Authenticate manifest metadata separately from encrypted bytes because create/move operations may have no rollback blob. Reject invalid new retention settings instead of silently clamping them. Permit configuration above the 8 MiB default within a fixed 64 MiB per-change-set ceiling. Run capacity enforcement before manifest publication. Keep all changeset primitives application-state-only with no shell, Git, network, database, or background-worker dependency.
+
+**Risks or limitations:** The store is not yet wired to public writers; Task 3 owns the server-lifecycle runtime and commit handshake. Encryption protects against casual disclosure and unintended indexing, not an attacker controlling the same OS account and installation key. External processes remain outside the workspace lock. Contract V2 and writable atomic mode remain unavailable.
+
+**Rollback method:** Revert the Task 2 commit before any runtime integration. Existing V1 requests and workspace files are unaffected. Never delete already-created audit or change-set evidence as part of configuration rollback.
+
+**Next step:** Publish Task 2, require exact-head Ubuntu/Windows Node 20/24 CI, then write Task 3 handshake RED tests.
