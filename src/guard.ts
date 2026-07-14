@@ -13,6 +13,16 @@ export interface Workspace {
   openedAt: string;
 }
 
+export interface PolicyPathFacts {
+  absPath: string;
+  relPath: string;
+  comparisonKey: string;
+  targetExists: boolean;
+  existingParent: string;
+  existingParentIdentity: string;
+  unresolvedSuffix: string[];
+}
+
 export class CodexProError extends Error {
   constructor(message: string) {
     super(message);
@@ -222,6 +232,54 @@ export class PathGuard {
     }
 
     return { absPath, relPath };
+  }
+
+  resolvePolicyFacts(
+    workspace: Workspace,
+    inputPath = ".",
+    options: { forWrite?: boolean } = {}
+  ): PolicyPathFacts {
+    const resolved = this.resolve(workspace, inputPath, options);
+    const realTarget = maybeRealpath(resolved.absPath);
+    const targetAbsPath = realTarget ?? resolved.absPath;
+    const targetExists = Boolean(realTarget);
+    const existingParentCandidate = targetExists
+      ? path.dirname(targetAbsPath)
+      : closestExistingParent(path.dirname(resolved.absPath));
+    const existingParent = maybeRealpath(existingParentCandidate);
+    if (!existingParent || !isSubpath(existingParent, workspace.root)) {
+      throw new CodexProError(`Path parent is outside the workspace: ${inputPath}`);
+    }
+    const parentStat = fs.statSync(existingParent);
+    const parentIdentityPayload = `${existingParent}\0${parentStat.dev}\0${parentStat.ino}`;
+    const existingParentIdentity = `parent_${createHash("sha256").update(parentIdentityPayload).digest("hex").slice(0, 24)}`;
+    const canonicalRelPath = displayPath(targetAbsPath, workspace.root);
+    const normalizedRelPath = normalizeRelPath(canonicalRelPath).normalize("NFC");
+    const comparisonKey = this.platform === "win32"
+      ? normalizedRelPath.toLocaleLowerCase("en-US")
+      : normalizedRelPath;
+    const unresolvedSuffix = targetExists
+      ? []
+      : normalizeRelPath(path.relative(existingParent, resolved.absPath))
+          .split("/")
+          .filter((segment) => segment && segment !== ".");
+
+    for (const segment of unresolvedSuffix) {
+      assertSafePathInput(segment, this.platform);
+      if (segment === "..") {
+        throw new CodexProError(`Path escapes workspace root: ${inputPath}`);
+      }
+    }
+
+    return {
+      absPath: targetAbsPath,
+      relPath: normalizedRelPath,
+      comparisonKey,
+      targetExists,
+      existingParent,
+      existingParentIdentity,
+      unresolvedSuffix
+    };
   }
 
   async assertTextFile(absPath: string, maxBytes: number): Promise<void> {

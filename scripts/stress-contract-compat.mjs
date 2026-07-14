@@ -1,4 +1,7 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { runSpikeFixture } from './policy-windows-spike.mjs';
 
 function replaceExactCount(source, oldText, newText, expectedCount) {
   const actualCount = source.split(oldText).length - 1;
@@ -8,6 +11,24 @@ function replaceExactCount(source, oldText, newText, expectedCount) {
     );
   }
   return source.split(oldText).join(newText);
+}
+
+const policyFixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-policy-stress-'));
+try {
+  const policyReport = await runSpikeFixture({
+    fixtureRoot: policyFixtureRoot,
+    platform: process.platform,
+    execute: async (probe) => ({
+      id: probe.id,
+      outcome: probe.id === 'workspace_read' ? 'pass' : 'blocked',
+      detailCode: 'stress-synthetic'
+    })
+  });
+  if (policyReport.fixtureRoot !== '[synthetic fixture]' || policyReport.persistentHostChanges !== false) {
+    throw new Error('Policy Windows spike contract returned unsafe fixture facts.');
+  }
+} finally {
+  await fs.rm(policyFixtureRoot, { recursive: true, force: true });
 }
 
 const sourceUrl = new URL('./stress.mjs', import.meta.url);

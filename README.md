@@ -148,6 +148,20 @@ tailscale funnel http://127.0.0.1:8787
 
 Then use the complete Server URL copied by CodexPro. It includes the `codexpro_token` query credential; do not remove the query string. In ChatGPT choose `Authentication: No Authentication / None`.
 
+## Policy Kernel Migration
+
+Phase 2A adds a local Policy Kernel with three explicit rollout modes:
+
+- `CODEXPRO_POLICY_ENGINE=legacy` is the migration-cycle default and preserves the existing execution path.
+- `CODEXPRO_POLICY_ENGINE=shadow` executes the legacy path while producing only redacted comparison facts.
+- `CODEXPRO_POLICY_ENGINE=enforce` makes the compiled Policy Kernel authoritative and fails closed when policy, identity, approval, or enforcement facts are unavailable.
+
+An optional `CODEXPRO_PERMISSION_PROFILE=<id>` selects a strict JSON document at `~/.codexpro/permissions/<id>.json`. Runtime profiles and Permission Profiles are separate: `toolMode` controls discovery only, while filesystem, Git, Shell, Process, and Network ceilings come from identity scopes, hard policy, the selected Permission Profile, bounded session grants, and demonstrated enforcement capabilities.
+
+Phase 2A intentionally remains restrictive. No approval-management UI or MCP approval tool is exposed yet, so operations classified as approval-required return `APPROVAL_REQUIRED` until a later approved surface issues an exact bounded grant. Safe Bash remains a command filter rather than an OS sandbox. In `enforce` mode, opaque Shell or Process execution returns a sandbox-unavailable error when the required Windows/Linux capabilities have not been demonstrated. Cloudflare Tunnel protects inbound routing; it does not enforce local authorization or outbound network access.
+
+Rollback during the migration cycle is limited to the reviewed `legacy` behavior, the generated compatibility profile, or a narrower read-only profile. Policy-loading failure never falls through to unguarded execution.
+
 ## Safety Defaults
 
 - Public tunnel mode requires a CodexPro HTTP token.

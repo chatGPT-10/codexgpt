@@ -36,6 +36,7 @@ const DATA_KEYS = [
   "http_auth",
   "inventory",
   "missing_tools",
+  "policy",
   "probe_artifact",
   "registered_tools",
   "request",
@@ -61,6 +62,11 @@ const CHECK_NAMES = [
   "write_edit_probe",
   "selected_only_pro_context",
   "bash_policy",
+  "policy_schema",
+  "policy_profile",
+  "policy_revision",
+  "policy_identity",
+  "policy_enforcement",
   "terms_boundary"
 ];
 
@@ -92,6 +98,8 @@ function createTestConfig(root, overrides = {}) {
     codexDir: path.join(root, "codex-history"),
     writeMode: "workspace",
     toolMode: "standard",
+    policyEngineMode: "legacy",
+    permissionProfileId: undefined,
     inheritEnv: false,
     maxReadBytes: 1_000_000,
     maxWriteBytes: 1_000_000,
@@ -211,6 +219,20 @@ function sampleProviderResult(root, overrides = {}) {
       outcome: "skipped",
       reason_code: "BASH_POLICY_UNAVAILABLE"
     },
+    policy: {
+      engine_mode: "legacy",
+      profile_id: "compat-v1",
+      schema_valid: true,
+      profile_valid: true,
+      revision_valid: true,
+      identity_valid: true,
+      enforcement_declared: true,
+      policy_revision: "policy_0123456789abcdef01234567",
+      hard_policy_revision: "hard-policy-v1",
+      backend_id: "codexpro-node-broker",
+      evidence_revision: "node-broker-v1",
+      missing_capabilities: []
+    },
     terms_boundary: termsBoundary(),
     ...overrides
   };
@@ -229,6 +251,11 @@ function sampleChecks(overrides = {}) {
     write_edit_probe: ["pass", "WRITE_EDIT_PROBE_PASSED", "The fixed write/edit probe passed."],
     selected_only_pro_context: ["pass", "PRO_CONTEXT_PROBE_PASSED", "The selected-only Pro context probe passed."],
     bash_policy: ["skipped", "BASH_POLICY_UNAVAILABLE", "The Bash policy probe was unavailable in Bash-off mode."],
+    policy_schema: ["pass", "POLICY_SCHEMA_VALID", "The Policy V1 schema is valid."],
+    policy_profile: ["pass", "POLICY_PROFILE_VALID", "The Permission Profile compiled successfully."],
+    policy_revision: ["pass", "POLICY_REVISION_VALID", "The policy revision is deterministic and available."],
+    policy_identity: ["pass", "POLICY_IDENTITY_VALID", "The request identity mapping is valid."],
+    policy_enforcement: ["pass", "POLICY_ENFORCEMENT_DECLARED", "The enforcement capability limits are declared."],
     terms_boundary: ["pass", "TERMS_BOUNDARY_VALID", "The local workspace bridge terms boundary is intact."]
   };
   for (const [name, value] of Object.entries(overrides)) byName[name] = value;
@@ -243,7 +270,7 @@ function sampleChecks(overrides = {}) {
 function sampleData(root, overrides = {}) {
   const checks = overrides.checks ?? sampleChecks();
   const counts = {
-    total: 12,
+    total: 17,
     passed: checks.filter((item) => item.status === "pass").length,
     warned: checks.filter((item) => item.status === "warn").length,
     failed: checks.filter((item) => item.status === "fail").length,
@@ -272,6 +299,20 @@ function sampleData(root, overrides = {}) {
       mcp_servers_truncated: false
     },
     git: { repository_state: "clean", changed_entries: 0 },
+    policy: {
+      engine_mode: "legacy",
+      profile_id: "compat-v1",
+      schema_valid: true,
+      profile_valid: true,
+      revision_valid: true,
+      identity_valid: true,
+      enforcement_declared: true,
+      policy_revision: "policy_0123456789abcdef01234567",
+      hard_policy_revision: "hard-policy-v1",
+      backend_id: "codexpro-node-broker",
+      evidence_revision: "node-broker-v1",
+      missing_capabilities: []
+    },
     probe_artifact: FIXED_ARTIFACT,
     files_touched: [FIXED_ARTIFACT],
     checks,
@@ -296,7 +337,7 @@ function assertFailure(result, code, details) {
   return parsed;
 }
 
-test("codexpro_self_test schema exports the exact six-field envelope and twenty-one-field data", async () => {
+test("codexpro_self_test schema exports the exact six-field envelope and twenty-two-field data", async () => {
   await withTempWorkspace(async (root) => {
     assert.deepEqual(CODEXPRO_SELF_TEST_CHECK_NAMES, CHECK_NAMES);
     assert.deepEqual(Object.keys(CODEXPRO_SELF_TEST_ERROR_MESSAGES ?? {}).sort(), ERROR_CODES);
@@ -313,8 +354,8 @@ test("codexpro_self_test schema exports the exact six-field envelope and twenty-
     assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
     assert.deepEqual(success.data.checks.map((item) => item.name), CHECK_NAMES);
     assert.deepEqual(success.data.counts, {
-      total: 12,
-      passed: 11,
+      total: 17,
+      passed: 16,
       warned: 0,
       failed: 0,
       skipped: 1
@@ -337,7 +378,7 @@ test("codexpro_self_test schema derives exact warning order and keeps failed dia
     const data = sampleData(root, {
       status: "fail",
       checks,
-      counts: { total: 12, passed: 9, warned: 1, failed: 1, skipped: 1 },
+      counts: { total: 17, passed: 14, warned: 1, failed: 1, skipped: 1 },
       expected_tools: ["codexpro_self_test", "server_config"],
       registered_tools: ["codexpro_self_test"],
       missing_tools: ["server_config"],
@@ -482,7 +523,7 @@ test("codexpro_self_test normalizes defaults before one Provider call and derive
       assert.deepEqual(Object.keys(parsed.data).sort(), DATA_KEYS);
       assert.deepEqual(parsed.data.request, requestDefaults());
       assert.deepEqual(parsed.data.checks.map((item) => item.name), CHECK_NAMES);
-      assert.equal(parsed.data.counts.total, 12);
+      assert.equal(parsed.data.counts.total, 17);
       assert.equal(parsed.data.probe_artifact, FIXED_ARTIFACT);
       assert.deepEqual(parsed.data.files_touched, [FIXED_ARTIFACT]);
       assert.doesNotMatch(resultText(result), /test-placeholder-token|bash_session_id|Skill name|MCP server name/i);

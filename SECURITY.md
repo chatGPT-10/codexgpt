@@ -94,6 +94,24 @@ codexpro start \
   --bash safe
 ```
 
+## Policy Kernel Boundaries
+
+Phase 2A introduces a compiled local Policy Kernel with `legacy`, `shadow`, and `enforce` rollout modes. The effective ceiling is the intersection of immutable hard policy, identity scopes, the selected Permission Profile, and demonstrated deployment capabilities. A SessionGrant or approval may narrow or temporarily satisfy a request inside that ceiling; it cannot exceed it.
+
+The following distinctions are security requirements:
+
+- Tool visibility is not authorization.
+- A query-token or Bearer token is a shared-secret identity, not proof of a human owner.
+- Runtime profiles do not contain permission rules; strict Permission Profile V1 documents live under `~/.codexpro/permissions/`.
+- Safe Bash is not an OS sandbox.
+- A Windows Job Object, when later available, would establish only tested process-tree controls, not filesystem, registry, credential, or network isolation.
+- Cloudflare Tunnel is inbound transport infrastructure and does not enforce local policy or outbound egress.
+- Missing or partial enforcement capabilities produce stable fail-closed errors rather than current-user execution.
+
+Phase 2A does not claim complete Windows sandboxing, OAuth-grade owner isolation, elimination of symlink/junction TOCTOU, persistent audit storage, approval UI, or safe arbitrary Git remote writes. The synthetic Windows capability spike reads and writes only temporary fixtures and reports unproved capabilities as `none`; it does not install firewall rules, services, scheduled tasks, registry policy, or sandbox software.
+
+During the migration cycle, rollback is permitted only to reviewed legacy behavior, the exact generated compatibility profile, or a narrower read-only profile. Invalid policy configuration cannot fall through to an unguarded execution path.
+
 ## Hard Rules
 
 - Do not run public tunnels with `--no-auth`.

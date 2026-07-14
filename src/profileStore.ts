@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { BashMode, BashTranscriptMode, CodexSessionsMode, ToolMode, WriteMode } from "./config.js";
+import type { BashMode, BashTranscriptMode, CodexSessionsMode, PolicyEngineMode, ToolMode, WriteMode } from "./config.js";
 import { expandHome } from "./config.js";
 
 export type TunnelMode = "none" | "cloudflare" | "cloudflare-named" | "ngrok" | "tailscale";
@@ -32,6 +32,8 @@ export interface WorkspaceProfile {
   write?: WriteMode | string;
   toolMode?: ToolMode | string;
   toolCards?: boolean;
+  policyEngine?: PolicyEngineMode | string;
+  permissionProfile?: string;
   widgetDomain?: string;
   noInstallCloudflared?: boolean;
 }
@@ -53,7 +55,11 @@ export interface RuntimeConnection {
   write?: WriteMode | string;
   toolMode?: ToolMode | string;
   toolCards?: boolean;
+  policyEngine?: PolicyEngineMode | string;
+  permissionProfile?: string;
 }
+
+// Runtime connection records keep only safe policy selectors, never policy bodies or credentials.
 
 export function codexProHome(): string {
   const customHome = process.env.CODEXPRO_HOME;

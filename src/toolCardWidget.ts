@@ -662,7 +662,7 @@ export const toolCardWidgetHtml = String.raw`
     if (data?.codexpro_tool === "server_config") {
       const config = data?.data ?? {};
       const session = config?.bashSessionId || config?.bash_session_id;
-      return "tools " + (config?.toolMode || config?.tool_mode || "-") + ", bash " + (config?.bashMode || config?.bash_mode || "-") + (session ? ", session " + session : "");
+      return "tools " + (config?.toolMode || config?.tool_mode || "-") + ", bash " + (config?.bashMode || config?.bash_mode || "-") + ", policy " + (config?.policyEngineMode || "legacy") + (session ? ", session " + session : "");
     }
     if (data?.codexpro_tool === "tree") {
       if (data?.ok === false) return data?.error?.code || "File tree unavailable";
@@ -1245,7 +1245,7 @@ export const toolCardWidgetHtml = String.raw`
       pill(expectedTools.length + " tools", "info"),
       pill((data?.meta?.durationMs ?? "-") + " ms")
     ].join("");
-    const rows = checks.slice(0, 12).map((check) => {
+    const rows = checks.slice(0, 17).map((check) => {
       const state = String(check?.status || "?").toUpperCase();
       const cls = check?.status === "pass" ? "good" : check?.status === "fail" ? "bad" : "warn";
       const label = (check?.name || "check") + " [" + (check?.code || "-") + "]: " + (check?.message || "");
@@ -1450,6 +1450,15 @@ export const toolCardWidgetHtml = String.raw`
     const allowed = Array.isArray(config.allowedRoots) ? config.allowedRoots : [];
     const bashSession = config.bashSessionId || config.bash_session_id || "";
     const bashSessionRequired = Boolean(config.requireBashSession || config.require_bash_session);
+    const enforcement = config.enforcement ?? {};
+    const missingCapabilities = Array.isArray(enforcement.missingCapabilities) ? enforcement.missingCapabilities : [];
+    const policyRows = [
+      '<div class="file-row"><span class="file-code">mode</span><span class="file-name">' + esc(config.policyEngineMode || "legacy") + '</span></div>',
+      '<div class="file-row"><span class="file-code">rev</span><span class="file-name">' + esc(config.policyRevision || "inactive") + '</span></div>',
+      '<div class="file-row"><span class="file-code">hard</span><span class="file-name">' + esc(config.hardPolicyRevision || "-") + '</span></div>',
+      '<div class="file-row"><span class="file-code">backend</span><span class="file-name">' + esc((enforcement.backendId || "-") + " / " + (enforcement.evidenceRevision || "-")) + '</span></div>',
+      '<div class="file-row"><span class="file-code">limits</span><span class="file-name">' + esc(missingCapabilities.length ? missingCapabilities.join(", ") : "none reported") + '</span></div>'
+    ].join("");
     const rootRows = [
       '<div class="file-row"><span class="file-code">root</span><span class="file-name">' + esc(config.defaultRoot || "-") + '</span></div>',
       '<div class="file-row"><span class="file-code">url</span><span class="file-name">' + esc((config.host || "127.0.0.1") + ":" + (config.port || "-")) + '</span></div>',
@@ -1470,6 +1479,7 @@ export const toolCardWidgetHtml = String.raw`
     return '<article class="card">' + header(data, [
       pill("tools " + (config.toolMode || "-"), "info"),
       pill("bash " + (config.bashMode || "-")),
+      pill("policy " + (config.policyEngineMode || "legacy"), config.policyEngineMode === "enforce" ? "good" : config.policyEngineMode === "shadow" ? "warn" : "info"),
       bashSession ? pill("session " + bashSession, bashSessionRequired ? "warn" : "info") : "",
       pill(config.authEnabled ? "auth on" : "auth off", config.authEnabled ? "good" : "warn")
     ].join("")) + '<div class="body">' +
@@ -1478,8 +1488,11 @@ export const toolCardWidgetHtml = String.raw`
       summaryItem("Bash", config.bashMode || "-") +
       summaryItem("Session", bashSession ? bashSession + (bashSessionRequired ? " required" : "") : "-") +
       summaryItem("Tools", config.toolMode || "-") +
+      summaryItem("Policy", config.policyEngineMode || "legacy") +
+      summaryItem("Profile", config.permissionProfileId || "compat-v1") +
       '</div>' +
       '<div class="section-label">Runtime</div><div class="file-list">' + rootRows + '</div>' +
+      fold("Policy", (config.policyEngineMode || "legacy") + " / " + (enforcement.active ? "active" : "inactive"), '<div class="file-list">' + policyRows + '</div>', false) +
       fold("Allowed roots", allowed.length + " roots", '<div class="file-list">' + (allowedRows || '<div class="empty">No roots configured.</div>') + '</div>', false) +
       fold("Limits", "", '<div class="summary">' + limits + '</div>', false) +
       fold("Blocked paths", blocked.length + " patterns", '<div class="file-list">' + (blockedRows || '<div class="empty">No blocked globs configured.</div>') + '</div>', false) +

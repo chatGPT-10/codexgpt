@@ -7,9 +7,12 @@ import { editTextFile, writeTextFile } from "./fsOps.js";
 import { gitStatus } from "./gitOps.js";
 import type { PathGuard, Workspace } from "./guard.js";
 import { buildProContext } from "./proContext.js";
+import { identityForStdio } from "./policy/identity.js";
+import { inspectPolicyConfiguration, policyIdentityScopes } from "./policy/runtime.js";
 import {
   CODEXPRO_SELF_TEST_ARTIFACT,
   codexproSelfTestDataSchema,
+  codexproSelfTestPolicySchema,
   codexproSelfTestRequestSchema,
   codexproSelfTestTermsBoundarySchema,
   type CodexProSelfTestCheck,
@@ -102,6 +105,7 @@ const providerResultSchema = z.object({
       "BASH_POLICY_FAILED"
     ])
   }).strict(),
+  policy: codexproSelfTestPolicySchema,
   terms_boundary: codexproSelfTestTermsBoundarySchema
 }).strict();
 
@@ -392,6 +396,49 @@ export function safeCodexProSelfTestWorkspaceId(value: unknown): string {
     : "workspace-id-omitted";
 }
 
+function policyFacts(config: CodexProConfig): CodexProSelfTestProviderResult["policy"] {
+  let identityValid = false;
+  try {
+    identityForStdio(policyIdentityScopes(config));
+    identityValid = true;
+  } catch {
+    identityValid = false;
+  }
+
+  try {
+    const inspection = inspectPolicyConfiguration(config);
+    return {
+      engine_mode: config.policyEngineMode ?? "legacy",
+      profile_id: inspection.profileId,
+      schema_valid: true,
+      profile_valid: true,
+      revision_valid: /^policy_[a-f0-9]{24}$/.test(inspection.policyRevision),
+      identity_valid: identityValid,
+      enforcement_declared: Boolean(inspection.backendId && inspection.evidenceRevision),
+      policy_revision: inspection.policyRevision,
+      hard_policy_revision: inspection.hardPolicyRevision,
+      backend_id: inspection.backendId,
+      evidence_revision: inspection.evidenceRevision,
+      missing_capabilities: [...inspection.missingCapabilities]
+    };
+  } catch {
+    return {
+      engine_mode: config.policyEngineMode ?? "legacy",
+      profile_id: config.permissionProfileId ?? "compat-v1",
+      schema_valid: true,
+      profile_valid: false,
+      revision_valid: false,
+      identity_valid: identityValid,
+      enforcement_declared: true,
+      policy_revision: "policy-unavailable",
+      hard_policy_revision: "hard-policy-v1",
+      backend_id: "codexpro-node-broker",
+      evidence_revision: "node-broker-v1",
+      missing_capabilities: []
+    };
+  }
+}
+
 export const defaultCodexProSelfTestProvider: CodexProSelfTestProvider = async (context) => {
   let inventory: CodexProSelfTestProviderResult["inventory"];
   try {
@@ -469,6 +516,7 @@ export const defaultCodexProSelfTestProvider: CodexProSelfTestProvider = async (
     write_probe: writeProbe,
     pro_context_probe: proContextProbe,
     bash_policy_probe: bashPolicyProbe,
+    policy: policyFacts(context.config),
     terms_boundary: {
       local_workspace_bridge: true,
       provides_models: false,
@@ -569,6 +617,21 @@ function deriveChecks(
     facts.bash_policy_probe.reason_code,
     bashMessages[facts.bash_policy_probe.reason_code]
   );
+  const policySchemaCheck = facts.policy.schema_valid
+    ? check("policy_schema", "pass", "POLICY_SCHEMA_VALID", "The Policy V1 schema is valid.")
+    : check("policy_schema", "fail", "POLICY_SCHEMA_INVALID", "The Policy V1 schema is invalid.");
+  const policyProfileCheck = facts.policy.profile_valid
+    ? check("policy_profile", "pass", "POLICY_PROFILE_VALID", "The Permission Profile compiled successfully.")
+    : check("policy_profile", "fail", "POLICY_PROFILE_INVALID", "The Permission Profile could not be compiled.");
+  const policyRevisionCheck = facts.policy.revision_valid
+    ? check("policy_revision", "pass", "POLICY_REVISION_VALID", "The policy revision is deterministic and available.")
+    : check("policy_revision", "fail", "POLICY_REVISION_INVALID", "The policy revision is unavailable or invalid.");
+  const policyIdentityCheck = facts.policy.identity_valid
+    ? check("policy_identity", "pass", "POLICY_IDENTITY_VALID", "The request identity mapping is valid.")
+    : check("policy_identity", "fail", "POLICY_IDENTITY_INVALID", "The request identity mapping is invalid.");
+  const policyEnforcementCheck = facts.policy.enforcement_declared
+    ? check("policy_enforcement", "pass", "POLICY_ENFORCEMENT_DECLARED", "The enforcement capability limits are declared.")
+    : check("policy_enforcement", "fail", "POLICY_ENFORCEMENT_INVALID", "The enforcement capability limits are unavailable.");
 
   return [
     check("workspace", "pass", "WORKSPACE_READY", "Workspace access is available."),
@@ -582,6 +645,11 @@ function deriveChecks(
     writeCheck,
     proCheck,
     bashCheck,
+    policySchemaCheck,
+    policyProfileCheck,
+    policyRevisionCheck,
+    policyIdentityCheck,
+    policyEnforcementCheck,
     check("terms_boundary", "pass", "TERMS_BOUNDARY_VALID", "The local workspace bridge terms boundary is intact.")
   ];
 }
@@ -661,6 +729,8 @@ export function buildCodexProSelfTestData(
     facts.bash_session_guard.configured !== Boolean(context.config.bashSessionId) ||
     facts.http_auth.enabled !== Boolean(context.config.authToken) ||
     facts.http_auth.required_for_public_access !== context.config.requireHttpToken ||
+    facts.policy.engine_mode !== (context.config.policyEngineMode ?? "legacy") ||
+    facts.policy.profile_id !== (context.config.permissionProfileId ?? "compat-v1") ||
     !exactRequest(facts.request, context.request)
   ) {
     throw new CodexProSelfTestInternalError();
@@ -681,7 +751,7 @@ export function buildCodexProSelfTestData(
   const unexpectedTools = registeredTools.filter((name) => !expectedTools.includes(name));
   const checks = deriveChecks(facts, missingTools, unexpectedTools);
   const counts = {
-    total: 12 as const,
+    total: 17 as const,
     passed: checks.filter((item) => item.status === "pass").length,
     warned: checks.filter((item) => item.status === "warn").length,
     failed: checks.filter((item) => item.status === "fail").length,
@@ -716,6 +786,7 @@ export function buildCodexProSelfTestData(
       mcp_servers_truncated: facts.inventory.mcp_servers_truncated
     },
     git: facts.git,
+    policy: facts.policy,
     probe_artifact: facts.write_probe.probe_artifact,
     files_touched: facts.write_probe.files_touched,
     checks,

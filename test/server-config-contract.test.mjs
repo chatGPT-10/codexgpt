@@ -33,6 +33,17 @@ function sampleServerConfigData() {
     codexDir: "D:\\Dev\\codexpro\\.codex-test",
     writeMode: "workspace",
     toolMode: "minimal",
+    policyEngineMode: "shadow",
+    permissionProfileId: "compat-v1",
+    policyRevision: "policy_0123456789abcdef01234567",
+    hardPolicyRevision: "hard-policy-v1",
+    grantRevision: "grant-revision-0",
+    enforcement: {
+      active: true,
+      backendId: "codexpro-node-broker",
+      evidenceRevision: "node-broker-v1",
+      missingCapabilities: []
+    },
     toolCards: false,
     connectionTest: false,
     analysisEnabled: true,
@@ -132,6 +143,10 @@ test("server_config success constructor produces the strict schema-v1 envelope",
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.equal(parsed.data.host, "127.0.0.1");
+  assert.equal(parsed.data.policyEngineMode, "shadow");
+  assert.equal(parsed.data.permissionProfileId, "compat-v1");
+  assert.equal(parsed.data.enforcement.backendId, "codexpro-node-broker");
+  assert.equal(JSON.stringify(parsed).includes("identity-hmac.key"), false);
   assert.equal("host" in parsed, false);
   assert.deepEqual(parsed.meta, {
     schemaVersion: 1,

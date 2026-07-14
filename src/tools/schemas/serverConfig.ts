@@ -7,6 +7,13 @@ const bashAvailabilitySchema = z.object({
   detail: z.string()
 }).strict();
 
+const policyEnforcementSummarySchema = z.object({
+  active: z.boolean(),
+  backendId: z.string().min(1).max(160),
+  evidenceRevision: z.string().min(1).max(160),
+  missingCapabilities: z.array(z.string().min(1).max(160)).max(16)
+}).strict();
+
 const analysisLimitsSchema = z.object({
   maxInventoryFiles: z.number().int().nonnegative(),
   maxAnalyzedFiles: z.number().int().nonnegative(),
@@ -34,6 +41,12 @@ export const serverConfigDataSchema = z.object({
   codexDir: z.string(),
   writeMode: z.enum(["off", "handoff", "workspace"]),
   toolMode: z.enum(["minimal", "standard", "full"]),
+  policyEngineMode: z.enum(["legacy", "shadow", "enforce"]),
+  permissionProfileId: z.string().min(1).max(64).nullable(),
+  policyRevision: z.string().min(1).max(160).nullable(),
+  hardPolicyRevision: z.string().min(1).max(160),
+  grantRevision: z.string().min(1).max(160).nullable(),
+  enforcement: policyEnforcementSummarySchema,
   toolCards: z.boolean(),
   connectionTest: z.boolean(),
   analysisEnabled: z.boolean(),

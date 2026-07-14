@@ -328,7 +328,15 @@ Current runtime connection files are saved under:
 ~/.codexpro/runtime/
 ```
 
-Set `CODEXPRO_HOME` to move this directory.
+Strict Policy Kernel Permission Profiles are saved under:
+
+```text
+~/.codexpro/permissions/
+```
+
+When shared-secret Policy identities are used, CodexPro keeps an installation-local HMAC key at `~/.codexpro/policy/identity-hmac.key`. Treat it as private local state: do not share or hand-edit it. Replacing it changes future credential references.
+
+Set `CODEXPRO_HOME` to move the complete CodexPro state directory.
 
 Use:
 
@@ -339,3 +347,13 @@ codexpro settings delete --yes
 ```
 
 Saved tokens are redacted when profiles are displayed.
+
+## What are `legacy`, `shadow`, and `enforce` Policy Kernel modes?
+
+`legacy` is the migration-cycle default and preserves the existing execution path. `shadow` preserves that path while calculating only redacted comparison decisions. `enforce` makes the compiled Policy Kernel authoritative and fails closed when policy or required enforcement facts are unavailable.
+
+Phase 2A is deliberately restrictive in `enforce`: there is no approval-management UI or MCP approval tool yet, so a write or other bounded-risk operation may return `APPROVAL_REQUIRED` without an interactive way to grant it. Arbitrary Shell and Process execution also remain unavailable when the required OS sandbox capabilities are not demonstrated. Use `shadow` first to review compatibility facts, and treat `enforce` as a security validation mode rather than a drop-in full-function replacement.
+
+Permission Profiles are strict local JSON files under `~/.codexpro/permissions/`. They are separate from saved runtime connection profiles. `toolMode` changes discovery only and does not expand a Permission Profile, hard policy, identity scope, or sandbox capability.
+
+Rollback during this migration cycle may return to reviewed `legacy` behavior, the generated compatibility profile, or a narrower read-only profile. A Policy Kernel startup or profile error never falls through to unguarded execution.

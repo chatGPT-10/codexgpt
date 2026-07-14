@@ -8,6 +8,9 @@ import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { expandHome, loadConfig, type CodexProConfig } from "./config.js";
+import { createHttpPolicySessionSource, loadOrCreateIdentityKey } from "./policy/identity.js";
+import { policyIdentityScopes } from "./policy/runtime.js";
+import { acceptedAuthenticationMode, type AcceptedHttpAuthenticationMode } from "./policy/transport.js";
 import {
   profilePathForRoot,
   readRuntimeConnection,
@@ -54,6 +57,7 @@ const BASH_TRANSCRIPTS = ["compact", "full"] as const;
 const CODEX_SESSIONS = ["off", "metadata", "read"] as const;
 const WRITE_MODES = ["workspace", "handoff", "off"] as const;
 const TOOL_MODES = ["standard", "minimal", "full"] as const;
+const POLICY_ENGINE_MODES = ["legacy", "shadow", "enforce"] as const;
 
 const textField = (max: number) =>
   z.preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().max(max).optional());
@@ -74,6 +78,11 @@ const AdminProfilePatch = z.object({
   requireBashSession: z.boolean().optional(),
   write: z.enum(WRITE_MODES).optional(),
   toolMode: z.enum(TOOL_MODES).optional(),
+  policyEngine: z.enum(POLICY_ENGINE_MODES).optional(),
+  permissionProfile: textField(64).refine(
+    (value) => !value || /^[a-z0-9][a-z0-9._-]{0,63}$/.test(value),
+    "permissionProfile must be 1-64 lowercase characters using letters, numbers, dot, underscore, or dash."
+  ),
   toolCards: z.boolean().optional(),
   widgetDomain: textField(2048),
   tunnelName: textField(128),
@@ -102,6 +111,8 @@ interface ProfileFormValues {
   requireBashSession: boolean;
   write: "off" | "handoff" | "workspace";
   toolMode: "minimal" | "standard" | "full";
+  policyEngine: "legacy" | "shadow" | "enforce";
+  permissionProfile: string;
   toolCards: boolean;
   widgetDomain: string;
   noInstallCloudflared: boolean;
@@ -179,6 +190,8 @@ function profileValues(config: CodexProConfig, profile = readWorkspaceProfile(co
     requireBashSession: Boolean(profile.requireBashSession ?? config.requireBashSession),
     write,
     toolMode: oneOf(profile.toolMode ?? config.toolMode, TOOL_MODES, config.toolMode),
+    policyEngine: oneOf(profile.policyEngine ?? config.policyEngineMode, POLICY_ENGINE_MODES, config.policyEngineMode),
+    permissionProfile: String(profile.permissionProfile ?? config.permissionProfileId ?? ""),
     toolCards: Boolean(profile.toolCards ?? config.toolCards),
     widgetDomain: String(profile.widgetDomain ?? config.widgetDomain),
     noInstallCloudflared: Boolean(profile.noInstallCloudflared)
@@ -202,7 +215,10 @@ const OPTION_LABELS: Record<string, string> = {
   read: "Read",
   workspace: "Workspace",
   minimal: "Minimal",
-  standard: "Standard"
+  standard: "Standard",
+  legacy: "Legacy",
+  shadow: "Shadow",
+  enforce: "Enforce"
 };
 
 function optionLabel(value: string): string {
@@ -304,6 +320,8 @@ function profileForm(config: CodexProConfig): string {
             <label><span>Bash</span><select name="bash">${selectOptions(BASH_MODES, values.bash)}</select></label>
             <label><span>Write mode</span><select name="write">${selectOptions(WRITE_MODES, values.write)}</select></label>
             <label><span>Tool mode</span><select name="toolMode">${selectOptions(TOOL_MODES, values.toolMode)}</select></label>
+            <label><span>Policy engine</span><select name="policyEngine">${selectOptions(POLICY_ENGINE_MODES, values.policyEngine)}</select></label>
+            <label><span>Permission profile</span><input name="permissionProfile" value="${escapeHtml(values.permissionProfile)}" placeholder="compat-v1"></label>
             <label><span>Codex sessions</span><select name="codexSessions">${selectOptions(CODEX_SESSIONS, values.codexSessions)}</select></label>
             <label><span>Codex directory</span><input name="codexDir" value="${escapeHtml(values.codexDir)}"></label>
             <label><span>Bash session</span><input name="bashSession" value="${escapeHtml(values.bashSession)}"></label>
@@ -372,6 +390,8 @@ function buildProfilePayload(config: CodexProConfig, existing: WorkspaceProfile,
     ...(next.requireBashSession ? { requireBashSession: true } : {}),
     write,
     toolMode: next.toolMode,
+    policyEngine: next.policyEngine,
+    ...(next.permissionProfile ? { permissionProfile: next.permissionProfile } : {}),
     toolCards: next.toolCards,
     ...(next.widgetDomain ? { widgetDomain: next.widgetDomain } : {}),
     ...(next.noInstallCloudflared ? { noInstallCloudflared: true } : {})
@@ -396,6 +416,8 @@ function profileResponse(config: CodexProConfig): Record<string, unknown> {
       codexSessions: config.codexSessions,
       writeMode: config.writeMode,
       toolMode: config.toolMode,
+      policyEngineMode: config.policyEngineMode,
+      permissionProfileId: config.permissionProfileId ?? null,
       toolCards: config.toolCards,
       widgetDomain: config.widgetDomain,
       authEnabled: Boolean(config.authToken)
@@ -1567,6 +1589,7 @@ async function main(): Promise<void> {
   });
   app.use((req, res, next) => {
     if (!config.authToken) {
+      res.locals.codexproAuthenticationMode = "loopback_none" satisfies AcceptedHttpAuthenticationMode;
       next();
       return;
     }
@@ -1576,10 +1599,17 @@ async function main(): Promise<void> {
       : typeof req.query.token === "string"
         ? req.query.token
         : undefined;
-    if (!tokenMatches(bearer) && !tokenMatches(queryToken)) {
+    const bearerMatched = tokenMatches(bearer);
+    const queryMatched = tokenMatches(queryToken);
+    if (!bearerMatched && !queryMatched) {
       res.status(401).send("Unauthorized");
       return;
     }
+    res.locals.codexproAuthenticationMode = acceptedAuthenticationMode({
+      authConfigured: true,
+      bearerMatched,
+      queryMatched
+    });
     next();
   });
 
@@ -1727,7 +1757,18 @@ async function main(): Promise<void> {
           if (closedSessionId) transports.delete(closedSessionId);
         };
 
-        const server = createCodexProServer(config);
+        const policyEngineMode = config.policyEngineMode ?? "legacy";
+        const authenticationMode = (res.locals.codexproAuthenticationMode ?? "loopback_none") as AcceptedHttpAuthenticationMode;
+        const policySessionContextSource = policyEngineMode === "legacy"
+          ? undefined
+          : createHttpPolicySessionSource({
+              authenticationMode,
+              configuredCredential: config.authToken,
+              key: authenticationMode === "loopback_none" ? Buffer.alloc(32) : loadOrCreateIdentityKey(),
+              transportSessionId: () => String((transport as { sessionId?: string }).sessionId ?? "pending"),
+              scopes: policyIdentityScopes(config)
+            });
+        const server = createCodexProServer(config, { policySessionContextSource });
         await server.connect(transport);
       } else {
         sendSessionError(res, sessionId);

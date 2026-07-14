@@ -147,8 +147,9 @@ Memory rules:
 - `docs/memory/archive/phase-1-part-7.md` — closed Phase 1 Volume 7 covering STEP-206 through STEP-219, with the append-only STEP-205 count correction at its start.
 - `docs/memory/archive/phase-1-part-8.md` — closed Phase 1 Volume 8 covering STEP-220 through STEP-236.
 - `docs/memory/archive/phase-1-part-9.md` — closed Phase 1 Volume 9 covering STEP-237 through STEP-247.
-- `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans for all twenty-eight Phase 1 slices.
-- Phase 1 is published and formally closed. Slices 17–28 use unified implementation `021ab90` plus Windows portability repair `e20d84e`; exact-head run `29314923948` passed Ubuntu/Windows Node 20/24. Contracts, RED/GREEN evidence, failed-run correction, verification, and rollback remain in the paired files plus Phase 1 Volumes 5–9.
+- `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans for the twenty-eight Phase 1 slices plus the approved Policy Kernel Gate and Phase 2A implementation plan.
+- `docs/memory/archive/policy-kernel-gate.md` — Policy Kernel Gate, Phase 2A implementation, local acceptance, rollback, and publication-pending records from STEP-248 onward.
+- Phase 1 is published and formally closed. Its contracts, RED/GREEN evidence, portability correction, verification, and rollback remain in the paired files plus Phase 1 Volumes 5–9.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -188,8 +189,4 @@ Distinguish clearly between:
 
 ## 9. Current approved stopping point
 
-Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
-
-Phase 1 started on 2026-07-12 and formally closed on 2026-07-14. All twenty-eight vertical slices are published and cross-platform exact-head CI-validated. Unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed run `29314923948` on Ubuntu/Windows Node 20/24; every matrix job completed Build, Regression, Smoke, and package checks. The next authorized action is the design-only Policy Kernel gate. Keep Phase 2–5 production behavior closed until that gate passes; keep Phase 6–9 closed.
-
-The approved route is: complete and pass the Policy Kernel design gate, then continue without a repeated phase-entry approval pause through Phase 2A, Phase 2B, Phase 3, Phase 4A, Phase 4B, and Phase 5. Every phase still requires its own design, TDD, verification, rollback, and acceptance gates; failed gates must be fixed rather than bypassed. This authorization does not include Phase 6–9 or independently gated high-risk actions. The detailed sequence and criteria are authoritative in `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`.
+Phase 1 is published and formally closed. Phase 2A implementation and local acceptance are complete, but the current changes remain unstaged and unpublished. The user controls staging, commit, push, and exact-head CI; do not begin Phase 2B before that publication decision. Use `Memory.md` for the current head and evidence summary, and the master plan plus `docs/memory/archive/policy-kernel-gate.md` for full records. Destructive operations, system-policy changes, candidate sandbox installation, OAuth 2.1, credential migration, Git remote writes, and Phase 6–9 remain independently gated. Failed gates must be fixed rather than bypassed.

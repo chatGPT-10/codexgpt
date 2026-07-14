@@ -4032,6 +4032,9 @@ export interface CodexProServerDependencies {
   showChangesAnalysisProvider?: (
     context: ShowChangesAnalysisProviderContext
   ) => ChangeAnalysis | Promise<ChangeAnalysis>;
+  policyRuntime?: PolicyRuntime;
+  policySessionContextSource?: PolicySessionContextSource;
+  policyAuditSink?: (event: AuditEventV1) => void | Promise<void>;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -4648,9 +4651,23 @@ function getSharedWorkspaceManager(config: CodexProConfig): WorkspaceManager {
 
 function buildServerConfigData(
   config: CodexProConfig,
-  server: McpServer
+  server: McpServer,
+  runtimeDiagnostics?: PolicyRuntimeDiagnostics
 ): ServerConfigData {
   const registeredTools = registeredToolNames(server);
+  const baselineCapabilities = baselineNodeCapabilityReport(process.platform);
+  const diagnostics = runtimeDiagnostics ?? {
+    policyRevision: null,
+    permissionProfileId: config.permissionProfileId ?? null,
+    hardPolicyRevision: HARD_POLICY_REVISION,
+    grantRevision: null,
+    enforcement: {
+      active: false,
+      backendId: baselineCapabilities.backendId,
+      evidenceRevision: baselineCapabilities.evidenceRevision,
+      missingCapabilities: []
+    }
+  };
   return serverConfigDataSchema.parse({
     defaultRoot: config.defaultRoot,
     allowedRoots: config.allowedRoots,
@@ -4670,6 +4687,12 @@ function buildServerConfigData(
     codexDir: config.codexDir,
     writeMode: config.writeMode,
     toolMode: config.toolMode,
+    policyEngineMode: config.policyEngineMode ?? "legacy",
+    permissionProfileId: diagnostics.permissionProfileId,
+    policyRevision: diagnostics.policyRevision,
+    hardPolicyRevision: diagnostics.hardPolicyRevision,
+    grantRevision: diagnostics.grantRevision,
+    enforcement: diagnostics.enforcement,
     toolCards: config.toolCards,
     connectionTest: config.connectionTest,
     analysisEnabled: config.analysisEnabled,
@@ -4687,6 +4710,16 @@ function buildServerConfigData(
 }
 
 import { upgradeCodexProSupertool } from "./codexproSupertool.js";
+import {
+  installPolicyKernel,
+  type PolicyRuntime,
+  type PolicyRuntimeDiagnostics
+} from "./policy/integration.js";
+import { baselineNodeCapabilityReport } from "./policy/enforcement.js";
+import { HARD_POLICY_REVISION } from "./policy/hardPolicy.js";
+import type { PolicySessionContextSource } from "./policy/identity.js";
+import { createDefaultPolicyRuntime } from "./policy/runtime.js";
+import type { AuditEventV1 } from "./policy/types.js";
 
 export function createCodexProServer(
   config: CodexProConfig,
@@ -4694,10 +4727,22 @@ export function createCodexProServer(
 ): McpServer {
   const workspaces = getSharedWorkspaceManager(config);
   const guard = new PathGuard(config);
+  const policyEngineMode = config.policyEngineMode ?? "legacy";
+  const effectivePolicyRuntime = dependencies.policyRuntime ?? (
+    policyEngineMode !== "legacy" && dependencies.policySessionContextSource
+      ? createDefaultPolicyRuntime({
+          config,
+          workspaces,
+          guard,
+          sessionSource: dependencies.policySessionContextSource,
+          auditSink: dependencies.policyAuditSink
+        })
+      : undefined
+  );
   const server = new McpServer({ name: "CodexPro", version: "0.28.6" }, { instructions: serverInstructions(config) });
   const serverConfigDataProvider =
     dependencies.serverConfigDataProvider ??
-    (() => buildServerConfigData(config, server));
+    (() => buildServerConfigData(config, server, effectivePolicyRuntime?.diagnostics?.()));
   const treeResultProvider =
     dependencies.treeResultProvider ??
     ((context: TreeProviderContext) =>
@@ -8059,5 +8104,9 @@ export function createCodexProServer(
   );
 
   upgradeCodexProSupertool(server);
+  if (policyEngineMode !== "legacy" && !effectivePolicyRuntime) {
+    throw new Error("Policy Kernel runtime is required for shadow or enforce mode.");
+  }
+  if (effectivePolicyRuntime) installPolicyKernel(server, effectivePolicyRuntime);
   return server;
 }

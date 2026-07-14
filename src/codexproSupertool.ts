@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isPolicyToolFailure } from "./policy/integration.js";
 import {
   CANONICAL_CODEXPRO_CHILD_TOOLS,
   CODEXPRO_ERROR_MESSAGES,
@@ -161,6 +162,8 @@ export function upgradeCodexProSupertool(server: unknown): void {
     } catch {
       return wrapperFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
     }
+
+    if (isPolicyToolFailure(childResult)) return childResult;
 
     try {
       const legacyStructured = childResult?.structuredContent;

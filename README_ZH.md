@@ -346,6 +346,20 @@ git status
 
 这样 ChatGPT 会更接近 Codex 的指令模型，同时不会依赖隐藏状态或大范围重复扫描。
 
+## Policy Kernel 迁移
+
+Phase 2A 新增本地 Policy Kernel，并提供三个明确的迁移状态：
+
+- `CODEXPRO_POLICY_ENGINE=legacy` 是当前迁移周期默认值，保持原有执行路径。
+- `CODEXPRO_POLICY_ENGINE=shadow` 仍执行 legacy 路径，只生成经过脱敏的策略比较事实。
+- `CODEXPRO_POLICY_ENGINE=enforce` 让编译后的 Policy Kernel 成为权威判断；策略、身份、审批或执行能力事实不可用时直接失败关闭。
+
+可选的 `CODEXPRO_PERMISSION_PROFILE=<id>` 会选择 `~/.codexpro/permissions/<id>.json` 下的严格 JSON 权限文件。Runtime Profile 与 Permission Profile 是两个不同概念：`toolMode` 只控制工具是否可见；文件、Git、Shell、Process 和 Network 的权限上限由身份 scopes、immutable hard policy、Permission Profile、受限 SessionGrant 与已证明的执行能力共同决定。
+
+Phase 2A 有意保持严格限制。目前尚未暴露审批管理 UI 或 MCP 审批工具，因此被分类为需要审批的操作会返回 `APPROVAL_REQUIRED`，直到后续独立批准的界面签发精确、受限的 grant。Safe Bash 仍只是命令策略过滤器，不是操作系统沙箱。在 `enforce` 模式下，如果 Windows/Linux 后端没有证明所需隔离能力，任意 Shell 或 Process 操作会返回 sandbox-unavailable 错误。Cloudflare Tunnel 只保护入站路由，不负责本地授权或出站网络限制。
+
+迁移周期内只允许回滚到经过审查的 `legacy` 行为、生成的兼容 Permission Profile，或更窄的只读 profile。Policy 加载失败不会自动退回无策略执行。
+
 ## 安全边界
 
 CodexPro 是本地开发桥，不是操作系统级沙箱。

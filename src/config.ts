@@ -9,6 +9,8 @@ export type CodexSessionsMode = "off" | "metadata" | "read";
 export type WriteMode = "off" | "handoff" | "workspace";
 export type ToolMode = "minimal" | "standard" | "full";
 
+export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
+
 export interface CodexProConfig {
   defaultRoot: string;
   allowedRoots: string[];
@@ -28,6 +30,8 @@ export interface CodexProConfig {
   codexDir: string;
   writeMode: WriteMode;
   toolMode: ToolMode;
+  policyEngineMode: PolicyEngineMode;
+  permissionProfileId?: string;
   inheritEnv: boolean;
   maxReadBytes: number;
   maxWriteBytes: number;
@@ -194,6 +198,22 @@ function toolModeFrom(value: string | undefined): ToolMode {
   return "standard";
 }
 
+function policyEngineModeFrom(value: string | undefined): PolicyEngineMode {
+  const normalized = value?.trim();
+  if (!normalized) return "legacy";
+  if (normalized === "legacy" || normalized === "shadow" || normalized === "enforce") return normalized;
+  throw new Error("CODEXPRO_POLICY_ENGINE must be legacy, shadow, or enforce.");
+}
+
+function permissionProfileIdFrom(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(normalized)) {
+    throw new Error("CODEXPRO_PERMISSION_PROFILE must be 1-64 lowercase characters using letters, numbers, dot, underscore, or dash.");
+  }
+  return normalized;
+}
+
 function widgetDomainFrom(value: string | undefined): string {
   const raw = value?.trim() || "https://rebel0789.github.io";
   let parsed: URL;
@@ -326,6 +346,8 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
         : undefined;
   const writeArg = typeof args.write === "string" ? args.write : undefined;
   const toolModeArg = typeof args["tool-mode"] === "string" ? args["tool-mode"] : undefined;
+  const policyEngineArg = typeof args["policy-engine"] === "string" ? args["policy-engine"] : undefined;
+  const permissionProfileArg = typeof args["permission-profile"] === "string" ? args["permission-profile"] : undefined;
   const widgetDomainArg = typeof args["widget-domain"] === "string" ? args["widget-domain"] : undefined;
   const toolCardsArg =
     args["tool-cards"] === true
@@ -376,6 +398,8 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     codexDir: toCanonicalPath(codexDirArg || process.env.CODEXPRO_CODEX_DIR || path.join(os.homedir(), ".codex")),
     writeMode: writeModeFrom(writeArg ?? process.env.CODEXPRO_WRITE_MODE),
     toolMode: toolModeFrom(toolModeArg ?? process.env.CODEXPRO_TOOL_MODE),
+    policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXPRO_POLICY_ENGINE),
+    permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXPRO_PERMISSION_PROFILE),
     inheritEnv: process.env.CODEXPRO_INHERIT_ENV === "1",
     maxReadBytes: numberFrom(process.env.CODEXPRO_MAX_READ_BYTES, 180_000, 4_000, 2_000_000),
     maxWriteBytes: numberFrom(process.env.CODEXPRO_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),

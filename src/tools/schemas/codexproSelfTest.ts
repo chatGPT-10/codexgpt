@@ -16,6 +16,11 @@ export const CODEXPRO_SELF_TEST_CHECK_NAMES = [
   "write_edit_probe",
   "selected_only_pro_context",
   "bash_policy",
+  "policy_schema",
+  "policy_profile",
+  "policy_revision",
+  "policy_identity",
+  "policy_enforcement",
   "terms_boundary"
 ] as const;
 
@@ -64,6 +69,16 @@ export const CODEXPRO_SELF_TEST_DIAGNOSTIC_CODES = [
   "BASH_POLICY_UNAVAILABLE",
   "BASH_POLICY_FULL",
   "BASH_POLICY_FAILED",
+  "POLICY_SCHEMA_VALID",
+  "POLICY_SCHEMA_INVALID",
+  "POLICY_PROFILE_VALID",
+  "POLICY_PROFILE_INVALID",
+  "POLICY_REVISION_VALID",
+  "POLICY_REVISION_INVALID",
+  "POLICY_IDENTITY_VALID",
+  "POLICY_IDENTITY_INVALID",
+  "POLICY_ENFORCEMENT_DECLARED",
+  "POLICY_ENFORCEMENT_INVALID",
   "TERMS_BOUNDARY_VALID"
 ] as const;
 
@@ -132,11 +147,11 @@ export const codexproSelfTestRequestSchema = z.object({
 }).strict();
 
 export const codexproSelfTestCountsSchema = z.object({
-  total: z.literal(12),
-  passed: z.number().int().min(0).max(12),
-  warned: z.number().int().min(0).max(12),
-  failed: z.number().int().min(0).max(12),
-  skipped: z.number().int().min(0).max(12)
+  total: z.literal(17),
+  passed: z.number().int().min(0).max(17),
+  warned: z.number().int().min(0).max(17),
+  failed: z.number().int().min(0).max(17),
+  skipped: z.number().int().min(0).max(17)
 }).strict();
 
 export const codexproSelfTestInventorySchema = z.object({
@@ -187,6 +202,21 @@ export const codexproSelfTestGitSchema = z.object({
     });
   }
 });
+
+export const codexproSelfTestPolicySchema = z.object({
+  engine_mode: z.enum(["legacy", "shadow", "enforce"]),
+  profile_id: safeIdentifierSchema,
+  schema_valid: z.boolean(),
+  profile_valid: z.boolean(),
+  revision_valid: z.boolean(),
+  identity_valid: z.boolean(),
+  enforcement_declared: z.boolean(),
+  policy_revision: safeIdentifierSchema,
+  hard_policy_revision: safeIdentifierSchema,
+  backend_id: safeIdentifierSchema,
+  evidence_revision: safeIdentifierSchema,
+  missing_capabilities: z.array(safeIdentifierSchema).max(16)
+}).strict();
 
 export const codexproSelfTestTermsBoundarySchema = z.object({
   local_workspace_bridge: z.literal(true),
@@ -241,6 +271,16 @@ const allowedCheckOutcomes = new Set([
   "bash_policy:skipped:BASH_POLICY_UNAVAILABLE",
   "bash_policy:warn:BASH_POLICY_FULL",
   "bash_policy:fail:BASH_POLICY_FAILED",
+  "policy_schema:pass:POLICY_SCHEMA_VALID",
+  "policy_schema:fail:POLICY_SCHEMA_INVALID",
+  "policy_profile:pass:POLICY_PROFILE_VALID",
+  "policy_profile:fail:POLICY_PROFILE_INVALID",
+  "policy_revision:pass:POLICY_REVISION_VALID",
+  "policy_revision:fail:POLICY_REVISION_INVALID",
+  "policy_identity:pass:POLICY_IDENTITY_VALID",
+  "policy_identity:fail:POLICY_IDENTITY_INVALID",
+  "policy_enforcement:pass:POLICY_ENFORCEMENT_DECLARED",
+  "policy_enforcement:fail:POLICY_ENFORCEMENT_INVALID",
   "terms_boundary:pass:TERMS_BOUNDARY_VALID"
 ]);
 
@@ -268,9 +308,10 @@ export const codexproSelfTestDataSchema = z.object({
   tool_set_matches: z.boolean(),
   inventory: codexproSelfTestInventorySchema,
   git: codexproSelfTestGitSchema,
+  policy: codexproSelfTestPolicySchema,
   probe_artifact: z.literal(CODEXPRO_SELF_TEST_ARTIFACT).nullable(),
   files_touched: fixedTouchedFilesSchema,
-  checks: z.array(codexproSelfTestCheckSchema).length(12),
+  checks: z.array(codexproSelfTestCheckSchema).length(17),
   terms_boundary: codexproSelfTestTermsBoundarySchema
 }).strict().superRefine((value, context) => {
   for (const field of ["expected_tools", "registered_tools", "missing_tools", "unexpected_tools"] as const) {
@@ -314,12 +355,12 @@ export const codexproSelfTestDataSchema = z.object({
     value.counts.warned !== actualCounts.warned ||
     value.counts.failed !== actualCounts.failed ||
     value.counts.skipped !== actualCounts.skipped ||
-    value.counts.passed + value.counts.warned + value.counts.failed + value.counts.skipped !== 12
+    value.counts.passed + value.counts.warned + value.counts.failed + value.counts.skipped !== 17
   ) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["counts"],
-      message: "Outcome counts must exactly match the twelve checks."
+      message: "Outcome counts must exactly match the seventeen checks."
     });
   }
 
@@ -352,7 +393,7 @@ export const codexproSelfTestDataSchema = z.object({
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["checks", index, "name"],
-        message: "Checks must use the fixed twelve-check order."
+        message: "Checks must use the fixed seventeen-check order."
       });
     }
     if (!allowedCheckOutcomes.has(`${check.name}:${check.status}:${check.code}`)) {

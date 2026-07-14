@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+import { randomUUID } from "node:crypto";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.js";
+import { createStdioPolicySessionSource } from "./policy/identity.js";
+import { policyIdentityScopes } from "./policy/runtime.js";
 import { createCodexProServer } from "./server.js";
 
 const CODEXPRO_VERSION = "0.28.6";
@@ -29,7 +32,13 @@ async function main(): Promise<void> {
 
   process.env.CODEXPRO_ALLOW_NO_HTTP_TOKEN ??= "1";
   const config = loadConfig();
-  const server = createCodexProServer(config);
+  const policySessionContextSource = (config.policyEngineMode ?? "legacy") === "legacy"
+    ? undefined
+    : createStdioPolicySessionSource({
+        sessionId: randomUUID(),
+        scopes: policyIdentityScopes(config)
+      });
+  const server = createCodexProServer(config, { policySessionContextSource });
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

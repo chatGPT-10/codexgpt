@@ -273,6 +273,20 @@ CodexPro 是本地开发桥，不是操作系统级沙箱。
 ~/.codexpro/profiles/
 ```
 
+当前运行连接文件保存在：
+
+```text
+~/.codexpro/runtime/
+```
+
+严格的 Policy Kernel Permission Profile 保存在：
+
+```text
+~/.codexpro/permissions/
+```
+
+使用共享凭据身份时，CodexPro 会把安装级 HMAC 密钥保存在 `~/.codexpro/policy/identity-hmac.key`。它属于私有本地状态，不要分享或手工编辑；替换后，后续生成的 credential reference 会改变。设置 `CODEXPRO_HOME` 可以移动整个 CodexPro 状态目录。
+
 管理命令：
 
 ```bash
@@ -296,3 +310,13 @@ codexpro settings delete --yes
 - `codexpro pro-bundle --copy` 给不能调用工具的模型生成上下文包。
 
 这样 ChatGPT 断线、换模型或换会话后，仍然可以通过文件恢复上下文。
+
+## Policy Kernel 的 `legacy`、`shadow` 和 `enforce` 分别是什么？
+
+`legacy` 是迁移周期默认值，保持原有执行路径。`shadow` 仍执行原路径，同时只计算经过脱敏的比较结果。`enforce` 让编译后的 Policy Kernel 成为权威判断；策略或所需执行能力事实不可用时直接失败关闭。
+
+Phase 2A 的 `enforce` 有意保持严格。目前还没有审批管理 UI 或 MCP 审批工具，因此写入或其他需要受限审批的操作可能返回 `APPROVAL_REQUIRED`，但暂时不能交互式授予。任意 Shell 和 Process 操作在没有证明所需操作系统沙箱能力时也保持不可用。建议先使用 `shadow` 检查兼容性，把 `enforce` 视为安全验证模式，而不是完整功能的无缝替代。
+
+Permission Profile 是 `~/.codexpro/permissions/` 下的严格本地 JSON 文件，与保存的运行连接 Profile 分离。`toolMode` 只改变工具是否可见，不会扩大 Permission Profile、hard policy、身份 scope 或 sandbox capability。
+
+迁移周期内可以回滚到经过审查的 `legacy` 行为、生成的兼容 profile，或更窄的只读 profile。Policy Kernel 启动或 profile 错误不会自动退回无策略执行。

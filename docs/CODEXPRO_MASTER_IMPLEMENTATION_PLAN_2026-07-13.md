@@ -96,9 +96,10 @@ mcp.<user-domain>
 |---|---|---|
 | Phase 0 | 完成 | 初始架构、安全、测试、工具和外部参考审计完成 |
 | Phase 0.5 | 正式关闭 | Windows/Ubuntu CI、路径策略、Host/Origin、入口认证兼容、Doctor、Cloudflared 完整性与真实外部 Host 转发均已验证 |
-| Phase 1 | 进行中 | 16 个切片已发布并通过精确头 CI；Slice 17–22 已通过全部本地门禁与逐工具整理，Slice 17–28 采用完成后统一发布 |
-| Policy Kernel 设计门 | 未开始 | 只允许在 Phase 1 完成后开始 |
-| Phase 2–5 | 已条件批准 | Phase 1 统一发布且 Policy Kernel 设计门通过后，按阶段验收顺序连续实施，不再重复询问是否进入下一阶段 |
+| Phase 1 | 正式关闭 | 28 个切片已发布；统一实现 `021ab90` 与 Windows 修复 `e20d84e` 通过精确头四矩阵 CI run `29314923948` |
+| Policy Kernel 设计门 | 已通过 | 2026-07-14 批准 compiled-kernel Approach B；四份设计规格完整并通过自审 |
+| Phase 2A | 本地实现与验收完成、尚未发布 | 12 个 TDD 任务与 84 个步骤完成；完整 526 项回归、Build、八段 Smoke、native-Windows Stress、195 文件 package dry-run 和静态门通过，变更仍未暂存 |
+| Phase 2B–5 | 已条件批准、尚未开始 | Phase 2A 的暂存、提交、推送和 exact-head CI 由用户另行决定；在此之前不进入 Phase 2B |
 | Phase 6–9 | 未批准 | 不得提前实现；OAuth 2.1、Subagents 等独立高风险能力仍保留自己的批准门 |
 
 Phase 0.5 已验证的外部入口事实：公开 `https://codexpro.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexPro，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
@@ -645,14 +646,15 @@ local modifications
 ### 7.4 设计门验收
 
 ```text
-[ ] 所有设计文档完整，无 TBD、TODO 或未决占位符
-[ ] 至少包含 Windows 文件、进程和网络威胁模型
-[ ] 规则组合对相同输入是确定性的
-[ ] deny、approval 和 sandbox failure 有精确错误语义
-[ ] 兼容迁移不会静默扩大现有权限
-[ ] 设计明确哪些安全性质尚不能保证
-[ ] 实施被拆成可独立回滚的 Phase 2A/2B 切片
+[x] 所有设计文档完整，无 TBD、TODO 或未决占位符
+[x] 至少包含 Windows 文件、进程和网络威胁模型
+[x] 规则组合对相同输入是确定性的
+[x] deny、approval 和 sandbox failure 有精确错误语义
+[x] 兼容迁移不会静默扩大现有权限
+[x] 设计明确哪些安全性质尚不能保证
+[x] 实施被拆成可独立回滚的 Phase 2A/2B 切片
 [x] 用户已于 2026-07-13 条件批准：其余设计验收项全部通过后，连续实施 Phase 2A–Phase 5
+[x] 用户于 2026-07-14 最终批准四份书面规格，Policy Kernel 设计门正式通过
 ```
 
 在前七项设计验收全部通过前，生产代码保持在 Phase 1 终态。通过后直接进入 Phase 2A；该授权不覆盖 Phase 6–9、OAuth 2.1、凭据迁移、破坏性操作或产品能力中的 Git 远端变更等独立高权限事项。
@@ -681,13 +683,15 @@ local modifications
 
 ### 8.3 验收条件
 
-- 同一请求在同一配置下得到确定的 allow/deny/approval-required 结果。
-- 任意 hard deny 无法被 Profile、Approval、AGENTS、Skill 或 Hook 覆盖。
-- 返回安全、可理解的决策原因和规则来源，不泄露敏感模式或路径。
-- 当前用户配置迁移后不会静默扩权。
-- Tool Surface 变化不改变相同工具调用的实际权限判断。
-- Query-token compatibility、Bearer、STDIO 和 loopback 身份差异被明确建模。
-- 文档不声称 Phase 8 前已获得强 OAuth owner isolation。
+- [x] 同一请求在同一配置下得到确定的 allow/deny/approval-required 结果。
+- [x] 任意 hard deny 无法被 Profile、Approval、AGENTS、Skill 或 Hook 覆盖。
+- [x] 返回安全、可理解的决策原因和规则来源，不泄露敏感模式或路径。
+- [x] 当前用户配置迁移后不会静默扩权。
+- [x] Tool Surface 变化不改变相同工具调用的实际权限判断。
+- [x] Query-token compatibility、Bearer、STDIO 和 loopback 身份差异被明确建模。
+- [x] 文档不声称 Phase 8 前已获得强 OAuth owner isolation。
+
+2026-07-14 本地验收证据：Policy focused 70 项中 69 pass、0 fail、1 个平台条件跳过；相邻安全与契约 149/149；完整回归 526 项中 525 pass、0 fail、1 个平台条件跳过；TypeScript Build、八段 Smoke、native-Windows Stress、195 文件 package dry-run、受保护 Smoke 源、静态占位符和 27 工具闭集检查全部通过。Phase 2A 仍未暂存、提交、推送或执行 exact-head CI，因此状态是“本地实现与验收完成、尚未发布”，不是正式发布关闭。
 
 ### 8.4 非目标
 
