@@ -146,8 +146,9 @@ test("codexpro module exposes the exact closed wrapper API", () => {
   assert.equal(typeof wrapCodexProChildResult, "function");
   assert.deepEqual(CODEXPRO_ACTION_ALIASES, EXPECTED_ALIASES);
   assert.equal(Array.isArray(CANONICAL_CODEXPRO_CHILD_TOOLS), true);
-  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.length, 27);
-  assert.equal(new Set(CANONICAL_CODEXPRO_CHILD_TOOLS).size, 27);
+  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.length, 28);
+  assert.equal(new Set(CANONICAL_CODEXPRO_CHILD_TOOLS).size, 28);
+  assert.ok(CANONICAL_CODEXPRO_CHILD_TOOLS.includes("close_workspace"));
   assert.ok(!CANONICAL_CODEXPRO_CHILD_TOOLS.includes("codexpro"));
 });
 

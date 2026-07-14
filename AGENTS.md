@@ -132,6 +132,14 @@ Memory rules:
 - External designs must not bypass workspace, permission, path, authentication, or edit-policy boundaries.
 - Before copying external source, verify license and attribution requirements. Prefer design-level reimplementation.
 
+### 5.6 Workspace lifecycle
+
+- Public `workspace_id` values are random opaque handles, never canonical-path hashes.
+- Each MCP server lifecycle domain owns its own `WorkspaceManager`; do not restore process-global manager sharing.
+- Core `getWorkspace(id)` requires an explicit ID. Omitted-ID compatibility belongs only in the named session-local `resolveWorkspace()` boundary.
+- Foreign, closed, expired, transport-stale, or policy-stale handles must fail closed without revealing roots, keys, identity bindings, or revocation reasons.
+- `close_workspace` is a normal lifecycle tool but must remain hidden from the read-only connection-test surface.
+
 ## 6. Documentation map
 
 - `Memory.md` — current state and next action.
@@ -147,9 +155,10 @@ Memory rules:
 - `docs/memory/archive/phase-1-part-7.md` — closed Phase 1 Volume 7 covering STEP-206 through STEP-219, with the append-only STEP-205 count correction at its start.
 - `docs/memory/archive/phase-1-part-8.md` — closed Phase 1 Volume 8 covering STEP-220 through STEP-236.
 - `docs/memory/archive/phase-1-part-9.md` — closed Phase 1 Volume 9 covering STEP-237 through STEP-247.
-- `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans for the twenty-eight Phase 1 slices plus the approved Policy Kernel Gate and Phase 2A implementation plan.
-- `docs/memory/archive/policy-kernel-gate.md` — Policy Kernel Gate, Phase 2A implementation, local acceptance, rollback, and publication-pending records from STEP-248 onward.
-- Phase 1 is published and formally closed. Its contracts, RED/GREEN evidence, portability correction, verification, and rollback remain in the paired files plus Phase 1 Volumes 5–9.
+- `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans for the twenty-eight Phase 1 slices, the approved Policy Kernel Gate, Phase 2A, and Phase 2B workspace lifecycle.
+- `docs/memory/archive/policy-kernel-gate.md` — closed Policy Kernel Gate and Phase 2A records covering STEP-248 through STEP-253.
+- `docs/memory/archive/phase-2b-workspace-lifecycle.md` — active Phase 2B design, implementation, local verification, reconciliation, and publication-pending records from STEP-254 onward.
+- Phase 1 and Phase 2A are published and formally closed. Phase 2B is locally accepted but remains unpublished until staging, commit, push, and exact-head CI complete.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -189,4 +198,4 @@ Distinguish clearly between:
 
 ## 9. Current approved stopping point
 
-Phase 1 and Phase 2A are published and formally closed. Phase 2A implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head run `29326459987` across Ubuntu/Windows Node 20/24; every job completed Build, Regression Tests, Smoke Test, and Check Package Contents. The next authorized action is Phase 2B design and implementation under the recorded Phase 2A–5 authorization, but do not silently cross independent gates. Use `Memory.md` for the current head and evidence summary, and the master plan plus `docs/memory/archive/policy-kernel-gate.md` for full records. Destructive operations, system-policy changes, candidate sandbox installation, OAuth 2.1, credential migration, Git remote writes, and Phase 6–9 remain independently gated. Failed gates must be fixed rather than bypassed.
+Phase 1 and Phase 2A are published and formally closed. Phase 2B workspace lifecycle is designed, implemented, reconciled, and locally accepted, but remains unstaged, uncommitted, unpublished, and without exact-head CI evidence. The next controlled action, only after explicit user approval, is staging, commit, push, and exact-head CI verification; do not begin Phase 3 as published work before that closure. Use `Memory.md` for the current head and evidence summary, the master plan for active sequencing, `docs/memory/archive/policy-kernel-gate.md` for closed Phase 2A records, and `docs/memory/archive/phase-2b-workspace-lifecycle.md` for Phase 2B records. Destructive operations, system-policy changes, candidate sandbox installation, OAuth 2.1, credential migration, Git remote writes beyond the approved publication step, and Phase 6–9 remain independently gated. Failed gates must be fixed rather than bypassed.

@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes as nodeRandomBytes, randomUUID } from "node:crypto";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -82,8 +82,17 @@ export function displayPath(absPath: string, root: string): string {
   return normalizeRelPath(rel);
 }
 
-function workspaceIdForRoot(realRoot: string): string {
-  return `ws_${createHash("sha256").update(realRoot).digest("hex").slice(0, 24)}`;
+function normalizeWorkspaceIdentityPath(root: string, platform: NodeJS.Platform): string {
+  const normalized = root.replace(/\\/g, "/").normalize("NFC").replace(/\/+$/, "");
+  return platform === "win32" ? normalized.toLocaleLowerCase("en-US") : normalized;
+}
+
+export function workspaceKeyForRoot(
+  realRoot: string,
+  platform: NodeJS.Platform = process.platform
+): string {
+  const normalized = normalizeWorkspaceIdentityPath(realRoot, platform);
+  return `wk_${createHash("sha256").update(normalized).digest("hex").slice(0, 24)}`;
 }
 
 function maybeRealpath(existingPath: string): string | undefined {
@@ -104,17 +113,73 @@ function closestExistingParent(absPath: string): string {
   return current;
 }
 
-export class WorkspaceManager {
-  private readonly workspaces = new Map<string, Workspace>();
+type WorkspaceRevocationReason = "closed" | "expired" | "transport_closed" | "policy_revision_changed";
 
-  constructor(private readonly config: CodexProConfig) {}
+interface WorkspaceRecord {
+  workspace: Workspace;
+  key: string;
+  expiresAtMs: number;
+  transportSessionId: string;
+  identityBinding: string;
+  policyRevision: string | null;
+}
+
+interface WorkspaceTombstone {
+  workspaceId: string;
+  revokedAt: string;
+  reason: WorkspaceRevocationReason;
+}
+
+export interface WorkspaceManagerOptions {
+  transportSessionId?: () => string;
+  identityBinding?: string;
+  policyRevision?: () => string | null | undefined;
+  now?: () => number;
+  randomBytes?: (size: number) => Buffer;
+  maxTombstones?: number;
+}
+
+export interface ClosedWorkspace {
+  workspaceId: string;
+  closedAt: string;
+  state: "closed";
+}
+
+export class WorkspaceManager {
+  private readonly records = new Map<string, WorkspaceRecord>();
+  private readonly workspaceIdsByKey = new Map<string, string>();
+  private readonly tombstones = new Map<string, WorkspaceTombstone>();
+  private readonly transportSessionId: () => string;
+  private readonly identityBinding: string;
+  private readonly policyRevision: () => string | null;
+  private readonly now: () => number;
+  private readonly randomBytes: (size: number) => Buffer;
+  private readonly ttlMs: number;
+  private readonly maxTombstones: number;
+
+  constructor(
+    private readonly config: CodexProConfig,
+    options: WorkspaceManagerOptions = {}
+  ) {
+    const fallbackSessionId = `local-${randomUUID()}`;
+    this.transportSessionId = options.transportSessionId ?? (() => fallbackSessionId);
+    this.identityBinding = options.identityBinding?.trim() || `local-${randomUUID()}`;
+    this.policyRevision = () => options.policyRevision?.() ?? null;
+    this.now = options.now ?? Date.now;
+    this.randomBytes = options.randomBytes ?? nodeRandomBytes;
+    this.ttlMs = Math.max(
+      60_000,
+      Math.min(24 * 60 * 60_000, config.workspaceTtlMs ?? config.httpSessionTtlMs ?? 30 * 60_000)
+    );
+    this.maxTombstones = Math.max(16, Math.min(4096, options.maxTombstones ?? 256));
+  }
 
   defaultWorkspace(): Workspace {
-    const existing = [...this.workspaces.values()].find((workspace) => workspace.root === this.config.defaultRoot);
-    return existing ?? this.openWorkspace(this.config.defaultRoot);
+    return this.openWorkspace(this.config.defaultRoot);
   }
 
   openWorkspace(rootInput?: string): Workspace {
+    this.pruneExpired();
     const requested = rootInput?.trim() ? expandHome(rootInput.trim()) : this.config.defaultRoot;
     assertSafePathInput(requested);
     const resolved = path.resolve(requested);
@@ -133,26 +198,149 @@ export class WorkspaceManager {
       );
     }
 
-    const existing = [...this.workspaces.values()].find((workspace) => workspace.root === realRoot);
-    if (existing) return existing;
+    const key = workspaceKeyForRoot(realRoot);
+    const existingId = this.workspaceIdsByKey.get(key);
+    if (existingId) {
+      const existing = this.records.get(existingId);
+      if (existing && this.recordMatchesCurrentBinding(existing)) {
+        return this.touch(existing);
+      }
+      if (existing) this.revokeRecord(existing, "policy_revision_changed");
+    }
 
-    const id = workspaceIdForRoot(realRoot);
-    const workspace = { id, root: realRoot, openedAt: new Date().toISOString() };
-    this.workspaces.set(id, workspace);
-    return workspace;
+    const now = this.now();
+    const id = this.nextWorkspaceId();
+    const workspace: Workspace = {
+      id,
+      root: realRoot,
+      openedAt: new Date(now).toISOString()
+    };
+    const record: WorkspaceRecord = {
+      workspace,
+      key,
+      expiresAtMs: now + this.ttlMs,
+      transportSessionId: this.currentTransportSessionId(),
+      identityBinding: this.identityBinding,
+      policyRevision: this.policyRevision()
+    };
+    this.records.set(id, record);
+    this.workspaceIdsByKey.set(key, id);
+    return { ...workspace };
   }
 
-  getWorkspace(id?: string): Workspace {
-    if (!id) return this.defaultWorkspace();
-    const workspace = this.workspaces.get(id);
-    if (!workspace) {
+  getWorkspace(id: string): Workspace {
+    if (typeof id !== "string" || !id.trim()) {
+      throw new CodexProError("workspace_id is required. Call open_workspace first.");
+    }
+    this.pruneExpired();
+    const record = this.records.get(id);
+    if (!record || !this.recordMatchesCurrentBinding(record)) {
+      if (record) this.revokeRecord(record, "policy_revision_changed");
       throw new CodexProError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
     }
-    return workspace;
+    return this.touch(record);
+  }
+
+  resolveWorkspace(id?: string): Workspace {
+    return typeof id === "string" && id.trim() ? this.getWorkspace(id.trim()) : this.defaultWorkspace();
+  }
+
+  closeWorkspace(id: string): ClosedWorkspace {
+    if (typeof id !== "string" || !id.trim()) {
+      throw new CodexProError("workspace_id is required. Call open_workspace first.");
+    }
+    this.pruneExpired();
+    const record = this.records.get(id);
+    if (!record || !this.recordMatchesCurrentBinding(record)) {
+      if (record) this.revokeRecord(record, "policy_revision_changed");
+      throw new CodexProError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
+    }
+    const closedAt = new Date(this.now()).toISOString();
+    this.revokeRecord(record, "closed", closedAt);
+    return { workspaceId: id, closedAt, state: "closed" };
   }
 
   listWorkspaces(): Workspace[] {
-    return [...this.workspaces.values()];
+    this.pruneExpired();
+    return [...this.records.values()]
+      .filter((record) => this.recordMatchesCurrentBinding(record))
+      .map((record) => ({ ...record.workspace }));
+  }
+
+  revokeAll(reason: WorkspaceRevocationReason = "transport_closed"): void {
+    const revokedAt = new Date(this.now()).toISOString();
+    for (const record of [...this.records.values()]) {
+      this.revokeRecord(record, reason, revokedAt);
+    }
+  }
+
+  revokeForPolicyRevision(activePolicyRevision: string): void {
+    const revokedAt = new Date(this.now()).toISOString();
+    for (const record of [...this.records.values()]) {
+      if (record.policyRevision === activePolicyRevision) continue;
+      this.revokeRecord(record, "policy_revision_changed", revokedAt);
+    }
+  }
+
+  private touch(record: WorkspaceRecord): Workspace {
+    record.expiresAtMs = this.now() + this.ttlMs;
+    return { ...record.workspace };
+  }
+
+  private currentTransportSessionId(): string {
+    const sessionId = this.transportSessionId().trim();
+    if (!sessionId || sessionId === "pending") {
+      throw new CodexProError("Workspace transport session is unavailable.");
+    }
+    return sessionId;
+  }
+
+  private recordMatchesCurrentBinding(record: WorkspaceRecord): boolean {
+    return record.transportSessionId === this.currentTransportSessionId() &&
+      record.identityBinding === this.identityBinding &&
+      record.policyRevision === this.policyRevision();
+  }
+
+  private nextWorkspaceId(): string {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const bytes = this.randomBytes(16);
+      if (!Buffer.isBuffer(bytes) || bytes.length !== 16) {
+        throw new CodexProError("Workspace id generator returned an invalid value.");
+      }
+      const id = `ws_${bytes.toString("hex")}`;
+      if (!this.records.has(id) && !this.tombstones.has(id)) return id;
+    }
+    throw new CodexProError("Workspace id generation failed.");
+  }
+
+  private pruneExpired(): void {
+    const now = this.now();
+    for (const record of [...this.records.values()]) {
+      if (record.expiresAtMs <= now) {
+        this.revokeRecord(record, "expired", new Date(now).toISOString());
+      }
+    }
+  }
+
+  private revokeRecord(
+    record: WorkspaceRecord,
+    reason: WorkspaceRevocationReason,
+    revokedAt = new Date(this.now()).toISOString()
+  ): void {
+    this.records.delete(record.workspace.id);
+    if (this.workspaceIdsByKey.get(record.key) === record.workspace.id) {
+      this.workspaceIdsByKey.delete(record.key);
+    }
+    this.tombstones.set(record.workspace.id, {
+      workspaceId: record.workspace.id,
+      revokedAt,
+      reason
+    });
+    while (this.tombstones.size > this.maxTombstones) {
+      const oldest = this.tombstones.keys().next().value;
+      if (typeof oldest !== "string") break;
+      this.tombstones.delete(oldest);
+    }
   }
 }
 

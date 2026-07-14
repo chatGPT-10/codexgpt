@@ -41,6 +41,7 @@ Review changes against these failure modes before release:
 | Public tunnel reachable without a secret | Public/non-loopback HTTP fails closed unless a CodexPro token is configured. |
 | Raw CodexPro or Cloudflare token appears in UI, logs, docs, or package output | Tokens are redacted in profile/status output and tunnel tokens use local files for persistence. |
 | ChatGPT can edit outside the intended repo | Allowed roots are explicit; path resolution rejects escapes, blocked globs, and symlink traversal. |
+| A copied workspace handle is reused from another MCP session | Workspace handles are random, server-session scoped, checked against the issuing lifecycle domain, and invalidated by close, idle expiry, transport teardown, or policy-revision change. |
 | ChatGPT can run arbitrary shell by default | Bash defaults to safe mode, can be disabled, and full mode is a trusted-local-only choice. Safe mode can still run repo package scripts, so use `--no-bash` for untrusted repos. |
 | Handoff mode still exposes generic writes | Handoff/pro modes do not advertise generic `write`/`edit`/`apply_patch`; bounded handoff tools write `.ai-bridge` files only. |
 | Local Codex history is treated as ChatGPT memory | Codex session access is opt-in metadata/read mode and never attaches to a live Codex app session. |
@@ -111,6 +112,14 @@ The following distinctions are security requirements:
 Phase 2A does not claim complete Windows sandboxing, OAuth-grade owner isolation, elimination of symlink/junction TOCTOU, persistent audit storage, approval UI, or safe arbitrary Git remote writes. The synthetic Windows capability spike reads and writes only temporary fixtures and reports unproved capabilities as `none`; it does not install firewall rules, services, scheduled tasks, registry policy, or sandbox software.
 
 During the migration cycle, rollback is permitted only to reviewed legacy behavior, the exact generated compatibility profile, or a narrower read-only profile. Invalid policy configuration cannot fall through to an unguarded execution path.
+
+## Workspace Lifecycle Boundaries
+
+A `workspace_id` is an opaque capability handle issued inside one MCP server lifecycle domain. It is not a stable repository identifier, path hash, bearer credential for other sessions, or proof of a human owner. Separate HTTP transport sessions and separate STDIO server processes receive separate handles even when they open the same canonical root.
+
+`close_workspace` invalidates a handle immediately. Active handles also expire after the bounded idle TTL, and successful use refreshes that deadline. Foreign, closed, expired, transport-stale, or policy-stale handles return the same bounded unavailable result without disclosing the root, internal workspace key, identity binding, policy revision, or revocation reason.
+
+For one compatibility cycle, an omitted `workspace_id` can select only the current server session's configured default root. This compatibility boundary must not be generalized into process-global workspace sharing.
 
 ## Hard Rules
 

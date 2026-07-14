@@ -95,11 +95,13 @@ function workspaceFor(
   args: Record<string, unknown>,
   workspaces: WorkspaceManager
 ): Workspace | null {
+  const workspaceId = typeof args.workspace_id === "string" && args.workspace_id.trim()
+    ? args.workspace_id.trim()
+    : undefined;
   if (definitionMode === "context_only") {
-    const workspaceId = typeof args.workspace_id === "string" ? args.workspace_id : undefined;
     return workspaceId ? workspaces.getWorkspace(workspaceId) : null;
   }
-  return workspaces.getWorkspace(typeof args.workspace_id === "string" ? args.workspace_id : undefined);
+  return workspaceId ? workspaces.getWorkspace(workspaceId) : workspaces.resolveWorkspace();
 }
 
 function describeResource(

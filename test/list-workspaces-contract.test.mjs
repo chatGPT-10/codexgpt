@@ -358,7 +358,7 @@ test("list_workspaces preserves real manager identity, canonical root, timestamp
         [await fs.realpath(first), await fs.realpath(second)]
       );
       for (const workspace of parsed.data.workspaces) {
-        assert.match(workspace.id, /^ws_[0-9a-f]{24}$/);
+        assert.match(workspace.id, /^ws_[0-9a-f]{32}$/);
         assert.equal(new Date(workspace.openedAt).toISOString(), workspace.openedAt);
       }
     });
@@ -389,20 +389,29 @@ test("list_workspaces preserves injected provider order", async () => {
   });
 });
 
-test("list_workspaces shares manager inventory across MCP server instances with the same config", async () => {
+test("list_workspaces keeps manager inventory isolated across MCP server instances", async () => {
   await withTempWorkspace(async (root) => {
     const config = createTestConfig(root);
-    let openedId;
+    let firstServerId;
     await withConfigClient(config, {}, async (client) => {
       const opened = await callTool(client, "open_current_workspace", { include_tree: false });
-      openedId = opened.structuredContent.data.workspace_id;
+      firstServerId = opened.structuredContent.data.workspace_id;
+      const listed = parseListResult(await callTool(client, "list_workspaces"));
+      assert.equal(listed.data.count, 1);
+      assert.equal(listed.data.workspaces[0].id, firstServerId);
     });
 
     await withConfigClient(config, {}, async (client) => {
-      const parsed = parseListResult(await callTool(client, "list_workspaces"));
-      assert.equal(parsed.data.count, 1);
-      assert.equal(parsed.data.workspaces[0].id, openedId);
-      assert.equal(parsed.data.workspaces[0].root, root);
+      const beforeOpen = parseListResult(await callTool(client, "list_workspaces"));
+      assert.deepEqual(beforeOpen.data, { workspaces: [], count: 0 });
+
+      const opened = await callTool(client, "open_current_workspace", { include_tree: false });
+      const secondServerId = opened.structuredContent.data.workspace_id;
+      assert.notEqual(secondServerId, firstServerId);
+      const afterOpen = parseListResult(await callTool(client, "list_workspaces"));
+      assert.equal(afterOpen.data.count, 1);
+      assert.equal(afterOpen.data.workspaces[0].id, secondServerId);
+      assert.equal(afterOpen.data.workspaces[0].root, root);
     });
   });
 });

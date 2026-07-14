@@ -360,6 +360,14 @@ Phase 2A 有意保持严格限制。目前尚未暴露审批管理 UI 或 MCP �
 
 迁移周期内只允许回滚到经过审查的 `legacy` 行为、生成的兼容 Permission Profile，或更窄的只读 profile。Policy 加载失败不会自动退回无策略执行。
 
+## 工作区会话
+
+`workspace_id` 是只属于一个 MCP Server 会话的随机不透明句柄，不再由仓库路径哈希推导。同一活动会话重复打开同一 root 会复用本会话句柄；另一个 HTTP transport session 或 STDIO Server 进程会获得不同句柄，也不能使用或列出前一个会话的工作区。
+
+调用 `close_workspace` 可以立即使句柄失效。空闲句柄按 `CODEXPRO_WORKSPACE_TTL_MS` 过期；未设置时跟随 `CODEXPRO_HTTP_SESSION_TTL_MS`，通常为 30 分钟，成功使用会刷新空闲期限。
+
+为保留一个兼容周期，省略 `workspace_id` 的工具仍只会解析当前会话自己的默认 root，不会恢复跨会话共享。
+
 ## 安全边界
 
 CodexPro 是本地开发桥，不是操作系统级沙箱。

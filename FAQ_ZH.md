@@ -122,6 +122,14 @@ Normal coding 模式下，ChatGPT 可以在配置的工作区内写入和精确�
 
 如果你只想让 ChatGPT 规划，不想让它直接改源码，用 handoff 模式。
 
+## workspace_id 会在不同 ChatGPT 会话之间共享吗？
+
+不会。`workspace_id` 现在是随机、不可从路径推导的句柄，只属于一个 MCP Server 会话：HTTP 模式下属于一个 transport session，STDIO 模式下属于一个进程会话。同一活动会话重复打开同一 root 会复用本会话句柄；另一个会话会获得不同句柄，也不能使用或列出前一个会话的工作区。
+
+调用 `close_workspace` 可以立即使句柄失效；重新打开同一 root 会生成新句柄。空闲句柄按 `CODEXPRO_WORKSPACE_TTL_MS` 过期，默认跟随 HTTP session TTL，通常为 30 分钟；成功使用会刷新空闲期限。
+
+为保留一个兼容周期，省略 `workspace_id` 时仍会选择当前会话自己的默认 root，但不会恢复跨会话共享。
+
 ## CodexPro 能把 bash 绑定到某个会话 id 吗？
 
 CodexPro 不能附加到、读取或复用某一个 Codex App 聊天会话或终端会话。

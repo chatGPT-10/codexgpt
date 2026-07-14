@@ -162,6 +162,14 @@ Phase 2A intentionally remains restrictive. No approval-management UI or MCP app
 
 Rollback during the migration cycle is limited to the reviewed `legacy` behavior, the generated compatibility profile, or a narrower read-only profile. Policy-loading failure never falls through to unguarded execution.
 
+## Workspace Sessions
+
+A `workspace_id` is a random opaque handle owned by one MCP server session, not a hash of the repository path. Reopening the same root inside one active session reuses that handle; another HTTP transport session or STDIO server process receives a different handle and cannot use or list the first session's workspaces.
+
+Call `close_workspace` to invalidate a handle immediately. Idle handles expire after `CODEXPRO_WORKSPACE_TTL_MS`; when unset, the value follows `CODEXPRO_HTTP_SESSION_TTL_MS`, normally 30 minutes, and successful use refreshes the idle deadline.
+
+For one compatibility cycle, tools that omit `workspace_id` still resolve only the current session's configured default root. This compatibility path does not restore cross-session sharing.
+
 ## Safety Defaults
 
 - Public tunnel mode requires a CodexPro HTTP token.

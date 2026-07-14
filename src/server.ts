@@ -230,6 +230,13 @@ import {
   type ListWorkspacesFailureInput
 } from "./tools/schemas/listWorkspaces.js";
 import {
+  CLOSE_WORKSPACE_ERROR_MESSAGES,
+  closeWorkspaceOutputShape,
+  createCloseWorkspaceFailure,
+  createCloseWorkspaceSuccess,
+  type CloseWorkspaceFailureInput
+} from "./tools/schemas/closeWorkspace.js";
+import {
   INSPECT_WORKSPACE_ERROR_MESSAGES,
   INSPECT_WORKSPACE_OUTPUT_LIMIT_WARNING,
   createInspectWorkspaceFailure,
@@ -4162,6 +4169,7 @@ const MINIMAL_TOOL_NAMES = [
   "codexpro_self_test",
   "open_current_workspace",
   "open_workspace",
+  "close_workspace",
   "read",
   "write",
   "edit",
@@ -4191,6 +4199,7 @@ const FULL_TOOL_NAMES = [
   "list_workspaces",
   "open_current_workspace",
   "open_workspace",
+  "close_workspace",
   "workspace_snapshot",
   "inspect_workspace",
   "tree",
@@ -4214,6 +4223,7 @@ const FULL_TOOL_NAMES = [
 const CONNECTION_TEST_HIDDEN_TOOLS = new Set<string>([
   SUPERTOOL_NAME,
   "codexpro_self_test",
+  "close_workspace",
   "write",
   "edit",
   "apply_patch",
@@ -4630,23 +4640,12 @@ const LOCAL_WRITE_ANNOTATIONS = { readOnlyHint: false, openWorldHint: false, des
 const BASH_ANNOTATIONS = { readOnlyHint: false, openWorldHint: true, destructiveHint: true, idempotentHint: false };
 const HANDOFF_WRITE_ANNOTATIONS = { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: false };
 
-const workspaceManagers = new Map<string, WorkspaceManager>();
-
-function workspaceManagerKey(config: CodexProConfig): string {
-  return JSON.stringify({
-    defaultRoot: config.defaultRoot,
-    allowedRoots: [...config.allowedRoots].sort(),
-    contextDir: config.contextDir
-  });
-}
-
-function getSharedWorkspaceManager(config: CodexProConfig): WorkspaceManager {
-  const key = workspaceManagerKey(config);
-  const existing = workspaceManagers.get(key);
-  if (existing) return existing;
-  const manager = new WorkspaceManager(config);
-  workspaceManagers.set(key, manager);
-  return manager;
+function workspaceIdentityBinding(source?: PolicySessionContextSource): string | undefined {
+  if (!source) return undefined;
+  return `identity_${createHash("sha256")
+    .update(JSON.stringify(source.identity), "utf8")
+    .digest("hex")
+    .slice(0, 24)}`;
 }
 
 function buildServerConfigData(
@@ -4725,10 +4724,21 @@ export function createCodexProServer(
   config: CodexProConfig,
   dependencies: CodexProServerDependencies = {}
 ): McpServer {
-  const workspaces = getSharedWorkspaceManager(config);
+  let effectivePolicyRuntime: PolicyRuntime | undefined = dependencies.policyRuntime;
+  const workspaces = new WorkspaceManager(config, {
+    transportSessionId: dependencies.policySessionContextSource?.transportSessionId,
+    identityBinding: workspaceIdentityBinding(dependencies.policySessionContextSource),
+    policyRevision: () => {
+      try {
+        return effectivePolicyRuntime?.diagnostics?.().policyRevision ?? null;
+      } catch {
+        return null;
+      }
+    }
+  });
   const guard = new PathGuard(config);
   const policyEngineMode = config.policyEngineMode ?? "legacy";
-  const effectivePolicyRuntime = dependencies.policyRuntime ?? (
+  effectivePolicyRuntime ??= (
     policyEngineMode !== "legacy" && dependencies.policySessionContextSource
       ? createDefaultPolicyRuntime({
           config,
@@ -5131,7 +5141,7 @@ export function createCodexProServer(
     async (args) => {
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const details = typeof args.workspace_id === "string"
           ? {
@@ -5221,7 +5231,7 @@ export function createCodexProServer(
       const startedAt = Date.now();
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const failure: CodexProInventoryFailureInput = args.workspace_id && message.startsWith("Unknown workspace_id:")
@@ -5355,7 +5365,7 @@ export function createCodexProServer(
 
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const failure: LoadSkillFailureInput = args.workspace_id
           ? {
@@ -5512,6 +5522,65 @@ export function createCodexProServer(
             listWorkspacesFailureText(failure),
             createListWorkspacesFailure(failure, Date.now() - startedAt)
           ),
+          isError: true
+        };
+      }
+    }
+  );
+
+  registerCodexTool(
+    config,
+    server,
+    "close_workspace",
+    {
+      title: "Close Workspace",
+      description: "Close one session-scoped workspace handle. The handle becomes unusable immediately; reopen the workspace to obtain a new workspace_id.",
+      inputSchema: {
+        workspace_id: z.string()
+          .regex(/^ws_[0-9a-f]{32}$/)
+          .describe("Opaque workspace handle returned by open_workspace or open_current_workspace.")
+      },
+      outputSchema: closeWorkspaceOutputShape,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: true,
+        idempotentHint: false
+      },
+      _meta: {
+        ...toolCardMeta(),
+        "openai/toolInvocation/invoking": "Closing CodexPro workspace...",
+        "openai/toolInvocation/invoked": "CodexPro workspace closed"
+      }
+    },
+    async (args) => {
+      const startedAt = Date.now();
+      const workspaceId = safeTreeWorkspaceIdDetail(args.workspace_id);
+      try {
+        const closed = workspaces.closeWorkspace(args.workspace_id);
+        const data = {
+          workspace_id: closed.workspaceId,
+          closed_at: closed.closedAt,
+          state: closed.state
+        } as const;
+        return textResult(
+          `# Close Workspace\n\nWorkspace handle closed: ${closed.workspaceId}`,
+          createCloseWorkspaceSuccess(data, Date.now() - startedAt)
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        const failure: CloseWorkspaceFailureInput =
+          message.startsWith("Unknown workspace_id:") || message.startsWith("workspace_id is required")
+            ? { code: "WORKSPACE_NOT_FOUND", details: { workspace_id: workspaceId } }
+            : { code: "INTERNAL_ERROR", details: {} };
+        const text = [
+          "# Close Workspace Error",
+          "",
+          `Code: ${failure.code}`,
+          CLOSE_WORKSPACE_ERROR_MESSAGES[failure.code]
+        ].join("\n");
+        return {
+          ...textResult(text, createCloseWorkspaceFailure(failure, Date.now() - startedAt)),
           isError: true
         };
       }
@@ -5725,7 +5794,7 @@ export function createCodexProServer(
       let workspace: Workspace;
 
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const failure = classifyWorkspaceSnapshotWorkspaceFailure(args);
         return {
@@ -5892,7 +5961,7 @@ export function createCodexProServer(
       let scopePath: string;
 
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
         const requestedPath = typeof args.path === "string" && args.path.trim()
           ? args.path
           : ".";
@@ -6054,7 +6123,7 @@ export function createCodexProServer(
     },
     async (args) => {
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const options: TreeOptions = {
           path: args.path ?? ".",
           maxDepth: limitInt(args.max_depth, 4, 1, 12),
@@ -6117,7 +6186,7 @@ export function createCodexProServer(
     async (args) => {
       const startedAt = Date.now();
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const options: Partial<SearchOptions> = {
           query: args.query,
           regex: parseBool(args.regex, false),
@@ -6203,7 +6272,7 @@ export function createCodexProServer(
     },
     async (args) => {
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const filePath = String(args.path ?? "");
         const options = {
           startLine: args.start_line,
@@ -6267,7 +6336,7 @@ export function createCodexProServer(
     },
     async (args) => {
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const requestedPath = String(args.path ?? "");
         const content = String(args.content ?? "");
         const resolved = guard.resolve(workspace, requestedPath, { forWrite: true });
@@ -6342,7 +6411,7 @@ export function createCodexProServer(
     },
     async (args) => {
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const requestedPath = String(args.path ?? "");
         const oldText = String(args.old_text ?? "");
         const newText = String(args.new_text ?? "");
@@ -6416,7 +6485,7 @@ export function createCodexProServer(
     },
     async (args) => {
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const patch = String(args.patch ?? "");
         const touchedPaths = validateApplyPatchInput(config, patch);
         const expectedPaths = [...new Set(touchedPaths.map((touchedPath) => {
@@ -6521,7 +6590,7 @@ export function createCodexProServer(
     async (args) => {
       const startedAt = Date.now();
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const command = String(args.command ?? "");
         const requestedCwd = typeof args.cwd === "string" ? args.cwd : undefined;
         const providerResult = bashProviderResultSchema.parse(
@@ -6609,7 +6678,7 @@ export function createCodexProServer(
     },
     async (args) => {
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const scopedPath = typeof args.path === "string" ? args.path : undefined;
         const status = await gitStatusResultProvider({
           config,
@@ -6690,7 +6759,7 @@ export function createCodexProServer(
     },
     async (args) => {
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const staged = parseBool(args.staged, false);
         const includeDiff = parseBool(args.include_diff, true);
         const providerResult = await gitDiffResultProvider({
@@ -6791,7 +6860,7 @@ export function createCodexProServer(
     },
     async (args) => {
       try {
-        const workspace = workspaces.getWorkspace(args.workspace_id);
+        const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const scopedPath = typeof args.path === "string" ? args.path : undefined;
         const staged = parseBool(args.staged, false);
         const includeDiff = parseBool(args.include_diff, true);
@@ -6979,7 +7048,7 @@ export function createCodexProServer(
       const startedAt = Date.now();
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const failure: ReadHandoffFailureInput = args.workspace_id
           ? {
@@ -7092,7 +7161,7 @@ export function createCodexProServer(
       const startedAt = Date.now();
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const failure: WaitForHandoffFailureInput = args.workspace_id
           ? {
@@ -7354,7 +7423,7 @@ export function createCodexProServer(
       const startedAt = Date.now();
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const failure: CodexContextFailureInput = args.workspace_id
           ? {
@@ -7537,7 +7606,7 @@ export function createCodexProServer(
       const startedAt = Date.now();
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const failure: ExportProContextFailureInput = args.workspace_id
           ? {
@@ -7857,7 +7926,7 @@ export function createCodexProServer(
       const startedAt = Date.now();
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const failure: HandoffToAgentFailureInput = args.workspace_id
           ? {
@@ -7994,7 +8063,7 @@ export function createCodexProServer(
       const startedAt = Date.now();
       let workspace: Workspace;
       try {
-        workspace = workspaces.getWorkspace(args.workspace_id);
+        workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch {
         const failure: HandoffToCodexFailureInput = args.workspace_id
           ? {

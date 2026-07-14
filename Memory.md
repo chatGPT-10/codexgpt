@@ -18,10 +18,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 1: formally closed on 2026-07-14. Slices 1–16 were published earlier; unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed exact-head CI run `29314923948` on Ubuntu/Windows Node 20/24.
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
+- Phase 2B: design, TDD implementation, local acceptance, and `neat-freak` reconciliation completed on 2026-07-14. Changes remain unstaged, uncommitted, unpublished, and without exact-head CI evidence.
 
 ## Approved stopping point
 
-Phase 1 and Phase 2A are formally closed. Phase 2A implementation `e6798b6` plus repair `dea25ec` passed exact-head run `29326459987` across Ubuntu/Windows Node 20/24. The next authorized action is Phase 2B design and implementation; Phase 6–9 and all independently gated high-risk actions remain closed.
+Phase 1 and Phase 2A are formally closed. Phase 2B is locally implemented, accepted, and reconciled but remains unstaged, uncommitted, unpublished, and without exact-head CI evidence. The next controlled action, only after explicit user approval, is staging, commit, push, and exact-head CI; Phase 3 is not treated as published work until Phase 2B publication closes. Phase 6–9 and all independently gated high-risk actions remain closed.
 
 ## Active decisions and constraints
 
@@ -35,7 +36,7 @@ Phase 1 and Phase 2A are formally closed. Phase 2A implementation `e6798b6` plus
 - Phase 1 output envelopes remain closed: tool identity plus `ok`, `data`, `error`, and `meta`; Phase 2A policy failures occur before those envelopes rather than reopening them.
 - Policy Kernel uses an immutable compiled snapshot and pure deterministic evaluator. Tool Surface, Policy, Approval, and Sandbox remain separate, and approvals cannot exceed hard policy, identity scopes, Permission Profile, allowed roots, or demonstrated capabilities.
 - `CODEXPRO_POLICY_ENGINE=legacy` remains the migration default; `shadow` is observational and `enforce` is fail-closed. Phase 2A has no approval-management surface, so bounded-risk operations may return `APPROVAL_REQUIRED`; unproved Shell/Process isolation returns sandbox-unavailable errors.
-- Direct tools and the `codexpro` supertool share one registered-handler policy boundary across 27 canonical child tools. `codexpro_self_test` exposes seventeen fixed checks, including five Policy checks.
+- Direct tools and the `codexpro` supertool share one registered-handler policy boundary across 28 canonical child tools. `close_workspace` is available in normal minimal/standard/full modes and hidden from read-only connection-test mode. `codexpro_self_test` exposes seventeen fixed checks, including five Policy checks.
 - Phase 1 tool `meta` stays unchanged; transport-aware request IDs exist only inside Phase 2A `RequestContext` and audit facts.
 - Keep `scripts/smoke.mjs` and `scripts/http-smoke.mjs` protected and unchanged. Compatibility loaders must use exact fail-closed in-memory substitutions.
 - The master implementation plan is the active architecture and sequencing authority. Detailed Phase 1 and Policy Kernel facts belong in paired specs/plans and phase archives, not this index.
@@ -43,6 +44,7 @@ Phase 1 and Phase 2A are formally closed. Phase 2A implementation `e6798b6` plus
 
 ## Verification evidence
 
+- Phase 2B local gate: complete regression 542 tests with 541 pass, 0 fail, and 1 established platform-conditional skip; TypeScript Build; all eight Smoke sections including real HTTP cross-session isolation; native-Windows Stress; 197-file package dry-run; and static removal of the process-global manager, path-derived public ID, and optional core lookup all passed.
 - Phase 2A local gate: Policy focused 69 pass/0 fail/1 platform skip, adjacent security/contracts 149/149, complete regression 525 pass/0 fail/1 platform skip across 526 tests, Build, all eight Smoke sections, native-Windows Stress, 195-file package dry-run, protected-source checks, and the static 27-tool mapping passed.
 - Initial exact-head run `29325407247` for `e6798b6` passed Windows Node 20/24 completely but failed Ubuntu Node 20/24 during Regression Tests. Root cause: `test/policy-resources.test.mjs` combined simulated `win32` `PathGuard` parsing with the host Linux `node:path` implementation. The repair keeps the real filesystem guard on the host platform and tests Windows normalization through resource comparison keys.
 - Replacement exact-head run `29326459987` for repair commit `dea25ec` passed all four Ubuntu/Windows Node 20/24 jobs, including Build, Regression Tests, Smoke Test, and Check Package Contents.
@@ -51,7 +53,8 @@ Phase 1 and Phase 2A are formally closed. Phase 2A implementation `e6798b6` plus
 ## Known limitations
 
 - Phase 2A has no user-facing approval issuance surface or persistent audit store. `enforce` may stop bounded-risk operations at `APPROVAL_REQUIRED`, and arbitrary Shell/Process execution remains unavailable without demonstrated OS isolation.
-- Filesystem TOCTOU is reduced, not eliminated. Workspace ownership, expiry, revocation, and cross-session isolation remain Phase 2B; OAuth owner identity remains Phase 8.
+- Phase 2B lifecycle state is intentionally process-local. Workspace close, sliding expiry, policy revocation, and cross-session isolation are implemented; persistence and OAuth owner identity remain out of scope, with OAuth still reserved for Phase 8.
+- Omitted `workspace_id` remains supported for one compatibility cycle only through the explicit session-local resolver. Filesystem TOCTOU is reduced, not eliminated.
 - Safe Bash is not a sandbox, and timeout does not reliably terminate every Windows descendant process.
 - The managed pinned Cloudflared binary is not installed in the user profile. macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 - Several legacy failure classifiers still depend on bounded internal message prefixes or Node error codes. Exact tool-level details remain in the Phase 1 archives.
@@ -63,14 +66,14 @@ Phase 1 and Phase 2A are formally closed. Phase 2A implementation `e6798b6` plus
 
 ## Open items
 
-1. Begin Phase 2B design and implementation under the recorded Phase 2A–5 authorization. Keep all independently gated high-risk actions and Phase 6–9 closed.
+1. After explicit user approval, stage the reconciled Phase 2B diff, commit, push, and verify exact-head CI. Keep Phase 3 unpublished and all independently gated high-risk actions and Phase 6–9 closed.
 
 ## Recent summaries
 
-- **STEP-253 — Publish and close Phase 2A:** repair commit `dea25ec` passed exact-head run `29326459987` across Ubuntu/Windows Node 20/24; all four jobs completed Build, Regression, Smoke, and package checks, so Phase 2A is formally closed.
-- **STEP-252 — Repair Ubuntu exact-head regression:** implementation commit `e6798b6` was published; run `29325407247` passed both Windows jobs but exposed one Linux-host test-fixture defect in Windows path normalization. The test-only repair preserved production behavior.
-- **STEP-251 — Reconcile Phase 2A knowledge base:** removed historical narration from `AGENTS.md`, compressed `Memory.md`, aligned active Policy paths in both FAQs, and verified current-state references without changing runtime behavior.
-- **STEP-250 — Implement and locally accept Phase 2A:** completed all 12 TDD tasks and 84 plan steps; all local implementation gates passed.
+- **STEP-260 — Reconcile Phase 2B knowledge and rules:** aligned `AGENTS.md`, dual-language READMEs, `SECURITY.md`, `CHANGELOG.md`, the master plan, Memory, and the active archive; removed unused lifecycle timestamp state; focused 22/22, Build, 541/542 regression with one platform skip, eight-section Smoke, and 197-file package dry-run passed.
+- **STEP-259 — Locally accept Phase 2B:** 542-test regression produced 541 pass, 0 fail, and 1 established platform skip; Build, eight-section Smoke, native-Windows Stress, and 197-file package dry-run passed. Changes remain unpublished.
+- **STEP-258 — Prove HTTP workspace isolation:** protected HTTP Smoke source remained unchanged while the compatibility loader verified fresh per-session handles, empty new-session inventory, foreign-handle rejection, and session-local Pro-context export.
+- **STEP-257 — Add close_workspace:** introduced the strict 28th canonical child tool with immediate invalidation, safe not-found parity, direct/supertool reuse, and read-only connection-test exclusion.
 
 ## Archives
 
@@ -85,7 +88,8 @@ Phase 1 and Phase 2A are formally closed. Phase 2A implementation `e6798b6` plus
 - [Closed Phase 1 Volume 7 — STEP-206 through STEP-219](docs/memory/archive/phase-1-part-7.md)
 - [Closed Phase 1 Volume 8 — STEP-220 through STEP-236](docs/memory/archive/phase-1-part-8.md)
 - [Closed Phase 1 Volume 9 — STEP-237 through STEP-247](docs/memory/archive/phase-1-part-9.md)
-- [Policy Kernel Gate — STEP-248 onward](docs/memory/archive/policy-kernel-gate.md)
+- [Policy Kernel Gate — STEP-248 through STEP-253](docs/memory/archive/policy-kernel-gate.md)
+- [Phase 2B Workspace Lifecycle — STEP-254 through STEP-260](docs/memory/archive/phase-2b-workspace-lifecycle.md)
 
 ## Memory maintenance protocol
 

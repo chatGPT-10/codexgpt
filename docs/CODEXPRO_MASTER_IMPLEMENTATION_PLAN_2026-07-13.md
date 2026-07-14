@@ -749,6 +749,20 @@ workspaceId
 
 保留旧 ID 解析兼容层，但不得恢复跨客户端共享的隐式授权。数据迁移必须可逆，不删除用户 profile 或工作区记录。
 
+### 9.6 2026-07-14 本地实施状态
+
+Phase 2B 已完成设计、TDD 实现和本地验收，但尚未暂存、提交、推送或运行 exact-head CI：
+
+- `workspaceKey` 仅作 manager 内部 canonical-root 去重；公开 `workspaceId` 改为随机 `ws_<32 hex>` 会话句柄。
+- 每个 `createCodexProServer()` 拥有独立 `WorkspaceManager`；HTTP transport session 和 STDIO 进程会话不再共享 inventory 或授权句柄。
+- 核心 `getWorkspace(id)` 已严格要求 ID；一个兼容周期的省略-ID 行为只由显式 `resolveWorkspace()` 边界承接。
+- 已实现 sliding TTL、close、transport revoke、policy-revision revoke 和有界 tombstone。
+- `close_workspace` 成为第 28 个 canonical child tool，正常 minimal/standard/full 可用，direct/supertool 共用 handler，connection-test 中隐藏。
+- 受保护的 `scripts/http-smoke.mjs` 未修改；兼容 loader 已迁移为跨 HTTP 会话隔离、外来句柄拒绝和会话局部导出检查。
+- Build、完整回归、八段 Smoke、native-Windows Stress 和 197 文件 package dry-run 已通过；最终精确计数记录在 `Memory.md` 与 Phase 2B 归档。
+
+未暂存 diff 已完成 `neat-freak` 规则、用户文档、安全边界、Changelog、Memory 和归档对账。下一步仅在用户明确批准后暂存、提交、推送并验证 exact-head CI；任何回滚不得恢复进程全局 manager、路径派生公开 ID 或跨会话复用。
+
 ---
 
 ## 10. Phase 3 — 原子编辑与持久审计

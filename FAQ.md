@@ -174,6 +174,14 @@ Use handoff mode if you want ChatGPT to write a plan only and let Codex execute 
 
 Use `CODEXPRO_WRITE_MODE=off` when you want direct `write` and `edit` tools removed from the advertised MCP tool list while still allowing bounded handoff/context files.
 
+## Are workspace IDs shared across ChatGPT sessions?
+
+No. A `workspace_id` is now a random opaque handle owned by one MCP server session: one HTTP transport session, or one STDIO process session. Opening the same root inside the same active session reuses that session's handle, but another session receives a different handle and cannot use or list the first session's workspaces.
+
+Use `close_workspace` to invalidate a handle immediately. Reopening the root creates a new handle. Idle handles expire after `CODEXPRO_WORKSPACE_TTL_MS`; the default is the HTTP session TTL, normally 30 minutes, and successful use refreshes the idle deadline.
+
+For one compatibility cycle, an omitted `workspace_id` still selects only that session's configured default root. It does not restore cross-session sharing.
+
 ## Can CodexPro bind bash to a specific session id?
 
 CodexPro cannot attach to, read, or execute inside a specific Codex app conversation or terminal session.

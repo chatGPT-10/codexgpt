@@ -20,6 +20,7 @@ export interface ToolPolicyDefinition {
 export const TOOL_POLICY_DEFINITIONS: Readonly<Record<CanonicalCodexProChildTool, ToolPolicyDefinition>> = Object.freeze({
   apply_patch: Object.freeze({ riskClass: "R2", requiredScope: "filesystem:write", resourceMode: "workspace_write" }),
   bash: Object.freeze({ riskClass: "R3", requiredScope: "shell:execute", resourceMode: "shell" }),
+  close_workspace: Object.freeze({ riskClass: "R1", requiredScope: "workspace:open", resourceMode: "context_only" }),
   codex_context: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "workspace_read" }),
   codexpro_inventory: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "context_only" }),
   codexpro_self_test: Object.freeze({ riskClass: "R0", requiredScope: null, resourceMode: "context_only" }),

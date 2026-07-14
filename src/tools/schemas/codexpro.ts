@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { applyPatchOutputSchema } from "./applyPatch.js";
 import { bashOutputSchema } from "./bash.js";
+import { closeWorkspaceOutputSchema } from "./closeWorkspace.js";
 import { codexContextOutputSchema } from "./codexContext.js";
 import { codexproInventoryOutputSchema } from "./codexproInventory.js";
 import { codexproSelfTestOutputSchema } from "./codexproSelfTest.js";
@@ -43,6 +44,7 @@ export const CANONICAL_CODEXPRO_CHILD_TOOLS = [
   "handoff_to_codex",
   "inspect_workspace",
   "list_workspaces",
+  "close_workspace",
   "load_skill",
   "open_current_workspace",
   "open_workspace",
@@ -231,6 +233,7 @@ const childOutputSchemas: Record<CanonicalCodexProChildTool, z.ZodTypeAny> = {
   handoff_to_codex: handoffToCodexOutputSchema,
   inspect_workspace: inspectWorkspaceOutputSchema,
   list_workspaces: listWorkspacesOutputSchema,
+  close_workspace: closeWorkspaceOutputSchema,
   load_skill: loadSkillOutputSchema,
   open_current_workspace: openCurrentWorkspaceOutputSchema,
   open_workspace: openWorkspaceOutputSchema,
