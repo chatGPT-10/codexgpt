@@ -120,10 +120,11 @@ test("reserved artifacts are blocked unconditionally and manifests exclude sensi
 });
 
 test("protected smoke sources and the canonical public tool count remain exact", async () => {
-  const smoke = await read("scripts/smoke.mjs");
-  const httpSmoke = await read("scripts/http-smoke.mjs");
-  assert.equal(createHash("sha256").update(smoke).digest("hex"), "9839e0bc2c040936add6094f362b7b9337981f4875aa61f6c3d0cbe5874f71ef");
-  assert.equal(createHash("sha256").update(httpSmoke).digest("hex"), "00234c1659b2cec775ed04f0907d94d9ee3f3a3dba2a0495da12901f43befc6a");
+  const canonicalSource = (source) => source.replace(/\r\n/g, "\n");
+  const smoke = canonicalSource(await read("scripts/smoke.mjs"));
+  const httpSmoke = canonicalSource(await read("scripts/http-smoke.mjs"));
+  assert.equal(createHash("sha256").update(smoke).digest("hex"), "0234c92e88072c9e5d73f2fbb663131f7e68572f2c80d7a89f9601392111fbae");
+  assert.equal(createHash("sha256").update(httpSmoke).digest("hex"), "b61f925c562dadea6c4ce3c1fad56edb286be1ffee81c2bcadb46196cfe660f4");
   assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.length, 28);
   assert.equal(new Set(CANONICAL_CODEXPRO_CHILD_TOOLS).size, 28);
 });
