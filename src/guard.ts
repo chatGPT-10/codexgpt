@@ -42,6 +42,21 @@ export function normalizeRelPath(relPath: string): string {
 }
 
 const WINDOWS_RESERVED_BASENAME = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
+const RESERVED_TRANSACTION_PREFIX = ".codexpro-txn-";
+
+export function isReservedTransactionRelativePath(
+  relPath: string,
+  platform: NodeJS.Platform = process.platform
+): boolean {
+  const segments = normalizeRelPath(relPath)
+    .replace(/^\.\//, "")
+    .split("/")
+    .filter(Boolean);
+  return segments.some((segment) => {
+    const compared = platform === "win32" ? segment.toLocaleLowerCase("en-US") : segment;
+    return compared.startsWith(RESERVED_TRANSACTION_PREFIX);
+  });
+}
 
 export function assertSafePathInput(inputPath: string, platform: NodeJS.Platform = process.platform): void {
   if (inputPath.includes("\0")) {
@@ -137,6 +152,7 @@ export interface WorkspaceManagerOptions {
   now?: () => number;
   randomBytes?: (size: number) => Buffer;
   maxTombstones?: number;
+  beforeWorkspaceUse?: (canonicalRoot: string) => void;
 }
 
 export interface ClosedWorkspace {
@@ -154,6 +170,7 @@ export class WorkspaceManager {
   private readonly policyRevision: () => string | null;
   private readonly now: () => number;
   private readonly randomBytes: (size: number) => Buffer;
+  private readonly beforeWorkspaceUse: (canonicalRoot: string) => void;
   private readonly ttlMs: number;
   private readonly maxTombstones: number;
 
@@ -167,6 +184,7 @@ export class WorkspaceManager {
     this.policyRevision = () => options.policyRevision?.() ?? null;
     this.now = options.now ?? Date.now;
     this.randomBytes = options.randomBytes ?? nodeRandomBytes;
+    this.beforeWorkspaceUse = options.beforeWorkspaceUse ?? (() => undefined);
     this.ttlMs = Math.max(
       60_000,
       Math.min(24 * 60 * 60_000, config.workspaceTtlMs ?? config.httpSessionTtlMs ?? 30 * 60_000)
@@ -198,6 +216,7 @@ export class WorkspaceManager {
       );
     }
 
+    this.beforeWorkspaceUse(realRoot);
     const key = workspaceKeyForRoot(realRoot);
     const existingId = this.workspaceIdsByKey.get(key);
     if (existingId) {
@@ -238,6 +257,7 @@ export class WorkspaceManager {
       if (record) this.revokeRecord(record, "policy_revision_changed");
       throw new CodexProError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
     }
+    this.beforeWorkspaceUse(record.workspace.root);
     return this.touch(record);
   }
 
@@ -346,12 +366,13 @@ export class WorkspaceManager {
 
 export class PathGuard {
   constructor(
-    private readonly config: CodexProConfig,
+    private readonly config: Pick<CodexProConfig, "blockedGlobs">,
     private readonly platform: NodeJS.Platform = process.platform
   ) {}
 
   isBlockedRelativePath(relPath: string): boolean {
     const rel = normalizeRelPath(relPath).replace(/^\.\//, "");
+    if (isReservedTransactionRelativePath(rel, this.platform)) return true;
     if (!rel || rel === ".") return false;
     return this.config.blockedGlobs.some((glob) =>
       minimatch(rel, glob, { dot: true, nocase: this.platform === "win32", matchBase: false }) ||

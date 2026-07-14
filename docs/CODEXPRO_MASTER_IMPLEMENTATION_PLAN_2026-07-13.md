@@ -765,63 +765,98 @@ Phase 2B 已完成设计、TDD 实现、本地验收、`neat-freak` 对账和发
 
 ---
 
-## 10. Phase 3 — 原子编辑与持久审计
+## 10. Phase 3 — 原子事务、持久审计与受限撤销
 
-### 10.1 目标
+### 10.1 目标与已批准拆分
 
-让写入具备并发冲突检测、事务性、可回滚性和安全审计，再继续扩大 Git/Shell 自动化能力。
+Phase 3 在继续扩大 Git/Shell 自动化前，先为所有受支持的工作区写入建立统一事务边界、并发冲突检测、确定性崩溃恢复、持久脱敏审计和受限 undo。
 
-### 10.2 主要实施内容
+已批准采用四个独立切片：
 
-- file hash 与 `expectedHash`。
-- 临时写入、flush/fsync 和原子 replace。
-- 多文件事务、失败回滚和 `changeSetId`。
-- 对受支持事务提供 undo。
-- 尽可能保留编码、BOM、换行、权限和时间属性。
-- 持久化脱敏 audit event、轮换和保留期。
-- 审计查询本身受管理员权限和输出限制控制。
-- 增加文件整理事务 `move_paths`，而不是通过 Shell 或 `git mv` 暴露移动能力。
+1. **Phase 3A — AtomicTransaction 内核**：应用状态、工作区锁、预检、同卷 staging/backup、同步回滚和崩溃恢复。
+2. **Phase 3B — 持久审计**：授权/执行双事件、HMAC 链、轮换、保留期、完整性失败和受限查询。
+3. **Phase 3C — 写路径迁移与 undo**：迁移所有受支持的工作区 writer，增加工具契约 V2、`expected_sha256`、`changeSetId` 和 `undo_change_set`。
+4. **Phase 3D — `move_paths` 与总验收**：同工作区同卷普通文件批量移动、循环和 Windows case-only rename、回滚、undo 与完整 Phase 3 门禁。
 
-### 10.3 文件移动与整理切片
+详细设计：
 
-`move_paths` V1 面向“在一个已授权工作区内整理普通文件”，不是通用文件管理器：
+- [`2026-07-14-phase-3a-atomic-transaction-design.md`](superpowers/specs/2026-07-14-phase-3a-atomic-transaction-design.md)
+- [`2026-07-14-phase-3b-persistent-audit-design.md`](superpowers/specs/2026-07-14-phase-3b-persistent-audit-design.md)
+- [`2026-07-14-phase-3c-mutator-migration-and-undo-design.md`](superpowers/specs/2026-07-14-phase-3c-mutator-migration-and-undo-design.md)
+- [`2026-07-14-phase-3d-move-paths-and-acceptance-design.md`](superpowers/specs/2026-07-14-phase-3d-move-paths-and-acceptance-design.md)
+
+Phase 3A 详细 TDD 实施计划：
+
+- [`2026-07-14-phase-3a-atomic-transaction.md`](superpowers/plans/2026-07-14-phase-3a-atomic-transaction.md)
+- 共九个任务，实施记录为 STEP-265 至 STEP-273；Phase 3A 已在本地完成实现与验收，但尚未暂存、提交、推送或发布。
+- Phase 3C 完成全部 writer 迁移前，`atomic` 仅允许 `CODEXPRO_WRITE_MODE=off`；可写 atomic 配置必须在工具注册前失败关闭，现有公共 writer 仍保持经过审查的 legacy 行为。
+- 本地验收：Phase 3A 聚焦测试 44/44、相邻回归 38/38、完整回归 590 项中 589 pass/0 fail/1 既有平台 skip；TypeScript Build、八段 Smoke、原生 Windows Stress、217 文件 package dry-run 和静态边界检查均通过。
+- 当前停止点位于 Git 暂存之前。发布仍需独立批准；Phase 3B 持久审计是下一个独立切片，但尚未开始。
+
+### 10.2 核心事务决策
+
+- 控制 journal、审计和 change-set 元数据位于工作区外的本机应用状态目录；不进入 Git，不保存工作区绝对路径或文件全文。
+- 使用安装级随机主密钥，通过 HKDF/HMAC 派生持久工作区引用、审计完整性密钥和 change-set 加密密钥。
+- 文件 stage、rollback backup 和 move 中转位于目标文件同卷的保留随机名称；所有 `.codexpro-txn-*` 路径对公共工具硬阻断。
+- V1 后端使用 Node 原生文件 API 与硬链接，不依赖 PowerShell、WSL、Git、Worktree 或项目方云服务；不支持硬链接的卷返回 `ATOMIC_BACKEND_UNAVAILABLE`，不静默回退为直接写入。
+- 单文件替换具有原子可见性。多文件事务在正常失败时同步回滚；进程崩溃后在工作区重新可用前确定性恢复。不得宣传为数据库级跨文件瞬时原子提交。
+- 每个事务在最后可行时刻重新验证 containment、普通文件身份、存在性和 SHA-256；漂移返回 `FILE_VERSION_CONFLICT`。
+- 同一规范化工作区一次只允许一个跨进程 mutation/recovery；不能确认旧锁死亡时 fail closed。
+
+### 10.3 持久审计决策
+
+- `AuditEventV2` 将授权事实和执行完成事实分开，真实记录最终结果、耗时、字节计数、change set 与 recovery 状态。
+- 审计采用本机 JSONL 分段、规范 JSON、HMAC-SHA-256 链和单 writer 锁；这提供完整性证据，但不声称能抵御控制同一 OS 账户和安装密钥的攻击者。
+- Policy Engine `enforce` 下的 R2+ mutation 必须在执行前持久化授权事件，并在最终成功前持久化执行事件；完成事件失败会触发事务回滚。
+- 默认按 UTC 日期或 10 MiB 轮换；默认保留 30 天且闭合分段总量上限 100 MiB；删除前追加 retention 事件。
+- 只有可证明为最后一条未完成记录的 partial tail 可隔离并截断；中间 MAC/序列损坏使必需审计的 mutation fail closed。
+- 契约 V2 增加 full-only `query_audit_events`，要求 `audit:read`，限定时间范围、条数、游标和输出，不提供原始分段下载。
+
+### 10.4 工具契约、迁移与 undo
+
+- `CODEXPRO_TOOL_CONTRACT_VERSION=1|2`；初始默认保持 V1。V1 的 28 个工具和精确输出契约保持不变。
+- V2 为 31 个工具：V1 加 `query_audit_events`、`undo_change_set`、`move_paths`。V2 只有在原子事务和有效审计配置下才能启动。
+- V2 `write`/`edit` 增加可选 `expected_sha256`，成功结果增加标准 transaction 对象和 before hash。
+- 不仅迁移 `write`/`edit`，还必须迁移 `apply_patch`、handoff、Pro-context、`.ai-bridge` scaffold/log、自测 probe、`scripts/pro-apply.mjs` 及静态清单发现的全部工作区 writer。
+- change-set before-state 以 AES-256-GCM 加密并受限保留；默认每个 change set 8 MiB、全局 128 MiB、每工作区 20 个、24 小时。
+- `undo_change_set` 是新的反向事务，无 `force` 或覆盖选项；当前 after-state 任一漂移都返回 `UNDO_CONFLICT` 且零修改。
+- undo owner binding 优先 OAuth subject，其次安全 credential reference，最后 transport session；Phase 3 不宣传强多用户身份隔离。
+
+### 10.5 `move_paths` V1
 
 ```text
-输入一组 source → destination
-→ 规范化并验证全部源/目标
-→ 验证 expected_sha256
-→ 检查目标冲突、重复、循环和 Windows 大小写重命名
-→ 可选预览
-→ 事务式执行
-→ 失败时回滚已完成移动
-→ 返回 changeSetId、结果摘要和脱敏审计事件
+输入 1–64 个 source → destination 和必需 expected_sha256
+→ 完整规范化、PathPolicy、普通文件、目标和同卷预检
+→ 可选 preview
+→ stage-all / install-all 硬链接事务
+→ 持久执行审计
+→ 返回 transaction/changeSet 摘要
 ```
 
-V1 规则：
+规则：
 
-- 仅限同一 workspace 和同一卷内的普通文件；
-- 所有源和目标都经过 PathPolicy、blocked-path 和 symlink/junction 检查；
-- 默认且初始版本唯一的冲突策略是目标存在即拒绝，不允许覆盖；
-- 创建缺失父目录必须由显式参数开启，并纳入同一回滚范围；
-- 支持批量移动，但所有项目必须先完整预检；
-- 支持 Windows case-only rename 的安全临时路径与回滚；
-- 不把 Worktree、Shell、PowerShell、`git mv` 或 `apply_patch` 当成公共移动契约；
-- 跨 workspace、跨盘、目录树移动、copy-delete 和覆盖策略留给独立后续设计。
+- 同一 workspace、同一卷、普通文件；
+- 无覆盖、无 copy-delete、无目录树、无跨盘；
+- 目标若是同一批次的另一 source，可形成 chain/cycle；其他已存在目标拒绝；
+- 支持 Windows case-only rename；
+- 缺失父目录仅在显式开启时创建，并在失败时仅删除本事务创建且仍为空的目录；
+- 预检失败零修改；执行失败恢复全部 source，无法证明恢复时冻结工作区；
+- Git 只观察最终 rename/diff，不是事务前提。
 
-### 10.4 验收条件
+### 10.6 总验收与回滚
 
-- 任一目标失败时不留下部分提交。
-- 旧版本写入返回 `FILE_VERSION_CONFLICT`。
-- 模拟崩溃不留下可见半写结果。
-- undo 能恢复明确支持的最近事务。
-- 审计能关联请求、策略决定和变更摘要，但不保存文件全文或凭据。
-- 批量移动在预检失败时零修改，在执行失败时恢复已移动文件和本次创建的空父目录。
-- 目标已存在、源 Hash 冲突、工作区外路径、跨卷目标和 symlink/junction 输入都返回稳定脱敏错误。
-- 非 Git 工作区与 Git 工作区使用同一个文件事务；Git 只负责后续显示 rename/diff，不成为移动前提。
+Phase 3 完成门至少包括：
 
-### 10.5 非目标与回滚
+- V1 28-tool 和 V2 31-tool 精确契约、direct/supertool 同一执行路径；
+- expected-hash 冲突、原子 no-clobber create、单文件完整可见、多文件失败回滚；
+- 每个 journal/文件系统边界的 fault injection 和原生 Windows 子进程 crash/reopen recovery；
+- 必需审计的授权前置、完成后置、失败回滚与脱敏；
+- 受支持 change set 的 undo 成功和漂移拒绝；
+- `move_paths` 的 chain、cycle、case-only rename、跨卷/目标/Hash/symlink 拒绝；
+- 静态 low-level writer 绕过扫描、保留路径隔离和 secret/audit-redaction 扫描；
+- 完整回归、Build、八段 Smoke、native-Windows Stress、package dry-run 和 Ubuntu/Windows Node 20/24 exact-head CI。
 
-不在本阶段实现通用 Git push 或远程操作。每种新事务先在 feature flag 下迁移；回滚不能删除已有审计证据，修正历史使用追加事件。
+回滚可以隐藏 V2 工具并将默认返回 V1/legacy transaction mode，但不得删除审计或 change-set 证据、绕过 recovery-required workspace，或在配置声称 atomic 时恢复直接写入。Phase 3 不实现通用 Git push、远程操作、目录移动、跨卷 copy-delete、覆盖移动、force undo、OAuth 2.1 或 OS sandbox。
 
 ---
 

@@ -8,6 +8,7 @@ export type BashTranscriptMode = "compact" | "full";
 export type CodexSessionsMode = "off" | "metadata" | "read";
 export type WriteMode = "off" | "handoff" | "workspace";
 export type ToolMode = "minimal" | "standard" | "full";
+export type FileTransactionMode = "legacy" | "atomic";
 
 export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
 
@@ -29,6 +30,7 @@ export interface CodexProConfig {
   codexSessions: CodexSessionsMode;
   codexDir: string;
   writeMode: WriteMode;
+  fileTransactions: FileTransactionMode;
   toolMode: ToolMode;
   policyEngineMode: PolicyEngineMode;
   permissionProfileId?: string;
@@ -194,6 +196,32 @@ function writeModeFrom(value: string | undefined): WriteMode {
   return "workspace";
 }
 
+function fileTransactionModeFrom(value: string | undefined): FileTransactionMode {
+  const normalized = value?.trim();
+  if (!normalized) return "legacy";
+  if (normalized === "legacy" || normalized === "atomic") return normalized;
+  throw new Error("CODEXPRO_FILE_TRANSACTIONS must be legacy or atomic.");
+}
+
+export interface FileTransactionCapabilities {
+  workspaceMutatorsAtomic: boolean;
+}
+
+export function assertFileTransactionConfiguration(
+  config: Pick<CodexProConfig, "fileTransactions" | "writeMode">,
+  capabilities: FileTransactionCapabilities
+): void {
+  if (
+    config.fileTransactions === "atomic" &&
+    config.writeMode !== "off" &&
+    !capabilities.workspaceMutatorsAtomic
+  ) {
+    throw new Error(
+      "CODEXPRO_FILE_TRANSACTIONS=atomic requires transaction-backed workspace mutators; keep CODEXPRO_WRITE_MODE=off until Phase 3C migration is complete."
+    );
+  }
+}
+
 function toolModeFrom(value: string | undefined): ToolMode {
   if (value === "minimal" || value === "standard" || value === "full") return value;
   return "standard";
@@ -346,6 +374,9 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
         ? args["require-bash-session"]
         : undefined;
   const writeArg = typeof args.write === "string" ? args.write : undefined;
+  const fileTransactionsArg = typeof args["file-transactions"] === "string"
+    ? args["file-transactions"]
+    : undefined;
   const toolModeArg = typeof args["tool-mode"] === "string" ? args["tool-mode"] : undefined;
   const policyEngineArg = typeof args["policy-engine"] === "string" ? args["policy-engine"] : undefined;
   const permissionProfileArg = typeof args["permission-profile"] === "string" ? args["permission-profile"] : undefined;
@@ -398,6 +429,9 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     codexSessions: codexSessionsFrom(codexSessionsArg ?? process.env.CODEXPRO_CODEX_SESSIONS),
     codexDir: toCanonicalPath(codexDirArg || process.env.CODEXPRO_CODEX_DIR || path.join(os.homedir(), ".codex")),
     writeMode: writeModeFrom(writeArg ?? process.env.CODEXPRO_WRITE_MODE),
+    fileTransactions: fileTransactionModeFrom(
+      fileTransactionsArg ?? process.env.CODEXPRO_FILE_TRANSACTIONS
+    ),
     toolMode: toolModeFrom(toolModeArg ?? process.env.CODEXPRO_TOOL_MODE),
     policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXPRO_POLICY_ENGINE),
     permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXPRO_PERMISSION_PROFILE),

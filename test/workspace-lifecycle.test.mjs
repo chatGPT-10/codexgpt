@@ -201,6 +201,7 @@ function serverConfigFor(root, overrides = {}) {
     codexSessions: "off",
     codexDir: path.join(root, ".codex-test"),
     writeMode: "workspace",
+    fileTransactions: "legacy",
     toolMode: "standard",
     policyEngineMode: "legacy",
     permissionProfileId: undefined,
@@ -226,8 +227,8 @@ function serverConfigFor(root, overrides = {}) {
   };
 }
 
-async function createServerClient(config) {
-  const server = createCodexProServer(config);
+async function createServerClient(config, dependencies = {}) {
+  const server = createCodexProServer(config, dependencies);
   const client = new Client({ name: "workspace-lifecycle-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -282,6 +283,92 @@ test("legacy omitted workspace_id resolves only the current server default", asy
       assert.equal(result.ok, true, JSON.stringify(result));
       assert.equal(result.data.root, root);
       assert.match(result.data.workspace_id, /^ws_[0-9a-f]{32}$/);
+    } finally {
+      await connection.close();
+    }
+  });
+});
+
+test("workspace readiness runs before handle issuance and refresh", async () => {
+  await withTempWorkspace(async (root) => {
+    const uses = [];
+    const manager = new WorkspaceManager(configFor(root), binding({
+      beforeWorkspaceUse: (canonicalRoot) => uses.push(canonicalRoot)
+    }));
+    const opened = manager.openWorkspace(root);
+    manager.getWorkspace(opened.id);
+    assert.deepEqual(uses, [root, root]);
+  });
+});
+
+test("workspace readiness failure neither issues nor refreshes a handle", async () => {
+  await withTempWorkspace(async (root) => {
+    let fail = true;
+    let now = 1_700_000_000_000;
+    const manager = new WorkspaceManager(configFor(root), binding({
+      now: () => now,
+      beforeWorkspaceUse() {
+        if (fail) throw new Error("TRANSACTION_RECOVERY_REQUIRED");
+      }
+    }));
+    assert.throws(() => manager.openWorkspace(root), /TRANSACTION_RECOVERY_REQUIRED/);
+    assert.deepEqual(manager.listWorkspaces(), []);
+    fail = false;
+    const opened = manager.openWorkspace(root);
+    now += 30_000;
+    fail = true;
+    assert.throws(() => manager.getWorkspace(opened.id), /TRANSACTION_RECOVERY_REQUIRED/);
+    now += 30_001;
+    assert.throws(() => manager.getWorkspace(opened.id), /Unknown workspace_id/);
+  });
+});
+
+test("atomic read-only server recovers before issuing a workspace handle", async () => {
+  await withTempWorkspace(async (root) => {
+    const recovered = [];
+    const connection = await createServerClient(
+      serverConfigFor(root, { writeMode: "off", fileTransactions: "atomic" }),
+      {
+        transactionRecoveryCoordinator: {
+          ensureWorkspaceReady(canonicalRoot) {
+            recovered.push(canonicalRoot);
+          }
+        }
+      }
+    );
+    try {
+      const opened = structured(await connection.client.callTool({
+        name: "open_workspace",
+        arguments: { root, include_tree: false }
+      }));
+      assert.equal(opened.ok, true);
+      assert.deepEqual(recovered, [root]);
+    } finally {
+      await connection.close();
+    }
+  });
+});
+
+test("legacy server ignores an injected transaction recovery coordinator", async () => {
+  await withTempWorkspace(async (root) => {
+    const recovered = [];
+    const connection = await createServerClient(
+      serverConfigFor(root, { fileTransactions: "legacy" }),
+      {
+        transactionRecoveryCoordinator: {
+          ensureWorkspaceReady(canonicalRoot) {
+            recovered.push(canonicalRoot);
+          }
+        }
+      }
+    );
+    try {
+      const opened = structured(await connection.client.callTool({
+        name: "open_workspace",
+        arguments: { root, include_tree: false }
+      }));
+      assert.equal(opened.ok, true);
+      assert.deepEqual(recovered, []);
     } finally {
       await connection.close();
     }

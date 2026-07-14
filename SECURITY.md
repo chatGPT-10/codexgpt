@@ -121,6 +121,14 @@ A `workspace_id` is an opaque capability handle issued inside one MCP server lif
 
 For one compatibility cycle, an omitted `workspace_id` can select only the current server session's configured default root. This compatibility boundary must not be generalized into process-global workspace sharing.
 
+## Atomic Transaction Kernel Boundaries
+
+Phase 3A adds an internal transaction and recovery kernel; it does not make the existing public `write`, `edit`, `apply_patch`, handoff, export, or other workspace writers atomic. `CODEXPRO_FILE_TRANSACTIONS` defaults to `legacy`. Until Phase 3C migrates every supported public writer, `atomic` is accepted only with `CODEXPRO_WRITE_MODE=off`, and writable atomic server construction fails before tool registration.
+
+The V1 backend requires same-volume ordinary-file hard links for no-clobber creation and rollback evidence. Unsupported filesystems or volumes return `ATOMIC_BACKEND_UNAVAILABLE`; CodexPro does not fall back to a direct write. Transaction manifests live in the local application-state directory, use opaque workspace references, and exclude canonical workspace roots, file bodies, complete diffs, and credentials. Reserved `.codexpro-txn-*` path segments are blocked unconditionally from public path operations.
+
+When atomic read-only mode is connected, persisted recovery runs before a workspace handle is issued or refreshed. Recovery restores before-state for incomplete transactions, finishes cleanup only for durably committed transactions, and freezes the workspace with `TRANSACTION_RECOVERY_REQUIRED` whenever ownership, identity, hash, or artifact evidence cannot be proved. The per-workspace lock coordinates CodexPro processes only; external editors and other applications remain outside it. Multi-file transactions provide staged execution, rollback, and crash recovery, not database-style simultaneous cross-file visibility.
+
 ## Hard Rules
 
 - Do not run public tunnels with `--no-auth`.

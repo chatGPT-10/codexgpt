@@ -19,10 +19,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
 - Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
+- Phase 3: Phase 3A is locally implemented and verified through STEP-273. All Phase 3 changes remain unstaged and unpublished; Phase 3B–3D have not started.
 
 ## Approved stopping point
 
-Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B implementation commit `2fb622d` passed run `29332007110`, and unchanged-tree replacement verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24. The next controlled action is Phase 3 design review under the recorded Phase 2A–5 authorization; implementation must still preserve independent gates and stop before unapproved Git or system-policy actions. Phase 6–9 and all independently gated high-risk actions remain closed.
+Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 3A is locally implemented and verified; stop before Git staging. Publication remains pending explicit approval, and the separate Phase 3B persistent-audit slice has not started. Independent system-policy, sandbox, OAuth, credential, destructive-operation, and Phase 6–9 gates remain closed.
 
 ## Active decisions and constraints
 
@@ -39,11 +40,16 @@ Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B implementation com
 - Direct tools and the `codexpro` supertool share one registered-handler policy boundary across 28 canonical child tools. `close_workspace` is available in normal minimal/standard/full modes and hidden from read-only connection-test mode. `codexpro_self_test` exposes seventeen fixed checks, including five Policy checks.
 - Phase 1 tool `meta` stays unchanged; transport-aware request IDs exist only inside Phase 2A `RequestContext` and audit facts.
 - Keep `scripts/smoke.mjs` and `scripts/http-smoke.mjs` protected and unchanged. Compatibility loaders must use exact fail-closed in-memory substitutions.
-- The master implementation plan is the active architecture and sequencing authority. Detailed Phase 1 and Policy Kernel facts belong in paired specs/plans and phase archives, not this index.
+- Phase 3 is split into 3A transaction kernel, 3B persistent audit, 3C all-mutator migration plus bounded undo, and 3D `move_paths` plus total acceptance. Keep contract V1 at 28 tools; contract V2 has 31 tools and requires atomic transactions plus valid audit configuration.
+- Phase 3 state stays outside workspaces and Git. The V1 atomic backend uses Node native file APIs and same-volume hard links, fails closed when unavailable, and does not claim database-style cross-file instantaneous atomicity.
+- Before Phase 3C migrates every supported workspace writer, `CODEXPRO_FILE_TRANSACTIONS=atomic` is valid only with `CODEXPRO_WRITE_MODE=off`; writable atomic server construction must fail before tool registration. The allowed read-only atomic mode runs workspace recovery before handle issue or refresh.
+- The master implementation plan is the active architecture and sequencing authority. Detailed Phase 1, Policy Kernel, and Phase 3 facts belong in paired specs/plans and phase archives, not this index.
 - The complete regression command is `node --test test/*.test.mjs`; the repository has no `npm test` script.
 
 ## Verification evidence
 
+- Phase 3A local gate: focused transaction tests 44/44; adjacent security/lifecycle regression 38/38; complete regression 590 tests with 589 pass, 0 fail, and 1 established platform skip; TypeScript Build, all eight Smoke sections, native-Windows Stress, 217-file package dry-run, protected-source hashes, exact 28-tool contract, static dependency/sensitive-field checks, and the dedicated whitespace/scope review passed.
+- Phase 3A implementation boundary: default transaction mode remains `legacy`; `atomic` is read-only until Phase 3C; public writers are not migrated; same-volume hard links are mandatory with no direct-write fallback; crash recovery runs before atomic-mode workspace reuse and freezes on unprovable evidence. All changes remain unstaged and unpublished.
 - Phase 2B exact-head run `29332007110` for implementation commit `2fb622d` passed all four Ubuntu/Windows Node 20/24 jobs. Every job completed Build, Regression Tests, Smoke Test, and Check Package Contents successfully.
 - Closure-documentation run `29332531317` for `484cd6d` passed Ubuntu Node 20/24 and Windows Node 24 but produced one Windows Node 20 Regression Tests failure whose public logs were unavailable. The source tree was unchanged from the green implementation head; a fresh local Windows Node 20 `node --test` run passed 542 tests with 541 pass, 0 fail, and 1 skip. Empty replacement-verification commit `c08024d` preserved the same tree, and run `29334446539` then passed all four matrix jobs including every Build, Regression Tests, Smoke Test, and Check Package Contents step.
 - Phase 2B local gate: complete regression 542 tests with 541 pass, 0 fail, and 1 established platform-conditional skip; TypeScript Build; all eight Smoke sections including real HTTP cross-session isolation; native-Windows Stress; 197-file package dry-run; and static removal of the process-global manager, path-derived public ID, and optional core lookup all passed.
@@ -56,6 +62,7 @@ Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B implementation com
 
 - Phase 2A has no user-facing approval issuance surface or persistent audit store. `enforce` may stop bounded-risk operations at `APPROVAL_REQUIRED`, and arbitrary Shell/Process execution remains unavailable without demonstrated OS isolation.
 - Phase 2B lifecycle state is intentionally process-local. Workspace close, sliding expiry, policy revocation, and cross-session isolation are implemented; persistence and OAuth owner identity remain out of scope, with OAuth still reserved for Phase 8.
+- The implemented Phase 3A hard-link backend excludes unsupported filesystems/volumes. Multi-file crash behavior requires recovery before workspace reuse and is not database-style instantaneous atomic visibility; external processes remain outside CodexPro's workspace lock.
 - Omitted `workspace_id` remains supported for one compatibility cycle only through the explicit session-local resolver. Filesystem TOCTOU is reduced, not eliminated.
 - Safe Bash is not a sandbox, and timeout does not reliably terminate every Windows descendant process.
 - The managed pinned Cloudflared binary is not installed in the user profile. macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
@@ -68,10 +75,14 @@ Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B implementation com
 
 ## Open items
 
-1. Begin Phase 3 design review under the recorded Phase 2A–5 authorization. Keep all independently gated high-risk actions and Phase 6–9 closed; do not stage, commit, push, or change system policy without the applicable approval.
+1. Keep the locally verified Phase 3A change set unstaged and unpublished until explicit Git approval. Phase 3B persistent audit is the next independent implementation slice, but do not begin it from this stopping point. System policy, sandbox installation, OAuth, credential migration, destructive operations, and Phase 6–9 remain behind their applicable gates.
 
 ## Recent summaries
 
+- **STEP-273 — Locally accept Phase 3A:** implemented and reconciled the internal transaction kernel; 44 focused, 38 adjacent, and 590 complete tests passed with 0 failures and 1 established platform skip, plus Build, eight-section Smoke, native-Windows Stress, 217-file package dry-run, static architecture, protected-source, whitespace, and scope gates. Stopped before Git staging.
+- **STEP-272 — Add crash recovery and workspace readiness:** added strict persisted recovery, dead-owner lock quarantine, workspace freeze on unprovable evidence, and a pre-handle readiness gate; a child-process crash after the first visible install restored the complete before-state in a fresh process.
+- **STEP-264 — Write Phase 3A implementation plan:** created the nine-task TDD plan, added the fail-closed atomic/write-mode boundary and read-only recovery wiring, and passed Build, whitespace, placeholder, sequence, and scope checks without implementation or Git writes.
+- **STEP-263 — Approve and write Phase 3 design:** approved the 3A transaction, 3B audit, 3C migration/undo, and 3D move/acceptance specifications; Build and documentation checks passed; no production source, staging, commit, push, or system change occurred.
 - **STEP-262 — Replace one non-reproduced closure CI failure:** run `29332531317` failed only Windows Node 20 Regression Tests on a documentation-only head; exact local Windows Node 20 regression passed 541/542 with one skip, and unchanged-tree commit `c08024d` passed replacement run `29334446539` across all four matrix jobs.
 - **STEP-261 — Publish and close Phase 2B:** commit `2fb622d` was pushed to `main`; exact-head run `29332007110` passed Ubuntu/Windows Node 20/24, including Build, Regression Tests, Smoke Test, and Check Package Contents in every job.
 - **STEP-260 — Reconcile Phase 2B knowledge and rules:** aligned `AGENTS.md`, dual-language READMEs, `SECURITY.md`, `CHANGELOG.md`, the master plan, Memory, and the active archive; removed unused lifecycle timestamp state; focused 22/22, Build, 541/542 regression with one platform skip, eight-section Smoke, and 197-file package dry-run passed.
@@ -92,6 +103,7 @@ Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B implementation com
 - [Closed Phase 1 Volume 9 — STEP-237 through STEP-247](docs/memory/archive/phase-1-part-9.md)
 - [Policy Kernel Gate — STEP-248 through STEP-253](docs/memory/archive/policy-kernel-gate.md)
 - [Closed Phase 2B Workspace Lifecycle — STEP-254 through STEP-262](docs/memory/archive/phase-2b-workspace-lifecycle.md)
+- [Active Phase 3 — STEP-263 onward](docs/memory/archive/phase-3.md)
 
 ## Memory maintenance protocol
 

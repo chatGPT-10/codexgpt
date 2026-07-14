@@ -4,7 +4,11 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { CodexProConfig } from "./config.js";
+import { assertFileTransactionConfiguration, type CodexProConfig } from "./config.js";
+import {
+  createDefaultTransactionRecoveryCoordinator,
+  type TransactionRecoveryHook
+} from "./transactions/index.js";
 import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
 import {
   repoTree,
@@ -4042,6 +4046,7 @@ export interface CodexProServerDependencies {
   policyRuntime?: PolicyRuntime;
   policySessionContextSource?: PolicySessionContextSource;
   policyAuditSink?: (event: AuditEventV1) => void | Promise<void>;
+  transactionRecoveryCoordinator?: TransactionRecoveryHook;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -4724,6 +4729,10 @@ export function createCodexProServer(
   config: CodexProConfig,
   dependencies: CodexProServerDependencies = {}
 ): McpServer {
+  assertFileTransactionConfiguration(config, { workspaceMutatorsAtomic: false });
+  const transactionRecoveryCoordinator = config.fileTransactions === "atomic"
+    ? dependencies.transactionRecoveryCoordinator ?? createDefaultTransactionRecoveryCoordinator(config)
+    : undefined;
   let effectivePolicyRuntime: PolicyRuntime | undefined = dependencies.policyRuntime;
   const workspaces = new WorkspaceManager(config, {
     transportSessionId: dependencies.policySessionContextSource?.transportSessionId,
@@ -4734,7 +4743,10 @@ export function createCodexProServer(
       } catch {
         return null;
       }
-    }
+    },
+    beforeWorkspaceUse: transactionRecoveryCoordinator
+      ? (canonicalRoot) => transactionRecoveryCoordinator.ensureWorkspaceReady(canonicalRoot)
+      : undefined
   });
   const guard = new PathGuard(config);
   const policyEngineMode = config.policyEngineMode ?? "legacy";
