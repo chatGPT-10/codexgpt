@@ -39,7 +39,9 @@ function outputLines(output: string): string[] {
 }
 
 export function gitStatus(config: CodexProConfig, workspace: Workspace, guard?: PathGuard, filePath?: string, staged = false): string {
-  const args = staged ? ["diff", "--cached", "--name-status"] : ["status", "--short", "--branch"];
+  const args = staged
+    ? ["-c", "core.quotepath=false", "diff", "--cached", "--name-status"]
+    : ["-c", "core.quotepath=false", "status", "--short", "--branch"];
   if (filePath?.trim()) {
     if (!guard) return "path-scoped git status requires a path guard";
     const resolved = guard.resolve(workspace, filePath);

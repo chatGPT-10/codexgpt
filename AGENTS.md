@@ -135,45 +135,21 @@ Memory rules:
 ## 6. Documentation map
 
 - `Memory.md` — current state and next action.
+- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` — current authoritative architecture, phase ordering, Policy Kernel design gate, acceptance criteria, and next action.
 - `docs/memory/archive/phase-0-and-0.5.md` — closed Phase 0 and Phase 0.5 history through STEP-065.
 - `docs/memory/archive/interphase-maintenance.md` — closed maintenance records from STEP-066 through STEP-072.
 - `docs/memory/archive/phase-1.md` — unchanged Phase 1 Volume 1 covering STEP-073 through STEP-139.
 - `docs/memory/archive/phase-1-part-2.md` — closed Phase 1 Volume 2 covering STEP-140 through STEP-151.
 - `docs/memory/archive/phase-1-part-3.md` — closed Phase 1 Volume 3 covering STEP-152 through STEP-165.
-- `docs/memory/archive/phase-1-part-4.md` — active Phase 1 Volume 4 from STEP-166 onward.
-- `docs/superpowers/specs/2026-07-12-server-config-output-schema-design.md` — approved design for the first Phase 1 vertical slice.
-- `docs/superpowers/plans/2026-07-12-server-config-output-schema.md` — executed plan for the completed first Phase 1 `server_config` vertical slice.
-- `docs/superpowers/specs/2026-07-12-tree-output-schema-design.md` — approved design for the published second Phase 1 `tree` slice.
-- `docs/superpowers/plans/2026-07-12-tree-output-schema.md` — executed four-task plan for the published `tree` slice.
-- `docs/superpowers/specs/2026-07-12-read-output-schema-design.md` — approved and published design for the third Phase 1 `read` slice.
-- `docs/superpowers/plans/2026-07-12-read-output-schema.md` — executed four-task plan for the published `read` slice.
-- `docs/superpowers/specs/2026-07-12-git-status-output-schema-design.md` — approved and published design for the fourth Phase 1 `git_status` slice.
-- `docs/superpowers/plans/2026-07-12-git-status-output-schema.md` — compact executed four-task plan for the published `git_status` slice.
-- `docs/superpowers/specs/2026-07-12-git-diff-output-schema-design.md` — approved design for the fifth Phase 1 `git_diff` slice.
-- `docs/superpowers/plans/2026-07-12-git-diff-output-schema.md` — executed four-task plan for the `git_diff` slice.
-- `docs/superpowers/specs/2026-07-12-show-changes-output-schema-design.md` — published design for the sixth Phase 1 `show_changes` slice.
-- `docs/superpowers/plans/2026-07-12-show-changes-output-schema.md` — executed four-task plan for the published `show_changes` slice.
-- `docs/superpowers/specs/2026-07-12-search-output-schema-design.md` — published design for the seventh Phase 1 direct `search` slice.
-- `docs/superpowers/plans/2026-07-12-search-output-schema.md` — executed four-task plan for the published `search` slice.
-- `docs/superpowers/specs/2026-07-13-write-output-schema-design.md` — published design for the eighth Phase 1 direct `write` slice.
-- `docs/superpowers/plans/2026-07-13-write-output-schema.md` — executed four-task plan for the eighth `write` slice.
-- `docs/superpowers/specs/2026-07-13-edit-output-schema-design.md` — published design for the ninth Phase 1 direct `edit` slice.
-- `docs/superpowers/plans/2026-07-13-edit-output-schema.md` — executed four-task implementation plan for the published ninth `edit` slice.
-- `docs/superpowers/specs/2026-07-13-apply-patch-output-schema-design.md` — published design for the tenth Phase 1 direct `apply_patch` slice.
-- `docs/superpowers/plans/2026-07-13-apply-patch-output-schema.md` — executed four-task TDD plan for the published tenth `apply_patch` slice.
-- `docs/superpowers/specs/2026-07-13-bash-output-schema-design.md` — published design for the eleventh Phase 1 direct `bash` slice.
-- `docs/superpowers/plans/2026-07-13-bash-output-schema.md` — executed four-task TDD plan for the published eleventh `bash` slice.
-- `docs/superpowers/specs/2026-07-13-open-current-workspace-output-schema-design.md` — published and cross-platform CI-validated design for the twelfth Phase 1 direct `open_current_workspace` slice.
-- `docs/superpowers/plans/2026-07-13-open-current-workspace-output-schema.md` — executed four-task TDD plan for the published and CI-validated twelfth `open_current_workspace` slice.
-- `docs/superpowers/specs/2026-07-13-open-workspace-output-schema-design.md` — published and cross-platform CI-validated design for the thirteenth Phase 1 direct `open_workspace` slice.
-- `docs/superpowers/plans/2026-07-13-open-workspace-output-schema.md` — completed, publication-reviewed, published, and CI-validated inline TDD plan for the thirteenth slice, including protected main-Smoke and HTTP-Smoke in-memory compatibility paths.
-- `docs/superpowers/specs/2026-07-13-workspace-snapshot-output-schema-design.md` — published and cross-platform CI-validated design for the fourteenth Phase 1 direct `workspace_snapshot` slice.
-- `docs/superpowers/plans/2026-07-13-workspace-snapshot-output-schema.md` — completed five-task TDD, consumer-migration, review, publication, and exact-head CI plan for the fourteenth slice.
-- `docs/superpowers/specs/2026-07-13-list-workspaces-output-schema-design.md` — published and implementation exact-head CI-validated design for the fifteenth Phase 1 direct `list_workspaces` slice.
-- `docs/superpowers/plans/2026-07-13-list-workspaces-output-schema.md` — completed five-task TDD, consumer-migration, review, publication, and exact-head implementation CI plan for the fifteenth slice.
-- `docs/superpowers/specs/2026-07-13-inspect-workspace-output-schema-design.md` — published and implementation exact-head CI-validated design for the sixteenth Phase 1 direct `inspect_workspace` slice.
-- `docs/superpowers/plans/2026-07-13-inspect-workspace-output-schema.md` — completed five-task TDD, consumer-migration, verification, publication, and exact-head implementation CI plan for the sixteenth slice.
-- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical audit baseline, reference projects, target architecture, tool groups, contracts, and Phase 0–9 roadmap.
+- `docs/memory/archive/phase-1-part-4.md` — closed Phase 1 Volume 4 covering STEP-166 through STEP-179.
+- `docs/memory/archive/phase-1-part-5.md` — closed Phase 1 Volume 5 covering STEP-180 through STEP-193.
+- `docs/memory/archive/phase-1-part-6.md` — closed Phase 1 Volume 6 covering STEP-194 through STEP-205.
+- `docs/memory/archive/phase-1-part-7.md` — closed Phase 1 Volume 7 covering STEP-206 through STEP-219, with the append-only STEP-205 count correction at its start.
+- `docs/memory/archive/phase-1-part-8.md` — closed Phase 1 Volume 8 covering STEP-220 through STEP-236.
+- `docs/memory/archive/phase-1-part-9.md` — active Phase 1 Volume 9 from STEP-237 onward.
+- `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans; all twenty-eight Slice 1–28 pairs exist. Published Slice 1–16 details are historical and remain in their pair plus the Phase 1 archives.
+- Slices 17–28 are locally complete and unpublished; exact contracts, TDD plans, RED/GREEN evidence, verification counts, rollback records, and the final direct-target supertool hardening remain in the paired files plus Phase 1 Volumes 5–9. Phase 1 implementation is locally complete and awaits unified publication.
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
 - `design.md` — UI and documentation visual design rules.
@@ -214,4 +190,6 @@ Distinguish clearly between:
 
 Phase 0.5 is formally closed. All approved local, Ubuntu/Windows CI, and real external Cloudflare Host-forwarding gates passed. Public `https://codexpro.drliang.uk/healthz` reached CodexPro through Cloudflare and passed Host validation before returning the expected authentication-layer `401 Unauthorized`. OAuth 2.1 remains deferred.
 
-Phase 1 implementation started on 2026-07-12. The first sixteen vertical slices are published. Direct `inspect_workspace` implementation commit `4cea9bd` passed exact-head CI run `29272546666`, and publication-record commit `1f39996` passed exact-head CI run `29273060702`; both runs succeeded on Ubuntu and Windows with Node 20 and 24. The next approved action is design review of the next remaining Phase 1 direct tool, using `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite. Keep Phase 2, workspace lifecycle expansion, and semantic-provider expansion closed.
+Phase 1 implementation started on 2026-07-12. The first sixteen vertical slices are published and cross-platform exact-head CI-validated. Slices 17 `codexpro_inventory` through 28 `codexpro` are locally complete, post-result reviewed, per-tool `neat-freak` reconciled, and unpublished; Phase 1 implementation is locally complete. The next authorized action is the unified Slice 17–28 stage/commit/push/exact-head-CI publication run. Keep Phase 2–5 production behavior closed until Phase 1 is published and the Policy Kernel design gate passes; keep Phase 6–9 closed.
+
+The approved route is: finish and jointly publish every remaining Phase 1 advertised-tool schema slice, complete and pass the design-only Policy Kernel gate, then continue without a repeated phase-entry approval pause through Phase 2A, Phase 2B, Phase 3, Phase 4A, Phase 4B, and Phase 5. Every phase still requires its own design, TDD, verification, rollback, and acceptance gates; failed gates must be fixed rather than bypassed. This authorization does not include Phase 6–9 or independently gated high-risk actions. The detailed sequence and criteria are authoritative in `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`.

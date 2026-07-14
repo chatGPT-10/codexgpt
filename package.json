@@ -66,7 +66,7 @@
     "dev:stdio": "tsx src/stdio.ts",
     "dev:http": "tsx src/http.ts",
     "smoke": "node scripts/analysis-smoke.mjs && node scripts/analysis-cli-smoke.mjs && node scripts/smoke-platform-compat.mjs && node scripts/http-smoke-compat.mjs && node scripts/pro-smoke.mjs && node scripts/doctor-smoke.mjs && node scripts/settings-smoke-platform-compat.mjs && node scripts/execute-handoff-smoke-platform-compat.mjs",
-    "stress": "npm run build && node scripts/stress.mjs",
+    "stress": "npm run build && node scripts/stress-contract-compat.mjs",
     "analysis:smoke": "npm run build && node scripts/analysis-smoke.mjs",
     "analysis:cli-smoke": "npm run build && node scripts/analysis-cli-smoke.mjs",
     "doctor": "node scripts/doctor.mjs",

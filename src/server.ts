@@ -12,7 +12,6 @@ import {
   textScanByteLimit,
   writeTextFile,
   editTextFile,
-  ensureAiBridge,
   type ReadFileResult,
   type TreeOptions,
   type TreeResult,
@@ -24,17 +23,83 @@ import { probeBashAvailability, runBash, type BashResult } from "./bashOps.js";
 import { gitDiff, gitDiffStatus, gitLog, gitStatus } from "./gitOps.js";
 import {
   readAiBridgeContext,
+  readHandoffContext,
+  readHandoffLimits,
+  readHandoffRunState,
+  readWaitForHandoffArtifacts,
+  waitForHandoffLimits,
   readCodexContext,
+  resolveCodexContextTarget,
   workspaceSummary,
+  type CodexContext,
+  type CodexContextTargetKind,
+  type HandoffRunStateReadResult,
+  type ReadHandoffContextResult,
+  type ReadHandoffLimits,
+  type WaitForHandoffArtifactReadResult,
+  type WaitForHandoffLimits,
   type WorkspaceSummary
 } from "./workspaceOps.js";
-import { buildProContext, exportProContext } from "./proContext.js";
-import { codexproInventory, loadSkill } from "./capabilitiesOps.js";
-import { listCodexSessions, readCodexSession } from "./codexSessions.js";
+import {
+  ProContextOperationError,
+  buildProContext,
+  capProContextUtf8,
+  exportPreparedProContext,
+  prepareProContextRequest,
+  preflightProContextOutput,
+  type PreparedProContextOutput,
+  type PreparedProContextRequest,
+  type ProContextExportResult
+} from "./proContext.js";
+import {
+  HandoffOperationError,
+  prepareAgentHandoffRequest,
+  preflightAgentHandoffOutput,
+  writePreparedAgentHandoff,
+  type AgentHandoffProviderContext,
+  type HandoffWriteResult
+} from "./handoffOps.js";
+import {
+  codexproInventory,
+  loadSkill,
+  LoadSkillError,
+  type CodexProInventoryResult,
+  type LoadedSkill,
+  type SkillInventoryItem
+} from "./capabilitiesOps.js";
+import {
+  CODEX_SESSION_READ_FILE_LIMIT,
+  CODEX_SESSION_SCAN_DEPTH_LIMIT,
+  CODEX_SESSION_SCAN_FILE_LIMIT,
+  CodexSessionReadOperationError,
+  codexSessionDirectory,
+  codexSessionRoots,
+  isCodexSessionReadOperationError,
+  listCodexSessions,
+  readCodexSession,
+  type CodexSessionListResult,
+  type CodexSessionReadResult
+} from "./codexSessions.js";
 import { TOOL_CARD_LEGACY_URIS, TOOL_CARD_MIME_TYPE, TOOL_CARD_URI, toolCardWidgetHtml } from "./toolCardWidget.js";
 import { hasSecretValue, redactSensitiveText, redactStructured } from "./redact.js";
 import { inspectWorkspace, invalidateWorkspaceAnalysis, reviewWorkspaceChanges } from "./analysis/index.js";
 import type { ChangeAnalysis, WorkspaceAnalysis } from "./analysis/types.js";
+import {
+  CodexProSelfTestInternalError,
+  buildCodexProSelfTestData,
+  codexproSelfTestFailureText,
+  codexproSelfTestHumanText,
+  defaultCodexProSelfTestProvider,
+  normalizeCodexProSelfTestRequest,
+  safeCodexProSelfTestWorkspaceId,
+  type CodexProSelfTestProvider
+} from "./selfTestOps.js";
+import {
+  CODEXPRO_SELF_TEST_ERROR_MESSAGES,
+  codexproSelfTestOutputShape,
+  createCodexProSelfTestFailure,
+  createCodexProSelfTestSuccess
+} from "./tools/schemas/codexproSelfTest.js";
 import {
   createServerConfigFailure,
   createServerConfigSuccess,
@@ -175,6 +240,130 @@ import {
   type InspectWorkspaceFailureInput,
   type InspectWorkspaceProviderResult
 } from "./tools/schemas/inspectWorkspace.js";
+import {
+  CODEXPRO_INVENTORY_ERROR_MESSAGES,
+  CODEXPRO_INVENTORY_MCP_SERVER_LIMIT,
+  codexproInventoryDataSchema,
+  codexproInventoryOutputShape,
+  createCodexProInventoryFailure,
+  createCodexProInventorySuccess,
+  type CodexProInventoryData,
+  type CodexProInventoryFailureInput
+} from "./tools/schemas/codexproInventory.js";
+import {
+  LOAD_SKILL_ERROR_MESSAGES,
+  createLoadSkillFailure,
+  createLoadSkillSuccess,
+  loadSkillDataSchema,
+  loadSkillOutputShape,
+  loadSkillSelectorPathSource,
+  loadSkillSelectorSchema,
+  loadSkillSkillSchema,
+  type LoadSkillData,
+  type LoadSkillFailureInput,
+  type LoadSkillSelector
+} from "./tools/schemas/loadSkill.js";
+import {
+  READ_HANDOFF_ARTIFACT_DEFINITIONS,
+  READ_HANDOFF_ERROR_MESSAGES,
+  createReadHandoffFailure,
+  createReadHandoffSuccess,
+  readHandoffArtifactKindSchema,
+  readHandoffContextDirSchema,
+  readHandoffDataSchema,
+  readHandoffLineCount,
+  readHandoffOutputShape,
+  readHandoffUnavailableSchema,
+  type ReadHandoffData,
+  type ReadHandoffFailureInput
+} from "./tools/schemas/readHandoff.js";
+import {
+  WAIT_FOR_HANDOFF_ARTIFACT_DEFINITIONS,
+  WAIT_FOR_HANDOFF_ERROR_MESSAGES,
+  createWaitForHandoffFailure,
+  createWaitForHandoffSuccess,
+  waitForHandoffArtifactKindSchema,
+  waitForHandoffDataSchema,
+  waitForHandoffLineCount,
+  waitForHandoffOutputShape,
+  waitForHandoffRunSchema,
+  waitForHandoffRunStateSchema,
+  waitForHandoffUnavailableSchema,
+  type WaitForHandoffArtifact,
+  type WaitForHandoffArtifactKind,
+  type WaitForHandoffData,
+  type WaitForHandoffFailureInput,
+  type WaitForHandoffRun,
+  type WaitForHandoffUnavailable
+} from "./tools/schemas/waitForHandoff.js";
+import {
+  CODEX_CONTEXT_ERROR_MESSAGES,
+  CODEX_CONTEXT_TRUNCATION_MARKER,
+  codexContextDataSchema,
+  codexContextOutputShape,
+  codexContextPreview,
+  codexContextSourcePathSchema,
+  codexContextTargetPathSchema,
+  codexContextUnavailableSchema,
+  createCodexContextFailure,
+  createCodexContextSuccess,
+  type CodexContextData,
+  type CodexContextFailureInput
+} from "./tools/schemas/codexContext.js";
+import {
+  EXPORT_PRO_CONTEXT_BUNDLE_TRUNCATION_MARKER,
+  EXPORT_PRO_CONTEXT_DIFF_TRUNCATION_MARKER,
+  EXPORT_PRO_CONTEXT_ERROR_MESSAGES,
+  createExportProContextFailure,
+  createExportProContextSuccess,
+  exportProContextAiUnavailableSchema,
+  exportProContextDataSchema,
+  exportProContextGlobSchema,
+  exportProContextOutputShape,
+  exportProContextPathSchema,
+  exportProContextSkippedSchema,
+  type ExportProContextData,
+  type ExportProContextFailureInput
+} from "./tools/schemas/exportProContext.js";
+import {
+  HANDOFF_TO_AGENT_DIFF_TRUNCATION_SUFFIX,
+  HANDOFF_TO_AGENT_ERROR_MESSAGES,
+  createHandoffToAgentFailure,
+  createHandoffToAgentSuccess,
+  handoffToAgentDataSchema,
+  handoffToAgentOutputShape,
+  handoffToAgentPathSchema,
+  type HandoffToAgentData,
+  type HandoffToAgentFailureInput
+} from "./tools/schemas/handoffToAgent.js";
+import {
+  HANDOFF_TO_CODEX_ERROR_MESSAGES,
+  createHandoffToCodexFailure,
+  createHandoffToCodexSuccess,
+  handoffToCodexDataSchema,
+  handoffToCodexOutputShape,
+  type HandoffToCodexData,
+  type HandoffToCodexFailureInput
+} from "./tools/schemas/handoffToCodex.js";
+import {
+  CODEX_SESSIONS_ERROR_MESSAGES,
+  codexSessionsOutputShape,
+  codexSessionsSessionSchema,
+  createCodexSessionsFailure,
+  createCodexSessionsSuccess,
+  type CodexSessionsData,
+  type CodexSessionsFailureInput
+} from "./tools/schemas/codexSessions.js";
+import {
+  READ_CODEX_SESSION_ERROR_MESSAGES,
+  createReadCodexSessionFailure,
+  createReadCodexSessionSuccess,
+  readCodexSessionDataSchema,
+  readCodexSessionMessageSchema,
+  readCodexSessionOutputShape,
+  type ReadCodexSessionData,
+  type ReadCodexSessionFailureInput
+} from "./tools/schemas/readCodexSession.js";
 
 const STRUCTURED_STRING_MAX_CHARS = 30_000;
 
@@ -316,6 +505,1592 @@ const listWorkspacesProviderItemSchema = z.object({
 }).strict();
 
 const listWorkspacesProviderResultSchema = z.array(listWorkspacesProviderItemSchema);
+
+const codexproInventoryProviderSkillSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  source: z.enum(["workspace", "user", "plugin", "other"]),
+  path: z.string()
+}).strict();
+
+const codexproInventoryProviderMcpServerSchema = z.object({
+  name: z.string(),
+  source: z.enum([
+    "user codex config",
+    "workspace config",
+    "workspace cursor config",
+    "user cursor config"
+  ])
+}).strict();
+
+const codexproInventoryProviderResultSchema = z.object({
+  skills: z.array(codexproInventoryProviderSkillSchema).max(500),
+  skillsTruncated: z.boolean(),
+  mcpServers: z.array(codexproInventoryProviderMcpServerSchema)
+    .max(CODEXPRO_INVENTORY_MCP_SERVER_LIMIT),
+  mcpServersTruncated: z.boolean()
+}).strict();
+
+const loadSkillProviderResultSchema = z.object({
+  skill: codexproInventoryProviderSkillSchema,
+  text: z.string().max(200_000),
+  bytes: z.number().int().min(0).max(100_000),
+  totalBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  truncated: z.boolean(),
+  discoveryTruncated: z.boolean()
+}).strict().superRefine((value, context) => {
+  const decodedBytes = Buffer.byteLength(value.text, "utf8");
+  if (decodedBytes > value.bytes * 3) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text"],
+      message: "Decoded Skill text cannot exceed the maximum UTF-8 replacement expansion."
+    });
+  }
+});
+
+const codexSessionsProviderResultSchema = z.object({
+  codex_dir: z.string().min(1).max(4096),
+  roots: z.array(z.string().min(1).max(4096)).length(2),
+  scan_file_limit: z.literal(CODEX_SESSION_SCAN_FILE_LIMIT),
+  scan_depth_limit: z.literal(CODEX_SESSION_SCAN_DEPTH_LIMIT),
+  scanned_file_count: z.number().int().min(0).max(CODEX_SESSION_SCAN_FILE_LIMIT),
+  indexed_session_count: z.number().int().min(0).max(CODEX_SESSION_SCAN_FILE_LIMIT),
+  excluded_file_count: z.number().int().min(0).max(CODEX_SESSION_SCAN_FILE_LIMIT),
+  duplicate_file_count: z.number().int().min(0).max(CODEX_SESSION_SCAN_FILE_LIMIT),
+  sessions: z.array(codexSessionsSessionSchema).max(200),
+  total_found: z.number().int().min(0).max(CODEX_SESSION_SCAN_FILE_LIMIT),
+  discovery_truncated: z.boolean()
+}).strict();
+
+const readCodexSessionProviderResultSchema = z.object({
+  codex_dir: z.string().min(1).max(4096),
+  roots: z.array(z.string().min(1).max(4096)).length(2),
+  selection: z.enum(["session_id", "source_path", "both"]),
+  requested_session_id: z.string().nullable(),
+  requested_source_path: z.string().nullable(),
+  max_messages: z.number().int().min(1).max(400),
+  max_total_bytes: z.number().int().min(4_000).max(400_000),
+  max_source_file_bytes: z.literal(CODEX_SESSION_READ_FILE_LIMIT),
+  source_file_bytes: z.number().int().min(0).max(CODEX_SESSION_READ_FILE_LIMIT),
+  session: codexSessionsSessionSchema,
+  messages: z.array(readCodexSessionMessageSchema).max(400),
+  truncation_reason: z.enum(["message_limit", "byte_limit"]).nullable()
+}).strict();
+
+const readHandoffProviderArtifactSchema = z.object({
+  path: z.string().min(1).max(512),
+  kind: readHandoffArtifactKindSchema,
+  bytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  lineCount: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  text: z.string().max(2_000_000)
+}).strict().superRefine((value, context) => {
+  if (value.lineCount !== readHandoffLineCount(value.text)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["lineCount"],
+      message: "Provider lineCount must match the complete decoded artifact."
+    });
+  }
+  const decodedBytes = Buffer.byteLength(value.text, "utf8");
+  if (decodedBytes > value.bytes * 3) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text"],
+      message: "Provider text exceeds the maximum UTF-8 replacement expansion."
+    });
+  }
+  if ((value.bytes === 0) !== (value.text === "")) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text"],
+      message: "Provider source bytes and empty-body state must agree."
+    });
+  }
+});
+
+const readHandoffProviderResultSchema = z.object({
+  contextDir: readHandoffContextDirSchema,
+  contextExists: z.boolean(),
+  artifacts: z.array(readHandoffProviderArtifactSchema).max(7),
+  unavailable: z.array(readHandoffUnavailableSchema).max(7)
+}).strict();
+
+const waitForHandoffStateProviderResultSchema = z.object({
+  stateFile: z.string().min(1).max(512),
+  present: z.boolean(),
+  bytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).nullable(),
+  text: z.string().max(200_000).nullable()
+}).strict().superRefine((value, context) => {
+  if (!value.present) {
+    if (value.bytes !== null || value.text !== null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["present"],
+        message: "Missing state must not include bytes or text."
+      });
+    }
+    return;
+  }
+  if (value.bytes === null || value.text === null || value.bytes !== Buffer.byteLength(value.text, "utf8")) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["bytes"],
+      message: "Present state bytes must match the complete UTF-8 text."
+    });
+  }
+});
+
+const waitForHandoffSourceIdentifierSchema = z.string()
+  .min(1)
+  .max(256)
+  .refine((value) => value.trim() === value, "Identifier cannot have surrounding whitespace.")
+  .refine((value) => !/[\r\n\u0000-\u001f\u007f]/.test(value), "Identifier must be one line.");
+
+const waitForHandoffSourceStateSchema = z.object({
+  version: z.literal(1),
+  state: waitForHandoffRunStateSchema,
+  iteration: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  plan_hash: waitForHandoffSourceIdentifierSchema,
+  started_at: z.string().datetime({ offset: true }),
+  finished_at: z.string().datetime({ offset: true }).nullable().optional(),
+  updated_at: z.string().datetime({ offset: true }).nullable().optional(),
+  executor: waitForHandoffSourceIdentifierSchema,
+  model: z.string()
+    .min(1)
+    .max(512)
+    .refine((value) => value.trim() === value, "Model cannot have surrounding whitespace.")
+    .refine((value) => !/[\r\n\u0000-\u001f\u007f]/.test(value), "Model must be one line.")
+    .nullable()
+    .optional(),
+  exit_code: z.number().int().min(-2_147_483_648).max(2_147_483_647).nullable().optional(),
+  timed_out: z.boolean().optional(),
+  duration_ms: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).nullable().optional()
+}).passthrough();
+
+const waitForHandoffProviderArtifactSchema = z.object({
+  path: z.string().min(1).max(512),
+  kind: waitForHandoffArtifactKindSchema,
+  bytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  lineCount: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  text: z.string().max(200_000)
+}).strict().superRefine((value, context) => {
+  if (value.lineCount !== waitForHandoffLineCount(value.text)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["lineCount"],
+      message: "Provider lineCount must match the complete decoded artifact."
+    });
+  }
+  if (Buffer.byteLength(value.text, "utf8") > value.bytes * 3) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text"],
+      message: "Provider text exceeds the maximum UTF-8 replacement expansion."
+    });
+  }
+  if ((value.bytes === 0) !== (value.text === "")) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text"],
+      message: "Provider source bytes and empty-body state must agree."
+    });
+  }
+});
+
+const waitForHandoffArtifactsProviderResultSchema = z.object({
+  contextDir: readHandoffContextDirSchema,
+  requestedKinds: z.array(waitForHandoffArtifactKindSchema).min(1).max(4),
+  artifacts: z.array(waitForHandoffProviderArtifactSchema).max(4),
+  unavailable: z.array(waitForHandoffUnavailableSchema).max(4)
+}).strict();
+
+const codexContextProviderResultSchema = z.object({
+  text: z.string(),
+  workspaceId: z.string().min(1).max(160),
+  root: z.string().min(1),
+  targetPath: codexContextTargetPathSchema,
+  targetKind: z.enum(["file", "directory", "missing"]),
+  agentsFiles: z.array(codexContextSourcePathSchema).max(256),
+  aiContextExists: z.boolean().nullable(),
+  aiContextFiles: z.array(codexContextSourcePathSchema).max(7),
+  unavailableSources: z.array(codexContextUnavailableSchema).max(263),
+  gitStatus: z.string().optional(),
+  gitDiff: z.string().optional()
+}).strict();
+
+const exportProContextProviderResultSchema = z.object({
+  workspaceId: z.string().min(1).max(160),
+  root: z.string().min(1),
+  path: exportProContextPathSchema,
+  title: z.string().min(1).max(200).refine(
+    (value) => value.trim() === value && !/[\r\n\u0000-\u001f\u007f]/.test(value),
+    "Export title must be one bounded line."
+  ),
+  selectedPaths: z.array(exportProContextPathSchema).max(80),
+  extraGlobs: z.array(exportProContextGlobSchema).max(32),
+  includeImportantFiles: z.boolean(),
+  includeChangedFiles: z.boolean(),
+  includeDiff: z.boolean(),
+  includeAiBridge: z.boolean(),
+  maxDepth: z.number().int().min(1).max(6),
+  maxFiles: z.number().int().min(1).max(80),
+  maxFileBytes: z.number().int().min(1_000).max(250_000),
+  maxDiffBytes: z.number().int().min(1_000).max(2_000_000),
+  maxTotalBytes: z.number().int().min(1_000).max(2_000_000),
+  changedFileCount: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  candidateCount: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  omittedCount: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  filesIncluded: z.array(exportProContextPathSchema).max(80),
+  filesSkipped: z.array(exportProContextSkippedSchema).max(80),
+  aiContextFiles: z.array(exportProContextPathSchema).max(7),
+  aiContextUnavailable: z.array(exportProContextAiUnavailableSchema).max(7),
+  createdContextFiles: z.array(exportProContextPathSchema).max(9),
+  existed: z.boolean(),
+  sourceMarkdown: z.string().max(32_000_000),
+  markdown: z.string().max(2_000_000),
+  sourceBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  bytes: z.number().int().min(0).max(2_000_000),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  diffTruncated: z.boolean(),
+  bundleTruncated: z.boolean(),
+  truncated: z.boolean(),
+  outputLimited: z.boolean(),
+  redacted: z.boolean()
+}).strict();
+
+const handoffToAgentProviderResultSchema = z.object({
+  workspaceId: z.string().min(1).max(160),
+  root: z.string().min(1).max(32_000),
+  agent: z.string().min(1).max(64).regex(/^[a-z0-9][a-z0-9._-]{0,63}$/),
+  agentName: z.string().min(1).max(80),
+  model: z.string().min(1).max(120).optional(),
+  title: z.string().min(1).max(120),
+  updatedAt: z.string().datetime({ offset: true }),
+  appendRequested: z.boolean(),
+  appendApplied: z.boolean(),
+  maxWriteBytes: z.number().int().min(1).max(32_000_000),
+  planPath: handoffToAgentPathSchema,
+  statusPath: handoffToAgentPathSchema,
+  legacyCodexStatusPath: handoffToAgentPathSchema,
+  diffPath: handoffToAgentPathSchema,
+  logPath: handoffToAgentPathSchema,
+  executionLogPath: handoffToAgentPathSchema,
+  createdContextFiles: z.array(handoffToAgentPathSchema).max(9),
+  planFileExistedBefore: z.boolean(),
+  priorPlanAvailable: z.boolean(),
+  previousText: z.string().max(32_000_000),
+  previousBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  finalPlan: z.string().min(1).max(32_000_000),
+  planBytes: z.number().int().min(1).max(32_000_000),
+  planSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  additions: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  deletions: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  changed: z.boolean(),
+  diff: z.string().min(1).max(60_100),
+  diffBytes: z.number().int().min(1).max(240_400),
+  diffTruncated: z.boolean(),
+  loggedPaths: z.array(handoffToAgentPathSchema).length(2),
+  event: z.string().min(1).max(100_000),
+  eventBytes: z.number().int().min(1).max(100_000),
+  eventSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  prompt: z.string().min(1).max(20_000),
+  promptBytes: z.number().int().min(1).max(80_000)
+}).strict();
+
+function codexproInventoryFailureText(failure: CodexProInventoryFailureInput): string {
+  return [
+    "# CodexPro Inventory Error",
+    "",
+    `Code: ${failure.code}`,
+    CODEXPRO_INVENTORY_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function codexproInventorySkillCounts(
+  skills: CodexProInventoryData["skills"]
+): CodexProInventoryData["skill_counts"] {
+  const counts = { total: skills.length, workspace: 0, user: 0, plugin: 0, other: 0 };
+  for (const skill of skills) counts[skill.source] += 1;
+  return counts;
+}
+
+function codexproInventorySuccessText(data: CodexProInventoryData): string {
+  const skillLines = data.skills.length
+    ? data.skills.map((skill) =>
+        `- ${skill.name} [${skill.source}]${skill.description ? ` - ${skill.description}` : ""}`
+      )
+    : ["- none discovered"];
+  const mcpLines = data.mcp_servers.length
+    ? data.mcp_servers.map((server) => `- ${server.name} (${server.source})`)
+    : ["- none discovered"];
+  return [
+    "# CodexPro Inventory",
+    "",
+    `Workspace: ${data.root}`,
+    `Bash mode: ${data.bash_mode}`,
+    `Write mode: ${data.write_mode}`,
+    `Tool mode: ${data.tool_mode}`,
+    `Global Skills: ${data.include_global_skills ? "included" : "workspace only"}`,
+    `MCP servers: ${data.include_mcp_servers ? "included" : "excluded"}`,
+    `Skill limit: ${data.max_skills}`,
+    "",
+    "## Skill summary",
+    "",
+    `Total returned: ${data.skill_count}`,
+    `Workspace: ${data.skill_counts.workspace}`,
+    `User: ${data.skill_counts.user}`,
+    `Plugin: ${data.skill_counts.plugin}`,
+    `Other: ${data.skill_counts.other}`,
+    ...(data.skills_truncated ? ["Result limited: more Skills are available."] : []),
+    "",
+    ...skillLines,
+    "",
+    "## MCP servers",
+    "",
+    `Total returned: ${data.mcp_server_count}`,
+    ...(data.mcp_servers_truncated ? ["Result limited: more MCP server names are configured."] : []),
+    "",
+    ...mcpLines
+  ].join("\n");
+}
+
+interface NormalizedLoadSkillRequest {
+  selector: LoadSkillSelector;
+  options: LoadSkillProviderContext["options"];
+}
+
+function loadSkillSourceMatchesPath(
+  source: SkillInventoryItem["source"],
+  pathSource: SkillInventoryItem["source"]
+): boolean {
+  return source === pathSource ||
+    ((source === "user" || source === "plugin") && pathSource === "user");
+}
+
+function normalizeLoadSkillRequest(
+  args: Record<string, unknown>
+): NormalizedLoadSkillRequest | LoadSkillFailureInput {
+  const name = String(args.name ?? "").trim();
+  if (!name || name.length > 240 || /[\r\n\u0000-\u001f\u007f]/.test(name)) {
+    return {
+      code: "INVALID_SKILL_SELECTOR",
+      details: { field: "name", reason: "unsafe_name" }
+    };
+  }
+
+  const source = args.source as SkillInventoryItem["source"] | undefined;
+  const requestedPath = typeof args.path === "string" ? args.path.trim() : undefined;
+  let pathSource: SkillInventoryItem["source"] | undefined;
+  if (requestedPath !== undefined) {
+    pathSource = loadSkillSelectorPathSource(requestedPath);
+    if (!requestedPath || !pathSource) {
+      return {
+        code: "INVALID_SKILL_SELECTOR",
+        details: { field: "path", reason: "unsafe_path" }
+      };
+    }
+    if (source && !loadSkillSourceMatchesPath(source, pathSource)) {
+      return {
+        code: "INVALID_SKILL_SELECTOR",
+        details: { field: "path", reason: "source_path_mismatch" }
+      };
+    }
+  }
+
+  const selector = loadSkillSelectorSchema.parse({
+    name,
+    source: source ?? null,
+    path: requestedPath ?? null
+  });
+  const includeGlobalDefault = source !== "workspace" && pathSource !== "workspace";
+  const includeGlobal = parseBool(args.include_global_skills, includeGlobalDefault);
+  const maxSkills = limitInt(args.max_skills, 500, 1, 500);
+  const maxBytes = limitInt(args.max_bytes, 40_000, 1_000, 100_000);
+
+  return {
+    selector,
+    options: {
+      name,
+      source,
+      path: requestedPath,
+      includeGlobal,
+      maxSkills,
+      maxBytes
+    }
+  };
+}
+
+function normalizeLoadSkillItem(value: SkillInventoryItem): LoadSkillData["skill"] {
+  return loadSkillSkillSchema.parse({
+    name: value.name,
+    description: value.description ?? null,
+    source: value.source,
+    path: value.path
+  });
+}
+
+const LOAD_SKILL_DOMAIN_ERROR_CODES = new Set<LoadSkillError["code"]>([
+  "SKILL_NOT_FOUND",
+  "SKILL_AMBIGUOUS",
+  "SKILL_RESOLUTION_LIMIT_REACHED",
+  "SKILL_BOUNDARY_VIOLATION",
+  "SKILL_READ_FAILED"
+]);
+
+function recognizedLoadSkillError(error: unknown): LoadSkillError | undefined {
+  if (error instanceof LoadSkillError) return error;
+  if (!(error instanceof Error) || error.name !== "LoadSkillError") return undefined;
+  const candidate = error as Error & {
+    code?: unknown;
+    context?: unknown;
+  };
+  if (
+    typeof candidate.code !== "string" ||
+    !LOAD_SKILL_DOMAIN_ERROR_CODES.has(candidate.code as LoadSkillError["code"]) ||
+    !candidate.context ||
+    typeof candidate.context !== "object" ||
+    Array.isArray(candidate.context)
+  ) {
+    return undefined;
+  }
+  return candidate as LoadSkillError;
+}
+
+function classifyLoadSkillProviderFailure(
+  error: unknown,
+  request: NormalizedLoadSkillRequest
+): LoadSkillFailureInput {
+  const domainError = recognizedLoadSkillError(error);
+  if (!domainError) {
+    return { code: "INTERNAL_ERROR", details: {} };
+  }
+
+  if (domainError.code === "SKILL_NOT_FOUND" || domainError.code === "SKILL_RESOLUTION_LIMIT_REACHED") {
+    return {
+      code: domainError.code,
+      details: {
+        selector: request.selector,
+        include_global_skills: request.options.includeGlobal,
+        max_skills: request.options.maxSkills
+      }
+    };
+  }
+
+  if (domainError.code === "SKILL_AMBIGUOUS") {
+    try {
+      const candidates = (domainError.context.candidates ?? []).map(normalizeLoadSkillItem);
+      if (candidates.length < 2 || candidates.length > 8) {
+        return { code: "INTERNAL_ERROR", details: {} };
+      }
+      const candidatesTruncated = domainError.context.candidatesTruncated === true;
+      if (candidatesTruncated && candidates.length !== 8) {
+        return { code: "INTERNAL_ERROR", details: {} };
+      }
+      return {
+        code: "SKILL_AMBIGUOUS",
+        details: {
+          selector: request.selector,
+          candidates,
+          candidates_truncated: candidatesTruncated,
+          resolution_truncated: domainError.context.discoveryTruncated === true
+        }
+      };
+    } catch {
+      return { code: "INTERNAL_ERROR", details: {} };
+    }
+  }
+
+  if (domainError.code === "SKILL_BOUNDARY_VIOLATION" || domainError.code === "SKILL_READ_FAILED") {
+    try {
+      if (!domainError.context.skill) return { code: "INTERNAL_ERROR", details: {} };
+      return {
+        code: domainError.code,
+        details: { skill: normalizeLoadSkillItem(domainError.context.skill) }
+      };
+    } catch {
+      return { code: "INTERNAL_ERROR", details: {} };
+    }
+  }
+
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function loadSkillFailureText(failure: LoadSkillFailureInput): string {
+  const lines = [
+    "# Load Skill Error",
+    "",
+    `Code: ${failure.code}`,
+    LOAD_SKILL_ERROR_MESSAGES[failure.code]
+  ];
+  if (failure.code === "SKILL_AMBIGUOUS") {
+    lines.push("", `Multiple skills named ${failure.details.selector.name} were found. Pass an exact source and path.`);
+  } else if (failure.code === "SKILL_NOT_FOUND") {
+    lines.push("", `Skill not found: ${failure.details.selector.name}`);
+  }
+  return lines.join("\n");
+}
+
+function loadSkillFailureResult(failure: LoadSkillFailureInput, startedAt: number): any {
+  return {
+    ...textResult(
+      loadSkillFailureText(failure),
+      createLoadSkillFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function readHandoffFailureText(failure: ReadHandoffFailureInput): string {
+  return [
+    "# Read Handoff Error",
+    "",
+    `Code: ${failure.code}`,
+    READ_HANDOFF_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function readHandoffFailureResult(failure: ReadHandoffFailureInput, startedAt: number): any {
+  return {
+    ...textResult(
+      readHandoffFailureText(failure),
+      createReadHandoffFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function readHandoffSuccessText(data: ReadHandoffData): string {
+  const lines = [
+    "# Read Handoff",
+    "",
+    `Workspace: ${data.workspace_id}`,
+    `Root: ${data.root}`,
+    `Context directory: ${data.context_dir}`,
+    `Context exists: ${data.context_exists ? "yes" : "no"}`,
+    `Readable artifacts: ${data.file_count}`,
+    `Unavailable artifacts: ${data.unavailable_count}`,
+    `Loaded bytes: ${data.loaded_bytes}/${data.max_total_bytes}`,
+    `Per-file limit: ${data.max_file_bytes}`
+  ];
+
+  if (!data.context_exists) {
+    lines.push(
+      "",
+      "No handoff context exists yet. Use handoff_to_agent or handoff_to_codex when a plan is ready."
+    );
+    return lines.join("\n");
+  }
+
+  if (data.unavailable.length > 0) {
+    lines.push(
+      "",
+      "## Unavailable artifacts",
+      "",
+      ...data.unavailable.map((item) =>
+        `- ${item.path}: ${item.reason}${item.bytes === null ? "" : ` (${item.bytes} bytes)`}`
+      )
+    );
+  }
+  for (const artifact of data.artifacts) {
+    lines.push(
+      "",
+      `## ${artifact.path}`,
+      "",
+      `Kind: ${artifact.kind}; source bytes: ${artifact.bytes}; returned bytes: ${artifact.returned_bytes}; lines: ${artifact.line_count}; redacted: ${artifact.redacted ? "yes" : "no"}`,
+      "",
+      artifact.text
+    );
+  }
+  return lines.join("\n");
+}
+
+function waitForHandoffFailureText(failure: WaitForHandoffFailureInput): string {
+  return [
+    "# Wait For Handoff Error",
+    "",
+    `Code: ${failure.code}`,
+    WAIT_FOR_HANDOFF_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function waitForHandoffFailureResult(failure: WaitForHandoffFailureInput, startedAt: number): any {
+  return {
+    ...textResult(
+      waitForHandoffFailureText(failure),
+      createWaitForHandoffFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function codexContextFailureText(failure: CodexContextFailureInput): string {
+  return [
+    "# Codex Context Error",
+    "",
+    `Code: ${failure.code}`,
+    CODEX_CONTEXT_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function codexContextFailureResult(failure: CodexContextFailureInput, startedAt: number): any {
+  return {
+    ...textResult(
+      codexContextFailureText(failure),
+      createCodexContextFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function classifyCodexContextTargetFailure(error: unknown): CodexContextFailureInput {
+  const message = error instanceof Error ? error.message : "";
+  if (message.startsWith("Path is blocked by safety rules:")) {
+    return { code: "TARGET_PATH_BLOCKED", details: { source: "target_path" } };
+  }
+  const outsidePrefixes = [
+    "Path escapes workspace root:",
+    "Path resolves outside workspace root through a symlink:",
+    "Write path resolves through a parent outside the workspace:",
+    "Windows device paths are not allowed:",
+    "UNC paths are not allowed:",
+    "Drive-relative Windows paths are not allowed:",
+    "NTFS alternate data stream paths are not allowed:",
+    "Windows path segments may not end with a dot or space:",
+    "Windows reserved device name is not allowed:"
+  ];
+  if (outsidePrefixes.some((prefix) => message.startsWith(prefix))) {
+    return { code: "TARGET_PATH_OUTSIDE_WORKSPACE", details: { source: "target_path" } };
+  }
+  return { code: "TARGET_PATH_INVALID", details: { source: "target_path" } };
+}
+
+function exportProContextFailureText(failure: ExportProContextFailureInput): string {
+  return [
+    "# Export Pro Context Error",
+    "",
+    `Code: ${failure.code}`,
+    EXPORT_PRO_CONTEXT_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function exportProContextFailureResult(failure: ExportProContextFailureInput, startedAt: number): any {
+  return {
+    ...textResult(
+      exportProContextFailureText(failure),
+      createExportProContextFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function exportProContextSuccessText(data: ExportProContextData): string {
+  return [
+    "# Export Pro Context",
+    "",
+    `Wrote ${data.path}.`,
+    `Bytes: ${data.bytes}`,
+    `SHA-256: ${data.sha256}`,
+    `Files included: ${data.file_count}`,
+    `Files skipped: ${data.skipped_count}`,
+    `Candidates omitted: ${data.omitted_count}`,
+    `AI context files: ${data.ai_context_file_count}`,
+    `Scaffold files created: ${data.created_context_file_count}`,
+    `Replaced existing export: ${data.existed ? "yes" : "no"}`,
+    `Output limited: ${data.output_limited ? "yes" : "no"}`,
+    `Redacted: ${data.redacted ? "yes" : "no"}`,
+    "",
+    `Paste ${data.path} into a high-context planning model when MCP tools are unavailable, then save the returned plan with codexpro pro-apply.`
+  ].join("\n");
+}
+
+function handoffToAgentFailureText(failure: HandoffToAgentFailureInput): string {
+  return [
+    "# Handoff To Agent Error",
+    "",
+    `Code: ${failure.code}`,
+    HANDOFF_TO_AGENT_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function handoffToAgentFailureResult(failure: HandoffToAgentFailureInput, startedAt: number): any {
+  return {
+    ...textResult(
+      handoffToAgentFailureText(failure),
+      createHandoffToAgentFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function handoffToAgentSuccessText(data: HandoffToAgentData): string {
+  const diffPreview = previewText(data.diff, 50, 12_000);
+  return [
+    "# Handoff To Agent",
+    "",
+    `Agent: ${data.agent_name} (${data.agent})`,
+    ...(data.model ? [`Model: ${data.model}`] : []),
+    `Wrote ${data.plan_path}.`,
+    `Plan SHA-256: ${data.plan_sha256}`,
+    `Append: ${data.append_applied ? "applied" : data.append_requested ? "requested; new plan created" : "not requested"}`,
+    `Status path: ${data.status_path}`,
+    `Diff path: ${data.diff_path}`,
+    `Logs: ${data.log_path}, ${data.execution_log_path}`,
+    `Diff stats: +${data.additions} -${data.deletions}`,
+    "",
+    "Agent prompt:",
+    "",
+    "```text",
+    data.prompt,
+    "```",
+    ...(diffPreview ? ["", "```diff", diffPreview, "```"] : [])
+  ].join("\n");
+}
+
+function handoffToCodexFailureText(failure: HandoffToCodexFailureInput): string {
+  return [
+    "# Handoff To Codex Error",
+    "",
+    `Code: ${failure.code}`,
+    HANDOFF_TO_CODEX_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function handoffToCodexFailureResult(failure: HandoffToCodexFailureInput, startedAt: number): any {
+  return {
+    ...textResult(
+      handoffToCodexFailureText(failure),
+      createHandoffToCodexFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function handoffToCodexSuccessText(data: HandoffToCodexData): string {
+  const diffPreview = previewText(data.diff, 50, 12_000);
+  return [
+    "# Handoff To Codex",
+    "",
+    `Wrote ${data.plan_path}.`,
+    `Plan SHA-256: ${data.plan_sha256}`,
+    `Append: ${data.append_applied ? "applied" : data.append_requested ? "requested; new plan created" : "not requested"}`,
+    `Status path: ${data.status_path}`,
+    `Diff path: ${data.diff_path}`,
+    `Logs: ${data.log_path}, ${data.execution_log_path}`,
+    `Diff stats: +${data.additions} -${data.deletions}`,
+    "",
+    "Codex prompt:",
+    "",
+    "```text",
+    data.prompt,
+    "```",
+    ...(diffPreview ? ["", "```diff", diffPreview, "```"] : [])
+  ].join("\n");
+}
+
+interface NormalizedCodexSessionsRequest {
+  maxSessions: number;
+  query?: string;
+}
+
+function normalizeCodexSessionsRequest(
+  args: Record<string, unknown>
+): NormalizedCodexSessionsRequest {
+  const maxSessions = typeof args.max_sessions === "number"
+    ? args.max_sessions
+    : 30;
+  const normalizedQuery = typeof args.query === "string"
+    ? args.query
+        .replace(/[\u0000-\u001f\u007f]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+    : "";
+  return {
+    maxSessions,
+    ...(normalizedQuery ? { query: normalizedQuery } : {})
+  };
+}
+
+function codexSessionMatchesQuery(
+  session: CodexSessionsData["sessions"][number],
+  query: string
+): boolean {
+  const haystack = [
+    session.session_id,
+    session.title,
+    session.project_dir,
+    session.source_path
+  ].filter((value): value is string => typeof value === "string").join("\n");
+  return haystack.toLowerCase().includes(query.toLowerCase());
+}
+
+function validateCodexSessionsProviderResult(
+  config: CodexProConfig,
+  request: NormalizedCodexSessionsRequest,
+  rawResult: unknown
+): CodexSessionsData {
+  const result = codexSessionsProviderResultSchema.parse(rawResult);
+  const expectedDirectory = codexSessionDirectory(config);
+  const expectedRoots = codexSessionRoots(config);
+  if (
+    result.codex_dir !== expectedDirectory ||
+    result.roots.some(
+      (root, index) => root !== expectedRoots[index]!
+    )
+  ) {
+    throw new CodexProError("Codex session Provider identity mismatch.");
+  }
+  if (
+    request.query &&
+    result.sessions.some(
+      (session) => !codexSessionMatchesQuery(session, request.query!)
+    )
+  ) {
+    throw new CodexProError("Codex session Provider query mismatch.");
+  }
+  if (config.codexSessions === "off") {
+    throw new CodexProError("Codex session Provider used while disabled.");
+  }
+
+  const sessionCount = result.sessions.length;
+  const resultsTruncated = result.total_found > sessionCount;
+  return {
+    codex_dir: result.codex_dir,
+    roots: result.roots,
+    codex_sessions_mode: config.codexSessions,
+    tool_mode: config.toolMode,
+    query: request.query ?? null,
+    max_sessions: request.maxSessions,
+    scan_file_limit: result.scan_file_limit,
+    scan_depth_limit: result.scan_depth_limit,
+    scanned_file_count: result.scanned_file_count,
+    indexed_session_count: result.indexed_session_count,
+    excluded_file_count: result.excluded_file_count,
+    duplicate_file_count: result.duplicate_file_count,
+    sessions: result.sessions,
+    session_count: sessionCount,
+    total_found: result.total_found,
+    discovery_truncated: result.discovery_truncated,
+    results_truncated: resultsTruncated,
+    output_limited: result.discovery_truncated || resultsTruncated
+  };
+}
+
+function codexSessionsFailureText(failure: CodexSessionsFailureInput): string {
+  return [
+    "# Codex Sessions Error",
+    "",
+    `Code: ${failure.code}`,
+    CODEX_SESSIONS_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function codexSessionsFailureResult(
+  failure: CodexSessionsFailureInput,
+  startedAt: number
+): any {
+  return {
+    ...textResult(
+      codexSessionsFailureText(failure),
+      createCodexSessionsFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function codexSessionsSuccessText(data: CodexSessionsData): string {
+  const visibleSessions = data.sessions.slice(0, 30);
+  const rows = visibleSessions.length
+    ? visibleSessions.map((session) => [
+        `- ${session.session_id}`,
+        session.title ?? "(untitled)",
+        session.storage,
+        session.project_dir
+          ? `cwd=${cleanOneLine(session.project_dir, "[path omitted]", 240)}`
+          : "cwd=(unknown)",
+        session.resume_command
+      ].join(" | "))
+    : ["- No Codex sessions found."];
+  const hiddenCount = data.sessions.length - visibleSessions.length;
+  return [
+    "# Codex Sessions",
+    "",
+    `Codex dir: ${data.codex_dir}`,
+    `Session mode: ${data.codex_sessions_mode}`,
+    `Tool mode: ${data.tool_mode}`,
+    `Query: ${data.query ?? "(none)"}`,
+    `Scanned files: ${data.scanned_file_count}`,
+    `Indexed sessions: ${data.indexed_session_count}`,
+    `Excluded files: ${data.excluded_file_count}`,
+    `Duplicate files: ${data.duplicate_file_count}`,
+    `Matched sessions: ${data.total_found}`,
+    `Returned sessions: ${data.session_count}`,
+    `Output limited: ${data.output_limited ? "yes" : "no"}`,
+    "",
+    ...rows,
+    ...(hiddenCount > 0
+      ? ["", `${hiddenCount} additional sessions are available in structured data.`]
+      : [])
+  ].join("\n");
+}
+
+export interface NormalizedReadCodexSessionRequest {
+  selection: "session_id" | "source_path" | "both";
+  sessionId?: string;
+  sourcePath?: string;
+  maxMessages: number;
+  maxTotalBytes: number;
+}
+
+type ReadCodexSessionRequestPreparation =
+  | { ok: true; request: NormalizedReadCodexSessionRequest }
+  | { ok: false; failure: ReadCodexSessionFailureInput };
+
+function normalizeReadCodexSessionRequest(
+  args: Record<string, unknown>
+): ReadCodexSessionRequestPreparation {
+  const sessionId = typeof args.session_id === "string"
+    ? args.session_id
+    : undefined;
+  const sourcePath = typeof args.source_path === "string"
+    ? args.source_path
+    : undefined;
+  if (!sessionId && !sourcePath) {
+    return {
+      ok: false,
+      failure: {
+        code: "REQUEST_INVALID",
+        details: { reason: "selector_required" }
+      }
+    };
+  }
+  if (
+    sessionId !== undefined &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(sessionId)
+  ) {
+    return {
+      ok: false,
+      failure: {
+        code: "REQUEST_INVALID",
+        details: { reason: "session_id_invalid" }
+      }
+    };
+  }
+  if (
+    sourcePath !== undefined &&
+    (
+      sourcePath.length === 0 ||
+      sourcePath.trim() !== sourcePath ||
+      /[\r\n\u0000-\u001f\u007f]/.test(sourcePath) ||
+      !path.isAbsolute(sourcePath) ||
+      path.resolve(sourcePath) !== sourcePath
+    )
+  ) {
+    return {
+      ok: false,
+      failure: {
+        code: "REQUEST_INVALID",
+        details: { reason: "source_path_invalid" }
+      }
+    };
+  }
+
+  const selection = sessionId && sourcePath
+    ? "both"
+    : sourcePath
+      ? "source_path"
+      : "session_id";
+  return {
+    ok: true,
+    request: Object.freeze({
+      selection,
+      ...(sessionId ? { sessionId } : {}),
+      ...(sourcePath ? { sourcePath } : {}),
+      maxMessages: typeof args.max_messages === "number" ? args.max_messages : 80,
+      maxTotalBytes: typeof args.max_total_bytes === "number"
+        ? args.max_total_bytes
+        : 80_000
+    })
+  };
+}
+
+function validateReadCodexSessionProviderResult(
+  config: CodexProConfig,
+  request: NormalizedReadCodexSessionRequest,
+  rawResult: unknown
+): ReadCodexSessionData {
+  const result = readCodexSessionProviderResultSchema.parse(rawResult);
+  if (hasSecretValue(JSON.stringify(result))) {
+    throw new CodexProError("Codex transcript Provider returned sensitive identity data.");
+  }
+  const expectedDirectory = codexSessionDirectory(config);
+  const expectedRoots = codexSessionRoots(config);
+  if (
+    config.codexSessions !== "read" ||
+    result.codex_dir !== expectedDirectory ||
+    result.roots.some((root, index) => root !== expectedRoots[index]!) ||
+    result.selection !== request.selection ||
+    result.requested_session_id !== (request.sessionId ?? null) ||
+    result.requested_source_path !== (request.sourcePath ?? null) ||
+    result.max_messages !== request.maxMessages ||
+    result.max_total_bytes !== request.maxTotalBytes
+  ) {
+    throw new CodexProError("Codex transcript Provider identity mismatch.");
+  }
+
+  const contentBytes = result.messages.reduce(
+    (total, message) => total + message.bytes,
+    0
+  );
+  const redactedMessageCount = result.messages.filter(
+    (message) => message.redacted
+  ).length;
+  const truncatedMessageCount = result.messages.filter(
+    (message) => message.truncated
+  ).length;
+  const truncated = result.truncation_reason !== null;
+  return readCodexSessionDataSchema.parse({
+    codex_dir: result.codex_dir,
+    roots: result.roots,
+    codex_sessions_mode: "read",
+    tool_mode: config.toolMode,
+    selection: result.selection,
+    requested_session_id: result.requested_session_id,
+    requested_source_path: result.requested_source_path,
+    max_messages: result.max_messages,
+    max_total_bytes: result.max_total_bytes,
+    max_source_file_bytes: result.max_source_file_bytes,
+    source_file_bytes: result.source_file_bytes,
+    session: result.session,
+    messages: result.messages,
+    message_count: result.messages.length,
+    content_bytes: contentBytes,
+    redacted_message_count: redactedMessageCount,
+    truncated_message_count: truncatedMessageCount,
+    truncated,
+    truncation_reason: result.truncation_reason,
+    output_limited: truncated
+  });
+}
+
+function internalReadCodexSessionFailure(): ReadCodexSessionFailureInput {
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function readCodexSessionOperationFailure(
+  error: CodexSessionReadOperationError
+): ReadCodexSessionFailureInput {
+  const keys = Object.keys(error.details);
+  if (error.code === "SESSION_NOT_FOUND") {
+    const selector = error.details.selector;
+    return keys.length === 1 &&
+      (selector === "session_id" || selector === "source_path")
+      ? { code: error.code, details: { selector } }
+      : internalReadCodexSessionFailure();
+  }
+  if (error.code === "SESSION_RESOLUTION_INCOMPLETE") {
+    return keys.length === 1 && error.details.selector === "session_id"
+      ? { code: error.code, details: { selector: "session_id" } }
+      : internalReadCodexSessionFailure();
+  }
+  if (error.code === "SESSION_FILE_TOO_LARGE") {
+    return keys.length === 1 &&
+      error.details.max_source_file_bytes === CODEX_SESSION_READ_FILE_LIMIT
+      ? {
+          code: error.code,
+          details: { max_source_file_bytes: CODEX_SESSION_READ_FILE_LIMIT }
+        }
+      : internalReadCodexSessionFailure();
+  }
+  if (keys.length !== 0) return internalReadCodexSessionFailure();
+  if (
+    error.code === "SOURCE_PATH_OUTSIDE_ROOTS" ||
+    error.code === "SESSION_ID_MISMATCH" ||
+    error.code === "SESSION_READ_FAILED"
+  ) {
+    return { code: error.code, details: {} };
+  }
+  return internalReadCodexSessionFailure();
+}
+
+function readCodexSessionFailureText(
+  failure: ReadCodexSessionFailureInput
+): string {
+  return [
+    "# Codex Session Read Error",
+    "",
+    `Code: ${failure.code}`,
+    READ_CODEX_SESSION_ERROR_MESSAGES[failure.code]
+  ].join("\n");
+}
+
+function readCodexSessionFailureResult(
+  failure: ReadCodexSessionFailureInput,
+  startedAt: number
+): any {
+  return {
+    ...textResult(
+      readCodexSessionFailureText(failure),
+      createReadCodexSessionFailure(failure, Date.now() - startedAt)
+    ),
+    isError: true
+  };
+}
+
+function readCodexSessionSuccessText(data: ReadCodexSessionData): string {
+  const transcript = data.messages.map((message) => {
+    const when = message.timestamp !== null
+      ? ` ${new Date(message.timestamp).toISOString()}`
+      : "";
+    return [
+      `### ${message.ordinal}. ${message.role} (${message.kind})${when}`,
+      "",
+      message.content
+    ].join("\n");
+  }).join("\n\n");
+  return [
+    "# Codex Session",
+    "",
+    `Selection: ${data.selection}`,
+    `Session: ${data.session.session_id}`,
+    `Title: ${cleanOneLine(data.session.title, "(untitled)", 160)}`,
+    `Source: ${data.session.source_path}`,
+    `Source snapshot bytes: ${data.source_file_bytes}`,
+    `Message limit: ${data.max_messages}`,
+    `Content byte limit: ${data.max_total_bytes}`,
+    `Returned messages: ${data.message_count}`,
+    `Returned content bytes: ${data.content_bytes}`,
+    `Redacted messages: ${data.redacted_message_count}`,
+    `Truncated messages: ${data.truncated_message_count}`,
+    `Truncation reason: ${data.truncation_reason ?? "none"}`,
+    "",
+    "## Transcript",
+    "",
+    transcript || "No readable transcript messages found."
+  ].join("\n");
+}
+
+const HANDOFF_OPERATION_CODES = new Set([
+  "REQUEST_INVALID",
+  "OUTPUT_PATH_BLOCKED",
+  "OUTPUT_PATH_OUTSIDE_WORKSPACE",
+  "OUTPUT_PATH_INVALID",
+  "EXISTING_PLAN_TOO_LARGE",
+  "EXISTING_PLAN_NOT_TEXT",
+  "EXISTING_PLAN_READ_FAILED",
+  "PLAN_TOO_LARGE",
+  "PLAN_SECRET_BLOCKED",
+  "SCAFFOLD_WRITE_FAILED",
+  "PLAN_WRITE_FAILED",
+  "LOG_WRITE_FAILED",
+  "HANDOFF_WRITE_FAILED"
+]);
+
+function recognizedHandoffOperationError(error: unknown): HandoffOperationError | undefined {
+  if (error instanceof HandoffOperationError) return error;
+  if (!(error instanceof Error) || error.name !== "HandoffOperationError") return undefined;
+  const candidate = error as Error & { code?: unknown; source?: unknown };
+  if (typeof candidate.code !== "string" || !HANDOFF_OPERATION_CODES.has(candidate.code)) return undefined;
+  return candidate as HandoffOperationError;
+}
+
+function classifyHandoffOperationFailure(
+  error: unknown,
+  fallback: "HANDOFF_WRITE_FAILED" | "INTERNAL_ERROR"
+): HandoffToAgentFailureInput {
+  const domain = recognizedHandoffOperationError(error);
+  if (!domain) return { code: fallback, details: {} };
+  if (domain.code === "REQUEST_INVALID") {
+    if (
+      domain.source === "agent" ||
+      domain.source === "agent_name" ||
+      domain.source === "model" ||
+      domain.source === "title" ||
+      domain.source === "plan" ||
+      domain.source === "append"
+    ) {
+      return { code: domain.code, details: { source: domain.source } };
+    }
+    return { code: "INTERNAL_ERROR", details: {} };
+  }
+  if (
+    domain.code === "OUTPUT_PATH_BLOCKED" ||
+    domain.code === "OUTPUT_PATH_OUTSIDE_WORKSPACE" ||
+    domain.code === "OUTPUT_PATH_INVALID"
+  ) {
+    return { code: domain.code, details: { source: "context_dir" } };
+  }
+  if (
+    domain.code === "EXISTING_PLAN_TOO_LARGE" ||
+    domain.code === "EXISTING_PLAN_NOT_TEXT" ||
+    domain.code === "EXISTING_PLAN_READ_FAILED" ||
+    domain.code === "PLAN_TOO_LARGE" ||
+    domain.code === "PLAN_SECRET_BLOCKED" ||
+    domain.code === "SCAFFOLD_WRITE_FAILED" ||
+    domain.code === "PLAN_WRITE_FAILED" ||
+    domain.code === "LOG_WRITE_FAILED" ||
+    domain.code === "HANDOFF_WRITE_FAILED"
+  ) {
+    return { code: domain.code, details: {} };
+  }
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function classifyHandoffToCodexOperationFailure(
+  error: unknown,
+  fallback: "HANDOFF_WRITE_FAILED" | "INTERNAL_ERROR"
+): HandoffToCodexFailureInput {
+  const failure = classifyHandoffOperationFailure(error, fallback);
+  if (failure.code === "REQUEST_INVALID") {
+    if (
+      failure.details.source === "title" ||
+      failure.details.source === "plan" ||
+      failure.details.source === "append"
+    ) {
+      return failure as HandoffToCodexFailureInput;
+    }
+    return { code: "INTERNAL_ERROR", details: {} };
+  }
+  return failure as HandoffToCodexFailureInput;
+}
+
+async function readExactFileTail(absPath: string, byteCount: number): Promise<Buffer> {
+  const stat = await fsp.stat(absPath);
+  if (!stat.isFile() || stat.size < byteCount) throw new CodexProError("Handoff log tail is unavailable.");
+  const buffer = Buffer.alloc(byteCount);
+  const handle = await fsp.open(absPath, "r");
+  try {
+    let offset = 0;
+    while (offset < byteCount) {
+      const { bytesRead } = await handle.read(buffer, offset, byteCount - offset, stat.size - byteCount + offset);
+      if (bytesRead === 0) throw new CodexProError("Handoff log tail ended unexpectedly.");
+      offset += bytesRead;
+    }
+    return buffer;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function validateHandoffProviderResult(
+  context: AgentHandoffProviderContext,
+  rawResult: unknown
+): Promise<HandoffWriteResult> {
+  const { config, guard, workspace, request, output } = context;
+  const result = handoffToAgentProviderResultSchema.parse(rawResult);
+  const expectedLoggedPaths = [request.logPath, request.executionLogPath];
+  if (
+    result.workspaceId !== workspace.id ||
+    result.root !== workspace.root ||
+    result.agent !== request.agent ||
+    result.agentName !== request.agentName ||
+    result.model !== request.model ||
+    result.title !== request.title ||
+    result.updatedAt !== request.updatedAt ||
+    result.appendRequested !== request.appendRequested ||
+    result.appendApplied !== output.appendApplied ||
+    result.maxWriteBytes !== config.maxWriteBytes ||
+    result.planPath !== request.planPath ||
+    result.statusPath !== request.statusPath ||
+    result.legacyCodexStatusPath !== request.legacyCodexStatusPath ||
+    result.diffPath !== request.diffPath ||
+    result.logPath !== request.logPath ||
+    result.executionLogPath !== request.executionLogPath ||
+    !sameStringSequence(result.createdContextFiles, output.expectedCreatedContextFiles) ||
+    result.planFileExistedBefore !== output.planFileExistedBefore ||
+    result.priorPlanAvailable !== output.priorPlanAvailable ||
+    result.previousText !== output.previousText ||
+    result.previousBytes !== Buffer.byteLength(result.previousText, "utf8") ||
+    result.previousBytes !== output.previousBytes ||
+    result.finalPlan !== output.finalPlan ||
+    result.planBytes !== Buffer.byteLength(result.finalPlan, "utf8") ||
+    result.planBytes !== output.planBytes ||
+    result.planSha256 !== createHash("sha256").update(result.finalPlan).digest("hex") ||
+    result.planSha256 !== output.planSha256 ||
+    result.additions !== output.diff.additions ||
+    result.deletions !== output.diff.deletions ||
+    result.changed !== output.diff.changed ||
+    result.diff !== output.diff.diff ||
+    result.diffBytes !== Buffer.byteLength(result.diff, "utf8") ||
+    result.diffBytes !== output.diffBytes ||
+    result.diffTruncated !== result.diff.endsWith(HANDOFF_TO_AGENT_DIFF_TRUNCATION_SUFFIX) ||
+    result.diffTruncated !== output.diffTruncated ||
+    !sameStringSequence(result.loggedPaths, expectedLoggedPaths) ||
+    result.event !== output.event ||
+    result.eventBytes !== Buffer.byteLength(result.event, "utf8") ||
+    result.eventBytes !== output.eventBytes ||
+    result.eventSha256 !== createHash("sha256").update(result.event).digest("hex") ||
+    result.eventSha256 !== output.eventSha256 ||
+    result.prompt !== request.prompt ||
+    result.promptBytes !== Buffer.byteLength(result.prompt, "utf8")
+  ) {
+    throw new CodexProError("Handoff provider identity or integrity mismatch.");
+  }
+
+  const planResolved = guard.resolve(workspace, result.planPath);
+  await guard.assertTextFile(planResolved.absPath, config.maxWriteBytes);
+  const planArtifact = await fsp.readFile(planResolved.absPath);
+  if (
+    planArtifact.byteLength !== result.planBytes ||
+    !planArtifact.equals(Buffer.from(result.finalPlan, "utf8")) ||
+    createHash("sha256").update(planArtifact).digest("hex") !== result.planSha256
+  ) {
+    throw new CodexProError("Handoff plan artifact integrity mismatch.");
+  }
+
+  for (const logPath of expectedLoggedPaths) {
+    const resolved = guard.resolve(workspace, logPath);
+    const tail = await readExactFileTail(resolved.absPath, result.eventBytes);
+    if (
+      !tail.equals(Buffer.from(result.event, "utf8")) ||
+      createHash("sha256").update(tail).digest("hex") !== result.eventSha256
+    ) {
+      throw new CodexProError("Handoff log artifact integrity mismatch.");
+    }
+  }
+
+  return result;
+}
+
+const PRO_CONTEXT_OPERATION_CODES = new Set([
+  "REQUEST_INVALID",
+  "SELECTION_PATH_BLOCKED",
+  "SELECTION_PATH_OUTSIDE_WORKSPACE",
+  "OUTPUT_PATH_BLOCKED",
+  "OUTPUT_PATH_OUTSIDE_WORKSPACE",
+  "CONTEXT_BUILD_FAILED",
+  "CONTEXT_WRITE_FAILED"
+]);
+
+function recognizedProContextOperationError(error: unknown): ProContextOperationError | undefined {
+  if (error instanceof ProContextOperationError) return error;
+  if (!(error instanceof Error) || error.name !== "ProContextOperationError") return undefined;
+  const candidate = error as Error & { code?: unknown; source?: unknown };
+  if (typeof candidate.code !== "string" || !PRO_CONTEXT_OPERATION_CODES.has(candidate.code)) return undefined;
+  return candidate as ProContextOperationError;
+}
+
+function classifyProContextOperationFailure(
+  error: unknown,
+  fallback: "CONTEXT_EXPORT_FAILED" | "INTERNAL_ERROR"
+): ExportProContextFailureInput {
+  const domain = recognizedProContextOperationError(error);
+  if (!domain) return { code: fallback, details: {} };
+  if (domain.code === "REQUEST_INVALID") {
+    if (domain.source === "title" || domain.source === "selected_paths" || domain.source === "extra_globs") {
+      return { code: domain.code, details: { source: domain.source } };
+    }
+    return { code: "INTERNAL_ERROR", details: {} };
+  }
+  if (domain.code === "SELECTION_PATH_BLOCKED" || domain.code === "SELECTION_PATH_OUTSIDE_WORKSPACE") {
+    return { code: domain.code, details: { source: "selected_paths" } };
+  }
+  if (domain.code === "OUTPUT_PATH_BLOCKED" || domain.code === "OUTPUT_PATH_OUTSIDE_WORKSPACE") {
+    return { code: domain.code, details: { source: "context_dir" } };
+  }
+  if (domain.code === "CONTEXT_BUILD_FAILED" || domain.code === "CONTEXT_WRITE_FAILED") {
+    return { code: domain.code, details: {} };
+  }
+  return { code: "INTERNAL_ERROR", details: {} };
+}
+
+function sameStringSequence(actual: readonly string[], expected: readonly string[]): boolean {
+  return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+}
+
+function normalizeWaitForHandoffRunText(text: string): WaitForHandoffRun {
+  const source = waitForHandoffSourceStateSchema.parse(JSON.parse(text));
+  const executor = redactSensitiveText(source.executor);
+  const model = source.model === undefined || source.model === null
+    ? null
+    : redactSensitiveText(source.model);
+  return waitForHandoffRunSchema.parse({
+    version: source.version,
+    state: source.state,
+    iteration: source.iteration,
+    plan_hash: source.plan_hash,
+    started_at: source.started_at,
+    finished_at: source.finished_at ?? null,
+    updated_at: source.updated_at ?? null,
+    executor,
+    model,
+    exit_code: source.exit_code ?? null,
+    timed_out: source.timed_out ?? false,
+    duration_ms: source.duration_ms ?? null,
+    redacted: executor !== source.executor || model !== (source.model ?? null)
+  });
+}
+
+function utf8Prefix(text: string, maxBytes: number): string {
+  if (maxBytes <= 0 || text.length === 0) return "";
+  let output = "";
+  let bytes = 0;
+  for (const character of text) {
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (bytes + characterBytes > maxBytes) break;
+    output += character;
+    bytes += characterBytes;
+  }
+  return output;
+}
+
+function boundedWaitExcerpt(text: string, maxBytes: number): { text: string; truncated: boolean } {
+  if (Buffer.byteLength(text, "utf8") <= maxBytes) return { text, truncated: false };
+  const marker = "\n...[excerpt truncated]";
+  const markerBytes = Buffer.byteLength(marker, "utf8");
+  if (markerBytes >= maxBytes) {
+    return { text: utf8Prefix(text, maxBytes), truncated: true };
+  }
+  return {
+    text: `${utf8Prefix(text, maxBytes - markerBytes)}${marker}`,
+    truncated: true
+  };
+}
+
+function boundedCodexContext(text: string, maxBytes: number): { text: string; truncated: boolean } {
+  if (Buffer.byteLength(text, "utf8") <= maxBytes) return { text, truncated: false };
+  const markerBytes = Buffer.byteLength(CODEX_CONTEXT_TRUNCATION_MARKER, "utf8");
+  return {
+    text: `${utf8Prefix(text, Math.max(0, maxBytes - markerBytes))}${CODEX_CONTEXT_TRUNCATION_MARKER}`,
+    truncated: true
+  };
+}
+
+function buildWaitForHandoffArtifacts(
+  raw: z.infer<typeof waitForHandoffArtifactsProviderResultSchema>,
+  requestedKinds: WaitForHandoffArtifactKind[],
+  limits: WaitForHandoffLimits
+): {
+  artifacts: WaitForHandoffArtifact[];
+  unavailable: WaitForHandoffUnavailable[];
+  returnedBytes: number;
+  outputLimited: boolean;
+  redacted: boolean;
+} {
+  const rawArtifacts = new Map(raw.artifacts.map((artifact) => [artifact.kind, artifact]));
+  const rawUnavailable = new Map(raw.unavailable.map((item) => [item.kind, item]));
+  const artifacts: WaitForHandoffArtifact[] = [];
+  const unavailable: WaitForHandoffUnavailable[] = [];
+  let returnedBytes = 0;
+
+  for (const definition of WAIT_FOR_HANDOFF_ARTIFACT_DEFINITIONS) {
+    if (!requestedKinds.includes(definition.kind)) continue;
+    const source = rawArtifacts.get(definition.kind);
+    if (!source) {
+      const missing = rawUnavailable.get(definition.kind);
+      if (missing) unavailable.push(missing);
+      continue;
+    }
+
+    const remainingBytes = limits.maxTotalBytes - returnedBytes;
+    if (remainingBytes <= 0) {
+      unavailable.push({
+        path: source.path,
+        kind: source.kind,
+        reason: "output_limit",
+        bytes: source.bytes
+      });
+      continue;
+    }
+
+    let body = source.text;
+    let selectionTruncated = false;
+    if (definition.tailLines !== null) {
+      const lines = source.text.split(/\r?\n/).filter(Boolean);
+      selectionTruncated = lines.length > definition.tailLines;
+      body = lines.slice(-definition.tailLines).join("\n");
+    }
+    const safeBody = redactSensitiveText(body);
+    const redacted = safeBody !== body;
+    const excerpt = boundedWaitExcerpt(
+      safeBody,
+      Math.min(definition.excerptBytes, remainingBytes)
+    );
+    const returned = Buffer.byteLength(excerpt.text, "utf8");
+    artifacts.push({
+      path: source.path,
+      kind: source.kind,
+      source_bytes: source.bytes,
+      line_count: waitForHandoffLineCount(excerpt.text),
+      returned_bytes: returned,
+      truncated: selectionTruncated || excerpt.truncated,
+      redacted,
+      text: excerpt.text
+    });
+    returnedBytes += returned;
+  }
+
+  return {
+    artifacts,
+    unavailable,
+    returnedBytes,
+    outputLimited:
+      artifacts.some((artifact) => artifact.truncated) ||
+      unavailable.some((item) => item.reason === "too_large" || item.reason === "output_limit"),
+    redacted: artifacts.some((artifact) => artifact.redacted)
+  };
+}
+
+function waitForHandoffKindsAreInFixedOrder(
+  items: ReadonlyArray<{ kind: WaitForHandoffArtifactKind }>
+): boolean {
+  let previousIndex = -1;
+  for (const item of items) {
+    const currentIndex = WAIT_FOR_HANDOFF_ARTIFACT_DEFINITIONS.findIndex(
+      (definition) => definition.kind === item.kind
+    );
+    if (currentIndex <= previousIndex) return false;
+    previousIndex = currentIndex;
+  }
+  return true;
+}
+
+function waitForHandoffSuccessText(data: WaitForHandoffData): string {
+  const summary = data.awaited_terminal
+    ? `Matched terminal handoff run: ${data.state}.`
+    : data.state_present
+      ? "No matching terminal run was observed before the deadline."
+      : `No handoff run state was found at ${data.state_file}.`;
+  const lines = [
+    "# Wait For Handoff",
+    "",
+    summary,
+    "",
+    `Workspace: ${data.workspace_id}`,
+    `Root: ${data.root}`,
+    `State file: ${data.state_file}`,
+    `Wait outcome: ${data.wait_outcome}`,
+    `Returned bytes: ${data.returned_bytes}/${data.max_total_bytes}`
+  ];
+  if (data.run) {
+    lines.push(
+      `Observed run: ${data.run.state}; iteration ${data.run.iteration}; exit ${data.run.exit_code ?? "null"}`,
+      `Plan hash mismatch: ${data.plan_hash_mismatch ? "yes" : "no"}`,
+      `Iteration stale: ${data.iteration_stale ? "yes" : "no"}`
+    );
+  }
+  if (data.unavailable.length > 0) {
+    lines.push(
+      "",
+      "## Unavailable artifacts",
+      "",
+      ...data.unavailable.map((item) =>
+        `- ${item.path}: ${item.reason}${item.bytes === null ? "" : ` (${item.bytes} bytes)`}`
+      )
+    );
+  }
+  for (const artifact of data.artifacts) {
+    lines.push(
+      "",
+      `## ${artifact.path}`,
+      "",
+      `Kind: ${artifact.kind}; source bytes: ${artifact.source_bytes}; returned bytes: ${artifact.returned_bytes}; lines: ${artifact.line_count}; truncated: ${artifact.truncated ? "yes" : "no"}; redacted: ${artifact.redacted ? "yes" : "no"}`,
+      "",
+      artifact.text
+    );
+  }
+  return lines.join("\n");
+}
 
 const INSPECT_OUTSIDE_PATH_PREFIXES = [
   "Path contains a null byte.",
@@ -1867,7 +3642,11 @@ function tagToolResult(result: any, name: string, options: Record<string, unknow
     ...base
   };
   const meta = (options._meta as Record<string, unknown> | undefined) ?? {};
-  result.structuredContent = meta.ui || meta["openai/outputTemplate"] ? compactStructuredContent(tagged) : tagged;
+  const preserveStructuredContent = meta["codexpro/preserveStructuredContent"] === true;
+  result.structuredContent =
+    (meta.ui || meta["openai/outputTemplate"]) && !preserveStructuredContent
+      ? compactStructuredContent(tagged)
+      : tagged;
   return result;
 }
 
@@ -2091,6 +3870,84 @@ export interface ShowChangesAnalysisProviderContext {
   changedPaths: string[];
 }
 
+export interface CodexProInventoryProviderContext {
+  config: CodexProConfig;
+  workspace: Workspace;
+  options: {
+    includeGlobalSkills: boolean;
+    includeMcpServers: boolean;
+    maxSkills: number;
+  };
+}
+
+export interface LoadSkillProviderContext {
+  config: CodexProConfig;
+  workspace: Workspace;
+  options: {
+    name: string;
+    source?: SkillInventoryItem["source"];
+    path?: string;
+    includeGlobal: boolean;
+    maxSkills: number;
+    maxBytes: number;
+  };
+}
+
+export interface CodexSessionsProviderContext {
+  config: CodexProConfig;
+  options: {
+    maxSessions: number;
+    query?: string;
+  };
+}
+
+export interface ReadCodexSessionProviderContext {
+  config: CodexProConfig;
+  request: NormalizedReadCodexSessionRequest;
+}
+
+export interface ReadHandoffProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  limits: ReadHandoffLimits;
+}
+
+export interface WaitForHandoffStateProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  maxStateBytes: number;
+}
+
+export interface WaitForHandoffArtifactsProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  requestedKinds: WaitForHandoffArtifactKind[];
+  limits: Pick<WaitForHandoffLimits, "maxArtifactBytes" | "maxTotalBytes">;
+}
+
+export interface CodexContextProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  targetPath: string;
+  targetKind: CodexContextTargetKind;
+  includeAiBridge: boolean;
+  includeGitStatus: boolean;
+  includeGitDiff: boolean;
+  maxAgentBytes: number;
+}
+
+export interface ExportProContextProviderContext {
+  config: CodexProConfig;
+  guard: PathGuard;
+  workspace: Workspace;
+  request: PreparedProContextRequest;
+  output: PreparedProContextOutput;
+}
+
 export interface CodexProServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
@@ -2119,6 +3976,43 @@ export interface CodexProServerDependencies {
     guard: PathGuard;
     workspace: Workspace;
   }) => WorkspaceAnalysis | Promise<WorkspaceAnalysis>;
+  codexproInventoryProvider?: (
+    context: CodexProInventoryProviderContext
+  ) => CodexProInventoryResult | Promise<CodexProInventoryResult>;
+  loadSkillProvider?: (
+    context: LoadSkillProviderContext
+  ) => LoadedSkill | Promise<LoadedSkill>;
+  codexSessionsProvider?: (
+    context: CodexSessionsProviderContext
+  ) => CodexSessionListResult | Promise<CodexSessionListResult>;
+  readCodexSessionProvider?: (
+    context: ReadCodexSessionProviderContext
+  ) => CodexSessionReadResult | Promise<CodexSessionReadResult>;
+  readHandoffProvider?: (
+    context: ReadHandoffProviderContext
+  ) => ReadHandoffContextResult | Promise<ReadHandoffContextResult>;
+  waitForHandoffStateProvider?: (
+    context: WaitForHandoffStateProviderContext
+  ) => HandoffRunStateReadResult | Promise<HandoffRunStateReadResult>;
+  waitForHandoffArtifactsProvider?: (
+    context: WaitForHandoffArtifactsProviderContext
+  ) => WaitForHandoffArtifactReadResult | Promise<WaitForHandoffArtifactReadResult>;
+  codexContextProvider?: (
+    context: CodexContextProviderContext
+  ) => CodexContext | Promise<CodexContext>;
+  exportProContextProvider?: (
+    context: ExportProContextProviderContext
+  ) => ProContextExportResult | Promise<ProContextExportResult>;
+  handoffToAgentProvider?: (
+    context: AgentHandoffProviderContext
+  ) => HandoffWriteResult | Promise<HandoffWriteResult>;
+  handoffToAgentNow?: () => string;
+  handoffToCodexProvider?: (
+    context: AgentHandoffProviderContext
+  ) => HandoffWriteResult | Promise<HandoffWriteResult>;
+  handoffToCodexNow?: () => string;
+  waitForHandoffNow?: () => number;
+  waitForHandoffSleep?: (milliseconds: number) => void | Promise<void>;
   bashResultProvider?: (
     context: BashProviderContext
   ) => BashResult | Promise<BashResult>;
@@ -2722,179 +4616,9 @@ function changedPathsFromStatus(lines: string[]): string[] {
   return paths;
 }
 
-function jsonlEvent(event: string, data: Record<string, unknown>): string {
-  return JSON.stringify({ ts: new Date().toISOString(), event, ...data }) + "\n";
-}
-
 function cleanOneLine(value: unknown, fallback: string, maxLength = 120): string {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return (text || fallback).slice(0, maxLength);
-}
-
-function normalizeAgentId(value: unknown): string {
-  const agent = cleanOneLine(value, "custom", 64).toLowerCase();
-  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(agent)) {
-    throw new CodexProError("agent must use only lowercase letters, numbers, dots, underscores, or hyphens.");
-  }
-  return agent;
-}
-
-function displayAgentName(agent: string, agentName?: unknown): string {
-  const explicit = cleanOneLine(agentName, "", 80);
-  if (explicit) return explicit;
-  if (agent === "codex") return "Codex";
-  if (agent === "opencode") return "OpenCode";
-  if (agent === "pi") return "Pi";
-  return agent;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
-function agentCommandHint(agent: string, planPath: string, model?: string): string {
-  const modelArg = model ? ` --model ${shellQuote(model)}` : " --model '<provider/model>'";
-  const quotedPlanPath = shellQuote(planPath);
-  if (agent === "opencode") return `opencode run${modelArg} "$(cat ${quotedPlanPath})"`;
-  if (agent === "pi") return `pi run${modelArg} "$(cat ${quotedPlanPath})"`;
-  if (agent === "codex") return `Read ${planPath} and execute it in small, reviewable steps.`;
-  return `Run your local implementation agent manually with ${planPath} as the task input.`;
-}
-
-async function readRawTextFileBounded(config: CodexProConfig, guard: PathGuard, workspace: Workspace, filePath: string): Promise<string> {
-  const resolved = guard.resolve(workspace, filePath);
-  await guard.assertTextFile(resolved.absPath, config.maxReadBytes);
-  return fsp.readFile(resolved.absPath, "utf8");
-}
-
-function buildAgentPlanBody(options: {
-  title: string;
-  plan: string;
-  workspace: Workspace;
-  agent: string;
-  agentName: string;
-  model?: string;
-  statusPath: string;
-  diffPath: string;
-  executionLogPath: string;
-}): string {
-  const modelLine = options.model ? `Model: ${options.model}\n` : "";
-  return `# ${options.title}
-
-Updated: ${new Date().toISOString()}
-Workspace: ${options.workspace.root}
-Target agent: ${options.agentName} (${options.agent})
-${modelLine}
-## Plan
-
-${options.plan.trim()}
-
-## Implementation contract
-
-- Work from this plan in small, reviewable steps.
-- Keep edits scoped to the requested task and existing project conventions.
-- Run focused verification before handing work back.
-- Update ${options.statusPath} with files touched, checks run, results, blockers, and review notes.
-- Save the final review diff to ${options.diffPath} when practical.
-- Append notable execution events to ${options.executionLogPath} when the implementation agent supports logging.
-`;
-}
-
-async function writeAgentHandoff(
-  config: CodexProConfig,
-  guard: PathGuard,
-  workspace: Workspace,
-  options: {
-    agent: string;
-    agentName?: string;
-    model?: string;
-    title: string;
-    plan: string;
-    append: boolean;
-    eventName: string;
-  }
-): Promise<{
-  agent: string;
-  agentName: string;
-  model?: string;
-  title: string;
-  planPath: string;
-  statusPath: string;
-  diffPath: string;
-  logPath: string;
-  executionLogPath: string;
-  prompt: string;
-  writeResult: Awaited<ReturnType<typeof writeTextFile>>;
-}> {
-  await ensureAiBridge(config, guard, workspace);
-  const agent = normalizeAgentId(options.agent);
-  const agentName = displayAgentName(agent, options.agentName);
-  const model = options.model ? cleanOneLine(options.model, "", 120) : undefined;
-  const plan = String(options.plan ?? "").trim();
-  if (!plan) throw new CodexProError("plan must not be empty.");
-  const planPath = `${config.contextDir}/current-plan.md`;
-  const statusPath = `${config.contextDir}/agent-status.md`;
-  const legacyCodexStatusPath = `${config.contextDir}/codex-status.md`;
-  const diffPath = `${config.contextDir}/implementation-diff.patch`;
-  const logPath = `${config.contextDir}/session-log.jsonl`;
-  const executionLogPath = `${config.contextDir}/execution-log.jsonl`;
-  const body = buildAgentPlanBody({
-    title: options.title,
-    plan,
-    workspace,
-    agent,
-    agentName,
-    model,
-    statusPath,
-    diffPath,
-    executionLogPath
-  });
-
-  let content = body;
-  if (options.append) {
-    const raw = await readRawTextFileBounded(config, guard, workspace, planPath);
-    content = `${raw.trimEnd()}\n\n---\n\n${body}`;
-  }
-
-  const writeResult = await writeTextFile(config, guard, workspace, planPath, content, { createDirs: true, overwrite: true });
-  const event = {
-    agent,
-    agent_name: agentName,
-    model,
-    title: options.title,
-    plan_path: planPath,
-    status_path: statusPath,
-    diff_path: diffPath
-  };
-  const logResolved = guard.resolve(workspace, logPath, { forWrite: true });
-  const executionLogResolved = guard.resolve(workspace, executionLogPath, { forWrite: true });
-  await fsp.appendFile(logResolved.absPath, jsonlEvent(options.eventName, event), "utf8");
-  await fsp.appendFile(executionLogResolved.absPath, jsonlEvent(options.eventName, event), "utf8");
-
-  const promptLines = [
-    `Read ${planPath} and execute it in small, reviewable steps.`,
-    `After each meaningful change, update ${statusPath} with files touched, checks run, results, blockers, and the next review focus.`,
-    `Before review, write the final diff to ${diffPath} when practical.`,
-    agentCommandHint(agent, planPath, model)
-  ];
-  if (agent === "codex") {
-    promptLines.splice(2, 0, `For legacy Codex handoffs, mirror key status notes to ${legacyCodexStatusPath} if your workflow expects that file.`);
-  }
-  const prompt = promptLines.join("\n");
-
-  return {
-    agent,
-    agentName,
-    model,
-    title: options.title,
-    planPath,
-    statusPath,
-    diffPath,
-    logPath,
-    executionLogPath,
-    prompt,
-    writeResult
-  };
 }
 
 const READ_ONLY_ANNOTATIONS = { readOnlyHint: true, openWorldHint: false, destructiveHint: false };
@@ -2961,6 +4685,8 @@ function buildServerConfigData(
     registeredToolCount: registeredTools.length
   });
 }
+
+import { upgradeCodexProSupertool } from "./codexproSupertool.js";
 
 export function createCodexProServer(
   config: CodexProConfig,
@@ -3059,6 +4785,87 @@ export function createCodexProServer(
     dependencies.inspectWorkspaceProvider ??
     ((input: { config: CodexProConfig; guard: PathGuard; workspace: Workspace }) =>
       inspectWorkspace(input.config, input.guard, input.workspace));
+  const codexproInventoryProvider =
+    dependencies.codexproInventoryProvider ??
+    ((context: CodexProInventoryProviderContext) =>
+      codexproInventory(context.config, context.workspace, context.options));
+  const loadSkillProvider =
+    dependencies.loadSkillProvider ??
+    ((context: LoadSkillProviderContext) =>
+      loadSkill(context.workspace, context.options));
+  const codexSessionsProvider =
+    dependencies.codexSessionsProvider ??
+    ((context: CodexSessionsProviderContext) =>
+      listCodexSessions(context.config, context.options));
+  const readCodexSessionProvider =
+    dependencies.readCodexSessionProvider ??
+    ((context: ReadCodexSessionProviderContext) =>
+      readCodexSession(context.config, {
+        sessionId: context.request.sessionId,
+        sourcePath: context.request.sourcePath,
+        maxMessages: context.request.maxMessages,
+        maxTotalBytes: context.request.maxTotalBytes
+      }));
+  const readHandoffProvider =
+    dependencies.readHandoffProvider ??
+    ((context: ReadHandoffProviderContext) =>
+      readHandoffContext(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.limits
+      ));
+  const waitForHandoffStateProvider =
+    dependencies.waitForHandoffStateProvider ??
+    ((context: WaitForHandoffStateProviderContext) =>
+      readHandoffRunState(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.maxStateBytes
+      ));
+  const waitForHandoffArtifactsProvider =
+    dependencies.waitForHandoffArtifactsProvider ??
+    ((context: WaitForHandoffArtifactsProviderContext) =>
+      readWaitForHandoffArtifacts(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.requestedKinds,
+        context.limits.maxArtifactBytes
+      ));
+  const codexContextProvider =
+    dependencies.codexContextProvider ??
+    ((context: CodexContextProviderContext) =>
+      readCodexContext(context.config, context.guard, context.workspace, {
+        targetPath: context.targetPath,
+        targetKind: context.targetKind,
+        includeAiBridge: context.includeAiBridge,
+        includeGit: context.includeGitStatus,
+        includeDiff: context.includeGitDiff,
+        maxAgentBytes: context.maxAgentBytes
+      }));
+  const exportProContextProvider =
+    dependencies.exportProContextProvider ??
+    ((context: ExportProContextProviderContext) =>
+      exportPreparedProContext(
+        context.config,
+        context.guard,
+        context.workspace,
+        context.request,
+        context.output
+      ));
+  const handoffToAgentProvider =
+    dependencies.handoffToAgentProvider ??
+    ((context: AgentHandoffProviderContext) => writePreparedAgentHandoff(context));
+  const handoffToAgentNow = dependencies.handoffToAgentNow ?? (() => new Date().toISOString());
+  const handoffToCodexProvider =
+    dependencies.handoffToCodexProvider ??
+    ((context: AgentHandoffProviderContext) => writePreparedAgentHandoff(context));
+  const handoffToCodexNow = dependencies.handoffToCodexNow ?? (() => new Date().toISOString());
+  const waitForHandoffNow = dependencies.waitForHandoffNow ?? Date.now;
+  const waitForHandoffSleep = dependencies.waitForHandoffSleep ??
+    ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const bashResultProvider =
     dependencies.bashResultProvider ??
     ((context: BashProviderContext) =>
@@ -3254,16 +5061,22 @@ export function createCodexProServer(
     {
       title: "CodexPro Self Test",
       description:
-        "Run one controlled, local-only CodexPro diagnostic. It checks modes, expected tools, workspace access, skills, git, safe bash policy, selected-only Pro context, and optional .ai-bridge write/edit probe without touching source files.",
+        "Run controlled local diagnostics only. The optional write/edit probe can touch only .ai-bridge/codexpro-self-test.md, Pro context is built in memory, and this tool does not execute agents or reveal secrets, command output, session ids, Skill names, MCP server names, or Git paths.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         write_probe: z.boolean().optional().describe("Create/edit only .ai-bridge/codexpro-self-test.md. Default: true."),
-        bash_probe: z.boolean().optional().describe("Check bash policy with safe local commands only. Default: true."),
+        bash_probe: z.boolean().optional().describe("Check Bash policy with safe local commands only. Default: true."),
         pro_context_probe: z.boolean().optional().describe("Build a selected-only Pro context bundle in memory without writing pro-context.md. Default: true."),
-        include_global_skills: z.boolean().optional().describe("Include user/plugin skill discovery in the inventory check. Default: true."),
-        max_skills: z.number().int().min(1).max(120).optional().describe("Maximum skills to inspect during the inventory check. Default: 40.")
+        include_global_skills: z.boolean().optional().describe("Include user/plugin Skill discovery in the inventory count. Default: true."),
+        max_skills: z.number().int().min(1).max(120).optional().describe("Maximum Skills to inspect during the inventory check. Default: 40.")
       },
-      annotations: HANDOFF_WRITE_ANNOTATIONS,
+      outputSchema: codexproSelfTestOutputShape,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      },
       _meta: {
         ...toolCardMeta(),
         "openai/toolInvocation/invoking": "Running CodexPro self-test...",
@@ -3271,211 +5084,69 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const started = Date.now();
-      const checks: Array<{ name: string; status: "pass" | "warn" | "fail"; detail: string }> = [];
-      const filesTouched: string[] = [];
-      const probePath = `${config.contextDir}/codexpro-self-test.md`;
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const details = typeof args.workspace_id === "string"
+          ? {
+              source: "workspace_id" as const,
+              workspace_id: safeCodexProSelfTestWorkspaceId(args.workspace_id)
+            }
+          : { source: "default_workspace" as const, workspace_id: null };
+        const failure = createCodexProSelfTestFailure({
+          code: "WORKSPACE_NOT_FOUND",
+          details
+        });
+        return {
+          ...textResult(
+            codexproSelfTestFailureText(
+              "WORKSPACE_NOT_FOUND",
+              CODEXPRO_SELF_TEST_ERROR_MESSAGES.WORKSPACE_NOT_FOUND
+            ),
+            failure
+          ),
+          isError: true
+        };
+      }
 
-      const check = (name: string, status: "pass" | "warn" | "fail", detail: string) => {
-        checks.push({ name, status, detail: cleanOneLine(detail, detail, 260) });
+      const request = normalizeCodexProSelfTestRequest(args);
+      const expectedTools = [...toolNamesForMode(config)].sort();
+      const registeredTools = [...registeredToolNames(server)].sort();
+      const provider = (
+        dependencies as CodexProServerDependencies & {
+          codexproSelfTestProvider?: CodexProSelfTestProvider;
+        }
+      ).codexproSelfTestProvider ?? defaultCodexProSelfTestProvider;
+      const context = {
+        config,
+        guard,
+        workspace,
+        request,
+        expectedTools: [...expectedTools],
+        registeredTools: [...registeredTools]
       };
 
-      check("workspace", "pass", workspace.root);
-      check("tool mode", config.toolMode === "full" ? "pass" : "warn", `${config.toolMode}; expected tools: ${toolNamesForMode(config).length}`);
-      check("write mode", config.writeMode === "off" ? "warn" : "pass", config.writeMode);
-      check("bash mode", config.bashMode === "full" ? "warn" : "pass", config.bashMode);
-      if (config.bashMode === "off") {
-        check("bash executable", "pass", "not required because Bash mode is off");
-      } else {
-        const availability = probeBashAvailability();
-        check("bash executable", availability.available ? "pass" : "fail", availability.detail);
-      }
-      check(
-        "http auth",
-        "pass",
-        config.authToken
-          ? "token configured"
-          : config.requireHttpToken
-            ? "token required when serving HTTP"
-            : "token auth explicitly disabled"
-      );
-      const expectedTools = toolNamesForMode(config).sort();
-      const actualTools = registeredToolNames(server).sort();
-      const missingTools = expectedTools.filter((name) => !actualTools.includes(name));
-      const extraTools = actualTools.filter((name) => !expectedTools.includes(name));
-      check(
-        "registered tool set",
-        missingTools.length || extraTools.length ? "fail" : "pass",
-        missingTools.length || extraTools.length
-          ? `missing: ${missingTools.join(", ") || "none"}; extra: ${extraTools.join(", ") || "none"}`
-          : `${actualTools.length} tools registered for ${config.toolMode} mode`
-      );
-
       try {
-        const inventory = await codexproInventory(config, workspace, {
-          includeGlobalSkills: parseBool(args.include_global_skills, true),
-          includeMcpServers: true,
-          maxSkills: limitInt(args.max_skills, 40, 1, 120)
-        });
-        check("inventory", "pass", `${inventory.skills.length} skills inspected, ${inventory.mcpServers.length} MCP server names visible`);
+        const facts = await provider(context);
+        const data = buildCodexProSelfTestData(facts, context);
+        return textResult(
+          codexproSelfTestHumanText(data),
+          createCodexProSelfTestSuccess(data)
+        );
       } catch (error) {
-        check("inventory", "fail", errorText(error));
+        const code = error instanceof CodexProSelfTestInternalError
+          ? "INTERNAL_ERROR" as const
+          : "SELF_TEST_EXECUTION_FAILED" as const;
+        const failure = createCodexProSelfTestFailure({ code, details: {} });
+        return {
+          ...textResult(
+            codexproSelfTestFailureText(code, CODEXPRO_SELF_TEST_ERROR_MESSAGES[code]),
+            failure
+          ),
+          isError: true
+        };
       }
-
-      try {
-        const status = gitStatus(config, workspace);
-        const gitFailed = looksLikeGitError(status);
-        const changed = gitFailed ? 0 : changedStatusLines(status).length;
-        check("git status", gitFailed ? "warn" : "pass", gitFailed ? status : `${changed} changed entries`);
-      } catch (error) {
-        check("git status", "fail", errorText(error));
-      }
-
-      if (parseBool(args.write_probe, true)) {
-        if (config.writeMode === "off") {
-          check("write/edit probe", "warn", "skipped because CODEXPRO_WRITE_MODE=off");
-        } else {
-          try {
-            assertWriteToolAllowed(config, probePath);
-            const content = [
-              "# CodexPro Self Test",
-              "",
-              `Updated: ${new Date().toISOString()}`,
-              `Workspace: ${workspace.root}`,
-              "marker: before",
-              ""
-            ].join("\n");
-            await writeTextFile(config, guard, workspace, probePath, content, { createDirs: true, overwrite: true });
-            await editTextFile(config, guard, workspace, probePath, "marker: before", "marker: after", { expectedReplacements: 1 });
-            const readBack = await readTextFile(config, guard, workspace, probePath, { maxBytes: 20_000 });
-            if (!readBack.text.includes("marker: after")) throw new CodexProError("self-test edit marker was not found after edit.");
-            const scopedStatus = gitStatus(config, workspace, guard, probePath);
-            const scopedFiles = changedStatusLines(scopedStatus);
-            filesTouched.push(probePath);
-            check(
-              "write/edit probe",
-              scopedFiles.length && scopedFiles.every((line) => line.includes(probePath)) ? "pass" : "warn",
-              scopedFiles.length ? `path-scoped status: ${scopedFiles.join(", ")}` : "path-scoped status clean after write/edit"
-            );
-          } catch (error) {
-            check("write/edit probe", "fail", errorText(error));
-          }
-        }
-      } else {
-        check("write/edit probe", "warn", "skipped by request");
-      }
-
-      if (parseBool(args.pro_context_probe, true)) {
-        try {
-          if (!filesTouched.includes(probePath)) {
-            check("selected-only pro context", "warn", "skipped because write probe did not create the selected file");
-          } else {
-            const context = await buildProContext(config, guard, workspace, {
-              title: "CodexPro Self Test Context",
-              selectedPaths: [probePath],
-              includeImportantFiles: false,
-              includeChangedFiles: false,
-              includeDiff: false,
-              includeAiBridge: false,
-              maxFiles: 4,
-              maxTotalBytes: 80_000
-            });
-            const exactOnly = context.filesIncluded.length === 1 && context.filesIncluded[0] === probePath;
-            check(
-              "selected-only pro context",
-              exactOnly ? "pass" : "fail",
-              exactOnly ? `included only ${probePath}` : `included ${context.filesIncluded.join(", ") || "no files"}`
-            );
-          }
-        } catch (error) {
-          check("selected-only pro context", "fail", errorText(error));
-        }
-      } else {
-        check("selected-only pro context", "warn", "skipped by request");
-      }
-
-      if (parseBool(args.bash_probe, true)) {
-        try {
-          if (config.bashMode === "off") {
-            check("bash policy", "warn", "bash disabled");
-          } else {
-            const bashProbeOptions = { timeoutMs: 10_000, sessionId: config.bashSessionId };
-            const pwd = await runBash(config, guard, workspace, "pwd", bashProbeOptions);
-            if (config.bashMode === "safe") {
-              try {
-                await runBash(config, guard, workspace, "ls $HOME", bashProbeOptions);
-                check("bash policy", "fail", "safe bash allowed environment expansion unexpectedly");
-              } catch {
-                check("bash policy", pwd.exitCode === 0 ? "pass" : "warn", "safe bash allowed pwd and blocked environment expansion");
-              }
-            } else {
-              check("bash policy", pwd.exitCode === 0 ? "warn" : "fail", "full bash is enabled; use only for trusted local repos");
-            }
-          }
-        } catch (error) {
-          check("bash policy", "fail", errorText(error));
-        }
-      } else {
-        check("bash policy", "warn", "skipped by request");
-      }
-
-      check(
-        "terms boundary",
-        "pass",
-        "local workspace bridge only; does not provide models, proxy model access, bypass quotas, or execute remote/local agents from MCP"
-      );
-
-      const failed = checks.filter((item) => item.status === "fail").length;
-      const warned = checks.filter((item) => item.status === "warn").length;
-      const passed = checks.filter((item) => item.status === "pass").length;
-      const status = failed ? "fail" : warned ? "warn" : "pass";
-      const text = [
-        "# CodexPro Self Test",
-        "",
-        `Status: ${status}`,
-        `Workspace: ${workspace.root}`,
-        `Mode: tools=${config.toolMode}, write=${config.writeMode}, bash=${config.bashMode}${config.bashSessionId ? `, bash_session=${config.bashSessionId}${config.requireBashSession ? " required" : ""}` : ""}`,
-        `Expected tools: ${expectedTools.length}`,
-        `Registered tools: ${actualTools.length}`,
-        `Duration: ${Date.now() - started} ms`,
-        "",
-        "## Checks",
-        "",
-        ...checks.map((item) => `- ${item.status.toUpperCase()} ${item.name}: ${item.detail}`),
-        "",
-        "## Terms Boundary",
-        "",
-        "CodexPro exposes local repo tools to the ChatGPT session the user controls. It does not provide models, proxy model access, resell access, modify quotas, bypass limits, or run local implementation agents through remote MCP tools."
-      ].join("\n");
-
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        status,
-        passed,
-        warned,
-        failed,
-        duration_ms: Date.now() - started,
-        expected_tools: expectedTools,
-        expected_tool_count: expectedTools.length,
-        registered_tools: actualTools,
-        registered_tool_count: actualTools.length,
-        bash_mode: config.bashMode,
-        bash_session_id: config.bashSessionId ?? null,
-        require_bash_session: config.requireBashSession,
-        write_mode: config.writeMode,
-        tool_mode: config.toolMode,
-        files_touched: filesTouched,
-        checks,
-        terms_boundary: {
-          local_workspace_bridge: true,
-          provides_models: false,
-          proxies_model_access: false,
-          bypasses_quotas: false,
-          remote_agent_execution: false
-        }
-      });
     }
   );
 
@@ -3493,6 +5164,7 @@ export function createCodexProServer(
         include_mcp_servers: z.boolean().optional().describe("Include configured MCP server names from safe config files. Default: true."),
         max_skills: z.number().int().min(1).max(500).optional().describe("Maximum skills to list. Default: 120.")
       },
+      outputSchema: codexproInventoryOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -3501,24 +5173,101 @@ export function createCodexProServer(
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const inventory = await codexproInventory(config, workspace, {
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const failure: CodexProInventoryFailureInput = args.workspace_id && message.startsWith("Unknown workspace_id:")
+          ? {
+              code: "WORKSPACE_NOT_FOUND",
+              details: {
+                source: "workspace_id",
+                workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+              }
+            }
+          : !args.workspace_id
+            ? {
+                code: "WORKSPACE_NOT_FOUND",
+                details: { source: "default_workspace", workspace_id: null }
+              }
+            : { code: "INTERNAL_ERROR", details: {} };
+        return {
+          ...textResult(
+            codexproInventoryFailureText(failure),
+            createCodexProInventoryFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      const options = {
         includeGlobalSkills: parseBool(args.include_global_skills, true),
         includeMcpServers: parseBool(args.include_mcp_servers, true),
         maxSkills: limitInt(args.max_skills, 120, 1, 500)
-      });
-      return textResult(inventory.text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        bash_mode: config.bashMode,
-        write_mode: config.writeMode,
-        tool_mode: config.toolMode,
-        skills: inventory.skills,
-        skill_count: inventory.skills.length,
-        mcp_servers: inventory.mcpServers,
-        mcp_server_count: inventory.mcpServers.length,
-        widget_uri: TOOL_CARD_URI
-      });
+      };
+
+      let rawInventory: unknown;
+      try {
+        rawInventory = await codexproInventoryProvider({ config, workspace, options });
+      } catch {
+        const failure: CodexProInventoryFailureInput = {
+          code: "INVENTORY_DISCOVERY_FAILED",
+          details: {}
+        };
+        return {
+          ...textResult(
+            codexproInventoryFailureText(failure),
+            createCodexProInventoryFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
+
+      try {
+        const inventory = codexproInventoryProviderResultSchema.parse(rawInventory);
+        const skills = inventory.skills.map((skill) => ({
+          name: skill.name,
+          description: skill.description ?? null,
+          source: skill.source,
+          path: skill.path
+        }));
+        const data = codexproInventoryDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          bash_mode: config.bashMode,
+          write_mode: config.writeMode,
+          tool_mode: config.toolMode,
+          include_global_skills: options.includeGlobalSkills,
+          include_mcp_servers: options.includeMcpServers,
+          max_skills: options.maxSkills,
+          mcp_server_limit: CODEXPRO_INVENTORY_MCP_SERVER_LIMIT,
+          skills,
+          skill_count: skills.length,
+          skill_counts: codexproInventorySkillCounts(skills),
+          skills_truncated: inventory.skillsTruncated,
+          mcp_servers: inventory.mcpServers,
+          mcp_server_count: inventory.mcpServers.length,
+          mcp_servers_truncated: inventory.mcpServersTruncated
+        });
+        return textResult(
+          codexproInventorySuccessText(data),
+          createCodexProInventorySuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        const failure: CodexProInventoryFailureInput = {
+          code: "INTERNAL_ERROR",
+          details: {}
+        };
+        return {
+          ...textResult(
+            codexproInventoryFailureText(failure),
+            createCodexProInventoryFailure(failure, Date.now() - startedAt)
+          ),
+          isError: true
+        };
+      }
     }
   );
 
@@ -3539,39 +5288,113 @@ export function createCodexProServer(
         max_skills: z.number().int().min(1).max(500).optional().describe("Maximum skills to scan while resolving the requested skill. Default: 500."),
         max_bytes: z.number().int().min(1000).max(100000).optional().describe("Maximum bytes to return from SKILL.md. Default: 40000.")
       },
+      outputSchema: loadSkillOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
+        "codexpro/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Loading skill instructions...",
         "openai/toolInvocation/invoked": "Skill instructions loaded"
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const requestedPath = typeof args.path === "string" ? args.path : undefined;
-      const includeGlobalDefault =
-        args.source === undefined ||
-        (args.source !== undefined && args.source !== "workspace") ||
-        Boolean(requestedPath && !requestedPath.startsWith("$WORKSPACE/"));
-      const loaded = await loadSkill(workspace, {
-        name: String(args.name ?? ""),
-        source: args.source,
-        path: requestedPath,
-        includeGlobal: parseBool(args.include_global_skills, includeGlobalDefault),
-        maxSkills: limitInt(args.max_skills, 500, 1, 500),
-        maxBytes: limitInt(args.max_bytes, 40_000, 1_000, 100_000)
-      });
-      const truncated = loaded.truncated ? "\n\n[truncated: increase max_bytes if more context is required]" : "";
-      const text = `# Load Skill\n\nName: ${loaded.skill.name}\nSource: ${loaded.skill.source}\nPath: ${loaded.skill.path}\nBytes: ${loaded.bytes}/${loaded.totalBytes}\n\n\`\`\`markdown\n${loaded.text}${truncated}\n\`\`\``;
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        skill: loaded.skill,
-        bytes: loaded.bytes,
-        total_bytes: loaded.totalBytes,
-        truncated: loaded.truncated,
-        text: loaded.text
-      });
+      const startedAt = Date.now();
+      let request: NormalizedLoadSkillRequest;
+      try {
+        const normalized = normalizeLoadSkillRequest(args);
+        if ("code" in normalized) return loadSkillFailureResult(normalized, startedAt);
+        request = normalized;
+      } catch {
+        return loadSkillFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
+
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const failure: LoadSkillFailureInput = args.workspace_id
+          ? {
+              code: "WORKSPACE_NOT_FOUND",
+              details: {
+                source: "workspace_id",
+                workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+              }
+            }
+          : {
+              code: "WORKSPACE_NOT_FOUND",
+              details: { source: "default_workspace", workspace_id: null }
+            };
+        return loadSkillFailureResult(failure, startedAt);
+      }
+
+      let rawLoaded: unknown;
+      try {
+        rawLoaded = await loadSkillProvider({
+          config,
+          workspace,
+          options: request.options
+        });
+      } catch (error) {
+        return loadSkillFailureResult(
+          classifyLoadSkillProviderFailure(error, request),
+          startedAt
+        );
+      }
+
+      try {
+        const loaded = loadSkillProviderResultSchema.parse(rawLoaded);
+        const skill = normalizeLoadSkillItem(loaded.skill);
+        if (
+          skill.name !== request.selector.name ||
+          (request.selector.source !== null && skill.source !== request.selector.source) ||
+          (request.selector.path !== null && skill.path !== request.selector.path) ||
+          (!request.options.includeGlobal && skill.source !== "workspace")
+        ) {
+          throw new CodexProError("Load Skill provider returned a mismatched Skill identity.");
+        }
+
+        const safeText = redactSensitiveText(loaded.text);
+        const data = loadSkillDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          selector: request.selector,
+          skill,
+          include_global_skills: request.options.includeGlobal,
+          max_skills: request.options.maxSkills,
+          max_bytes: request.options.maxBytes,
+          bytes: loaded.bytes,
+          returned_bytes: Buffer.byteLength(safeText, "utf8"),
+          total_bytes: loaded.totalBytes,
+          truncated: loaded.truncated,
+          resolution_truncated: loaded.discoveryTruncated,
+          redacted: safeText !== loaded.text,
+          text: safeText
+        });
+        const status = [
+          data.truncated ? "source truncated" : "source complete",
+          data.redacted ? "secret-looking content redacted" : "no redaction"
+        ].join(", ");
+        const text = [
+          "# Load Skill",
+          "",
+          `Name: ${data.skill.name}`,
+          `Source: ${data.skill.source}`,
+          `Path: ${data.skill.path}`,
+          `Source bytes: ${data.bytes}/${data.total_bytes}`,
+          `Returned bytes: ${data.returned_bytes}`,
+          `Status: ${status}`,
+          "",
+          "## Instructions",
+          "",
+          data.text
+        ].join("\n");
+        return textResult(
+          text,
+          createLoadSkillSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        return loadSkillFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
     }
   );
 
@@ -5098,23 +6921,92 @@ export function createCodexProServer(
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace.")
       },
+      outputSchema: readHandoffOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
+        "codexpro/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Reading agent handoff context...",
         "openai/toolInvocation/invoked": "Agent handoff context ready"
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const context = await readAiBridgeContext(config, guard, workspace);
-      return textResult(context.text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        files: context.files,
-        file_count: context.files.length,
-        preview: previewText(context.text)
-      });
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const failure: ReadHandoffFailureInput = args.workspace_id
+          ? {
+              code: "WORKSPACE_NOT_FOUND",
+              details: {
+                source: "workspace_id",
+                workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+              }
+            }
+          : {
+              code: "WORKSPACE_NOT_FOUND",
+              details: { source: "default_workspace", workspace_id: null }
+            };
+        return readHandoffFailureResult(failure, startedAt);
+      }
+
+      const limits = readHandoffLimits(config);
+      let rawContext: unknown;
+      try {
+        rawContext = await readHandoffProvider({ config, guard, workspace, limits });
+      } catch {
+        return readHandoffFailureResult({
+          code: "HANDOFF_READ_FAILED",
+          details: { context_dir: config.contextDir }
+        }, startedAt);
+      }
+
+      try {
+        const context = readHandoffProviderResultSchema.parse(rawContext);
+        if (context.contextDir !== config.contextDir) {
+          throw new CodexProError("Handoff provider returned a mismatched context directory.");
+        }
+        const artifacts = context.artifacts.map((artifact) => {
+          const safeText = redactSensitiveText(artifact.text);
+          return {
+            path: artifact.path,
+            kind: artifact.kind,
+            bytes: artifact.bytes,
+            line_count: artifact.lineCount,
+            returned_bytes: Buffer.byteLength(safeText, "utf8"),
+            redacted: safeText !== artifact.text,
+            text: safeText
+          };
+        });
+        const loadedBytes = artifacts.reduce((sum, artifact) => sum + artifact.bytes, 0);
+        const returnedBytes = artifacts.reduce((sum, artifact) => sum + artifact.returned_bytes, 0);
+        const data = readHandoffDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          context_dir: context.contextDir,
+          context_exists: context.contextExists,
+          max_file_bytes: limits.maxFileBytes,
+          max_total_bytes: limits.maxTotalBytes,
+          artifacts,
+          files: artifacts.map((artifact) => artifact.path),
+          file_count: artifacts.length,
+          unavailable: context.unavailable,
+          unavailable_count: context.unavailable.length,
+          loaded_bytes: loadedBytes,
+          returned_bytes: returnedBytes,
+          output_limited: context.unavailable.some((item) =>
+            item.reason === "too_large" || item.reason === "output_limit"
+          ),
+          redacted: artifacts.some((artifact) => artifact.redacted)
+        });
+        return textResult(
+          readHandoffSuccessText(data),
+          createReadHandoffSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        return readHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
     }
   );
 
@@ -5128,7 +7020,13 @@ export function createCodexProServer(
         "Read-only long-poll of the local handoff run state so ChatGPT can stay the planner/reviewer while a local executor runs. Reads .ai-bridge/handoff-run-state.json and returns the run status plus status/diff/log/test excerpts. It never starts processes or runs shell commands; it only observes local handoff state written by execute-handoff/watch-handoff/loop-handoff.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        plan_hash: z.string().optional().describe("Expected current-plan.md hash. If set, only a terminal run with this plan_hash counts as completed."),
+        plan_hash: z.string()
+          .trim()
+          .min(1)
+          .max(256)
+          .refine((value) => !/[\r\n\u0000-\u001f\u007f]/.test(value), "Plan hash must be one line.")
+          .optional()
+          .describe("Expected current-plan.md hash. If set, only a terminal run with this plan_hash counts as completed."),
         since_iteration: z.number().int().min(0).optional().describe("Only treat a run with iteration greater than this as the awaited completion."),
         max_wait_seconds: z.number().int().min(1).max(60).optional().describe("Maximum seconds to long-poll before returning the current state. Default: 20."),
         poll_ms: z.number().int().min(250).max(5000).optional().describe("Poll interval in milliseconds. Default: 1000."),
@@ -5136,15 +7034,36 @@ export function createCodexProServer(
         include_log_excerpt: z.boolean().optional().describe("Include the tail of execution-log.jsonl when completed. Default: true."),
         include_tests: z.boolean().optional().describe("Include the loop-tests.txt excerpt when completed. Default: true.")
       },
+      outputSchema: waitForHandoffOutputShape,
       annotations: { ...READ_ONLY_ANNOTATIONS, idempotentHint: false },
       _meta: {
         ...toolCardMeta(),
+        "codexpro/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Waiting for local handoff result...",
         "openai/toolInvocation/invoked": "Local handoff state ready"
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const failure: WaitForHandoffFailureInput = args.workspace_id
+          ? {
+              code: "WORKSPACE_NOT_FOUND",
+              details: {
+                source: "workspace_id",
+                workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+              }
+            }
+          : {
+              code: "WORKSPACE_NOT_FOUND",
+              details: { source: "default_workspace", workspace_id: null }
+            };
+        return waitForHandoffFailureResult(failure, startedAt);
+      }
+
       const maxWaitSeconds = limitInt(args.max_wait_seconds, 20, 1, 60);
       const pollMs = limitInt(args.poll_ms, 1000, 250, 5000);
       const includeDiff = parseBool(args.include_diff, true);
@@ -5156,134 +7075,208 @@ export function createCodexProServer(
         Number.isFinite(Number(args.since_iteration)) && args.since_iteration !== undefined
           ? Math.floor(Number(args.since_iteration))
           : undefined;
+      const limits = waitForHandoffLimits(config);
+      const stateFile = `${config.contextDir}/handoff-run-state.json`;
+      const artifactPaths = {
+        status: `${config.contextDir}/agent-status.md`,
+        diff: `${config.contextDir}/implementation-diff.patch`,
+        log: `${config.contextDir}/execution-log.jsonl`,
+        tests: `${config.contextDir}/loop-tests.txt`
+      } as const;
+      const requestedKinds: WaitForHandoffArtifactKind[] = ["status"];
+      if (includeDiff) requestedKinds.push("diff");
+      if (includeLog) requestedKinds.push("log");
+      if (includeTests) requestedKinds.push("tests");
 
-      const stateRel = `${config.contextDir}/handoff-run-state.json`;
-      const contextPrefix = `${config.contextDir.replace(/\/+$/, "")}/`;
-      const terminalStates = new Set(["completed", "failed", "timed_out"]);
+      const isMatchingTerminal = (run: WaitForHandoffRun | null): boolean => Boolean(
+        run &&
+        run.state !== "running" &&
+        (!expectedPlanHash || run.plan_hash === expectedPlanHash) &&
+        (sinceIteration === undefined || run.iteration > sinceIteration)
+      );
 
-      const readState = async (): Promise<Record<string, any> | undefined> => {
+      const initialNow = waitForHandoffNow();
+      if (!Number.isFinite(initialNow)) {
+        return waitForHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
+      const waitBudgetMs = maxWaitSeconds * 1_000;
+      const deadline = initialNow + waitBudgetMs;
+      if (!Number.isFinite(deadline)) {
+        return waitForHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
+      let remainingScheduledSleepBudgetMs = waitBudgetMs;
+      let run: WaitForHandoffRun | null = null;
+      for (;;) {
+        let rawObservation: unknown;
         try {
-          const raw = await readRawTextFileBounded(config, guard, workspace, stateRel);
-          const parsed = JSON.parse(raw);
-          return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : undefined;
+          rawObservation = await waitForHandoffStateProvider({
+            config,
+            guard,
+            workspace,
+            maxStateBytes: limits.maxStateBytes
+          });
         } catch {
-          return undefined;
+          return waitForHandoffFailureResult({
+            code: "HANDOFF_STATE_READ_FAILED",
+            details: { context_dir: config.contextDir, state_file: stateFile }
+          }, startedAt);
         }
-      };
 
-      const isAwaited = (state: Record<string, any> | undefined): boolean =>
-        Boolean(
-          state &&
-            terminalStates.has(state.state) &&
-            (!expectedPlanHash || state.plan_hash === expectedPlanHash) &&
-            (sinceIteration === undefined || (typeof state.iteration === "number" && state.iteration > sinceIteration))
+        let observation: z.infer<typeof waitForHandoffStateProviderResultSchema>;
+        try {
+          observation = waitForHandoffStateProviderResultSchema.parse(rawObservation);
+          if (
+            observation.stateFile !== stateFile ||
+            (observation.bytes !== null && observation.bytes > limits.maxStateBytes)
+          ) {
+            throw new CodexProError("Handoff state provider identity or bounds mismatch.");
+          }
+        } catch {
+          return waitForHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+        }
+
+        if (observation.present) {
+          try {
+            run = normalizeWaitForHandoffRunText(observation.text as string);
+          } catch {
+            return waitForHandoffFailureResult({
+              code: "HANDOFF_STATE_INVALID",
+              details: { state_file: stateFile }
+            }, startedAt);
+          }
+        } else {
+          run = null;
+        }
+
+        if (isMatchingTerminal(run)) break;
+        if (remainingScheduledSleepBudgetMs <= 0) break;
+        const currentNow = waitForHandoffNow();
+        if (!Number.isFinite(currentNow)) {
+          return waitForHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+        }
+        const remaining = Math.min(
+          deadline - currentNow,
+          remainingScheduledSleepBudgetMs
         );
-
-      const deadline = Date.now() + maxWaitSeconds * 1000;
-      let state = await readState();
-      while (Date.now() < deadline && !isAwaited(state)) {
-        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, Math.max(0, deadline - Date.now()))));
-        state = await readState();
+        if (remaining <= 0) break;
+        const sleepMilliseconds = Math.min(pollMs, remaining);
+        try {
+          await waitForHandoffSleep(sleepMilliseconds);
+        } catch {
+          return waitForHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+        }
+        remainingScheduledSleepBudgetMs = Math.max(
+          0,
+          remainingScheduledSleepBudgetMs - sleepMilliseconds
+        );
       }
 
-      const awaitedTerminal = isAwaited(state);
-      const awaitedCompleted = awaitedTerminal && state?.state === "completed";
-      const planHashMismatch = Boolean(expectedPlanHash && state && state.plan_hash !== expectedPlanHash);
-      const reportedState = awaitedTerminal
-        ? String(state?.state)
-        : state
-          ? state.state === "running" || planHashMismatch || sinceIteration !== undefined
-            ? "running"
-            : String(state.state)
-          : "unknown";
-
-      const excerpt = async (rel: string, maxChars: number, tailLines?: number): Promise<string | undefined> => {
-        try {
-          const raw = await readRawTextFileBounded(config, guard, workspace, rel);
-          const body = tailLines
-            ? raw.split(/\r?\n/).filter(Boolean).slice(-tailLines).join("\n")
-            : raw;
-          const trimmed = body.length > maxChars ? `${body.slice(0, maxChars)}\n...[excerpt truncated]` : body;
-          return redactSensitiveText(trimmed);
-        } catch {
-          return undefined;
-        }
-      };
-      const bridgeArtifact = (value: unknown, fallback: string): string => {
-        const raw = typeof value === "string" && value.trim() ? value.trim() : fallback;
-        const normalized = path.posix.normalize(raw.split(path.sep).join("/")).replace(/^\.\//, "");
-        return normalized.startsWith(contextPrefix) ? normalized : fallback;
-      };
-
-      const structured: Record<string, unknown> = {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        state: reportedState,
-        awaited_completed: awaitedCompleted,
-        awaited_terminal: awaitedTerminal,
-        succeeded: awaitedCompleted,
-        state_file: stateRel,
-        ...(state ? { run_state: state.state } : {}),
-        ...(typeof state?.iteration === "number" ? { iteration: state.iteration } : {}),
-        ...(state?.plan_hash ? { plan_hash: state.plan_hash } : {}),
-        ...(expectedPlanHash ? { expected_plan_hash: expectedPlanHash, plan_hash_mismatch: planHashMismatch } : {}),
-        ...(state && "exit_code" in state ? { exit_code: state.exit_code } : {}),
-        ...(state && "timed_out" in state ? { timed_out: state.timed_out } : {}),
-        ...(state?.started_at ? { started_at: state.started_at } : {}),
-        ...(state?.finished_at ? { finished_at: state.finished_at } : {}),
-        ...(state?.executor ? { executor: state.executor } : {}),
-        ...(state?.model ? { model: state.model } : {}),
-        ...(awaitedTerminal ? {} : { next_poll_after_seconds: Math.max(1, Math.ceil(pollMs / 1000)) })
+      const awaitedTerminal = isMatchingTerminal(run);
+      let builtArtifacts = {
+        artifacts: [] as WaitForHandoffArtifact[],
+        unavailable: [] as WaitForHandoffUnavailable[],
+        returnedBytes: 0,
+        outputLimited: false,
+        redacted: false
       };
 
       if (awaitedTerminal) {
-        const statusFile = bridgeArtifact(state?.status_file, `${config.contextDir}/agent-status.md`);
-        const diffFile = bridgeArtifact(state?.diff_file, `${config.contextDir}/implementation-diff.patch`);
-        const logFile = bridgeArtifact(state?.log_file, `${config.contextDir}/execution-log.jsonl`);
-        const testsFile = bridgeArtifact(state?.tests_file, `${config.contextDir}/loop-tests.txt`);
-        structured.status_file = statusFile;
-        structured.diff_file = diffFile;
-        structured.log_file = logFile;
-        const status = await excerpt(statusFile, 6_000);
-        if (status) structured.status_excerpt = status;
-        if (includeDiff) {
-          const diff = await excerpt(diffFile, 12_000);
-          if (diff) structured.diff_excerpt = diff;
+        let rawArtifacts: unknown;
+        try {
+          rawArtifacts = await waitForHandoffArtifactsProvider({
+            config,
+            guard,
+            workspace,
+            requestedKinds,
+            limits: {
+              maxArtifactBytes: limits.maxArtifactBytes,
+              maxTotalBytes: limits.maxTotalBytes
+            }
+          });
+        } catch {
+          return waitForHandoffFailureResult({
+            code: "HANDOFF_ARTIFACT_READ_FAILED",
+            details: { context_dir: config.contextDir }
+          }, startedAt);
         }
-        if (includeLog) {
-          const log = await excerpt(logFile, 6_000, 20);
-          if (log) structured.log_excerpt = log;
-        }
-        if (includeTests) {
-          const tests = await excerpt(testsFile, 4_000);
-          if (tests) {
-            structured.tests_file = testsFile;
-            structured.tests_excerpt = tests;
+
+        try {
+          const providerResult = waitForHandoffArtifactsProviderResultSchema.parse(rawArtifacts);
+          if (
+            providerResult.contextDir !== config.contextDir ||
+            providerResult.requestedKinds.length !== requestedKinds.length ||
+            providerResult.requestedKinds.some((kind, index) => kind !== requestedKinds[index])
+          ) {
+            throw new CodexProError("Handoff artifact provider request identity mismatch.");
           }
+          const expectedByKind = new Map(
+            WAIT_FOR_HANDOFF_ARTIFACT_DEFINITIONS.map((definition) => [
+              definition.kind,
+              `${config.contextDir}/${definition.name}`
+            ])
+          );
+          const identities = [...providerResult.artifacts, ...providerResult.unavailable];
+          if (
+            identities.length !== requestedKinds.length ||
+            new Set(identities.map((item) => item.kind)).size !== identities.length ||
+            requestedKinds.some((kind) => !identities.some((item) => item.kind === kind)) ||
+            identities.some((item) =>
+              !requestedKinds.includes(item.kind) || expectedByKind.get(item.kind) !== item.path
+            ) ||
+            !waitForHandoffKindsAreInFixedOrder(providerResult.artifacts) ||
+            !waitForHandoffKindsAreInFixedOrder(providerResult.unavailable) ||
+            providerResult.artifacts.some((artifact) => artifact.bytes > limits.maxArtifactBytes)
+          ) {
+            throw new CodexProError("Handoff artifact provider coverage or bounds mismatch.");
+          }
+          builtArtifacts = buildWaitForHandoffArtifacts(providerResult, requestedKinds, limits);
+        } catch {
+          return waitForHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
         }
       }
 
-      const summary = !state
-        ? `No handoff run state found at ${stateRel}. Start a run with handoff_to_agent + local execute-handoff/watch-handoff, then call wait_for_handoff again.`
-        : awaitedTerminal
-          ? `Handoff run ${state.state} (iteration ${state.iteration ?? 1}, exit ${state.exit_code ?? "null"}).`
-          : planHashMismatch
-            ? `Executor has not completed the expected plan yet (last known run plan_hash=${state.plan_hash ?? "unknown"}). Still waiting.`
-            : `Handoff run is ${state.state}. Re-poll after ~${Math.max(1, Math.ceil(pollMs / 1000))}s.`;
-
-      const lines = [
-        "# Wait For Handoff",
-        "",
-        summary,
-        "",
-        `State file: ${stateRel}`,
-        ...(state?.plan_hash ? [`Plan hash: ${state.plan_hash}`] : []),
-        ...(awaitedTerminal && structured.status_excerpt ? ["", "## Status", "", `\`\`\`text\n${structured.status_excerpt}\n\`\`\``] : []),
-        ...(awaitedTerminal && structured.diff_excerpt ? ["", "## Diff", "", `\`\`\`diff\n${structured.diff_excerpt}\n\`\`\``] : []),
-        ...(awaitedTerminal && structured.tests_excerpt ? ["", "## Tests", "", `\`\`\`text\n${structured.tests_excerpt}\n\`\`\``] : []),
-        ...(awaitedTerminal && structured.log_excerpt ? ["", "## Log tail", "", `\`\`\`text\n${structured.log_excerpt}\n\`\`\``] : [])
-      ];
-      return textResult(lines.join("\n"), structured);
+      try {
+        const planHashMismatch = Boolean(expectedPlanHash && run && run.plan_hash !== expectedPlanHash);
+        const iterationStale = Boolean(sinceIteration !== undefined && run && run.iteration <= sinceIteration);
+        const data = waitForHandoffDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          context_dir: config.contextDir,
+          state_file: stateFile,
+          artifact_paths: artifactPaths,
+          state_present: run !== null,
+          state: awaitedTerminal ? run?.state : run ? "running" : "unknown",
+          wait_outcome: awaitedTerminal ? "matched_terminal" : "deadline",
+          awaited_terminal: awaitedTerminal,
+          awaited_completed: awaitedTerminal && run?.state === "completed",
+          succeeded: awaitedTerminal && run?.state === "completed",
+          expected_plan_hash: expectedPlanHash ?? null,
+          since_iteration: sinceIteration ?? null,
+          plan_hash_mismatch: planHashMismatch,
+          iteration_stale: iterationStale,
+          max_wait_seconds: maxWaitSeconds,
+          poll_ms: pollMs,
+          next_poll_after_seconds: awaitedTerminal ? null : Math.max(1, Math.ceil(pollMs / 1_000)),
+          max_state_bytes: limits.maxStateBytes,
+          max_artifact_bytes: limits.maxArtifactBytes,
+          max_total_bytes: limits.maxTotalBytes,
+          run,
+          requested_artifacts: requestedKinds,
+          artifacts: builtArtifacts.artifacts,
+          artifact_count: builtArtifacts.artifacts.length,
+          unavailable: builtArtifacts.unavailable,
+          unavailable_count: builtArtifacts.unavailable.length,
+          returned_bytes: builtArtifacts.returnedBytes,
+          output_limited: builtArtifacts.outputLimited,
+          redacted: Boolean(run?.redacted) || builtArtifacts.redacted
+        });
+        return textResult(
+          waitForHandoffSuccessText(data),
+          createWaitForHandoffSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        return waitForHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
     }
   );
 
@@ -5303,32 +7296,164 @@ export function createCodexProServer(
         include_diff: z.boolean().optional().describe("Include full git diff. Default: false for speed/noise."),
         max_agent_bytes: z.number().int().min(1000).max(200000).optional().describe("Maximum bytes per AGENTS file. Default: 60000.")
       },
-      annotations: READ_ONLY_ANNOTATIONS,
+      outputSchema: codexContextOutputShape,
+      annotations: { ...READ_ONLY_ANNOTATIONS, idempotentHint: false },
       _meta: {
         ...toolCardMeta(),
+        "codexpro/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Loading Codex context...",
         "openai/toolInvocation/invoked": "Codex context ready"
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const context = await readCodexContext(config, guard, workspace, {
-        targetPath: args.target_path,
-        includeAiBridge: args.include_ai_bridge,
-        includeGit: args.include_git,
-        includeDiff: parseBool(args.include_diff, false),
-        maxAgentBytes: args.max_agent_bytes
-      });
-      return textResult(context.text, {
-        workspace_id: context.workspaceId,
-        root: context.root,
-        target_path: context.targetPath,
-        agents_files: context.agentsFiles,
-        ai_context_files: context.aiContextFiles,
-        included_git_status: context.gitStatus !== undefined,
-        included_git_diff: context.gitDiff !== undefined,
-        preview: previewText(context.text)
-      });
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const failure: CodexContextFailureInput = args.workspace_id
+          ? {
+              code: "WORKSPACE_NOT_FOUND",
+              details: {
+                source: "workspace_id",
+                workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+              }
+            }
+          : {
+              code: "WORKSPACE_NOT_FOUND",
+              details: { source: "default_workspace", workspace_id: null }
+            };
+        return codexContextFailureResult(failure, startedAt);
+      }
+
+      let target: { targetPath: string; targetKind: CodexContextTargetKind };
+      try {
+        target = await resolveCodexContextTarget(guard, workspace, args.target_path ?? ".");
+      } catch (error) {
+        return codexContextFailureResult(classifyCodexContextTargetFailure(error), startedAt);
+      }
+
+      const includeAiBridge = parseBool(args.include_ai_bridge, true);
+      const includeGitStatus = parseBool(args.include_git, true);
+      const includeGitDiff = parseBool(args.include_diff, false);
+      const maxAgentBytes = Math.min(
+        limitInt(args.max_agent_bytes, 60_000, 1_000, 200_000),
+        config.maxReadBytes
+      );
+
+      let rawContext: unknown;
+      try {
+        rawContext = await codexContextProvider({
+          config,
+          guard,
+          workspace,
+          targetPath: target.targetPath,
+          targetKind: target.targetKind,
+          includeAiBridge,
+          includeGitStatus,
+          includeGitDiff,
+          maxAgentBytes
+        });
+      } catch {
+        return codexContextFailureResult({
+          code: "CONTEXT_READ_FAILED",
+          details: { target_path: target.targetPath }
+        }, startedAt);
+      }
+
+      try {
+        const context = codexContextProviderResultSchema.parse(rawContext);
+        const expectedAiPaths = READ_HANDOFF_ARTIFACT_DEFINITIONS.map(
+          (definition) => `${config.contextDir}/${definition.name}`
+        );
+        const providerAiPaths = [
+          ...context.aiContextFiles,
+          ...context.unavailableSources
+            .filter((item) => item.source === "ai_bridge")
+            .map((item) => item.path)
+        ];
+        const aiPathsMatchConfiguredDirectory = providerAiPaths.every((item) => expectedAiPaths.includes(item));
+        const aiCoverageMatches = context.aiContextExists !== true || (
+          providerAiPaths.length === expectedAiPaths.length &&
+          new Set(providerAiPaths).size === expectedAiPaths.length &&
+          expectedAiPaths.every((item) => providerAiPaths.includes(item))
+        );
+        const expectedTextPrefix = [
+          "# Codex Context",
+          "",
+          `Workspace: ${workspace.id}`,
+          `Root: ${workspace.root}`,
+          `Target path: ${target.targetPath}`,
+          `Bash mode: ${config.bashMode}`,
+          `Write mode: ${config.writeMode}`,
+          `Tool mode: ${config.toolMode}`,
+          "",
+          "## AGENTS Instructions",
+          ""
+        ].join("\n");
+        const hasAiFrame = context.text.includes("\n\n## AI Bridge Context\n\n");
+        const hasRequestedGitFrames =
+          (!includeGitStatus || context.text.includes("\n\n## Git Status\n\n")) &&
+          (!includeGitDiff || context.text.includes("\n\n## Git Diff\n\n"));
+        if (
+          context.workspaceId !== workspace.id ||
+          context.root !== workspace.root ||
+          context.targetPath !== target.targetPath ||
+          context.targetKind !== target.targetKind ||
+          !context.text.startsWith(expectedTextPrefix) ||
+          !hasAiFrame ||
+          !hasRequestedGitFrames ||
+          !aiPathsMatchConfiguredDirectory ||
+          !aiCoverageMatches ||
+          (context.gitStatus !== undefined) !== includeGitStatus ||
+          (context.gitDiff !== undefined) !== includeGitDiff
+        ) {
+          throw new CodexProError("Codex context provider identity or requested source presence mismatch.");
+        }
+
+        const safeContext = redactSensitiveText(context.text);
+        const sourceBytes = Buffer.byteLength(safeContext, "utf8");
+        const bounded = boundedCodexContext(safeContext, config.maxOutputBytes);
+        const contextBytes = Buffer.byteLength(bounded.text, "utf8");
+        const data = codexContextDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          target_path: target.targetPath,
+          target_kind: target.targetKind,
+          tool_mode: config.toolMode,
+          write_mode: config.writeMode,
+          bash_mode: config.bashMode,
+          include_ai_bridge: includeAiBridge,
+          include_git_status: includeGitStatus,
+          include_git_diff: includeGitDiff,
+          max_agent_bytes: maxAgentBytes,
+          max_total_bytes: config.maxOutputBytes,
+          agents_files: context.agentsFiles,
+          agents_count: context.agentsFiles.length,
+          ai_context_exists: context.aiContextExists,
+          ai_context_files: context.aiContextFiles,
+          ai_context_count: context.aiContextFiles.length,
+          unavailable_sources: context.unavailableSources,
+          unavailable_count: context.unavailableSources.length,
+          included_git_status: context.gitStatus !== undefined,
+          included_git_diff: context.gitDiff !== undefined,
+          context: bounded.text,
+          context_source_bytes: sourceBytes,
+          context_bytes: contextBytes,
+          preview: codexContextPreview(bounded.text),
+          truncated: bounded.truncated,
+          output_limited: bounded.truncated || context.unavailableSources.some((item) =>
+            item.reason === "too_large" || item.reason === "output_limit"
+          ),
+          redacted: safeContext !== context.text
+        });
+        return textResult(
+          data.context,
+          createCodexContextSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        return codexContextFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
     }
   );
 
@@ -5341,10 +7466,10 @@ export function createCodexProServer(
       description:
         "Create .ai-bridge/pro-context.md with repo tree, git state, selected files, and handoff context for high-context ChatGPT planning without live MCP tool calls.",
       inputSchema: {
-        workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        title: z.string().optional().describe("Markdown title for the context bundle."),
-        selected_paths: z.array(z.string()).optional().describe("Specific workspace-relative files to include."),
-        extra_globs: z.array(z.string()).optional().describe("Additional workspace-relative glob patterns to include, for example src/**/*.ts."),
+        workspace_id: z.string().max(160).optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
+        title: z.string().max(200).optional().describe("Single-line Markdown title for the context bundle."),
+        selected_paths: z.array(z.string().min(1).max(240)).max(80).optional().describe("Specific workspace-relative files to include."),
+        extra_globs: z.array(z.string().min(1).max(240)).max(32).optional().describe("Additional workspace-relative glob patterns to include, for example src/**/*.ts."),
         include_important_files: z.boolean().optional().describe("Auto-include important root config/docs such as AGENTS.md, README.md, and package.json. Default: true."),
         include_changed_files: z.boolean().optional().describe("Auto-include currently changed files from git status. Default: true."),
         include_diff: z.boolean().optional().describe("Include the current git diff. Default: true."),
@@ -5354,38 +7479,186 @@ export function createCodexProServer(
         max_file_bytes: z.number().int().min(1000).max(250000).optional().describe("Maximum bytes per included file. Default: 60000."),
         max_total_bytes: z.number().int().min(20000).max(2000000).optional().describe("Maximum bytes in the generated bundle.")
       },
+      outputSchema: exportProContextOutputShape,
       annotations: HANDOFF_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
+        "codexpro/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Exporting Pro context...",
         "openai/toolInvocation/invoked": "Pro context exported"
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const result = await exportProContext(config, guard, workspace, {
-        title: args.title,
-        selectedPaths: args.selected_paths,
-        extraGlobs: args.extra_globs,
-        includeImportantFiles: args.include_important_files,
-        includeChangedFiles: args.include_changed_files,
-        includeDiff: args.include_diff,
-        includeAiBridge: args.include_ai_bridge,
-        maxDepth: args.max_depth,
-        maxFiles: args.max_files,
-        maxFileBytes: args.max_file_bytes,
-        maxTotalBytes: args.max_total_bytes
-      });
-      const text = `# Export Pro Context\n\nWrote ${result.path}.\nBytes: ${result.bytes}\nFiles included: ${result.filesIncluded.length}\nFiles skipped: ${result.filesSkipped.length}\nTruncated: ${result.truncated}\n\nPaste ${result.path} into a high-context planning model when MCP tools are unavailable, then save the returned plan with codexpro pro-apply.`;
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        path: result.path,
-        bytes: result.bytes,
-        files_included: result.filesIncluded,
-        files_skipped: result.filesSkipped,
-        truncated: result.truncated
-      });
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const failure: ExportProContextFailureInput = args.workspace_id
+          ? {
+              code: "WORKSPACE_NOT_FOUND",
+              details: {
+                source: "workspace_id",
+                workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+              }
+            }
+          : {
+              code: "WORKSPACE_NOT_FOUND",
+              details: { source: "default_workspace", workspace_id: null }
+            };
+        return exportProContextFailureResult(failure, startedAt);
+      }
+
+      let request: PreparedProContextRequest;
+      try {
+        request = await prepareProContextRequest(config, guard, workspace, {
+          title: args.title,
+          selectedPaths: args.selected_paths,
+          extraGlobs: args.extra_globs,
+          includeImportantFiles: args.include_important_files,
+          includeChangedFiles: args.include_changed_files,
+          includeDiff: args.include_diff,
+          includeAiBridge: args.include_ai_bridge,
+          maxDepth: args.max_depth,
+          maxFiles: args.max_files,
+          maxFileBytes: args.max_file_bytes,
+          maxTotalBytes: args.max_total_bytes
+        });
+      } catch (error) {
+        return exportProContextFailureResult(
+          classifyProContextOperationFailure(error, "INTERNAL_ERROR"),
+          startedAt
+        );
+      }
+
+      let output: PreparedProContextOutput;
+      try {
+        output = await preflightProContextOutput(config, guard, workspace, request);
+      } catch (error) {
+        return exportProContextFailureResult(
+          classifyProContextOperationFailure(error, "INTERNAL_ERROR"),
+          startedAt
+        );
+      }
+
+      let rawResult: unknown;
+      try {
+        rawResult = await exportProContextProvider({ config, guard, workspace, request, output });
+      } catch (error) {
+        return exportProContextFailureResult(
+          classifyProContextOperationFailure(error, "CONTEXT_EXPORT_FAILED"),
+          startedAt
+        );
+      }
+
+      try {
+        const result = exportProContextProviderResultSchema.parse(rawResult);
+        const expectedTitle = redactSensitiveText(request.title);
+        const expectedBounded = capProContextUtf8(
+          result.sourceMarkdown,
+          request.maxTotalBytes,
+          EXPORT_PRO_CONTEXT_BUNDLE_TRUNCATION_MARKER
+        );
+        const expectedBytes = Buffer.byteLength(result.markdown, "utf8");
+        const expectedSourceBytes = Buffer.byteLength(result.sourceMarkdown, "utf8");
+        const expectedSha256 = createHash("sha256").update(result.markdown).digest("hex");
+        if (
+          result.workspaceId !== workspace.id ||
+          result.root !== workspace.root ||
+          result.path !== output.path ||
+          result.title !== expectedTitle ||
+          !sameStringSequence(result.selectedPaths, request.selectedPaths) ||
+          !sameStringSequence(result.extraGlobs, request.extraGlobs) ||
+          result.includeImportantFiles !== request.includeImportantFiles ||
+          result.includeChangedFiles !== request.includeChangedFiles ||
+          result.includeDiff !== request.includeDiff ||
+          result.includeAiBridge !== request.includeAiBridge ||
+          result.maxDepth !== request.maxDepth ||
+          result.maxFiles !== request.maxFiles ||
+          result.maxFileBytes !== request.maxFileBytes ||
+          result.maxDiffBytes !== request.maxDiffBytes ||
+          result.maxTotalBytes !== request.maxTotalBytes ||
+          result.sourceBytes !== expectedSourceBytes ||
+          result.bytes !== expectedBytes ||
+          result.sha256 !== expectedSha256 ||
+          result.markdown !== expectedBounded.text ||
+          result.bundleTruncated !== expectedBounded.truncated ||
+          result.truncated !== (result.diffTruncated || result.bundleTruncated) ||
+          !result.sourceMarkdown.startsWith(`# ${result.title}\n`) ||
+          (result.diffTruncated && !result.sourceMarkdown.includes(EXPORT_PRO_CONTEXT_DIFF_TRUNCATION_MARKER)) ||
+          hasSecretValue(result.sourceMarkdown) ||
+          hasSecretValue(result.markdown)
+        ) {
+          throw new CodexProError("Export provider identity, framing, or integrity mismatch.");
+        }
+
+        const data = exportProContextDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          path: result.path,
+          tool_mode: config.toolMode,
+          write_mode: config.writeMode,
+          bash_mode: config.bashMode,
+          title: result.title,
+          include_important_files: result.includeImportantFiles,
+          include_changed_files: result.includeChangedFiles,
+          include_diff: result.includeDiff,
+          include_ai_bridge: result.includeAiBridge,
+          max_depth: result.maxDepth,
+          max_files: result.maxFiles,
+          max_file_bytes: result.maxFileBytes,
+          max_diff_bytes: result.maxDiffBytes,
+          max_total_bytes: result.maxTotalBytes,
+          selected_paths: result.selectedPaths,
+          selected_count: result.selectedPaths.length,
+          extra_globs: result.extraGlobs,
+          extra_glob_count: result.extraGlobs.length,
+          changed_file_count: result.changedFileCount,
+          candidate_count: result.candidateCount,
+          omitted_count: result.omittedCount,
+          files_included: result.filesIncluded,
+          file_count: result.filesIncluded.length,
+          files_skipped: result.filesSkipped,
+          skipped_count: result.filesSkipped.length,
+          ai_context_files: result.aiContextFiles,
+          ai_context_file_count: result.aiContextFiles.length,
+          ai_context_unavailable: result.aiContextUnavailable,
+          ai_context_unavailable_count: result.aiContextUnavailable.length,
+          created_context_files: result.createdContextFiles,
+          created_context_file_count: result.createdContextFiles.length,
+          existed: result.existed,
+          source_bytes: result.sourceBytes,
+          bytes: result.bytes,
+          sha256: result.sha256,
+          diff_truncated: result.diffTruncated,
+          bundle_truncated: result.bundleTruncated,
+          truncated: result.truncated,
+          output_limited: result.outputLimited,
+          redacted: result.redacted
+        });
+        const artifactPath = guard.resolve(workspace, output.path);
+        if (artifactPath.relPath !== output.path) {
+          throw new CodexProError("Export artifact path mismatch.");
+        }
+        await guard.assertTextFile(
+          artifactPath.absPath,
+          Math.max(config.maxWriteBytes, config.maxReadBytes)
+        );
+        const artifact = await fsp.readFile(artifactPath.absPath);
+        if (
+          artifact.byteLength !== result.bytes ||
+          createHash("sha256").update(artifact).digest("hex") !== result.sha256 ||
+          artifact.toString("utf8") !== result.markdown
+        ) {
+          throw new CodexProError("Export artifact integrity mismatch.");
+        }
+        return textResult(
+          exportProContextSuccessText(data),
+          createExportProContextSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        return exportProContextFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
     }
   );
 
@@ -5400,8 +7673,9 @@ export function createCodexProServer(
           "Opt-in, read-only local Codex session history browser. Lists metadata from the user's configured Codex session JSONL files without reading full transcripts.",
         inputSchema: {
           max_sessions: z.number().int().min(1).max(200).optional().describe("Maximum sessions to return. Default: 30."),
-          query: z.string().optional().describe("Optional case-insensitive search over session id, title, cwd, and source path.")
+          query: z.string().max(500).optional().describe("Optional case-insensitive search over session id, title, cwd, and source path.")
         },
+        outputSchema: codexSessionsOutputShape,
         annotations: READ_ONLY_ANNOTATIONS,
         _meta: {
           ...toolCardMeta(),
@@ -5410,21 +7684,36 @@ export function createCodexProServer(
         }
       },
       async (args) => {
-        const result = await listCodexSessions(config, {
-          maxSessions: args.max_sessions,
-          query: args.query
-        });
-        const rows = result.sessions.length
-          ? result.sessions.map((session) => `- ${session.session_id}  ${session.title || "(untitled)"}${session.project_dir ? `  cwd=${session.project_dir}` : ""}`).join("\n")
-          : "- No Codex sessions found.";
-        const text = `# Codex Sessions\n\nCodex dir: ${result.codex_dir}\nMode: ${config.codexSessions}\nTotal matched: ${result.total_found}\n\n${rows}`;
-        return textResult(text, {
-          codex_dir: result.codex_dir,
-          roots: result.roots,
-          sessions: result.sessions,
-          total_found: result.total_found,
-          codex_sessions_mode: config.codexSessions
-        });
+        const startedAt = Date.now();
+        const request = normalizeCodexSessionsRequest(args);
+        let rawResult: unknown;
+        try {
+          rawResult = await codexSessionsProvider({
+            config,
+            options: {
+              maxSessions: request.maxSessions,
+              ...(request.query ? { query: request.query } : {})
+            }
+          });
+        } catch {
+          return codexSessionsFailureResult(
+            { code: "SESSION_INDEX_FAILED", details: {} },
+            startedAt
+          );
+        }
+
+        try {
+          const data = validateCodexSessionsProviderResult(config, request, rawResult);
+          return textResult(
+            codexSessionsSuccessText(data),
+            createCodexSessionsSuccess(data, Date.now() - startedAt)
+          );
+        } catch {
+          return codexSessionsFailureResult(
+            { code: "INTERNAL_ERROR", details: {} },
+            startedAt
+          );
+        }
       }
     );
 
@@ -5438,32 +7727,56 @@ export function createCodexProServer(
           description:
             "Opt-in, read-only local Codex transcript reader. Requires --codex-sessions read and returns a bounded transcript from a local Codex session JSONL file.",
           inputSchema: {
-            session_id: z.string().optional().describe("Codex session id from codex_sessions."),
-            source_path: z.string().optional().describe("Source path from codex_sessions. Must be inside the configured Codex session roots."),
+            session_id: z.string().max(128).optional().describe("Codex session id from codex_sessions."),
+            source_path: z.string().max(4096).optional().describe("Source path from codex_sessions. Must be inside the configured Codex session roots."),
             max_messages: z.number().int().min(1).max(400).optional().describe("Maximum transcript messages. Default: 80."),
             max_total_bytes: z.number().int().min(4000).max(400000).optional().describe("Maximum transcript content bytes. Default: 80000.")
           },
+          outputSchema: readCodexSessionOutputShape,
           annotations: READ_ONLY_ANNOTATIONS,
           _meta: {
             ...toolCardMeta(),
+            "codexpro/preserveStructuredContent": true,
             "openai/toolInvocation/invoking": "Reading local Codex session...",
             "openai/toolInvocation/invoked": "Codex session read"
           }
         },
         async (args) => {
-          const result = await readCodexSession(config, {
-            sessionId: args.session_id,
-            sourcePath: args.source_path,
-            maxMessages: args.max_messages,
-            maxTotalBytes: args.max_total_bytes
-          });
-          return textResult(result.text, {
-            session: result.session,
-            messages: result.messages,
-            message_count: result.messages.length,
-            truncated: result.truncated,
-            codex_sessions_mode: config.codexSessions
-          });
+          const startedAt = Date.now();
+          const prepared = normalizeReadCodexSessionRequest(args);
+          if (!prepared.ok) {
+            return readCodexSessionFailureResult(prepared.failure, startedAt);
+          }
+
+          let rawResult: unknown;
+          try {
+            rawResult = await readCodexSessionProvider({
+              config,
+              request: prepared.request
+            });
+          } catch (error) {
+            const failure = isCodexSessionReadOperationError(error)
+              ? readCodexSessionOperationFailure(error)
+              : { code: "SESSION_READ_FAILED" as const, details: {} };
+            return readCodexSessionFailureResult(failure, startedAt);
+          }
+
+          try {
+            const data = validateReadCodexSessionProviderResult(
+              config,
+              prepared.request,
+              rawResult
+            );
+            return textResult(
+              readCodexSessionSuccessText(data),
+              createReadCodexSessionSuccess(data, Date.now() - startedAt)
+            );
+          } catch {
+            return readCodexSessionFailureResult(
+              internalReadCodexSessionFailure(),
+              startedAt
+            );
+          }
         }
       );
     }
@@ -5478,62 +7791,134 @@ export function createCodexProServer(
       description:
         "Write .ai-bridge/current-plan.md for Codex, OpenCode, Pi, or another local implementation agent. This only creates handoff files; it does not execute local agent commands.",
       inputSchema: {
-        workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        agent: z.string().optional().describe("Target agent id, for example codex, opencode, pi, or custom. Default: custom."),
-        agent_name: z.string().optional().describe("Human-readable agent name for custom agents."),
-        model: z.string().optional().describe("Optional model identifier to include in the handoff plan."),
-        title: z.string().optional().describe("Short task title."),
+        workspace_id: z.string().max(160).optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
+        agent: z.string().max(256).optional().describe("Target agent id, for example codex, opencode, pi, or custom. Default: custom."),
+        agent_name: z.string().max(1_000).optional().describe("Human-readable agent name for custom agents; normalized value is limited to 80 characters."),
+        model: z.string().max(1_000).optional().describe("Optional model identifier; normalized value is limited to 120 characters."),
+        title: z.string().max(1_000).optional().describe("Short task title; normalized value is limited to 120 characters."),
         plan: z.string().describe("Detailed implementation plan for the local agent."),
         append: z.boolean().optional().describe("Append to existing current-plan.md instead of overwriting. Default: false.")
       },
+      outputSchema: handoffToAgentOutputShape,
       annotations: HANDOFF_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
+        "codexpro/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Writing agent handoff plan...",
         "openai/toolInvocation/invoked": "Agent handoff plan written"
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const result = await writeAgentHandoff(config, guard, workspace, {
-        agent: args.agent ?? "custom",
-        agentName: args.agent_name,
-        model: args.model,
-        title: cleanOneLine(args.title, "Agent implementation plan"),
-        plan: String(args.plan ?? ""),
-        append: parseBool(args.append, false),
-        eventName: "handoff_to_agent"
-      });
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const failure: HandoffToAgentFailureInput = args.workspace_id
+          ? {
+              code: "WORKSPACE_NOT_FOUND",
+              details: {
+                source: "workspace_id",
+                workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+              }
+            }
+          : {
+              code: "WORKSPACE_NOT_FOUND",
+              details: { source: "default_workspace", workspace_id: null }
+            };
+        return handoffToAgentFailureResult(failure, startedAt);
+      }
 
-      const text = `# Handoff To Agent
+      let request: ReturnType<typeof prepareAgentHandoffRequest>;
+      try {
+        request = prepareAgentHandoffRequest(config, workspace, {
+          agent: args.agent,
+          agentName: args.agent_name,
+          model: args.model,
+          title: args.title,
+          plan: args.plan,
+          append: parseBool(args.append, false),
+          eventName: "handoff_to_agent",
+          updatedAt: handoffToAgentNow()
+        });
+      } catch (error) {
+        return handoffToAgentFailureResult(
+          classifyHandoffOperationFailure(error, "INTERNAL_ERROR"),
+          startedAt
+        );
+      }
 
-Agent: ${result.agentName} (${result.agent})
-${result.model ? `Model: ${result.model}\n` : ""}Wrote ${result.planPath}.
-Status path: ${result.statusPath}
-Diff path: ${result.diffPath}
-Execution log: ${result.executionLogPath}
-Diff stats: +${result.writeResult.diff.additions} -${result.writeResult.diff.deletions}
+      let output: Awaited<ReturnType<typeof preflightAgentHandoffOutput>>;
+      try {
+        output = await preflightAgentHandoffOutput(config, guard, workspace, request);
+      } catch (error) {
+        return handoffToAgentFailureResult(
+          classifyHandoffOperationFailure(error, "INTERNAL_ERROR"),
+          startedAt
+        );
+      }
 
-Agent prompt:
+      let rawResult: unknown;
+      try {
+        rawResult = await handoffToAgentProvider({ config, guard, workspace, request, output });
+      } catch (error) {
+        return handoffToAgentFailureResult(
+          classifyHandoffOperationFailure(error, "HANDOFF_WRITE_FAILED"),
+          startedAt
+        );
+      }
 
-\`\`\`text
-${result.prompt}
-\`\`\`${diffBlock(result.writeResult.diff.diff)}`;
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        agent: result.agent,
-        agent_name: result.agentName,
-        model: result.model,
-        plan_path: result.planPath,
-        status_path: result.statusPath,
-        diff_path: result.diffPath,
-        log_path: result.logPath,
-        execution_log_path: result.executionLogPath,
-        additions: result.writeResult.diff.additions,
-        deletions: result.writeResult.diff.deletions,
-        diff: result.writeResult.diff.diff
-      });
+      try {
+        const result = await validateHandoffProviderResult(
+          { config, guard, workspace, request, output },
+          rawResult
+        );
+
+        const data = handoffToAgentDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          tool_mode: config.toolMode,
+          write_mode: config.writeMode,
+          agent: result.agent,
+          agent_name: result.agentName,
+          model: result.model ?? null,
+          title: result.title,
+          updated_at: result.updatedAt,
+          append_requested: result.appendRequested,
+          append_applied: result.appendApplied,
+          max_write_bytes: result.maxWriteBytes,
+          plan_path: result.planPath,
+          status_path: result.statusPath,
+          diff_path: result.diffPath,
+          log_path: result.logPath,
+          execution_log_path: result.executionLogPath,
+          created_context_files: result.createdContextFiles,
+          created_context_file_count: result.createdContextFiles.length,
+          plan_file_existed_before: result.planFileExistedBefore,
+          prior_plan_available: result.priorPlanAvailable,
+          previous_bytes: result.previousBytes,
+          plan_bytes: result.planBytes,
+          plan_sha256: result.planSha256,
+          additions: result.additions,
+          deletions: result.deletions,
+          changed: result.changed,
+          diff: result.diff,
+          diff_bytes: result.diffBytes,
+          diff_truncated: result.diffTruncated,
+          logged_paths: result.loggedPaths,
+          logged_count: result.loggedPaths.length,
+          event_bytes: result.eventBytes,
+          event_sha256: result.eventSha256,
+          prompt: result.prompt,
+          prompt_bytes: result.promptBytes
+        });
+        return textResult(
+          handoffToAgentSuccessText(data),
+          createHandoffToAgentSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        return handoffToAgentFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
     }
   );
 
@@ -5543,57 +7928,136 @@ ${result.prompt}
     "handoff_to_codex",
     {
       title: "Handoff To Codex",
-      description: "Compatibility wrapper for handoff_to_agent with agent=codex.",
+      description:
+        "Write the fixed .ai-bridge/current-plan.md handoff for Codex. This only creates handoff files; it does not execute Codex.",
       inputSchema: {
-        workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        title: z.string().optional().describe("Short task title."),
+        workspace_id: z.string().max(160).optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
+        title: z.string().max(1_000).optional().describe("Short task title; normalized value is limited to 120 characters."),
         plan: z.string().describe("Detailed implementation plan for Codex."),
         append: z.boolean().optional().describe("Append to existing current-plan.md instead of overwriting. Default: false.")
       },
+      outputSchema: handoffToCodexOutputShape,
       annotations: HANDOFF_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
+        "codexpro/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Writing Codex handoff plan...",
         "openai/toolInvocation/invoked": "Codex handoff plan written"
       }
     },
     async (args) => {
-      const workspace = workspaces.getWorkspace(args.workspace_id);
-      const result = await writeAgentHandoff(config, guard, workspace, {
-        agent: "codex",
-        title: cleanOneLine(args.title, "Codex implementation plan"),
-        plan: String(args.plan ?? ""),
-        append: parseBool(args.append, false),
-        eventName: "handoff_to_codex"
-      });
-      const text = `# Handoff To Codex
+      const startedAt = Date.now();
+      let workspace: Workspace;
+      try {
+        workspace = workspaces.getWorkspace(args.workspace_id);
+      } catch {
+        const failure: HandoffToCodexFailureInput = args.workspace_id
+          ? {
+              code: "WORKSPACE_NOT_FOUND",
+              details: {
+                source: "workspace_id",
+                workspace_id: safeTreeWorkspaceIdDetail(args.workspace_id)
+              }
+            }
+          : {
+              code: "WORKSPACE_NOT_FOUND",
+              details: { source: "default_workspace", workspace_id: null }
+            };
+        return handoffToCodexFailureResult(failure, startedAt);
+      }
 
-Wrote ${result.planPath}.
-Status path: ${result.statusPath}
-Diff path: ${result.diffPath}
-Diff stats: +${result.writeResult.diff.additions} -${result.writeResult.diff.deletions}
+      let request: ReturnType<typeof prepareAgentHandoffRequest>;
+      try {
+        const title = typeof args.title === "string" && args.title.trim()
+          ? args.title
+          : "Codex implementation plan";
+        request = prepareAgentHandoffRequest(config, workspace, {
+          agent: "codex",
+          agentName: "Codex",
+          title,
+          plan: args.plan,
+          append: parseBool(args.append, false),
+          eventName: "handoff_to_codex",
+          updatedAt: handoffToCodexNow()
+        });
+      } catch (error) {
+        return handoffToCodexFailureResult(
+          classifyHandoffToCodexOperationFailure(error, "INTERNAL_ERROR"),
+          startedAt
+        );
+      }
 
-Codex prompt:
+      let output: Awaited<ReturnType<typeof preflightAgentHandoffOutput>>;
+      try {
+        output = await preflightAgentHandoffOutput(config, guard, workspace, request);
+      } catch (error) {
+        return handoffToCodexFailureResult(
+          classifyHandoffToCodexOperationFailure(error, "INTERNAL_ERROR"),
+          startedAt
+        );
+      }
 
-\`\`\`text
-${result.prompt}
-\`\`\`${diffBlock(result.writeResult.diff.diff)}`;
-      return textResult(text, {
-        workspace_id: workspace.id,
-        root: workspace.root,
-        agent: result.agent,
-        agent_name: result.agentName,
-        plan_path: result.planPath,
-        status_path: result.statusPath,
-        diff_path: result.diffPath,
-        log_path: result.logPath,
-        execution_log_path: result.executionLogPath,
-        additions: result.writeResult.diff.additions,
-        deletions: result.writeResult.diff.deletions,
-        diff: result.writeResult.diff.diff
-      });
+      const providerContext = { config, guard, workspace, request, output };
+      let rawResult: unknown;
+      try {
+        rawResult = await handoffToCodexProvider(providerContext);
+      } catch (error) {
+        return handoffToCodexFailureResult(
+          classifyHandoffToCodexOperationFailure(error, "HANDOFF_WRITE_FAILED"),
+          startedAt
+        );
+      }
+
+      try {
+        const result = await validateHandoffProviderResult(providerContext, rawResult);
+        const data = handoffToCodexDataSchema.parse({
+          workspace_id: workspace.id,
+          root: workspace.root,
+          tool_mode: config.toolMode,
+          write_mode: config.writeMode,
+          agent: result.agent,
+          agent_name: result.agentName,
+          model: result.model ?? null,
+          title: result.title,
+          updated_at: result.updatedAt,
+          append_requested: result.appendRequested,
+          append_applied: result.appendApplied,
+          max_write_bytes: result.maxWriteBytes,
+          plan_path: result.planPath,
+          status_path: result.statusPath,
+          diff_path: result.diffPath,
+          log_path: result.logPath,
+          execution_log_path: result.executionLogPath,
+          created_context_files: result.createdContextFiles,
+          created_context_file_count: result.createdContextFiles.length,
+          plan_file_existed_before: result.planFileExistedBefore,
+          prior_plan_available: result.priorPlanAvailable,
+          previous_bytes: result.previousBytes,
+          plan_bytes: result.planBytes,
+          plan_sha256: result.planSha256,
+          additions: result.additions,
+          deletions: result.deletions,
+          changed: result.changed,
+          diff: result.diff,
+          diff_bytes: result.diffBytes,
+          diff_truncated: result.diffTruncated,
+          logged_paths: result.loggedPaths,
+          logged_count: result.loggedPaths.length,
+          event_bytes: result.eventBytes,
+          event_sha256: result.eventSha256,
+          prompt: result.prompt,
+          prompt_bytes: result.promptBytes
+        });
+        return textResult(
+          handoffToCodexSuccessText(data),
+          createHandoffToCodexSuccess(data, Date.now() - startedAt)
+        );
+      } catch {
+        return handoffToCodexFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
     }
   );
 
+  upgradeCodexProSupertool(server);
   return server;
 }

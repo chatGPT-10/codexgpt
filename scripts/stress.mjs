@@ -117,7 +117,7 @@ async function makeFixture() {
     const lines = Array.from({ length: 60 }, (_, line) => `file ${file} line ${line} --flag -> stress-needle-${line % 11}`);
     await fs.writeFile(path.join(root, 'many', `hits-${file}.txt`), `${lines.join('\n')}\n`, 'utf8');
   }
-  for (let i = 0; i < 140; i += 1) {
+  for (let i = 0; i < 141; i += 1) {
     const name = `stress-skill-${String(i).padStart(3, '0')}`;
     const dir = path.join(root, '.codex', 'skills', name);
     await fs.mkdir(dir, { recursive: true });
@@ -172,20 +172,23 @@ async function runFullModeStress(root) {
       name: 'load_skill',
       arguments: { workspace_id: ws, name: firstSkill.name, source: firstSkill.source, path: firstSkill.path }
     });
-    assert(loaded.structuredContent.text.includes('# Stress Skill'), 'load_skill did not return skill body');
+    assert(loaded.structuredContent.data?.text.includes('# Stress Skill'), 'load_skill did not return skill body');
+    assert(loaded.structuredContent.data?.returned_bytes === Buffer.byteLength(loaded.structuredContent.data?.text || ''), 'load_skill returned byte count was inconsistent');
+    assert(loaded.structuredContent.data?.resolution_truncated === false, 'exact load_skill unexpectedly reported partial resolution');
 
     const inventory = await client.request('tools/call', {
       name: 'codexpro_inventory',
       arguments: { workspace_id: ws, include_global_skills: false, include_mcp_servers: false, max_skills: 140 }
     });
-    assert(inventory.structuredContent.skill_count === 140, `expected 140 inventory skills, got ${inventory.structuredContent.skill_count}`);
-    const lastSkill = inventory.structuredContent.skills.find((skill) => skill.name === 'stress-skill-139');
+    assert(inventory.structuredContent.data?.skill_count === 140, `expected 140 inventory skills, got ${inventory.structuredContent.data?.skill_count}`);
+    assert(inventory.structuredContent.data?.skills_truncated === true, 'Skill inventory did not report truncation');
+    const lastSkill = inventory.structuredContent.data?.skills.find((skill) => skill.name === 'stress-skill-139');
     assert(lastSkill, 'inventory did not include stress-skill-139');
     const loadedLast = await client.request('tools/call', {
       name: 'load_skill',
       arguments: { workspace_id: ws, name: lastSkill.name, source: lastSkill.source, path: lastSkill.path }
     });
-    assert(loadedLast.structuredContent.text.includes('# Stress Skill 139'), 'load_skill did not load high-cap inventory skill');
+    assert(loadedLast.structuredContent.data?.text.includes('# Stress Skill 139'), 'load_skill did not load high-cap inventory skill');
 
     const largeSearch = await client.request('tools/call', {
       name: 'search',
@@ -304,20 +307,20 @@ async function runFullModeStress(root) {
       name: 'wait_for_handoff',
       arguments: { workspace_id: ws, plan_hash: 'stress-plan', since_iteration: 6, max_wait_seconds: 1, poll_ms: 250 }
     });
-    assert(completed.structuredContent.awaited_completed === true && completed.structuredContent.state === 'completed', 'wait_for_handoff did not complete expected state');
-    assert(String(completed.structuredContent.status_excerpt ?? '').includes('PASS stress handoff'), 'wait_for_handoff missed status excerpt');
+    assert(completed.structuredContent.data?.awaited_completed === true && completed.structuredContent.data?.state === 'completed', 'wait_for_handoff did not complete expected state');
+    assert(String(completed.structuredContent.data?.artifacts?.find((item) => item.kind === 'status')?.text ?? '').includes('PASS stress handoff'), 'wait_for_handoff missed status excerpt');
 
     const superWait = await client.request('tools/call', {
       name: 'codexpro',
       arguments: { action: 'handoff_poll', args: { workspace_id: ws, plan_hash: 'stress-plan', since_iteration: 6, max_wait_seconds: 1, poll_ms: 250 } }
     });
-    assert(superWait.structuredContent.codexpro_tool === 'wait_for_handoff' && superWait.structuredContent.wrapped_tool === 'wait_for_handoff' && superWait.structuredContent.succeeded === true, 'supertool handoff_poll failed');
+    assert(superWait.structuredContent.codexpro_tool === 'wait_for_handoff' && superWait.structuredContent.wrapped_tool === 'wait_for_handoff' && superWait.structuredContent.data?.succeeded === true, 'supertool handoff_poll failed');
 
     const mismatch = await client.request('tools/call', {
       name: 'wait_for_handoff',
       arguments: { workspace_id: ws, plan_hash: 'wrong-plan', max_wait_seconds: 1, poll_ms: 250 }
     });
-    assert(mismatch.structuredContent.awaited_completed === false && mismatch.structuredContent.plan_hash_mismatch === true, 'wait_for_handoff mismatch did not fail closed');
+    assert(mismatch.structuredContent.data?.awaited_completed === false && mismatch.structuredContent.data?.plan_hash_mismatch === true, 'wait_for_handoff mismatch did not fail closed');
 
     await fs.rm(path.join(root, '.ai-bridge', 'handoff-run-state.json'), { force: true });
     const slowPollStart = Date.now();
@@ -340,7 +343,7 @@ async function runFullModeStress(root) {
         max_total_bytes: 20000
       }
     });
-    assert(exactExport.structuredContent.files_included.length === 1 && exactExport.structuredContent.files_included[0] === 'demo.txt', `exact Pro export included wrong files: ${JSON.stringify(exactExport.structuredContent.files_included)}`);
+    assert(exactExport.structuredContent.data?.files_included.length === 1 && exactExport.structuredContent.data?.files_included[0] === 'demo.txt', `exact Pro export included wrong files: ${JSON.stringify(exactExport.structuredContent.data?.files_included)}`);
 
     const superExport = await client.request('tools/call', {
       name: 'codexpro',
@@ -359,7 +362,7 @@ async function runFullModeStress(root) {
       }
     });
     assert(superExport.structuredContent.codexpro_tool === 'export_pro_context' && superExport.structuredContent.wrapped_tool === 'export_pro_context', 'supertool pro_export did not wrap export_pro_context');
-    assert(superExport.structuredContent.files_included.length === 1 && superExport.structuredContent.files_included[0] === 'demo.txt', `supertool Pro export included wrong files: ${JSON.stringify(superExport.structuredContent.files_included)}`);
+    assert(superExport.structuredContent.data?.files_included.length === 1 && superExport.structuredContent.data?.files_included[0] === 'demo.txt', `supertool Pro export included wrong files: ${JSON.stringify(superExport.structuredContent.data?.files_included)}`);
 
     const hiddenGlobExport = await client.request('tools/call', {
       name: 'export_pro_context',
@@ -374,10 +377,25 @@ async function runFullModeStress(root) {
         max_total_bytes: 20000
       }
     });
-    assert(hiddenGlobExport.structuredContent.files_included.includes('.github/workflows/ci.yml'), `Pro export extra_globs missed hidden path: ${JSON.stringify(hiddenGlobExport.structuredContent.files_included)}`);
+    assert(hiddenGlobExport.structuredContent.data?.files_included.includes('.github/workflows/ci.yml'), `Pro export extra_globs missed hidden path: ${JSON.stringify(hiddenGlobExport.structuredContent.data?.files_included)}`);
+
+    const codexHandoff = await client.request('tools/call', {
+      name: 'codexpro',
+      arguments: {
+        action: 'codex_handoff',
+        args: { workspace_id: ws, title: 'Stress Codex Plan', plan: '- keep the Codex handoff narrow' }
+      }
+    });
+    assert(
+      codexHandoff.structuredContent.codexpro_tool === 'handoff_to_codex' &&
+      codexHandoff.structuredContent.wrapped_tool === 'handoff_to_codex' &&
+      codexHandoff.structuredContent.ok === true &&
+      codexHandoff.structuredContent.data.agent === 'codex',
+      'full-mode codex_handoff did not preserve the nested Codex result'
+    );
 
     const selfTest = await client.request('tools/call', { name: 'codexpro_self_test', arguments: { workspace_id: ws } });
-    assert(selfTest.structuredContent.status !== 'fail', `codexpro_self_test failed: ${JSON.stringify(selfTest.structuredContent.checks)}`);
+    assert(selfTest.structuredContent.data?.status !== 'fail', `codexpro_self_test failed: ${JSON.stringify(selfTest.structuredContent.data?.checks)}`);
   } finally {
     client.close();
   }
@@ -398,18 +416,18 @@ async function runGlobalSkillStress(root) {
       name: 'codexpro_inventory',
       arguments: { workspace_id: opened.structuredContent.data?.workspace_id, include_mcp_servers: false, max_skills: 500 }
     });
-    const skill = inventory.structuredContent.skills.find((item) => item.name === name);
+    const skill = inventory.structuredContent.data?.skills.find((item) => item.name === name);
     assert(skill, 'default inventory did not include global skill');
     const loaded = await client.request('tools/call', {
       name: 'load_skill',
       arguments: { workspace_id: opened.structuredContent.data?.workspace_id, name: skill.name, source: skill.source, path: skill.path }
     });
-    assert(loaded.structuredContent.text.includes('# Global Only Skill'), 'default load_skill did not load inventory global skill');
+    assert(loaded.structuredContent.data?.text.includes('# Global Only Skill'), 'default load_skill did not load inventory global skill');
     const loadedByName = await client.request('tools/call', {
       name: 'load_skill',
       arguments: { workspace_id: opened.structuredContent.data?.workspace_id, name }
     });
-    assert(loadedByName.structuredContent.text.includes('# Global Only Skill'), 'load_skill did not load unique user skill by name');
+    assert(loadedByName.structuredContent.data?.text.includes('# Global Only Skill'), 'load_skill did not load unique user skill by name');
   } finally {
     client?.close();
     await fs.rm(dir, { recursive: true, force: true });
@@ -474,8 +492,10 @@ async function runMcpInventoryStress() {
       name: 'codexpro',
       arguments: { action: 'inventory', args: { workspace_id: opened.structuredContent.data?.workspace_id, include_global_skills: false, include_mcp_servers: true } }
     });
-    assert(inventory.structuredContent.mcp_server_count === 120, `MCP inventory was not capped: ${inventory.structuredContent.mcp_server_count}`);
-    assert(superInventory.structuredContent.codexpro_tool === 'codexpro_inventory' && superInventory.structuredContent.mcp_server_count === 120, 'supertool MCP inventory was not capped');
+    assert(inventory.structuredContent.data?.mcp_server_count === 120, `MCP inventory was not capped: ${inventory.structuredContent.data?.mcp_server_count}`);
+    assert(inventory.structuredContent.data?.mcp_servers_truncated === true, 'MCP inventory did not report truncation');
+    assert(superInventory.structuredContent.codexpro_tool === 'codexpro_inventory' && superInventory.structuredContent.data?.mcp_server_count === 120, 'supertool MCP inventory was not capped');
+    assert(superInventory.structuredContent.data?.mcp_servers_truncated === true, 'supertool MCP inventory did not preserve truncation');
     const payload = JSON.stringify([inventory, superInventory]);
     for (const leaked of [fakeHome, '~/.codex', '~/.cursor', '.cursor/mcp.json', '.codex/config.toml', 'secret-command', 'secret-arg']) {
       assert(!payload.includes(leaked), `MCP inventory leaked ${leaked}`);
@@ -773,7 +793,13 @@ async function runMinimalHandoffStress(root) {
       name: 'codexpro',
       arguments: { action: 'agent_handoff', args: { title: 'Stress Plan', plan: '- keep it narrow' } }
     });
-    assert(handoff.structuredContent.codexpro_tool === 'handoff_to_agent' && handoff.structuredContent.wrapped_tool === 'handoff_to_agent', 'minimal handoff supertool did not write plan');
+    assert(
+      handoff.structuredContent.codexpro_tool === 'handoff_to_agent' &&
+      handoff.structuredContent.wrapped_tool === 'handoff_to_agent' &&
+      handoff.structuredContent.ok === true &&
+      handoff.structuredContent.data.agent === 'custom',
+      'minimal handoff supertool did not preserve the nested agent result'
+    );
     const blockedWrite = await client.request('tools/call', {
       name: 'codexpro',
       arguments: { action: 'write', args: { path: 'demo.txt', content: 'bypass\n' } }

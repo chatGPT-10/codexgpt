@@ -452,6 +452,8 @@ export const toolCardWidgetHtml = String.raw`
       server_config: "Server config",
       codexpro_self_test: "Self-test",
       codexpro_inventory: "Inventory",
+      codex_sessions: "Codex sessions",
+      read_codex_session: "Codex transcript",
       load_skill: "Skill",
       list_workspaces: "Workspaces",
       open_current_workspace: "Workspace",
@@ -466,6 +468,7 @@ export const toolCardWidgetHtml = String.raw`
       git_diff: "Git Diff",
       show_changes: "Change review",
       read_handoff: "Handoff context",
+      wait_for_handoff: "Handoff wait",
       codex_context: "Codex context",
       export_pro_context: "Pro context",
       handoff_to_agent: "Agent handoff",
@@ -481,6 +484,8 @@ export const toolCardWidgetHtml = String.raw`
     if (tool === "server_config") return "S";
     if (tool === "codexpro_self_test") return "T";
     if (tool === "codexpro_inventory") return "I";
+    if (tool === "codex_sessions") return "C";
+    if (tool === "read_codex_session") return "R";
     if (tool === "load_skill") return "L";
     if (tool === "list_workspaces") return "W";
     if (tool === "open_current_workspace" || tool === "open_workspace") return "W";
@@ -493,6 +498,7 @@ export const toolCardWidgetHtml = String.raw`
     if (tool === "git_status" || tool === "git_diff") return "G";
     if (tool === "show_changes") return "D";
     if (tool === "read_handoff") return "H";
+    if (tool === "wait_for_handoff") return "H";
     if (tool === "codex_context") return "C";
     if (tool === "export_pro_context") return "P";
     if (tool === "handoff_to_agent") return "A";
@@ -529,6 +535,88 @@ export const toolCardWidgetHtml = String.raw`
     return nested ? data.data : (data ?? {});
   }
 
+  function selfTestResultData(data) {
+    const nested =
+      data?.codexpro_tool === "codexpro_self_test" &&
+      data?.ok === true &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : {};
+  }
+
+  function inventoryResultData(data) {
+    const nested =
+      data?.codexpro_tool === "codexpro_inventory" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : (data ?? {});
+  }
+
+  function loadSkillResultData(data) {
+    const nested =
+      data?.codexpro_tool === "load_skill" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : (data ?? {});
+  }
+
+  function codexSessionsResultData(data) {
+    const nested =
+      data?.codexpro_tool === "codex_sessions" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : {};
+  }
+
+  function readCodexSessionResultData(data) {
+    const nested =
+      data?.codexpro_tool === "read_codex_session" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : {};
+  }
+
+  function readHandoffResultData(data) {
+    const nested =
+      data?.codexpro_tool === "read_handoff" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : (data ?? {});
+  }
+
+  function waitForHandoffResultData(data) {
+    const nested =
+      data?.codexpro_tool === "wait_for_handoff" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : (data ?? {});
+  }
+
+  function codexContextResultData(data) {
+    const nested =
+      data?.codexpro_tool === "codex_context" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : (data ?? {});
+  }
+
+  function exportProContextResultData(data) {
+    const nested =
+      data?.codexpro_tool === "export_pro_context" &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : (data ?? {});
+  }
+
+  function handoffToAgentResultData(data) {
+    const nested =
+      (data?.codexpro_tool === "handoff_to_agent" ||
+        data?.codexpro_tool === "handoff_to_codex") &&
+      data?.data &&
+      typeof data.data === "object";
+    return nested ? data.data : {};
+  }
+
   function subtitleFor(data) {
     if (data?.codexpro_tool === "open_current_workspace" || data?.codexpro_tool === "open_workspace") {
       if (data?.ok === false) return data?.error?.code || "Workspace unavailable";
@@ -543,8 +631,29 @@ export const toolCardWidgetHtml = String.raw`
       if (!count && !review.changed) return "Workspace is clean";
       return count === 1 ? "1 changed file" : count + " changed files";
     }
-    if (data?.codexpro_tool === "codexpro_self_test") return data?.status ? "Status " + data.status : "Local diagnostic";
-    if (data?.codexpro_tool === "codexpro_inventory") return (data?.skill_count ?? 0) + " skills, " + (data?.mcp_server_count ?? 0) + " MCP servers";
+    if (data?.codexpro_tool === "codexpro_self_test") {
+      if (data?.ok === false) return data?.error?.code || "Self-test unavailable";
+      const selfTest = selfTestResultData(data);
+      return selfTest.status ? "Status " + selfTest.status : "Local diagnostic";
+    }
+    if (data?.codexpro_tool === "codexpro_inventory") {
+      if (data?.ok === false) return data?.error?.code || "Inventory unavailable";
+      const inventory = inventoryResultData(data);
+      const limited = inventory.skills_truncated || inventory.mcp_servers_truncated ? " (limited)" : "";
+      return (inventory.skill_count ?? 0) + " skills, " + (inventory.mcp_server_count ?? 0) + " MCP servers" + limited;
+    }
+    if (data?.codexpro_tool === "codex_sessions") {
+      if (data?.ok === false) return data?.error?.code || "Session index unavailable";
+      const sessions = codexSessionsResultData(data);
+      const limited = sessions.output_limited ? " (limited)" : "";
+      return (sessions.session_count ?? 0) + " of " + (sessions.total_found ?? 0) + " matching sessions" + limited;
+    }
+    if (data?.codexpro_tool === "read_codex_session") {
+      if (data?.ok === false) return data?.error?.code || "Transcript unavailable";
+      const transcript = readCodexSessionResultData(data);
+      const limited = transcript.output_limited ? " (limited)" : "";
+      return (transcript.message_count ?? 0) + " transcript messages" + limited;
+    }
     if (data?.codexpro_tool === "list_workspaces") {
       if (data?.ok === false) return data?.error?.code || "Workspace list unavailable";
       const listed = listWorkspacesResultData(data);
@@ -587,10 +696,39 @@ export const toolCardWidgetHtml = String.raw`
         : 0;
       return count ? count + " changed entries" : "Working tree clean";
     }
-    if (data?.codexpro_tool === "codex_context") return (data?.agents_files?.length ?? 0) + " AGENTS, " + (data?.ai_context_files?.length ?? 0) + " bridge files";
-    if (data?.codexpro_tool === "read_handoff") return (data?.file_count ?? 0) + " bridge files";
-    if (data?.codexpro_tool === "load_skill" && data?.skill?.name) return data.skill.name;
-    if (data?.codexpro_tool === "handoff_to_agent" && data?.agent_name) return data.agent_name;
+    if (data?.codexpro_tool === "codex_context") {
+      if (data?.ok === false) return data?.error?.code || "Codex context unavailable";
+      const context = codexContextResultData(data);
+      return (context?.agents_files?.length ?? 0) + " AGENTS, " + (context?.ai_context_files?.length ?? 0) + " bridge files";
+    }
+    if (data?.codexpro_tool === "export_pro_context") {
+      if (data?.ok === false) return data?.error?.code || "Pro context export unavailable";
+      const context = exportProContextResultData(data);
+      return (context?.file_count ?? context?.files_included?.length ?? 0) +
+        " files exported to " + (context?.path || "context bundle");
+    }
+    if (data?.codexpro_tool === "read_handoff") {
+      if (data?.ok === false) return data?.error?.code || "Handoff unavailable";
+      const handoff = readHandoffResultData(data);
+      return (handoff?.file_count ?? handoff?.files?.length ?? 0) + " bridge files";
+    }
+    if (data?.codexpro_tool === "wait_for_handoff") {
+      if (data?.ok === false) return data?.error?.code || "Handoff wait unavailable";
+      const wait = waitForHandoffResultData(data);
+      return wait.awaited_terminal
+        ? "Terminal run " + (wait.state || "ready")
+        : "Waiting: " + (wait.state || "unknown");
+    }
+    if (data?.codexpro_tool === "load_skill") {
+      if (data?.ok === false) return data?.error?.code || "Skill unavailable";
+      const skillData = loadSkillResultData(data);
+      return skillData?.skill?.name || "Skill instructions";
+    }
+    if (data?.codexpro_tool === "handoff_to_agent" || data?.codexpro_tool === "handoff_to_codex") {
+      if (data?.ok === false) return data?.error?.code || "Handoff unavailable";
+      const handoff = handoffToAgentResultData(data);
+      return handoff.agent_name || handoff.plan_path || "Handoff";
+    }
     if (data?.path) return data.path;
     if (data?.plan_path) return data.plan_path;
     if (data?.root) return data.root;
@@ -981,21 +1119,43 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderHandoff(data) {
+    const handoff = handoffToAgentResultData(data);
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Agent handoff unavailable.") +
+        '</div></div></article>';
+    }
     const pills = [
-      data.agent_name ? pill(data.agent_name, "info") : "",
-      data.model ? pill(data.model) : "",
-      data.additions !== undefined ? pill("+" + data.additions, "good") : "",
-      data.deletions !== undefined ? pill("-" + data.deletions, "bad") : ""
+      handoff.agent_name ? pill(handoff.agent_name, "info") : "",
+      handoff.model ? pill(handoff.model) : "",
+      handoff.append_requested ? pill(handoff.append_applied ? "appended" : "new plan", handoff.append_applied ? "good" : "warn") : "",
+      handoff.additions !== undefined ? pill("+" + handoff.additions, "good") : "",
+      handoff.deletions !== undefined ? pill("-" + handoff.deletions, "bad") : ""
     ].join("");
     const rows = [
-      data.plan_path ? '<div class="file-row"><span class="file-code">plan</span><span class="file-name">' + esc(data.plan_path) + '</span></div>' : "",
-      data.status_path ? '<div class="file-row"><span class="file-code">status</span><span class="file-name">' + esc(data.status_path) + '</span></div>' : "",
-      data.diff_path ? '<div class="file-row"><span class="file-code">diff</span><span class="file-name">' + esc(data.diff_path) + '</span></div>' : ""
+      handoff.plan_path ? '<div class="file-row"><span class="file-code">plan</span><span class="file-name">' + esc(handoff.plan_path) + '</span></div>' : "",
+      handoff.status_path ? '<div class="file-row"><span class="file-code">status</span><span class="file-name">' + esc(handoff.status_path) + '</span></div>' : "",
+      handoff.diff_path ? '<div class="file-row"><span class="file-code">diff</span><span class="file-name">' + esc(handoff.diff_path) + '</span></div>' : "",
+      handoff.log_path ? '<div class="file-row"><span class="file-code">log</span><span class="file-name">' + esc(handoff.log_path) + '</span></div>' : "",
+      handoff.execution_log_path ? '<div class="file-row"><span class="file-code">exec</span><span class="file-name">' + esc(handoff.execution_log_path) + '</span></div>' : ""
     ].join("");
-    const diff = data.diff ? codebox("plan file diff", renderDiff(data.diff), "") : "";
+    const prompt = handoff.prompt
+      ? codebox("agent prompt", esc(truncate(handoff.prompt, 4000)), "terminal")
+      : "";
+    const diff = handoff.diff
+      ? codebox("plan file diff", renderDiff(truncate(handoff.diff, 9000)), "")
+      : "";
     return '<article class="card">' + header(data, pills) + '<div class="body">' +
+      (handoff.plan_sha256 ? '<div class="summary">' +
+        summaryItem("Plan hash", String(handoff.plan_sha256).slice(0, 12)) +
+        summaryItem("Bytes", handoff.plan_bytes ?? "-") +
+        summaryItem("Logged", handoff.logged_count ?? "-") +
+        '</div>' : "") +
       '<div class="file-list">' + rows + '</div>' +
-      diff +
+      prompt + diff +
       '</div></article>';
   }
 
@@ -1064,53 +1224,204 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderSelfTest(data) {
-    const checks = Array.isArray(data.checks) ? data.checks : [];
-    const status = String(data.status || "unknown");
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Self-test unavailable.") +
+        '</div></div></article>';
+    }
+
+    const selfTest = selfTestResultData(data);
+    const checks = Array.isArray(selfTest.checks) ? selfTest.checks : [];
+    const counts = selfTest.counts ?? {};
+    const status = String(selfTest.status || "unknown");
+    const expectedTools = Array.isArray(selfTest.expected_tools) ? selfTest.expected_tools : [];
+    const missingTools = Array.isArray(selfTest.missing_tools) ? selfTest.missing_tools : [];
+    const unexpectedTools = Array.isArray(selfTest.unexpected_tools) ? selfTest.unexpected_tools : [];
     const pills = [
       pill(status, status === "pass" ? "good" : status === "fail" ? "bad" : "warn"),
-      pill((data.expected_tool_count ?? "-") + " tools", "info"),
-      pill((data.duration_ms ?? "-") + " ms")
+      pill(expectedTools.length + " tools", "info"),
+      pill((data?.meta?.durationMs ?? "-") + " ms")
     ].join("");
-    const rows = checks.slice(0, 16).map((check) => {
+    const rows = checks.slice(0, 12).map((check) => {
       const state = String(check?.status || "?").toUpperCase();
       const cls = check?.status === "pass" ? "good" : check?.status === "fail" ? "bad" : "warn";
-      return '<div class="file-row"><span class="file-code ' + esc(cls) + '">' + esc(state) + '</span><span class="file-name">' + esc((check?.name || "check") + ": " + (check?.detail || "")) + '</span></div>';
+      const label = (check?.name || "check") + " [" + (check?.code || "-") + "]: " + (check?.message || "");
+      return '<div class="file-row"><span class="file-code ' + esc(cls) + '">' + esc(state) + '</span><span class="file-name">' + esc(label) + '</span></div>';
     }).join("");
-    const terms = data.terms_boundary
-      ? '<div class="file-list">' +
-          '<div class="file-row"><span class="file-code">tos</span><span class="file-name">local repo bridge only; no model access, quota, resale, or bypass behavior</span></div>' +
-        '</div>'
+    const mismatch = [
+      missingTools.length ? fold("Missing tools", missingTools.length + " tools", codebox("missing", esc(missingTools.join("\\n")), ""), false) : "",
+      unexpectedTools.length ? fold("Unexpected tools", unexpectedTools.length + " tools", codebox("unexpected", esc(unexpectedTools.join("\\n")), ""), false) : ""
+    ].join("");
+    const artifact = selfTest.probe_artifact
+      ? '<div class="file-list"><div class="file-row"><span class="file-code">probe</span><span class="file-name">' + esc(selfTest.probe_artifact) + '</span></div></div>'
       : "";
     return '<article class="card">' + header(data, pills) + '<div class="body">' +
       '<div class="summary">' +
-      summaryItem("Passed", data.passed ?? 0) +
-      summaryItem("Warned", data.warned ?? 0) +
-      summaryItem("Failed", data.failed ?? 0) +
+      summaryItem("Passed", counts.passed ?? 0) +
+      summaryItem("Warned", counts.warned ?? 0) +
+      summaryItem("Failed", counts.failed ?? 0) +
+      summaryItem("Skipped", counts.skipped ?? 0) +
       '</div>' +
       '<div class="file-list">' + (rows || '<div class="empty">No checks returned.</div>') + '</div>' +
-      fold("Terms boundary", "", terms, false) +
-      fold("Expected tools", Array.isArray(data.expected_tools) ? data.expected_tools.length + " tools" : "", codebox("tools", esc((data.expected_tools || []).join("\\n")), ""), false) +
+      mismatch + artifact +
+      fold("Expected tools", expectedTools.length + " tools", codebox("tools", esc(expectedTools.join("\\n")), ""), false) +
       '</div></article>';
   }
 
   function renderInventory(data) {
-    const skills = Array.isArray(data.skills) ? data.skills : [];
-    const servers = Array.isArray(data.mcp_servers) ? data.mcp_servers : [];
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Inventory unavailable.") +
+        '</div></div></article>';
+    }
+
+    const inventory = inventoryResultData(data);
+    const skills = Array.isArray(inventory.skills) ? inventory.skills : [];
+    const servers = Array.isArray(inventory.mcp_servers) ? inventory.mcp_servers : [];
+    const limited = inventory.skills_truncated || inventory.mcp_servers_truncated;
     const skillRows = skills.slice(0, 18).map((skill) =>
       '<div class="file-row"><span class="file-code">' + esc(shortSource(skill?.source)) + '</span><span class="file-name">' + esc((skill?.name || "skill") + (skill?.description ? " — " + skill.description : "")) + '</span></div>'
     ).join("");
     const serverRows = servers.slice(0, 18).map((server) =>
       '<div class="file-row"><span class="file-code">mcp</span><span class="file-name">' + esc((server?.name || "server") + (server?.source ? " — " + server.source : "")) + '</span></div>'
     ).join("");
-    return '<article class="card">' + header(data, pill((data.skill_count ?? skills.length) + " skills", "info") + pill((data.mcp_server_count ?? servers.length) + " MCP")) +
+    return '<article class="card">' + header(data, pill((inventory.skill_count ?? skills.length) + " skills", "info") + pill((inventory.mcp_server_count ?? servers.length) + " MCP") + (limited ? pill("limited", "warn") : "")) +
       '<div class="body">' +
       '<div class="summary">' +
-      summaryItem("Write", data.write_mode || "-") +
-      summaryItem("Bash", data.bash_mode || "-") +
-      summaryItem("Tools", data.tool_mode || "-") +
+      summaryItem("Write", inventory.write_mode || "-") +
+      summaryItem("Bash", inventory.bash_mode || "-") +
+      summaryItem("Tools", inventory.tool_mode || "-") +
       '</div>' +
-      fold("Skills", (data.skill_count ?? skills.length) + " found", '<div class="file-list">' + (skillRows || '<div class="empty">No skills discovered.</div>') + '</div>', false) +
-      fold("MCP servers", (data.mcp_server_count ?? servers.length) + " found", '<div class="file-list">' + (serverRows || '<div class="empty">No MCP server names discovered.</div>') + '</div>', false) +
+      fold("Skills", (inventory.skill_count ?? skills.length) + (inventory.skills_truncated ? " returned, limited" : " found"), '<div class="file-list">' + (skillRows || '<div class="empty">No skills discovered.</div>') + '</div>', false) +
+      fold("MCP servers", (inventory.mcp_server_count ?? servers.length) + (inventory.mcp_servers_truncated ? " returned, limited" : " found"), '<div class="file-list">' + (serverRows || '<div class="empty">No MCP server names discovered.</div>') + '</div>', false) +
+      '</div></article>';
+  }
+
+  function renderCodexSessions(data) {
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Session index unavailable.") +
+        '</div></div></article>';
+    }
+
+    const index = codexSessionsResultData(data);
+    const sessions = Array.isArray(index.sessions) ? index.sessions : [];
+    const rows = sessions.slice(0, 12).map((session) => {
+      const id = truncate(session?.session_id || "session", 48);
+      const title = truncate(session?.title || "(untitled)", 140);
+      const project = truncate(session?.project_dir || "cwd unknown", 180);
+      const resume = truncate(session?.resume_command || "", 96);
+      const detail = title + " — " + project + (resume ? " — " + resume : "");
+      return '<div class="file-row"><span class="file-code">' +
+        esc(session?.storage === "archived" ? "arc" : "run") +
+        '</span><span class="file-name" title="' + esc(id) + '">' +
+        esc(detail) + '</span></div>';
+    }).join("");
+    const limited = index.output_limited === true;
+    const pills = [
+      pill((index.session_count ?? sessions.length) + " returned", "info"),
+      pill((index.total_found ?? 0) + " matched"),
+      limited ? pill("limited", "warn") : pill("complete", "good")
+    ].join("");
+
+    return '<article class="card">' + header(data, pills) +
+      '<div class="body">' +
+      '<div class="summary">' +
+      summaryItem("Scanned", index.scanned_file_count ?? 0) +
+      summaryItem("Indexed", index.indexed_session_count ?? 0) +
+      summaryItem("Excluded", index.excluded_file_count ?? 0) +
+      '</div>' +
+      '<div class="file-list">' +
+      (rows || '<div class="empty">No matching Codex sessions.</div>') +
+      '</div>' +
+      (sessions.length > 12
+        ? '<div class="empty">' + esc(sessions.length - 12) + ' more sessions remain in structured data.</div>'
+        : "") +
+      '</div></article>';
+  }
+
+  function renderReadCodexSession(data) {
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Transcript unavailable.") +
+        '</div></div></article>';
+    }
+
+    const transcript = readCodexSessionResultData(data);
+    const session = transcript.session ?? {};
+    const messages = Array.isArray(transcript.messages) ? transcript.messages : [];
+    const previews = messages.slice(0, 8).map((message) => {
+      const label = (message?.ordinal ?? "-") + ". " +
+        (message?.role || "unknown") + " / " +
+        (message?.kind || "message");
+      const content = truncate(message?.content || "", 600);
+      return codebox(label, esc(content), message?.truncated ? "warn" : "");
+    }).join("");
+    const limited = transcript.output_limited === true;
+    const pills = [
+      pill((transcript.message_count ?? messages.length) + " messages", "info"),
+      pill((transcript.content_bytes ?? 0) + " bytes"),
+      limited ? pill("limited", "warn") : pill("complete", "good")
+    ].join("");
+
+    return '<article class="card">' + header(data, pills) +
+      '<div class="body">' +
+      '<div class="summary">' +
+      summaryItem("Session", truncate(session.session_id || "-", 48)) +
+      summaryItem("Title", truncate(session.title || "(untitled)", 100)) +
+      summaryItem("Selection", transcript.selection || "-") +
+      '</div>' +
+      (previews || '<div class="empty">No readable transcript messages.</div>') +
+      (messages.length > 8
+        ? '<div class="empty">' + esc(messages.length - 8) + ' more messages remain in structured data.</div>'
+        : "") +
+      '</div></article>';
+  }
+
+  function renderLoadSkill(data) {
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Skill unavailable.") +
+        '</div></div></article>';
+    }
+
+    const skillData = loadSkillResultData(data);
+    const skill = skillData?.skill ?? {};
+    const pills = [
+      pill(shortSource(skill.source), "info"),
+      pill((skillData.returned_bytes ?? 0) + " returned bytes"),
+      skillData.truncated ? pill("partial", "warn") : pill("complete", "good"),
+      skillData.redacted ? pill("redacted", "warn") : ""
+    ].join("");
+
+    return '<article class="card">' +
+      header(data, pills) +
+      '<div class="body">' +
+      '<div class="metrics">' +
+      metric("skill", skill.name || "-") +
+      metric("source", skill.source || "-") +
+      metric("path", skill.path || "-") +
+      '</div>' +
+      codebox(
+        "SKILL.md",
+        esc(previewLines(skillData.text, 80)),
+        ""
+      ) +
       '</div></article>';
   }
 
@@ -1228,6 +1539,224 @@ export const toolCardWidgetHtml = String.raw`
       '</div></article>';
   }
 
+  function renderReadHandoff(data) {
+    const handoff = readHandoffResultData(data);
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Handoff context unavailable.") +
+        '</div></div></article>';
+    }
+
+    const artifacts = Array.isArray(handoff.artifacts) ? handoff.artifacts : [];
+    const unavailable = Array.isArray(handoff.unavailable) ? handoff.unavailable : [];
+    const legacyFiles = !artifacts.length && Array.isArray(handoff.files) ? handoff.files : [];
+    const readableCount = handoff.file_count ?? (artifacts.length || legacyFiles.length);
+    const pills = [
+      pill(readableCount + " readable", "info"),
+      unavailable.length ? pill(unavailable.length + " unavailable", "warn") : pill("complete", "good"),
+      handoff.output_limited ? pill("limited", "warn") : "",
+      handoff.redacted ? pill("redacted", "warn") : ""
+    ].join("");
+    const unavailableRows = unavailable.map((item) =>
+      '<div class="file-row"><span class="file-code">' + esc(item?.reason || "unavailable") + '</span><span class="file-name">' + esc(item?.path || "artifact") + '</span></div>'
+    ).join("");
+    const legacyRows = legacyFiles.map((file) =>
+      '<div class="file-row"><span class="file-code">file</span><span class="file-name">' + esc(file) + '</span></div>'
+    ).join("");
+    const artifactSections = artifacts.map((artifact) =>
+      fold(
+        artifact?.path || artifact?.kind || "artifact",
+        (artifact?.line_count ?? countLines(artifact?.text)) + " lines",
+        codebox(
+          artifact?.kind || "handoff",
+          esc(truncate(previewLines(artifact.text, 20), 4000)),
+          ""
+        ),
+        false
+      )
+    ).join("");
+    const legacyPreview = !artifacts.length && handoff.preview
+      ? fold("Handoff", countLines(handoff.preview) + " lines", codebox("handoff", esc(truncate(previewLines(handoff.preview, 20), 4000)), ""), false)
+      : "";
+    const empty = !artifacts.length && !legacyFiles.length
+      ? '<div class="empty">' + esc(handoff.context_exists === false ? "No handoff context exists yet." : "No readable handoff artifacts.") + '</div>'
+      : "";
+
+    return '<article class="card">' + header(data, pills) + '<div class="body">' +
+      '<div class="summary">' +
+      summaryItem("Readable", readableCount) +
+      summaryItem("Unavailable", handoff.unavailable_count ?? unavailable.length) +
+      summaryItem("Bytes", (handoff.loaded_bytes ?? 0) + "/" + (handoff.max_total_bytes ?? "-")) +
+      '</div>' +
+      (unavailableRows ? '<div class="section-label">Unavailable</div><div class="file-list">' + unavailableRows + '</div>' : "") +
+      (legacyRows ? '<div class="file-list">' + legacyRows + '</div>' : "") +
+      artifactSections + legacyPreview + empty +
+      '</div></article>';
+  }
+
+  function renderWaitForHandoff(data) {
+    const wait = waitForHandoffResultData(data);
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Handoff wait unavailable.") +
+        '</div></div></article>';
+    }
+
+    const nestedArtifacts = Array.isArray(wait.artifacts) ? wait.artifacts : [];
+    const legacyArtifacts = nestedArtifacts.length ? [] : [
+      wait.status_excerpt ? { path: wait.status_file || "agent-status.md", kind: "status", text: wait.status_excerpt } : null,
+      wait.diff_excerpt ? { path: wait.diff_file || "implementation-diff.patch", kind: "diff", text: wait.diff_excerpt } : null,
+      wait.log_excerpt ? { path: wait.log_file || "execution-log.jsonl", kind: "log", text: wait.log_excerpt } : null,
+      wait.tests_excerpt ? { path: wait.tests_file || "loop-tests.txt", kind: "tests", text: wait.tests_excerpt } : null
+    ].filter(Boolean);
+    const artifacts = nestedArtifacts.length ? nestedArtifacts : legacyArtifacts;
+    const unavailable = Array.isArray(wait.unavailable) ? wait.unavailable : [];
+    const state = wait.state || wait.run_state || "unknown";
+    const terminal = wait.awaited_terminal === true;
+    const pills = [
+      pill(state, terminal ? (wait.succeeded ? "good" : "warn") : "info"),
+      terminal ? pill("terminal", "good") : pill("deadline", "warn"),
+      wait.output_limited ? pill("limited", "warn") : "",
+      wait.redacted ? pill("redacted", "warn") : ""
+    ].join("");
+    const unavailableRows = unavailable.map((item) =>
+      '<div class="file-row"><span class="file-code">' + esc(item?.reason || "unavailable") + '</span><span class="file-name">' + esc(item?.path || "artifact") + '</span></div>'
+    ).join("");
+    const artifactSections = artifacts.map((artifact) =>
+      fold(
+        artifact?.path || artifact?.kind || "artifact",
+        (artifact?.line_count ?? countLines(artifact?.text)) + " lines",
+        codebox(
+          artifact?.kind || "handoff",
+          esc(truncate(previewLines(artifact.text, 20), 4000)),
+          ""
+        ),
+        false
+      )
+    ).join("");
+    const empty = !artifacts.length
+      ? '<div class="empty">' + esc(terminal ? "No readable handoff result artifacts." : "No matching terminal result yet.") + '</div>'
+      : "";
+
+    return '<article class="card">' + header(data, pills) + '<div class="body">' +
+      '<div class="summary">' +
+      summaryItem("State", state) +
+      summaryItem("Iteration", wait.run?.iteration ?? wait.iteration ?? "-") +
+      summaryItem("Bytes", (wait.returned_bytes ?? 0) + "/" + (wait.max_total_bytes ?? "-")) +
+      '</div>' +
+      (unavailableRows ? '<div class="section-label">Unavailable</div><div class="file-list">' + unavailableRows + '</div>' : "") +
+      artifactSections + empty +
+      '</div></article>';
+  }
+
+  function renderCodexContext(data) {
+    const context = codexContextResultData(data);
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Codex context unavailable.") +
+        '</div></div></article>';
+    }
+
+    const agents = Array.isArray(context.agents_files) ? context.agents_files : [];
+    const bridge = Array.isArray(context.ai_context_files) ? context.ai_context_files : [];
+    const unavailable = Array.isArray(context.unavailable_sources) ? context.unavailable_sources : [];
+    const preview = typeof context.preview === "string" ? context.preview : "";
+    const pills = [
+      pill(agents.length + " AGENTS", "info"),
+      pill(bridge.length + " bridge"),
+      unavailable.length ? pill(unavailable.length + " unavailable", "warn") : pill("sources ready", "good"),
+      context.output_limited ? pill("limited", "warn") : "",
+      context.redacted ? pill("redacted", "warn") : ""
+    ].join("");
+    const agentRows = agents.slice(0, 14).map((file) =>
+      '<div class="file-row"><span class="file-code">agent</span><span class="file-name">' + esc(file) + '</span></div>'
+    ).join("");
+    const bridgeRows = bridge.slice(0, 14).map((file) =>
+      '<div class="file-row"><span class="file-code">bridge</span><span class="file-name">' + esc(file) + '</span></div>'
+    ).join("");
+    const unavailableRows = unavailable.slice(0, 20).map((item) =>
+      '<div class="file-row"><span class="file-code">' + esc(item?.reason || "unavailable") + '</span><span class="file-name">' + esc(item?.path || "source") + '</span></div>'
+    ).join("");
+
+    return '<article class="card">' + header(data, pills) + '<div class="body">' +
+      '<div class="summary">' +
+      summaryItem("Target", context.target_path || ".") +
+      summaryItem("Kind", context.target_kind || "-") +
+      summaryItem("Bytes", (context.context_bytes ?? "-") + "/" + (context.max_total_bytes ?? "-")) +
+      '</div>' +
+      (agentRows ? '<div class="section-label">AGENTS chain</div><div class="file-list">' + agentRows + '</div>' : "") +
+      (bridgeRows ? '<div class="section-label">AI bridge</div><div class="file-list">' + bridgeRows + '</div>' : "") +
+      (unavailableRows ? '<div class="section-label">Unavailable</div><div class="file-list">' + unavailableRows + '</div>' : "") +
+      (!agentRows && !bridgeRows && !unavailableRows ? '<div class="empty">No context source files were listed.</div>' : "") +
+      fold("Context preview", countLines(preview) + " lines", codebox("context", esc(truncate(previewLines(preview, 40), 9000)), ""), false) +
+      '</div></article>';
+  }
+
+  function renderExportProContext(data) {
+    const context = exportProContextResultData(data);
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "Pro context export unavailable.") +
+        '</div></div></article>';
+    }
+
+    const included = Array.isArray(context.files_included) ? context.files_included : [];
+    const skipped = Array.isArray(context.files_skipped) ? context.files_skipped : [];
+    const created = Array.isArray(context.created_context_files) ? context.created_context_files : [];
+    const bridge = Array.isArray(context.ai_context_files) ? context.ai_context_files : [];
+    const unavailable = Array.isArray(context.ai_context_unavailable) ? context.ai_context_unavailable : [];
+    const pills = [
+      pill(included.length + " included", "info"),
+      skipped.length ? pill(skipped.length + " skipped", "warn") : pill("no skips", "good"),
+      context.existed ? pill("replaced") : pill("created", "good"),
+      context.output_limited ? pill("limited", "warn") : "",
+      context.redacted ? pill("redacted", "warn") : ""
+    ].join("");
+    const includedRows = included.slice(0, 14).map((file) =>
+      '<div class="file-row"><span class="file-code">file</span><span class="file-name">' + esc(file) + '</span></div>'
+    ).join("");
+    const skippedRows = skipped.slice(0, 20).map((item) =>
+      '<div class="file-row"><span class="file-code">' + esc(item?.reason || "skipped") + '</span><span class="file-name">' + esc(item?.path || "candidate") + '</span></div>'
+    ).join("");
+    const createdRows = created.slice(0, 14).map((file) =>
+      '<div class="file-row"><span class="file-code">created</span><span class="file-name">' + esc(file) + '</span></div>'
+    ).join("");
+    const bridgeRows = bridge.slice(0, 14).map((file) =>
+      '<div class="file-row"><span class="file-code">bridge</span><span class="file-name">' + esc(file) + '</span></div>'
+    ).join("");
+    const unavailableRows = unavailable.slice(0, 20).map((file) =>
+      '<div class="file-row"><span class="file-code">unavailable</span><span class="file-name">' + esc(file) + '</span></div>'
+    ).join("");
+
+    return '<article class="card">' + header(data, pills) + '<div class="body">' +
+      '<div class="summary">' +
+      summaryItem("Path", context.path || "-") +
+      summaryItem("Bytes", (context.bytes ?? "-") + "/" + (context.max_total_bytes ?? "-")) +
+      summaryItem("SHA-256", context.sha256 ? String(context.sha256).slice(0, 12) : "-") +
+      '</div>' +
+      (includedRows ? '<div class="section-label">Included files</div><div class="file-list">' + includedRows + '</div>' : "") +
+      (skippedRows ? '<div class="section-label">Skipped candidates</div><div class="file-list">' + skippedRows + '</div>' : "") +
+      (bridgeRows ? '<div class="section-label">AI bridge</div><div class="file-list">' + bridgeRows + '</div>' : "") +
+      (unavailableRows ? '<div class="section-label">Unavailable AI bridge</div><div class="file-list">' + unavailableRows + '</div>' : "") +
+      (createdRows ? '<div class="section-label">Created scaffold</div><div class="file-list">' + createdRows + '</div>' : "") +
+      (!includedRows && !skippedRows && !bridgeRows && !unavailableRows && !createdRows
+        ? '<div class="empty">No export details were listed.</div>'
+        : "") +
+      '</div></article>';
+  }
+
   function renderTree(data) {
     const tree = data?.data ?? {};
     const error = data?.error ?? {};
@@ -1296,6 +1825,31 @@ export const toolCardWidgetHtml = String.raw`
       '</div></article>';
   }
 
+  function renderCodexPro(data) {
+    const result = data?.data ?? {};
+    const error = data?.error ?? {};
+    if (data?.ok === false) {
+      return '<article class="card">' +
+        header(data, pill(error.code || "error", "bad")) +
+        '<div class="body"><div class="empty">' +
+        esc(error.message || "CodexPro action unavailable.") +
+        '</div></div></article>';
+    }
+
+    const actions = Array.isArray(result.actions)
+      ? result.actions.filter((action) => typeof action === "string").slice(0, 40)
+      : [];
+    const actionCount = Number.isFinite(result.action_count)
+      ? result.action_count
+      : actions.length;
+    return '<article class="card">' +
+      header(data, pill(actionCount + " actions", "info")) +
+      '<div class="body">' +
+      '<div class="metrics">' + metric("action_count", actionCount) + '</div>' +
+      codebox("available actions", esc(actions.join("\n")), "") +
+      '</div></article>';
+  }
+
   function renderGeneric(data) {
     const keys = Object.keys(data || {}).filter((key) => !key.startsWith("codexpro_"));
     const metrics = keys.slice(0, 3).map((key) => metric(key, typeof data[key] === "object" ? JSON.stringify(data[key]) : data[key])).join("");
@@ -1331,12 +1885,20 @@ export const toolCardWidgetHtml = String.raw`
       return;
     }
     const tool = data.codexpro_tool;
-    if (tool === "server_config") {
+    if (data?.codexpro_tool === "codexpro") {
+      root.innerHTML = renderCodexPro(data);
+    } else if (tool === "server_config") {
       root.innerHTML = renderServerConfig(data);
     } else if (tool === "codexpro_self_test") {
       root.innerHTML = renderSelfTest(data);
     } else if (tool === "codexpro_inventory") {
       root.innerHTML = renderInventory(data);
+    } else if (tool === "codex_sessions") {
+      root.innerHTML = renderCodexSessions(data);
+    } else if (tool === "read_codex_session") {
+      root.innerHTML = renderReadCodexSession(data);
+    } else if (tool === "load_skill") {
+      root.innerHTML = renderLoadSkill(data);
     } else if (tool === "list_workspaces") {
       root.innerHTML = renderWorkspaces(data);
     } else if (tool === "open_current_workspace" || tool === "open_workspace" || tool === "workspace_snapshot") {
@@ -1352,7 +1914,9 @@ export const toolCardWidgetHtml = String.raw`
     } else if (tool === "show_changes") {
       const review = data?.data ?? {};
       root.innerHTML = review.analysis ? renderChangeAnalysis(data) : renderChanges(data);
-    } else if (tool === "handoff_to_agent" || tool === "handoff_to_codex") {
+    } else if (tool === "handoff_to_agent") {
+      root.innerHTML = renderHandoff(data);
+    } else if (tool === "handoff_to_codex") {
       root.innerHTML = renderHandoff(data);
     } else if (tool === "git_diff") {
       root.innerHTML = renderGitDiff(data);
@@ -1363,16 +1927,18 @@ export const toolCardWidgetHtml = String.raw`
     } else if (tool === "apply_patch") {
       root.innerHTML = renderApplyPatch(data);
     } else if (tool === "export_pro_context") {
-      root.innerHTML = renderFile(data);
+      root.innerHTML = renderExportProContext(data);
     } else if (tool === "bash") {
       root.innerHTML = renderBash(data);
     } else if (tool === "search") {
       const search = data?.data ?? {};
       root.innerHTML = search.analysis ? renderStructuredSearch(data) : renderSearch(data);
     } else if (tool === "read_handoff") {
-      root.innerHTML = renderTextSummary(data, "handoff");
+      root.innerHTML = renderReadHandoff(data);
+    } else if (tool === "wait_for_handoff") {
+      root.innerHTML = renderWaitForHandoff(data);
     } else if (tool === "codex_context") {
-      root.innerHTML = renderTextSummary(data, "context");
+      root.innerHTML = renderCodexContext(data);
     } else {
       root.innerHTML = renderGeneric(data);
     }

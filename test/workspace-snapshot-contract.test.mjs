@@ -600,7 +600,7 @@ test("codexpro workspace_snapshot action and snapshot alias preserve strict enve
         const structured = result.structuredContent;
         assert.equal(structured.codexpro_tool, "workspace_snapshot");
         assert.equal(structured.codexpro_title, "Workspace Snapshot");
-        assert.equal(structured.codexpro_super_action, "workspace_snapshot");
+        assert.equal(structured.codexpro_super_action, action);
         assert.equal(structured.wrapped_tool, "workspace_snapshot");
         assert.equal(structured.ok, true);
         assert.equal(structured.data.root, root);

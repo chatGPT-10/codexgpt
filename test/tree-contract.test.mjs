@@ -247,15 +247,16 @@ test("tree advertises the exact output schema and returns a valid real success e
     assert.ok(parsed.data);
     assert.equal(parsed.data.workspace_id.startsWith("ws_"), true);
     assert.equal(parsed.data.root, process.cwd());
-    assert.match(parsed.data.text, /tree\.ts/);
-    assert.ok(parsed.data.entries >= 1);
-    assert.equal(typeof parsed.data.truncated, "boolean");
+    assert.match(parsed.data.text, /handoffToAgent\.ts/);
+    assert.equal(parsed.data.entries, 20);
+    assert.equal(parsed.data.truncated, true);
+    assert.match(parsed.data.text, /\.\.\.\[tree truncated after 20 entries\]$/);
     assert.equal("workspace_id" in parsed, false);
     assert.equal("text" in parsed, false);
     assert.equal(parsed.meta.schemaVersion, 1);
     assert.ok(parsed.meta.durationMs >= 0);
     assert.deepEqual(parsed.meta.warnings, []);
-    assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("tree.ts")));
+    assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("handoffToAgent.ts")));
   });
 });
 

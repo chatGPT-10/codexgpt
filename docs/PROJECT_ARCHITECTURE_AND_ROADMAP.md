@@ -415,7 +415,7 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Status: implementation started on 2026-07-12. The first seven vertical slices, through direct `search`, are published and cross-platform CI-validated. Direct `search` is published in commit `02153a9`; CI run `29209071349` passed on Ubuntu/Windows with Node 20/24. No Phase 1 implementation task is active. Phase 2 has not started. Evidence is recorded in `docs/memory/archive/phase-1.md`.
+Historical-status note (2026-07-14): this document preserves the original audit baseline and first-seven-slice snapshot below. Active sequencing is superseded by `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`. The first sixteen Phase 1 slices, through direct `inspect_workspace`, are published and cross-platform exact-head CI-validated; Slices 17 `codexpro_inventory` through 28 `codexpro` are locally complete, post-result reviewed, per-tool `neat-freak` reconciled, and unpublished inside the unified batch. Phase 1 implementation is locally complete; unified stage/commit/push/exact-head-CI publication is next. Current evidence is indexed in `Memory.md`. Phase 2 has not started; Phase 2–5 are conditionally authorized only after Phase 1 publication and successful Policy Kernel design-gate acceptance.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
 - delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, `read`, direct `search`, `git_status`, direct `git_diff`, and direct `show_changes`, with real MCP success/failure contract tests;
@@ -430,6 +430,8 @@ Status: implementation started on 2026-07-12. The first seven vertical slices, t
 
 ### Phase 2 — Workspace lifecycle and isolation
 
+Historical outline only. The active route requires Phase 1 completion and unified publication, then successful acceptance of a design-only Policy Kernel gate. The 2026-07-13 recorded authorization then permits continuous Phase 2A–Phase 5 implementation without a repeated phase-entry approval pause; phase-specific quality and safety gates remain mandatory.
+
 - implement `workspaceKey` plus session-scoped `workspaceId`;
 - require explicit workspace IDs;
 - add close and expiry;
@@ -442,6 +444,7 @@ Status: implementation started on 2026-07-12. The first seven vertical slices, t
 - file hashes and expected-hash conflicts;
 - temporary writes, `fsync`, and atomic replacement;
 - multi-file transactions and rollback;
+- add `move_paths` only after Policy Kernel and workspace isolation: one-workspace/one-volume atomic batches, no overwrite, full preflight, source-hash verification, and partial-execution rollback;
 - change-set IDs and supported undo;
 - preserve encoding, BOM, newline, and permissions where possible;
 - add redacted local audit events.

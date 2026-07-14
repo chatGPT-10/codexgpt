@@ -893,7 +893,7 @@ test("codexpro show_changes action and changes alias preserve wrapper metadata a
         const structured = result.structuredContent;
 
         assert.equal(structured.codexpro_tool, "show_changes");
-        assert.equal(structured.codexpro_super_action, "show_changes");
+        assert.equal(structured.codexpro_super_action, action);
         assert.equal(structured.wrapped_tool, "show_changes");
         assert.equal(structured.ok, true);
         assert.equal(structured.error, null);

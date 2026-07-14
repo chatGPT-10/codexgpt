@@ -663,7 +663,7 @@ test("codexpro open alias preserves strict success and failure envelopes", async
 
       assert.equal(structured.codexpro_tool, "open_current_workspace");
       assert.equal(structured.codexpro_title, "Open Current Workspace");
-      assert.equal(structured.codexpro_super_action, "open_current_workspace");
+      assert.equal(structured.codexpro_super_action, "open");
       assert.equal(structured.wrapped_tool, "open_current_workspace");
       assert.equal(structured.ok, true);
       assert.equal(structured.error, null);
@@ -688,7 +688,7 @@ test("codexpro open alias preserves strict success and failure envelopes", async
 
       assert.equal(result.isError, true);
       assert.equal(structured.codexpro_tool, "open_current_workspace");
-      assert.equal(structured.codexpro_super_action, "open_current_workspace");
+      assert.equal(structured.codexpro_super_action, "open");
       assert.equal(structured.wrapped_tool, "open_current_workspace");
       assert.equal(structured.ok, false);
       assert.equal(structured.data, null);

@@ -8,6 +8,16 @@ const require = createRequire(import.meta.url);
 const sourceUrl = new URL("./http-smoke.mjs", import.meta.url);
 let source = await fs.readFile(sourceUrl, "utf8");
 
+function replaceExactCount(source, oldText, newText, expectedCount) {
+  const actualCount = source.split(oldText).length - 1;
+  if (actualCount !== expectedCount) {
+    throw new Error(
+      `HTTP smoke compatibility replacement expected ${expectedCount} matches but found ${actualCount}: ${oldText}`
+    );
+  }
+  return source.split(oldText).join(newText);
+}
+
 const replacements = [
   [
     "from '@modelcontextprotocol/sdk/client/index.js'",
@@ -40,6 +50,14 @@ const replacements = [
   [
     "list.structuredContent.workspaces.map",
     "list.structuredContent.data?.workspaces.map"
+  ],
+  [
+    "loadedSkill.structuredContent.skill?.name",
+    "loadedSkill.structuredContent.data?.skill?.name"
+  ],
+  [
+    "loadedSkill.structuredContent.text",
+    "loadedSkill.structuredContent.data?.text"
   ]
 ];
 
@@ -51,6 +69,20 @@ for (const [oldText, newText] of replacements) {
   }
   source = source.replace(oldText, newText);
 }
+
+source = replaceExactCount(
+  source,
+  "codexContext.structuredContent.workspace_id",
+  "codexContext.structuredContent.data?.workspace_id",
+  2
+);
+
+source = replaceExactCount(
+  source,
+  "exported.structuredContent.path",
+  "exported.structuredContent.data?.path",
+  2
+);
 
 source += "\n//# sourceURL=codexpro-http-smoke-compat.mjs";
 const encoded = Buffer.from(source, "utf8").toString("base64");

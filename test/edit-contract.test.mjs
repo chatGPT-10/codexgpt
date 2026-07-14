@@ -656,7 +656,7 @@ test("edit invalidates analysis only after a validated changed result", async ()
   });
 });
 
-test("edit Tool Card consumes nested data and error while adjacent tools keep the legacy renderer", () => {
+test("edit Tool Card consumes nested data and error while adjacent tools use dedicated renderers", () => {
   const renderEditMatch = toolCardWidgetHtml.match(/function renderEdit\(data\) \{[\s\S]*?\n  \}/);
   assert.ok(renderEditMatch, "edit must have a dedicated Tool Card renderer");
   const renderer = renderEditMatch[0];
@@ -679,7 +679,7 @@ test("edit Tool Card consumes nested data and error while adjacent tools keep th
   );
   assert.match(
     toolCardWidgetHtml,
-    /tool === "export_pro_context"\) \{\s*root\.innerHTML = renderFile\(data\)/
+    /tool === "export_pro_context"\) \{\s*root\.innerHTML = renderExportProContext\(data\)/
   );
   assert.doesNotMatch(
     toolCardWidgetHtml,

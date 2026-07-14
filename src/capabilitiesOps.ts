@@ -2,6 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import type { CodexProConfig } from "./config.js";
 import { isSubpath, type Workspace } from "./guard.js";
 
@@ -22,14 +23,59 @@ export interface LoadedSkill {
   bytes: number;
   totalBytes: number;
   truncated: boolean;
+  discoveryTruncated: boolean;
+}
+
+export type LoadSkillErrorCode =
+  | "SKILL_NOT_FOUND"
+  | "SKILL_AMBIGUOUS"
+  | "SKILL_RESOLUTION_LIMIT_REACHED"
+  | "SKILL_BOUNDARY_VIOLATION"
+  | "SKILL_READ_FAILED";
+
+export interface LoadSkillErrorContext {
+  selector: {
+    name: string;
+    source?: SkillInventoryItem["source"];
+    path?: string;
+  };
+  includeGlobal?: boolean;
+  maxSkills?: number;
+  candidates?: SkillInventoryItem[];
+  candidatesTruncated?: boolean;
+  discoveryTruncated?: boolean;
+  skill?: SkillInventoryItem;
+}
+
+export class LoadSkillError extends Error {
+  readonly code: LoadSkillErrorCode;
+  readonly context: LoadSkillErrorContext;
+
+  constructor(code: LoadSkillErrorCode, context: LoadSkillErrorContext, options?: ErrorOptions) {
+    super(code, options);
+    this.name = "LoadSkillError";
+    this.code = code;
+    this.context = context;
+  }
 }
 
 export interface McpServerInventoryItem {
   name: string;
-  source: string;
+  source:
+    | "user codex config"
+    | "workspace config"
+    | "workspace cursor config"
+    | "user cursor config";
 }
 
 const MAX_MCP_SERVER_INVENTORY = 120;
+
+export interface CodexProInventoryResult {
+  skills: SkillInventoryItem[];
+  skillsTruncated: boolean;
+  mcpServers: McpServerInventoryItem[];
+  mcpServersTruncated: boolean;
+}
 
 function unique<T>(items: T[], key: (item: T) => string): T[] {
   const seen = new Set<string>();
@@ -89,23 +135,47 @@ function realpathOrUndefined(filePath: string): string | undefined {
   }
 }
 
-function displayPath(absPath: string, workspaceRoot: string): string {
-  const home = os.homedir();
-  if (absPath === workspaceRoot) return "$WORKSPACE";
-  if (absPath.startsWith(`${workspaceRoot}${path.sep}`)) {
+function externalSkillSelector(absPath: string): string {
+  const fingerprint = createHash("sha256").update(absPath).digest("hex").slice(0, 12);
+  return `$EXTERNAL/${fingerprint}/SKILL.md`;
+}
+
+function sameNativePath(left: string, right: string): boolean {
+  const normalizedLeft = path.resolve(left);
+  const normalizedRight = path.resolve(right);
+  return process.platform === "win32"
+    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
+    : normalizedLeft === normalizedRight;
+}
+
+function displayPath(
+  absPath: string,
+  workspaceRoot: string,
+  source: SkillInventoryItem["source"]
+): string {
+  const home = realpathOrUndefined(os.homedir()) ?? path.resolve(os.homedir());
+  if (source === "workspace" && isSubpath(absPath, workspaceRoot)) {
+    if (absPath === workspaceRoot) return "$WORKSPACE";
     return `$WORKSPACE/${path.relative(workspaceRoot, absPath).split(path.sep).join("/")}`;
   }
-  if (absPath === home) return "~";
-  if (absPath.startsWith(`${home}${path.sep}`)) {
+  if ((source === "user" || source === "plugin") && isSubpath(absPath, home)) {
+    if (absPath === home) return "~";
     return `~/${path.relative(home, absPath).split(path.sep).join("/")}`;
   }
-  return absPath;
+  return externalSkillSelector(absPath);
 }
 
 function skillSource(skillPath: string, workspaceRoot: string): SkillInventoryItem["source"] {
-  if (skillPath.startsWith(`${workspaceRoot}${path.sep}`)) return "workspace";
-  if (skillPath.includes(`${path.sep}.codex${path.sep}plugins${path.sep}`)) return "plugin";
-  if (skillPath.startsWith(`${os.homedir()}${path.sep}`)) return "user";
+  if (isSubpath(skillPath, workspaceRoot)) return "workspace";
+  const home = realpathOrUndefined(os.homedir()) ?? path.resolve(os.homedir());
+  if (isSubpath(skillPath, home)) {
+    const relative = path.relative(home, skillPath);
+    if (relative.includes(`${path.sep}.codex${path.sep}plugins${path.sep}`) ||
+        relative.startsWith(`.codex${path.sep}plugins${path.sep}`)) {
+      return "plugin";
+    }
+    return "user";
+  }
   return "other";
 }
 
@@ -117,11 +187,11 @@ function skillSourceRank(source: SkillInventoryItem["source"]): number {
 }
 
 function compareSkills(a: SkillInventoryItem, b: SkillInventoryItem): number {
-  return (
-    skillSourceRank(a.source) - skillSourceRank(b.source) ||
-    a.name.localeCompare(b.name) ||
-    a.path.localeCompare(b.path)
-  );
+  const sourceOrder = skillSourceRank(a.source) - skillSourceRank(b.source);
+  if (sourceOrder !== 0) return sourceOrder;
+  if (a.name !== b.name) return a.name < b.name ? -1 : 1;
+  if (a.path !== b.path) return a.path < b.path ? -1 : 1;
+  return 0;
 }
 
 function publicSkill(record: SkillInventoryRecord): SkillInventoryItem {
@@ -140,7 +210,9 @@ function frontmatterValue(text: string, key: string): string | undefined {
 
 async function findSkillFiles(root: string, maxDepth: number, out: string[], maxItems: number): Promise<void> {
   if (out.length >= maxItems || maxDepth < 0) return;
-  const entries = await safeReaddir(root);
+  const entries = (await safeReaddir(root)).sort((left, right) =>
+    left.name === right.name ? 0 : left.name < right.name ? -1 : 1
+  );
   for (const entry of entries) {
     if (out.length >= maxItems) return;
     if (entry.name === "node_modules" || entry.name === ".git") continue;
@@ -155,11 +227,32 @@ async function findSkillFiles(root: string, maxDepth: number, out: string[], max
   }
 }
 
+function safeSkillName(value: string | undefined, fallback: string): string {
+  const candidate = value?.trim();
+  const safeFallback = fallback
+    .replace(/[\r\n\u0000-\u001f\u007f]+/g, "-")
+    .trim()
+    .slice(0, 240) || "unnamed-skill";
+  if (!candidate || candidate.length > 240 || /[\r\n\u0000-\u001f\u007f]/.test(candidate)) {
+    return safeFallback;
+  }
+  return candidate;
+}
+
+function safeSkillDescription(value: string | undefined): string | undefined {
+  const candidate = value?.trim();
+  if (!candidate || candidate.length > 500 || /[\r\n\u0000-\u001f\u007f]/.test(candidate)) {
+    return undefined;
+  }
+  return candidate;
+}
+
 async function discoverSkillRecords(
   workspace: Workspace,
   options: { includeGlobal?: boolean; maxSkills?: number } = {}
-): Promise<SkillInventoryRecord[]> {
+): Promise<{ records: SkillInventoryRecord[]; truncated: boolean }> {
   const maxSkills = Math.max(1, Math.min(options.maxSkills ?? 120, 500));
+  const probeLimit = maxSkills + 1;
   const workspaceRoots = [
     path.join(workspace.root, ".codex", "skills"),
     path.join(workspace.root, ".agents", "skills"),
@@ -168,7 +261,7 @@ async function discoverSkillRecords(
     const real = realpathOrUndefined(dir);
     return real && isSubpath(real, workspace.root) ? [real] : [];
   });
-  const roots = [
+  const roots = unique([
     ...workspaceRoots,
     ...(options.includeGlobal
       ? [
@@ -177,16 +270,19 @@ async function discoverSkillRecords(
           path.join(os.homedir(), ".codex", "plugins", "cache")
         ]
       : [])
-  ].filter((dir) => fs.existsSync(dir));
+  ].filter((dir) => fs.existsSync(dir)), (dir) => {
+    const resolved = path.resolve(dir);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  });
 
   const skillFiles: string[] = [];
   for (const root of roots) {
-    await findSkillFiles(root, root.includes(`${path.sep}plugins${path.sep}cache`) ? 9 : 3, skillFiles, maxSkills);
-    if (skillFiles.length >= maxSkills) break;
+    await findSkillFiles(root, root.includes(`${path.sep}plugins${path.sep}cache`) ? 9 : 3, skillFiles, probeLimit);
+    if (skillFiles.length >= probeLimit) break;
   }
 
   const items: SkillInventoryRecord[] = [];
-  for (const file of skillFiles.slice(0, maxSkills)) {
+  for (const file of skillFiles.slice(0, probeLimit)) {
     const realFile = realpathOrUndefined(file) ?? file;
     if (isSubpath(file, workspace.root) && !isSubpath(realFile, workspace.root)) continue;
     let text = "";
@@ -195,25 +291,32 @@ async function discoverSkillRecords(
     } catch {
       // Keep the skill visible even if the file cannot be read.
     }
-    const name = frontmatterValue(text, "name") ?? path.basename(path.dirname(realFile));
-    const description = frontmatterValue(text, "description");
+    const source = skillSource(realFile, workspace.root);
+    const fallbackName = path.basename(path.dirname(realFile)) || "unnamed-skill";
+    const name = safeSkillName(frontmatterValue(text, "name"), fallbackName);
+    const description = safeSkillDescription(frontmatterValue(text, "description"));
     items.push({
       name,
       description,
-      source: skillSource(realFile, workspace.root),
-      path: displayPath(realFile, workspace.root),
+      source,
+      path: displayPath(realFile, workspace.root, source),
       absPath: realFile
     });
   }
 
-  return unique(items, (item) => `${item.source}:${item.name}:${item.path}`).sort(compareSkills);
+  const records = unique(items, (item) => `${item.source}:${item.name}:${item.path}`).sort(compareSkills);
+  return {
+    records: records.slice(0, maxSkills),
+    truncated: records.length > maxSkills
+  };
 }
 
 export async function discoverSkillInventory(
   workspace: Workspace,
   options: { includeGlobal?: boolean; maxSkills?: number } = {}
 ): Promise<SkillInventoryItem[]> {
-  return (await discoverSkillRecords(workspace, options)).map(publicSkill);
+  const result = await discoverSkillRecords(workspace, options);
+  return result.records.map(publicSkill);
 }
 
 export async function loadSkill(
@@ -230,75 +333,139 @@ export async function loadSkill(
   const name = options.name.trim();
   if (!name) throw new Error("Skill name is required.");
   const requestedPath = options.path?.trim();
+  const includeGlobal = options.includeGlobal !== false;
+  const maxSkills = Math.max(1, Math.min(options.maxSkills ?? 500, 500));
+  const selector = {
+    name,
+    source: options.source,
+    path: requestedPath
+  };
 
-  const records = await discoverSkillRecords(workspace, {
-    includeGlobal: options.includeGlobal !== false,
-    maxSkills: options.maxSkills
+  const discovery = await discoverSkillRecords(workspace, {
+    includeGlobal,
+    maxSkills
   });
+  const records = discovery.records;
   const matches = records.filter(
     (skill) =>
       skill.name === name &&
       (!options.source || skill.source === options.source) &&
       (!requestedPath || skill.path === requestedPath)
   );
-  if (!matches.length) {
-    const near = records
-      .filter((skill) => skill.name.toLowerCase().includes(name.toLowerCase()))
-      .slice(0, 8)
-      .map((skill) => `${skill.name} [${skill.source}]`)
-      .join(", ");
-    const suffix = requestedPath ? ` at ${requestedPath}` : "";
-    throw new Error(`Skill not found: ${name}${suffix}${near ? `. Similar skills: ${near}` : ""}`);
-  }
   if (matches.length > 1) {
-    const choices = matches.map((skill) => `${skill.name} [${skill.source}] at ${skill.path}`).join("; ");
-    throw new Error(`Multiple skills named ${name} were found. Pass source and path to choose one: ${choices}`);
+    throw new LoadSkillError("SKILL_AMBIGUOUS", {
+      selector,
+      candidates: matches.slice(0, 8).map(publicSkill),
+      candidatesTruncated: matches.length > 8,
+      discoveryTruncated: discovery.truncated
+    });
+  }
+  if (!matches.length) {
+    throw new LoadSkillError(
+      discovery.truncated ? "SKILL_RESOLUTION_LIMIT_REACHED" : "SKILL_NOT_FOUND",
+      {
+        selector,
+        includeGlobal,
+        maxSkills,
+        discoveryTruncated: discovery.truncated
+      }
+    );
+  }
+  if (discovery.truncated && !requestedPath) {
+    throw new LoadSkillError("SKILL_RESOLUTION_LIMIT_REACHED", {
+      selector,
+      includeGlobal,
+      maxSkills,
+      discoveryTruncated: true
+    });
   }
 
   const [skill] = matches;
-  if (path.basename(skill.absPath) !== "SKILL.md") {
-    throw new Error(`Refusing to load non-skill file: ${skill.path}`);
+  const publicResolvedSkill = publicSkill(skill);
+  const realSkillPath = realpathOrUndefined(skill.absPath);
+  if (!realSkillPath) {
+    throw new LoadSkillError("SKILL_READ_FAILED", {
+      selector,
+      skill: publicResolvedSkill
+    });
   }
-  if (skill.source === "workspace") {
-    const realSkillPath = realpathOrUndefined(skill.absPath);
-    if (!realSkillPath || !isSubpath(realSkillPath, workspace.root)) {
-      throw new Error(`Refusing to load workspace skill outside workspace: ${skill.path}`);
-    }
+  if (
+    path.basename(realSkillPath) !== "SKILL.md" ||
+    !sameNativePath(realSkillPath, skill.absPath) ||
+    (skill.source === "workspace" && !isSubpath(realSkillPath, workspace.root))
+  ) {
+    throw new LoadSkillError("SKILL_BOUNDARY_VIOLATION", {
+      selector,
+      skill: publicResolvedSkill
+    });
   }
   const maxBytes = Math.max(1_000, Math.min(options.maxBytes ?? 40_000, 100_000));
-  const loaded = await readTextWithStats(skill.absPath, maxBytes);
+  let loaded: Awaited<ReturnType<typeof readTextWithStats>>;
+  try {
+    loaded = await readTextWithStats(realSkillPath, maxBytes);
+  } catch (error) {
+    throw new LoadSkillError("SKILL_READ_FAILED", {
+      selector,
+      skill: publicResolvedSkill
+    }, { cause: error });
+  }
   return {
-    skill: publicSkill(skill),
+    skill: publicResolvedSkill,
     text: loaded.text,
     bytes: loaded.bytes,
     totalBytes: loaded.totalBytes,
-    truncated: loaded.truncated
+    truncated: loaded.truncated,
+    discoveryTruncated: discovery.truncated
   };
 }
 
-function parseTomlMcpServers(text: string, source: string): McpServerInventoryItem[] {
+function safeMcpServerName(value: string | undefined): string | undefined {
+  const candidate = value?.trim();
+  if (!candidate || candidate.length > 240 || /[\r\n\u0000-\u001f\u007f]/.test(candidate)) {
+    return undefined;
+  }
+  return candidate;
+}
+
+function parseTomlMcpServers(
+  text: string,
+  source: McpServerInventoryItem["source"]
+): McpServerInventoryItem[] {
   const out: McpServerInventoryItem[] = [];
   const re = /^\s*\[(?:mcp_servers|mcpServers)\.("?)([^"\].]+)\1\]\s*$/gm;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text))) {
-    out.push({ name: match[2], source });
+    const name = safeMcpServerName(match[2]);
+    if (name) out.push({ name, source });
   }
   return out;
 }
 
-function parseJsonMcpServers(text: string, source: string): McpServerInventoryItem[] {
+function parseJsonMcpServers(
+  text: string,
+  source: McpServerInventoryItem["source"]
+): McpServerInventoryItem[] {
   try {
     const parsed = JSON.parse(text);
     const servers = parsed?.mcpServers;
     if (!servers || typeof servers !== "object" || Array.isArray(servers)) return [];
-    return Object.keys(servers).map((name) => ({ name, source }));
+    return Object.keys(servers).flatMap((value) => {
+      const name = safeMcpServerName(value);
+      return name ? [{ name, source }] : [];
+    });
   } catch {
     return [];
   }
 }
 
-export async function discoverMcpServers(workspace: Workspace): Promise<McpServerInventoryItem[]> {
-  const candidates = [
+async function discoverMcpServerResult(
+  workspace: Workspace
+): Promise<{ servers: McpServerInventoryItem[]; truncated: boolean }> {
+  const candidates: Array<{
+    file: string;
+    kind: "toml" | "json";
+    source: McpServerInventoryItem["source"];
+  }> = [
     { file: path.join(os.homedir(), ".codex", "config.toml"), kind: "toml", source: "user codex config" },
     { file: path.join(workspace.root, ".mcp.json"), kind: "json", source: "workspace config" },
     { file: path.join(workspace.root, ".cursor", "mcp.json"), kind: "json", source: "workspace cursor config" },
@@ -317,59 +484,39 @@ export async function discoverMcpServers(workspace: Workspace): Promise<McpServe
     servers.push(...(candidate.kind === "toml" ? parseTomlMcpServers(text, candidate.source) : parseJsonMcpServers(text, candidate.source)));
   }
 
-  return unique(servers, (server) => `${server.source}:${server.name}`)
-    .sort((a, b) => a.name.localeCompare(b.name) || a.source.localeCompare(b.source))
-    .slice(0, MAX_MCP_SERVER_INVENTORY);
+  const sorted = unique(servers, (server) => `${server.source}:${server.name}`)
+    .sort((left, right) => {
+      if (left.name !== right.name) return left.name < right.name ? -1 : 1;
+      if (left.source !== right.source) return left.source < right.source ? -1 : 1;
+      return 0;
+    });
+  return {
+    servers: sorted.slice(0, MAX_MCP_SERVER_INVENTORY),
+    truncated: sorted.length > MAX_MCP_SERVER_INVENTORY
+  };
+}
+
+export async function discoverMcpServers(workspace: Workspace): Promise<McpServerInventoryItem[]> {
+  return (await discoverMcpServerResult(workspace)).servers;
 }
 
 export async function codexproInventory(
   config: CodexProConfig,
   workspace: Workspace,
   options: { includeGlobalSkills?: boolean; includeMcpServers?: boolean; maxSkills?: number } = {}
-): Promise<{
-  text: string;
-  skills: SkillInventoryItem[];
-  mcpServers: McpServerInventoryItem[];
-}> {
-  const skills = await discoverSkillInventory(workspace, {
+): Promise<CodexProInventoryResult> {
+  const skillResult = await discoverSkillRecords(workspace, {
     includeGlobal: options.includeGlobalSkills !== false,
     maxSkills: options.maxSkills
   });
-  const mcpServers = options.includeMcpServers === false ? [] : await discoverMcpServers(workspace);
+  const mcpResult = options.includeMcpServers === false
+    ? { servers: [], truncated: false }
+    : await discoverMcpServerResult(workspace);
 
-  const bySource = skills.reduce<Record<string, number>>((acc, skill) => {
-    acc[skill.source] = (acc[skill.source] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const skillLines = skills.length
-    ? skills.map((skill) => `- ${skill.name} [${skill.source}]${skill.description ? ` - ${skill.description}` : ""}`).join("\n")
-    : "- none discovered";
-  const mcpLines = mcpServers.length
-    ? mcpServers.map((server) => `- ${server.name} (${server.source})`).join("\n")
-    : "- none discovered";
-
-  const text = `# CodexPro Inventory
-
-Workspace: ${workspace.root}
-Bash mode: ${config.bashMode}
-Write mode: ${config.writeMode}
-Tool mode: ${config.toolMode}
-
-## Skill summary
-
-Total: ${skills.length}
-Workspace: ${bySource.workspace ?? 0}
-User: ${bySource.user ?? 0}
-Plugin: ${bySource.plugin ?? 0}
-Other: ${bySource.other ?? 0}
-
-${skillLines}
-
-## MCP servers
-
-${mcpLines}
-`;
-
-  return { text, skills, mcpServers };
+  return {
+    skills: skillResult.records.map(publicSkill),
+    skillsTruncated: skillResult.truncated,
+    mcpServers: mcpResult.servers,
+    mcpServersTruncated: mcpResult.truncated
+  };
 }

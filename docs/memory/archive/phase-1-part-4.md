@@ -668,3 +668,161 @@ Completed. The separate durable publication record is pushed, exact-head CI-vali
 **Next step**
 
 Design-review the next remaining Phase 1 direct tool. Use `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite.
+
+---
+
+## STEP-178 — Adopt the authoritative master implementation plan
+
+**Status**
+
+Completed. Replaced the stale external execution sequence with a repository-owned authoritative plan and locked the user-approved route: finish Phase 1, pass a design-only Policy Kernel gate, then request separate approval before Phase 2 implementation.
+
+**Goal**
+
+Produce one current plan that reconciles the 2026-07-11 audit with the completed Phase 0.5 work, sixteen published Phase 1 slices, the remaining advertised tools, and the relevant Permission/Sandbox/Hooks/Skills/Process lessons from OpenAI Codex and Open Interpreter.
+
+**Files changed**
+
+- Added `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`.
+- Updated `AGENTS.md` documentation map and approved stopping point.
+- Marked active sequencing in `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` as superseded while preserving it as a historical audit baseline.
+- Updated `Memory.md` current route, decisions, open items, and recent summary.
+- Appended this active Phase 1 archive record.
+
+The downloaded `D:\浏览器下载\codexpro_audit_and_implementation_spec_2026-07-11.md` remains unchanged as historical input. No source code, tests, package dependencies, credentials, profiles, Cloudflare state, or external systems changed.
+
+**Implementation summary**
+
+- Counted the current advertised configuration universe as 26 core tools plus two opt-in Codex Session tools.
+- Recorded sixteen published schemas and a dependency-first order for the twelve remaining tools, starting with `codexpro_inventory` and ending with aggregate `codexpro_self_test` and `codexpro` wrappers.
+- Added a hard Phase 1 completion gate and a design-only Policy Kernel gate before Phase 2.
+- Defined the baseline policy relationship as hard policy, identity scopes, Permission Profile, and session grant intersection; approval can expand only inside that ceiling.
+- Separated Tool Surface, Policy, Approval, and Sandbox; required `SHELL_SANDBOX_UNAVAILABLE` fail-closed behavior when requested enforcement is unavailable.
+- Split Phase 2 into Policy Kernel/request identity and workspace lifecycle, and split Phase 4 into Shell/Process and OS Sandbox/Egress.
+- Routed Hooks and Skill trust to Phase 6, reusing the existing lazy Skill discovery/loading path rather than rebuilding it.
+- Preserved current ChatGPT Web query-token compatibility facts and kept OAuth 2.1 separately gated in Phase 8.
+
+**Verification commands**
+
+```powershell
+$plan = Get-Content -LiteralPath 'docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md' -Raw -Encoding UTF8
+$markers = @('完成 Phase 1', 'Policy Kernel 设计门', '单独批准 Phase 2', 'codexpro_inventory', 'SHELL_SANDBOX_UNAVAILABLE')
+if (([regex]::Matches($plan, '(?m)^```')).Count % 2 -ne 0 -or ($markers | Where-Object { -not $plan.Contains($_) })) { throw 'Plan structure check failed' }
+$server = Get-Content -LiteralPath 'src/server.ts' -Raw -Encoding UTF8
+$full = [regex]::Match($server, 'const FULL_TOOL_NAMES = \[(?<body>[\s\S]*?)\] as const;').Groups['body'].Value
+$sourceNames = @([regex]::Match($server, 'const SUPERTOOL_NAME\s*=\s*"([^"]+)"').Groups[1].Value) + @([regex]::Matches($full, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }) + @('codex_sessions', 'read_codex_session')
+$migrated = @([regex]::Matches([regex]::Match($plan, '### 2\.4 Phase 1 已发布的 16 个切片(?<body>[\s\S]*?)### 2\.5').Groups['body'].Value, '(?m)^\d+\. `([^`]+)`$') | ForEach-Object { $_.Groups[1].Value })
+$remaining = @([regex]::Matches([regex]::Match($plan, '### 2\.5 Phase 1 尚余 12 个支持面(?<body>[\s\S]*?)(?m:^---\r?$)').Groups['body'].Value, '(?m)^\|\s*(?:17|18|19|20|21|22|23|24|25|26|27|28)\s*\|\s*`([^`]+)`\s*\|') | ForEach-Object { $_.Groups[1].Value })
+if (($sourceNames | Sort-Object -Unique).Count -ne 28 -or $migrated.Count -ne 16 -or $remaining.Count -ne 12 -or (Compare-Object ($sourceNames | Sort-Object -Unique) (($migrated + $remaining) | Sort-Object -Unique))) { throw 'Tool inventory check failed' }
+git diff --check
+$secretMatches = & rg -n '(sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' AGENTS.md Memory.md docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md docs/memory/archive/phase-1-part-4.md
+if ($LASTEXITCODE -eq 0) { $secretMatches; throw 'Secret-pattern match found' }
+if ($LASTEXITCODE -ne 1) { throw 'Secret scan failed' }
+git status --short --branch
+```
+
+**Verification results**
+
+- The plan structure check passed with balanced code fences and all required route/security markers present.
+- The live `src/server.ts` tool universe matched the plan exactly: 26 core plus two opt-in tools equals sixteen published plus twelve remaining tools.
+- `git diff --check` passed; only established working-copy line-ending warnings were permitted.
+- The targeted secret-pattern scan returned no matches.
+- `Memory.md` remained below its 200-line/25-KB hard limits.
+- The active Phase 1 Volume 4 remained below 80% of the 60-KB direct-read limit after this STEP, so no continuation volume was opened.
+- No implementation tests, Build, Smoke, package, CI, staging, commit, or push were run because this step changed documentation only.
+- Initial verification-harness attempts failed because an unanchored regex stopped at the Markdown table separator and PowerShell mangled a Node command's quoting; both harness defects were corrected, and the final native-PowerShell checks passed without a document failure.
+
+**Decisions made**
+
+- This plan is the active sequencing authority; the 2026-07-11 download and `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` remain historical references.
+- Policy Kernel design begins only after Phase 1 completes, and its completion does not authorize Phase 2 implementation.
+- OpenAI Codex is the primary source for shared Permission/Sandbox/Hooks/Skills mechanics; Open Interpreter is a secondary adaptation and edge-case testing reference.
+- Runtime Profile and Permission Profile remain distinct concepts.
+- Tool-surface presets are future UX compilation targets, not security boundaries.
+
+**Risks or limitations**
+
+- Permission Profile syntax, rule specificity, Approval caching, Windows sandbox technology, and egress enforcement remain design inputs rather than approved public APIs.
+- OAuth-backed subject isolation remains deferred to Phase 8; Phase 2 must not overstate pre-OAuth identity guarantees.
+- The plan is intentionally broad and must be executed through separately reviewed slice specs and TDD plans, not as one unbounded implementation session.
+
+**Rollback method**
+
+Remove the new master-plan file and revert only the STEP-178 changes in `AGENTS.md`, `Memory.md`, and `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`. Append a correction to this archive instead of rewriting this historical record. Do not alter the downloaded audit, source code, credentials, profiles, published Phase 1 commits, or Git history.
+
+**Next step**
+
+Design-review Phase 1 Slice 17 `codexpro_inventory`. Keep the slice read-only, bounded, and free of Phase 6 Skill-trust semantics. Do not implement it until its design and execution plan receive the required approval. Keep Policy Kernel implementation, workspace lifecycle, semantic providers, OAuth, and Phase 2 closed.
+
+---
+
+## STEP-179 — Design Slice 17 and place transactional file moves
+
+**Status**
+
+Completed. Approved the exact `codexpro_inventory` design and six-task TDD plan, and assigned file organization to a Phase 3 `move_paths` transaction rather than expanding Phase 1.
+
+**Goal**
+
+Turn the user's full Phase 1 objective into the next independently testable slice while resolving where safe file-moving capability belongs from first principles.
+
+**Files changed**
+
+- Added `docs/superpowers/specs/2026-07-13-codexpro-inventory-output-schema-design.md`.
+- Added `docs/superpowers/plans/2026-07-13-codexpro-inventory-output-schema.md`.
+- Updated `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` with Phase 3 `move_paths` requirements and the Slice 17 RED stopping point.
+- Updated `AGENTS.md` and `Memory.md` with the design, plan, archive rollover, and next action.
+- Appended this final Volume 4 record and opened `docs/memory/archive/phase-1-part-5.md` for STEP-180 onward.
+
+No production source, test, dependency, credential, profile, Cloudflare state, or external system changed in this design step.
+
+**Implementation summary**
+
+- Chose a tool-local exact contract over a shallow wrapper or premature capability-registry rewrite.
+- Fixed sixteen nested success fields, exact Skill/MCP item shapes, returned/source counts, effective include flags, both truncation flags, fixed warnings, and three stable failures.
+- Required a test-only inventory provider boundary and strict provider validation without importing Phase 6 trust/version/hash/permission fields.
+- Kept main/HTTP Smoke protected and scoped current consumer migration to Tool Card and Stress unless implementation evidence proves an exact compatibility need.
+- Defined `move_paths` V1 for Phase 3 as same-workspace/same-volume ordinary-file moves with full preflight, no overwrite, expected hashes, explicit parent creation, transaction rollback, `changeSetId`, and redacted audit.
+- Rejected Phase 1 move expansion and Shell/PowerShell/`git mv` as the public movement contract because none supplies the required policy, transaction, and audit guarantees.
+
+**Verification commands**
+
+```powershell
+$files = @('docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md', 'docs/superpowers/specs/2026-07-13-codexpro-inventory-output-schema-design.md', 'docs/superpowers/plans/2026-07-13-codexpro-inventory-output-schema.md')
+foreach ($file in $files) { $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8; if (([regex]::Matches($text, '(?m)^```')).Count % 2 -ne 0 -or $text -match '<(TBD|TODO|FIXME|PLACEHOLDER)>') { throw "Invalid document: $file" } }
+git diff --check
+rg -n '(sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md docs/superpowers/specs/2026-07-13-codexpro-inventory-output-schema-design.md docs/superpowers/plans/2026-07-13-codexpro-inventory-output-schema.md
+```
+
+**Verification results**
+
+- All three documents had balanced code fences and no unresolved placeholder tokens.
+- Spec and plan self-review found and corrected the original ambiguous Stress truncation fixture: it now explicitly requires 141 Skills with a 140 limit.
+- `git diff --check` passed with only established LF-to-CRLF working-copy warnings.
+- The targeted secret-pattern scan returned no matches.
+- No implementation test, Build, Smoke, Stress, package, CI, staging, commit, or push ran because production implementation had not started.
+- Volume 4 crossed the 49,152-byte rollover threshold after this completed STEP and is now closed; STEP-180 begins Volume 5.
+
+**Decisions made**
+
+- Phase 1 remains exactly the current 28 advertised-tool universe; adding `move_paths` does not move the Phase 1 finish line.
+- `codexpro_inventory` reports returned counts and explicit truncation, not an unbounded total.
+- `widget_uri` remains descriptor metadata and is removed from domain data.
+- MCP inventory exposes names and fixed source categories only.
+- External Skill selectors use a stable non-absolute `$EXTERNAL/<fingerprint>/SKILL.md` form.
+- File movement waits for Policy Kernel, workspace isolation, atomic transaction, rollback, and audit prerequisites in Phase 3.
+
+**Risks or limitations**
+
+- The design intentionally does not prove production behavior; Task 1 must first establish a behavioral RED.
+- Bounded Skill traversal can only state that an additional eligible item was encountered, not compute a full machine total.
+- `load_skill` must later prove sanitized `$EXTERNAL` selectors continue resolving without revealing private absolute paths.
+- `move_paths` is a roadmap decision only; no file-move implementation or security guarantee exists yet.
+
+**Rollback method**
+
+Remove the new Slice 17 spec/plan and revert only the STEP-179 master-plan/index changes. Append an archive correction rather than rewriting this closed record. Do not alter source code, tests, user Skills/MCP configs, credentials, profiles, published Phase 1 commits, or Git history.
+
+**Next step**
+
+Execute Slice 17 Task 1 only: create `test/codexpro-inventory-contract.test.mjs`, run it, verify a behavioral RED with exact totals, record the evidence in Phase 1 Volume 5, and only then begin the schema GREEN. Keep Phase 2/3 implementation closed.

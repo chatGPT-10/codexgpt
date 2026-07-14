@@ -544,7 +544,7 @@ test("write invalidates analysis only when the validated diff reports a change",
   });
 });
 
-test("write Tool Card consumes nested data and error while adjacent file tools keep the legacy renderer", () => {
+test("write Tool Card consumes nested data and error while adjacent file tools use dedicated renderers", () => {
   const renderWriteMatch = toolCardWidgetHtml.match(/function renderWrite\(data\) \{[\s\S]*?\n  \}/);
   assert.ok(renderWriteMatch, "write must have a dedicated Tool Card renderer");
   const renderer = renderWriteMatch[0];
@@ -569,7 +569,7 @@ test("write Tool Card consumes nested data and error while adjacent file tools k
   );
   assert.match(
     toolCardWidgetHtml,
-    /tool === "export_pro_context"\) \{\s*root\.innerHTML = renderFile\(data\)/
+    /tool === "export_pro_context"\) \{\s*root\.innerHTML = renderExportProContext\(data\)/
   );
 });
 

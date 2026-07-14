@@ -686,7 +686,7 @@ test("apply_patch invalidates analysis only after a fully validated success", as
   });
 });
 
-test("apply_patch Tool Card consumes nested data and leaves only export_pro_context on the legacy renderer", () => {
+test("apply_patch and export_pro_context use dedicated Tool Card renderers", () => {
   const renderMatch = toolCardWidgetHtml.match(/function renderApplyPatch\(data\) \{[\s\S]*?\n  \}/);
   assert.ok(renderMatch, "apply_patch must have a dedicated Tool Card renderer");
   const renderer = renderMatch[0];
@@ -706,7 +706,7 @@ test("apply_patch Tool Card consumes nested data and leaves only export_pro_cont
   );
   assert.match(
     toolCardWidgetHtml,
-    /tool === "export_pro_context"\) \{\s*root\.innerHTML = renderFile\(data\)/
+    /tool === "export_pro_context"\) \{\s*root\.innerHTML = renderExportProContext\(data\)/
   );
   assert.doesNotMatch(
     toolCardWidgetHtml,
