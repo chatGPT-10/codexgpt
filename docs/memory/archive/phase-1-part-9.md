@@ -400,3 +400,36 @@ Two initial in-memory Markdown-audit invocations failed before performing checks
 **Rollback method:** Revert the two test normalizations and this STEP-246 active-memory reconciliation. Do not rewrite the failed run record, reset `main`, or alter protected Smoke sources.
 
 **Next step:** Commit and push the CRLF-neutral test repair, monitor the new exact-head run to completion, then append the formal Phase 1 publication and closure record only if all four matrix jobs pass.
+
+## STEP-247 — Publish Slices 17–28 and formally close Phase 1
+
+**Status:** Complete
+
+**Goal:** Confirm the repaired unified publication on the exact remote head, close the Phase 1 knowledge/archive state, and make the design-only Policy Kernel gate the sole next action.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/memory/archive/phase-1-part-9.md`
+
+**Implementation summary:** Pushed CRLF-neutral repair commit `e20d84e` after unified implementation `021ab90`. GitHub Actions run `29314923948` matched full SHA `e20d84eed1a13d4019d0fc200ce3bcc88e00ed46` and completed successfully. Closed Phase 1 Volume 9 at STEP-247, marked all twenty-eight Phase 1 slices published, preserved failed predecessor run `29314051423` as append-only evidence, and advanced the active route to the design-only Policy Kernel gate without opening Phase 2 production behavior.
+
+**Verification commands:**
+
+- GitHub Actions REST query filtered by exact `head_sha=e20d84eed1a13d4019d0fc200ce3bcc88e00ed46`
+- exact run polling for run `29314923948`
+- jobs query for all four matrix entries and their Build, Regression Tests, Smoke Test, and Check Package Contents steps
+- local main-worktree complete regression, Build, Smoke, package, static, and Markdown integrity gates recorded in STEP-246
+
+**Verification results:** Run `29314923948` passed. Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24 all reported `success` for the exact repaired SHA. Every job executed and passed Build, the 456-test regression suite, all Smoke commands, and package-content validation. No matrix entry or required step was skipped. The first run `29314051423` remains correctly recorded as failed because its two Windows regression jobs exposed the CRLF-sensitive tests.
+
+**Decisions made:** Treat `e20d84e` plus run `29314923948` as the Phase 1 publication and closure gate. Do not reopen completed Phase 1 contracts during the Policy Kernel design review. Keep Policy Kernel work design-only until accepted; keep Phase 2–5 production behavior closed until that acceptance; keep Phase 6–9 closed.
+
+**Risks or limitations:** Existing tool-specific limitations remain those listed in `Memory.md` and prior Phase 1 records. The publication-record documentation commit still requires the ordinary exact-head CI check, but it does not alter production or test behavior.
+
+**Rollback method:** Revert the unified implementation and portability commits through ordinary new revert commits if a published regression is discovered. Revert this closure record separately if its facts are incorrect. Do not reset or rewrite `main`, delete audit history, or weaken protected-source checks.
+
+**Next step:** Execute the design-only Policy Kernel gate. Create a new archive only when that gate begins; Phase 1 Volume 9 is closed and must not receive further ordinary implementation entries.

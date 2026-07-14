@@ -15,13 +15,13 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows.
 - Phase 0: complete.
 - Phase 0.5: formally closed on 2026-07-12.
-- Phase 1: the first sixteen slices are published; direct `inspect_workspace` implementation `4cea9bd` and publication record `1f39996` passed exact-head CI runs `29272546666` and `29273060702` on Ubuntu/Windows Node 20/24.
-- Authoritative route: finish and jointly publish all Phase 1 advertised-tool schemas, pass the design-only Policy Kernel gate, then continuously implement Phase 2A–Phase 5 under the 2026-07-13 conditional authorization without another phase-entry approval pause.
-- Slices 17 `codexpro_inventory` through 28 `codexpro`: unified implementation commit `021ab90` is pushed. Exact-head CI run `29314051423` passed Ubuntu Node 20/24 but failed Windows Node 20/24 on two CRLF-sensitive compatibility assertions. A line-ending-neutral test-only fix is locally verified; Phase 1 remains open until its replacement exact-head run passes.
+- Phase 1: formally closed on 2026-07-14. Slices 1–16 were published earlier; unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed exact-head CI run `29314923948` on Ubuntu/Windows Node 20/24.
+- Authoritative route: complete and pass the design-only Policy Kernel gate, then continuously implement Phase 2A–Phase 5 under the 2026-07-13 conditional authorization without another phase-entry approval pause.
+- The first unified run `29314051423` remains recorded as a failed attempt: both Ubuntu jobs passed, while both Windows regressions exposed two CRLF-sensitive test assertions. The test-only repair retained exact fail-closed checks and the replacement four-job run passed.
 
 ## Approved stopping point
 
-Unified Slices 17–28 implementation commit `021ab90` is on remote `main`, but Phase 1 is not closed because exact-head run `29314051423` failed only the Windows regression jobs. The next action is to commit and push the verified CRLF-neutral compatibility assertions, require all Ubuntu/Windows Node 20/24 jobs to pass, then record formal Phase 1 closure. Policy Kernel work remains design-only until that gate passes; Phase 6–9 remain closed.
+Phase 1 is formally closed at published head `e20d84e`; exact-head run `29314923948` passed Ubuntu/Windows Node 20/24 with Build, 456-test regression, Smoke, and package checks in every job. The next authorized action is the design-only Policy Kernel gate. Phase 2–5 production behavior remains closed until that design gate passes; Phase 6–9 remain closed.
 
 ## Active decisions and constraints
 
@@ -57,13 +57,13 @@ Unified Slices 17–28 implementation commit `021ab90` is on remote `main`, but 
 - Atomic transactions, rollback, undo, fuzzy editing, authentication, dependency changes, workspace lifecycle, and Phase 2/3 remain outside the published Phase 1 slices.
 - Phase archives use bounded numbered volumes: after each complete STEP, open the next volume when the active file reaches 80% of the configured direct-read byte limit; earlier volumes remain unchanged.
 - The repository has no `npm test` script; the complete regression command is `node --test test/*.test.mjs`.
-- Published Slice 1–16 contract details, verification evidence, and rollback records remain in their paired design/plan files and Phase 1 archives; do not reopen them during the unified unpublished batch.
+- Published Phase 1 contract details, verification evidence, failed attempts, and rollback records remain in their paired design/plan files and Phase 1 archives; do not reopen them during the Policy Kernel design review.
 - Keep `scripts/smoke.mjs` and `scripts/http-smoke.mjs` protected and unchanged; their compatibility entries perform exact fail-closed in-memory substitutions, add bounded `sourceURL` labels, and write no transformed source to disk.
 - Migrated Tool Cards are nested-first with historical flat fallback; protected main/HTTP Smoke changes only through exact fail-closed in-memory substitutions.
 
 ## Local verification evidence
 
-- Slice 28 and publication repair: focused 13/13, adjacent 87/87, main regression 456/456, CRLF clean-clone regression 456/456, Build, all eight Smoke sections, native-Windows Stress, 162-file package dry-run, static and protected compatibility gates pass. Initial exact-head run `29314051423` isolated two Windows-only LF/CRLF assertion failures; both now normalize only the inspected compatibility-source line endings while retaining exact count and block checks.
+- Slice 28 and publication: focused 13/13, adjacent 87/87, main and CRLF clean-clone regressions 456/456, Build, all eight Smoke sections, native-Windows Stress, 162-file package dry-run, static and protected compatibility gates passed. Exact-head run `29314923948` passed all four Ubuntu/Windows Node 20/24 jobs and every Build, Regression, Smoke, and Package step.
 - Slices 23–27: every focused, adjacent, complete regression, Build, eight-section Smoke, native-Windows Stress, package, static, and per-tool `neat-freak` gate passed; exact counts, deliberate REDs, path scopes, and rollback records remain in Phase 1 Volumes 7–9 and the paired design/plan files.
 - Slices 17–22: every per-slice focused/adjacent/complete regression, Build, Smoke, native-Windows Stress, package, static, and required `neat-freak` gate passed; exact counts and defects are retained in Phase 1 Volumes 5–7.
 - Exact-head implementation CI run `29272546666` passed Ubuntu/Windows Node 20/24 for full SHA `4cea9bd29d1abad97e511d65acf6a57c591a2b74`; publication-record run `29273060702` passed the same four-job matrix for full SHA `1f39996d375b6191fba0bb8972c35bb3b15136ad`.
@@ -71,8 +71,8 @@ Unified Slices 17–28 implementation commit `021ab90` is on remote `main`, but 
 ## Published phase evidence
 
 - Phase 0.5: baseline `82c24da`, Linux fix `da83f77`, and closure `73d7f8f`; CI runs `29183635923` and `29184298290` passed on Ubuntu/Windows Node 20/24.
-- Published Slices 1–16 passed their recorded local and Ubuntu/Windows Node 20/24 exact-head gates; per-tool commits, CI runs, RED/GREEN evidence, blockers, and rollback are retained in Phase 1 Volumes 1–4.
-- The latest published implementation/publication heads are `4cea9bd` and `1f39996`, with passing CI runs `29272546666` and `29273060702`.
+- Published Slices 1–16 passed their recorded local and Ubuntu/Windows Node 20/24 exact-head gates; details remain in Phase 1 Volumes 1–4.
+- Published Slices 17–28 use unified implementation `021ab90` and Windows portability repair `e20d84e`; exact-head run `29314923948` passed the complete four-job matrix. Failed predecessor run `29314051423` remains documented in STEP-246.
 
 ## Known limitations
 
@@ -97,20 +97,20 @@ Unified Slices 17–28 implementation commit `021ab90` is on remote `main`, but 
 - Review checkpoints remain process-local memory state and are not shared across service restarts.
 - Native-Windows Stress skips only the established POSIX-only multi-colon filename fixture and isolates fake-home discovery with both `HOME` and `USERPROFILE`.
 - `docs/memory/archive/phase-1.md` exceeds the normal direct read-size limit and is the unchanged first Phase 1 archive volume covering STEP-073–139.
-- Phase 1 Volumes 2–8 are closed at STEP-151, STEP-165, STEP-179, STEP-193, STEP-205, STEP-219, and STEP-236; `phase-1-part-9.md` is active from STEP-237 onward.
+- Phase 1 Volumes 2–9 are closed at STEP-151, STEP-165, STEP-179, STEP-193, STEP-205, STEP-219, STEP-236, and STEP-247. Create the next archive only when the Policy Kernel design-gate step begins.
 
 ## Open items
 
-1. Commit and push the CRLF-neutral Windows CI repair, require exact-head Ubuntu/Windows Node 20/24 success, append the Phase 1 publication/closure record, then complete the Policy Kernel design gate and continue through Phase 2A–Phase 5 under the recorded authorization.
+1. Execute the design-only Policy Kernel gate. After it passes, continue through Phase 2A–Phase 5 under the recorded authorization without reopening Phase 1.
 
 ## Recent summaries
 
-- **STEP-246 — Repair Windows exact-head portability:** implementation commit `021ab90` and run `29314051423` passed both Ubuntu jobs but exposed two CRLF-sensitive compatibility-source assertions on Windows. The test-only repair preserves exact counts/blocks; main and CRLF clean-clone regressions both pass 456/456, with Build and all eight Smoke sections passing.
+- **STEP-247 — Publish and close Phase 1:** portability repair `e20d84e` passed exact-head run `29314923948` across Ubuntu/Windows Node 20/24; every job completed Build, 456-test Regression, Smoke, and Package checks. Phase 1 is formally closed and the Policy Kernel design-only gate is next.
 - **STEP-243 — Design Slice 28:** approved Approach C, wrote the exact supertool design and seven-task TDD plan, and fixed the 27-child/eight-alias closed contract without opening Phase 2 behavior.
 - **STEP-242 — Reconcile Slice 27:** marked all 53 plan items complete, synchronized master/roadmap/AGENTS/Memory/archive, verified 27 design-plan pairs and documentation integrity, and made Slice 28 the next action.
 - **STEP-241 — Implement Slice 27 before neat-freak:** completed the exact self-test schema, validated Provider, fixed twelve-check derivation, nested consumers, protected-Smoke compatibility, native Stress migration, legacy fixed-artifact migration, semantic hardening, and every non-`neat-freak` local gate.
 - **STEP-240 — Design Slice 27 self-test contract:** inventoried the real twelve-check diagnostic, chose structured facts with handler-derived checks, specified a twenty-one-field result with explicit skipped probes and three stable failures, and wrote the seven-task TDD plan.
-- **STEP-239 — Close Slice 26 locally:** focused 20/20, adjacent 40/40, complete 428/428, Build, eight Smoke sections, native-Windows Stress, 153-file package dry-run, exact 65-path/static audits, and per-tool `neat-freak` passed; Slice 26 remains unpublished.
+- **STEP-246 — Repair Windows exact-head portability:** failed run `29314051423` was reproduced in a CRLF clean clone and reduced to two test-only line-ending assertions; the minimal fix retained exact fail-closed checks and passed local plus CRLF-clone regressions 456/456.
 
 ## Archives
 
@@ -124,7 +124,7 @@ Unified Slices 17–28 implementation commit `021ab90` is on remote `main`, but 
 - [Closed Phase 1 Volume 6 — STEP-194 through STEP-205](docs/memory/archive/phase-1-part-6.md)
 - [Closed Phase 1 Volume 7 — STEP-206 through STEP-219](docs/memory/archive/phase-1-part-7.md)
 - [Closed Phase 1 Volume 8 — STEP-220 through STEP-236](docs/memory/archive/phase-1-part-8.md)
-- [Active Phase 1 Volume 9 — STEP-237 onward](docs/memory/archive/phase-1-part-9.md)
+- [Closed Phase 1 Volume 9 — STEP-237 through STEP-247](docs/memory/archive/phase-1-part-9.md)
 
 ## Memory maintenance protocol
 

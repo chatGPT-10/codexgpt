@@ -5,8 +5,10 @@
 > 状态：当前权威实施路线  
 > 工作区：`D:\Dev\codexpro`  
 > 基线版本：`codexpro@0.28.6`  
-> 当前阶段：Phase 1 进行中，16 个工具切片已发布，Slice 17–22 已完成全部本地门禁与逐工具整理，Slice 23 `handoff_to_agent` post-result hardening 后 focused 16/16、adjacent 78/78 与 Build 已通过，完整门禁和 neat-freak 是下一项行动  
-> 发布策略：Slice 17–28 共 12 个剩余工具连续完成并逐片整理，全部本地完成后统一 stage、commit、push 和精确头 CI  
+> 当前阶段：Phase 1 已于 2026-07-14 正式关闭；28 个工具切片全部发布并通过 Ubuntu/Windows Node 20/24 精确头 CI
+>
+> 下一门禁：完成并通过 design-only Policy Kernel gate；通过前不实施 Phase 2 生产行为
+>
 > 已批准主路线：完成并统一发布 Phase 1 → 通过 Policy Kernel 设计门 → 连续实施 Phase 2A–Phase 5
 
 本文件取代下载目录中的 `codexpro_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
@@ -1369,8 +1371,9 @@ Phase 1 Slice 28 codexpro
   → executable RED baseline covered schema, descriptor, live registration, aliases, child-envelope preservation, stable failures, Tool Card, protected compatibility, and Stress
   → deliberate hardening fixed the intentionally supertool-free connection-test surface, explicit enabled=false action exposure, and legacy-wrapper delegation instead of direct registered target-handler dispatch
   → focused 13/13, adjacent aggregation 87/87, complete regression 456/456, Build, all eight Smoke sections, native-Windows Stress, 162-file package dry-run, and static gates pass
-  → Slices 17–28 and Phase 1 implementation are locally complete, reviewed, neat-freak reconciled, unstaged, uncommitted, unpushed, and unpublished
-  → unified Slice 17–28 stage/commit/push/exact-head-CI publication is next
+  → unified implementation commit 021ab90 published; first exact-head run 29314051423 passed Ubuntu but exposed two CRLF-sensitive Windows test assertions
+  → test-only portability repair e20d84e retained exact fail-closed checks and passed replacement exact-head run 29314923948 on Ubuntu/Windows Node 20/24
+  → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Slices 17–28 已全部完成本地设计、TDD、验证和逐工具 `neat-freak` 对账，Phase 1 实现本地完成。下一授权动作是统一 stage、commit、push 并验证 Ubuntu/Windows Node 20/24 精确头 CI；在该发布门通过并关闭 Phase 1 之前，不开始 Policy Kernel 生产实现。随后完成并通过 Policy Kernel 设计门，再连续实施 Phase 2A、2B、3、4A、4B 和 5；这些后续阶段在其前置门通过前保持关闭，但通过后不再以重复批准问题中断。Phase 6–9 和各阶段明确列出的独立高权限外部动作仍不在本次授权内。
+Phase 1 的 28 个工具切片已全部完成设计、TDD、验证、逐工具 `neat-freak`、统一发布和跨平台精确头 CI，并于 2026-07-14 正式关闭。下一授权动作是 design-only Policy Kernel gate；该门通过前不开始 Phase 2 生产实现。通过后按已记录授权连续实施 Phase 2A、2B、3、4A、4B 和 5，每一阶段仍必须经过独立设计、TDD、验证、回滚和验收门禁。Phase 6–9 与各阶段明确列出的独立高权限外部动作仍不在本次授权内。
