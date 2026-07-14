@@ -18,11 +18,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 1: formally closed on 2026-07-14. Slices 1–16 were published earlier; unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed exact-head CI run `29314923948` on Ubuntu/Windows Node 20/24.
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
-- Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110` across Ubuntu/Windows Node 20/24.
+- Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
 
 ## Approved stopping point
 
-Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B commit `2fb622d` passed exact-head CI run `29332007110` across Ubuntu/Windows Node 20/24. The next controlled action is Phase 3 design review under the recorded Phase 2A–5 authorization; implementation must still preserve independent gates and stop before unapproved Git or system-policy actions. Phase 6–9 and all independently gated high-risk actions remain closed.
+Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B implementation commit `2fb622d` passed run `29332007110`, and unchanged-tree replacement verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24. The next controlled action is Phase 3 design review under the recorded Phase 2A–5 authorization; implementation must still preserve independent gates and stop before unapproved Git or system-policy actions. Phase 6–9 and all independently gated high-risk actions remain closed.
 
 ## Active decisions and constraints
 
@@ -44,7 +44,8 @@ Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B commit `2fb622d` p
 
 ## Verification evidence
 
-- Phase 2B exact-head run `29332007110` for commit `2fb622d` passed all four Ubuntu/Windows Node 20/24 jobs. Every job completed Build, Regression Tests, Smoke Test, and Check Package Contents successfully.
+- Phase 2B exact-head run `29332007110` for implementation commit `2fb622d` passed all four Ubuntu/Windows Node 20/24 jobs. Every job completed Build, Regression Tests, Smoke Test, and Check Package Contents successfully.
+- Closure-documentation run `29332531317` for `484cd6d` passed Ubuntu Node 20/24 and Windows Node 24 but produced one Windows Node 20 Regression Tests failure whose public logs were unavailable. The source tree was unchanged from the green implementation head; a fresh local Windows Node 20 `node --test` run passed 542 tests with 541 pass, 0 fail, and 1 skip. Empty replacement-verification commit `c08024d` preserved the same tree, and run `29334446539` then passed all four matrix jobs including every Build, Regression Tests, Smoke Test, and Check Package Contents step.
 - Phase 2B local gate: complete regression 542 tests with 541 pass, 0 fail, and 1 established platform-conditional skip; TypeScript Build; all eight Smoke sections including real HTTP cross-session isolation; native-Windows Stress; 197-file package dry-run; and static removal of the process-global manager, path-derived public ID, and optional core lookup all passed.
 - Phase 2A local gate: Policy focused 69 pass/0 fail/1 platform skip, adjacent security/contracts 149/149, complete regression 525 pass/0 fail/1 platform skip across 526 tests, Build, all eight Smoke sections, native-Windows Stress, 195-file package dry-run, protected-source checks, and the static 27-tool mapping passed.
 - Initial exact-head run `29325407247` for `e6798b6` passed Windows Node 20/24 completely but failed Ubuntu Node 20/24 during Regression Tests. Root cause: `test/policy-resources.test.mjs` combined simulated `win32` `PathGuard` parsing with the host Linux `node:path` implementation. The repair keeps the real filesystem guard on the host platform and tests Windows normalization through resource comparison keys.
@@ -71,10 +72,10 @@ Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B commit `2fb622d` p
 
 ## Recent summaries
 
+- **STEP-262 — Replace one non-reproduced closure CI failure:** run `29332531317` failed only Windows Node 20 Regression Tests on a documentation-only head; exact local Windows Node 20 regression passed 541/542 with one skip, and unchanged-tree commit `c08024d` passed replacement run `29334446539` across all four matrix jobs.
 - **STEP-261 — Publish and close Phase 2B:** commit `2fb622d` was pushed to `main`; exact-head run `29332007110` passed Ubuntu/Windows Node 20/24, including Build, Regression Tests, Smoke Test, and Check Package Contents in every job.
 - **STEP-260 — Reconcile Phase 2B knowledge and rules:** aligned `AGENTS.md`, dual-language READMEs, `SECURITY.md`, `CHANGELOG.md`, the master plan, Memory, and the active archive; removed unused lifecycle timestamp state; focused 22/22, Build, 541/542 regression with one platform skip, eight-section Smoke, and 197-file package dry-run passed.
 - **STEP-259 — Locally accept Phase 2B:** 542-test regression produced 541 pass, 0 fail, and 1 established platform skip; Build, eight-section Smoke, native-Windows Stress, and 197-file package dry-run passed.
-- **STEP-258 — Prove HTTP workspace isolation:** protected HTTP Smoke source remained unchanged while the compatibility loader verified fresh per-session handles, empty new-session inventory, foreign-handle rejection, and session-local Pro-context export.
 
 ## Archives
 
@@ -90,7 +91,7 @@ Phase 1, Phase 2A, and Phase 2B are formally closed. Phase 2B commit `2fb622d` p
 - [Closed Phase 1 Volume 8 — STEP-220 through STEP-236](docs/memory/archive/phase-1-part-8.md)
 - [Closed Phase 1 Volume 9 — STEP-237 through STEP-247](docs/memory/archive/phase-1-part-9.md)
 - [Policy Kernel Gate — STEP-248 through STEP-253](docs/memory/archive/policy-kernel-gate.md)
-- [Closed Phase 2B Workspace Lifecycle — STEP-254 through STEP-261](docs/memory/archive/phase-2b-workspace-lifecycle.md)
+- [Closed Phase 2B Workspace Lifecycle — STEP-254 through STEP-262](docs/memory/archive/phase-2b-workspace-lifecycle.md)
 
 ## Memory maintenance protocol
 

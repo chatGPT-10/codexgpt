@@ -204,3 +204,30 @@ Review the final unstaged diff. After explicit user approval, run the requested 
 **Rollback method:** Revert commit `2fb622d` with a normal inverse commit if Phase 2B must be withdrawn. Do not restore process-global manager sharing, path-derived public IDs, or cross-session handle reuse as an undocumented fallback.
 
 **Next step:** Begin Phase 3 design review under the recorded Phase 2A–5 authorization. Keep staging, commits, pushes, system-policy changes, sandbox installation, OAuth 2.1, credential migration, and Phase 6–9 independently gated.
+
+## STEP-262 — Replace one non-reproduced closure CI failure
+
+**Status:** Complete. Replacement exact-head verification passed; no implementation change was required.
+
+**Goal:** Investigate the single Windows Node 20 Regression Tests failure on the documentation-only closure head, avoid guessing at a source fix, and obtain a trustworthy replacement exact-head result.
+
+**Files changed:** `Memory.md` and `docs/memory/archive/phase-2b-workspace-lifecycle.md`. Empty commit `c08024d` changed no tree content and existed only to trigger replacement CI.
+
+**Implementation summary:** Closure-documentation commit `484cd6d` preserved the implementation tree but run `29332531317` failed only Windows Node 20 Regression Tests; Ubuntu Node 20/24 and Windows Node 24 passed. GitHub exposed the failed step and exit status but denied anonymous access to the detailed public log, so the exact failing test could not be confirmed. The same source tree had already passed Windows Node 20 in implementation run `29332007110`. A temporary local Node 20 runtime was given the actual npm CLI path and used to run the complete CI-equivalent `node --test` discovery mode; it passed all 542 tests with 541 pass, 0 fail, and 1 established skip. No reproducible code or test defect remained. An empty validation commit `c08024d` preserved the tree and triggered replacement run `29334446539`.
+
+**Verification commands:**
+
+- direct Windows Node 20 package-content contract with the actual npm CLI path
+- four bounded Windows Node 20 test-file groups
+- complete Windows Node 20 `node --test` discovery mode with output captured to a temporary log
+- GitHub public API queries for runs `29332531317` and `29334446539` and their job/step summaries
+
+**Verification results:** The isolated package-content contract passed after the temporary Node 20 runtime was supplied the real npm CLI path. All four local Windows Node 20 groups passed. The exact full local run produced 542 tests, 541 pass, 0 fail, and 1 skip. Replacement run `29334446539` matched full commit `c08024d438e256ee0d37c2683136212971ad0616` and passed Ubuntu Node 20/24 and Windows Node 20/24; every job passed Build, Regression Tests, Smoke Test, and Check Package Contents.
+
+**Decisions made:** Classify run `29332531317` as one non-reproduced runner/test-process failure rather than inventing an unsupported code root cause. Do not change production or test code without a reproducible defect. Preserve both failed and replacement evidence. Treat replacement run `29334446539` as the final cross-platform closure verification for the unchanged tree.
+
+**Risks or limitations:** The exact assertion from the failed GitHub step remains unavailable because anonymous detailed-log access returned 403/404. This is recorded as uncertainty, not presented as a confirmed package test or runner-service root cause.
+
+**Rollback method:** The validation commit is empty and requires no content rollback. Revert only this factual documentation record if its run identifiers or conclusions are later proven inaccurate.
+
+**Next step:** Begin Phase 3 design review under the recorded Phase 2A–5 authorization. Keep all independent Git, system-policy, sandbox, OAuth, credential, and Phase 6–9 gates closed until separately approved.
