@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 5.8, Node.js 20+, Zod 3, Node built-ins (`crypto`, `fs`, `path`, `url`, `net`, `async_hooks`), MCP SDK 1.17, native Windows and Ubuntu test matrix.
 
-**Status:** Complete locally on native Windows on 2026-07-14; all local gates passed. Changes remain unstaged and unpublished pending user approval.
+**Status:** Published and formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24; every job completed Build, Regression Tests, Smoke Test, and Check Package Contents.
 
 ## Global Constraints
 

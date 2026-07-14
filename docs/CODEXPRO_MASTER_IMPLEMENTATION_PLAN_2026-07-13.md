@@ -98,8 +98,8 @@ mcp.<user-domain>
 | Phase 0.5 | 正式关闭 | Windows/Ubuntu CI、路径策略、Host/Origin、入口认证兼容、Doctor、Cloudflared 完整性与真实外部 Host 转发均已验证 |
 | Phase 1 | 正式关闭 | 28 个切片已发布；统一实现 `021ab90` 与 Windows 修复 `e20d84e` 通过精确头四矩阵 CI run `29314923948` |
 | Policy Kernel 设计门 | 已通过 | 2026-07-14 批准 compiled-kernel Approach B；四份设计规格完整并通过自审 |
-| Phase 2A | 本地实现与验收完成、尚未发布 | 12 个 TDD 任务与 84 个步骤完成；完整 526 项回归、Build、八段 Smoke、native-Windows Stress、195 文件 package dry-run 和静态门通过，变更仍未暂存 |
-| Phase 2B–5 | 已条件批准、尚未开始 | Phase 2A 的暂存、提交、推送和 exact-head CI 由用户另行决定；在此之前不进入 Phase 2B |
+| Phase 2A | 正式关闭 | 12 个 TDD 任务与 84 个步骤完成；实现 `e6798b6` 与 Linux 路径测试修复 `dea25ec` 通过 exact-head run `29326459987` 的 Ubuntu/Windows Node 20/24 四矩阵 |
+| Phase 2B–5 | 已条件批准、尚未开始 | Phase 2A 已关闭；下一授权动作是 Phase 2B 设计与实施，每阶段仍须通过独立设计、TDD、验证、回滚和验收门 |
 | Phase 6–9 | 未批准 | 不得提前实现；OAuth 2.1、Subagents 等独立高风险能力仍保留自己的批准门 |
 
 Phase 0.5 已验证的外部入口事实：公开 `https://codexpro.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexPro，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
@@ -691,7 +691,7 @@ local modifications
 - [x] Query-token compatibility、Bearer、STDIO 和 loopback 身份差异被明确建模。
 - [x] 文档不声称 Phase 8 前已获得强 OAuth owner isolation。
 
-2026-07-14 本地验收证据：Policy focused 70 项中 69 pass、0 fail、1 个平台条件跳过；相邻安全与契约 149/149；完整回归 526 项中 525 pass、0 fail、1 个平台条件跳过；TypeScript Build、八段 Smoke、native-Windows Stress、195 文件 package dry-run、受保护 Smoke 源、静态占位符和 27 工具闭集检查全部通过。Phase 2A 仍未暂存、提交、推送或执行 exact-head CI，因此状态是“本地实现与验收完成、尚未发布”，不是正式发布关闭。
+2026-07-14 验收与发布证据：Policy focused 70 项中 69 pass、0 fail、1 个平台条件跳过；相邻安全与契约 149/149；完整回归 526 项中 525 pass、0 fail、1 个平台条件跳过；TypeScript Build、八段 Smoke、native-Windows Stress、195 文件 package dry-run、受保护 Smoke 源、静态占位符和 27 工具闭集检查全部通过。实现提交 `e6798b6` 的首次 exact-head run `29325407247` 通过两个 Windows job，但由跨平台测试夹具暴露两个 Ubuntu Regression 失败；测试专用修复 `dea25ec` 保持生产行为不变，并通过 replacement run `29326459987` 的 Ubuntu/Windows Node 20/24 四矩阵。每个 job 均完成 Build、Regression Tests、Smoke Test 和 Check Package Contents，Phase 2A 因此正式关闭。
 
 ### 8.4 非目标
 
@@ -1380,4 +1380,4 @@ Phase 1 Slice 28 codexpro
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1 的 28 个工具切片已全部完成设计、TDD、验证、逐工具 `neat-freak`、统一发布和跨平台精确头 CI，并于 2026-07-14 正式关闭。下一授权动作是 design-only Policy Kernel gate；该门通过前不开始 Phase 2 生产实现。通过后按已记录授权连续实施 Phase 2A、2B、3、4A、4B 和 5，每一阶段仍必须经过独立设计、TDD、验证、回滚和验收门禁。Phase 6–9 与各阶段明确列出的独立高权限外部动作仍不在本次授权内。
+Phase 1 的 28 个工具切片与 Phase 2A Policy Kernel 均已完成设计、TDD、验证、`neat-freak`、发布和跨平台精确头 CI，并于 2026-07-14 正式关闭。Phase 2A 实现 `e6798b6` 加测试专用 Linux 路径修复 `dea25ec` 通过 run `29326459987` 的 Ubuntu/Windows Node 20/24 四矩阵。下一授权动作是 Phase 2B 设计与实施；之后按已记录授权继续 Phase 3、4A、4B 和 5，每一阶段仍必须经过独立设计、TDD、验证、回滚和验收门禁。Phase 6–9 与各阶段明确列出的独立高权限外部动作仍不在本次授权内。

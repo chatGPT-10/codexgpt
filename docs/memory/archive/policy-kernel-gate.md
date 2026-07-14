@@ -188,3 +188,29 @@ Integrated one explicit policy definition for each of the 27 canonical direct to
 **Rollback:** Revert the repair commit through an ordinary new commit. Do not rewrite `e6798b6`, delete failed-run evidence, weaken path-policy production code, or make Ubuntu tests conditional merely to obtain a green matrix.
 
 **Next step:** Stage and publish this test-only repair, check the exact replacement SHA on Ubuntu/Windows Node 20/24, and keep Phase 2B closed until all four jobs pass.
+
+## STEP-253 — Publish and formally close Phase 2A
+
+**Status:** Complete; Phase 2A formally closed
+
+**Goal:** Verify the test-only repair on the exact published head, close Phase 2A only after all four cross-platform jobs pass, synchronize active project state, and leave Phase 2B as the next authorized action without crossing independent high-risk gates.
+
+**Published repair:** Commit `dea25ec` (`Fix Phase 2A Linux path test`) contains only the cross-platform resource-test fixture repair plus the STEP-252 active-state records. It does not change production code, schemas, dependencies, package contents, or protected Smoke sources.
+
+**Exact-head CI:** GitHub Actions run `29326459987` targeted full SHA `dea25ecb4dd8565ce41fbcd231e2951544ce5d83`. Ubuntu / Node 20, Ubuntu / Node 24, Windows / Node 20, and Windows / Node 24 all completed successfully. Every job passed Checkout, Setup Node, Install, Build, Regression Tests, Smoke Test, Check Package Contents, and cleanup. The replacement run proves that the Linux-host fixture repair resolves the first run's Ubuntu regression without weakening Windows behavior.
+
+**Closure changes:** Updated `AGENTS.md`, `Memory.md`, the authoritative master plan, and the Phase 2A implementation plan from publication-pending language to formal closure. Recorded implementation `e6798b6`, failed first run `29325407247`, repair `dea25ec`, and successful replacement run `29326459987`. Made Phase 2B design and implementation the next authorized action while preserving separate approval gates for destructive operations, system-policy changes, candidate sandbox installation, OAuth 2.1, credential migration, Git remote writes, and Phase 6–9.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/superpowers/plans/2026-07-14-phase-2a-policy-kernel-implementation.md`
+- `docs/memory/archive/policy-kernel-gate.md`
+
+**Acceptance:** Phase 2A's design package, 12 TDD tasks, 84 plan steps, local gates, publication, failed-run diagnosis, ordinary repair commit, and replacement exact-head matrix are complete and traceable. No unresolved Phase 2A release blocker remains.
+
+**Rollback:** Revert this closure-record commit through an ordinary new commit if the recorded state is wrong. Revert implementation and repair commits separately only after impact review. Never rewrite published history, delete failed-run evidence, or collapse the Policy, Approval, Tool Surface, and Sandbox boundaries during rollback.
+
+**Next step:** Begin Phase 2B design and implementation under the recorded Phase 2A–5 authorization. Preserve every phase gate and all independently gated high-risk actions.
