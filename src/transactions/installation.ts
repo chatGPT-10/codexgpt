@@ -45,6 +45,7 @@ function readInstallationState(file: string): InstallationStateV1 {
     return parseInstallationState(fs.readFileSync(file, "utf8"));
   } catch (error) {
     if (error instanceof TransactionError) throw error;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw error;
     throw new TransactionError(
       "TRANSACTION_STATE_CORRUPT",
       "Persisted installation state could not be read."
@@ -72,9 +73,7 @@ export function loadOrCreateInstallationState(
   try {
     return readInstallationState(directories.installationFile);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (!(error instanceof TransactionError) && code !== "ENOENT") throw error;
-    if (error instanceof TransactionError && fs.existsSync(directories.installationFile)) throw error;
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
 
   const randomBytes = options.randomBytes ?? nodeRandomBytes;
@@ -94,28 +93,53 @@ export function loadOrCreateInstallationState(
   };
   installationStateV1Schema.parse(candidate);
 
+  const temporaryFile = path.join(
+    stateRoot,
+    `.codexpro-install-${installationIdBytes.toString("hex")}.tmp`
+  );
   let fd: number | undefined;
+  let published = false;
   try {
-    fd = fs.openSync(directories.installationFile, "wx", 0o600);
+    fd = fs.openSync(temporaryFile, "wx", 0o600);
     fs.writeFileSync(fd, `${JSON.stringify(candidate)}\n`, "utf8");
     fs.fsyncSync(fd);
     fs.closeSync(fd);
     fd = undefined;
     try {
-      fs.chmodSync(directories.installationFile, 0o600);
+      fs.chmodSync(temporaryFile, 0o600);
     } catch {
       // Windows ACL semantics are outside the portable mode-bit contract.
     }
-    syncDirectoryBestEffort(stateRoot);
-  } catch (error) {
-    if (fd !== undefined) fs.closeSync(fd);
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-      throw new TransactionError(
-        "TRANSACTION_STATE_CORRUPT",
-        "Installation state could not be created."
-      );
+    try {
+      fs.linkSync(temporaryFile, directories.installationFile);
+      published = true;
+      syncDirectoryBestEffort(stateRoot);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw new TransactionError(
+          "TRANSACTION_STATE_CORRUPT",
+          "Installation state could not be published."
+        );
+      }
     }
+  } catch (error) {
+    if (fd !== undefined) {
+      fs.closeSync(fd);
+      fd = undefined;
+    }
+    if (error instanceof TransactionError) throw error;
+    throw new TransactionError(
+      "TRANSACTION_STATE_CORRUPT",
+      "Installation state could not be created."
+    );
   } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+    try {
+      fs.unlinkSync(temporaryFile);
+      if (published) syncDirectoryBestEffort(stateRoot);
+    } catch {
+      // Best-effort cleanup; publication correctness does not depend on the temporary name.
+    }
     installationIdBytes.fill(0);
     masterKeyBytes.fill(0);
   }

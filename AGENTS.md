@@ -96,7 +96,7 @@ Memory rules:
 - Treat the URL as a secret: it may leak through browser history, clipboard contents, screenshots, logs, and copied links.
 - `CODEXPRO_ALLOW_QUERY_TOKEN=0` explicitly disables URL credentials for advanced compatible clients that can send an `Authorization: Bearer` header.
 - Server-side Bearer support remains available for compatible clients, but documentation must not claim ChatGPT Web supports manual static-Bearer configuration.
-- OAuth 2.1 is the later standards-based direction and requires separate explicit approval before implementation.
+- OAuth 2.1 is the later standards-based direction. Its Phase 8 implementation is authorized only within the execution boundary in Section 9 and must pass the dedicated identity, migration, rollback, and security gates before activation.
 - Non-loopback and tunnel modes must fail closed without authentication unless an explicit reviewed override exists.
 - Host and Origin checks must run locally.
 
@@ -158,8 +158,8 @@ Memory rules:
 - `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans for the twenty-eight Phase 1 slices, the approved Policy Kernel Gate, Phase 2A, Phase 2B workspace lifecycle, the approved Phase 3A–3D design package, and the completed detailed Phase 3A and Phase 3B implementation plans.
 - `docs/memory/archive/policy-kernel-gate.md` — closed Policy Kernel Gate and Phase 2A records covering STEP-248 through STEP-253.
 - `docs/memory/archive/phase-2b-workspace-lifecycle.md` — closed Phase 2B workspace-lifecycle records covering STEP-254 through STEP-262.
-- `docs/memory/archive/phase-3.md` — active Phase 3 records beginning with STEP-263 design review.
-- Phase 1, Phase 2A, Phase 2B, and Phase 3A are published. Phase 3B is locally implemented and verified but remains unstaged and unpublished; Phase 3C–3D remain pending behind independent gates.
+- `docs/memory/archive/phase-3.md` — closed Phase 3 Volume 1 covering STEP-263 through STEP-277; start the next Phase 3 STEP in `docs/memory/archive/phase-3-part-2.md`.
+- Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published. Phase 3A/3B CI portability repairs are complete locally through STEP-277 and await an exact-head replacement CI run; Phase 3C–3D remain next.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -197,6 +197,8 @@ Distinguish clearly between:
 - Keep each step independently reversible where practical.
 - Never delete user configuration, profiles, tokens, branches, worktrees, or audit data without explicit confirmation.
 
-## 9. Current approved stopping point
+## 9. Current approved execution boundary
 
-Phase 1, Phase 2A, Phase 2B, and Phase 3A are published. Phase 3A is present at local and remote `main` commit `75b8d54`. Phase 3B persistent audit is locally implemented, verified, and reconciled through STEP-276; all Phase 3B changes remain unstaged and unpublished until explicit Git approval. Contract V1 remains the exact 28-tool public surface, while the Phase 3B persistent runtime and `query_audit_events` adapters remain dormant until Phase 3C selects and enables the coherent contract V2 snapshot. Before Phase 3C, atomic mode must remain read-only (`CODEXPRO_WRITE_MODE=off`) and writable atomic server construction must fail before tool registration. Existing public writers remain on reviewed legacy behavior and must not be described as atomic or persistently audited. Use `Memory.md` for the current head and evidence summary, the master plan for active sequencing, and `docs/memory/archive/phase-3.md` for active Phase 3 records. Destructive operations, system-policy changes, candidate sandbox installation, OAuth 2.1, credential migration, Git remote writes beyond explicit approval, and Phase 6–9 remain independently gated. Failed gates must be fixed rather than bypassed.
+Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published. Published Phase 3 history is `75b8d54` (3A), `00cb917` (3B), `70b1060` (fixture discovery repair), and `c5b0226` (cross-platform protected-source hashes). STEP-277 repairs the remaining Windows Node 20 first-open race by publishing a fully synced `installation.json` through a no-clobber same-volume hard link; exact-head replacement CI remains required before entering Phase 3C. Contract V1 remains the exact 28-tool public surface, while the persistent runtime and `query_audit_events` adapters stay dormant until Phase 3C enables one coherent contract V2 snapshot. Before then, atomic mode remains read-only (`CODEXPRO_WRITE_MODE=off`) and existing public writers remain reviewed legacy behavior.
+
+The user explicitly authorized continuous implementation through Phase 8 using the recommended options and authorized scoped staging, English commits, and pushes after each verified phase part. Every part still requires its design/TDD/verification/neat-freak/CI gate; a failed gate must be fixed before later work is stacked on it. This authorization covers repository implementation and its reversible fixture-based validation. It does not authorize destructive user-data or Git-history operations, production deployment, disclosure of credentials, or silent expansion beyond the phase specifications. Use `Memory.md` for the current head/evidence, the master plan for sequencing, and `docs/memory/archive/phase-3-part-2.md` for the next Phase 3 record.

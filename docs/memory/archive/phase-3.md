@@ -322,3 +322,25 @@ This archive is append-only. It records Phase 3 design, implementation, verifica
 **Rollback method:** Revert only the STEP-276 documentation, metadata, static-test, and memory reconciliation changes. Do not remove Phase 3B implementation or rewrite prior append-only archive entries.
 
 **Next step:** Stop before Git staging and await explicit approval to publish the reconciled Phase 3B change set.
+
+## STEP-277 — Repair Phase 3A/3B CI portability and atomic installation-state publication
+
+**Status:** Complete locally; ready for the authorized scoped commit and replacement exact-head CI.
+
+**Goal:** Trace every Phase 3A/3B CI failure to its actual cause, confirm the already-published portability repairs, eliminate the remaining Windows Node 20 cross-process first-open race without weakening corruption handling, and reconcile the current execution authorization.
+
+**Files changed:** `src/transactions/installation.ts`; `test/transaction-installation-state.test.mjs`; `AGENTS.md`; `Memory.md`; `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`; this archive.
+
+**Implementation summary:** GitHub Actions run `29348287464` showed two independent Phase 3A defects: executable child fixtures under `test/` were discovered as tests, and protected Smoke hashes compared platform-dependent raw line endings. Published commits `70b1060` and `c5b0226` moved fixtures outside Node discovery and canonicalized protected-source hashing. Run `29362153159` then isolated one Phase 3B race: two audit writers could simultaneously create application state, allowing one process to read a partially written `installation.json`. The repair now writes each candidate to an exclusive private sibling, syncs the complete bytes, applies restrictive portable permissions, and publishes with a same-volume hard link that atomically fails with `EEXIST` if another process won. The loser discards its candidate and rereads the winner. Malformed committed JSON still fails closed; there is no retry loop or direct-write fallback.
+
+**Verification commands:** `gh run view` metadata and failed-job log extraction for runs `29348287464`, `29360648463`, `29361656348`, and `29362153159`; `npm run build`; `node --test test/transaction-installation-state.test.mjs`; exact audit concurrency test; Windows Node `20.20.2` installation tests and 35 repeated audit-concurrency iterations; `node --test test/*.test.mjs`; `npm run smoke`; `npm run stress`; `npm pack --dry-run --json`; `git diff --check`; static secret/scope/documentation checks.
+
+**Verification results:** The failure logs matched the three stated causes. Build passed. Installation-state tests passed 7/7 on Node 24 and 7/7 on Windows Node 20.20.2. The exact two-process audit regression passed, followed by 35 additional Windows Node 20 iterations with zero failures. Complete regression ran 631 tests with 630 pass, 0 fail, and 1 established platform skip. All eight Smoke sections passed. Native-Windows Stress passed. Package dry-run passed with 237 files. Replacement exact-head CI is not yet available because this entry precedes the authorized commit and push.
+
+**Decisions made:** Fix publication ordering at the state boundary instead of retrying parse failures. A committed `installation.json` is either absent or complete; observed malformed content remains evidence of corruption. Continue using the Phase 3 hard-link capability boundary and no direct-write fallback. Record the user's authorization to implement recommended options continuously through Phase 8 and to stage, commit, and push each verified phase part, while preserving per-part design/TDD/neat-freak/CI gates.
+
+**Risks or limitations:** Directory fsync remains best effort on platforms that do not support it. Same-volume hard-link support remains mandatory; unsupported filesystems fail closed. Exact-head Ubuntu/Windows Node 20/24 evidence is pending. This change does not activate contract V2, persistent audit registration, or public atomic writers.
+
+**Rollback method:** Revert the STEP-277 source, focused tests, rules, plan, memory, and this appended entry together. Do not rewrite earlier Phase 3 archive history or delete user state/audit evidence.
+
+**Next step:** Stage only the STEP-277 scope, commit in English, push `main`, and require the exact-head CI matrix to pass. This file crosses the 80% direct-read threshold with STEP-277 and is now closed; begin the next Phase 3 STEP in `docs/memory/archive/phase-3-part-2.md`.

@@ -5,11 +5,11 @@
 > 状态：当前权威实施路线  
 > 工作区：`D:\Dev\codexpro`  
 > 基线版本：`codexpro@0.28.6`  
-> 当前阶段：Phase 1 已于 2026-07-14 正式关闭；28 个工具切片全部发布并通过 Ubuntu/Windows Node 20/24 精确头 CI
+> 当前阶段：Phase 3A/3B 已发布；STEP-277 正在修复最后一个 Windows Node 20 首次状态发布竞态
 >
-> 下一门禁：完成并通过 design-only Policy Kernel gate；通过前不实施 Phase 2 生产行为
+> 下一门禁：STEP-277 通过 Ubuntu/Windows Node 20/24 精确头 CI 后，按已批准的 Phase 3C 规格编写并执行 TDD 计划
 >
-> 已批准主路线：完成并统一发布 Phase 1 → 通过 Policy Kernel 设计门 → 连续实施 Phase 2A–Phase 5
+> 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 
 本文件取代下载目录中的 `codexpro_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
@@ -39,7 +39,7 @@
 
 ### 0.3 本文件不是什么
 
-当前任务已获连续执行至 Phase 5 的条件授权，但连续执行不等于跳过质量门。每个工具切片和每个安全子系统仍必须单独经历：
+当前任务已获连续执行至 Phase 8 的条件授权，但连续执行不等于跳过质量门。每个工具切片和每个安全子系统仍必须单独经历：
 
 ```text
 设计草稿
@@ -99,8 +99,10 @@ mcp.<user-domain>
 | Phase 1 | 正式关闭 | 28 个切片已发布；统一实现 `021ab90` 与 Windows 修复 `e20d84e` 通过精确头四矩阵 CI run `29314923948` |
 | Policy Kernel 设计门 | 已通过 | 2026-07-14 批准 compiled-kernel Approach B；四份设计规格完整并通过自审 |
 | Phase 2A | 正式关闭 | 12 个 TDD 任务与 84 个步骤完成；实现 `e6798b6` 与 Linux 路径测试修复 `dea25ec` 通过 exact-head run `29326459987` 的 Ubuntu/Windows Node 20/24 四矩阵 |
-| Phase 2B–5 | 已条件批准、尚未开始 | Phase 2A 已关闭；下一授权动作是 Phase 2B 设计与实施，每阶段仍须通过独立设计、TDD、验证、回滚和验收门 |
-| Phase 6–9 | 未批准 | 不得提前实现；OAuth 2.1、Subagents 等独立高风险能力仍保留自己的批准门 |
+| Phase 2B | 正式关闭 | 工作区生命周期实现与替换 CI 已通过 Ubuntu/Windows Node 20/24 四矩阵 |
+| Phase 3 | 进行中 | 3A/3B 已发布；STEP-277 本地修复首次状态发布竞态，3C/3D 待精确头 CI 后继续 |
+| Phase 4–8 | 已批准、尚未开始 | 采用各设计门的推荐选项连续实施；每个可回滚子部分独立验证、整理、提交、推送并通过精确头 CI |
+| Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
 Phase 0.5 已验证的外部入口事实：公开 `https://codexpro.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexPro，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
 
@@ -113,7 +115,7 @@ Phase 0.5 已验证的外部入口事实：公开 `https://codexpro.drliang.uk/h
 5. 完整 Server URL 是秘密，可能通过历史记录、剪贴板、截图、日志或转发链接泄露。
 6. `CODEXPRO_ALLOW_QUERY_TOKEN=0` 只适用于能主动发送 `Authorization: Bearer` 的兼容客户端。
 7. 服务端 Bearer 支持仍保留，但文档不能声称 ChatGPT Web 支持手工静态 Bearer 配置。
-8. OAuth 2.1 是后续标准化方向，必须在 Phase 8 前单独批准，不能以计划存在代替实施批准。
+8. OAuth 2.1 是后续标准化方向；2026-07-14 的 Phase 8 显式授权已满足“计划存在不能代替实施批准”的门槛，但启用前仍须通过 Phase 8 的身份、迁移、回滚与安全验收。
 9. 非 loopback 和 Tunnel 模式必须在没有认证时 fail closed；Host 和 Origin 校验必须在本地执行。
 
 ### 2.3 当前配置事实
@@ -657,7 +659,7 @@ local modifications
 [x] 用户于 2026-07-14 最终批准四份书面规格，Policy Kernel 设计门正式通过
 ```
 
-在前七项设计验收全部通过前，生产代码保持在 Phase 1 终态。通过后直接进入 Phase 2A；该授权不覆盖 Phase 6–9、OAuth 2.1、凭据迁移、破坏性操作或产品能力中的 Git 远端变更等独立高权限事项。
+在前七项设计验收全部通过前，生产代码保持在 Phase 1 终态。通过后直接进入 Phase 2A。这里记录的是 2026-07-13 的原始授权边界；2026-07-14 的扩展授权已覆盖 Phase 6–8 与 Phase 8 OAuth 实现，但不覆盖 Phase 9、生产部署、真实凭据操作、破坏性操作或产品能力中的 Git 远端变更。
 
 ---
 
@@ -790,11 +792,11 @@ Phase 3A/3B 详细 TDD 实施计划：
 - [`2026-07-14-phase-3a-atomic-transaction.md`](superpowers/plans/2026-07-14-phase-3a-atomic-transaction.md)
 - [`2026-07-14-phase-3b-persistent-audit.md`](superpowers/plans/2026-07-14-phase-3b-persistent-audit.md)
 - Phase 3A 共九个任务，实施记录为 STEP-265 至 STEP-273；已发布到本地与远端 `main` commit `75b8d54`。
-- Phase 3B 共十个任务，实施记录从 STEP-274 至 STEP-275；已完成本地实现与验收，但尚未暂存、提交、推送或发布。
+- Phase 3B 共十个任务，已发布于 `00cb917`；child fixture 和跨平台 protected-source hash 修复分别发布于 `70b1060` 与 `c5b0226`。
 - Phase 3C 完成全部 writer 迁移前，`atomic` 仅允许 `CODEXPRO_WRITE_MODE=off`；可写 atomic 配置必须在工具注册前失败关闭，现有公共 writer 仍保持经过审查的 legacy 行为。
 - Phase 3B 本地验收：聚焦审计测试 36/36；相邻 Policy/transaction/lifecycle/HTTP/contract 回归 172 项中 171 pass/0 fail/1 既有平台 skip；完整回归 626 项中 625 pass/0 fail/1 既有平台 skip；TypeScript Build、八段 Smoke、原生 Windows Stress、237 文件 package dry-run、精确 28 工具 V1、审计架构与敏感字段检查均通过。
 - Phase 3B 后端、查询、诊断、Policy wrapper 接口和事务参与者已完成；当前 V1 production server 尚不注入 persistent runtime，也不注册 `query_audit_events`。这两个启用动作必须在 Phase 3C 与 coherent contract V2、全 writer 迁移一起完成。
-- 当前停止点位于 Git 暂存之前。Phase 3B 发布仍需独立批准；发布后进入 Phase 3C。
+- STEP-277 以“私有临时文件完整写入并同步，再通过同卷 hard link no-clobber 发布”修复 Windows Node 20 首次状态竞态；本地完整门禁通过，进入 Phase 3C 前仍需替换 exact-head CI 通过。
 
 ### 10.2 核心事务决策
 
@@ -1281,12 +1283,12 @@ focused contract tests
 - PowerShell 是长期核心 backend，Git Bash 保持可选兼容。
 - Safe Bash 不是 OS sandbox。
 - 完成 Phase 1 后才进入 Policy Kernel 设计门。
-- Policy Kernel 设计门全部通过后，按 2026-07-13 已记录授权连续实施 Phase 2A–Phase 5，不再重复询问阶段进入许可；每一阶段仍须通过自身设计、TDD、验证和验收门。
+- Policy Kernel 设计门全部通过后连续实施 Phase 2A–Phase 5；用户于 2026-07-14 将同一授权模型扩展到 Phase 8，并授权每个已验证子部分自行 stage、使用英文 commit、push。每一部分仍须先通过自身设计、TDD、验证、`neat-freak` 和精确头 CI。
 - Permission、Approval、Sandbox、Tool Surface 分层。
 - Skills 延迟加载不重建，只在 Phase 6 补信任和权限。
 - Open Interpreter 只借鉴与 CodexPro 边界一致的设计和测试方法。
 - 不引入模型 Provider/Harness，不转型为通用 Agent Runtime。
-- OAuth 2.1 保持后续方向，但尚未批准实施。
+- OAuth 2.1 作为 Phase 8 已获实现授权；真实凭据不得进入测试、日志或仓库，迁移必须可回滚并经过独立安全门。
 - Subagents 继续延后。
 - 文件移动不进入 Phase 1；Phase 3 在原子事务、Policy Kernel 和 workspace isolation 基础上实现 `move_paths`。
 - Slice 17–28 共 12 个剩余工具连续本地实施，每个工具后运行 `neat-freak`，目标全部完成后统一发布；中途不以单工具发布门中断实施。
@@ -1307,7 +1309,7 @@ focused contract tests
 - query-token 当前兼容事实。
 - 公开入口与 Host/Origin 本地校验。
 - 当前阶段和审批门。
-- Git push、部署、凭据迁移和不可逆操作的人工批准。
+- 本次授权范围外的 Git 远端写、生产部署、真实凭据操作和不可逆操作。
 
 ---
 
@@ -1432,4 +1434,4 @@ Phase 1 Slice 28 codexpro
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1 的 28 个工具切片与 Phase 2A Policy Kernel 均已完成设计、TDD、验证、`neat-freak`、发布和跨平台精确头 CI，并于 2026-07-14 正式关闭。Phase 2A 实现 `e6798b6` 加测试专用 Linux 路径修复 `dea25ec` 通过 run `29326459987` 的 Ubuntu/Windows Node 20/24 四矩阵。下一授权动作是 Phase 2B 设计与实施；之后按已记录授权继续 Phase 3、4A、4B 和 5，每一阶段仍必须经过独立设计、TDD、验证、回滚和验收门禁。Phase 6–9 与各阶段明确列出的独立高权限外部动作仍不在本次授权内。
+Phase 1、Policy Kernel、Phase 2A、Phase 2B 已正式关闭；Phase 3A/3B 已发布。当前只处理 STEP-277 的 Phase 3A/3B CI 闭环：本地门禁通过后发布，并要求 Ubuntu/Windows Node 20/24 exact-head CI 全绿。随后按现有 3C/3D 规格与 2026-07-14 扩展授权，采用推荐选项连续推进 Phase 3C–Phase 8；每个独立子部分先交付、再审查、再整理、再发布，失败门禁必须修复而不能绕过。Phase 9、生产部署、真实凭据操作、破坏性数据/历史操作和规格外扩权仍未授权。
