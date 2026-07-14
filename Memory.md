@@ -17,11 +17,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 0.5: formally closed on 2026-07-12.
 - Phase 1: the first sixteen slices are published; direct `inspect_workspace` implementation `4cea9bd` and publication record `1f39996` passed exact-head CI runs `29272546666` and `29273060702` on Ubuntu/Windows Node 20/24.
 - Authoritative route: finish and jointly publish all Phase 1 advertised-tool schemas, pass the design-only Policy Kernel gate, then continuously implement Phase 2A–Phase 5 under the 2026-07-13 conditional authorization without another phase-entry approval pause.
-- Slices 17 `codexpro_inventory` through 28 `codexpro`: all implementation, focused/adjacent/complete regression, Build, eight-section Smoke, native-Windows Stress, package, static, and per-tool reconciliation gates pass locally. Phase 1 is locally complete; the twelve-slice batch remains unstaged, uncommitted, unpushed, and unpublished until the unified publication action.
+- Slices 17 `codexpro_inventory` through 28 `codexpro`: unified implementation commit `021ab90` is pushed. Exact-head CI run `29314051423` passed Ubuntu Node 20/24 but failed Windows Node 20/24 on two CRLF-sensitive compatibility assertions. A line-ending-neutral test-only fix is locally verified; Phase 1 remains open until its replacement exact-head run passes.
 
 ## Approved stopping point
 
-Direct `inspect_workspace` remains the published stopping head. Slices 17–28 are locally complete, reconciled, and unpublished; Phase 1 implementation is locally complete. The next authorized action is the unified stage/commit/push/exact-head-CI publication run for the twelve-slice batch. Policy Kernel work remains design-only until that publication; Phase 2–5 production behavior remains closed until the design gate passes, then proceeds continuously under the recorded authorization. Phase 6–9 remain closed.
+Unified Slices 17–28 implementation commit `021ab90` is on remote `main`, but Phase 1 is not closed because exact-head run `29314051423` failed only the Windows regression jobs. The next action is to commit and push the verified CRLF-neutral compatibility assertions, require all Ubuntu/Windows Node 20/24 jobs to pass, then record formal Phase 1 closure. Policy Kernel work remains design-only until that gate passes; Phase 6–9 remain closed.
 
 ## Active decisions and constraints
 
@@ -63,7 +63,7 @@ Direct `inspect_workspace` remains the published stopping head. Slices 17–28 a
 
 ## Local verification evidence
 
-- Slice 28: focused 13/13, adjacent 87/87, complete 456/456, Build, all eight Smoke sections, native-Windows Stress, 162-file package dry-run, `git diff --check`, credential-shape scan, and protected compatibility pass. Deliberate REDs fixed the supertool-free connection-test surface, `enabled=false` exposure, and legacy-wrapper delegation instead of direct target-handler dispatch.
+- Slice 28 and publication repair: focused 13/13, adjacent 87/87, main regression 456/456, CRLF clean-clone regression 456/456, Build, all eight Smoke sections, native-Windows Stress, 162-file package dry-run, static and protected compatibility gates pass. Initial exact-head run `29314051423` isolated two Windows-only LF/CRLF assertion failures; both now normalize only the inspected compatibility-source line endings while retaining exact count and block checks.
 - Slices 23–27: every focused, adjacent, complete regression, Build, eight-section Smoke, native-Windows Stress, package, static, and per-tool `neat-freak` gate passed; exact counts, deliberate REDs, path scopes, and rollback records remain in Phase 1 Volumes 7–9 and the paired design/plan files.
 - Slices 17–22: every per-slice focused/adjacent/complete regression, Build, Smoke, native-Windows Stress, package, static, and required `neat-freak` gate passed; exact counts and defects are retained in Phase 1 Volumes 5–7.
 - Exact-head implementation CI run `29272546666` passed Ubuntu/Windows Node 20/24 for full SHA `4cea9bd29d1abad97e511d65acf6a57c591a2b74`; publication-record run `29273060702` passed the same four-job matrix for full SHA `1f39996d375b6191fba0bb8972c35bb3b15136ad`.
@@ -101,11 +101,11 @@ Direct `inspect_workspace` remains the published stopping head. Slices 17–28 a
 
 ## Open items
 
-1. Run the conditionally approved unified Slice 17–28 stage/commit/push/exact-head-CI publication; close Phase 1 after exact-head Ubuntu/Windows Node 20/24 pass; complete the Policy Kernel design gate; then continuously execute Phase 2A–Phase 5 without a repeated phase-entry approval pause.
+1. Commit and push the CRLF-neutral Windows CI repair, require exact-head Ubuntu/Windows Node 20/24 success, append the Phase 1 publication/closure record, then complete the Policy Kernel design gate and continue through Phase 2A–Phase 5 under the recorded authorization.
 
 ## Recent summaries
 
-- **STEP-245 — Finalize Slice 28 direct dispatch:** a deliberate RED proved the adapter still called the legacy wrapper; dispatch now invokes the live registered target handler directly. Focused 13/13, adjacent 87/87, complete 456/456, Build, eight Smoke sections, Windows Stress, 162-file package, and static gates passed. Phase 1 is locally complete and awaits unified publication.
+- **STEP-246 — Repair Windows exact-head portability:** implementation commit `021ab90` and run `29314051423` passed both Ubuntu jobs but exposed two CRLF-sensitive compatibility-source assertions on Windows. The test-only repair preserves exact counts/blocks; main and CRLF clean-clone regressions both pass 456/456, with Build and all eight Smoke sections passing.
 - **STEP-243 — Design Slice 28:** approved Approach C, wrote the exact supertool design and seven-task TDD plan, and fixed the 27-child/eight-alias closed contract without opening Phase 2 behavior.
 - **STEP-242 — Reconcile Slice 27:** marked all 53 plan items complete, synchronized master/roadmap/AGENTS/Memory/archive, verified 27 design-plan pairs and documentation integrity, and made Slice 28 the next action.
 - **STEP-241 — Implement Slice 27 before neat-freak:** completed the exact self-test schema, validated Provider, fixed twelve-check derivation, nested consumers, protected-Smoke compatibility, native Stress migration, legacy fixed-artifact migration, semantic hardening, and every non-`neat-freak` local gate.

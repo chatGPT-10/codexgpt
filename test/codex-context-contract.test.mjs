@@ -679,6 +679,7 @@ test("codex_context compatibility consumers are exact and protected Smoke source
   const httpCompat = await fs.readFile(new URL("../scripts/http-smoke-compat.mjs", import.meta.url), "utf8");
   const protectedMain = await fs.readFile(new URL("../scripts/smoke.mjs", import.meta.url), "utf8");
   const protectedHttp = await fs.readFile(new URL("../scripts/http-smoke.mjs", import.meta.url), "utf8");
+  const normalizedMainCompat = mainCompat.replace(/\r\n/g, "\n");
 
   const mainReplacements = [
     ["codexContext.structuredContent.agents_files", "codexContext.structuredContent.data?.agents_files", 3],
@@ -687,7 +688,7 @@ test("codex_context compatibility consumers are exact and protected Smoke source
   for (const [before, after, expected] of mainReplacements) {
     assert.equal(countOccurrences(mainCompat, `'${before}'`), 1, before);
     assert.equal(countOccurrences(mainCompat, `'${after}'`), 1, after);
-    assert.ok(mainCompat.includes([
+    assert.ok(normalizedMainCompat.includes([
       "  source = replaceExactCount(",
       "    source,",
       `    '${before}',`,

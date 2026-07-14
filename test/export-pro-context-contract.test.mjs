@@ -907,6 +907,7 @@ test("export_pro_context compatibility consumers are exact and protected Smoke s
   const protectedMain = await fs.readFile(new URL("../scripts/smoke.mjs", import.meta.url), "utf8");
   const protectedHttp = await fs.readFile(new URL("../scripts/http-smoke.mjs", import.meta.url), "utf8");
   const stress = await fs.readFile(new URL("../scripts/stress.mjs", import.meta.url), "utf8");
+  const normalizedMainCompat = mainCompat.replace(/\r\n/g, "\n");
 
   const mainReplacements = [
     ["exported.structuredContent.path", "exported.structuredContent.data?.path", 1],
@@ -917,7 +918,7 @@ test("export_pro_context compatibility consumers are exact and protected Smoke s
   for (const [before, after, expected] of mainReplacements) {
     assert.equal(countOccurrences(mainCompat, `'${before}'`), 1, before);
     assert.equal(countOccurrences(mainCompat, `'${after}'`), 1, after);
-    assert.ok(mainCompat.includes([
+    assert.ok(normalizedMainCompat.includes([
       "  source = replaceExactCount(",
       "    source,",
       `    '${before}',`,

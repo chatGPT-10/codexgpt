@@ -365,3 +365,38 @@ Two initial in-memory Markdown-audit invocations failed before performing checks
 **Rollback method:** Revert the STEP-245 test and direct-dispatch fix together, then revert only the active documentation reconciliations. Do not rewrite STEP-244, reset `main`, weaken secret protection, or revert completed Slices 17–27.
 
 **Next step:** Stop at the approved boundary. The next authorized operation is the unified Slice 17–28 stage/commit/push/exact-head-CI publication sequence; it remains unperformed in this task.
+
+## STEP-246 — Repair Windows exact-head CI portability
+
+**Status:** Complete locally; replacement exact-head run pending
+
+**Goal:** Publish the unified Slice 17–28 implementation, diagnose the first exact-head CI failure without weakening protected-source checks, and make the assertions portable across Git checkout line endings.
+
+**Files changed:**
+
+- `test/codex-context-contract.test.mjs`
+- `test/export-pro-context-contract.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/phase-1-part-9.md`
+
+**Implementation summary:** Staged and committed the approved 81-file Slice 17–28 batch as `021ab90` (`Complete Phase 1 exact tool contracts`) and pushed it to remote `main`. Exact-head CI run `29314051423` matched full SHA `021ab90606ecd4c81266ed7c72bd73a6944a198f`: Ubuntu Node 20 and Node 24 passed Build, regression, Smoke, and package checks, while both Windows jobs failed only during regression. A clean `core.autocrlf=true` clone reproduced exactly two failures after Build. Both tests counted the expected compatibility tokens correctly but compared a six-line LF string directly with a CRLF checkout of `scripts/smoke-platform-compat.mjs`. The minimal fix normalizes only the inspected compatibility-source line endings before the multiline block check; exact token counts, expected replacement counts, protected-source counts, and fail-closed semantics remain unchanged.
+
+**Verification commands:**
+
+- `node --test test/codex-context-contract.test.mjs test/export-pro-context-contract.test.mjs`
+- clean clone with `git clone -c core.autocrlf=true . ci-repro-temp`
+- `npm ci` and `npm run build` inside the clean clone
+- focused and complete regression inside the CRLF clone
+- `node --test test/*.test.mjs`
+- `npm run build`
+- `npm run smoke`
+
+**Verification results:** Main-worktree focused compatibility suites passed 34/34. The CRLF clone first reproduced the intended two failures and then passed focused 34/34 and complete regression 456/456 after the same minimal patch. The temporary clone was deleted. The main worktree then passed complete regression 456/456, TypeScript Build, and all eight Smoke sections. No production source, protected Smoke source, compatibility loader, dependency, or package configuration changed.
+
+**Decisions made:** Treat line-ending representation as checkout metadata rather than contract semantics. Normalize only the source string used by the multiline assertion, not production input or protected fixtures. Preserve exact occurrence and replacement-count checks so source drift still fails closed. Keep Phase 1 open until a replacement exact-head Ubuntu/Windows Node 20/24 run passes.
+
+**Risks or limitations:** The first publication run remains a recorded failure and must not be described as successful. The fix is test-only, but formal Phase 1 closure still requires a new pushed head and a complete four-job exact-head pass.
+
+**Rollback method:** Revert the two test normalizations and this STEP-246 active-memory reconciliation. Do not rewrite the failed run record, reset `main`, or alter protected Smoke sources.
+
+**Next step:** Commit and push the CRLF-neutral test repair, monitor the new exact-head run to completion, then append the formal Phase 1 publication and closure record only if all four matrix jobs pass.
