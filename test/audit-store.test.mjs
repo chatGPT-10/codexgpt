@@ -65,7 +65,7 @@ function child(args) {
   return new Promise((resolve, reject) => {
     const process = spawn(
       processExec(),
-      [path.resolve("test/fixtures/audit-writer-child.mjs"), ...args],
+      [path.resolve("fixtures/audit-writer-child.mjs"), ...args],
       { cwd: path.resolve("."), stdio: ["ignore", "pipe", "pipe"] }
     );
     let stdout = "";

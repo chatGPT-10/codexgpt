@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { PathGuard } from "../../dist/guard.js";
+import { PathGuard } from "../dist/guard.js";
 import {
   AtomicTransactionEngine,
   ProcessInstanceRegistry
-} from "../../dist/transactions/index.js";
+} from "../dist/transactions/index.js";
 
 const [stateRoot, workspaceRoot] = process.argv.slice(2);
 if (!stateRoot || !workspaceRoot) process.exit(64);

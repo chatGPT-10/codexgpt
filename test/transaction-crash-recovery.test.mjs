@@ -14,7 +14,7 @@ import {
 } from "../dist/transactions/index.js";
 
 const childScript = fileURLToPath(
-  new URL("./fixtures/transaction-crash-child.mjs", import.meta.url)
+  new URL("../fixtures/transaction-crash-child.mjs", import.meta.url)
 );
 
 test("a process crash after the first visible install is recovered from persisted evidence", async () => {

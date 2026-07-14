@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { PersistentAuditStore } from "../../dist/audit/store.js";
-import { ProcessInstanceRegistry } from "../../dist/transactions/workspaceLock.js";
+import { PersistentAuditStore } from "../dist/audit/store.js";
+import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
 const [stateRoot, writerId, rawCount] = process.argv.slice(2);
 const count = Number(rawCount);
