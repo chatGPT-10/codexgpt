@@ -12,8 +12,8 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and Phase 3A–3C are closed. Exact historical commit/run evidence is retained in the linked archives.
 - Phase 3C commit `50ec99b` passed exact-head run `29390317879`; Gate 0 maintenance commit `77b1e9069798235d674342a2c33a234a4266b564` passed exact-head run `29402504990`, both across Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
-- Current worktree: the complete uncommitted Phase 3D implementation and adversarial-repair batch. It implements `move_paths`, authenticated Manifest/Change Set V2, parent-identity/reparse-point revalidation, participant-aware V1/V2 recovery, recoverable move undo, service-level mutation quiesce/drain, bounded audit query, Policy resource composition, and exact direct/supertool V2 registration.
-- V1 remains the compatibility default exact 28-tool public surface. Explicit V2 requires atomic transactions and persistent audit and projects exactly 31 child tools; publication and exact-head CI remain pending.
+- Phase 3D implementation commit `3000aa6d88190f31c6b93c35ae59e7889317aae4` is published on `main`. It implements `move_paths`, authenticated Manifest/Change Set V2, parent-identity/reparse-point revalidation, participant-aware V1/V2 recovery, recoverable move undo, service-level mutation quiesce/drain, bounded audit query, Policy resource composition, and exact direct/supertool V2 registration.
+- Its first exact-head run `29436565136` passed Build in all four matrices but failed Regression because two new tests were not cross-platform deterministic: the V1 call fingerprint included runtime paths/platform evidence, and the Ubuntu replacement fixture allowed inode reuse. The current test-only follow-up fixes both; replacement exact-head CI remains required.
 
 ## Approved execution boundary
 
@@ -48,32 +48,33 @@ The user authorized continuous recommended-option implementation through Phase 8
 ## Verification evidence
 
 - Phase 3C: commit `50ec99b97f7ec3e4d689b5306f0caa0f60afdc45`, run `29390317879`; Gate 0: commit `77b1e9069798235d674342a2c33a234a4266b564`, run `29402504990`. Both exact heads passed all Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package jobs.
-- Current Phase 3D local gate: TypeScript Build passed; Phase 3D focused tests passed 72/72; production-runtime integration passed 12/12; complete Node discovery passed 809/810 with zero failures and one established platform skip; real child-process crash oracle plus multi-process lock coverage passed 30/30.
-- Seven Smoke sections reran fresh and passed. The unchanged protected execute-handoff section retains its earlier independent exit-0 evidence; current re-runs are environment-constrained because the normal control channel receives Windows Control-C and the artificial PowerShell-isolated run loses the fake `codex.cmd` shim, so they are not recorded as a fresh pass.
-- Native-Windows Stress passed. Package dry-run passed with 308 entries, 727229 packed bytes, and 3947149 unpacked bytes while excluding internal archives, test fixtures, and application state. Static architecture/package gates passed 17/17 and `git diff --check` passed.
+- Phase 3D publication: commit `3000aa6d88190f31c6b93c35ae59e7889317aae4`; exact-head run `29436565136`. All four Ubuntu/Windows Node 20/24 jobs passed Build and failed only Regression; Smoke and Package were skipped by the workflow after that failure.
+- CI-fix local gate: deterministic move-undo replacement coverage passed 5/5; the platform-neutral V1 wire fingerprint passed five consecutive runs; combined Phase 3D plus production runtime passed 84/84; TypeScript Build passed; complete Node discovery passed 809/810 with zero failures and one established platform skip.
+- The earlier Phase 3D acceptance evidence remains valid for unchanged production code: seven fresh Smoke sections, prior isolated evidence for the protected eighth section, native-Windows Stress, 308-entry package dry-run, 17/17 static architecture/package gates, and `git diff --check`. Replacement exact-head CI must supply fresh four-matrix Regression, Smoke, and Package evidence.
 - A real `gh auth status` launched with `createBashEnvironment({ inheritEnv: false })` exited 0 for account `chatGPT-10` through the Windows keyring. The child did not inherit `GH_TOKEN`; CLI output exposed only its normal masked token display.
 
 ## Known limitations
 
 - Phase 2A has no user-facing approval issuance surface; `enforce` may return `APPROVAL_REQUIRED`, and arbitrary Shell/Process execution remains unavailable without demonstrated OS isolation.
 - Workspace lifecycle state is intentionally process-local. OAuth owner identity and lifecycle persistence remain out of scope.
-- The participant commit-decision window is repaired in the current Phase 3D worktree but remains unpublished until the complete batch passes exact-head CI; the published Gate 0 head still exposes only the Phase 3C behavior.
+- The participant commit-decision window and complete Phase 3D runtime are published in commit `3000aa6`; Phase 3 remains open until a replacement exact-head run passes all four Build, Regression, Smoke, and Package matrices.
 - External processes remain outside CodexPro's workspace lock. Open-handle identity checks reduce path-replacement TOCTOU but cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary readers, or absolute power-loss durability when directory sync is unsupported.
 - Environment narrowing is defense in depth, not credential isolation; same-user child processes may access account-readable files and system keyrings.
 - Safe Bash timeout does not reliably terminate every Windows descendant process.
 - Protected main/HTTP Smoke compatibility depends on exact source strings; drift fails closed and requires a same-change compatibility update.
-- V2 is explicit rather than default and remains unpublished in the current worktree. Rolling configuration back to V1 hides V2 tools but must retain V2 readers and recovery.
+- V2 remains explicit rather than default. Rolling configuration back to V1 hides V2 tools but must retain V2 readers and recovery.
 - Atomic `apply_patch` is bounded UTF-8 create/replace/delete only and fails closed for binary, symlink, rename/copy, and mode changes.
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
 
 ## Open items
 
-1. Publish the complete Phase 3D batch once with the approved English commit, push `main`, and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success.
-2. Close Phase 3 and begin Phase 4 only after that exact-head CI is green.
+1. Publish the test-only CI correction and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success.
+2. Close Phase 3 and begin Phase 4 only after that replacement exact-head CI is green.
 
 ## Recent summaries
 
+- **STEP-303 - Repair first Phase 3D exact-head CI:** published `3000aa6`, classified run `29436565136` as two test-portability failures, made the replacement-object fixture immune to inode reuse, normalized only environment-dependent V1 call facts, and restored Build, 84/84 affected tests, and 809/810 complete regression with zero failures.
 - **STEP-302 - Repair the Phase 3D adversarial gaps and repeat acceptance:** added true syscall-boundary recovery, parent/reparse identity revalidation, recoverable original-change-set reconciliation, service-level quiesce/drain, real child-process crash oracles, Windows retry/EXDEV/junction/multi-process coverage, exact V1 wire fingerprints, and the refreshed 809/810 regression plus 308-entry package evidence.
 - **STEP-301 - Close the neat-freak follow-up gate:** reconciled the remaining V2 documentation test and the then-current pre-adversarial local gate; STEP-302 supersedes its verification counts and acceptance status.
 - **STEP-300 - Complete Phase 3D locally and reconcile the knowledge base:** implemented the exact 31-tool V2 move/recovery/undo/query surface while preserving default V1, passed the native-Windows local gate, and aligned configuration, public docs, security guidance, plans, rules, memory, and archive state.

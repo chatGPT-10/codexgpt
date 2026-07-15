@@ -237,3 +237,27 @@ This append-only volume continues active Phase 3 implementation records after cl
 **Next step:** Complete the final post-neat-freak affected-gate rerun and exact-scope review. Then, only with the user's publication approval, stage/commit/push the complete Phase 3D batch once and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success before closing Phase 3 or beginning Phase 4.
 
 **STEP-302 final package correction:** The final post-documentation package dry-run retained 308 entries and measured 727229 packed bytes and 3947149 unpacked bytes. These final values supersede the preliminary STEP-302 byte counts above.
+
+## STEP-303 - Repair the first Phase 3D exact-head CI
+
+**Status:** The Phase 3D implementation is published. The first exact-head CI failure is classified and repaired locally with a test-only follow-up; replacement exact-head CI remains pending.
+
+**Goal:** Correct the two cross-platform test-determinism failures from run `29436565136` without changing the published Phase 3D runtime, wire contract, or package contents.
+
+**Files changed:** `test/phase-3d-move-undo.test.mjs`; `test/production-runtime-integration.test.mjs`; `AGENTS.md`; `Memory.md`; the master implementation plan; this archive.
+
+**Implementation summary:** The move-undo replacement fixture now creates and stats a second ordinary file before unlinking the committed destination, proves distinct BigInt device/file identities, and renames that pre-existing object into place, preventing Linux inode reuse from turning the adversarial replacement into the original identity. The V1 wire snapshot now normalizes only runtime-dependent roots, Codex directory, optional policy/grant revisions, and enforcement backend/evidence facts while continuing to hard-freeze exact tool order, descriptor hashes, the complete remaining `server_config` envelope, direct/supertool equality, and wrapper metadata. The resulting platform-neutral direct/supertool call fingerprint is `5648cececfd5b499125778e30d3ce0b8a20a7f0fc2ddcbcdfd4307ed292a69d4`.
+
+**CI evidence:** Phase 3D commit `3000aa6d88190f31c6b93c35ae59e7889317aae4` triggered exact-head run `29436565136`. Ubuntu/Windows Node 20/24 all passed Build and failed Regression, so Smoke and Package were skipped. Ubuntu Node 24 exposed both the inode-reuse fixture and platform-dependent call hash; Windows Node 24 exposed only the call hash. The descriptor fingerprints and exact tool universes matched in every failure, proving no descriptor or registration drift.
+
+**Verification commands:** Focused move-undo suite; five repeated V1 wire snapshot runs; `npm run build`; combined Phase 3D and production-runtime suites; `node --test test/*.test.mjs`; final static/package/diff and scope gates.
+
+**Verification results:** Move undo passed 5/5. The platform-neutral V1 fingerprint passed five consecutive runs. Build passed. The combined affected group passed 84/84. Complete Node discovery passed 809/810 with zero failures and one established platform skip. Production source and shipped runtime files are unchanged.
+
+**Decisions made:** Treat the failed run as two test-portability defects rather than weakening runtime identity checks or accepting platform-specific fingerprints. Preserve exact descriptor hashes and full direct/supertool parity. Publish the repair as a separate English test commit rather than amending the Phase 3D implementation commit.
+
+**Risks or limitations:** Replacement Ubuntu/Windows Node 20/24 CI is still required. Phase 3 remains open until one exact head passes Build, Regression, complete Smoke, and Package in all four matrices.
+
+**Rollback method:** Revert the test-only follow-up commit. The published Phase 3D implementation commit remains independently revertible as `3000aa6`.
+
+**Next step:** Run the final static/package/diff/scope gate, publish the test-only correction, and require replacement exact-head CI before closing Phase 3 or beginning Phase 4.

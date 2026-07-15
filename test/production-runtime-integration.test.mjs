@@ -131,6 +131,32 @@ function normalizedCallPayload(value) {
   };
 }
 
+function normalizedServerConfigCallPayload(value) {
+  const payload = normalizedCallPayload(value);
+  assert.equal(payload.codexpro_tool, "server_config");
+  assert.ok(payload.data && typeof payload.data === "object");
+  assert.ok(Array.isArray(payload.data.allowedRoots));
+  assert.ok(payload.data.enforcement && typeof payload.data.enforcement === "object");
+  assert.ok(Array.isArray(payload.data.enforcement.missingCapabilities));
+  return {
+    ...payload,
+    data: {
+      ...payload.data,
+      defaultRoot: "<DEFAULT_ROOT>",
+      allowedRoots: payload.data.allowedRoots.map((_, index) => `<ALLOWED_ROOT_${index}>`),
+      codexDir: "<CODEX_DIR>",
+      policyRevision: payload.data.policyRevision === null ? null : "<POLICY_REVISION>",
+      grantRevision: payload.data.grantRevision === null ? null : "<GRANT_REVISION>",
+      enforcement: {
+        ...payload.data.enforcement,
+        backendId: "<ENFORCEMENT_BACKEND>",
+        evidenceRevision: "<ENFORCEMENT_EVIDENCE>",
+        missingCapabilities: [...payload.data.enforcement.missingCapabilities].sort()
+      }
+    }
+  };
+}
+
 async function connect(server, action) {
   const client = new Client({ name: "production-runtime-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -436,25 +462,19 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
           name: "codexpro",
           arguments: { action: "server_config", args: {} }
         });
-        const replacements = new Map([
-          [workspaceRoot, "<WORKSPACE_ROOT>"],
-          [stateHome, "<STATE_HOME>"]
-        ]);
         snapshots.standard.directCallHash = wireHash(
-          normalizedCallPayload(direct.structuredContent),
-          replacements
+          normalizedServerConfigCallPayload(direct.structuredContent)
         );
         snapshots.standard.supertoolCallHash = wireHash(
-          normalizedCallPayload(wrapped.structuredContent),
-          replacements
+          normalizedServerConfigCallPayload(wrapped.structuredContent)
         );
         snapshots.standard.supertoolEnvelope = {
           codexpro_super_action: wrapped.structuredContent.codexpro_super_action,
           wrapped_tool: wrapped.structuredContent.wrapped_tool
         };
         assert.deepEqual(
-          canonicalValue(normalizedCallPayload(wrapped.structuredContent), replacements),
-          canonicalValue(normalizedCallPayload(direct.structuredContent), replacements)
+          canonicalValue(normalizedServerConfigCallPayload(wrapped.structuredContent)),
+          canonicalValue(normalizedServerConfigCallPayload(direct.structuredContent))
         );
       }
     });
@@ -477,8 +497,8 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "export_pro_context", "handoff_to_agent"
       ],
       descriptorHash: "5a29174c8ea440c2ec40f37216e8683561388bddb74da97664f67fa121c125db",
-      directCallHash: "1d45cb7cb5ada6635b73c395bea8462cbe4956e16f2e82268e667f54b6860107",
-      supertoolCallHash: "1d45cb7cb5ada6635b73c395bea8462cbe4956e16f2e82268e667f54b6860107",
+      directCallHash: "5648cececfd5b499125778e30d3ce0b8a20a7f0fc2ddcbcdfd4307ed292a69d4",
+      supertoolCallHash: "5648cececfd5b499125778e30d3ce0b8a20a7f0fc2ddcbcdfd4307ed292a69d4",
       supertoolEnvelope: {
         codexpro_super_action: "server_config",
         wrapped_tool: "server_config"

@@ -150,8 +150,18 @@ test("move undo rejects replaced destination objects with zero mutation", () => 
   const originalId = await commitMove({ workspace, move }, [
     { source: "a.txt", destination: "b.txt", expectedSha256: sha("alpha") }
   ]);
+  const replacementPath = path.join(workspaceRoot, "replacement.txt");
+  await fsp.writeFile(replacementPath, "alpha");
+  const [originalStat, replacementStat] = await Promise.all([
+    fsp.stat(path.join(workspaceRoot, "b.txt"), { bigint: true }),
+    fsp.stat(replacementPath, { bigint: true })
+  ]);
+  assert.notDeepEqual(
+    { device: originalStat.dev, fileId: originalStat.ino },
+    { device: replacementStat.dev, fileId: replacementStat.ino }
+  );
   await fsp.unlink(path.join(workspaceRoot, "b.txt"));
-  await fsp.writeFile(path.join(workspaceRoot, "b.txt"), "alpha");
+  await fsp.rename(replacementPath, path.join(workspaceRoot, "b.txt"));
 
   await assert.rejects(
     () => undo.prepare(undoInput(workspace, originalId, true)),
