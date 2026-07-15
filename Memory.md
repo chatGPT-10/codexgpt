@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
 - Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
-- Phase 3: Phase 3A/3B are closed. Phase 3C Task 7 static mutation closure is locally complete and verified through STEP-291; scoped publication and exact-head CI are next.
+- Phase 3: Phase 3A/3B are closed. Phase 3C Task 7 commit `b9864e4` passed exact-head run `29384188481` on all four matrices and is closed. Task 8 owner-bound undo is active.
 
 ## Approved execution boundary
 
@@ -61,7 +61,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Phase 3C Task 5 publication: commit `b1df763` passed exact-head run `29379729314` on Ubuntu/Windows Node 20/24; every job completed Build, Regression, Smoke, and Package.
 - Phase 3C Task 6 local gate: one shared bounded text-batch builder now covers missing-directory scaffold creation, complete-file append replacements, handoff, Pro-context, self-test non-retention, `pro-apply`, and execute/watch/loop CLI artifacts. Focused/legacy coverage passed 94/94, complete regression 701/702 with 0 failures and 1 established skip, Build, all eight Smoke sections, Stress, and a 261-file package dry-run.
 - Task 6 repair: `918d55d` triggered Ubuntu Node 20/24 Smoke failures in run `29381264649` when Git diff overflow text bypassed the caller limit. Repair `124f555` bounds final UTF-8 bytes including the marker; replacement run `29382183625` passed all four matrices.
-- Phase 3C Task 7 local gate: iterative RED and neat-freak review exposed 139 mutation occurrences across 15 exact runtime files, including three fd-level audit mutations plus the atomic audit-index writer missed by the first vocabulary. The reviewed inventory, CommonJS/alias scanner coverage, and atomic non-reachability proof passed 91/91 focused writer tests, 707/708 complete regression with 0 failures and 1 established skip, Build, all eight Smoke sections, native-Windows Stress, and a 262-file package dry-run.
+- Phase 3C Task 7: iterative RED and neat-freak review exposed 139 mutation occurrences across 15 exact runtime files, including four audit-state mutations missed by the first vocabulary. The complete local gate passed, and commit `b9864e4` passed exact-head run `29384188481` across Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
 - Phase 3B implementation boundary: persistent storage, query, diagnostics, Policy wrapper integration points, and transaction participant are published, but current V1 production registration still does not inject or expose it. Phase 3C owns runtime/writer/undo preparation; complete public V2 activation is deferred to the Phase 3D 31-tool gate.
 
 ## Known limitations
@@ -83,16 +83,16 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish Phase 3C Task 7, require exact-head CI, then execute Task 8 owner binding, policy resource resolution, and bounded `undo_change_set`.
+1. Execute Phase 3C Task 8 owner binding, Policy resource resolution, and bounded `undo_change_set` without enabling incomplete public V2.
 
 ## Recent summaries
 
+- **STEP-292 - Close Phase 3C Task 7 publication:** `b9864e4` passed exact-head run `29384188481` across all four Ubuntu/Windows Node 20/24 jobs; Task 8 may begin.
 - **STEP-291 - Close the static mutation inventory locally:** bound 139 direct mutation occurrences to exact reviewed purposes, proved legacy writers unreachable from atomic defaults, and passed the complete local gate.
 - **STEP-290 - Close Phase 3C Task 6:** repair `124f555` passed replacement run `29382183625` across Ubuntu/Windows Node 20/24; Task 7 may begin.
 - **STEP-289 - Bound CLI diff failure artifacts:** exact-head Ubuntu CI exposed an oversized error artifact; final UTF-8 output now includes the marker inside the caller limit.
 - **STEP-288 - Migrate bridge and CLI workspace writers:** added bounded multi-file text batches, transaction-owned directory creation, shared durable-audit local mutation service, atomic handoff/Pro-context/self-test/CLI paths, and historical committed-manifest recovery semantics; published at `918d55d` before STEP-289 repaired its CI finding.
 - **STEP-287 - Add transaction-backed multi-file apply_patch:** added complete UTF-8 diff preflight, deterministic create/replace/delete transactions, strict expected-file and V2 facts, all-or-nothing rollback, and fail-closed unsupported-patch handling; the complete local gate passed.
-- **STEP-286 - Repair the Windows atomic-visibility CI hang:** replaced an unbounded cross-platform reader race with deterministic reads at the transaction's installed-pending boundary; repair `bb5b863` passed exact-head run `29378357522`.
 
 ## Archives
 
@@ -112,6 +112,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - [Closed Phase 3 Volume 1 — STEP-263 through STEP-277](docs/memory/archive/phase-3.md)
 - [Closed Phase 3 Volume 2 — STEP-278 through STEP-285](docs/memory/archive/phase-3-part-2.md)
 - [Closed Phase 3 Volume 3 — STEP-286 through STEP-291](docs/memory/archive/phase-3-part-3.md)
+- [Active Phase 3 Volume 4 — STEP-292 onward](docs/memory/archive/phase-3-part-4.md)
 
 ## Memory maintenance protocol
 

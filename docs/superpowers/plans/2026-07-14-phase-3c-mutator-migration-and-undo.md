@@ -355,7 +355,7 @@ The test must enumerate source files directly, normalize line endings, bind ever
 
 No broad directory or regex exemption. Each allowed primitive gets one narrow classification; test/fixture writers are excluded by source-root selection, not wildcard permission.
 
-- [ ] **Step 3: Verify and publish**
+- [x] **Step 3: Verify and publish**
 
 Run the inventory test, full writer tests, Build, `git diff --check`, secret/audit-redaction scans, neat-freak, commit `test: close workspace mutation inventory`, push, and exact-head CI.
 
