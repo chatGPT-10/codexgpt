@@ -6,6 +6,7 @@ import type {
   WriteFileResult
 } from "../fsOps.js";
 import type { Workspace } from "../guard.js";
+import type { PreparedWorkspacePatch } from "../patchOps.js";
 import { attachPendingWorkspaceMutation, type WorkspaceMutationRuntime } from "./runtime.js";
 import type { MutationProjectionInput } from "./types.js";
 
@@ -38,6 +39,38 @@ export interface AttachPreparedFileMutationInput<T extends object> {
   context: FileMutationContext;
   result: T;
   project?: (input: FileMutationPublicProjection<T>) => T;
+  projectFailure?: (input: { result: T; error: unknown }) => T | null;
+}
+
+export interface PatchMutationContext {
+  toolName: "apply_patch";
+  requestId: string | null;
+  ownerBinding: string;
+  policyRevision: string;
+  contractVersion: 1 | 2;
+  now?: () => number;
+  retentionMs?: number;
+}
+
+export interface PatchMutationFileProjection {
+  path: string;
+  before_sha256: string | null;
+  after_sha256: string | null;
+}
+
+export interface PatchMutationPublicProjection<T extends object> {
+  result: T;
+  transaction: TransactionResultV2;
+  files: PatchMutationFileProjection[];
+}
+
+export interface AttachPreparedPatchMutationInput<T extends object> {
+  runtime: Pick<WorkspaceMutationRuntime, "prepare">;
+  workspace: Workspace;
+  prepared: PreparedWorkspacePatch;
+  context: PatchMutationContext;
+  result: T;
+  project?: (input: PatchMutationPublicProjection<T>) => T;
   projectFailure?: (input: { result: T; error: unknown }) => T | null;
 }
 
@@ -145,6 +178,131 @@ export async function attachPreparedFileMutation<T extends object>(
           change_set_id: committed.changeSetId,
           transaction_id: committed.transactionId,
           before_state: before.exists ? "present" : "absent",
+          operation_count: committed.operationCount,
+          undo_supported: changeSet.undoSupported,
+          committed_at: committed.committedAt
+        }
+      });
+    },
+    projectFailure: input.projectFailure
+  });
+  return attachPendingWorkspaceMutation(input.result, pending);
+}
+
+export async function attachPreparedPatchMutation<T extends object>(
+  input: AttachPreparedPatchMutationInput<T>
+): Promise<T> {
+  const now = input.context.now ?? Date.now;
+  const createdAtMs = now();
+  const retentionMs = input.context.retentionMs ?? 24 * 60 * 60 * 1_000;
+  if (!Number.isSafeInteger(retentionMs) || retentionMs <= 0) {
+    throw new Error("Change-set retention is invalid.");
+  }
+  const createdAt = validTimestamp(createdAtMs, "Change-set creation time");
+  const expiresAt = validTimestamp(createdAtMs + retentionMs, "Change-set expiry time");
+  const files = input.prepared.operations.map((prepared) => ({
+    path: prepared.path,
+    before_sha256: prepared.before.sha256,
+    after_sha256: prepared.afterSha256
+  }));
+  const beforeState = input.prepared.operations.every((prepared) => prepared.before.exists)
+    ? "present" as const
+    : input.prepared.operations.every((prepared) => !prepared.before.exists)
+      ? "absent" as const
+      : "mixed" as const;
+
+  const pending = await input.runtime.prepare<T>({
+    transaction: {
+      workspace: input.workspace,
+      operations: input.prepared.operations.map((prepared) => prepared.operation)
+    },
+    changeSet: ({ transactionId, changeSetId, workspaceStateKey }) => {
+      const operationEntries = input.prepared.operations.map((prepared) => {
+        const before = prepared.before;
+        const blobId = before.exists
+          ? opaqueBlobId(changeSetId, prepared.operation.operationId)
+          : null;
+        const afterBytes = prepared.operation.kind === "create" || prepared.operation.kind === "replace"
+          ? prepared.operation.bytes.length
+          : 0;
+        return {
+          manifest: {
+            operationId: prepared.operation.operationId,
+            kind: prepared.operation.kind,
+            relativePath: prepared.operation.relativePath,
+            destinationRelativePath: null,
+            before: before.exists
+              ? {
+                  exists: true,
+                  sha256: before.sha256,
+                  bytes: before.bytes?.length ?? 0,
+                  metadata: before.metadata
+                }
+              : {
+                  exists: false,
+                  sha256: null,
+                  bytes: 0,
+                  metadata: null
+                },
+            after: prepared.operation.kind === "delete"
+              ? { exists: false, sha256: null, bytes: 0 }
+              : {
+                  exists: true,
+                  sha256: prepared.afterSha256,
+                  bytes: afterBytes
+                },
+            blobId
+          },
+          blob: blobId && before.bytes && before.sha256
+            ? {
+                blobId,
+                operationId: prepared.operation.operationId,
+                beforeSha256: before.sha256,
+                plaintext: Buffer.from(before.bytes)
+              }
+            : null
+        };
+      });
+      const plaintextBytes = operationEntries.reduce(
+        (total, entry) => total + (entry.blob?.plaintext.length ?? 0),
+        0
+      );
+      const blobs = operationEntries.flatMap((entry) => entry.blob ? [entry.blob] : []);
+      return {
+        manifest: {
+          schemaVersion: 1,
+          changeSetId,
+          transactionId,
+          workspaceStateKey,
+          generation: 1,
+          createdAt,
+          updatedAt: createdAt,
+          expiresAt,
+          toolName: input.context.toolName,
+          requestId: input.context.requestId,
+          ownerBinding: input.context.ownerBinding,
+          policyRevision: input.context.policyRevision,
+          contractVersion: input.context.contractVersion,
+          state: "active",
+          undoSupported: true,
+          undoReason: null,
+          operations: operationEntries.map((entry) => entry.manifest),
+          plaintextBytes,
+          ciphertextBytes: plaintextBytes + blobs.length * 37,
+          revertsChangeSetId: null
+        },
+        blobs
+      };
+    },
+    project: ({ result, committed, changeSet }) => {
+      if (!input.project) return result;
+      return input.project({
+        result,
+        files,
+        transaction: {
+          change_set_id: committed.changeSetId,
+          transaction_id: committed.transactionId,
+          before_state: beforeState,
           operation_count: committed.operationCount,
           undo_supported: changeSet.undoSupported,
           committed_at: committed.committedAt

@@ -262,7 +262,7 @@ Make legacy functions remain available only to `fileTransactions=legacy`. Atomic
 
 Use shared `transactionResultV2Schema`; do not widen V1 unions. Conflict detail returns only normalized relative path, never current hash.
 
-- [ ] **Step 5: Verify and publish**
+- [x] **Step 5: Verify and publish**
 
 Run focused and adjacent path/security/contract tests, Build, repeat concurrency on Node 20, neat-freak, commit `feat: migrate write and edit transactions`, push, and exact-head CI.
 
@@ -280,15 +280,15 @@ Run focused and adjacent path/security/contract tests, Build, repeat concurrency
 - Patch parsing returns a complete deterministic create/replace/delete operation plan before mutation.
 - V2 optionally accepts bounded `expected_files` and returns per-file before/after hashes plus one transaction object.
 
-- [ ] **Step 1: Write RED tests**
+- [x] **Step 1: Write RED tests**
 
 Cover invalid later hunk causing zero change, duplicate/case-folded target rejection, create/replace/delete, expected-files mismatch, fault after each visible install rolling back the complete set, audit failure rollback, one change set, V1 exact output, and direct/supertool parity.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: `npm run build && node --test test/apply-patch-transaction.test.mjs test/apply-patch-contract.test.mjs`
 
-- [ ] **Step 3: Implement preflight plan and atomic provider**
+- [x] **Step 3: Implement preflight plan and atomic provider**
 
 Parse all hunks and read all before bytes before calling the runtime. Sort transaction operations by comparison key while preserving caller file order in output.
 

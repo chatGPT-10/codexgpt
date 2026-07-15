@@ -15,9 +15,11 @@ import {
   type TransactionRecoveryHook
 } from "./transactions/index.js";
 import {
+  attachPreparedPatchMutation,
   attachPreparedFileMutation,
   type WorkspaceMutationRuntime
 } from "./mutations/index.js";
+import { PatchPlanError, prepareWorkspacePatch } from "./patchOps.js";
 import { AuditError } from "./audit/types.js";
 import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
 import {
@@ -208,10 +210,14 @@ import {
 } from "./tools/schemas/edit.js";
 import {
   APPLY_PATCH_ERROR_MESSAGES,
+  APPLY_PATCH_TRANSACTION_ERROR_MESSAGES,
   applyPatchDataSchema,
   applyPatchOutputShape,
+  applyPatchOutputShapeV2,
   createApplyPatchFailure,
   createApplyPatchSuccess,
+  createApplyPatchSuccessV2,
+  createApplyPatchTransactionFailureV2,
   type ApplyPatchFailureInput
 } from "./tools/schemas/applyPatch.js";
 import {
@@ -3329,6 +3335,10 @@ function classifyApplyPatchFailure(
       return { code: "PATCH_CHECK_FAILED", details: {} };
     }
     return { code: "PATCH_APPLY_FAILED", details: {} };
+  }
+
+  if (error instanceof PatchPlanError) {
+    return { code: "PATCH_CHECK_FAILED", details: {} };
   }
 
   return { code: "INTERNAL_ERROR", details: {} };
@@ -6778,9 +6788,19 @@ export function createCodexProServer(
         "Apply one unified diff patch inside the workspace. Paths are validated before applying. Prefer edit for tiny replacements and apply_patch for multi-file diffs.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        patch: z.string().describe("Unified diff patch to apply. File paths must stay inside the workspace and avoid blocked paths.")
+        patch: z.string().describe("Unified diff patch to apply. File paths must stay inside the workspace and avoid blocked paths."),
+        ...(config.toolContractVersion === 2
+          ? {
+              expected_files: z.record(
+                z.string().min(1).max(240),
+                z.string().regex(/^[a-f0-9]{64}$/).nullable()
+              ).refine((value) => Object.keys(value).length <= 1_000, "expected_files exceeds the file limit.")
+                .optional()
+                .describe("Optional touched-file SHA-256 or null-absence preconditions.")
+            }
+          : {})
       },
-      outputSchema: applyPatchOutputShape,
+      outputSchema: config.toolContractVersion === 2 ? applyPatchOutputShapeV2 : applyPatchOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -6803,8 +6823,14 @@ export function createCodexProServer(
           }
         }))];
 
+        const prepared = config.fileTransactions === "atomic"
+          ? await prepareWorkspacePatch(config, guard, workspace, patch, {
+              expectedFiles: args.expected_files
+            })
+          : null;
+
         const result = applyPatchProviderResultSchema.parse(
-          await applyPatchResultProvider({ config, guard, workspace, patch })
+          prepared?.result ?? await applyPatchResultProvider({ config, guard, workspace, patch })
         );
 
         let normalizedReturnedPaths: string[];
@@ -6842,7 +6868,6 @@ export function createCodexProServer(
           diff: result.diff
         });
 
-        invalidateWorkspaceAnalysis(workspace.id);
         const text = [
           "# Apply Patch",
           "",
@@ -6851,8 +6876,89 @@ export function createCodexProServer(
           result.stderr ? `stderr: ${result.stderr}` : "",
           diffBlock(result.diff)
         ].filter(Boolean).join("\n");
-        return textResult(text, createApplyPatchSuccess(data));
+        const response = textResult(text, createApplyPatchSuccess(data));
+        if (!prepared) {
+          invalidateWorkspaceAnalysis(workspace.id);
+          return response;
+        }
+        const runtime = dependencies.workspaceMutationRuntime;
+        if (!runtime) {
+          throw new TransactionError(
+            "ATOMIC_BACKEND_UNAVAILABLE",
+            "Atomic apply_patch runtime is unavailable."
+          );
+        }
+        return attachPreparedPatchMutation({
+          runtime,
+          workspace,
+          prepared,
+          context: {
+            toolName: "apply_patch",
+            requestId: null,
+            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+            policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+            contractVersion: config.toolContractVersion,
+            retentionMs: config.changeSetRetention.activeRetentionMs
+          },
+          result: response,
+          project: ({ result: committedResult, transaction, files }) => {
+            invalidateWorkspaceAnalysis(workspace.id);
+            if (config.toolContractVersion === 1) return committedResult;
+            return {
+              ...committedResult,
+              structuredContent: createApplyPatchSuccessV2({
+                ...data,
+                transaction,
+                files
+              }, resultDurationMs(committedResult))
+            };
+          },
+          projectFailure: ({ result: failedResult, error }) => {
+            const durationMs = resultDurationMs(failedResult);
+            if (config.toolContractVersion === 2) {
+              const code = publicMutationFailureCode(error) ?? "TRANSACTION_FAILED";
+              const conflictPath = publicMutationFailurePath(error, expectedPaths[0] ?? "[path omitted]");
+              const structured = createApplyPatchTransactionFailureV2({
+                code,
+                details: code === "FILE_VERSION_CONFLICT" ? { path: conflictPath } : {}
+              }, durationMs);
+              return {
+                ...failedResult,
+                ...textResult(
+                  `# Apply Patch Error\n\nCode: ${code}\n${APPLY_PATCH_TRANSACTION_ERROR_MESSAGES[code]}`,
+                  structured
+                ),
+                isError: true
+              };
+            }
+            return {
+              ...failedResult,
+              ...textResult(
+                `# Apply Patch Error\n\nCode: PATCH_APPLY_FAILED\n${APPLY_PATCH_ERROR_MESSAGES.PATCH_APPLY_FAILED}`,
+                createApplyPatchFailure({ code: "PATCH_APPLY_FAILED", details: {} }, durationMs)
+              ),
+              isError: true
+            };
+          }
+        });
       } catch (error) {
+        if (config.toolContractVersion === 2) {
+          const code = publicMutationFailureCode(error);
+          if (code) {
+            const conflictPath = publicMutationFailurePath(error, "[path omitted]");
+            const structured = createApplyPatchTransactionFailureV2({
+              code,
+              details: code === "FILE_VERSION_CONFLICT" ? { path: conflictPath } : {}
+            });
+            return {
+              ...textResult(
+                `# Apply Patch Error\n\nCode: ${code}\n${APPLY_PATCH_TRANSACTION_ERROR_MESSAGES[code]}`,
+                structured
+              ),
+              isError: true
+            };
+          }
+        }
         const failure = classifyApplyPatchFailure(error, args, config);
         const structured = createApplyPatchFailure(failure);
         const text = [

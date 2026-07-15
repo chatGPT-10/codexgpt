@@ -6,13 +6,18 @@ export {
 } from "./runtime.js";
 
 export {
+  attachPreparedPatchMutation,
   attachPreparedFileMutation,
   preserveMutationResult
 } from "./writers.js";
 export type {
+  AttachPreparedPatchMutationInput,
   AttachPreparedFileMutationInput,
   FileMutationContext,
-  FileMutationPublicProjection
+  FileMutationPublicProjection,
+  PatchMutationContext,
+  PatchMutationFileProjection,
+  PatchMutationPublicProjection
 } from "./writers.js";
 
 export type {

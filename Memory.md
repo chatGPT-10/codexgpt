@@ -6,7 +6,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-14.
+- Date: 2026-07-15.
 - Workspace: `D:\Dev\codexpro`.
 - Branch: `main`.
 - Package: `codexpro@0.28.6`.
@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
 - Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
-- Phase 3: Phase 3A and Phase 3B are published and closed. Phase 3C Tasks 1–3 are published as `a9acc14`, `c01a698`, and `68036e8`; runs `29372615528`, `29374274230`, and `29375830950` passed. Task 4 implementation `ac06b2c` is published; its Windows visibility-test CI hang is locally repaired and awaiting replacement exact-head CI.
+- Phase 3: Phase 3A and Phase 3B are published and closed. Phase 3C Tasks 1-4 and the Task 4 Windows repair are published through `bb5b863`; replacement exact-head run `29378357522` passed. Task 5 transaction-backed multi-file `apply_patch` is locally complete and verified as the current publication candidate.
 
 ## Approved execution boundary
 
@@ -54,14 +54,9 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 - Phase 3A/3B CI repair: commits `70b1060`, `c5b0226`, and `88bd4b9` fixed fixture discovery, platform-dependent hashes, and atomic installation-state publication; replacement run `29369658101` passed all four matrices.
 - Phase 3C planning gate: commit `02e45fc` passed exact-head run `29371007807` on Ubuntu/Windows Node 20/24; every job completed Build, Regression, Smoke, and Package.
-- Phase 3C Task 1 local gate: Build; 37/37 focused/adjacent contract tests; 3/3 audit-release tests; 20/20 extra concurrent audit append loops; complete 638-test regression with 637 pass, 0 fail, and 1 established platform skip; all eight Smoke sections; native-Windows Stress; and 237-file package dry-run passed. The first complete-regression attempt exposed a transient Windows audit-lock release `EPERM`; the bounded ownership-revalidating repair passed the replacement gate.
-- Phase 3C Task 1 publication: commit `a9acc14` passed exact-head run `29372615528`; every Ubuntu/Windows Node 20/24 job completed Build, Regression, Smoke, and Package.
-- Phase 3C Task 2 local gate: strict schema/AES-GCM/HMAC/store tests passed 13/13; focused plus adjacent transaction/audit tests passed 39/39; complete regression passed 650/651 with 0 failures and 1 established platform skip; Build, all eight Smoke sections, native-Windows Stress, and 249-file package dry-run passed.
-- Phase 3C Task 2 publication: commit `c01a698` passed exact-head run `29374274230`; every Ubuntu/Windows Node 20/24 job completed Build, Regression, Smoke, and Package.
-- Phase 3C Task 3 local gate: focused handshake plus Policy integration passed 11/11; adjacent audit/transaction group passed 22/22; complete regression passed 661/662 with 0 failures and 1 established platform skip; Build, all eight Smoke sections, native-Windows Stress, and 257-file package dry-run passed. Public V1 writers remain legacy and no atomic mutator name is enabled yet.
-- Phase 3C Task 3 publication: commit `68036e8` passed exact-head run `29375830950`; every Ubuntu/Windows Node 20/24 job completed Build, Regression, Smoke, and Package.
-- Phase 3C Task 4 local gate: strict write/edit transaction tests passed 11/11; Node 20.20.2 passed the final suite after five earlier repeated GREEN runs; complete regression passed 672/673 with 0 failures and 1 established platform skip; Build, all eight Smoke sections, native-Windows Stress, and 257-file package dry-run passed. V1 remains exact and production atomic writes remain fail-closed.
-- Phase 3C Task 4 first publication run `29377484728`: Ubuntu Node 20/24 passed, but an unbounded concurrent-reader test denied Windows rename progress and left both Windows jobs in Regression Tests until the run was canceled. The deterministic visible-install replacement passed 20 repeated focused suites (220/220 tests), the complete 672/673 regression, Build, and all eight Smoke sections locally.
+- Phase 3C Tasks 1-3: commits `a9acc14`, `c01a698`, and `68036e8` passed exact-head runs `29372615528`, `29374274230`, and `29375830950`; their full local evidence remains in Phase 3 Volumes 2-3.
+- Phase 3C Task 4: implementation `ac06b2c` exposed an unbounded Windows reader/rename CI hang in run `29377484728`; deterministic boundary testing in `bb5b863` passed replacement run `29378357522` across Ubuntu/Windows Node 20/24. Local closure included 220/220 repeated focused tests, 672/673 complete regression, Build, all Smoke sections, Stress, and package dry-run.
+- Phase 3C Task 5 local gate: RED exposed three parser gaps (zero-count insertion coordinates, unsupported metadata, and case-folded expected-file duplicates). The repaired preflight and one-change-set mutation path passed 29/29 focused/legacy apply-patch tests, the complete 687/688 regression with 0 failures and 1 established skip, Build, all eight Smoke sections, native-Windows Stress, and a 259-file package dry-run. V1 remains exact; V2 remains dormant.
 - Phase 3B implementation boundary: persistent storage, query, diagnostics, Policy wrapper integration points, and transaction participant are published, but current V1 production registration still does not inject or expose it. Phase 3C owns runtime/writer/undo preparation; complete public V2 activation is deferred to the Phase 3D 31-tool gate.
 
 ## Known limitations
@@ -76,17 +71,19 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Protected main/HTTP Smoke compatibility depends on exact source strings; source drift fails closed and requires a same-change compatibility update.
 - Context, handoff, export, session, and wait operations use bounded non-atomic snapshots or multi-file writes; they fail closed on detected drift but do not provide transaction rollback.
 - The dormant atomic `write` adapter currently requires an existing parent directory. `create_dirs=true` for missing parents remains an activation blocker; direct `mkdir` is forbidden because it would escape audit and rollback. A continuously conflicting external Windows file handle can make atomic install fail and roll back; byte atomicity does not imply guaranteed forward progress under external contention.
+- The dormant atomic `apply_patch` adapter supports exact UTF-8 text create/replace/delete hunks with existing parent directories. It fails closed for binary, symlink, rename/copy, and executable or other mode-changing patches because the transaction model does not yet encode those semantics. Its 1,000-target and per-file limits are finite but still permit a large aggregate batch; a shared aggregate transaction-byte ceiling remains an activation blocker for the later writer-closure gate.
 - Inventory, Skill discovery, session indexing, and review checkpoints are intentionally bounded or process-local rather than complete persistent indexes.
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
 
 ## Open items
 
-1. Publish the Task 4 Windows CI repair, require replacement exact-head CI, then start Task 5 transaction-backed multi-file `apply_patch` with RED all-or-nothing tests.
+1. Publish Phase 3C Task 5, require exact-head Ubuntu/Windows Node 20/24 CI, then begin Task 6 bridge, handoff, Pro-context, probe, and CLI writer migration.
 
 ## Recent summaries
 
-- **STEP-286 — Repair the Windows atomic-visibility CI hang:** replaced an unbounded cross-platform reader race with deterministic reads at the transaction's installed-pending boundary; 20 repeated focused suites, complete regression, Build, and all eight Smoke sections passed.
+- **STEP-287 - Add transaction-backed multi-file apply_patch:** added complete UTF-8 diff preflight, deterministic create/replace/delete transactions, strict expected-file and V2 facts, all-or-nothing rollback, and fail-closed unsupported-patch handling; the complete local gate passed.
+- **STEP-286 - Repair the Windows atomic-visibility CI hang:** replaced an unbounded cross-platform reader race with deterministic reads at the transaction's installed-pending boundary; repair `bb5b863` passed exact-head run `29378357522`.
 - **STEP-285 — Add transaction-backed write and edit adapters:** added exact-byte preparation, caller/observed hash checks, strict V2 results/failures, V1 projection compatibility, required-audit rollback, Windows concurrency coverage, and an explicit missing-parent activation blocker; the complete local gate passed.
 - **STEP-284 — Add the audited mutation commit runtime:** added a private server-owned handle, exact transaction/change-set correlation, required audit/change-set participant ordering, complete rollback, committed-manifest cleanup proof, Policy wrapper integration, and independent-process audit-failure coverage; commit `68036e8` passed run `29375830950`.
 - **STEP-283 — Add authenticated encrypted change-set storage:** added strict HMAC-authenticated manifests, AES-256-GCM rollback blobs, bounded retention/tombstones, safe state paths, shared V2 transaction results, and strict configuration; commit `c01a698` passed run `29374274230`.

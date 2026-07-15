@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import { transactionResultV2Schema } from "./transactionResult.js";
 
 export const APPLY_PATCH_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not available. Open the workspace before retrying.",
@@ -249,6 +250,149 @@ export function createApplyPatchFailure(
       code: failure.code,
       message: APPLY_PATCH_ERROR_MESSAGES[failure.code],
       retryable: false,
+      details: failure.details
+    },
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export const APPLY_PATCH_TRANSACTION_ERROR_MESSAGES = {
+  FILE_VERSION_CONFLICT: "A patch target changed since the expected version was read. Read the affected file again before retrying.",
+  TRANSACTION_BUSY: "Another workspace transaction is active. Retry after it completes.",
+  ATOMIC_BACKEND_UNAVAILABLE: "The filesystem cannot provide the required atomic patch guarantees.",
+  AUDIT_UNAVAILABLE: "The required persistent audit record could not be completed, so the patch was rolled back.",
+  AUDIT_INTEGRITY_FAILURE: "Persistent audit integrity verification failed.",
+  TRANSACTION_FAILED: "The atomic patch failed and no successful commit was acknowledged.",
+  ROLLBACK_FAILED: "The patch failed and rollback could not be proven complete.",
+  TRANSACTION_RECOVERY_REQUIRED: "The workspace requires transaction recovery before another patch."
+} as const;
+
+const applyPatchTransactionRetryable = {
+  FILE_VERSION_CONFLICT: false,
+  TRANSACTION_BUSY: true,
+  ATOMIC_BACKEND_UNAVAILABLE: false,
+  AUDIT_UNAVAILABLE: true,
+  AUDIT_INTEGRITY_FAILURE: false,
+  TRANSACTION_FAILED: true,
+  ROLLBACK_FAILED: false,
+  TRANSACTION_RECOVERY_REQUIRED: false
+} as const;
+
+const applyPatchTransactionErrorCodeSchema = z.enum([
+  "FILE_VERSION_CONFLICT",
+  "TRANSACTION_BUSY",
+  "ATOMIC_BACKEND_UNAVAILABLE",
+  "AUDIT_UNAVAILABLE",
+  "AUDIT_INTEGRITY_FAILURE",
+  "TRANSACTION_FAILED",
+  "ROLLBACK_FAILED",
+  "TRANSACTION_RECOVERY_REQUIRED"
+]);
+
+const applyPatchTransactionErrorSchema = z.object({
+  code: applyPatchTransactionErrorCodeSchema,
+  message: z.string().min(1),
+  retryable: z.boolean(),
+  details: z.union([pathDetailsSchema, emptyDetailsSchema])
+}).strict().superRefine((value, context) => {
+  if (value.message !== APPLY_PATCH_TRANSACTION_ERROR_MESSAGES[value.code]) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["message"], message: "Unexpected transaction error message." });
+  }
+  if (value.retryable !== applyPatchTransactionRetryable[value.code]) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["retryable"], message: "Unexpected transaction retryability." });
+  }
+  const hasPath = Object.prototype.hasOwnProperty.call(value.details, "path");
+  if ((value.code === "FILE_VERSION_CONFLICT") !== hasPath) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["details"], message: "Unexpected transaction error details." });
+  }
+});
+
+export const applyPatchFileFactSchemaV2 = z.object({
+  path: z.string().min(1).max(240),
+  before_sha256: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+  after_sha256: z.string().regex(/^[a-f0-9]{64}$/).nullable()
+}).strict();
+
+const applyPatchFilesSchemaV2 = z.array(applyPatchFileFactSchemaV2).min(1).max(1_000)
+  .superRefine((files, context) => {
+    if (new Set(files.map((file) => file.path)).size !== files.length) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Patch file facts must have unique paths." });
+    }
+  });
+
+export const applyPatchDataSchemaV2 = applyPatchDataSchema.extend({
+  transaction: transactionResultV2Schema,
+  files: applyPatchFilesSchemaV2
+}).strict().superRefine((value, context) => {
+  if (value.transaction.operation_count !== value.files.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["transaction", "operation_count"], message: "Patch operation count must match file facts." });
+  }
+  if (
+    value.paths.length !== value.files.length ||
+    value.paths.some((path, index) => path !== value.files[index]?.path)
+  ) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["files"], message: "Patch file facts must preserve path order." });
+  }
+});
+
+export const applyPatchErrorSchemaV2 = z.union([applyPatchErrorSchema, applyPatchTransactionErrorSchema]);
+
+export const applyPatchOutputShapeV2 = {
+  codexpro_tool: z.literal("apply_patch"),
+  codexpro_title: z.literal("Apply Patch"),
+  ok: z.boolean(),
+  data: applyPatchDataSchemaV2.nullable(),
+  error: applyPatchErrorSchemaV2.nullable(),
+  meta: toolMetaSchema
+};
+
+const applyPatchOutputBaseSchemaV2 = z.object(applyPatchOutputShapeV2).strict();
+
+export const applyPatchOutputSchemaV2 = applyPatchOutputBaseSchemaV2.superRefine((value, context) => {
+  if (value.ok) {
+    if (value.data === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["data"], message: "Successful apply_patch results require data." });
+    if (value.error !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Successful apply_patch results require error to be null." });
+    return;
+  }
+  if (value.data !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["data"], message: "Failed apply_patch results require data to be null." });
+  if (value.error === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Failed apply_patch results require an error object." });
+});
+
+export type ApplyPatchDataV2 = z.infer<typeof applyPatchDataSchemaV2>;
+export type ApplyPatchStructuredResultV2 = z.infer<typeof applyPatchOutputBaseSchemaV2>;
+export type ApplyPatchTransactionFailureInputV2 = {
+  code: keyof typeof APPLY_PATCH_TRANSACTION_ERROR_MESSAGES;
+  details: { path: string } | Record<string, never>;
+};
+
+export function createApplyPatchSuccessV2(
+  data: ApplyPatchDataV2,
+  durationMs = 0
+): ApplyPatchStructuredResultV2 {
+  return applyPatchOutputSchemaV2.parse({
+    codexpro_tool: "apply_patch",
+    codexpro_title: "Apply Patch",
+    ok: true,
+    data: applyPatchDataSchemaV2.parse(data),
+    error: null,
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export function createApplyPatchTransactionFailureV2(
+  failure: ApplyPatchTransactionFailureInputV2,
+  durationMs = 0
+): ApplyPatchStructuredResultV2 {
+  const code = applyPatchTransactionErrorCodeSchema.parse(failure.code);
+  return applyPatchOutputSchemaV2.parse({
+    codexpro_tool: "apply_patch",
+    codexpro_title: "Apply Patch",
+    ok: false,
+    data: null,
+    error: {
+      code,
+      message: APPLY_PATCH_TRANSACTION_ERROR_MESSAGES[code],
+      retryable: applyPatchTransactionRetryable[code],
       details: failure.details
     },
     meta: createToolMeta(durationMs)
