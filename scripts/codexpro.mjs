@@ -8,6 +8,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { boundedTextArtifact, trimUtf8Bytes } from './output-bounds.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNTRACKED_FILE_HASH_BYTES = 64 * 1024;
@@ -1408,13 +1409,7 @@ function redactEnvObject(env) {
 }
 
 function trimBytes(value, maxBytes) {
-  const redacted = redactForLog(value);
-  const buffer = Buffer.from(redacted, 'utf8');
-  if (buffer.byteLength <= maxBytes) return { text: redacted, truncated: false };
-  return {
-    text: `${buffer.subarray(0, maxBytes).toString('utf8')}\n...[output truncated to ${maxBytes} bytes]`,
-    truncated: true
-  };
+  return trimUtf8Bytes(redactForLog(value), maxBytes);
 }
 
 function splitCommandTemplate(input) {
@@ -2412,7 +2407,8 @@ function readGitDiffExcludingContext(root, contextDir, maxBytes) {
     if (!sections.length) return '';
     return trimBytes(sections.join('\n\n'), maxBytes).text;
   } catch (error) {
-    return `# git changes unavailable\n\n${error instanceof Error ? error.message : String(error)}\n`;
+    const detail = error instanceof Error ? error.message : String(error);
+    return boundedTextArtifact('# git changes unavailable', redactForLog(detail), maxBytes);
   }
 }
 

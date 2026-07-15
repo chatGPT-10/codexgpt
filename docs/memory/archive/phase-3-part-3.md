@@ -69,3 +69,25 @@ This append-only volume continues Phase 3 after the closed `phase-3-part-2.md` v
 **Rollback method:** Revert the Task 6 commit with a new commit. Legacy server providers remain available under `fileTransactions=legacy`; do not delete user workspaces, audit segments, change sets, or transaction history during source rollback.
 
 **Next step:** Publish the scoped Task 6 commit, require exact-head Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package, then begin Task 7 static mutation-closure RED inventory.
+
+## STEP-289 - Bound CLI diff failure artifacts after the Task 6 CI finding
+
+**Status:** Locally complete and verified; ready for the authorized scoped repair commit, push, and replacement exact-head CI.
+
+**Goal:** Preserve Task 6's bounded transactional CLI writes when Git cannot produce a diff, including a platform-specific output-buffer overflow, without weakening the existing failure artifact or edit limits.
+
+**Files changed:** `scripts/codexpro.mjs`; new `scripts/output-bounds.mjs`; new `test/output-bounds.test.mjs`; `AGENTS.md`; `Memory.md`; this archive.
+
+**Implementation summary:** Task 6 was published as commit `918d55d`. Exact-head run `29381264649` passed Build and Regression but failed Ubuntu Node 20/24 Smoke in the real large-dirty loop-handoff fixture: Git's captured overflow text was copied unbounded into `implementation-diff.patch`, so the transaction preflight correctly rejected the 1,048,604-byte write against its 1,000,000-byte ceiling. Added one shared UTF-8 byte limiter whose final result, including its truncation marker, stays within the caller limit and never splits a multibyte character. The unavailable-diff fallback now uses that limiter after redaction. Protected Smoke sources remain unchanged.
+
+**Verification commands:** deliberate RED `node --test test/output-bounds.test.mjs`; repaired focused test plus `node --check` and execute-handoff smoke; `npm run build`; `node --test test/*.test.mjs`; `npm run smoke`; `npm run stress`; `npm pack --dry-run --json`; `git diff --check`; neat-freak scope, archive, protected-Smoke, secret-signature, output-bound, and documentation-state checks.
+
+**Verification results:** RED failed only because the new bounded-output module did not yet exist. After implementation, the three ASCII, UTF-8, and oversized-failure-artifact tests passed. Complete regression ran 705 tests with 704 pass, 0 fail, and 1 established platform skip. Build and all eight Smoke sections passed; the unchanged real large-dirty fixture crossed the original Ubuntu failure boundary successfully. Native-Windows Stress passed. Package dry-run passed with 262 files, 641,140 packed bytes, and 3,435,319 unpacked bytes.
+
+**Decisions made:** Bound the final serialized artifact rather than only its body. Keep the unavailable marker and a bounded redacted detail so operators retain actionable context. Do not raise the workspace write ceiling, bypass transaction preflight, special-case Ubuntu, or modify the protected acceptance fixture.
+
+**Risks or limitations:** Oversized failure detail is intentionally truncated and may omit late diagnostic text. The marker itself is shortened only for unrealistically tiny limits that cannot contain it; normal CLI limits preserve the complete marker. Git and external processes remain outside the transaction engine.
+
+**Rollback method:** Revert the repair commit with a new commit. Do not revert to the unbounded fallback while Task 6 transactional CLI writers remain active. No user workspace, audit, change-set, or transaction state requires migration.
+
+**Next step:** Publish the repair, require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package, then mark Task 6 closed and begin Task 7 static mutation-closure RED inventory.
