@@ -6,6 +6,7 @@ import { policyDecisionV1Schema } from "./schemas.js";
 import type {
   CompiledPermissionProfileV1,
   FilesystemAccess,
+  FilesystemBatchResourceV1,
   FilesystemResourceV1,
   NetworkResourceV1,
   PolicyDecisionProvenanceV1,
@@ -128,6 +129,35 @@ function filesystemProfileEvaluation(
   };
 }
 
+function filesystemBatchProfileEvaluation(
+  profile: CompiledPermissionProfileV1,
+  resource: FilesystemBatchResourceV1,
+  platform: NodeJS.Platform
+): ProfileEvaluation {
+  const paths = resource.entries.flatMap((entry) => [
+    entry.sourceComparisonKey,
+    entry.destinationComparisonKey
+  ].filter((value): value is string => value !== null));
+  const evaluations = paths.map((comparisonKey) => filesystemProfileEvaluation(profile, {
+    schemaVersion: 1,
+    kind: "filesystem",
+    operation: "write",
+    workspaceId: resource.workspaceId,
+    relativePath: comparisonKey,
+    comparisonKey,
+    targetExists: false,
+    containment: "inside",
+    existingParentIdentity: "parent_batch_policy",
+    unresolvedSuffix: [],
+    resourceFingerprint: resource.resourceFingerprint
+  }, platform));
+  const denied = evaluations.find((evaluation) => !evaluation.allowed);
+  if (denied) return denied;
+  return evaluations.reduce((selected, evaluation) =>
+    compareSpecificity(evaluation.specificity, selected.specificity) > 0 ? evaluation : selected
+  );
+}
+
 function hostRuleMatches(ruleHost: string, targetHost: string): boolean {
   if (ruleHost.startsWith("**.")) {
     const suffix = ruleHost.slice(3);
@@ -203,6 +233,8 @@ export function evaluateProfile(
   switch (resource.kind) {
     case "filesystem":
       return filesystemProfileEvaluation(profile, resource, platform);
+    case "filesystem_batch":
+      return filesystemBatchProfileEvaluation(profile, resource, platform);
     case "git": {
       const allowed = resource.operation === "read"
         ? profile.git.read
@@ -236,6 +268,8 @@ function scopeForResource(resource: ResourceDescriptorV1): PolicyScope {
       return resource.operation === "read" || resource.operation === "list" || resource.operation === "search"
         ? "filesystem:read"
         : "filesystem:write";
+    case "filesystem_batch":
+      return "filesystem:write";
     case "git":
       return resource.operation === "read" ? "git:read" : resource.operation === "remote_write" ? "git:remote-write" : "git:write";
     case "shell":

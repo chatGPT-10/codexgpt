@@ -4,7 +4,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { loadConfig } from "./config.js";
 import { createStdioPolicySessionSource } from "./policy/identity.js";
 import { policyIdentityScopes } from "./policy/runtime.js";
-import { createCodexProServer } from "./server.js";
+import {
+  connectProductionCodexProServer,
+  createProductionCodexProServer
+} from "./productionRuntime.js";
 
 const CODEXPRO_VERSION = "0.28.6";
 
@@ -32,15 +35,18 @@ async function main(): Promise<void> {
 
   process.env.CODEXPRO_ALLOW_NO_HTTP_TOKEN ??= "1";
   const config = loadConfig();
-  const policySessionContextSource = (config.policyEngineMode ?? "legacy") === "legacy"
-    ? undefined
-    : createStdioPolicySessionSource({
+  const needsSessionContext =
+    (config.policyEngineMode ?? "legacy") !== "legacy" ||
+    (config.fileTransactions === "atomic" && config.writeMode !== "off");
+  const policySessionContextSource = needsSessionContext
+    ? createStdioPolicySessionSource({
         sessionId: randomUUID(),
         scopes: policyIdentityScopes(config)
-      });
-  const server = createCodexProServer(config, { policySessionContextSource });
+      })
+    : undefined;
+  const server = createProductionCodexProServer(config, { policySessionContextSource });
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await connectProductionCodexProServer(server, transport);
 }
 
 main().catch((error) => {

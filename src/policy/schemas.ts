@@ -245,6 +245,31 @@ export const filesystemResourceV1Schema = z.object({
   unresolvedSuffix: z.array(z.string().min(1).max(255)).max(256)
 }).strict();
 
+const filesystemBatchEntryV1Schema = z.object({
+  sourceRelativePath: relativePolicyPathSchema.nullable(),
+  destinationRelativePath: relativePolicyPathSchema.nullable(),
+  sourceComparisonKey: z.string().min(1).max(1000).nullable(),
+  destinationComparisonKey: z.string().min(1).max(1000).nullable()
+}).strict().superRefine((value, context) => {
+  if (value.sourceRelativePath === null && value.destinationRelativePath === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "A batch entry requires a source or destination path." });
+  }
+  if ((value.sourceRelativePath === null) !== (value.sourceComparisonKey === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Batch source path facts are incomplete." });
+  }
+  if ((value.destinationRelativePath === null) !== (value.destinationComparisonKey === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Batch destination path facts are incomplete." });
+  }
+});
+
+export const filesystemBatchResourceV1Schema = z.object({
+  ...resourceBase,
+  kind: z.literal("filesystem_batch"),
+  operation: z.enum(["move", "undo", "patch"]),
+  workspaceId: safeIdSchema,
+  entries: z.array(filesystemBatchEntryV1Schema).min(1).max(64)
+}).strict();
+
 export const gitResourceV1Schema = z.object({
   ...resourceBase,
   kind: z.literal("git"),
@@ -305,6 +330,7 @@ export const auditResourceV1Schema = z.object({
 
 export const resourceDescriptorV1Schema: z.ZodType<ResourceDescriptorV1> = z.discriminatedUnion("kind", [
   filesystemResourceV1Schema,
+  filesystemBatchResourceV1Schema,
   gitResourceV1Schema,
   shellResourceV1Schema,
   processResourceV1Schema,

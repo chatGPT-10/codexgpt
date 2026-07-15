@@ -199,6 +199,22 @@ export interface FilesystemResourceV1 {
   resourceFingerprint: string;
 }
 
+export interface FilesystemBatchResourceEntryV1 {
+  sourceRelativePath: string | null;
+  destinationRelativePath: string | null;
+  sourceComparisonKey: string | null;
+  destinationComparisonKey: string | null;
+}
+
+export interface FilesystemBatchResourceV1 {
+  schemaVersion: 1;
+  kind: "filesystem_batch";
+  operation: "move" | "undo" | "patch";
+  workspaceId: string;
+  entries: FilesystemBatchResourceEntryV1[];
+  resourceFingerprint: string;
+}
+
 export interface GitResourceV1 {
   schemaVersion: 1;
   kind: "git";
@@ -273,6 +289,7 @@ export interface AuditResourceV1 {
 
 export type ResourceDescriptorV1 =
   | FilesystemResourceV1
+  | FilesystemBatchResourceV1
   | GitResourceV1
   | ShellResourceV1
   | ProcessResourceV1

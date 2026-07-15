@@ -162,15 +162,17 @@ Phase 2A intentionally remains restrictive. No approval-management UI or MCP app
 
 Rollback during the migration cycle is limited to the reviewed `legacy` behavior, the generated compatibility profile, or a narrower read-only profile. Policy-loading failure never falls through to unguarded execution.
 
-## Persistent Audit Status
+## Atomic Transactions and Persistent Audit
 
-Phase 3B implements the local persistent-audit backend and its configuration boundary:
+Phase 3C connects the transaction, change-set, and persistent-audit backends to the real HTTP and STDIO server lifecycle:
 
-- `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`; `auto` is the default, and `off` is rejected with Policy `enforce`.
+- `CODEXPRO_FILE_TRANSACTIONS=legacy|atomic`; `legacy` remains the compatibility default. With `atomic`, supported workspace writers prepare one guarded transaction and never fall back to a direct write.
+- Writable atomic V1 requires persistent terminal audit. `CODEXPRO_AUDIT_MODE=off` is rejected for that configuration; audit failure rolls the visible file changes back instead of returning an unaudited success.
+- `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`; `auto` is the default, and `off` is also rejected with Policy `enforce`.
 - `CODEXPRO_AUDIT_RETENTION_DAYS` defaults to 30 days and `CODEXPRO_AUDIT_RETENTION_BYTES` defaults to 100 MiB for closed segments.
-- Audit state stays outside workspaces and Git, uses HMAC-chained canonical JSONL segments, and excludes raw file contents, complete diffs, command output, and credentials.
+- Audit and authenticated change-set state stay outside workspaces and Git. They exclude raw file contents, complete diffs, command output, credentials, and canonical workspace roots.
 
-The current public contract V1 server still does not inject the persistent runtime or register `query_audit_events`. Those activation steps remain grouped with the coherent contract V2 and all-writer migration in Phase 3C. Do not assume a current V1 server is already emitting persistent audit records. See [SECURITY.md](SECURITY.md) for integrity, retention, and trust-boundary details.
+Contract V1 remains the exact public 28-tool surface. It can now execute supported writers through the atomic runtime when configured, but it does not expose `query_audit_events` or `undo_change_set`. Contract V2 startup remains fail-closed until Phase 3D adds `move_paths` and validates the complete exact 31-tool surface. See [SECURITY.md](SECURITY.md) for recovery, integrity, retention, owner-binding, and trust-boundary details.
 
 ## Workspace Sessions
 

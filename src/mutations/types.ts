@@ -49,6 +49,7 @@ export interface PendingWorkspaceMutation {
   readonly changeSetId: string;
   readonly operationCount: number;
   readonly mutationKinds: readonly TransactionOperationKind[];
+  readonly revertsChangeSetId?: string | null;
   commit<T extends object>(input: MutationCommitInput<T>): Promise<T>;
   projectFailure<T extends object>(error: unknown, result: T): T | null;
   rollback(reason: string): Promise<void>;

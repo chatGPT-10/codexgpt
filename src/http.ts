@@ -22,7 +22,11 @@ import {
   type WorkspaceProfile
 } from "./profileStore.js";
 import { redactSensitiveText, redactStructured } from "./redact.js";
-import { createCodexProServer } from "./server.js";
+import {
+  connectProductionCodexProServer,
+  createProductionCodexProServer,
+  disposeProductionCodexProServer
+} from "./productionRuntime.js";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -1752,24 +1756,29 @@ async function main(): Promise<void> {
           }
         } as any);
 
+        let sessionServer: ReturnType<typeof createProductionCodexProServer> | undefined;
         (transport as any).onclose = () => {
           const closedSessionId = (transport as any).sessionId;
           if (closedSessionId) transports.delete(closedSessionId);
+          if (sessionServer) disposeProductionCodexProServer(sessionServer);
         };
 
         const policyEngineMode = config.policyEngineMode ?? "legacy";
+        const needsSessionContext =
+          policyEngineMode !== "legacy" ||
+          (config.fileTransactions === "atomic" && config.writeMode !== "off");
         const authenticationMode = (res.locals.codexproAuthenticationMode ?? "loopback_none") as AcceptedHttpAuthenticationMode;
-        const policySessionContextSource = policyEngineMode === "legacy"
-          ? undefined
-          : createHttpPolicySessionSource({
+        const policySessionContextSource = needsSessionContext
+          ? createHttpPolicySessionSource({
               authenticationMode,
               configuredCredential: config.authToken,
               key: authenticationMode === "loopback_none" ? Buffer.alloc(32) : loadOrCreateIdentityKey(),
               transportSessionId: () => String((transport as { sessionId?: string }).sessionId ?? "pending"),
               scopes: policyIdentityScopes(config)
-            });
-        const server = createCodexProServer(config, { policySessionContextSource });
-        await server.connect(transport);
+            })
+          : undefined;
+        sessionServer = createProductionCodexProServer(config, { policySessionContextSource });
+        await connectProductionCodexProServer(sessionServer, transport);
       } else {
         sendSessionError(res, sessionId);
         return;

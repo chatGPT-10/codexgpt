@@ -5,6 +5,7 @@ import { domainToASCII } from "node:url";
 import type { PathGuard, Workspace } from "../guard.js";
 import {
   auditResourceV1Schema,
+  filesystemBatchResourceV1Schema,
   filesystemResourceV1Schema,
   gitResourceV1Schema,
   networkResourceV1Schema,
@@ -13,6 +14,7 @@ import {
 } from "./schemas.js";
 import type {
   AuditResourceV1,
+  FilesystemBatchResourceV1,
   FilesystemResourceV1,
   GitResourceV1,
   NetworkAddressClass,
@@ -83,6 +85,65 @@ export function describeFilesystemResource(input: DescribeFilesystemInput): File
     unresolvedSuffix: facts.unresolvedSuffix
   };
   return filesystemResourceV1Schema.parse({ ...base, resourceFingerprint: fingerprintResource(base) });
+}
+
+export interface DescribeFilesystemBatchInput {
+  platform?: NodeJS.Platform;
+  workspace: Workspace;
+  guard: PathGuard;
+  operation: FilesystemBatchResourceV1["operation"];
+  entries: Array<{
+    sourcePath: string | null;
+    destinationPath: string | null;
+  }>;
+}
+
+export function describeFilesystemBatchResource(
+  input: DescribeFilesystemBatchInput
+): FilesystemBatchResourceV1 {
+  if (!Array.isArray(input.entries) || input.entries.length < 1 || input.entries.length > 64) {
+    throw new Error("Filesystem batch entry count must be between 1 and 64.");
+  }
+  const platform = input.platform ?? process.platform;
+  const entries = input.entries.map((entry) => {
+    if (entry.sourcePath === null && entry.destinationPath === null) {
+      throw new Error("Filesystem batch entries require a source or destination path.");
+    }
+    const source = entry.sourcePath === null
+      ? null
+      : input.guard.resolvePolicyFacts(input.workspace, entry.sourcePath, { forWrite: true });
+    const destination = entry.destinationPath === null
+      ? null
+      : input.guard.resolvePolicyFacts(input.workspace, entry.destinationPath, { forWrite: true });
+    return {
+      sourceRelativePath: source?.relPath ?? null,
+      destinationRelativePath: destination?.relPath ?? null,
+      sourceComparisonKey: source ? normalizedRelativePath(source.relPath, platform) : null,
+      destinationComparisonKey: destination ? normalizedRelativePath(destination.relPath, platform) : null
+    };
+  });
+  entries.sort((left, right) =>
+    (left.sourceComparisonKey ?? "").localeCompare(right.sourceComparisonKey ?? "") ||
+    (left.destinationComparisonKey ?? "").localeCompare(right.destinationComparisonKey ?? "")
+  );
+  const keys = entries.flatMap((entry) => [
+    entry.sourceComparisonKey ? `s:${entry.sourceComparisonKey}` : null,
+    entry.destinationComparisonKey ? `d:${entry.destinationComparisonKey}` : null
+  ].filter((value): value is string => value !== null));
+  if (new Set(keys).size !== keys.length) {
+    throw new Error("Filesystem batch paths must be unique within each role.");
+  }
+  const base = {
+    schemaVersion: 1 as const,
+    kind: "filesystem_batch" as const,
+    operation: input.operation,
+    workspaceId: input.workspace.id,
+    entries
+  };
+  return filesystemBatchResourceV1Schema.parse({
+    ...base,
+    resourceFingerprint: fingerprintResource(base)
+  });
 }
 
 export interface DescribeGitInput {

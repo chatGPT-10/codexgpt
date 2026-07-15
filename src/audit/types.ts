@@ -87,6 +87,7 @@ export interface ExecutionAuditEventV2 extends AuditEventCommonV2 {
   exitCode: number | null;
   boundedByteCounts: Record<string, number>;
   changeSetId: string | null;
+  revertsChangeSetId?: string | null;
   operationCount: number;
   mutationKinds: AuditMutationKind[];
   recoveryRequired: boolean;

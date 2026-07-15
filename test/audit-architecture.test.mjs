@@ -134,7 +134,7 @@ test("best-effort state-root unavailability warns while required audit fails clo
   assert.equal(required.reasonCode, "AUDIT_UNAVAILABLE");
 });
 
-test("public audit documentation exposes configuration without overclaiming V1 activation", () => {
+test("public audit documentation describes atomic V1 activation without overclaiming V2", () => {
   const configExample = fs.readFileSync(path.resolve("config.example.env"), "utf8");
   const readme = fs.readFileSync(path.resolve("README.md"), "utf8");
   const readmeZh = fs.readFileSync(path.resolve("README_ZH.md"), "utf8");
@@ -149,9 +149,13 @@ test("public audit documentation exposes configuration without overclaiming V1 a
     assert.match(readme, new RegExp(variable));
     assert.match(readmeZh, new RegExp(variable));
   }
-  assert.match(readme, /current public contract V1 server still does not inject the persistent runtime/i);
-  assert.match(readmeZh, /当前公开 contract V1 Server 尚未注入 persistent runtime/);
-  assert.match(security, /current public V1 server must not be described as already emitting persistent audit records/i);
+  assert.match(readme, /Writable atomic V1 requires persistent terminal audit/i);
+  assert.match(readme, /does not expose `query_audit_events` or `undo_change_set`/i);
+  assert.match(readme, /Contract V2 startup remains fail-closed/i);
+  assert.match(readmeZh, /可写 atomic V1 必须持久化终态审计/);
+  assert.match(readmeZh, /V1 不暴露 `query_audit_events` 或 `undo_change_set`/);
+  assert.match(security, /production runtime is now injected when atomic or non-legacy Policy\/audit configuration requires it/i);
+  assert.match(security, /V2 `query_audit_events` adapter remains unavailable/i);
 });
 
 test("disabled and invalid audit readiness states remain bounded and path-free", async () => {

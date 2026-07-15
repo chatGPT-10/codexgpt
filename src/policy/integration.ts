@@ -12,6 +12,8 @@ import type {
   AuditEventV1,
   PolicyDecisionV1,
   PolicyEngineMode,
+  RequiredCapabilityV1,
+  ResourceDescriptorV1,
   RiskClass
 } from "./types.js";
 
@@ -46,6 +48,7 @@ export interface AuditExecutionInputV2 {
   exitCode: number | null;
   boundedByteCounts: Record<string, number>;
   changeSetId: string | null;
+  revertsChangeSetId?: string | null;
   operationCount: number;
   mutationKinds: AuditMutationKind[];
   recoveryRequired: boolean;
@@ -55,6 +58,15 @@ export interface PolicyAuthorizationResult {
   decision: PolicyDecisionV1;
   auditEvent: AuditEventV1 | null;
   auditContext?: AuditAuthorizationContextV2;
+}
+
+export interface ResourceResolutionResult {
+  resource: ResourceDescriptorV1;
+  requiredCapabilities?: RequiredCapabilityV1[];
+}
+
+export interface ToolResourceResolver {
+  describe(toolName: string, args: Record<string, unknown>): ResourceResolutionResult;
 }
 
 export interface PolicyRuntimeDiagnostics {
@@ -176,6 +188,7 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
             exitCode: null,
             boundedByteCounts: {},
             changeSetId: null,
+            revertsChangeSetId: null,
             operationCount: 0,
             mutationKinds: [],
             recoveryRequired: false
@@ -211,6 +224,7 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
             exitCode: facts?.exitCode ?? null,
             boundedByteCounts: facts?.boundedByteCounts ?? {},
             changeSetId: facts?.changeSetId ?? workspaceMutation?.changeSetId ?? null,
+            revertsChangeSetId: workspaceMutation?.revertsChangeSetId ?? null,
             operationCount: facts?.operationCount ?? workspaceMutation?.operationCount ?? 0,
             mutationKinds: facts?.mutationKinds ?? [...(workspaceMutation?.mutationKinds ?? [])],
             recoveryRequired: false
@@ -257,6 +271,7 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
             exitCode: null,
             boundedByteCounts: {},
             changeSetId: null,
+            revertsChangeSetId: null,
             operationCount: 0,
             mutationKinds: [],
             recoveryRequired: false

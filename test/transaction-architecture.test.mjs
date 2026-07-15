@@ -128,3 +128,11 @@ test("protected smoke sources and the canonical public tool count remain exact",
   assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.length, 28);
   assert.equal(new Set(CANONICAL_CODEXPRO_CHILD_TOOLS).size, 28);
 });
+
+test("stateful CLI smoke wrappers isolate the transaction state root", async () => {
+  const proSmoke = await read("scripts/pro-smoke.mjs");
+  const executeHandoffSmoke = await read("scripts/execute-handoff-smoke.mjs");
+  assert.match(proSmoke, /const proApplyEnv = \{ \.\.\.process\.env, CODEXPRO_HOME: stateHome \};/);
+  assert.match(executeHandoffSmoke, /CODEXPRO_HOME: executeHandoffStateHome/);
+  assert.match(executeHandoffSmoke, /\.\.\.env\s*\n\s*\}/);
+});

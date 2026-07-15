@@ -4,11 +4,17 @@ import os from 'node:os';
 import path from 'node:path';
 
 function run(args, options = {}) {
+  const { env, ...spawnOptions } = options;
   const result = spawnSync(process.execPath, ['scripts/codexpro.mjs', ...args], {
     cwd: path.resolve('.'),
-    env: { ...process.env, NO_COLOR: '1' },
+    env: {
+      ...process.env,
+      NO_COLOR: '1',
+      CODEXPRO_HOME: executeHandoffStateHome,
+      ...env
+    },
     encoding: 'utf8',
-    ...options
+    ...spawnOptions
   });
   return result;
 }
@@ -24,6 +30,7 @@ function quoteArg(value) {
 }
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-execute-handoff-'));
+const executeHandoffStateHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-execute-handoff-home-'));
 await fs.mkdir(path.join(root, '.ai-bridge'), { recursive: true });
 await fs.writeFile(path.join(root, '.ai-bridge', 'current-plan.md'), '# Test plan\n\nAppend the implementation marker.\n', 'utf8');
 await fs.writeFile(path.join(root, 'app.txt'), 'start\n', 'utf8');

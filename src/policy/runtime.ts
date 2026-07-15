@@ -9,7 +9,11 @@ import { createRequestContext } from "./context.js";
 import { baselineNodeCapabilityReport } from "./enforcement.js";
 import { evaluatePolicy } from "./evaluator.js";
 import { HARD_POLICY_REVISION } from "./hardPolicy.js";
-import type { PolicyRuntime, PolicyAuthorizationResult } from "./integration.js";
+import type {
+  PolicyRuntime,
+  PolicyAuthorizationResult,
+  ToolResourceResolver
+} from "./integration.js";
 import type { PolicySessionContextSource } from "./identity.js";
 import {
   compilePermissionProfile,
@@ -108,7 +112,7 @@ function workspaceFor(
 function toolMayMutate(toolName: string, config: CodexProConfig): boolean {
   const mode = toolPolicyDefinition(toolName).resourceMode;
   if (mode === "shell") return config.bashMode === "full";
-  return mode === "workspace_write" || mode === "exact_write" || mode === "bridge_write";
+  return mode === "workspace_write" || mode === "exact_write" || mode === "bridge_write" || mode === "resolved";
 }
 
 function describeResource(
@@ -116,9 +120,20 @@ function describeResource(
   args: Record<string, unknown>,
   config: CodexProConfig,
   workspaces: WorkspaceManager,
-  guard: PathGuard
+  guard: PathGuard,
+  resourceResolver?: ToolResourceResolver
 ): { resource: ResourceDescriptorV1; requiredCapabilities: RequiredCapabilityV1[]; riskClass: RiskClass; requiredScope: PolicyScope | null } {
   const definition = toolPolicyDefinition(toolName);
+  if (definition.resourceMode === "resolved") {
+    if (!resourceResolver) throw new Error("Policy resource resolver is unavailable.");
+    const described = resourceResolver.describe(toolName, args);
+    return {
+      resource: described.resource,
+      requiredCapabilities: described.requiredCapabilities ?? [{ name: "filesystemWriteBoundary", minimum: "brokered" }],
+      riskClass: definition.riskClass,
+      requiredScope: definition.requiredScope
+    };
+  }
   const workspace = workspaceFor(definition.resourceMode, args, workspaces);
   const requiredCapabilities: RequiredCapabilityV1[] = [];
 
@@ -306,6 +321,7 @@ export interface CreateDefaultPolicyRuntimeInput {
   auditSink?: (event: AuditEventV1) => void | Promise<void>;
   persistentAudit?: Required<Pick<PolicyRuntime, "persistAuthorization" | "persistExecution">>;
   grants?: SessionGrantStore;
+  resourceResolver?: ToolResourceResolver;
 }
 
 export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInput): PolicyRuntime & {
@@ -351,7 +367,14 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
     grants,
     async authorize(toolName, args): Promise<PolicyAuthorizationResult> {
       const started = Date.now();
-      const described = describeResource(toolName, args, input.config, input.workspaces, input.guard);
+      const described = describeResource(
+        toolName,
+        args,
+        input.config,
+        input.workspaces,
+        input.guard,
+        input.resourceResolver
+      );
       const now = new Date().toISOString();
       const workspaceId = described.resource.workspaceId ?? null;
       const context = createRequestContext(input.sessionSource, {
@@ -385,7 +408,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
             deploymentDisabled: false,
             now,
             platform: process.platform,
-            toolContractVersion: "1",
+            toolContractVersion: String(input.config.toolContractVersion),
             inputDigest: digest
           });
 

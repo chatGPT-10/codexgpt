@@ -94,6 +94,7 @@ const rawExecutionAuditEventV2Schema = z.object({
   exitCode: z.number().int().finite().nullable(),
   boundedByteCounts: boundedByteCountsSchema,
   changeSetId: z.string().regex(/^cs_[a-f0-9]{32}$/).nullable(),
+  revertsChangeSetId: z.string().regex(/^cs_[a-f0-9]{32}$/).nullable().optional(),
   operationCount: nonnegativeIntegerSchema,
   mutationKinds: mutationKindsSchema,
   recoveryRequired: z.boolean()
@@ -102,6 +103,7 @@ const rawExecutionAuditEventV2Schema = z.object({
 function validateExecutionEvent(value: ExecutionAuditEventV2, context: z.RefinementCtx): void {
   if (value.status === "not_executed" && (
     value.changeSetId !== null ||
+    value.revertsChangeSetId != null ||
     value.operationCount !== 0 ||
     value.mutationKinds.length !== 0 ||
     value.recoveryRequired

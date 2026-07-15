@@ -43,3 +43,18 @@ export {
   type ChangeSetUndoReason,
   type TransactionResultV2
 } from "./types.js";
+
+export {
+  createDirectUndoChangeSetAdapterV2,
+  createSupertoolUndoChangeSetAdapterV2,
+  deriveChangeSetOwnerBinding,
+  undoChangeSetV2,
+  UndoChangeSetError,
+  UndoChangeSetService,
+  type PreparedUndoChangeSet,
+  type PrepareUndoChangeSetInput,
+  type UndoChangeSetErrorCode,
+  type UndoChangeSetHandlerV2,
+  type UndoChangeSetServiceOptions,
+  type UndoOperationSummary
+} from "./undo.js";

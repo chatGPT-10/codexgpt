@@ -360,15 +360,17 @@ Phase 2A 有意保持严格限制。目前尚未暴露审批管理 UI 或 MCP �
 
 迁移周期内只允许回滚到经过审查的 `legacy` 行为、生成的兼容 Permission Profile，或更窄的只读 profile。Policy 加载失败不会自动退回无策略执行。
 
-## 持久审计状态
+## 原子事务与持久审计
 
-Phase 3B 已实现本地持久审计后端和配置边界：
+Phase 3C 已把 transaction、change-set 和 persistent-audit 后端接入真实的 HTTP 与 STDIO Server 生命周期：
 
-- `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`；默认是 `auto`，Policy 使用 `enforce` 时不能设为 `off`。
+- `CODEXPRO_FILE_TRANSACTIONS=legacy|atomic`；`legacy` 仍是兼容默认值。启用 `atomic` 后，受支持的工作区 writer 会先准备一个受保护事务，绝不会静默回退为直接写入。
+- 可写 atomic V1 必须持久化终态审计；该配置不能使用 `CODEXPRO_AUDIT_MODE=off`。审计失败会回滚已可见的文件变化，而不是返回未经审计的成功。
+- `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`；默认是 `auto`，Policy 使用 `enforce` 时也不能设为 `off`。
 - `CODEXPRO_AUDIT_RETENTION_DAYS` 默认保留 30 天，`CODEXPRO_AUDIT_RETENTION_BYTES` 默认允许已闭合分段总计 100 MiB。
-- 审计状态位于工作区和 Git 之外，使用 HMAC 链接的规范 JSONL 分段，不记录原始文件内容、完整 diff、命令输出或凭据。
+- 审计和经过认证的 change-set 状态位于工作区和 Git 之外，不记录原始文件内容、完整 diff、命令输出、凭据或规范工作区根路径。
 
-当前公开 contract V1 Server 尚未注入 persistent runtime，也未注册 `query_audit_events`。这些启用动作仍需在 Phase 3C 与 coherent contract V2 和全部 writer 迁移一起完成，因此不能把当前 V1 Server 描述为已经持续写入持久审计。完整性、保留期和信任边界详见 [SECURITY.md](SECURITY.md)。
+Contract V1 仍保持精确的公开 28 工具表面；配置为 atomic 时，受支持的 writer 已可通过事务 runtime 执行，但 V1 不暴露 `query_audit_events` 或 `undo_change_set`。Contract V2 仍会在启动时失败关闭，直到 Phase 3D 加入 `move_paths` 并验证完整、精确的 31 工具表面。恢复、完整性、保留期、owner binding 和信任边界详见 [SECURITY.md](SECURITY.md)。
 
 ## 工作区会话
 

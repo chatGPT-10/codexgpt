@@ -280,12 +280,12 @@ const REVIEWED_ALLOWLIST = Object.freeze({
   "src/transactions/recovery.ts": Object.freeze({
     purpose: "Transaction filesystem backend recovery and rollback inside authorized workspaces.",
     occurrences: Object.freeze([
-      "198:3:unlinkSync:476f406a7921",
-      "355:9:unlinkSync:de4d6c476669",
-      "370:11:renameSync:580bdad99e6c",
-      "372:11:linkSync:ab8289d86c70",
-      "394:9:linkSync:ab8289d86c70",
-      "438:9:rmdirSync:47f99c0d1368"
+      "199:3:unlinkSync:476f406a7921",
+      "361:9:unlinkSync:de4d6c476669",
+      "376:11:renameSync:580bdad99e6c",
+      "378:11:linkSync:ab8289d86c70",
+      "400:9:linkSync:ab8289d86c70",
+      "444:9:rmdirSync:47f99c0d1368"
     ])
   }),
   "src/transactions/workspaceLock.ts": Object.freeze({

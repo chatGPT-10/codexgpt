@@ -247,6 +247,8 @@ export class ApprovalPolicyV1 {
         if (resource.operation === "read" || resource.operation === "list" || resource.operation === "search") return "R0";
         if (resource.operation === "write") return "R2";
         return "R3";
+      case "filesystem_batch":
+        return "R2";
       case "git":
         if (resource.operation === "read") return "R0";
         if (resource.operation === "write") return "R2";

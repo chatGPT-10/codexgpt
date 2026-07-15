@@ -45,5 +45,18 @@ export function evaluateHardPolicy(
     if (isGitMetadata(segments)) matches.push({ id: "hard.fs.git-direct" });
   }
 
+  if (resource.kind === "filesystem_batch") {
+    const comparisonKeys = resource.entries.flatMap((entry) => [
+      entry.sourceComparisonKey,
+      entry.destinationComparisonKey
+    ].filter((value): value is string => value !== null));
+    for (const comparisonKey of comparisonKeys) {
+      const segments = filesystemSegments(comparisonKey);
+      if (isEnvFamily(segments)) matches.push({ id: "hard.fs.secret.env" });
+      if (isPrivateKey(segments)) matches.push({ id: "hard.fs.private-key" });
+      if (isGitMetadata(segments)) matches.push({ id: "hard.fs.git-direct" });
+    }
+  }
+
   return matches;
 }

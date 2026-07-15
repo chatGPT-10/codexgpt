@@ -54,6 +54,7 @@ export class PersistentAuditRuntimeV2 {
       exitCode: input.exitCode,
       boundedByteCounts: input.boundedByteCounts,
       changeSetId: input.changeSetId,
+      revertsChangeSetId: input.revertsChangeSetId ?? null,
       operationCount: input.operationCount,
       mutationKinds: input.mutationKinds,
       recoveryRequired: input.recoveryRequired

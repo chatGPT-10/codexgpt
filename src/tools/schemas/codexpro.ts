@@ -33,6 +33,10 @@ import { treeOutputSchema } from "./tree.js";
 import { waitForHandoffOutputSchema } from "./waitForHandoff.js";
 import { workspaceSnapshotOutputSchema } from "./workspaceSnapshot.js";
 import { writeOutputSchema } from "./write.js";
+import {
+  undoChangeSetInputV2Schema,
+  undoChangeSetOutputSchema
+} from "./undoChangeSet.js";
 
 export const CANONICAL_CODEXPRO_CHILD_TOOLS_V1 = Object.freeze([
   "apply_patch",
@@ -88,6 +92,13 @@ export function canonicalCodexProChildTools(version: ToolContractVersion) {
 // move_paths and supplies a complete registration and output-schema map.
 export const queryAuditEventsInputSchemaV2 = queryAuditEventsInputV2Schema;
 export const queryAuditEventsOutputSchemaV2 = queryAuditEventsResultV2Schema;
+export const undoChangeSetInputSchemaV2 = undoChangeSetInputV2Schema;
+export const undoChangeSetOutputSchemaV2 = undoChangeSetOutputSchema;
+
+export const CODEXPRO_ADDITIONAL_OUTPUT_SCHEMAS_V2 = Object.freeze({
+  query_audit_events: queryAuditEventsResultV2Schema,
+  undo_change_set: undoChangeSetOutputSchema
+});
 
 export const CODEXPRO_ACTION_ALIASES = Object.freeze({
   open: "open_current_workspace",

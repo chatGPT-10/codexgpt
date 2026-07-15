@@ -29,6 +29,15 @@ export function safePolicySummary(resource: ResourceDescriptorV1): string {
       const relative = safeRelativePath(resource.relativePath);
       return relative ? `filesystem:${resource.operation}:${relative}` : `filesystem:${resource.operation}:[resource omitted]`;
     }
+    case "filesystem_batch": {
+      const summaries = resource.entries.slice(0, 4).map((entry) => {
+        const source = entry.sourceRelativePath ? safeRelativePath(entry.sourceRelativePath) : null;
+        const destination = entry.destinationRelativePath ? safeRelativePath(entry.destinationRelativePath) : null;
+        return source && destination ? `${source}->${destination}` : source ?? destination ?? "[resource omitted]";
+      });
+      const suffix = resource.entries.length > summaries.length ? ",..." : "";
+      return `filesystem_batch:${resource.operation}:${resource.entries.length}:${summaries.join(",")}${suffix}`;
+    }
     case "git":
       return `git:${resource.operation}:${safeOneLine(resource.repositoryKey, 80) || "[repository omitted]"}`;
     case "shell":

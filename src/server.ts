@@ -4137,6 +4137,10 @@ export interface CodexProServerDependencies {
   transactionRecoveryCoordinator?: TransactionRecoveryHook;
   workspaceMutationRuntime?: WorkspaceMutationRuntime;
   atomicMutationToolNames?: ReadonlySet<string>;
+  undoChangeSetService?: UndoChangeSetService;
+  changeSetOwnerBindingKey?: Buffer;
+  toolResourceResolver?: ToolResourceResolver;
+  persistentAuditRuntime?: Required<Pick<PolicyRuntime, "persistAuthorization" | "persistExecution">>;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -4339,7 +4343,8 @@ const CONNECTION_TEST_HIDDEN_TOOLS = new Set<string>([
   "bash",
   "export_pro_context",
   "handoff_to_agent",
-  "handoff_to_codex"
+  "handoff_to_codex",
+  "undo_change_set"
 ]);
 
 function codexSessionToolNames(config: CodexProConfig): string[] {
@@ -4371,6 +4376,9 @@ function toolNamesForMode(config: CodexProConfig): string[] {
     const analysisIndex = names.indexOf("inspect_workspace");
     if (analysisIndex !== -1) names.splice(analysisIndex, 1);
   }
+  if (config.toolContractVersion === 2 && config.toolMode !== "minimal" && !names.includes("undo_change_set")) {
+    names.push("undo_change_set");
+  }
   if (config.connectionTest) {
     for (const hiddenTool of CONNECTION_TEST_HIDDEN_TOOLS) {
       const toolIndex = names.indexOf(hiddenTool);
@@ -4400,6 +4408,9 @@ function registeredToolNames(server: McpServer): string[] {
 
 function shouldRegisterTool(config: CodexProConfig, name: string): boolean {
   if (config.connectionTest && CONNECTION_TEST_HIDDEN_TOOLS.has(name)) return false;
+  if (name === "undo_change_set") {
+    return config.toolContractVersion === 2 && config.toolMode !== "minimal";
+  }
   if (name === "bash" && config.bashMode === "off") return false;
   if ((name === "write" || name === "edit" || name === "apply_patch") && config.writeMode !== "workspace") return false;
   if (name === "codex_sessions") return config.codexSessions !== "off";
@@ -4762,10 +4773,17 @@ function workspaceIdentityBinding(source?: PolicySessionContextSource): string |
     .slice(0, 24)}`;
 }
 
-function changeSetOwnerBinding(source?: PolicySessionContextSource): string {
-  return `owner_${createHash("sha256")
-    .update(JSON.stringify(source?.identity ?? { kind: "local_unbound" }), "utf8")
-    .digest("hex")}`;
+function changeSetOwnerBinding(
+  source: PolicySessionContextSource | undefined,
+  key: Buffer | undefined
+): string {
+  if (!source || !key) {
+    throw new TransactionError(
+      "ATOMIC_BACKEND_UNAVAILABLE",
+      "Atomic change-set owner binding is unavailable."
+    );
+  }
+  return deriveChangeSetOwnerBinding(source, key);
 }
 
 function mutationPolicyRevision(runtime?: PolicyRuntime): string {
@@ -4777,6 +4795,47 @@ function mutationPolicyRevision(runtime?: PolicyRuntime): string {
   } catch {
     return "policy-unknown";
   }
+}
+
+function classifyUndoChangeSetFailure(error: unknown): UndoChangeSetErrorCode {
+  if (error instanceof UndoChangeSetError) return error.code;
+  if (error instanceof AuditError) {
+    return error.code === "AUDIT_INTEGRITY_FAILURE" ? "AUDIT_INTEGRITY_FAILURE" : "AUDIT_UNAVAILABLE";
+  }
+  if (error instanceof TransactionError) {
+    if (error.code === "FILE_VERSION_CONFLICT" || error.code === "TRANSACTION_PRECONDITION_FAILED") {
+      return "UNDO_CONFLICT";
+    }
+    if (
+      error.code === "TRANSACTION_BUSY" ||
+      error.code === "ATOMIC_BACKEND_UNAVAILABLE" ||
+      error.code === "TRANSACTION_FAILED" ||
+      error.code === "ROLLBACK_FAILED" ||
+      error.code === "TRANSACTION_RECOVERY_REQUIRED"
+    ) return error.code;
+  }
+  return "INTERNAL_ERROR";
+}
+
+function undoChangeSetFailureResult(
+  error: unknown,
+  args: { workspace_id?: string; change_set_id?: string },
+  startedAt: number
+): any {
+  const code = classifyUndoChangeSetFailure(error);
+  const details = code === "WORKSPACE_NOT_FOUND"
+    ? { workspace_id: String(args.workspace_id ?? "").slice(0, 160) }
+    : code === "CHANGE_SET_NOT_FOUND"
+      ? { change_set_id: String(args.change_set_id ?? "") }
+      : {};
+  const structured = createUndoChangeSetFailure(code, details, Date.now() - startedAt);
+  return {
+    ...textResult(
+      `Undo failed.\nCode: ${structured.error?.code ?? "INTERNAL_ERROR"}\n${structured.error?.message ?? "Undo failed."}`,
+      structured
+    ),
+    isError: true
+  };
 }
 
 function buildServerConfigData(
@@ -4843,19 +4902,39 @@ import { upgradeCodexProSupertool } from "./codexproSupertool.js";
 import {
   installPolicyKernel,
   type PolicyRuntime,
-  type PolicyRuntimeDiagnostics
+  type PolicyRuntimeDiagnostics,
+  type ToolResourceResolver
 } from "./policy/integration.js";
 import { baselineNodeCapabilityReport } from "./policy/enforcement.js";
 import { HARD_POLICY_REVISION } from "./policy/hardPolicy.js";
 import type { PolicySessionContextSource } from "./policy/identity.js";
 import { createDefaultPolicyRuntime } from "./policy/runtime.js";
 import type { AuditEventV1 } from "./policy/types.js";
+import {
+  deriveChangeSetOwnerBinding,
+  UndoChangeSetError,
+  type UndoChangeSetErrorCode,
+  type UndoChangeSetService
+} from "./changesets/undo.js";
+import {
+  createUndoChangeSetFailure,
+  createUndoChangeSetSuccess,
+  undoChangeSetInputV2Schema,
+  undoChangeSetOutputShape,
+  type UndoChangeSetData
+} from "./tools/schemas/undoChangeSet.js";
 
 export function createCodexProServer(
   config: CodexProConfig,
   dependencies: CodexProServerDependencies = {}
 ): McpServer {
-  assertFileTransactionConfiguration(config, { workspaceMutatorsAtomic: false });
+  assertFileTransactionConfiguration(config, {
+    workspaceMutatorsAtomic: Boolean(
+      dependencies.workspaceMutationRuntime &&
+      dependencies.changeSetOwnerBindingKey &&
+      dependencies.persistentAuditRuntime
+    )
+  });
   assertToolContractConfiguration(config, {
     durableAuditAvailable: false,
     stateRootAvailable: false,
@@ -4881,14 +4960,48 @@ export function createCodexProServer(
   });
   const guard = new PathGuard(config);
   const policyEngineMode = config.policyEngineMode ?? "legacy";
+  const toolResourceResolver: ToolResourceResolver | undefined = dependencies.undoChangeSetService || dependencies.toolResourceResolver
+    ? {
+        describe(toolName, args) {
+          if (toolName === "undo_change_set") {
+            if (!dependencies.undoChangeSetService) {
+              throw new Error("Undo resource resolver is unavailable.");
+            }
+            const workspaceId = typeof args.workspace_id === "string" ? args.workspace_id : "";
+            const changeSetId = typeof args.change_set_id === "string" ? args.change_set_id : "";
+            const workspace = workspaces.getWorkspace(workspaceId);
+            return {
+              resource: dependencies.undoChangeSetService.describeResource({
+                workspace,
+                changeSetId,
+                ownerBinding: changeSetOwnerBinding(
+                  dependencies.policySessionContextSource,
+                  dependencies.changeSetOwnerBindingKey
+                )
+              })
+            };
+          }
+          if (!dependencies.toolResourceResolver) {
+            throw new Error("Policy resource resolver does not support this tool.");
+          }
+          return dependencies.toolResourceResolver.describe(toolName, args);
+        }
+      }
+    : undefined;
+  const requiresAtomicAuditWrapper = config.fileTransactions === "atomic" && config.writeMode !== "off";
+  const runtimePolicyConfig: CodexProConfig = requiresAtomicAuditWrapper && policyEngineMode === "legacy"
+    ? { ...config, policyEngineMode: "shadow", auditMode: "required" }
+    : config;
   effectivePolicyRuntime ??= (
-    policyEngineMode !== "legacy" && dependencies.policySessionContextSource
+    (policyEngineMode !== "legacy" || requiresAtomicAuditWrapper) && dependencies.policySessionContextSource
       ? createDefaultPolicyRuntime({
-          config,
+          config: runtimePolicyConfig,
           workspaces,
           guard,
           sessionSource: dependencies.policySessionContextSource,
-          auditSink: dependencies.policyAuditSink
+          auditSink: dependencies.policyAuditSink,
+          persistentAudit: dependencies.persistentAuditRuntime,
+          resourceResolver: toolResourceResolver
         })
       : undefined
   );
@@ -5077,7 +5190,7 @@ export function createCodexProServer(
         context: {
           toolName: "export_pro_context",
           requestId: null,
-          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
           policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
           contractVersion: config.toolContractVersion,
           retentionMs: config.changeSetRetention.activeRetentionMs
@@ -5099,7 +5212,7 @@ export function createCodexProServer(
         context: {
           toolName: "handoff_to_agent",
           requestId: null,
-          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
           policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
           contractVersion: config.toolContractVersion,
           retentionMs: config.changeSetRetention.activeRetentionMs
@@ -5122,7 +5235,7 @@ export function createCodexProServer(
         context: {
           toolName: "handoff_to_codex",
           requestId: null,
-          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
           policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
           contractVersion: config.toolContractVersion,
           retentionMs: config.changeSetRetention.activeRetentionMs
@@ -5406,7 +5519,7 @@ export function createCodexProServer(
                 context: {
                   toolName: "codexpro_self_test",
                   requestId: null,
-                  ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+                  ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
                   policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
                   contractVersion: config.toolContractVersion,
                   retentionMs: config.changeSetRetention.activeRetentionMs,
@@ -6645,7 +6758,7 @@ export function createCodexProServer(
           context: {
             toolName: "write",
             requestId: null,
-            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
             policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
             contractVersion: config.toolContractVersion,
             retentionMs: config.changeSetRetention.activeRetentionMs
@@ -6812,7 +6925,7 @@ export function createCodexProServer(
           context: {
             toolName: "edit",
             requestId: null,
-            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
             policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
             contractVersion: config.toolContractVersion,
             retentionMs: config.changeSetRetention.activeRetentionMs
@@ -7006,7 +7119,7 @@ export function createCodexProServer(
           context: {
             toolName: "apply_patch",
             requestId: null,
-            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+            ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
             policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
             contractVersion: config.toolContractVersion,
             retentionMs: config.changeSetRetention.activeRetentionMs
@@ -8705,9 +8818,87 @@ export function createCodexProServer(
     }
   );
 
+  if (config.toolContractVersion === 2) {
+    registerCodexTool(
+      config,
+      server,
+      "undo_change_set",
+      {
+        title: "Undo Change Set",
+        description:
+          "Preview or atomically reverse one owner-bound change set. The complete current state must still match; there is no force or overwrite option.",
+        inputSchema: undoChangeSetInputV2Schema.shape,
+        outputSchema: undoChangeSetOutputShape,
+        annotations: LOCAL_WRITE_ANNOTATIONS,
+        _meta: {
+          ...toolCardMeta(),
+          "codexpro/preserveStructuredContent": true,
+          "openai/toolInvocation/invoking": "Validating change set undo...",
+          "openai/toolInvocation/invoked": "Change set undo complete"
+        }
+      },
+      async (args) => {
+        const startedAt = Date.now();
+        let workspace: Workspace;
+        try {
+          workspace = workspaces.getWorkspace(args.workspace_id);
+        } catch {
+          return undoChangeSetFailureResult(
+            new UndoChangeSetError("WORKSPACE_NOT_FOUND", "Workspace was not found."),
+            args,
+            startedAt
+          );
+        }
+        if (!dependencies.undoChangeSetService) {
+          return undoChangeSetFailureResult(
+            new UndoChangeSetError("ATOMIC_BACKEND_UNAVAILABLE", "Undo runtime is unavailable."),
+            args,
+            startedAt
+          );
+        }
+        let prepared;
+        try {
+          prepared = await dependencies.undoChangeSetService.prepare({
+            workspace,
+            changeSetId: args.change_set_id,
+            ownerBinding: changeSetOwnerBinding(
+              dependencies.policySessionContextSource,
+              dependencies.changeSetOwnerBindingKey
+            ),
+            policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+            requestId: null,
+            preview: args.preview === true,
+            projectFailure: ({ error }) => undoChangeSetFailureResult(error, args, startedAt)
+          });
+        } catch (error) {
+          return undoChangeSetFailureResult(error, args, startedAt);
+        }
+        const data: UndoChangeSetData = {
+          workspace_id: prepared.workspaceId,
+          preview: prepared.preview,
+          change_set_id: prepared.changeSetId,
+          reverts_change_set_id: prepared.revertsChangeSetId,
+          operation_count: prepared.operationCount,
+          operations: prepared.operations,
+          undo_supported: false
+        };
+        const structured = createUndoChangeSetSuccess(data, Date.now() - startedAt);
+        const result = textResult(
+          prepared.preview
+            ? `Undo preview validated ${prepared.operationCount} operation(s); no files or state were changed.`
+            : `Undid ${prepared.operationCount} operation(s) in one audited reverse transaction.`,
+          structured
+        );
+        return prepared.pending
+          ? attachPendingWorkspaceMutation(result, prepared.pending)
+          : result;
+      }
+    );
+  }
+
   upgradeCodexProSupertool(server);
-  if (policyEngineMode !== "legacy" && !effectivePolicyRuntime) {
-    throw new Error("Policy Kernel runtime is required for shadow or enforce mode.");
+  if ((policyEngineMode !== "legacy" || requiresAtomicAuditWrapper) && !effectivePolicyRuntime) {
+    throw new Error("Policy Kernel runtime is required for shadow, enforce, or writable atomic audit mode.");
   }
   if (effectivePolicyRuntime) installPolicyKernel(server, effectivePolicyRuntime);
   return server;

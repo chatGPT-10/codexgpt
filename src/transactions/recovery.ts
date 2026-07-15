@@ -52,6 +52,7 @@ export interface TransactionRecoveryCoordinatorOptions {
   stateRoot?: string;
   randomBytes?: (size: number) => Buffer;
   now?: () => number;
+  registry?: ProcessInstanceRegistry;
 }
 
 interface CurrentFileFact {
@@ -213,6 +214,7 @@ export class TransactionRecoveryCoordinator {
   private readonly guard: PathGuard;
   private readonly frozen = new Map<string, TransactionError>();
   private registry?: ProcessInstanceRegistry;
+  private ownsRegistry = false;
   private locks?: WorkspaceMutationLock;
   private store?: TransactionManifestStore;
   private masterKey?: Buffer;
@@ -224,6 +226,7 @@ export class TransactionRecoveryCoordinator {
     this.stateRoot = options.stateRoot ?? resolveTransactionStateRoot();
     this.randomBytes = options.randomBytes ?? nodeRandomBytes;
     this.now = options.now ?? Date.now;
+    this.registry = options.registry;
     this.guard = new PathGuard(config);
   }
 
@@ -231,10 +234,13 @@ export class TransactionRecoveryCoordinator {
     if (this.registry && this.locks && this.store && this.masterKey) return;
     const installation = loadOrCreateInstallationState({ stateRoot: this.stateRoot });
     this.masterKey = installationMasterKey(installation);
-    this.registry = new ProcessInstanceRegistry(this.stateRoot, {
-      randomBytes: this.randomBytes,
-      now: this.now
-    });
+    if (!this.registry) {
+      this.registry = new ProcessInstanceRegistry(this.stateRoot, {
+        randomBytes: this.randomBytes,
+        now: this.now
+      });
+      this.ownsRegistry = true;
+    }
     this.locks = new WorkspaceMutationLock(this.stateRoot, this.registry, {
       randomBytes: this.randomBytes,
       now: this.now
@@ -525,9 +531,10 @@ export class TransactionRecoveryCoordinator {
   }
 
   dispose(): void {
-    this.registry?.dispose();
+    if (this.ownsRegistry) this.registry?.dispose();
     this.masterKey?.fill(0);
     this.registry = undefined;
+    this.ownsRegistry = false;
     this.locks = undefined;
     this.store = undefined;
     this.masterKey = undefined;

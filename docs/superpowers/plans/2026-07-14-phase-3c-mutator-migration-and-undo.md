@@ -380,55 +380,55 @@ Run the inventory test, full writer tests, Build, `git diff --check`, secret/aud
 - Produces injected `ToolResourceResolver` and bounded `filesystem_batch` descriptor for undo.
 - Tool input is strict `{ workspace_id, change_set_id, preview? }`; standard/full only, connection-test hidden, R2, `filesystem:write`.
 
-- [ ] **Step 1: Write RED identity/policy/undo tests**
+- [x] **Step 1: Write RED identity/policy/undo tests**
 
 Cover create/replace/delete/append-replacement/patch restoration, foreign/unverifiable non-disclosure, state/expiry/unsupported/already-applied errors, any current-state drift causing zero-change `UNDO_CONFLICT`, blocked reverse path, bad blob authentication, preview zero mutation, audit failure rollback, original marked undone only after audited reverse commit, and non-undoable reverse change set.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: `npm run build && node --test test/undo-change-set.test.mjs`
 
-- [ ] **Step 3: Implement complete preflight and reverse transaction**
+- [x] **Step 3: Implement complete preflight and reverse transaction**
 
 Load authenticated metadata only through the resolver, verify workspace/owner/state/retention/current after-state/policy/blob/backend/audit before transaction prepare, and preserve non-disclosure error mapping. Decrypt only required bounded blobs after metadata authorization.
 
-- [ ] **Step 4: Implement direct/supertool V2 adapters without enabling public V2**
+- [x] **Step 4: Implement direct/supertool V2 adapters without enabling public V2**
 
 Add the version-specific schemas and handler map. Assert the current Phase 3C incomplete gate still prevents production contract-2 construction until Phase 3D.
 
-- [ ] **Step 5: Verify and publish**
+- [x] **Step 5: Verify locally; defer publication to the Phase 3C gate**
 
-Run focused, policy, lifecycle, transaction, audit, and contract tests; Build; neat-freak; commit `feat: add guarded change set undo`; push; exact-head CI.
+Run focused, policy, lifecycle, transaction, audit, and contract tests plus Build and diff checks. Per the user's 2026-07-15 instruction, do not commit, push, or run exact-head CI for this individual task; preserve the verified Task 8 worktree and publish only after all Phase 3C tasks and the complete local phase gate pass.
 
 ---
 
 ### Task 9: Persistent Runtime Injection and Writable Atomic V1 Migration Gate
 
 **Files:**
+- Create: `src/productionRuntime.ts`
 - Modify: `src/server.ts`
-- Modify: server construction/transport callers as required
-- Modify: `src/config.ts`
-- Modify: `src/audit/runtime.ts`
-- Modify: `test/audit-runtime-integration.test.mjs`
-- Modify: `test/transaction-config-and-path-policy.test.mjs`
-- Modify: `test/transaction-contract-version.test.mjs`
+- Modify: `src/http.ts`
+- Modify: `src/stdio.ts`
+- Modify: `src/transactions/recovery.ts`
+- Create: `test/production-runtime-integration.test.mjs`
+- Modify: `test/mutation-architecture.test.mjs`
 
 **Interfaces:**
 - Production server constructs one state-root/installation/registry/audit/change-set/mutation runtime per lifecycle domain.
 - `workspaceMutatorsAtomic` becomes true only after the static closure inventory passes.
 - Writable atomic contract V1 becomes valid and keeps exact V1 public schemas; V2 remains fail-closed only because `move_paths` is not implemented.
 
-- [ ] **Step 1: Write RED production-wiring tests**
+- [x] **Step 1: Write RED production-wiring tests**
 
 Cover runtime singleton per server, independent runtimes between servers, writable atomic V1 success, required audit initialization/corruption failure before tools register, no runtime injection in legacy mode, and V2 incomplete rejection.
 
-- [ ] **Step 2: Implement production composition**
+- [x] **Step 2: Implement production composition**
 
 Use explicit dependency injection for tests. Do not restore process-global `WorkspaceManager`, transaction engine, audit store, or change-set store sharing.
 
-- [ ] **Step 3: Verify and publish**
+- [x] **Step 3: Verify locally and preserve the Phase 3C batch**
 
-Run all Phase 3A–3C focused tests, complete Build/regression/Smoke/Stress/package/static gates, neat-freak Phase 3C closure, commit `feat: enable audited atomic workspace mutations`, push, and exact-head CI.
+Run all Phase 3A–3C focused tests and the relevant production-wiring checks. Do not commit, push, or run exact-head CI at the Task 9 boundary; the complete Build/regression/Smoke/Stress/package/static/neat-freak gate and publication occur once in Task 10 after all Phase 3C work is complete.
 
 ---
 
@@ -443,9 +443,9 @@ Run all Phase 3A–3C focused tests, complete Build/regression/Smoke/Stress/pack
 - Modify: `AGENTS.md`
 - Modify: `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - Modify: `Memory.md`
-- Modify: `docs/memory/archive/phase-3-part-2.md`
+- Modify: `docs/memory/archive/phase-3-part-4.md`
 
-- [ ] **Step 1: Run the complete local acceptance gate**
+- [x] **Step 1: Run the complete safe local acceptance gate**
 
 Run:
 
@@ -459,15 +459,15 @@ npm pack --dry-run --json
 git diff --check
 ```
 
-Also run Node 20 focused concurrency/crash loops, static mutation/reserved-artifact/secret/audit-redaction/protected-source gates, and exact intended-file review.
+Also run Node 20 focused concurrency/crash loops, static mutation/reserved-artifact/secret/audit-redaction/protected-source gates, and exact intended-file review. The complete execute/watch/loop lifecycle Smoke must run in an independent process such as GitHub Actions rather than through the CodexPro process carrying the control channel; local acceptance uses its syntax, environment-isolation architecture gate, complete regression coverage, and the other seven Smoke sections.
 
-- [ ] **Step 2: Perform Phase 3C neat-freak reconciliation**
+- [x] **Step 2: Perform Phase 3C neat-freak reconciliation**
 
 Reconcile code, both READMEs, security, changelog, configuration, AGENTS, master plan, Memory, archive, relative links, archive-volume size, stale claims, naming, and rollback. State explicitly: writable atomic V1 is active; V2 internals exist; V2 public startup remains unavailable until Phase 3D supplies `move_paths`.
 
 - [ ] **Step 3: Publish and require exact-head CI**
 
-Stage only the closure files, commit `docs: close phase 3c mutation migration`, push `main`, and require all Ubuntu/Windows Node 20/24 jobs to pass Build, Regression, Smoke, and Package before beginning Phase 3D.
+Stage the complete reviewed Phase 3C batch, commit `feat: enable audited atomic workspace mutations`, push `main`, and require all Ubuntu/Windows Node 20/24 jobs to pass Build, Regression, Smoke, and Package before beginning Phase 3D.
 
 - [ ] **Step 4: Write the Phase 3D TDD plan**
 
@@ -484,5 +484,5 @@ Derive the separate `move_paths` and total Phase 3 acceptance plan from the appr
 - [x] Audit ordering and participant rollback are tested for every mutator family.
 - [x] Static writer classification has no broad exemption.
 - [x] No placeholder handler or unavailable public tool is used to fake the 31-tool contract.
-- [x] Every independently reversible task includes review, neat-freak, scoped publication, and exact-head CI.
+- [x] Every task includes local review and verification; publication, neat-freak closure, and exact-head CI are consolidated at the complete Phase 3C boundary per the 2026-07-15 execution rule.
 - [x] Phase 3C closure cannot claim Phase 3 completion; Phase 3D remains an immediate gate.

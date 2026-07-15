@@ -28,6 +28,8 @@ function runFail(args, options = {}) {
 }
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-pro-smoke-'));
+const stateHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-pro-smoke-home-'));
+const proApplyEnv = { ...process.env, CODEXPRO_HOME: stateHome };
 const codexproCli = path.resolve('scripts/codexpro.mjs');
 await fs.writeFile(path.join(root, 'README.md'), '# Demo\n', 'utf8');
 await fs.writeFile(path.join(root, 'demo.txt'), 'alpha\nbeta\n', 'utf8');
@@ -68,8 +70,8 @@ run([codexproCli, 'pro-bundle', `--root=${root}`, '--path=demo.txt', '--max-file
 
 const planFile = path.join(root, 'plan.md');
 await fs.writeFile(planFile, 'Inspect demo.txt and keep changes narrow.\n', 'utf8');
-run(['scripts/pro-apply.mjs', `--root=${root}`, `--file=${planFile}`, '--title', 'Smoke Pro Plan']);
-run([codexproCli, 'pro-apply', `--root=${root}`, '--file=plan.md', '--title', 'Relative Pro Plan'], { cwd: root });
+run(['scripts/pro-apply.mjs', `--root=${root}`, `--file=${planFile}`, '--title', 'Smoke Pro Plan'], { env: proApplyEnv });
+run([codexproCli, 'pro-apply', `--root=${root}`, '--file=plan.md', '--title', 'Relative Pro Plan'], { cwd: root, env: proApplyEnv });
 const currentPlan = await fs.readFile(path.join(root, '.ai-bridge', 'current-plan.md'), 'utf8');
 if (!currentPlan.includes('Relative Pro Plan') || !currentPlan.includes('Inspect demo.txt')) {
   throw new Error('pro apply did not write expected current-plan content');
@@ -84,7 +86,7 @@ if (!proApplyEvents.some((event) => event.source_file === planFile)) {
 }
 
 const missingRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-pro-missing-'));
-runFail(['scripts/pro-apply.mjs', `--root=${missingRoot}`, '--file=missing-plan.md'], { env: { ...process.env, CODEXPRO_CALLER_CWD: missingRoot } });
+runFail(['scripts/pro-apply.mjs', `--root=${missingRoot}`, '--file=missing-plan.md'], { env: { ...proApplyEnv, CODEXPRO_CALLER_CWD: missingRoot } });
 try {
   await fs.stat(path.join(missingRoot, '.ai-bridge'));
   throw new Error('failed pro-apply created .ai-bridge before validating input');
