@@ -1,7 +1,7 @@
 # Phase 3D Move Paths and Complete Phase 3 Acceptance Plan
 
 Date: 2026-07-15
-Status: implementation and adversarial local acceptance complete; publication and exact-head CI pending
+Status: published, adversarially accepted, and exact-head cross-platform CI validated; Phase 3 complete
 Primary platform: native Windows
 
 ## Goal and release boundary
@@ -18,7 +18,7 @@ The independent Windows Bash/GitHub CLI maintenance batch was published as commi
 
 ## Local implementation and acceptance evidence
 
-The current uncommitted Phase 3D batch implements the exact 28/31 versioned catalog, direct and `codexpro` supertool V2 routing, `move_paths`, authenticated Manifest/Change Set V2 state, syscall-boundary write-ahead recovery, parent-identity/reparse-point revalidation, participant-aware V1/V2 recovery, recoverable move/non-move undo, service-level mutation quiesce/drain, bounded audit query, and Policy resource composition. Fresh native-Windows evidence includes TypeScript Build; 72/72 Phase 3D focused tests; 12/12 production-runtime tests; 809/810 complete Node discovery with zero failures and one established platform skip; 30/30 real child-process crash-oracle and multi-process-lock tests; seven freshly rerun Smoke sections; native-Windows Stress; 17/17 static architecture/package gates; `git diff --check`; and a 308-entry package dry-run. The unchanged protected execute-handoff Smoke source retains its prior independent exit-0 evidence; current re-runs are not counted as fresh because the normal control channel receives Windows Control-C and the artificial PowerShell-isolated environment loses the fake `codex.cmd` shim. Publication, replacement exact-head Ubuntu/Windows Node 20/24 CI, and formal Phase 3 closure remain pending.
+The published Phase 3D line consists of implementation commit `3000aa6d88190f31c6b93c35ae59e7889317aae4`, cross-platform test stabilization commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5`, and Windows Node 20 handle-compatibility commit `2df4a1f50c692ef414f1b913dabdaf7b198c97a2`. It implements the exact 28/31 versioned catalog, direct and `codexpro` supertool V2 routing, `move_paths`, authenticated Manifest/Change Set V2 state, syscall-boundary write-ahead recovery, parent-identity/reparse-point revalidation, participant-aware V1/V2 recovery, recoverable move/non-move undo, service-level mutation quiesce/drain, bounded audit query, and Policy resource composition. Exact-head run `29441752493` completed successfully on Ubuntu/Windows Node 20/24; every matrix passed Build, the complete Regression suite, all protected Smoke sections, and Package. The Windows Node 20 fix preserves continuous verified object ownership by handing the open handle from the removed source name to its authenticated stage hard link rather than weakening `EPERM` handling. Phase 3 is formally complete.
 
 ## Mandatory corrections from adversarial review
 
@@ -190,7 +190,7 @@ Fresh final order:
 10. Repeat every affected gate.
 11. Confirm exact intended scope, V1 default, and explicit V2 startup.
 
-Then stage the complete Phase 3D batch once, commit `feat: activate complete atomic tool contract v2`, push once, and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success. Any CI failure remains inside Phase 3 and is fixed without weakening security, recovery, rollback, audit, or contract gates.
+Publication completed through implementation commit `3000aa6`, test-stabilization commit `e5d9d27`, and Windows Node 20 compatibility commit `2df4a1f`. Exact-head run `29441752493` passed Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package. Any CI failure remains inside Phase 3 and is fixed without weakening security, recovery, rollback, audit, or contract gates.
 
 ## Final acceptance invariants
 

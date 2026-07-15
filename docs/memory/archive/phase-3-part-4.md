@@ -287,3 +287,23 @@ This append-only volume continues active Phase 3 implementation records after cl
 **Next step:** Run the final post-documentation gate, publish this compatibility repair, and require replacement exact-head Build, Regression, complete Smoke, and Package success across all four matrices before closing Phase 3.
 
 **STEP-304 final package correction:** The final post-documentation package dry-run retained 308 entries and measured 727756 packed bytes and 3949494 unpacked bytes. These values supersede the preliminary STEP-304 package byte counts above.
+
+## STEP-305 - Close Phase 3 after exact-head validation
+
+**Status:** Complete. Phase 3D and complete Phase 3 are published, exact-head validated, and formally closed.
+
+**Goal:** Record the final successful cross-platform gate for the Windows Node 20 compatibility head and close the Phase 3 archive volume without rewriting prior failed-run evidence.
+
+**Files changed:** `AGENTS.md`; `Memory.md`; the master implementation plan; the Phase 3D implementation plan; this archive.
+
+**Publication evidence:** Windows Node 20 compatibility commit `2df4a1f50c692ef414f1b913dabdaf7b198c97a2` was pushed to `main`. Exact-head run `29441752493` matched that full SHA and completed with conclusion `success` on 2026-07-15.
+
+**Verification results:** Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24 each passed Build, complete Regression, all protected Smoke sections, and Package. No matrix failed or skipped a required phase. The final tracked worktree was clean and `main` matched `origin/main` before this documentation-only closure update.
+
+**Decisions made:** Close Phase 3 only on the first exact head where all four matrices complete every required job. Preserve the full failed-run and repair history in STEP-303 and STEP-304. Carry the exact V1/V2 wire, transaction, recovery, audit, rollback, mutation-inventory, protected-Smoke, and cross-platform gates forward into Phase 4.
+
+**Risks or limitations:** The documented external-writer, namespace-visibility, process-local lifecycle, directory-sync, safe-Bash, and explicit-V2 limitations remain unchanged. A documentation-only closure commit requires its own exact-head CI before Phase 4 work begins.
+
+**Rollback method:** Revert only the closure documentation commit if its facts are wrong. Runtime rollback remains configuration-first and must retain V2 readers, participant reconciliation, and recovery evidence.
+
+**Next step:** Publish the documentation-only Phase 3 closure, require exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success, then begin Phase 4 design review.

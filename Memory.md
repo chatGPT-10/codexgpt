@@ -10,14 +10,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Workspace: `D:\Dev\codexpro`; branch: `main`; package: `codexpro@0.28.6`.
 - GitHub repository and `origin`: `chatGPT-10/codexgpt` over HTTPS.
 - Primary platform: native Windows; WSL remains optional.
-- Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and Phase 3A–3C are closed. Exact historical commit/run evidence is retained in the linked archives.
+- Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and complete Phase 3 are closed. Exact historical commit/run evidence is retained in the linked archives.
 - Phase 3C commit `50ec99b` passed exact-head run `29390317879`; Gate 0 maintenance commit `77b1e9069798235d674342a2c33a234a4266b564` passed exact-head run `29402504990`, both across Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
 - Phase 3D implementation commit `3000aa6d88190f31c6b93c35ae59e7889317aae4` is published on `main`. It implements `move_paths`, authenticated Manifest/Change Set V2, parent-identity/reparse-point revalidation, participant-aware V1/V2 recovery, recoverable move undo, service-level mutation quiesce/drain, bounded audit query, Policy resource composition, and exact direct/supertool V2 registration.
-- Its first exact-head run `29436565136` exposed two cross-platform test-determinism defects. Test-only commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` fixed them; replacement run `29437987007` then passed every Ubuntu Node 20/24 and Windows Node 24 job but exposed one real Windows Node 20 move-runtime incompatibility. The current handle-handoff repair awaits publication and replacement exact-head CI.
+- Test-only commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` repaired the first cross-platform CI findings. Windows Node 20 compatibility commit `2df4a1f50c692ef414f1b913dabdaf7b198c97a2` repaired the remaining handle semantic gap. Exact-head run `29441752493` passed Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package; Phase 3 closed on 2026-07-15.
 
 ## Approved execution boundary
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Individual tasks receive local design/TDD/verification gates only. Phase 3D must be published once as one reviewed batch after neat-freak and the repeated local gate, then pass replacement exact-head Ubuntu/Windows Node 20/24 CI before Phase 3 closes or Phase 4 begins. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent expansion beyond the approved specifications remain excluded.
+The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Phase 3 is closed. The next execution boundary is Phase 4 design review followed by its approved local TDD tasks; publish only at the complete phase boundary and require exact-head Ubuntu/Windows Node 20/24 CI before advancing again. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent expansion beyond the approved specifications remain excluded.
 
 ## Active decisions and constraints
 
@@ -48,16 +48,16 @@ The user authorized continuous recommended-option implementation through Phase 8
 ## Verification evidence
 
 - Phase 3C: commit `50ec99b97f7ec3e4d689b5306f0caa0f60afdc45`, run `29390317879`; Gate 0: commit `77b1e9069798235d674342a2c33a234a4266b564`, run `29402504990`. Both exact heads passed all Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package jobs.
-- Phase 3D implementation commit `3000aa6d88190f31c6b93c35ae59e7889317aae4` triggered run `29436565136`; test-only portability commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` triggered run `29437987007`. The latter completed full Build, Regression, Smoke, and Package successfully on Ubuntu Node 20/24 and Windows Node 24; Windows Node 20 passed Build and failed Regression before Smoke/Package.
-- Windows Node 20 root cause: after unlinking a source name, Node 20 returns `EPERM` for `lstat(oldPath)` while the original path-opened handle remains live. The repair opens and verifies a stage-link handle, keeps the original handle through source-name removal, closes it immediately after unlink, continues through the stage handle, and closes the stage handle after destination installation. No global `EPERM` weakening was introduced.
-- Current local gate: official Windows Node `20.20.2` passed the exact 46-test move/crash/undo matrix and all 91 other test files; the handoff file is environment-constrained locally but passed in run `29437987007`. Node 24 passed the complete 809/810 regression with zero failures and one established skip. Build, affected 84/84, native-Windows Stress, 17/17 static gates, `git diff --check`, and the 308-entry package dry-run passed.
+- Phase 3D publication chain: `3000aa6d88190f31c6b93c35ae59e7889317aae4` (implementation), `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` (cross-platform test stabilization), and `2df4a1f50c692ef414f1b913dabdaf7b198c97a2` (Windows Node 20 handle compatibility).
+- Exact-head run `29441752493` completed successfully on 2026-07-15. Ubuntu Node 20/24 and Windows Node 20/24 each passed Build, complete Regression, all protected Smoke sections, and Package.
+- Final local evidence before publication included official Windows Node 20.20.2 move/crash/undo 46/46 plus all other 91 test files, Node 24 complete 809/810 with zero failures and one established skip, affected 84/84, native-Windows Stress, static gates 17/17, clean diff checks, and a 308-entry package dry-run.
 - A real `gh auth status` launched with `createBashEnvironment({ inheritEnv: false })` exited 0 for account `chatGPT-10` through the Windows keyring. The child did not inherit `GH_TOKEN`; CLI output exposed only its normal masked token display.
 
 ## Known limitations
 
 - Phase 2A has no user-facing approval issuance surface; `enforce` may return `APPROVAL_REQUIRED`, and arbitrary Shell/Process execution remains unavailable without demonstrated OS isolation.
 - Workspace lifecycle state is intentionally process-local. OAuth owner identity and lifecycle persistence remain out of scope.
-- The participant commit-decision window and complete Phase 3D runtime are published in commit `3000aa6`; Phase 3 remains open until a replacement exact-head run passes all four Build, Regression, Smoke, and Package matrices.
+- The participant commit-decision window and complete Phase 3D runtime are published and exact-head validated. Operational rollback must retain V2 readers, participant reconciliation, and recovery evidence.
 - External processes remain outside CodexPro's workspace lock. Open-handle identity checks reduce path-replacement TOCTOU but cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary readers, or absolute power-loss durability when directory sync is unsupported.
 - Environment narrowing is defense in depth, not credential isolation; same-user child processes may access account-readable files and system keyrings.
 - Safe Bash timeout does not reliably terminate every Windows descendant process.
@@ -69,11 +69,12 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the Windows Node 20 move-handle compatibility repair and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success.
-2. Close Phase 3 and begin Phase 4 only after that replacement exact-head CI is green.
+1. Begin Phase 4 with design review against the authoritative master implementation plan.
+2. Preserve the closed Phase 3 contract, recovery, audit, rollback, and exact V1/V2 compatibility gates while implementing Phase 4.
 
 ## Recent summaries
 
+- **STEP-305 - Close Phase 3:** exact-head run `29441752493` passed Ubuntu/Windows Node 20/24 Build, complete Regression, all protected Smoke sections, and Package for commit `2df4a1f`; Phase 3D and complete Phase 3 are formally closed.
 - **STEP-304 - Repair Windows Node 20 move handles:** classified run `29437987007`, reproduced Node 20.20.2 unlinked-name `EPERM`, handed object ownership from the original source handle to a verified stage handle, moved the external-replacement test into the real post-unlink/pre-manifest window, and passed Node 20 move 46/46, all other 91 test files, Node 24 complete 809/810, Stress, static, and package gates.
 - **STEP-303 - Repair first Phase 3D exact-head CI:** published `3000aa6`, classified run `29436565136` as two test-portability failures, made the replacement-object fixture immune to inode reuse, normalized only environment-dependent V1 call facts, and restored Build, 84/84 affected tests, and 809/810 complete regression with zero failures.
 - **STEP-302 - Repair the Phase 3D adversarial gaps and repeat acceptance:** added true syscall-boundary recovery, parent/reparse identity revalidation, recoverable original-change-set reconciliation, service-level quiesce/drain, real child-process crash oracles, Windows retry/EXDEV/junction/multi-process coverage, exact V1 wire fingerprints, and the refreshed 809/810 regression plus 308-entry package evidence.
@@ -100,7 +101,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - [Closed Phase 3 Volume 1 — STEP-263 through STEP-277](docs/memory/archive/phase-3.md)
 - [Closed Phase 3 Volume 2 — STEP-278 through STEP-285](docs/memory/archive/phase-3-part-2.md)
 - [Closed Phase 3 Volume 3 — STEP-286 through STEP-291](docs/memory/archive/phase-3-part-3.md)
-- [Active Phase 3 Volume 4 — STEP-292 onward](docs/memory/archive/phase-3-part-4.md)
+- [Closed Phase 3 Volume 4 — STEP-292 through STEP-305](docs/memory/archive/phase-3-part-4.md)
 
 ## Memory maintenance protocol
 
