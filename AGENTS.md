@@ -140,6 +140,13 @@ Memory rules:
 - Foreign, closed, expired, transport-stale, or policy-stale handles must fail closed without revealing roots, keys, identity bindings, or revocation reasons.
 - `close_workspace` is a normal lifecycle tool but must remain hidden from the read-only connection-test surface.
 
+### 5.7 Direct mutation inventory
+
+- `test/mutation-architecture.test.mjs` is the fail-closed inventory for filesystem mutation primitives in `src/` and shipped runtime scripts. Every occurrence is bound to a canonical repository path, line, column, call digest, and reviewed purpose; additions and line/call drift must fail CI.
+- Production direct writes are limited to the transaction filesystem backend, atomic application-state files, persistent audit maintenance, and documented installer/runtime state outside authorized workspaces.
+- The exact direct writers in `src/fsOps.ts` and `src/handoffOps.ts` are a one-cycle compatibility exception for `fileTransactions=legacy` only. The static gate must also prove that the default atomic server path selects prepared transaction mutations before any legacy provider and never falls back to these writers.
+- Fixture writers are excluded only by the test's exact source-file selection. Do not add directory, filename-pattern, or regular-expression exemptions.
+
 ## 6. Documentation map
 
 - `Memory.md` — current state and next action.
@@ -160,8 +167,8 @@ Memory rules:
 - `docs/memory/archive/phase-2b-workspace-lifecycle.md` — closed Phase 2B workspace-lifecycle records covering STEP-254 through STEP-262.
 - `docs/memory/archive/phase-3.md` — closed Phase 3 Volume 1 covering STEP-263 through STEP-277.
 - `docs/memory/archive/phase-3-part-2.md` — closed Phase 3 Volume 2 covering STEP-278 through STEP-285.
-- `docs/memory/archive/phase-3-part-3.md` — active Phase 3 Volume 3 beginning with STEP-286.
-- Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published. Phase 3C Task 6 and repair are closed through `124f555`; replacement run `29382183625` passed. Task 7 static mutation closure is next.
+- `docs/memory/archive/phase-3-part-3.md` — closed Phase 3 Volume 3 covering STEP-286 through STEP-291.
+- Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published. Phase 3C Task 7 static mutation closure is locally complete and verified through STEP-291; its scoped publication and exact-head CI gate are next.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -201,6 +208,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published and closed. Phase 3C Task 6 implementation `918d55d` plus bounded-output repair `124f555` passed replacement exact-head run `29382183625` across Ubuntu/Windows Node 20/24. Task 7 static mutation closure is the current approved work. Contract V1 remains the exact 28-tool public surface, and contract V2 startup stays fail-closed until Phase 3D supplies `move_paths` and the coherent exact 31-tool snapshot. Writable atomic construction remains fail-closed until the Phase 3C mutation-closure and production-wiring gates pass; remaining direct writes must be classified by Task 7 before activation.
+Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published and closed. Phase 3C Task 7 is locally complete: the fail-closed inventory binds every current direct mutation primitive to one exact source occurrence and independently proves legacy workspace writers unreachable from the default atomic path. Its scoped publication and exact-head CI gate are the current approved work. Contract V1 remains the exact 28-tool public surface, and contract V2 startup stays fail-closed until Phase 3D supplies `move_paths` and the coherent exact 31-tool snapshot. Writable atomic construction remains fail-closed until Tasks 8-9 complete owner-bound undo and production wiring.
 
 The user explicitly authorized continuous implementation through Phase 8 using the recommended options and authorized scoped staging, English commits, and pushes after each verified phase part. Every part still requires its design/TDD/verification/neat-freak/CI gate; a failed gate must be fixed before later work is stacked on it. This authorization covers repository implementation and its reversible fixture-based validation. It does not authorize destructive user-data or Git-history operations, production deployment, disclosure of credentials, or silent expansion beyond the phase specifications. Use `Memory.md` for the current head/evidence, the master plan for sequencing, and `docs/memory/archive/phase-3-part-3.md` for active Phase 3 records.

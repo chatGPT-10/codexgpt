@@ -347,11 +347,11 @@ Run focused tests, existing handoff/Pro-context/self-test suites, CLI smoke, Bui
 - Produces a fail-closed inventory of `writeFile`, `appendFile`, `rename`, `unlink`, `rm`, `copyFile`, `link`, and equivalent primitives in `src/` and shipped runtime scripts.
 - Allows only transaction backend, atomic app-state writer, audit segment maintenance, and documented installer/runtime/app-state locations outside authorized workspaces.
 
-- [ ] **Step 1: Write the inventory test and confirm RED**
+- [x] **Step 1: Write the inventory test and confirm RED**
 
 The test must enumerate source files directly, normalize line endings, bind every allowlisted occurrence to a canonical path plus reviewed purpose, and fail on new primitives or line drift. It must initially fail on remaining direct workspace writers.
 
-- [ ] **Step 2: Remove or classify every bypass**
+- [x] **Step 2: Remove or classify every bypass**
 
 No broad directory or regex exemption. Each allowed primitive gets one narrow classification; test/fixture writers are excluded by source-root selection, not wildcard permission.
 

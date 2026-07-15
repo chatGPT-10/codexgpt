@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
 - Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
-- Phase 3: Phase 3A/3B are closed. Phase 3C Task 6 plus repair are closed through `124f555`; replacement run `29382183625` passed. Task 7 static mutation closure is active.
+- Phase 3: Phase 3A/3B are closed. Phase 3C Task 7 static mutation closure is locally complete and verified through STEP-291; scoped publication and exact-head CI are next.
 
 ## Approved execution boundary
 
@@ -46,6 +46,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Phase 3B provides strict local authorization/execution/recovery/administrative audit events, canonical HMAC-chained JSONL segments, conservative cross-process locking, idempotent one-terminal-per-authorization semantics, tail quarantine, fail-closed corruption, rotation/retention, bounded authenticated queries, and transaction-audit participation. Current V1 production registration remains intentionally dormant until Phase 3C injects the persistent runtime; query and undo V2 registration remain non-public until Phase 3D completes the exact 31-tool set.
 - Installation identity state is created privately, synced completely, and published once through a same-volume no-clobber hard link. Competing first-open processes must converge on the published complete state; retrying partial JSON is forbidden because corruption must still fail closed.
 - During the current authorized batch, publish each independently reversible phase part only after its fresh local gate; wait for exact-head CI and fix failures before proceeding.
+- The direct-mutation gate binds each current primitive to an exact path, line, column, call digest, and purpose. `fsOps.ts` and `handoffOps.ts` direct writers remain one-cycle `fileTransactions=legacy` compatibility only; atomic defaults must prepare a transaction first and cannot fall back.
 - Tool contract selection defaults to V1 and accepts only `1|2`; omitted values in existing programmatic configuration remain V1 for one migration cycle. The final V2 name set is immutable and exact at 31 names, but server construction rejects V2 before registration until Phase 3D supplies `move_paths` plus the complete registration/schema capability.
 - The master implementation plan is the active architecture and sequencing authority. Detailed Phase 1, Policy Kernel, and Phase 3 facts belong in paired specs/plans and phase archives, not this index.
 - The complete regression command is `node --test test/*.test.mjs`; the repository has no `npm test` script.
@@ -60,6 +61,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Phase 3C Task 5 publication: commit `b1df763` passed exact-head run `29379729314` on Ubuntu/Windows Node 20/24; every job completed Build, Regression, Smoke, and Package.
 - Phase 3C Task 6 local gate: one shared bounded text-batch builder now covers missing-directory scaffold creation, complete-file append replacements, handoff, Pro-context, self-test non-retention, `pro-apply`, and execute/watch/loop CLI artifacts. Focused/legacy coverage passed 94/94, complete regression 701/702 with 0 failures and 1 established skip, Build, all eight Smoke sections, Stress, and a 261-file package dry-run.
 - Task 6 repair: `918d55d` triggered Ubuntu Node 20/24 Smoke failures in run `29381264649` when Git diff overflow text bypassed the caller limit. Repair `124f555` bounds final UTF-8 bytes including the marker; replacement run `29382183625` passed all four matrices.
+- Phase 3C Task 7 local gate: iterative RED and neat-freak review exposed 139 mutation occurrences across 15 exact runtime files, including three fd-level audit mutations plus the atomic audit-index writer missed by the first vocabulary. The reviewed inventory, CommonJS/alias scanner coverage, and atomic non-reachability proof passed 91/91 focused writer tests, 707/708 complete regression with 0 failures and 1 established skip, Build, all eight Smoke sections, native-Windows Stress, and a 262-file package dry-run.
 - Phase 3B implementation boundary: persistent storage, query, diagnostics, Policy wrapper integration points, and transaction participant are published, but current V1 production registration still does not inject or expose it. Phase 3C owns runtime/writer/undo preparation; complete public V2 activation is deferred to the Phase 3D 31-tool gate.
 
 ## Known limitations
@@ -72,7 +74,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - The managed pinned Cloudflared binary is not installed in the user profile. macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 - Several legacy failure classifiers still depend on bounded internal message prefixes or Node error codes. Exact tool-level details remain in the Phase 1 archives.
 - Protected main/HTTP Smoke compatibility depends on exact source strings; source drift fails closed and requires a same-change compatibility update.
-- Read-only context, session, and wait operations use bounded snapshots. Task 6 migrates bridge scaffold, handoff, export, self-test, and supported CLI workspace artifacts to rollback-capable transactions, but production writable atomic server construction remains gated until Tasks 7-9 close inventory, undo, schemas, and runtime wiring.
+- Read-only context, session, and wait operations use bounded snapshots. Task 6 migrates bridge scaffold, handoff, export, self-test, and supported CLI workspace artifacts to rollback-capable transactions; Task 7 closes the static inventory, but production writable atomic server construction remains gated until Tasks 8-9 close undo, schemas, and runtime wiring.
 - Atomic transactions can create missing parent directories through recorded empty-directory rollback. A continuously conflicting external Windows file handle can still make install fail and roll back; byte atomicity does not imply guaranteed forward progress under external contention.
 - The dormant atomic `apply_patch` adapter supports exact bounded UTF-8 text create/replace/delete hunks and fails closed for binary, symlink, rename/copy, and mode changes. Shared batch preparation now enforces an aggregate after-byte ceiling before transaction state is created.
 - Inventory, Skill discovery, session indexing, and review checkpoints are intentionally bounded or process-local rather than complete persistent indexes.
@@ -81,22 +83,16 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Execute Phase 3C Task 7 static mutation-closure inventory and remove or narrowly classify every workspace-write bypass.
+1. Publish Phase 3C Task 7, require exact-head CI, then execute Task 8 owner binding, policy resource resolution, and bounded `undo_change_set`.
 
 ## Recent summaries
 
+- **STEP-291 - Close the static mutation inventory locally:** bound 139 direct mutation occurrences to exact reviewed purposes, proved legacy writers unreachable from atomic defaults, and passed the complete local gate.
 - **STEP-290 - Close Phase 3C Task 6:** repair `124f555` passed replacement run `29382183625` across Ubuntu/Windows Node 20/24; Task 7 may begin.
 - **STEP-289 - Bound CLI diff failure artifacts:** exact-head Ubuntu CI exposed an oversized error artifact; final UTF-8 output now includes the marker inside the caller limit.
 - **STEP-288 - Migrate bridge and CLI workspace writers:** added bounded multi-file text batches, transaction-owned directory creation, shared durable-audit local mutation service, atomic handoff/Pro-context/self-test/CLI paths, and historical committed-manifest recovery semantics; published at `918d55d` before STEP-289 repaired its CI finding.
 - **STEP-287 - Add transaction-backed multi-file apply_patch:** added complete UTF-8 diff preflight, deterministic create/replace/delete transactions, strict expected-file and V2 facts, all-or-nothing rollback, and fail-closed unsupported-patch handling; the complete local gate passed.
 - **STEP-286 - Repair the Windows atomic-visibility CI hang:** replaced an unbounded cross-platform reader race with deterministic reads at the transaction's installed-pending boundary; repair `bb5b863` passed exact-head run `29378357522`.
-- **STEP-285 — Add transaction-backed write and edit adapters:** added exact-byte preparation, caller/observed hash checks, strict V2 results/failures, V1 projection compatibility, required-audit rollback, Windows concurrency coverage, and an explicit missing-parent activation blocker; the complete local gate passed.
-- **STEP-284 — Add the audited mutation commit runtime:** added a private server-owned handle, exact transaction/change-set correlation, required audit/change-set participant ordering, complete rollback, committed-manifest cleanup proof, Policy wrapper integration, and independent-process audit-failure coverage; commit `68036e8` passed run `29375830950`.
-- **STEP-283 — Add authenticated encrypted change-set storage:** added strict HMAC-authenticated manifests, AES-256-GCM rollback blobs, bounded retention/tombstones, safe state paths, shared V2 transaction results, and strict configuration; commit `c01a698` passed run `29374274230`.
-- **STEP-282 — Close Phase 3C Task 1 publication:** commit `a9acc14` passed exact-head CI run `29372615528` across all four Ubuntu/Windows Node 20/24 jobs; Task 2 may begin.
-- **STEP-281 — Harden transient Windows audit-lock release:** the Task 1 publication gate exposed one release-time rename conflict; bounded retries now revalidate ownership and the replacement complete gate passes.
-- **STEP-280 — Add the Phase 3C contract-version gate:** added strict V1/V2 configuration, immutable exact 28/31 name sets, V1 compatibility for omitted programmatic fields, and pre-registration V2 rejection until `move_paths` exists; focused/adjacent 37/37 passed.
-- **STEP-279 — Plan Phase 3C mutator migration and undo:** recorded closure-head CI run `29370073046`, resolved the Phase 3C/3D V2 sequencing conflict fail-closed, and wrote the ten-task RED/GREEN plan.
 
 ## Archives
 
@@ -115,7 +111,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - [Closed Phase 2B Workspace Lifecycle — STEP-254 through STEP-262](docs/memory/archive/phase-2b-workspace-lifecycle.md)
 - [Closed Phase 3 Volume 1 — STEP-263 through STEP-277](docs/memory/archive/phase-3.md)
 - [Closed Phase 3 Volume 2 — STEP-278 through STEP-285](docs/memory/archive/phase-3-part-2.md)
-- [Active Phase 3 Volume 3 — STEP-286 onward](docs/memory/archive/phase-3-part-3.md)
+- [Closed Phase 3 Volume 3 — STEP-286 through STEP-291](docs/memory/archive/phase-3-part-3.md)
 
 ## Memory maintenance protocol
 
