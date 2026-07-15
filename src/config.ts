@@ -51,6 +51,9 @@ export interface CodexProConfig {
   inheritEnv: boolean;
   maxReadBytes: number;
   maxWriteBytes: number;
+  moveMaxFileBytes: number;
+  moveMaxTotalBytes: number;
+  moveHashConcurrency: number;
   maxOutputBytes: number;
   maxSearchResults: number;
   maxHttpSessions: number;
@@ -256,7 +259,7 @@ export function assertFileTransactionConfiguration(
     !capabilities.workspaceMutatorsAtomic
   ) {
     throw new Error(
-      "CODEXPRO_FILE_TRANSACTIONS=atomic requires transaction-backed workspace mutators; keep CODEXPRO_WRITE_MODE=off until Phase 3C migration is complete."
+      "CODEXPRO_FILE_TRANSACTIONS=atomic requires transaction-backed workspace mutators; disable writes or use legacy when the runtime cannot provide them."
     );
   }
 }
@@ -294,7 +297,7 @@ export function assertToolContractConfiguration(
     throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION=2 requires CODEXPRO_FILE_TRANSACTIONS=atomic.");
   }
   if (!capabilities.movePathsAvailable) {
-    throw new Error("Contract V2 is incomplete until Phase 3D implements move_paths.");
+    throw new Error("Contract V2 is incomplete without the Phase 3D move_paths runtime.");
   }
   if (config.auditMode === "off") {
     throw new Error("Contract V2 requires persistent audit; CODEXPRO_AUDIT_MODE cannot be off.");
@@ -613,6 +616,27 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     inheritEnv: process.env.CODEXPRO_INHERIT_ENV === "1",
     maxReadBytes: numberFrom(process.env.CODEXPRO_MAX_READ_BYTES, 180_000, 4_000, 2_000_000),
     maxWriteBytes: numberFrom(process.env.CODEXPRO_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),
+    moveMaxFileBytes: strictNumberFrom(
+      "CODEXPRO_MOVE_MAX_FILE_BYTES",
+      process.env.CODEXPRO_MOVE_MAX_FILE_BYTES,
+      64 * 1024 * 1024,
+      1,
+      1024 * 1024 * 1024
+    ),
+    moveMaxTotalBytes: strictNumberFrom(
+      "CODEXPRO_MOVE_MAX_TOTAL_BYTES",
+      process.env.CODEXPRO_MOVE_MAX_TOTAL_BYTES,
+      256 * 1024 * 1024,
+      1,
+      4 * 1024 * 1024 * 1024
+    ),
+    moveHashConcurrency: strictNumberFrom(
+      "CODEXPRO_MOVE_HASH_CONCURRENCY",
+      process.env.CODEXPRO_MOVE_HASH_CONCURRENCY,
+      4,
+      1,
+      16
+    ),
     maxOutputBytes: numberFrom(process.env.CODEXPRO_MAX_OUTPUT_BYTES, 120_000, 4_000, 2_000_000),
     maxSearchResults: numberFrom(process.env.CODEXPRO_MAX_SEARCH_RESULTS, 200, 5, 2_000),
     maxHttpSessions: numberFrom(process.env.CODEXPRO_MAX_HTTP_SESSIONS, 64, 1, 512),

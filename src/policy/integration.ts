@@ -92,6 +92,7 @@ export interface PolicyRuntime {
 }
 
 const POLICY_FAILURE = Symbol("codexpro.policy.failure");
+const POLICY_WRAPPED_HANDLER = Symbol("codexpro.policy.wrapped-handler");
 const installedServers = new WeakSet<object>();
 
 function safeId(value: unknown, fallback: string): string {
@@ -156,9 +157,16 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
   }
 
   for (const [toolName, entry] of Object.entries(tools)) {
-    if (toolName === "codexpro" || entry.enabled === false) continue;
+    const registered = entry.handler as RegisteredToolEntry["handler"] & {
+      [POLICY_WRAPPED_HANDLER]?: true;
+    };
+    if (
+      toolName === "codexpro" ||
+      entry.enabled === false ||
+      registered[POLICY_WRAPPED_HANDLER] === true
+    ) continue;
     toolPolicyDefinition(toolName);
-    const original = entry.handler;
+    const original = registered;
     entry.handler = async (args, extra) => {
       let authorization: PolicyAuthorizationResult;
       try {
@@ -288,6 +296,12 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
         throw error;
       }
     };
+    Object.defineProperty(entry.handler, POLICY_WRAPPED_HANDLER, {
+      value: true,
+      enumerable: false,
+      writable: false,
+      configurable: false
+    });
   }
 
   installedServers.add(server as object);

@@ -42,9 +42,10 @@ test("recovery state policy is closed and deterministic", () => {
   for (const state of ["preparing", "prepared"]) {
     assert.equal(recoveryActionForState(state), "rollback_cleanup");
   }
-  for (const state of ["committing", "committed_pending_participants", "rolling_back", "recovery_required"]) {
+  for (const state of ["committing", "rolling_back", "recovery_required"]) {
     assert.equal(recoveryActionForState(state), "restore_before_state");
   }
+  assert.equal(recoveryActionForState("committed_pending_participants"), "reconcile_participants");
   assert.equal(recoveryActionForState("committed"), "finish_cleanup");
   assert.equal(recoveryActionForState("rolled_back"), "finish_rollback_cleanup");
 });
@@ -84,12 +85,12 @@ test("committing recovery restores complete before-state and is idempotent", () 
   store.writeNext(initial, committing);
 
   const coordinator = createDefaultTransactionRecoveryCoordinator(config, { stateRoot });
-  coordinator.ensureWorkspaceReady(workspaceRoot);
+  await coordinator.ensureWorkspaceReady(workspaceRoot);
   assert.equal(await fsp.readFile(path.join(workspaceRoot, "a.txt"), "utf8"), "old-a");
   await assert.rejects(() => fsp.stat(path.join(workspaceRoot, "b.txt")), { code: "ENOENT" });
   assert.equal(await fsp.readFile(path.join(workspaceRoot, "c.txt"), "utf8"), "old-c");
   assert.equal(store.list(workspaceStateKey).at(-1).state, "rolled_back");
-  coordinator.ensureWorkspaceReady(workspaceRoot);
+  await coordinator.ensureWorkspaceReady(workspaceRoot);
   coordinator.dispose();
 }));
 
@@ -120,7 +121,7 @@ test("committed recovery only finishes artifact cleanup", () => fixture(async ({
   const committed = nextManifest(initial, { state: "committed" });
   store.writeNext(initial, committed);
   const coordinator = createDefaultTransactionRecoveryCoordinator(config, { stateRoot });
-  coordinator.ensureWorkspaceReady(workspaceRoot);
+  await coordinator.ensureWorkspaceReady(workspaceRoot);
   assert.equal(await fsp.readFile(path.join(workspaceRoot, "committed.txt"), "utf8"), "visible");
   await assert.rejects(() => fsp.stat(prepared.stageAbsPath), { code: "ENOENT" });
   assert.equal(store.list(workspaceStateKey).at(-1).state, "committed");
@@ -156,7 +157,7 @@ test("a cleaned committed manifest does not freeze a target changed by a later v
   await fsp.writeFile(path.join(workspaceRoot, "history.txt"), "second");
 
   const coordinator = createDefaultTransactionRecoveryCoordinator(config, { stateRoot });
-  coordinator.ensureWorkspaceReady(workspaceRoot);
+  await coordinator.ensureWorkspaceReady(workspaceRoot);
   assert.equal(await fsp.readFile(path.join(workspaceRoot, "history.txt"), "utf8"), "second");
   coordinator.dispose();
 }));
@@ -189,7 +190,7 @@ test("unprovable recovery freezes the workspace and retains evidence", () => fix
   store.writeNext(initial, prepared);
   const coordinator = createDefaultTransactionRecoveryCoordinator(config, { stateRoot });
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    assert.throws(
+    await assert.rejects(
       () => coordinator.ensureWorkspaceReady(workspaceRoot),
       (error) => error.code === "TRANSACTION_RECOVERY_REQUIRED"
     );

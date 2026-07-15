@@ -149,17 +149,27 @@ const REVIEWED_ALLOWLIST = Object.freeze({
   "src/audit/store.ts": Object.freeze({
     purpose: "Persistent audit segment append, repair, quarantine, and retention maintenance outside authorized workspaces.",
     occurrences: Object.freeze([
-      "181:5:mkdirSync:9dc3ef9c3484",
-      "182:5:mkdirSync:670914dee074",
-      "241:7:write:f755d1ec4f6b",
-      "401:12:openSync:d2e2060c3ee7",
-      "404:19:writeSync:a40584d153a8",
-      "559:22:openSync:a17eaede88fa",
-      "562:19:writeSync:93f2eb7c6129",
-      "574:19:openSync:59de5fa72237",
-      "575:7:ftruncateSync:2a87c094f9f8",
-      "584:7:unlinkSync:5a3c43527031",
-      "756:13:unlinkSync:05ecea30c390"
+      "182:5:mkdirSync:9dc3ef9c3484",
+      "183:5:mkdirSync:670914dee074",
+      "242:7:write:f755d1ec4f6b",
+      "402:12:openSync:d2e2060c3ee7",
+      "405:19:writeSync:a40584d153a8",
+      "560:22:openSync:a17eaede88fa",
+      "563:19:writeSync:93f2eb7c6129",
+      "575:19:openSync:59de5fa72237",
+      "576:7:ftruncateSync:2a87c094f9f8",
+      "585:7:unlinkSync:5a3c43527031",
+      "757:13:unlinkSync:05ecea30c390"
+    ])
+  }),
+  "src/changesets/moveStore.ts": Object.freeze({
+    purpose: "Authenticated zero-blob move change-set manifests outside authorized workspaces.",
+    occurrences: Object.freeze([
+      "76:9:mkdirSync:82dc4cd81c8a",
+      "142:7:mkdirSync:82dc4cd81c8a",
+      "150:7:write:a70e40f1b1d6",
+      "154:9:rmSync:1ae2b3f771c9",
+      "236:5:write:fb16f67735d8"
     ])
   }),
   "src/changesets/store.ts": Object.freeze({
@@ -169,16 +179,16 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "192:7:mkdirSync:adf695ffa063",
       "200:9:mkdirSync:0c40921f82f4",
       "239:7:write:fb609052e7fc",
-      "324:12:openSync:743e6a357fc2",
-      "325:7:writeFileSync:53437c2bd27c",
-      "442:7:mkdirSync:82dc4cd81c8a",
-      "444:7:mkdirSync:e46e2078e6ff",
-      "448:11:rmSync:1ae2b3f771c9",
-      "479:9:rmSync:1ae2b3f771c9",
-      "542:9:unlinkSync:867142e079be",
-      "631:7:rmdirSync:9ab32820e2eb",
-      "632:7:unlinkSync:7e0feedf75c5",
-      "633:7:rmdirSync:47f99c0d1368"
+      "364:12:openSync:743e6a357fc2",
+      "365:7:writeFileSync:53437c2bd27c",
+      "482:7:mkdirSync:82dc4cd81c8a",
+      "484:7:mkdirSync:e46e2078e6ff",
+      "488:11:rmSync:1ae2b3f771c9",
+      "519:9:rmSync:1ae2b3f771c9",
+      "582:9:unlinkSync:867142e079be",
+      "671:7:rmdirSync:9ab32820e2eb",
+      "672:7:unlinkSync:7e0feedf75c5",
+      "673:7:rmdirSync:47f99c0d1368"
     ])
   }),
   "src/fsOps.ts": Object.freeze({
@@ -196,6 +206,34 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     occurrences: Object.freeze([
       "527:11:appendFile:0857ba648d12",
       "528:11:appendFile:172739a6e349"
+    ])
+  }),
+  "src/moves/engine.ts": Object.freeze({
+    purpose: "Atomic same-volume move staging, installation, bounded backend retry, rollback, and cleanup inside authorized workspaces.",
+    occurrences: Object.freeze([
+      "644:15:mkdir:c34693a030c4",
+      "691:15:link:e658cd7588fe",
+      "725:15:unlink:01b2b4b052ca",
+      "766:15:link:e3266b53bae4",
+      "797:15:unlink:9ae293a598dc",
+      "842:15:rmdir:f7455b6f1fd7",
+      "909:13:link:759d678d36b8",
+      "923:15:unlink:0df109c8d786",
+      "946:15:link:e13c597bfcfe",
+      "961:13:unlink:9ae293a598dc",
+      "991:17:rmdir:f7455b6f1fd7",
+      "1118:17:unlink:9ae293a598dc"
+    ])
+  }),
+  "src/moves/recovery.ts": Object.freeze({
+    purpose: "Authenticated V2 move recovery and rollback inside authorized workspaces.",
+    occurrences: Object.freeze([
+      "322:11:unlink:bb4861d11bcd",
+      "345:15:rmdir:450993335dd4",
+      "458:13:link:71ef7148dc02",
+      "473:15:unlink:cd9cf88c25ef",
+      "500:15:link:61a842ba953b",
+      "527:15:rmdir:450993335dd4"
     ])
   }),
   "src/policy/identity.ts": Object.freeze({
@@ -261,8 +299,8 @@ const REVIEWED_ALLOWLIST = Object.freeze({
   "src/transactions/engine.ts": Object.freeze({
     purpose: "Transaction filesystem backend directory mutation inside authorized workspaces.",
     occurrences: Object.freeze([
-      "389:17:mkdir:42f1c1952f6b",
-      "557:17:rmdir:2aa41c85eef7"
+      "433:17:mkdir:42f1c1952f6b",
+      "601:17:rmdir:2aa41c85eef7"
     ])
   }),
   "src/transactions/installation.ts": Object.freeze({
@@ -277,15 +315,22 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "138:7:unlinkSync:f3f741ed857d"
     ])
   }),
+  "src/transactions/manifestV2Store.ts": Object.freeze({
+    purpose: "Authenticated V2 transaction manifests outside authorized workspaces.",
+    occurrences: Object.freeze([
+      "55:12:write:24c79722626c",
+      "74:12:write:b53cbb602090"
+    ])
+  }),
   "src/transactions/recovery.ts": Object.freeze({
     purpose: "Transaction filesystem backend recovery and rollback inside authorized workspaces.",
     occurrences: Object.freeze([
-      "199:3:unlinkSync:476f406a7921",
-      "361:9:unlinkSync:de4d6c476669",
-      "376:11:renameSync:580bdad99e6c",
-      "378:11:linkSync:ab8289d86c70",
-      "400:9:linkSync:ab8289d86c70",
-      "444:9:rmdirSync:47f99c0d1368"
+      "205:3:unlinkSync:476f406a7921",
+      "404:9:unlinkSync:de4d6c476669",
+      "419:11:renameSync:580bdad99e6c",
+      "421:11:linkSync:ab8289d86c70",
+      "443:9:linkSync:ab8289d86c70",
+      "487:9:rmdirSync:47f99c0d1368"
     ])
   }),
   "src/transactions/workspaceLock.ts": Object.freeze({

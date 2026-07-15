@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import type { CodexProConfig } from "../config.js";
 import { PathGuard, type Workspace } from "../guard.js";
+import { MoveRecoveryCoordinator } from "../moves/recovery.js";
 import { TransactionManifestStore } from "./atomicStateFile.js";
 import {
   installationMasterKey,
@@ -18,6 +19,8 @@ import {
   TransactionError,
   type AfterFileFactV1,
   type BeforeFileFactV1,
+  type ParticipantRecoveryAdapter,
+  type ParticipantRecoveryProbeResult,
   type TransactionManifestState,
   type TransactionManifestV1,
   type TransactionOperationV1
@@ -26,6 +29,7 @@ import {
 export type TransactionRecoveryAction =
   | "rollback_cleanup"
   | "restore_before_state"
+  | "reconcile_participants"
   | "finish_cleanup"
   | "finish_rollback_cleanup";
 
@@ -37,10 +41,11 @@ export function recoveryActionForState(
     case "prepared":
       return "rollback_cleanup";
     case "committing":
-    case "committed_pending_participants":
     case "rolling_back":
     case "recovery_required":
       return "restore_before_state";
+    case "committed_pending_participants":
+      return "reconcile_participants";
     case "committed":
       return "finish_cleanup";
     case "rolled_back":
@@ -53,6 +58,7 @@ export interface TransactionRecoveryCoordinatorOptions {
   randomBytes?: (size: number) => Buffer;
   now?: () => number;
   registry?: ProcessInstanceRegistry;
+  participantAdapter?: ParticipantRecoveryAdapter;
 }
 
 interface CurrentFileFact {
@@ -213,25 +219,35 @@ export class TransactionRecoveryCoordinator {
   private readonly now: () => number;
   private readonly guard: PathGuard;
   private readonly frozen = new Map<string, TransactionError>();
+  private readonly inFlight = new Map<string, Promise<void>>();
   private registry?: ProcessInstanceRegistry;
   private ownsRegistry = false;
   private locks?: WorkspaceMutationLock;
   private store?: TransactionManifestStore;
+  private moveRecovery?: MoveRecoveryCoordinator;
   private masterKey?: Buffer;
+  private participantAdapter?: ParticipantRecoveryAdapter;
 
   constructor(
-    private readonly config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes">,
+    private readonly config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes"> &
+      Partial<Pick<CodexProConfig, "moveMaxFileBytes">>,
     options: TransactionRecoveryCoordinatorOptions = {}
   ) {
     this.stateRoot = options.stateRoot ?? resolveTransactionStateRoot();
     this.randomBytes = options.randomBytes ?? nodeRandomBytes;
     this.now = options.now ?? Date.now;
     this.registry = options.registry;
+    this.participantAdapter = options.participantAdapter;
     this.guard = new PathGuard(config);
   }
 
+  setParticipantAdapter(adapter: ParticipantRecoveryAdapter): void {
+    this.participantAdapter = adapter;
+    this.moveRecovery?.setParticipantAdapter(adapter);
+  }
+
   private initialize(): void {
-    if (this.registry && this.locks && this.store && this.masterKey) return;
+    if (this.registry && this.locks && this.store && this.moveRecovery && this.masterKey) return;
     const installation = loadOrCreateInstallationState({ stateRoot: this.stateRoot });
     this.masterKey = installationMasterKey(installation);
     if (!this.registry) {
@@ -246,10 +262,36 @@ export class TransactionRecoveryCoordinator {
       now: this.now
     });
     this.store = new TransactionManifestStore(this.stateRoot);
+    this.moveRecovery?.dispose();
+    this.moveRecovery = new MoveRecoveryCoordinator({
+      blockedGlobs: this.config.blockedGlobs,
+      moveMaxFileBytes: this.config.moveMaxFileBytes ?? 64 * 1024 * 1024
+    }, {
+      stateRoot: this.stateRoot,
+      masterKey: this.masterKey,
+      participantAdapter: this.participantAdapter,
+      now: this.now
+    });
   }
 
-  ensureWorkspaceReady(canonicalRoot: string): void {
+  ensureWorkspaceReady(canonicalRoot: string): Promise<void> {
     const root = path.resolve(canonicalRoot);
+    const existingFailure = this.frozen.get(root);
+    if (existingFailure) return Promise.reject(existingFailure);
+    const existing = this.inFlight.get(root);
+    if (existing) return existing;
+
+    let pending!: Promise<void>;
+    pending = Promise.resolve()
+      .then(() => this.recoverWorkspace(root))
+      .finally(() => {
+        if (this.inFlight.get(root) === pending) this.inFlight.delete(root);
+      });
+    this.inFlight.set(root, pending);
+    return pending;
+  }
+
+  private async recoverWorkspace(root: string): Promise<void> {
     const existingFailure = this.frozen.get(root);
     if (existingFailure) throw existingFailure;
     this.initialize();
@@ -285,8 +327,9 @@ export class TransactionRecoveryCoordinator {
         left.transactionId.localeCompare(right.transactionId)
       );
       for (const manifest of manifests) {
-        this.recoverManifest(root, manifest);
+        await this.recoverManifest(root, manifest);
       }
+      await this.moveRecovery!.recoverWorkspace(root, workspaceStateKey);
     } catch (error) {
       const failure = error instanceof TransactionError && error.code === "TRANSACTION_RECOVERY_REQUIRED"
         ? error
@@ -469,14 +512,94 @@ export class TransactionRecoveryCoordinator {
     return next;
   }
 
-  private recoverManifest(workspaceRoot: string, initial: TransactionManifestV1): void {
+  private async reconcileParticipants(
+    manifest: TransactionManifestV1
+  ): Promise<{ manifest: TransactionManifestV1; decision: "commit" | "rollback" }> {
+    if (manifest.requiredParticipants.length === 0) {
+      const committed = this.transition(manifest, { state: "committed" });
+      return { manifest: committed, decision: "commit" };
+    }
+    if (!this.participantAdapter) {
+      throw new TransactionError(
+        "TRANSACTION_RECOVERY_REQUIRED",
+        "Participant recovery evidence is unavailable."
+      );
+    }
+    const results = new Map<string, ParticipantRecoveryProbeResult>();
+    for (const participant of manifest.requiredParticipants) {
+      const result = manifest.participantFacts[participant] === "committed"
+        ? "present"
+        : await this.participantAdapter.probe(manifest, participant);
+      if (result === "unknown") {
+        throw new TransactionError(
+          "TRANSACTION_RECOVERY_REQUIRED",
+          "Participant recovery evidence is ambiguous."
+        );
+      }
+      results.set(participant, result);
+    }
+    const present = manifest.requiredParticipants.filter((name) => results.get(name) === "present");
+    if (present.length === manifest.requiredParticipants.length) {
+      const committed = this.transition(manifest, {
+        state: "committed",
+        participantFacts: Object.fromEntries(
+          manifest.requiredParticipants.map((name) => [name, "committed"])
+        )
+      });
+      return { manifest: committed, decision: "commit" };
+    }
+    if (present.length > 0) {
+      if (!this.participantAdapter.compensatePartial) {
+        throw new TransactionError(
+          "TRANSACTION_RECOVERY_REQUIRED",
+          "Partial participant effects cannot be compensated."
+        );
+      }
+      await this.participantAdapter.compensatePartial(manifest, present);
+    }
+    const reconciled = this.transition(manifest, {
+      participantFacts: Object.fromEntries(
+        manifest.requiredParticipants.map((name) => [
+          name,
+          results.get(name) === "present" ? "committed" : "failed"
+        ])
+      ),
+      failureCode: "TRANSACTION_FAILED",
+      failureMessage: present.length > 0
+        ? "Partial participant effects were compensated during recovery."
+        : "No required participant effect was durable during recovery."
+    });
+    return { manifest: reconciled, decision: "rollback" };
+  }
+
+  private async recoverManifest(workspaceRoot: string, initial: TransactionManifestV1): Promise<void> {
     let manifest = initial;
     const action = recoveryActionForState(manifest.state);
     try {
+      if (action === "reconcile_participants") {
+        const reconciled = await this.reconcileParticipants(manifest);
+        manifest = reconciled.manifest;
+        if (reconciled.decision === "commit") {
+          for (const operation of manifest.operations) {
+            this.verifyCommittedState(workspaceRoot, operation);
+          }
+          await this.participantAdapter?.recordRecovery?.(
+            manifest,
+            "cleanup_completed",
+            "COMMIT_RECOVERY_COMPLETED"
+          );
+          return;
+        }
+      }
       if (action === "finish_cleanup") {
         for (const operation of manifest.operations) {
           this.verifyCommittedState(workspaceRoot, operation);
         }
+        await this.participantAdapter?.recordRecovery?.(
+          manifest,
+          "cleanup_completed",
+          "COMMIT_CLEANUP_COMPLETED"
+        );
         return;
       }
       if (action === "finish_rollback_cleanup") {
@@ -487,6 +610,11 @@ export class TransactionRecoveryCoordinator {
           removeArtifactIfProven(backup, operation.before, this.config.maxWriteBytes);
         }
         this.removeCreatedDirectories(workspaceRoot, manifest.createdDirectories);
+        await this.participantAdapter?.recordRecovery?.(
+          manifest,
+          "rollback_completed",
+          "ROLLBACK_CLEANUP_COMPLETED"
+        );
         return;
       }
 
@@ -505,7 +633,11 @@ export class TransactionRecoveryCoordinator {
       }
       this.removeCreatedDirectories(workspaceRoot, manifest.createdDirectories);
       manifest = this.transition(manifest, { state: "rolled_back" });
-      void manifest;
+      await this.participantAdapter?.recordRecovery?.(
+        manifest,
+        "rollback_completed",
+        "ROLLBACK_RECOVERY_COMPLETED"
+      );
     } catch (error) {
       if (initial.state !== "committed") {
         try {
@@ -514,7 +646,15 @@ export class TransactionRecoveryCoordinator {
             failureCode: "TRANSACTION_RECOVERY_REQUIRED",
             failureMessage: "Workspace transaction recovery requires manual evidence review."
           });
-          void manifest;
+          try {
+            await this.participantAdapter?.recordRecovery?.(
+              manifest,
+              "workspace_frozen",
+              "RECOVERY_EVIDENCE_AMBIGUOUS"
+            );
+          } catch {
+            // The authenticated manifest remains the primary freeze evidence.
+          }
         } catch {
           // Keep the last valid manifest and every remaining artifact.
         }
@@ -532,17 +672,20 @@ export class TransactionRecoveryCoordinator {
 
   dispose(): void {
     if (this.ownsRegistry) this.registry?.dispose();
+    this.moveRecovery?.dispose();
     this.masterKey?.fill(0);
     this.registry = undefined;
     this.ownsRegistry = false;
     this.locks = undefined;
     this.store = undefined;
+    this.moveRecovery = undefined;
     this.masterKey = undefined;
   }
 }
 
 export function createDefaultTransactionRecoveryCoordinator(
-  config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes">,
+  config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes"> &
+    Partial<Pick<CodexProConfig, "moveMaxFileBytes">>,
   options: TransactionRecoveryCoordinatorOptions = {}
 ): TransactionRecoveryCoordinator {
   return new TransactionRecoveryCoordinator(config, options);

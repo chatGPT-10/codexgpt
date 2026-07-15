@@ -38,11 +38,11 @@ test("a process crash after the first visible install is recovered from persiste
 
     const config = { blockedGlobs: [], maxWriteBytes: 1024 * 1024 };
     const coordinator = createDefaultTransactionRecoveryCoordinator(config, { stateRoot });
-    coordinator.ensureWorkspaceReady(workspaceRoot);
+    await coordinator.ensureWorkspaceReady(workspaceRoot);
     assert.equal(await fsp.readFile(path.join(workspaceRoot, "a.txt"), "utf8"), "old-a");
     await assert.rejects(() => fsp.stat(path.join(workspaceRoot, "b.txt")), { code: "ENOENT" });
     assert.equal(await fsp.readFile(path.join(workspaceRoot, "c.txt"), "utf8"), "old-c");
-    coordinator.ensureWorkspaceReady(workspaceRoot);
+    await coordinator.ensureWorkspaceReady(workspaceRoot);
 
     const installation = loadOrCreateInstallationState({ stateRoot });
     const masterKey = installationMasterKey(installation);

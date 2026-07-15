@@ -362,15 +362,15 @@ Phase 2A 有意保持严格限制。目前尚未暴露审批管理 UI 或 MCP �
 
 ## 原子事务与持久审计
 
-Phase 3C 已把 transaction、change-set 和 persistent-audit 后端接入真实的 HTTP 与 STDIO Server 生命周期：
+Phase 3 已把 transaction、change-set、persistent audit、recovery 与 move 后端接入真实的 HTTP 与 STDIO Server 生命周期：
 
 - `CODEXPRO_FILE_TRANSACTIONS=legacy|atomic`；`legacy` 仍是兼容默认值。启用 `atomic` 后，受支持的工作区 writer 会先准备一个受保护事务，绝不会静默回退为直接写入。
-- 可写 atomic V1 必须持久化终态审计；该配置不能使用 `CODEXPRO_AUDIT_MODE=off`。审计失败会回滚已可见的文件变化，而不是返回未经审计的成功。
+- 可写 atomic 操作必须持久化终态审计；不能使用 `CODEXPRO_AUDIT_MODE=off`。审计或 participant 失败会先完成一致性协调或回滚已可见变化，而不是返回未经审计的成功。
 - `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`；默认是 `auto`，Policy 使用 `enforce` 时也不能设为 `off`。
 - `CODEXPRO_AUDIT_RETENTION_DAYS` 默认保留 30 天，`CODEXPRO_AUDIT_RETENTION_BYTES` 默认允许已闭合分段总计 100 MiB。
-- 审计和经过认证的 change-set 状态位于工作区和 Git 之外，不记录原始文件内容、完整 diff、命令输出、凭据或规范工作区根路径。
+- 审计、经过认证的 change-set 与 transaction 状态位于工作区和 Git 之外，不记录原始文件内容、完整 diff、命令输出、凭据或规范工作区根路径。
 
-Contract V1 仍保持精确的公开 28 工具表面；配置为 atomic 时，受支持的 writer 已可通过事务 runtime 执行，但 V1 不暴露 `query_audit_events` 或 `undo_change_set`。Contract V2 仍会在启动时失败关闭，直到 Phase 3D 加入 `move_paths` 并验证完整、精确的 31 工具表面。恢复、完整性、保留期、owner binding 和信任边界详见 [SECURITY.md](SECURITY.md)。
+Contract V1 仍是默认的精确 28 工具公开表面。显式选择 Contract V2（`CODEXPRO_TOOL_CONTRACT_VERSION=2`）时，必须同时启用 atomic transaction 与 persistent audit，并使用精确的 31 个子工具集合。standard/full 模式新增 `move_paths` 与 `undo_change_set`；只有 full 模式再新增 `query_audit_events`；minimal 与 connection-test 不暴露这三个工具。`move_paths` 最多处理同一工作区、同一卷内 64 个带 SHA-256 前置条件的普通文件，不覆盖无关目标；preview 只证明当前验证通过，不承诺稍后的 hard-link 执行一定成功。恢复、完整性、保留期、owner binding、undo 和信任边界详见 [SECURITY.md](SECURITY.md)。
 
 ## 工作区会话
 

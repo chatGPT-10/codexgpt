@@ -27,6 +27,7 @@ export {
 } from "./diagnostics.js";
 export { AuditWriterLock, AuditWriterLockHandle } from "./lock.js";
 export {
+  auditQueryFilterDigest,
   createAuditQueryHandler,
   createDirectAuditQueryAdapterV2,
   createSupertoolAuditQueryAdapterV2,

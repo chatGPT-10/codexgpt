@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   changeSetIdSchema,
   fileMetadataV1Schema,
+  fileObjectIdentityV2Schema,
   operationIdSchema,
   sha256Schema,
   transactionIdSchema,
@@ -11,7 +12,10 @@ import {
 import type {
   ChangeSetManifestDraftV1,
   ChangeSetManifestV1,
-  ChangeSetOperationV1
+  ChangeSetOperationV1,
+  MoveChangeSetManifestDraftV2,
+  MoveChangeSetManifestV2,
+  MoveChangeSetOperationV2
 } from "./types.js";
 
 const ISO_TIMESTAMP = z.string().datetime({ offset: true });
@@ -169,3 +173,109 @@ export const changeSetManifestDraftV1Schema = changeSetManifestDraftObjectV1Sche
 export const changeSetManifestV1Schema = changeSetManifestDraftObjectV1Schema.extend({
   manifestMac: sha256Schema
 }).strict().superRefine(refineChangeSetManifest) as z.ZodType<ChangeSetManifestV1>;
+
+export const moveChangeSetOperationV2Schema = z.object({
+  operationId: operationIdSchema,
+  kind: z.literal("move"),
+  sourceRelativePath: transactionRelativePathSchema,
+  destinationRelativePath: transactionRelativePathSchema,
+  sourceComparisonKey: transactionRelativePathSchema,
+  destinationComparisonKey: transactionRelativePathSchema,
+  objectIdentity: fileObjectIdentityV2Schema,
+  sha256: sha256Schema,
+  bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
+}).strict().superRefine((value, context) => {
+  if (
+    value.sourceRelativePath === value.destinationRelativePath ||
+    (value.sourceComparisonKey === value.destinationComparisonKey &&
+      value.sourceRelativePath === value.destinationRelativePath)
+  ) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Move change-set operation cannot be an exact no-op." });
+  }
+}) as z.ZodType<MoveChangeSetOperationV2>;
+
+const moveChangeSetManifestShapeV2 = {
+  schemaVersion: z.literal(2),
+  changeSetId: changeSetIdSchema,
+  transactionId: transactionIdSchema,
+  workspaceStateKey: workspaceStateKeySchema,
+  generation: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  createdAt: ISO_TIMESTAMP,
+  updatedAt: ISO_TIMESTAMP,
+  expiresAt: ISO_TIMESTAMP,
+  toolName: z.enum(["move_paths", "undo_change_set"]),
+  requestId: SAFE_ID.nullable(),
+  ownerBinding: changeSetOwnerBindingSchema,
+  policyRevision: SAFE_ID,
+  contractVersion: z.literal(2),
+  state: changeSetStateSchema,
+  undoSupported: z.boolean(),
+  undoReason: changeSetUndoReasonSchema.nullable(),
+  operations: z.array(moveChangeSetOperationV2Schema).min(1).max(64),
+  createdDirectories: z.array(transactionRelativePathSchema).max(1_024),
+  createdDirectoryIdentities: z.record(transactionRelativePathSchema, fileObjectIdentityV2Schema),
+  plaintextBytes: z.literal(0),
+  ciphertextBytes: z.literal(0),
+  revertsChangeSetId: changeSetIdSchema.nullable()
+} as const;
+
+function refineMoveChangeSetManifest(
+  value: MoveChangeSetManifestDraftV2 | MoveChangeSetManifestV2,
+  context: z.RefinementCtx
+): void {
+  const created = Date.parse(value.createdAt);
+  const updated = Date.parse(value.updatedAt);
+  const expires = Date.parse(value.expiresAt);
+  if (updated < created || expires <= created) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Move change-set timestamps are inconsistent." });
+  }
+  if (value.undoSupported !== (value.undoReason === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Move undo support and reason are inconsistent." });
+  }
+  if (value.state === "undo_expired" && value.undoReason !== "expired") {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Expired move change sets require the expired reason." });
+  }
+  if (value.state === "undone" && value.undoReason !== "already_undone") {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Undone move change sets require the already-undone reason." });
+  }
+  if (value.state === "recovery_required" && value.undoReason !== "recovery_required") {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Recovery-required move change sets require a matching reason." });
+  }
+  if (value.revertsChangeSetId !== null && (value.undoSupported || value.undoReason !== "reverted_change_set")) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Reverse move change sets are non-redo evidence." });
+  }
+  const operationIds = value.operations.map((operation) => operation.operationId);
+  const sourceKeys = value.operations.map((operation) => operation.sourceComparisonKey);
+  const destinationKeys = value.operations.map((operation) => operation.destinationComparisonKey);
+  if (new Set(operationIds).size !== operationIds.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: "Move operation IDs must be unique." });
+  }
+  if (new Set(sourceKeys).size !== sourceKeys.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: "Move source paths must be unique." });
+  }
+  if (new Set(destinationKeys).size !== destinationKeys.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: "Move destination paths must be unique." });
+  }
+  if (new Set(value.createdDirectories).size !== value.createdDirectories.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["createdDirectories"], message: "Move-created directories must be unique." });
+  }
+  const identityNames = Object.keys(value.createdDirectoryIdentities);
+  if (identityNames.length !== value.createdDirectories.length ||
+      identityNames.some((directory) => !value.createdDirectories.includes(directory))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["createdDirectoryIdentities"], message: "Every move-created directory requires one authenticated identity." });
+  }
+}
+
+const moveChangeSetManifestDraftObjectV2Schema = z.object(moveChangeSetManifestShapeV2).strict();
+
+export const moveChangeSetManifestDraftV2Schema = moveChangeSetManifestDraftObjectV2Schema
+  .superRefine(refineMoveChangeSetManifest) as z.ZodType<MoveChangeSetManifestDraftV2>;
+
+export const moveChangeSetManifestV2Schema = moveChangeSetManifestDraftObjectV2Schema.extend({
+  manifestMac: sha256Schema
+}).strict().superRefine(refineMoveChangeSetManifest) as z.ZodType<MoveChangeSetManifestV2>;
+
+export const changeSetManifestSchema = z.union([
+  changeSetManifestV1Schema,
+  moveChangeSetManifestV2Schema
+]);

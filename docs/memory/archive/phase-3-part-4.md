@@ -177,3 +177,63 @@ This append-only volume continues active Phase 3 implementation records after cl
 **Rollback method:** Restore only `.ai-bridge/current-plan.md`, `Memory.md`, and this appended archive entry to their prior planning state if the review conclusions are rejected. Do not alter published Phase 3C code, persisted transaction/audit/change-set evidence, Git history, or the current STEP-297 maintenance batch. Because the archive is append-only after publication, correct this entry later through a new correction entry rather than rewriting it.
 
 **Next step:** Publish the independently verified maintenance batch under Gate 0. After exact-head CI is green and the running CodexPro process is restarted, copy the corrected coordination plan to `docs/superpowers/plans/2026-07-15-phase-3d-move-paths-and-acceptance.md`, reconcile the approved Phase 3D design errata, and execute Task 1 wire-contract and native-Windows feasibility probes.
+
+## STEP-300 - Complete Phase 3D locally and reconcile the knowledge base
+
+**Status:** Complete locally; uncommitted and unpublished pending one phase-boundary publication and replacement exact-head CI.
+
+**Goal:** Implement production `move_paths`, close the participant commit-decision gap, activate the coherent exact 31-tool contract V2, complete the native-Windows Phase 3 local gate, and reconcile project documentation and memory to the implementation.
+
+**Files changed:** The complete Phase 3D source/test batch; `README.md`; `README_ZH.md`; `SECURITY.md`; `CHANGELOG.md`; `config.example.env`; `AGENTS.md`; `Memory.md`; the master implementation plan; the Phase 3D design and tracked implementation plan; this archive.
+
+**Implementation summary:** Added an immutable exact 28/31 versioned tool catalog and V2 projection, direct and `codexpro` supertool routing, strict schemas, production registration, Policy resource composition, bounded audit-query envelopes, `move_paths`, authenticated Transaction Manifest V2 and Change Set Manifest V2 state, stable source identity and streamed-hash planning, no-clobber same-volume move execution and rollback, participant-aware V1/V2 recovery, unified move/non-move undo, and root-keyed recovery single-flight. V1 remains the default exact 28-tool surface. Explicit V2 requires atomic transactions and persistent audit; standard/full add move and undo, full also adds audit query, and minimal/connection-test add none. Neat-freak removed stale pre-Phase-3D claims and documented the actual configuration, recovery, move, undo, query, preview, and rollback boundaries in English and Chinese.
+
+**Verification commands:** `npm run build`; Phase 3 focused test groups; `node --test test/*.test.mjs`; `node scripts/analysis-smoke.mjs`; `node scripts/analysis-cli-smoke.mjs`; `node scripts/smoke-platform-compat.mjs`; `node scripts/http-smoke-compat.mjs`; `node scripts/pro-smoke.mjs`; `node scripts/doctor-smoke.mjs`; `node scripts/settings-smoke-platform-compat.mjs`; independently captured `node scripts/execute-handoff-smoke-platform-compat.mjs`; `npm run stress`; `npm pack --dry-run --json`; focused documentation/configuration/package tests; `git diff --check`; stale-text, debug-marker, and exact-scope searches; final `show_changes` review.
+
+**Verification results:** TypeScript Build passed. The complete regression passed 767 of 768 tests with zero failures and one established platform-capability skip. All eight Smoke sections passed; the independent execute/watch/loop handoff run wrote exit code 0 and an explicit pass log. Native-Windows Stress passed. Package dry-run passed with 306 entries and included the V2 move, contracts, change-set, participant-recovery, and production runtime while excluding internal archives and application state. The post-neat-freak affected-gate results are recorded in the current `Memory.md` and final worktree review.
+
+**Decisions made:** Preserve contract V1 as the compatibility default and require explicit atomic/persistent-audit configuration for V2. Publish Phase 3D once rather than by task. Treat preview as current validation, not future hard-link success. Retain V2 readers and recovery when configuration rolls back to V1. Do not delete ignored lifecycle-Smoke diagnostics or persisted transaction/audit/change-set evidence without explicit confirmation.
+
+**Risks or limitations:** The current fixes are not published until commit/push and exact-head CI complete. CodexPro locks coordinate its own processes, not arbitrary external writers or readers. The move backend does not claim database-style namespace visibility or absolute power-loss durability when directory sync is unavailable. Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
+
+**Rollback method:** Before publication, restore the Phase 3D source, test, and documentation paths from Gate 0 commit `77b1e9069798235d674342a2c33a234a4266b564`. After publication, revert the complete Phase 3D commit with a new commit. Never delete transaction, audit, change-set, installation, freeze, or recovery evidence as rollback.
+
+**Next step:** Run the final post-neat-freak affected gate and exact-scope review, then publish the complete Phase 3D batch once under the approved boundary and require replacement exact-head Ubuntu/Windows Node 20/24 CI before closing Phase 3 or beginning Phase 4.
+
+## STEP-301 - Close the Phase 3D neat-freak follow-up gate
+
+**Status:** Complete; publication and replacement exact-head CI remain pending.
+
+**Goal:** Verify the reconciled configuration, documentation, tests, memory, and archive after neat-freak without reopening implementation scope.
+
+**Changes:** Updated the stale audit-documentation architecture test from the retired “V2 unavailable” assertion to the actual default-V1/explicit-exact-V2 contract. Restored compatible fixed wording for the atomic-V1 audit guarantee and the missing-move-runtime error without restoring obsolete product-state claims. Marked the follow-up gate complete in `AGENTS.md`, `Memory.md`, and the master plan.
+
+**Verification:** Fresh TypeScript Build passed. The affected contract/documentation/package group passed 34/34. After correcting the stale architecture assertion, its focused gate passed 9/9. The final complete regression passed 767/768 with zero failures and one established platform skip. The final package dry-run passed with 306 entries, 718541 packed bytes, and 3886754 unpacked bytes. `git diff --check` passed. Active-document stale-state searches returned no matches. The exact neat-freak diff was reviewed separately after the whole-worktree diff exceeded the `show_changes` process buffer.
+
+**Risks or limitations:** The complete Phase 3D batch remains uncommitted and unpublished. Two ignored lifecycle-Smoke diagnostic files remain preserved because deletion was not explicitly authorized. Line-ending notices reflect the existing Windows Git conversion policy and did not produce diff-check failures.
+
+**Next step:** Publish the complete Phase 3D batch once under the approved phase boundary, push `main`, and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success before closing Phase 3 or beginning Phase 4.
+
+## STEP-302 - Repair the Phase 3D adversarial gaps and repeat local acceptance
+
+**Status:** Implementation and adversarial local verification complete; the batch remains uncommitted and unpublished pending one phase-boundary publication and replacement exact-head CI.
+
+**Goal:** Close the six gaps found by adversarial review: syscall-before-journal crash windows, unused parent identity/reparse TOCTOU, non-transactional original move-change-set undo state, missing server-level mutation drain, incomplete child-process fault coverage, and incomplete Windows/platform acceptance.
+
+**Files changed:** Phase 3D move, recovery, participant, undo, production-lifecycle, contract, and test files; root `fixtures/` child-process runners; exact mutation architecture inventory; `AGENTS.md`; `Memory.md`; `CHANGELOG.md`; the master plan; the Phase 3D plan; this archive.
+
+**Implementation summary:** Reworked move recovery around pre-persisted stage and directory plans plus object-identity evidence; added source/destination existing-parent facts and canonical ordinary-directory/reparse revalidation in execution and recovery; made original change-set `undone` state a probeable `original_change_set` participant; split participant effect completion from participant-fact persistence so post-effect failures require recovery rather than unsafe rollback; added service-level tool invocation quiesce/drain before resource disposal; added injectable move filesystem operations and fail-closed EXDEV classification; fixed external target creation rollback, partial created-parent recovery, idempotent directory removal, and stale-generation freeze handling. Added exact V1 tools/list and direct/supertool wire fingerprints, real child-process exits at journal/syscall/participant/cleanup boundaries, junction/source/target replacement tests, bounded Windows sharing retry, exact 64-item cycles, and same-root/canonical-alias multi-process lock tests.
+
+**Verification commands:** `npm run build`; `node --test test/phase-3d-*.test.mjs`; `node --test test/production-runtime-integration.test.mjs`; `node --test`; seven individually invoked Smoke commands; protected execute-handoff re-run probes; `npm run stress`; `npm pack --dry-run --json`; `node --test test/audit-architecture.test.mjs test/ci-workflow.test.mjs test/mutation-architecture.test.mjs test/package-contents.test.mjs test/transaction-architecture.test.mjs`; `git diff --check`; neat-freak size, stale-evidence, and exact-scope review.
+
+**Verification results:** Build passed. Phase 3D focused tests passed 72/72. Production-runtime integration passed 12/12. Complete Node discovery passed 809/810 with zero failures and one established platform skip. The real child-process crash oracle and multi-process lock group passed 30/30. Seven Smoke sections reran fresh and passed. The unchanged protected execute-handoff source retains the earlier independent exit-0 capture; a normal current run terminated the control channel with Windows `0xC000013A`, while a synthetic PowerShell-isolated run reached the fake Codex adapter but lost the fake `codex.cmd` shim and failed with `spawn codex ENOENT`, so neither is recorded as a fresh pass. Native-Windows Stress passed. Package dry-run passed with 308 entries, 727067 packed bytes, and 3946724 unpacked bytes while excluding root test fixtures and internal archives. Static architecture/package gates passed 17/17. `git diff --check` passed with only the repository's existing LF-to-CRLF notices.
+
+**Decisions made:** Keep the V1 exact 28-tool default and explicit V2 exact 31-tool activation unchanged. Treat a durable participant effect without its manifest fact as recovery work, never as safe rollback. Preserve external targets that appeared before a destination-link journal fact. Keep real crash fixtures outside `test/` so Node discovery and package publication remain exact. Do not modify protected Smoke sources merely to accommodate this control channel.
+
+**Risks or limitations:** Publication and Ubuntu verification remain pending. The current control channel cannot freshly capture the protected execute-handoff process-tree Smoke without either receiving its Control-C or changing the child environment; exact-head CI must supply the final fresh cross-platform Smoke evidence. Arbitrary external writers remain outside CodexPro's lock, and directory-sync limitations remain documented.
+
+**Rollback method:** Before publication, restore the Phase 3D batch to Gate 0 commit `77b1e9069798235d674342a2c33a234a4266b564`. After publication, revert the complete Phase 3D commit with a new commit while retaining all V2 readers and transaction/audit/change-set/recovery evidence.
+
+**Next step:** Complete the final post-neat-freak affected-gate rerun and exact-scope review. Then, only with the user's publication approval, stage/commit/push the complete Phase 3D batch once and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success before closing Phase 3 or beginning Phase 4.
+
+**STEP-302 final package correction:** The final post-documentation package dry-run retained 308 entries and measured 727229 packed bytes and 3947149 unpacked bytes. These final values supersede the preliminary STEP-302 byte counts above.

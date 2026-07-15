@@ -11,7 +11,11 @@ export {
   changeSetBlobIdSchema,
   changeSetManifestDraftV1Schema,
   changeSetManifestV1Schema,
+  changeSetManifestSchema,
   changeSetOperationV1Schema,
+  moveChangeSetManifestDraftV2Schema,
+  moveChangeSetManifestV2Schema,
+  moveChangeSetOperationV2Schema,
   changeSetOwnerBindingSchema,
   changeSetStateSchema,
   changeSetUndoReasonSchema
@@ -30,12 +34,22 @@ export {
 } from "./store.js";
 
 export {
+  MoveChangeSetStore,
+  type MoveChangeSetStoreOptions,
+  type MoveChangeSetTransitionInput
+} from "./moveStore.js";
+
+export {
   ChangeSetError,
   type ChangeSetBlobContext,
   type ChangeSetErrorCode,
   type ChangeSetFileFactV1,
+  type ChangeSetManifest,
   type ChangeSetManifestV1,
   type ChangeSetManifestDraftV1,
+  type MoveChangeSetManifestDraftV2,
+  type MoveChangeSetManifestV2,
+  type MoveChangeSetOperationV2,
   type ChangeSetOperationKind,
   type ChangeSetOperationV1,
   type ChangeSetRetentionConfig,
@@ -43,6 +57,17 @@ export {
   type ChangeSetUndoReason,
   type TransactionResultV2
 } from "./types.js";
+
+export {
+  UnifiedUndoChangeSetService,
+  type UnifiedUndoChangeSetServiceOptions
+} from "./unifiedUndo.js";
+
+export {
+  MoveUndoChangeSetService,
+  type MoveUndoChangeSetServiceOptions,
+  type PrepareMoveUndoChangeSetInput
+} from "./moveUndo.js";
 
 export {
   createDirectUndoChangeSetAdapterV2,

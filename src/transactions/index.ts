@@ -9,6 +9,8 @@ export {
   type FileMetadataV1,
   type InstallationStateV1,
   type ParticipantFact,
+  type ParticipantRecoveryAdapter,
+  type ParticipantRecoveryProbeResult,
   type PendingTransactionCommit,
   type PreparedAtomicOperation,
   type PreparedTransaction,
@@ -17,8 +19,17 @@ export {
   type TransactionErrorCode,
   type TransactionFaultInjector,
   type TransactionFaultPoint,
+  type FileObjectIdentityV2,
+  type MoveFileVersionV2,
+  type MoveOperationStateV2,
+  type MoveTransactionOperationV2,
+  type MoveTransactionRequestOperationV2,
+  type MoveTransactionRequestV2,
+  type TransactionManifest,
   type TransactionManifestState,
+  type TransactionManifestStateV2,
   type TransactionManifestV1,
+  type TransactionManifestV2,
   type TransactionOperationKind,
   type TransactionOperationState,
   type TransactionOperationV1,
@@ -41,6 +52,8 @@ export {
   type AtomicStateDependencies
 } from "./atomicStateFile.js";
 
+export { TransactionManifestV2Store } from "./manifestV2Store.js";
+
 export {
   deriveTransactionSubkey,
   installationMasterKey,
@@ -54,6 +67,12 @@ export {
   type AtomicTransactionEngineOptions,
   type TransactionRecoveryHook
 } from "./engine.js";
+
+export {
+  DurableParticipantRecoveryAdapter,
+  createDurableParticipantRecoveryAdapter,
+  type DurableParticipantRecoveryAdapterOptions
+} from "./participantRecovery.js";
 
 export {
   TransactionRecoveryCoordinator,
@@ -86,16 +105,21 @@ export {
 export {
   changeSetIdSchema,
   fileIdentitySchema,
+  fileObjectIdentityV2Schema,
   fileMetadataV1Schema,
   installationIdSchema,
   installationStateV1Schema,
   lockTokenSchema,
+  moveFileVersionV2Schema,
+  moveTransactionOperationV2Schema,
   operationIdSchema,
   processInstanceIdSchema,
   processInstanceRecordV1Schema,
   sha256Schema,
   transactionIdSchema,
+  transactionManifestSchema,
   transactionManifestV1Schema,
+  transactionManifestV2Schema,
   transactionOperationV1Schema,
   transactionRelativePathSchema,
   workspaceLockOwnerV1Schema,

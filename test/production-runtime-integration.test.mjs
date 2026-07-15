@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -8,6 +9,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { loadConfig } from "../dist/config.js";
 import { createStdioPolicySessionSource } from "../dist/policy/identity.js";
 import { policyIdentityScopes } from "../dist/policy/runtime.js";
+import {
+  CONTRACT_V1_CHILD_TOOLS,
+  CONTRACT_V2_CHILD_TOOLS
+} from "../dist/tools/contracts/index.js";
 import {
   connectProductionCodexProServer,
   createProductionCodexProServer
@@ -56,11 +61,14 @@ function configFor(workspaceRoot, stateHome, overrides = {}) {
     CODEXPRO_FILE_TRANSACTIONS: overrides.fileTransactions ?? "atomic",
     CODEXPRO_AUDIT_MODE: overrides.auditMode ?? "required",
     CODEXPRO_POLICY_ENGINE: overrides.policyEngineMode ?? "legacy",
-    CODEXPRO_TOOL_CONTRACT_VERSION: overrides.toolContractVersion ?? "1"
+    CODEXPRO_TOOL_CONTRACT_VERSION: overrides.toolContractVersion ?? "1",
+    CODEXPRO_TOOL_MODE: overrides.toolMode ?? "standard",
+    CODEXPRO_CODEX_SESSIONS: overrides.codexSessions ?? "off",
+    CODEXPRO_CONNECTION_TEST: overrides.connectionTest ? "1" : undefined
   }, () => loadConfig([
     "--root", workspaceRoot,
     "--allow-root", workspaceRoot,
-    "--bash", "off",
+    "--bash", overrides.bashMode ?? "off",
     "--write", overrides.writeMode ?? "workspace"
   ]));
 }
@@ -78,6 +86,48 @@ function productionOptions(stateHome, overrides = {}) {
       env: { ...process.env, CODEXPRO_HOME: stateHome }
     },
     ...overrides
+  };
+}
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function canonicalValue(value, replacements = new Map()) {
+  if (typeof value === "string") {
+    if (replacements.has(value)) return replacements.get(value);
+    if (/^policy_[a-f0-9]{24}$/.test(value)) return "<POLICY_REVISION>";
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((item) => canonicalValue(item, replacements));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [
+    key,
+    canonicalValue(value[key], replacements)
+  ]));
+}
+
+function wireHash(value, replacements) {
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalValue(value, replacements)))
+    .digest("hex");
+}
+
+function normalizedCallPayload(value) {
+  const {
+    codexpro_super_action: _superAction,
+    wrapped_tool: _wrappedTool,
+    ...payload
+  } = value;
+  return {
+    ...payload,
+    meta: { ...payload.meta, durationMs: 0 }
   };
 }
 
@@ -185,6 +235,136 @@ test("failed transport startup disposes the production runtime", () => fixture(a
   );
 }));
 
+test("production close quiesces new tools and drains an active audited mutation", () => fixture(async ({
+  workspaceRoot,
+  stateHome
+}) => {
+  const config = configFor(workspaceRoot, stateHome);
+  const observations = [];
+  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+    policySessionContextSource: sourceFor(config, "session_lifecycle_drain"),
+    observeRuntime: (value) => observations.push(value)
+  }));
+  const observation = observations[0];
+  assert.ok(observation.auditRuntime);
+  const enteredAudit = deferred();
+  const releaseAudit = deferred();
+  const originalPersistExecution = observation.auditRuntime.persistExecution.bind(observation.auditRuntime);
+  observation.auditRuntime.persistExecution = async (...args) => {
+    enteredAudit.resolve();
+    await releaseAudit.promise;
+    return originalPersistExecution(...args);
+  };
+  const tools = server._registeredTools;
+  const invocation = tools.write.handler({ path: "drained.txt", content: "drained\n" });
+  await enteredAudit.promise;
+
+  let closeResolved = false;
+  const closing = server.close().then(() => { closeResolved = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(closeResolved, false);
+  const rejected = await tools.read.handler({ path: "drained.txt" });
+  assert.equal(rejected.isError, true);
+  assert.match(rejected.content[0].text, /shutting down/i);
+  const activeRegistry = await fs.stat(path.join(
+    observation.stateRoot,
+    "instances",
+    `${observation.registryInstanceId}.json`
+  ));
+  assert.equal(activeRegistry.isFile(), true);
+
+  releaseAudit.resolve();
+  const result = await invocation;
+  assert.equal(result.isError, undefined);
+  assert.equal(result.structuredContent.ok, true);
+  await closing;
+  assert.equal(await fs.readFile(path.join(workspaceRoot, "drained.txt"), "utf8"), "drained\n");
+  await assert.rejects(
+    () => fs.stat(path.join(observation.stateRoot, "instances", `${observation.registryInstanceId}.json`)),
+    { code: "ENOENT" }
+  );
+}));
+
+test("client disconnect during an audited mutation leaves a committed or recoverable terminal state", () => fixture(async ({
+  workspaceRoot,
+  stateHome
+}) => {
+  const config = configFor(workspaceRoot, stateHome);
+  const observations = [];
+  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+    policySessionContextSource: sourceFor(config, "session_disconnect_drain"),
+    observeRuntime: (value) => observations.push(value)
+  }));
+  const observation = observations[0];
+  const enteredAudit = deferred();
+  const releaseAudit = deferred();
+  const originalPersistExecution = observation.auditRuntime.persistExecution.bind(observation.auditRuntime);
+  observation.auditRuntime.persistExecution = async (...args) => {
+    enteredAudit.resolve();
+    await releaseAudit.promise;
+    return originalPersistExecution(...args);
+  };
+  const client = new Client({ name: "disconnect-test", version: "0.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  const invocation = client.callTool({
+    name: "write",
+    arguments: { path: "disconnect.txt", content: "survived\n" }
+  });
+  await enteredAudit.promise;
+  await clientTransport.close();
+  releaseAudit.resolve();
+  await Promise.allSettled([invocation]);
+  await server.close();
+  assert.equal(await fs.readFile(path.join(workspaceRoot, "disconnect.txt"), "utf8"), "survived\n");
+  await assert.rejects(
+    () => fs.stat(path.join(observation.stateRoot, "instances", `${observation.registryInstanceId}.json`)),
+    { code: "ENOENT" }
+  );
+}));
+
+test("workspace close concurrent with an audited mutation cannot strand partial state", () => fixture(async ({
+  workspaceRoot,
+  stateHome
+}) => {
+  const config = configFor(workspaceRoot, stateHome);
+  const observations = [];
+  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+    policySessionContextSource: sourceFor(config, "session_workspace_close_mutation"),
+    observeRuntime: (value) => observations.push(value)
+  }));
+  const observation = observations[0];
+  await connect(server, async (client) => {
+    const opened = await client.callTool({ name: "open_current_workspace", arguments: {} });
+    const workspaceId = opened.structuredContent.data.workspace_id;
+    const enteredAudit = deferred();
+    const releaseAudit = deferred();
+    const originalPersistExecution = observation.auditRuntime.persistExecution.bind(observation.auditRuntime);
+    observation.auditRuntime.persistExecution = async (...args) => {
+      enteredAudit.resolve();
+      await releaseAudit.promise;
+      return originalPersistExecution(...args);
+    };
+    const mutation = client.callTool({
+      name: "write",
+      arguments: { workspace_id: workspaceId, path: "workspace-close.txt", content: "complete\n" }
+    });
+    await enteredAudit.promise;
+    const closingWorkspace = client.callTool({
+      name: "close_workspace",
+      arguments: { workspace_id: workspaceId }
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    releaseAudit.resolve();
+    const [mutationResult, closeResult] = await Promise.all([mutation, closingWorkspace]);
+    assert.equal(mutationResult.isError, undefined);
+    assert.equal(mutationResult.structuredContent.ok, true);
+    assert.equal(closeResult.isError, undefined);
+    assert.equal(closeResult.structuredContent.ok, true);
+  });
+  assert.equal(await fs.readFile(path.join(workspaceRoot, "workspace-close.txt"), "utf8"), "complete\n");
+}));
+
 test("writable atomic contract V1 commits one audited change set even when configured Policy mode is legacy", () => fixture(async ({ workspaceRoot, stateHome }) => {
   const config = configFor(workspaceRoot, stateHome);
   const observations = [];
@@ -224,12 +404,230 @@ test("required audit corruption rejects production construction before a server 
   );
 }));
 
-test("contract V2 remains fail-closed after production runtime composition", () => fixture(async ({ workspaceRoot, stateHome }) => {
-  const config = configFor(workspaceRoot, stateHome, { toolContractVersion: "2", writeMode: "off" });
-  assert.throws(
-    () => createProductionCodexProServer(config, productionOptions(stateHome, {
-      policySessionContextSource: sourceFor(config, "session_v2_incomplete")
-    })),
-    /incomplete.*move_paths/i
+test("contract V1 wire snapshots freeze exact mode projections and direct/supertool calls", () => fixture(async ({ workspaceRoot, stateHome }) => {
+  const scenarios = [
+    { id: "minimal", toolMode: "minimal", bashMode: "off", codexSessions: "off" },
+    { id: "standard", toolMode: "standard", bashMode: "off", codexSessions: "off" },
+    { id: "full", toolMode: "full", bashMode: "safe", codexSessions: "read" },
+    { id: "connection", toolMode: "full", bashMode: "safe", codexSessions: "read", connectionTest: true }
+  ];
+  const snapshots = {};
+  for (const scenario of scenarios) {
+    const config = configFor(workspaceRoot, stateHome, scenario);
+    const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+      policySessionContextSource: sourceFor(config, `session_v1_snapshot_${scenario.id}`)
+    }));
+    await connect(server, async (client) => {
+      const listed = await client.listTools();
+      const descriptors = listed.tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        outputSchema: tool.outputSchema,
+        annotations: tool.annotations
+      }));
+      snapshots[scenario.id] = {
+        names: descriptors.map((tool) => tool.name),
+        descriptorHash: wireHash(descriptors)
+      };
+      if (scenario.id === "standard") {
+        const direct = await client.callTool({ name: "server_config", arguments: {} });
+        const wrapped = await client.callTool({
+          name: "codexpro",
+          arguments: { action: "server_config", args: {} }
+        });
+        const replacements = new Map([
+          [workspaceRoot, "<WORKSPACE_ROOT>"],
+          [stateHome, "<STATE_HOME>"]
+        ]);
+        snapshots.standard.directCallHash = wireHash(
+          normalizedCallPayload(direct.structuredContent),
+          replacements
+        );
+        snapshots.standard.supertoolCallHash = wireHash(
+          normalizedCallPayload(wrapped.structuredContent),
+          replacements
+        );
+        snapshots.standard.supertoolEnvelope = {
+          codexpro_super_action: wrapped.structuredContent.codexpro_super_action,
+          wrapped_tool: wrapped.structuredContent.wrapped_tool
+        };
+        assert.deepEqual(
+          canonicalValue(normalizedCallPayload(wrapped.structuredContent), replacements),
+          canonicalValue(normalizedCallPayload(direct.structuredContent), replacements)
+        );
+      }
+    });
+  }
+  assert.deepEqual(snapshots, {
+    minimal: {
+      names: [
+        "codexpro", "server_config", "codexpro_self_test", "close_workspace",
+        "open_current_workspace", "open_workspace", "read", "write", "edit",
+        "apply_patch", "show_changes"
+      ],
+      descriptorHash: "d37652c6a92d642739be2b0e04122aa95b11029ac0722f5a62b730195e8de9d3"
+    },
+    standard: {
+      names: [
+        "codexpro", "server_config", "codexpro_self_test", "load_skill",
+        "close_workspace", "open_current_workspace", "open_workspace",
+        "inspect_workspace", "tree", "search", "read", "write", "edit",
+        "apply_patch", "show_changes", "read_handoff", "wait_for_handoff",
+        "export_pro_context", "handoff_to_agent"
+      ],
+      descriptorHash: "5a29174c8ea440c2ec40f37216e8683561388bddb74da97664f67fa121c125db",
+      directCallHash: "1d45cb7cb5ada6635b73c395bea8462cbe4956e16f2e82268e667f54b6860107",
+      supertoolCallHash: "1d45cb7cb5ada6635b73c395bea8462cbe4956e16f2e82268e667f54b6860107",
+      supertoolEnvelope: {
+        codexpro_super_action: "server_config",
+        wrapped_tool: "server_config"
+      }
+    },
+    full: {
+      names: [
+        "codexpro", "server_config", "codexpro_self_test", "codexpro_inventory",
+        "load_skill", "list_workspaces", "close_workspace", "open_current_workspace",
+        "open_workspace", "workspace_snapshot", "inspect_workspace", "tree", "search",
+        "read", "write", "edit", "apply_patch", "bash", "git_status", "git_diff",
+        "show_changes", "read_handoff", "wait_for_handoff", "codex_context",
+        "export_pro_context", "codex_sessions", "read_codex_session",
+        "handoff_to_agent", "handoff_to_codex"
+      ],
+      descriptorHash: "d5ea2a275c78efc8450e20ee7ab1e16c51520328b4768802c927d6bcbb873a47"
+    },
+    connection: {
+      names: [
+        "server_config", "codexpro_inventory", "load_skill", "list_workspaces",
+        "open_current_workspace", "open_workspace", "workspace_snapshot",
+        "inspect_workspace", "tree", "search", "read", "git_status", "git_diff",
+        "show_changes", "read_handoff", "wait_for_handoff", "codex_context",
+        "codex_sessions", "read_codex_session"
+      ],
+      descriptorHash: "71f390fbea9c93f790237c6fa61e9b2c072df836550a9d3fd5c653940a093eee"
+    }
+  });
+  assert.deepEqual(
+    snapshots.full.names.filter((name) => name !== "codexpro").sort(),
+    [...CONTRACT_V1_CHILD_TOOLS].sort()
   );
+}));
+
+test("contract V2 production construction exposes the exact 31-child universe", () => fixture(async ({ workspaceRoot, stateHome }) => {
+  const config = configFor(workspaceRoot, stateHome, {
+    toolContractVersion: "2",
+    toolMode: "full",
+    bashMode: "safe",
+    codexSessions: "read"
+  });
+  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+    policySessionContextSource: sourceFor(config, "session_v2_complete")
+  }));
+  await connect(server, async (client) => {
+    const listed = await client.listTools();
+    const childNames = listed.tools
+      .map((tool) => tool.name)
+      .filter((name) => name !== "codexpro")
+      .sort();
+    assert.deepEqual(childNames, [...CONTRACT_V2_CHILD_TOOLS].sort());
+  });
+}));
+
+test("contract V2 direct and supertool wire paths share move undo and audit behavior", () => fixture(async ({ workspaceRoot, stateHome }) => {
+  const config = configFor(workspaceRoot, stateHome, {
+    toolContractVersion: "2",
+    toolMode: "full",
+    policyEngineMode: "shadow"
+  });
+  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+    policySessionContextSource: sourceFor(config, "session_v2_wire")
+  }));
+  await connect(server, async (client) => {
+    const opened = await client.callTool({ name: "open_current_workspace", arguments: {} });
+    assert.equal(opened.isError, undefined);
+    const workspaceId = opened.structuredContent.data.workspace_id;
+
+    const written = await client.callTool({
+      name: "write",
+      arguments: { workspace_id: workspaceId, path: "wire-a.txt", content: "wire-alpha\n" }
+    });
+    assert.equal(written.isError, undefined);
+    const expectedSha256 = createHash("sha256").update("wire-alpha\n").digest("hex");
+    const moveArgs = {
+      workspace_id: workspaceId,
+      moves: [{
+        source: "wire-a.txt",
+        destination: "wire-b.txt",
+        expected_sha256: expectedSha256
+      }],
+      preview: true
+    };
+
+    const directPreview = await client.callTool({ name: "move_paths", arguments: moveArgs });
+    const wrappedPreview = await client.callTool({
+      name: "codexpro",
+      arguments: { action: "move_paths", args: moveArgs }
+    });
+    assert.equal(directPreview.isError, undefined);
+    assert.equal(wrappedPreview.isError, undefined);
+    assert.equal(directPreview.structuredContent.data.preview, true);
+    assert.deepEqual(
+      wrappedPreview.structuredContent.data.moves,
+      directPreview.structuredContent.data.moves
+    );
+
+    const moved = await client.callTool({
+      name: "move_paths",
+      arguments: { ...moveArgs, preview: false }
+    });
+    assert.equal(moved.isError, undefined);
+    const moveChangeSetId = moved.structuredContent.data.transaction.change_set_id;
+    assert.equal(await fs.readFile(path.join(workspaceRoot, "wire-b.txt"), "utf8"), "wire-alpha\n");
+    await assert.rejects(() => fs.stat(path.join(workspaceRoot, "wire-a.txt")), { code: "ENOENT" });
+
+    const undoArgs = {
+      workspace_id: workspaceId,
+      change_set_id: moveChangeSetId,
+      preview: true
+    };
+    const wrappedUndoPreview = await client.callTool({
+      name: "codexpro",
+      arguments: { action: "undo_change_set", args: undoArgs }
+    });
+    assert.equal(wrappedUndoPreview.isError, undefined);
+    assert.equal(wrappedUndoPreview.structuredContent.data.preview, true);
+    assert.deepEqual(wrappedUndoPreview.structuredContent.data.operations, [
+      { kind: "move", source: "wire-b.txt", destination: "wire-a.txt" }
+    ]);
+
+    const undone = await client.callTool({
+      name: "undo_change_set",
+      arguments: { ...undoArgs, preview: false }
+    });
+    assert.equal(undone.isError, undefined);
+    assert.equal(undone.structuredContent.data.reverts_change_set_id, moveChangeSetId);
+    assert.equal(await fs.readFile(path.join(workspaceRoot, "wire-a.txt"), "utf8"), "wire-alpha\n");
+    await assert.rejects(() => fs.stat(path.join(workspaceRoot, "wire-b.txt")), { code: "ENOENT" });
+
+    const directAudit = await client.callTool({
+      name: "query_audit_events",
+      arguments: { limit: 100 }
+    });
+    assert.equal(directAudit.isError, undefined);
+    assert.ok(directAudit.structuredContent.data.records.length >= 4);
+    assert.ok(directAudit.structuredContent.data.records.some((record) =>
+      record.event.eventType === "execution" &&
+      record.event.changeSetId === moveChangeSetId
+    ));
+
+    const wrappedAudit = await client.callTool({
+      name: "codexpro",
+      arguments: { action: "query_audit_events", args: { limit: 100 } }
+    });
+    assert.equal(wrappedAudit.isError, undefined);
+    assert.ok(
+      wrappedAudit.structuredContent.data.records.length >=
+      directAudit.structuredContent.data.records.length
+    );
+  });
 }));

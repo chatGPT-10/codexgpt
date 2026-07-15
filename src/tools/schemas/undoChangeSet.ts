@@ -17,10 +17,17 @@ export const undoChangeSetInputV2Schema = z.object({
   preview: z.boolean().optional()
 }).strict();
 
-export const undoChangeSetOperationSchema = z.object({
-  kind: z.enum(["delete", "restore"]),
-  path: safeRelativePathSchema
-}).strict();
+export const undoChangeSetOperationSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.enum(["delete", "restore"]),
+    path: safeRelativePathSchema
+  }).strict(),
+  z.object({
+    kind: z.literal("move"),
+    source: safeRelativePathSchema,
+    destination: safeRelativePathSchema
+  }).strict()
+]);
 
 export const undoChangeSetDataSchema = z.object({
   workspace_id: workspaceIdSchema,

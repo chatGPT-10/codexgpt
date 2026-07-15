@@ -31,7 +31,7 @@ export type TransactionManifestState =
   | "rolled_back"
   | "recovery_required";
 
-export type TransactionOperationKind = "create" | "replace" | "delete";
+export type TransactionOperationKind = "create" | "replace" | "delete" | "move";
 
 export type TransactionOperationState =
   | "planned"
@@ -151,6 +151,118 @@ export interface TransactionRequestV1 {
   requiredParticipants: string[];
 }
 
+export interface FileObjectIdentityV2 {
+  device: string;
+  fileId: string;
+}
+
+export interface MoveFileVersionV2 {
+  sha256: string;
+  bytes: number;
+  mode: number;
+  atimeMs: number;
+  mtimeMs: number;
+  ctimeMs: number;
+}
+
+export type MoveOperationStateV2 =
+  | "planned"
+  | "staged_link_ready"
+  | "source_name_removed"
+  | "destination_link_ready"
+  | "installed"
+  | "finalized"
+  | "rolled_back";
+
+export interface MoveTransactionOperationV2 {
+  operationId: string;
+  kind: "move";
+  state: MoveOperationStateV2;
+  sourceRelativePath: string;
+  destinationRelativePath: string;
+  sourceComparisonKey: string;
+  destinationComparisonKey: string;
+  sourceExistingParentRelativePath: string;
+  sourceExistingParentIdentity: string;
+  destinationExistingParentRelativePath: string;
+  destinationExistingParentIdentity: string;
+  stageRelativePath: string;
+  objectIdentity: FileObjectIdentityV2;
+  version: MoveFileVersionV2;
+}
+
+export type TransactionManifestStateV2 =
+  | "preparing"
+  | "prepared"
+  | "committing"
+  | "committed_pending_participants"
+  | "commit_decided"
+  | "committed"
+  | "rolling_back"
+  | "rolled_back"
+  | "recovery_required";
+
+export interface TransactionManifestV2 {
+  schemaVersion: 2;
+  transactionId: string;
+  changeSetId: string;
+  workspaceStateKey: string;
+  generation: number;
+  createdAt: string;
+  updatedAt: string;
+  state: TransactionManifestStateV2;
+  operations: MoveTransactionOperationV2[];
+  plannedCreatedDirectories: string[];
+  createdDirectories: string[];
+  createdDirectoryIdentities: Record<string, FileObjectIdentityV2>;
+  plannedRemovedDirectories: string[];
+  plannedRemovedDirectoryIdentities: Record<string, FileObjectIdentityV2>;
+  removedDirectories: string[];
+  requiredParticipants: string[];
+  participantReferences: Record<string, string>;
+  participantFacts: Record<string, ParticipantFact>;
+  failureCode?: TransactionErrorCode;
+  failureMessage?: string;
+  directorySync?: DirectorySyncCapability;
+  manifestMac: string;
+}
+
+export type TransactionManifest = TransactionManifestV1 | TransactionManifestV2;
+
+export type ParticipantRecoveryProbeResult = "present" | "absent" | "unknown";
+
+export interface ParticipantRecoveryAdapter {
+  probe(
+    manifest: TransactionManifest,
+    participant: string
+  ): ParticipantRecoveryProbeResult | Promise<ParticipantRecoveryProbeResult>;
+  compensatePartial?(
+    manifest: TransactionManifest,
+    presentParticipants: readonly string[]
+  ): void | Promise<void>;
+  recordRecovery?(
+    manifest: TransactionManifest,
+    action: "rollback_completed" | "cleanup_completed" | "workspace_frozen",
+    resultCode: string
+  ): void | Promise<void>;
+}
+
+export interface MoveTransactionRequestOperationV2 {
+  operationId: string;
+  kind: "move";
+  sourceRelativePath: string;
+  destinationRelativePath: string;
+  expectedSha256: string;
+}
+
+export interface MoveTransactionRequestV2 {
+  workspace: TransactionWorkspaceV1;
+  operations: MoveTransactionRequestOperationV2[];
+  createParents: boolean;
+  requiredParticipants: string[];
+  participantReferences: Record<string, string>;
+}
+
 export interface CommittedTransaction {
   readonly transactionId: string;
   readonly changeSetId: string;
@@ -178,13 +290,28 @@ export interface PendingTransactionCommit {
 
 export type TransactionFaultPoint =
   | "after_manifest_preparing"
+  | "before_each_directory_create"
+  | "after_each_directory_create_before_manifest"
+  | "after_each_directory_create"
+  | "before_each_stage_link"
+  | "after_each_stage_link_before_manifest"
   | "after_each_stage"
+  | "before_each_source_unlink"
+  | "after_each_source_unlink_before_manifest"
   | "after_manifest_prepared"
   | "after_manifest_committing"
-  | "after_each_directory_create"
+  | "before_each_destination_link"
+  | "after_each_destination_link_before_manifest"
+  | "before_each_stage_unlink"
+  | "after_each_stage_unlink_before_manifest"
   | "after_each_install"
   | "after_manifest_pending_participants"
+  | "after_each_participant_effect_before_manifest"
   | "after_each_participant"
+  | "after_manifest_commit_decided"
+  | "before_each_directory_remove"
+  | "after_each_directory_remove_before_manifest"
+  | "after_each_directory_remove"
   | "after_manifest_committed"
   | "during_each_rollback"
   | "during_each_finalize";

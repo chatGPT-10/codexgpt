@@ -164,14 +164,14 @@ Memory rules:
 - `docs/memory/archive/phase-1-part-7.md` — closed Phase 1 Volume 7 covering STEP-206 through STEP-219, with the append-only STEP-205 count correction at its start.
 - `docs/memory/archive/phase-1-part-8.md` — closed Phase 1 Volume 8 covering STEP-220 through STEP-236.
 - `docs/memory/archive/phase-1-part-9.md` — closed Phase 1 Volume 9 covering STEP-237 through STEP-247.
-- `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans for the twenty-eight Phase 1 slices, the approved Policy Kernel Gate, Phase 2A, Phase 2B workspace lifecycle, the approved Phase 3A–3D design package, and the completed detailed Phase 3A–3C implementation plans.
+- `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans for the twenty-eight Phase 1 slices, the Policy Kernel Gate, Phase 2A, Phase 2B workspace lifecycle, and Phase 3A–3D, including the current Phase 3D implementation and acceptance evidence.
 - `docs/memory/archive/policy-kernel-gate.md` — closed Policy Kernel Gate and Phase 2A records covering STEP-248 through STEP-253.
 - `docs/memory/archive/phase-2b-workspace-lifecycle.md` — closed Phase 2B workspace-lifecycle records covering STEP-254 through STEP-262.
 - `docs/memory/archive/phase-3.md` — closed Phase 3 Volume 1 covering STEP-263 through STEP-277.
 - `docs/memory/archive/phase-3-part-2.md` — closed Phase 3 Volume 2 covering STEP-278 through STEP-285.
 - `docs/memory/archive/phase-3-part-3.md` — closed Phase 3 Volume 3 covering STEP-286 through STEP-291.
 - `docs/memory/archive/phase-3-part-4.md` — active Phase 3 Volume 4 beginning with STEP-292.
-- Phase 1, Phase 2A, Phase 2B, Phase 3A, Phase 3B, and Phase 3C are published. Phase 3C commit `50ec99b` passed exact-head run `29390317879` across Ubuntu/Windows Node 20/24; Phase 3D is next.
+- Phase 1, Phase 2A, Phase 2B, and Phase 3A–3C are published. Gate 0 commit `77b1e90` passed exact-head run `29402504990`; Phase 3D is locally implemented and adversarially verified, remains uncommitted/unpublished, and awaits its single phase-boundary publication plus exact-head CI.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -211,6 +211,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phase 1 through Phase 3C are published and closed. Phase 3C commit `50ec99b` passed exact-head run `29390317879` across Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package. V1 remains the exact 28-tool public surface; V2 stays fail-closed until Phase 3D adds `move_paths`, repairs participant-aware recovery, and validates the exact 31-tool wire contract. Current maintenance preserves Windows GitHub CLI config/keyring discovery in narrowed Bash without inheriting `GH_TOKEN`. The adversarially reviewed Phase 3D plan is in `.ai-bridge/current-plan.md`; after maintenance exact-head CI is green, promote it to the tracked plan and run Task 1 wire-contract/native-Windows feasibility probes.
+Phase 1 through Phase 3C are published and closed. Gate 0 commit `77b1e9069798235d674342a2c33a234a4266b564` passed exact-head run `29402504990`. The current Phase 3D worktree implements the exact 28/31 versioned contract, hardened move/recovery/undo, parent/reparse identity checks, service-level mutation drain, and adversarial crash/platform coverage. Fresh evidence is Build; 72/72 focused; 12/12 production runtime; 809/810 complete discovery with zero failures and one established skip; 30/30 child-crash/multi-process; seven fresh Smoke sections plus unchanged-source prior evidence for the environment-constrained protected eighth section; Windows Stress; 308-entry package; 17/17 static gates; and clean diff checks. The batch remains uncommitted/unpublished and awaits one phase-boundary publication plus exact-head CI. Exact evidence and the execute-handoff control-channel limitation are in `Memory.md` and STEP-302.
 
 The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Tasks receive local design/TDD/verification gates only; publish once at the complete phase boundary after neat-freak and the full local gate, then require exact-head CI before beginning the next phase. Failed gates must be fixed rather than bypassed. This excludes destructive user-data or Git-history operations, production deployment, credential disclosure, and silent scope expansion. Use `Memory.md` for current evidence, the master plan for sequencing, and `docs/memory/archive/phase-3-part-4.md` for active Phase 3 records.

@@ -229,6 +229,14 @@ class PendingWorkspaceMutationImpl implements PendingWorkspaceMutation {
       }
     } catch (error) {
       if (this.state === "finalized") throw error;
+      if (phase === "finalize") {
+        wipeRollbackBlobs(this.changeSetInput);
+        this.onSettled(this);
+        throw new TransactionError(
+          "TRANSACTION_RECOVERY_REQUIRED",
+          "Mutation participants are durable but final commit acknowledgement requires recovery."
+        );
+      }
       if (createdChangeSet.value) {
         try {
           this.changeSetStore.transition(

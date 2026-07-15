@@ -6,15 +6,29 @@ import {
   type CodexProConfig
 } from "./config.js";
 import { PathGuard } from "./guard.js";
-import { PersistentAuditRuntimeV2, PersistentAuditStore } from "./audit/index.js";
+import {
+  PersistentAuditRuntimeV2,
+  PersistentAuditStore,
+  createAuditQueryHandler
+} from "./audit/index.js";
 import { ChangeSetStore } from "./changesets/store.js";
+import { MoveChangeSetStore } from "./changesets/moveStore.js";
 import { UndoChangeSetService } from "./changesets/undo.js";
+import { MoveUndoChangeSetService } from "./changesets/moveUndo.js";
+import { UnifiedUndoChangeSetService } from "./changesets/unifiedUndo.js";
+import { MovePathsService } from "./moves/service.js";
 import { WorkspaceMutationRuntime } from "./mutations/runtime.js";
+import {
+  ServerMutationLifecycle,
+  installServerMutationLifecycle
+} from "./mutations/lifecycle.js";
+import { upgradeCodexProSupertool } from "./codexproSupertool.js";
 import type { PolicySessionContextSource } from "./policy/identity.js";
 import {
   AtomicTransactionEngine,
   ProcessInstanceRegistry,
   createDefaultTransactionRecoveryCoordinator,
+  createDurableParticipantRecoveryAdapter,
   deriveTransactionSubkey,
   installationMasterKey,
   loadOrCreateInstallationState,
@@ -54,11 +68,13 @@ export interface ProductionCodexProServerOptions {
 interface RuntimeResources {
   dependencies: CodexProServerDependencies;
   observation: ProductionRuntimeObservation;
-  dispose(): void;
+  lifecycle: ServerMutationLifecycle;
+  dispose(): Promise<void>;
 }
 
 function noRuntime(
-  policySessionContextSource: PolicySessionContextSource | undefined
+  policySessionContextSource: PolicySessionContextSource | undefined,
+  lifecycle: ServerMutationLifecycle
 ): RuntimeResources {
   return {
     dependencies: { policySessionContextSource },
@@ -70,7 +86,12 @@ function noRuntime(
       mutationRuntime: null,
       auditRuntime: null
     },
-    dispose() {}
+    lifecycle,
+    async dispose() {
+      lifecycle.quiesce();
+      await lifecycle.drain();
+      if (lifecycle.state() !== "disposed") lifecycle.markDisposed();
+    }
   };
 }
 
@@ -85,6 +106,7 @@ function composeRuntime(
   config: CodexProConfig,
   options: ProductionCodexProServerOptions
 ): RuntimeResources {
+  const lifecycle = new ServerMutationLifecycle();
   const atomic = config.fileTransactions === "atomic";
   const writableAtomic = atomic && config.writeMode !== "off";
   const durableAudit = config.auditMode !== "off" && (
@@ -100,11 +122,11 @@ function composeRuntime(
   assertToolContractConfiguration(config, {
     durableAuditAvailable: durableAudit,
     stateRootAvailable: atomic || durableAudit,
-    movePathsAvailable: false
+    movePathsAvailable: atomic
   });
 
   if (!atomic && !durableAudit) {
-    return noRuntime(options.policySessionContextSource);
+    return noRuntime(options.policySessionContextSource, lifecycle);
   }
   if (writableAtomic && config.auditMode === "off") {
     throw new Error("Writable atomic transactions require persistent audit; CODEXPRO_AUDIT_MODE cannot be off.");
@@ -120,6 +142,7 @@ function composeRuntime(
   let registry: ProcessInstanceRegistry | null = null;
   let recovery: ReturnType<typeof createDefaultTransactionRecoveryCoordinator> | null = null;
   let changeSetStore: ChangeSetStore | null = null;
+  let moveChangeSetStore: MoveChangeSetStore | null = null;
   let auditStore: PersistentAuditStore | null = null;
   let auditRuntime: PersistentAuditRuntimeV2 | null = null;
   let mutationRuntime: WorkspaceMutationRuntime | null = null;
@@ -146,6 +169,7 @@ function composeRuntime(
       requireAuditReady(auditStore);
       auditRuntime = new PersistentAuditRuntimeV2(auditStore);
       dependencies.persistentAuditRuntime = auditRuntime;
+      dependencies.auditQueryHandler = createAuditQueryHandler(auditStore);
     }
 
     if (atomic) {
@@ -161,6 +185,23 @@ function composeRuntime(
         masterKey,
         retention: config.changeSetRetention
       });
+      moveChangeSetStore = new MoveChangeSetStore({
+        stateRoot,
+        masterKey,
+        activeRetentionMs: config.changeSetRetention.activeRetentionMs
+      });
+      dependencies.movePathsService = new MovePathsService({
+        engine,
+        changeSetStore: moveChangeSetStore,
+        retentionMs: config.changeSetRetention.activeRetentionMs
+      });
+      if (auditStore) {
+        recovery.setParticipantAdapter(createDurableParticipantRecoveryAdapter({
+          auditStore,
+          changeSetStore,
+          moveChangeSetStore
+        }));
+      }
       mutationRuntime = new WorkspaceMutationRuntime({
         engine,
         changeSetStore
@@ -169,11 +210,23 @@ function composeRuntime(
       dependencies.workspaceMutationRuntime = mutationRuntime;
       dependencies.atomicMutationToolNames = ATOMIC_MUTATION_TOOL_NAMES;
       dependencies.changeSetOwnerBindingKey = ownerBindingKey;
-      dependencies.undoChangeSetService = new UndoChangeSetService({
+      const v1Undo = new UndoChangeSetService({
         engine,
         changeSetStore,
         guard,
         retentionMs: config.changeSetRetention.activeRetentionMs
+      });
+      const v2Undo = new MoveUndoChangeSetService({
+        engine,
+        moveChangeSetStore,
+        guard,
+        retentionMs: config.changeSetRetention.activeRetentionMs
+      });
+      dependencies.undoChangeSetService = new UnifiedUndoChangeSetService({
+        engine,
+        changeSetStore,
+        v1: v1Undo,
+        v2: v2Undo
       });
     }
 
@@ -185,23 +238,36 @@ function composeRuntime(
       mutationRuntime,
       auditRuntime
     };
-    let disposed = false;
+    let disposePromise: Promise<void> | null = null;
+    const disposeResources = () => {
+      auditStore?.dispose();
+      changeSetStore?.dispose();
+      moveChangeSetStore?.dispose();
+      ownerBindingKey?.fill(0);
+      recovery?.dispose();
+      registry?.dispose();
+      if (lifecycle.state() !== "disposed") lifecycle.markDisposed();
+    };
     return {
       dependencies,
       observation,
+      lifecycle,
       dispose() {
-        if (disposed) return;
-        disposed = true;
-        auditStore?.dispose();
-        changeSetStore?.dispose();
-        ownerBindingKey?.fill(0);
-        recovery?.dispose();
-        registry?.dispose();
+        if (disposePromise) return disposePromise;
+        lifecycle.quiesce();
+        if (lifecycle.isDrained()) {
+          disposeResources();
+          disposePromise = Promise.resolve();
+          return disposePromise;
+        }
+        disposePromise = lifecycle.drain().then(disposeResources);
+        return disposePromise;
       }
     };
   } catch (error) {
     auditStore?.dispose();
     changeSetStore?.dispose();
+    moveChangeSetStore?.dispose();
     ownerBindingKey?.fill(0);
     recovery?.dispose();
     registry?.dispose();
@@ -211,29 +277,31 @@ function composeRuntime(
   }
 }
 
-const productionDisposers = new WeakMap<McpServer, () => void>();
+const productionDisposers = new WeakMap<McpServer, () => Promise<void>>();
 
-function installRuntimeDisposal(server: McpServer, dispose: () => void): void {
+function installRuntimeDisposal(server: McpServer, runtime: RuntimeResources): void {
   const originalClose = server.close.bind(server);
-  let closed = false;
+  let closePromise: Promise<void> | null = null;
   const disposeOnce = () => {
-    if (closed) return;
-    closed = true;
+    if (closePromise) return closePromise;
+    runtime.lifecycle.quiesce();
     productionDisposers.delete(server);
-    dispose();
+    closePromise = runtime.dispose();
+    return closePromise;
   };
   productionDisposers.set(server, disposeOnce);
   server.close = async () => {
+    runtime.lifecycle.quiesce();
     try {
-      return await originalClose();
+      await originalClose();
     } finally {
-      disposeOnce();
+      await disposeOnce();
     }
   };
 }
 
-export function disposeProductionCodexProServer(server: McpServer): void {
-  productionDisposers.get(server)?.();
+export async function disposeProductionCodexProServer(server: McpServer): Promise<void> {
+  await productionDisposers.get(server)?.();
 }
 
 export async function connectProductionCodexProServer(
@@ -243,7 +311,7 @@ export async function connectProductionCodexProServer(
   try {
     await server.connect(transport);
   } catch (error) {
-    disposeProductionCodexProServer(server);
+    await disposeProductionCodexProServer(server);
     throw error;
   }
 }
@@ -256,10 +324,12 @@ export function createProductionCodexProServer(
   try {
     options.observeRuntime?.(runtime.observation);
     const server = createCodexProServer(config, runtime.dependencies);
-    installRuntimeDisposal(server, runtime.dispose);
+    upgradeCodexProSupertool(server, config.toolContractVersion);
+    installServerMutationLifecycle(server, runtime.lifecycle);
+    installRuntimeDisposal(server, runtime);
     return server;
   } catch (error) {
-    runtime.dispose();
+    void runtime.dispose();
     throw error;
   }
 }

@@ -20,6 +20,7 @@ import {
   deriveAuditRecordKey
 } from "./canonicalJson.js";
 import { AuditWriterLock } from "./lock.js";
+import { auditQueryFilterDigest } from "./queryTool.js";
 import {
   auditEnvelopeV1Schema,
   auditEventV2Schema,
@@ -782,22 +783,6 @@ export class PersistentAuditStore {
     });
   }
 
-  private queryFilterDigest(input: QueryAuditEventsInputV2, limit: number): string {
-    const sorted = <T extends string>(values: T[] | undefined): T[] | null =>
-      values ? [...values].sort() : null;
-    return createHash("sha256").update(canonicalJson({
-      startTime: input.startTime ?? null,
-      endTime: input.endTime ?? null,
-      limit,
-      eventTypes: sorted(input.eventTypes),
-      toolNames: sorted(input.toolNames),
-      requestIds: sorted(input.requestIds),
-      changeSetIds: sorted(input.changeSetIds),
-      workspaceRefs: sorted(input.workspaceRefs),
-      statuses: sorted(input.statuses)
-    }), "utf8").digest("hex");
-  }
-
   private encodeCursor(filterDigest: string, lastSequence: number): string {
     const payload = {
       version: 1,
@@ -880,7 +865,7 @@ export class PersistentAuditStore {
     ) {
       throw new AuditError("AUDIT_RANGE_INVALID", "Audit query range is invalid or exceeds seven days.");
     }
-    const filterDigest = this.queryFilterDigest(parsed, limit);
+    const filterDigest = auditQueryFilterDigest({ ...parsed, limit });
     const beforeSequence = parsed.cursor === undefined
       ? Number.POSITIVE_INFINITY
       : this.decodeCursor(parsed.cursor, filterDigest);
@@ -936,6 +921,55 @@ export class PersistentAuditStore {
         }
         throw error;
       }
+    });
+  }
+
+  async probeExecutionParticipant(changeSetId: string): Promise<"present" | "absent" | "unknown"> {
+    if (!/^cs_[a-f0-9]{32}$/.test(changeSetId)) return "unknown";
+    try {
+      const records = await this.verify();
+      return records.some((envelope) =>
+        envelope.event.eventType === "execution" &&
+        envelope.event.changeSetId === changeSetId &&
+        envelope.event.status === "succeeded"
+      ) ? "present" : "absent";
+    } catch {
+      return "unknown";
+    }
+  }
+
+  async recordTransactionRecovery(input: {
+    action: "rollback_completed" | "cleanup_completed" | "workspace_frozen";
+    transactionId: string;
+    changeSetId: string;
+    operationCount: number;
+    resultCode: string;
+    timestamp: string;
+  }): Promise<void> {
+    const eventId = `event_${createHash("sha256").update(
+      `${input.transactionId}\0${input.action}\0${input.resultCode}`,
+      "utf8"
+    ).digest("hex").slice(0, 32)}`;
+    await this.append({
+      schemaVersion: 2,
+      eventId,
+      eventType: "recovery",
+      timestamp: input.timestamp,
+      requestId: null,
+      authorizationEventId: null,
+      decisionId: null,
+      credentialRef: null,
+      transportSessionId: null,
+      toolName: null,
+      canonicalAction: "transaction_recovery",
+      workspaceId: null,
+      workspaceRef: null,
+      policyRevision: null,
+      recoveryAction: input.action,
+      transactionId: input.transactionId,
+      changeSetId: input.changeSetId,
+      operationCount: input.operationCount,
+      resultCode: input.resultCode
     });
   }
 

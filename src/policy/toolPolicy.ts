@@ -53,6 +53,8 @@ const canonicalSet = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS);
 
 export function toolPolicyDefinition(toolName: string): ToolPolicyDefinition {
   if (toolName === "undo_change_set") return UNDO_CHANGE_SET_TOOL_POLICY_V2;
+  if (toolName === "move_paths") return MOVE_PATHS_TOOL_POLICY_V2;
+  if (toolName === "query_audit_events") return AUDIT_QUERY_TOOL_POLICY_V2;
   if (!canonicalSet.has(toolName)) throw new Error("Registered tool is outside the closed Policy Kernel tool set.");
   return TOOL_POLICY_DEFINITIONS[toolName as CanonicalCodexProChildTool];
 }
@@ -63,8 +65,14 @@ export const UNDO_CHANGE_SET_TOOL_POLICY_V2 = Object.freeze({
   resourceMode: "resolved" as const
 });
 
+export const MOVE_PATHS_TOOL_POLICY_V2 = Object.freeze({
+  riskClass: "R2" as const,
+  requiredScope: "filesystem:write" as const,
+  resourceMode: "resolved" as const
+});
+
 export const AUDIT_QUERY_TOOL_POLICY_V2 = Object.freeze({
   riskClass: "R1" as const,
   requiredScope: "audit:read" as const,
-  resourceMode: "audit_query" as const
+  resourceMode: "resolved" as const
 });

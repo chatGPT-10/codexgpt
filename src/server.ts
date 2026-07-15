@@ -24,6 +24,12 @@ import {
 } from "./mutations/index.js";
 import { PatchPlanError, prepareWorkspacePatch } from "./patchOps.js";
 import { AuditError } from "./audit/types.js";
+import {
+  composePhase3DResourceResolver,
+  createPhase3DResourceResolver,
+  createPhase3DServerIntegration,
+  type Phase3DServerDependencies
+} from "./tools/phase3dServer.js";
 import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
 import {
   repoTree,
@@ -4047,7 +4053,7 @@ export interface ExportProContextProviderContext {
   output: PreparedProContextOutput;
 }
 
-export interface CodexProServerDependencies {
+export interface CodexProServerDependencies extends Phase3DServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
   readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
@@ -4137,7 +4143,7 @@ export interface CodexProServerDependencies {
   transactionRecoveryCoordinator?: TransactionRecoveryHook;
   workspaceMutationRuntime?: WorkspaceMutationRuntime;
   atomicMutationToolNames?: ReadonlySet<string>;
-  undoChangeSetService?: UndoChangeSetService;
+  undoChangeSetService?: Pick<UndoChangeSetService, "prepare" | "describeResource">;
   changeSetOwnerBindingKey?: Buffer;
   toolResourceResolver?: ToolResourceResolver;
   persistentAuditRuntime?: Required<Pick<PolicyRuntime, "persistAuthorization" | "persistExecution">>;
@@ -4936,9 +4942,9 @@ export function createCodexProServer(
     )
   });
   assertToolContractConfiguration(config, {
-    durableAuditAvailable: false,
-    stateRootAvailable: false,
-    movePathsAvailable: false
+    durableAuditAvailable: Boolean(dependencies.persistentAuditRuntime),
+    stateRootAvailable: Boolean(dependencies.workspaceMutationRuntime),
+    movePathsAvailable: Boolean(dependencies.movePathsService)
   });
   const transactionRecoveryCoordinator = config.fileTransactions === "atomic"
     ? dependencies.transactionRecoveryCoordinator ?? createDefaultTransactionRecoveryCoordinator(config)
@@ -5001,7 +5007,12 @@ export function createCodexProServer(
           sessionSource: dependencies.policySessionContextSource,
           auditSink: dependencies.policyAuditSink,
           persistentAudit: dependencies.persistentAuditRuntime,
-          resourceResolver: toolResourceResolver
+          resourceResolver: config.toolContractVersion === 2
+            ? composePhase3DResourceResolver(
+                toolResourceResolver,
+                createPhase3DResourceResolver({ workspaces, guard, dependencies })
+              )
+            : toolResourceResolver
         })
       : undefined
   );
@@ -5314,7 +5325,31 @@ export function createCodexProServer(
         context.workspace,
         { changedPaths: context.changedPaths }
       ));
+  const phase3dIntegration = createPhase3DServerIntegration({
+    config,
+    workspaces,
+    guard,
+    dependencies,
+    policyRevision: () => mutationPolicyRevision(effectivePolicyRuntime)
+  });
   registeredToolNamesByServer.set(server as object, []);
+  phase3dIntegration.registerTools((name, options, handler) => {
+    if (name === "undo_change_set") return;
+    const policyEntry = {
+      inputSchema: options.inputSchema,
+      handler: handler as CodexToolHandler
+    };
+    if (effectivePolicyRuntime) {
+      installPolicyKernel({ _registeredTools: { [name]: policyEntry } }, effectivePolicyRuntime);
+    }
+    server.registerTool(
+      name,
+      options as Parameters<typeof server.registerTool>[1],
+      policyEntry.handler as Parameters<typeof server.registerTool>[2]
+    );
+    rememberRegisteredToolHandler(server, name, policyEntry.handler as CodexToolHandler);
+    registeredToolNamesByServer.get(server as object)?.push(name);
+  });
   registerToolCardResource(server, config);
 
   registerCodexTool(

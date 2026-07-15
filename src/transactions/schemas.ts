@@ -4,6 +4,7 @@ import type {
   InstallationStateV1,
   ProcessInstanceRecordV1,
   TransactionManifestV1,
+  TransactionManifestV2,
   WorkspaceLockOwnerV1
 } from "./types.js";
 
@@ -21,6 +22,7 @@ export const installationIdSchema = z.string().regex(/^install_[a-f0-9]{32}$/);
 export const processInstanceIdSchema = z.string().regex(/^instance_[a-f0-9]{32}$/);
 export const lockTokenSchema = z.string().regex(/^lock_[a-f0-9]{32}$/);
 export const fileIdentitySchema = z.string().regex(/^fid_[a-f0-9]{24}$/);
+export const parentIdentitySchema = z.string().regex(/^parent_[a-f0-9]{24}$/);
 export const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 
 function isSafeRelativePath(value: string): boolean {
@@ -38,6 +40,11 @@ export const transactionRelativePathSchema = z.string().min(1).max(4_096).refine
   isSafeRelativePath,
   "Transaction paths must be safe workspace-relative paths."
 );
+
+export const transactionParentRelativePathSchema = z.union([
+  z.literal("."),
+  transactionRelativePathSchema
+]);
 
 const transactionArtifactPathSchema = transactionRelativePathSchema.refine((value) => {
   const basename = path.posix.basename(value.replace(/\\/g, "/"));
@@ -224,6 +231,151 @@ export const transactionManifestV1Schema = z.object({
     }
   }
 }) as z.ZodType<TransactionManifestV1>;
+
+export const fileObjectIdentityV2Schema = z.object({
+  device: z.string().regex(/^[1-9][0-9]*$/),
+  fileId: z.string().regex(/^[1-9][0-9]*$/)
+}).strict();
+
+export const moveFileVersionV2Schema = z.object({
+  sha256: sha256Schema,
+  bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  mode: z.number().int().min(0).max(0xffff),
+  atimeMs: z.number().finite().min(0),
+  mtimeMs: z.number().finite().min(0),
+  ctimeMs: z.number().finite().min(0)
+}).strict();
+
+export const moveTransactionOperationV2Schema = z.object({
+  operationId: operationIdSchema,
+  kind: z.literal("move"),
+  state: z.enum([
+    "planned",
+    "staged_link_ready",
+    "source_name_removed",
+    "destination_link_ready",
+    "installed",
+    "finalized",
+    "rolled_back"
+  ]),
+  sourceRelativePath: transactionRelativePathSchema,
+  destinationRelativePath: transactionRelativePathSchema,
+  sourceComparisonKey: transactionRelativePathSchema,
+  destinationComparisonKey: transactionRelativePathSchema,
+  sourceExistingParentRelativePath: transactionParentRelativePathSchema,
+  sourceExistingParentIdentity: parentIdentitySchema,
+  destinationExistingParentRelativePath: transactionParentRelativePathSchema,
+  destinationExistingParentIdentity: parentIdentitySchema,
+  stageRelativePath: transactionArtifactPathSchema,
+  objectIdentity: fileObjectIdentityV2Schema,
+  version: moveFileVersionV2Schema
+}).strict().superRefine((value, context) => {
+  if (value.sourceComparisonKey === value.destinationComparisonKey &&
+      value.sourceRelativePath === value.destinationRelativePath) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Move operation cannot be an exact no-op." });
+  }
+});
+
+const participantReferenceSchema = z.string().min(1).max(160).regex(/^[a-z0-9][a-z0-9._:-]*$/);
+
+export const transactionManifestV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  transactionId: transactionIdSchema,
+  changeSetId: changeSetIdSchema,
+  workspaceStateKey: workspaceStateKeySchema,
+  generation: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  createdAt: ISO_TIMESTAMP,
+  updatedAt: ISO_TIMESTAMP,
+  state: z.enum([
+    "preparing",
+    "prepared",
+    "committing",
+    "committed_pending_participants",
+    "commit_decided",
+    "committed",
+    "rolling_back",
+    "rolled_back",
+    "recovery_required"
+  ]),
+  operations: z.array(moveTransactionOperationV2Schema).min(1).max(64),
+  plannedCreatedDirectories: z.array(transactionRelativePathSchema).max(1_024),
+  createdDirectories: z.array(transactionRelativePathSchema).max(1_024),
+  createdDirectoryIdentities: z.record(transactionRelativePathSchema, fileObjectIdentityV2Schema),
+  plannedRemovedDirectories: z.array(transactionRelativePathSchema).max(1_024),
+  plannedRemovedDirectoryIdentities: z.record(transactionRelativePathSchema, fileObjectIdentityV2Schema),
+  removedDirectories: z.array(transactionRelativePathSchema).max(1_024),
+  requiredParticipants: z.array(participantNameSchema).max(32),
+  participantReferences: z.record(participantNameSchema, participantReferenceSchema),
+  participantFacts: z.record(participantNameSchema, z.enum(["pending", "committed", "failed"])),
+  failureCode: transactionErrorCodeSchema.optional(),
+  failureMessage: z.string().min(1).max(500).refine(
+    (value) => !/[\r\n\u0000-\u001f\u007f]/.test(value),
+    "Failure message must be one safe line."
+  ).optional(),
+  directorySync: z.enum(["supported", "unsupported", "failed"]).optional(),
+  manifestMac: sha256Schema
+}).strict().superRefine((value, context) => {
+  const operationIds = value.operations.map((operation) => operation.operationId);
+  const sourceKeys = value.operations.map((operation) => operation.sourceComparisonKey);
+  const destinationKeys = value.operations.map((operation) => operation.destinationComparisonKey);
+  if (new Set(operationIds).size !== operationIds.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: "Move operation IDs must be unique." });
+  }
+  if (new Set(sourceKeys).size !== sourceKeys.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: "Move sources must be unique." });
+  }
+  if (new Set(destinationKeys).size !== destinationKeys.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: "Move destinations must be unique." });
+  }
+  if (new Set(value.requiredParticipants).size !== value.requiredParticipants.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["requiredParticipants"], message: "Transaction participants must be unique." });
+  }
+  if (new Set(value.plannedCreatedDirectories).size !== value.plannedCreatedDirectories.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["plannedCreatedDirectories"], message: "Planned created directories must be unique." });
+  }
+  if (new Set(value.createdDirectories).size !== value.createdDirectories.length ||
+      value.createdDirectories.some((directory) => !value.plannedCreatedDirectories.includes(directory))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["createdDirectories"], message: "Created directories must be a unique subset of the creation plan." });
+  }
+  const createdIdentityNames = Object.keys(value.createdDirectoryIdentities);
+  if (createdIdentityNames.length !== value.createdDirectories.length ||
+      createdIdentityNames.some((directory) => !value.createdDirectories.includes(directory))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["createdDirectoryIdentities"], message: "Every created directory requires one authenticated identity." });
+  }
+  if (new Set(value.plannedRemovedDirectories).size !== value.plannedRemovedDirectories.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["plannedRemovedDirectories"], message: "Planned removed directories must be unique." });
+  }
+  const removedIdentityNames = Object.keys(value.plannedRemovedDirectoryIdentities);
+  if (removedIdentityNames.length !== value.plannedRemovedDirectories.length ||
+      removedIdentityNames.some((directory) => !value.plannedRemovedDirectories.includes(directory))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["plannedRemovedDirectoryIdentities"], message: "Every planned removed directory requires one authenticated identity." });
+  }
+  if (new Set(value.removedDirectories).size !== value.removedDirectories.length ||
+      value.removedDirectories.some((directory) => !value.plannedRemovedDirectories.includes(directory))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["removedDirectories"], message: "Removed directories must be a unique subset of the removal plan." });
+  }
+  if (value.plannedCreatedDirectories.some((directory) => value.plannedRemovedDirectories.includes(directory))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "A transaction cannot create and remove the same directory." });
+  }
+  const required = new Set(value.requiredParticipants);
+  for (const field of ["participantReferences", "participantFacts"] as const) {
+    for (const name of Object.keys(value[field])) {
+      if (!required.has(name)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: [field, name], message: "Participant state must refer to a required participant." });
+      }
+    }
+    for (const name of required) {
+      if (!(name in value[field])) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: "Every required participant needs a durable reference and fact." });
+      }
+    }
+  }
+}) as z.ZodType<TransactionManifestV2>;
+
+export const transactionManifestSchema = z.union([
+  transactionManifestV1Schema,
+  transactionManifestV2Schema
+]);
 
 export const installationStateV1Schema = z.object({
   schemaVersion: z.literal(1),

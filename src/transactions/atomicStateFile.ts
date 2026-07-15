@@ -238,9 +238,18 @@ export class TransactionManifestStore {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
       throw new TransactionError("TRANSACTION_STATE_CORRUPT", "Transaction manifest directory is unreadable.");
     }
-    return names
-      .filter((name) => /^tx_[a-f0-9]{32}\.json$/.test(name))
-      .sort()
-      .map((name) => this.atomic.read(path.join(directory, name)));
+    const manifests: TransactionManifestV1[] = [];
+    for (const name of names.filter((value) => /^tx_[a-f0-9]{32}\.json$/.test(value)).sort()) {
+      const file = path.join(directory, name);
+      let version: unknown;
+      try {
+        version = JSON.parse(fs.readFileSync(file, "utf8")).schemaVersion;
+      } catch {
+        throw new TransactionError("TRANSACTION_STATE_CORRUPT", "Transaction manifest is unreadable.");
+      }
+      if (version !== 1) continue;
+      manifests.push(this.atomic.read(file));
+    }
+    return manifests;
   }
 }

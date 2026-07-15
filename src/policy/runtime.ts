@@ -110,6 +110,7 @@ function workspaceFor(
 }
 
 function toolMayMutate(toolName: string, config: CodexProConfig): boolean {
+  if (toolName === "query_audit_events") return false;
   const mode = toolPolicyDefinition(toolName).resourceMode;
   if (mode === "shell") return config.bashMode === "full";
   return mode === "workspace_write" || mode === "exact_write" || mode === "bridge_write" || mode === "resolved";

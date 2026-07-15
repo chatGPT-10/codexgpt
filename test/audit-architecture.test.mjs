@@ -134,7 +134,7 @@ test("best-effort state-root unavailability warns while required audit fails clo
   assert.equal(required.reasonCode, "AUDIT_UNAVAILABLE");
 });
 
-test("public audit documentation describes atomic V1 activation without overclaiming V2", () => {
+test("public audit documentation describes default V1 and explicit exact V2 activation", () => {
   const configExample = fs.readFileSync(path.resolve("config.example.env"), "utf8");
   const readme = fs.readFileSync(path.resolve("README.md"), "utf8");
   const readmeZh = fs.readFileSync(path.resolve("README_ZH.md"), "utf8");
@@ -149,13 +149,22 @@ test("public audit documentation describes atomic V1 activation without overclai
     assert.match(readme, new RegExp(variable));
     assert.match(readmeZh, new RegExp(variable));
   }
+  for (const variable of [
+    "CODEXPRO_TOOL_CONTRACT_VERSION",
+    "CODEXPRO_MOVE_MAX_FILE_BYTES",
+    "CODEXPRO_MOVE_MAX_TOTAL_BYTES",
+    "CODEXPRO_MOVE_HASH_CONCURRENCY"
+  ]) {
+    assert.match(configExample, new RegExp(`^${variable}=`, "m"));
+  }
   assert.match(readme, /Writable atomic V1 requires persistent terminal audit/i);
-  assert.match(readme, /does not expose `query_audit_events` or `undo_change_set`/i);
-  assert.match(readme, /Contract V2 startup remains fail-closed/i);
-  assert.match(readmeZh, /可写 atomic V1 必须持久化终态审计/);
-  assert.match(readmeZh, /V1 不暴露 `query_audit_events` 或 `undo_change_set`/);
-  assert.match(security, /production runtime is now injected when atomic or non-legacy Policy\/audit configuration requires it/i);
-  assert.match(security, /V2 `query_audit_events` adapter remains unavailable/i);
+  assert.match(readme, /Explicit contract V2 .* requires atomic transactions and persistent audit/i);
+  assert.match(readme, /defines exactly 31 child tools/i);
+  assert.match(readmeZh, /可写 atomic 操作必须持久化终态审计/);
+  assert.match(readmeZh, /显式选择 Contract V2/);
+  assert.match(readmeZh, /精确的 31 个子工具集合/);
+  assert.match(security, /The production runtime is injected when atomic or non-legacy Policy\/audit configuration requires it/i);
+  assert.match(security, /In contract V2 full mode, `query_audit_events` is an installation-level `audit:read` operation/i);
 });
 
 test("disabled and invalid audit readiness states remain bounded and path-free", async () => {

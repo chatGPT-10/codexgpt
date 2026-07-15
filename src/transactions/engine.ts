@@ -1,7 +1,18 @@
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import fsp from "node:fs/promises";
 import type { CodexProConfig } from "../config.js";
-import type { PathGuard } from "../guard.js";
+import type { PathGuard, Workspace } from "../guard.js";
+import {
+  MoveTransactionCoordinator,
+  type MoveFilesystemOperations
+} from "../moves/engine.js";
+import type {
+  InspectedMoveBatch,
+  MoveDirectoryFact,
+  MovePathRequest,
+  MovePrepareRequest,
+  PreparedMoveTransaction
+} from "../moves/types.js";
 import { AtomicWorkspaceFs } from "./atomicFs.js";
 import { TransactionManifestStore } from "./atomicStateFile.js";
 import {
@@ -31,7 +42,7 @@ import {
 const NO_FAULTS: TransactionFaultInjector = { hit() {} };
 
 export interface TransactionRecoveryHook {
-  ensureWorkspaceReady(canonicalRoot: string): void;
+  ensureWorkspaceReady(canonicalRoot: string): void | Promise<void>;
 }
 
 export interface AtomicTransactionEngineOptions {
@@ -39,6 +50,7 @@ export interface AtomicTransactionEngineOptions {
   now?: () => number;
   faultInjector?: TransactionFaultInjector;
   recoveryCoordinator?: TransactionRecoveryHook;
+  moveFilesystem?: Partial<MoveFilesystemOperations>;
 }
 
 interface TransactionContext {
@@ -144,9 +156,11 @@ export class AtomicTransactionEngine {
   private readonly now: () => number;
   private readonly faults: TransactionFaultInjector;
   private readonly recovery?: TransactionRecoveryHook;
+  private readonly moves: MoveTransactionCoordinator;
 
   constructor(
-    private readonly config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes">,
+    private readonly config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes"> &
+      Partial<Pick<CodexProConfig, "moveMaxFileBytes" | "moveMaxTotalBytes" | "moveHashConcurrency">>,
     private readonly guard: PathGuard,
     private readonly stateRoot: string,
     registry: ProcessInstanceRegistry,
@@ -163,10 +177,40 @@ export class AtomicTransactionEngine {
     });
     const installation = loadOrCreateInstallationState({ stateRoot });
     this.masterKey = installationMasterKey(installation);
+    this.moves = new MoveTransactionCoordinator({
+      blockedGlobs: config.blockedGlobs,
+      moveMaxFileBytes: config.moveMaxFileBytes ?? 64 * 1024 * 1024,
+      moveMaxTotalBytes: config.moveMaxTotalBytes ?? 256 * 1024 * 1024,
+      moveHashConcurrency: config.moveHashConcurrency ?? 4
+    }, this.guard, stateRoot, this.masterKey, this.locks, {
+      randomBytes: this.randomBytes,
+      now: this.now,
+      faultInjector: this.faults,
+      recoveryCoordinator: this.recovery,
+      filesystem: options.moveFilesystem
+    });
   }
 
   workspaceStateKey(canonicalRoot: string): string {
     return workspaceStateKeyForRoot(canonicalRoot, this.masterKey);
+  }
+
+  previewMove(
+    workspace: Workspace,
+    moves: readonly MovePathRequest[],
+    createParents: boolean,
+    removeEmptyDirectoriesAfterInstall: readonly MoveDirectoryFact[] = []
+  ): Promise<InspectedMoveBatch> {
+    return this.moves.preview(
+      workspace,
+      moves,
+      createParents,
+      removeEmptyDirectoriesAfterInstall
+    );
+  }
+
+  prepareMove(request: MovePrepareRequest): Promise<PreparedMoveTransaction> {
+    return this.moves.prepare(request);
   }
 
   private opaqueId(prefix: "tx" | "cs"): string {
@@ -222,7 +266,7 @@ export class AtomicTransactionEngine {
 
   async prepare(request: TransactionRequestV1): Promise<PreparedTransaction> {
     this.validateRequest(request);
-    this.recovery?.ensureWorkspaceReady(request.workspace.root);
+    await this.recovery?.ensureWorkspaceReady(request.workspace.root);
     const atomicFs = new AtomicWorkspaceFs(this.config, this.guard, request.workspace);
     const inspected = await Promise.all(
       request.operations.map(async (operation) => ({

@@ -118,10 +118,16 @@ export function deriveChangeSetOwnerBinding(
   return `owner_${digest}`;
 }
 
-export interface UndoOperationSummary {
-  kind: "delete" | "restore";
-  path: string;
-}
+export type UndoOperationSummary =
+  | {
+      kind: "delete" | "restore";
+      path: string;
+    }
+  | {
+      kind: "move";
+      source: string;
+      destination: string;
+    };
 
 export interface PreparedUndoChangeSet {
   preview: boolean;

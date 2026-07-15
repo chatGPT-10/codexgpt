@@ -1,4 +1,4 @@
-import type { FileMetadataV1 } from "../transactions/types.js";
+import type { FileMetadataV1, FileObjectIdentityV2 } from "../transactions/types.js";
 
 export type ChangeSetState =
   | "active"
@@ -62,6 +62,47 @@ export interface ChangeSetManifestV1 {
 }
 
 export type ChangeSetManifestDraftV1 = Omit<ChangeSetManifestV1, "manifestMac">;
+
+export interface MoveChangeSetOperationV2 {
+  operationId: string;
+  kind: "move";
+  sourceRelativePath: string;
+  destinationRelativePath: string;
+  sourceComparisonKey: string;
+  destinationComparisonKey: string;
+  objectIdentity: FileObjectIdentityV2;
+  sha256: string;
+  bytes: number;
+}
+
+export interface MoveChangeSetManifestV2 {
+  schemaVersion: 2;
+  changeSetId: string;
+  transactionId: string;
+  workspaceStateKey: string;
+  generation: number;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+  toolName: "move_paths" | "undo_change_set";
+  requestId: string | null;
+  ownerBinding: string;
+  policyRevision: string;
+  contractVersion: 2;
+  state: ChangeSetState;
+  undoSupported: boolean;
+  undoReason: ChangeSetUndoReason | null;
+  operations: MoveChangeSetOperationV2[];
+  createdDirectories: string[];
+  createdDirectoryIdentities: Record<string, FileObjectIdentityV2>;
+  plaintextBytes: 0;
+  ciphertextBytes: 0;
+  revertsChangeSetId: string | null;
+  manifestMac: string;
+}
+
+export type MoveChangeSetManifestDraftV2 = Omit<MoveChangeSetManifestV2, "manifestMac">;
+export type ChangeSetManifest = ChangeSetManifestV1 | MoveChangeSetManifestV2;
 
 export interface ChangeSetRetentionConfig {
   maxPlaintextBytesPerChangeSet: number;

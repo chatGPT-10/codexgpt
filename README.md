@@ -164,15 +164,15 @@ Rollback during the migration cycle is limited to the reviewed `legacy` behavior
 
 ## Atomic Transactions and Persistent Audit
 
-Phase 3C connects the transaction, change-set, and persistent-audit backends to the real HTTP and STDIO server lifecycle:
+Phase 3 connects the transaction, change-set, persistent-audit, recovery, and move backends to the real HTTP and STDIO server lifecycle:
 
 - `CODEXPRO_FILE_TRANSACTIONS=legacy|atomic`; `legacy` remains the compatibility default. With `atomic`, supported workspace writers prepare one guarded transaction and never fall back to a direct write.
-- Writable atomic V1 requires persistent terminal audit. `CODEXPRO_AUDIT_MODE=off` is rejected for that configuration; audit failure rolls the visible file changes back instead of returning an unaudited success.
+- Writable atomic V1 requires persistent terminal audit, and the same requirement applies to explicit V2. `CODEXPRO_AUDIT_MODE=off` is rejected; audit or participant failure reconciles or rolls the visible file changes back instead of returning an unaudited success.
 - `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`; `auto` is the default, and `off` is also rejected with Policy `enforce`.
 - `CODEXPRO_AUDIT_RETENTION_DAYS` defaults to 30 days and `CODEXPRO_AUDIT_RETENTION_BYTES` defaults to 100 MiB for closed segments.
-- Audit and authenticated change-set state stay outside workspaces and Git. They exclude raw file contents, complete diffs, command output, credentials, and canonical workspace roots.
+- Audit, authenticated change-set, and transaction state stay outside workspaces and Git. They exclude raw file contents, complete diffs, command output, credentials, and canonical workspace roots.
 
-Contract V1 remains the exact public 28-tool surface. It can now execute supported writers through the atomic runtime when configured, but it does not expose `query_audit_events` or `undo_change_set`. Contract V2 startup remains fail-closed until Phase 3D adds `move_paths` and validates the complete exact 31-tool surface. See [SECURITY.md](SECURITY.md) for recovery, integrity, retention, owner-binding, and trust-boundary details.
+Contract V1 remains the default exact 28-tool public surface. Explicit contract V2 (`CODEXPRO_TOOL_CONTRACT_VERSION=2`) requires atomic transactions and persistent audit and defines exactly 31 child tools. Standard/full mode adds `move_paths` and `undo_change_set`; full mode also adds `query_audit_events`. Minimal and connection-test surfaces expose none of the three additions. `move_paths` is limited to 64 hash-guarded ordinary files inside one workspace and one volume, never overwrites an unrelated target, and treats preview as validation rather than a promise that the later hard-link operation will succeed. See [SECURITY.md](SECURITY.md) for recovery, integrity, retention, owner-binding, undo, and trust-boundary details.
 
 ## Workspace Sessions
 

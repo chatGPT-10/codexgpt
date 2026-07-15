@@ -246,6 +246,16 @@ export class ChangeSetStore {
     }
   }
 
+  probe(workspaceStateKey: string, changeSetId: string): "present" | "absent" | "unknown" {
+    try {
+      this.read(workspaceStateKey, changeSetId);
+      return "present";
+    } catch (error) {
+      if (error instanceof ChangeSetError && error.code === "CHANGE_SET_NOT_FOUND") return "absent";
+      return "unknown";
+    }
+  }
+
   read(workspaceStateKey: string, changeSetId: string): ChangeSetManifestV1 {
     const workspace = this.workspaceDirectory(workspaceStateKey, false);
     if (!workspace) {
@@ -254,6 +264,27 @@ export class ChangeSetStore {
     const directory = changeSetDirectoryFor(this.stateRoot, workspaceStateKey, changeSetId);
     if (!fs.existsSync(directory)) {
       throw new ChangeSetError("CHANGE_SET_NOT_FOUND", "Change set was not found.");
+    }
+    let schemaVersion: unknown;
+    try {
+      schemaVersion = JSON.parse(fs.readFileSync(
+        this.manifestPath(workspaceStateKey, changeSetId),
+        "utf8"
+      )).schemaVersion;
+    } catch {
+      throw new ChangeSetError(
+        "CHANGE_SET_INTEGRITY_FAILURE",
+        "Change-set manifest is missing or invalid."
+      );
+    }
+    if (schemaVersion === 2) {
+      throw new ChangeSetError("CHANGE_SET_NOT_FOUND", "Change set was not found.");
+    }
+    if (schemaVersion !== 1) {
+      throw new ChangeSetError(
+        "CHANGE_SET_INTEGRITY_FAILURE",
+        "Change-set manifest version is invalid."
+      );
     }
     try {
       this.assertSafeStateDirectory(directory, workspace);
@@ -280,10 +311,19 @@ export class ChangeSetStore {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
       throw new ChangeSetError("CHANGE_SET_UNAVAILABLE", "Change-set workspace index is unavailable.");
     }
-    return names
-      .filter((name) => changeSetIdSchema.safeParse(name).success)
-      .sort()
-      .map((changeSetId) => this.read(workspaceStateKey, changeSetId));
+    const manifests: ChangeSetManifestV1[] = [];
+    for (const changeSetId of names.filter((name) => changeSetIdSchema.safeParse(name).success).sort()) {
+      const manifestFile = this.manifestPath(workspaceStateKey, changeSetId);
+      let version: unknown;
+      try {
+        version = JSON.parse(fs.readFileSync(manifestFile, "utf8")).schemaVersion;
+      } catch {
+        throw new ChangeSetError("CHANGE_SET_INTEGRITY_FAILURE", "Change-set manifest is missing or invalid.");
+      }
+      if (version !== 1) continue;
+      manifests.push(this.read(workspaceStateKey, changeSetId));
+    }
+    return manifests;
   }
 
   private validateBlobInput(manifest: ChangeSetManifestV1, blob: ChangeSetBlobInput): void {

@@ -10,14 +10,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Workspace: `D:\Dev\codexpro`; branch: `main`; package: `codexpro@0.28.6`.
 - GitHub repository and `origin`: `chatGPT-10/codexgpt` over HTTPS.
 - Primary platform: native Windows; WSL remains optional.
-- Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are closed. Exact historical commit/run evidence is retained in the linked archives.
-- Phase 3C is closed. Commit `50ec99b` passed exact-head CI run `29390317879` across Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
-- Current worktree: uncommitted post-Phase-3C maintenance that restores GitHub CLI config/keyring discovery in the narrowed Windows Bash environment without inheriting `GH_TOKEN` or unrelated API variables. Obsolete CI reproduction artifacts and the detached Phase 3A reproduction worktree have been removed.
-- Phase 3D design grilling and adversarial review are complete in ignored coordination plan `.ai-bridge/current-plan.md`; implementation has not started. After maintenance publication, copy the corrected plan into the tracked Phase 3D plan before Task 1.
+- Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and Phase 3A–3C are closed. Exact historical commit/run evidence is retained in the linked archives.
+- Phase 3C commit `50ec99b` passed exact-head run `29390317879`; Gate 0 maintenance commit `77b1e9069798235d674342a2c33a234a4266b564` passed exact-head run `29402504990`, both across Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
+- Current worktree: the complete uncommitted Phase 3D implementation and adversarial-repair batch. It implements `move_paths`, authenticated Manifest/Change Set V2, parent-identity/reparse-point revalidation, participant-aware V1/V2 recovery, recoverable move undo, service-level mutation quiesce/drain, bounded audit query, Policy resource composition, and exact direct/supertool V2 registration.
+- V1 remains the compatibility default exact 28-tool public surface. Explicit V2 requires atomic transactions and persistent audit and projects exactly 31 child tools; publication and exact-head CI remain pending.
 
 ## Approved execution boundary
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Individual tasks receive local design/TDD/verification gates only; publish once at a complete phase boundary after neat-freak and the full local gate, then require exact-head CI before beginning the next phase. Gate 0 maintenance publication is approved and Phase 3D may begin only after its exact-head CI is green. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent expansion beyond the approved specifications remain excluded.
+The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Individual tasks receive local design/TDD/verification gates only. Phase 3D must be published once as one reviewed batch after neat-freak and the repeated local gate, then pass replacement exact-head Ubuntu/Windows Node 20/24 CI before Phase 3 closes or Phase 4 begins. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent expansion beyond the approved specifications remain excluded.
 
 ## Active decisions and constraints
 
@@ -35,9 +35,9 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Phase 3 is split into 3A transaction kernel, 3B persistent audit, 3C all-mutator migration plus bounded undo internals, and 3D `move_paths` plus total acceptance.
 - `CODEXPRO_FILE_TRANSACTIONS=legacy` remains the compatibility default. Selecting `atomic` routes supported workspace writers through the transaction runtime with no direct-write fallback; writable atomic V1 requires terminal persistent audit.
 - Phase 3 state stays outside workspaces and Git. The hard-link backend fails closed when unsupported and does not claim database-style cross-file instantaneous atomicity.
-- Phase 3C injects one persistent runtime per production MCP server lifecycle. Public V1 remains exactly 28 tools; query/undo V2 adapters remain non-public until Phase 3D completes the exact 31-tool surface with `move_paths`.
-- Phase 3D must repair the durable commit decision and participant-aware recovery for both existing Manifest V1 writers and new Manifest V2 moves before V2 activation. Participant-complete recovery finishes commit; participant-empty recovery rolls back; partial or unverifiable evidence is reconciled or freezes the workspace.
-- `move_paths` uses one existing transaction engine with `TransactionManifestV2` and `ChangeSetManifestV2`; existing create/replace/delete writers continue persisting V1. Source proof is handle-based with stable file-object identity and bounded streaming hashes.
+- One persistent Phase 3 runtime is injected per production MCP server lifecycle. V1 remains exactly 28 tools; explicit V2 projects exactly 31, adding `move_paths` and `undo_change_set` in standard/full mode and `query_audit_events` only in full mode. Minimal and connection-test expose none of the additions.
+- Participant-aware recovery applies to existing Manifest V1 writers and Manifest V2 moves. Participant-complete recovery finishes commit; participant-empty recovery restores before-state; partial effects are correlated and compensated while restoring before-state; unverifiable evidence freezes the workspace.
+- `move_paths` uses the existing transaction engine with `TransactionManifestV2` and `ChangeSetManifestV2`; existing create/replace/delete writers continue persisting V1. Source proof is handle-based with stable file-object identity and bounded streaming hashes.
 - `move_paths preview` performs full non-mutating policy/path/hash/same-device validation but cannot promise that a later hard-link attempt will succeed. Actual link permission is proven only inside the locked execution transaction.
 - With `inheritEnv=false`, Windows Bash preserves or derives only bounded user/configuration paths required for normal CLI and keyring discovery. Do not copy `GH_TOKEN` or arbitrary API variables into the child; `CODEXPRO_INHERIT_ENV=1` is explicit full-environment opt-in for trusted repositories only.
 - Installation identity is privately created, fully synced, and published once through a same-volume no-clobber hard link. Competing first-open processes must converge on the published state; persisted corruption fails closed.
@@ -47,35 +47,38 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Verification evidence
 
-- Phase 3C: commit `50ec99b97f7ec3e4d689b5306f0caa0f60afdc45`; run `29390317879`; all four Ubuntu/Windows Node 20/24 jobs passed Build, Regression, complete Smoke, and Package.
-- Current Bash maintenance: Bash contract 15/15; combined Bash/Doctor/Self-test/documentation gate 40/40; TypeScript Build and main Smoke passed; `git diff --check` passed; the credential-shape scan returned no matches.
+- Phase 3C: commit `50ec99b97f7ec3e4d689b5306f0caa0f60afdc45`, run `29390317879`; Gate 0: commit `77b1e9069798235d674342a2c33a234a4266b564`, run `29402504990`. Both exact heads passed all Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package jobs.
+- Current Phase 3D local gate: TypeScript Build passed; Phase 3D focused tests passed 72/72; production-runtime integration passed 12/12; complete Node discovery passed 809/810 with zero failures and one established platform skip; real child-process crash oracle plus multi-process lock coverage passed 30/30.
+- Seven Smoke sections reran fresh and passed. The unchanged protected execute-handoff section retains its earlier independent exit-0 evidence; current re-runs are environment-constrained because the normal control channel receives Windows Control-C and the artificial PowerShell-isolated run loses the fake `codex.cmd` shim, so they are not recorded as a fresh pass.
+- Native-Windows Stress passed. Package dry-run passed with 308 entries, 727229 packed bytes, and 3947149 unpacked bytes while excluding internal archives, test fixtures, and application state. Static architecture/package gates passed 17/17 and `git diff --check` passed.
 - A real `gh auth status` launched with `createBashEnvironment({ inheritEnv: false })` exited 0 for account `chatGPT-10` through the Windows keyring. The child did not inherit `GH_TOKEN`; CLI output exposed only its normal masked token display.
 
 ## Known limitations
 
 - Phase 2A has no user-facing approval issuance surface; `enforce` may return `APPROVAL_REQUIRED`, and arbitrary Shell/Process execution remains unavailable without demonstrated OS isolation.
 - Workspace lifecycle state is intentionally process-local. OAuth owner identity and lifecycle persistence remain out of scope.
-- Published Phase 3C recovery still has an unresolved participant commit-decision crash window: if all required participant effects become durable before the final committed-manifest write, current recovery policy may restore filesystem before-state. Phase 3D participant reconciliation is a closure blocker; public V2 must remain fail-closed until it passes crash-boundary tests.
-- External processes remain outside CodexPro's workspace lock. Phase 3D can reduce path-replacement TOCTOU with open-handle identity checks but cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary readers, or absolute power-loss durability when directory sync is unsupported.
+- The participant commit-decision window is repaired in the current Phase 3D worktree but remains unpublished until the complete batch passes exact-head CI; the published Gate 0 head still exposes only the Phase 3C behavior.
+- External processes remain outside CodexPro's workspace lock. Open-handle identity checks reduce path-replacement TOCTOU but cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary readers, or absolute power-loss durability when directory sync is unsupported.
 - Environment narrowing is defense in depth, not credential isolation; same-user child processes may access account-readable files and system keyrings.
 - Safe Bash timeout does not reliably terminate every Windows descendant process.
 - Protected main/HTTP Smoke compatibility depends on exact source strings; drift fails closed and requires a same-change compatibility update.
-- Public contract V2 remains unavailable until Phase 3D implements `move_paths` and validates direct/supertool/policy/inventory/self-test/Tool Card parity.
+- V2 is explicit rather than default and remains unpublished in the current worktree. Rolling configuration back to V1 hides V2 tools but must retain V2 readers and recovery.
 - Atomic `apply_patch` is bounded UTF-8 create/replace/delete only and fails closed for binary, symlink, rename/copy, and mode changes.
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
 
 ## Open items
 
-1. Publish the verified Gate 0 maintenance batch and require exact-head Ubuntu/Windows Node 20/24 CI.
-2. After that exact-head CI is green, copy the adversarially corrected `.ai-bridge/current-plan.md` into `docs/superpowers/plans/2026-07-15-phase-3d-move-paths-and-acceptance.md`, reconcile the approved Phase 3D design errata, and begin Task 1 wire-contract/native-Windows feasibility probes.
+1. Publish the complete Phase 3D batch once with the approved English commit, push `main`, and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success.
+2. Close Phase 3 and begin Phase 4 only after that exact-head CI is green.
 
 ## Recent summaries
 
-- **STEP-299 - Adversarially correct the Phase 3D plan:** identified the existing participant commit-decision crash window plus preview capability, path/handle TOCTOU, Change Set V2, lifecycle, retry, wire-contract, and platform-test gaps; expanded the ignored coordination plan to a 16-task fail-closed implementation and acceptance sequence. No implementation code changed.
-- **STEP-298 - Remove obsolete CI reproduction artifacts:** removed the clean detached Phase 3A worktree plus ignored CI checkouts, temporary Node 20 runtime, logs, HTML captures, and anonymous cookies while preserving all active `.ai-bridge` coordination files.
-- **STEP-297 - Preserve GitHub CLI keyring discovery:** derived Windows app-data/config paths from `USERPROFILE`, kept token variables excluded, updated public security guidance, and passed focused tests, Build, real `gh auth status`, and main Smoke. Publication remains pending.
-- **STEP-296 - Close Phase 3C publication:** commit `50ec99b` passed exact-head run `29390317879` across all four Ubuntu/Windows Node 20/24 matrices.
+- **STEP-302 - Repair the Phase 3D adversarial gaps and repeat acceptance:** added true syscall-boundary recovery, parent/reparse identity revalidation, recoverable original-change-set reconciliation, service-level quiesce/drain, real child-process crash oracles, Windows retry/EXDEV/junction/multi-process coverage, exact V1 wire fingerprints, and the refreshed 809/810 regression plus 308-entry package evidence.
+- **STEP-301 - Close the neat-freak follow-up gate:** reconciled the remaining V2 documentation test and the then-current pre-adversarial local gate; STEP-302 supersedes its verification counts and acceptance status.
+- **STEP-300 - Complete Phase 3D locally and reconcile the knowledge base:** implemented the exact 31-tool V2 move/recovery/undo/query surface while preserving default V1, passed the native-Windows local gate, and aligned configuration, public docs, security guidance, plans, rules, memory, and archive state.
+- **STEP-299 - Adversarially correct the Phase 3D plan:** identified the participant commit-decision crash window plus preview, path/handle, Change Set V2, lifecycle, retry, wire-contract, and platform-test gaps; expanded the plan to a 16-task fail-closed sequence.
+- **STEP-298 - Remove obsolete CI reproduction artifacts:** removed the clean detached Phase 3A worktree plus ignored CI checkouts, temporary runtime, logs, captures, and anonymous cookies while preserving active bridge coordination files.
 
 ## Archives
 
