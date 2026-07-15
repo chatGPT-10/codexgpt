@@ -392,6 +392,8 @@ CodexPro 是本地开发桥，不是操作系统级沙箱。
 - 常见敏感路径会被拒绝：`.env`、私钥、`.git`、`node_modules`、生成目录、缓存目录。
 - symlink 逃逸会被阻止。
 - safe bash 只允许常见检查、搜索、git、lint、test、typecheck、build 等命令。
+- Bash 默认使用收窄后的子进程环境，不复制任意宿主变量。Windows 下会从 `USERPROFILE` 派生 `APPDATA`、`LOCALAPPDATA` 和 `GH_CONFIG_DIR`，让 GitHub CLI 等工具复用配置和系统 keyring，但不会复制 `GH_TOKEN` 或无关 API 变量。
+- `CODEXPRO_INHERIT_ENV=1` 会改为继承完整宿主环境，只应在受信任的本地仓库中使用。
 - `codexpro start --no-bash` 会完全关闭 ChatGPT 可调用的 bash 工具。
 - `execute-handoff` 和 `watch-handoff` 是本地 CLI 命令，不是远程 MCP 工具。
 

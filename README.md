@@ -188,6 +188,8 @@ For one compatibility cycle, tools that omit `workspace_id` still resolve only t
 - The supported public CLI defaults to the personal ChatGPT query-token compatibility flow; set `CODEXPRO_ALLOW_QUERY_TOKEN=0` only for advanced compatible clients that can send Bearer headers.
 - Generic writes are hidden unless `CODEXPRO_WRITE_MODE=workspace`.
 - Safe bash blocks broad shell patterns and secret/build/cache paths.
+- By default, Bash receives a narrow child environment rather than arbitrary parent variables. On Windows, CodexPro derives `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, and `GH_CONFIG_DIR` so tools such as GitHub CLI can reuse their config and OS keyring, while `GH_TOKEN` and unrelated API variables are not copied.
+- `CODEXPRO_INHERIT_ENV=1` opts into the full parent environment and should be used only for trusted local repositories.
 - `apply_patch` is workspace-scoped and rejects blocked paths, symlink patches, and secret-looking patch content.
 - `show_changes` keeps a review checkpoint so repeated unchanged reviews collapse.
 - Tool-card metadata is off unless `CODEXPRO_TOOL_CARDS=1`.

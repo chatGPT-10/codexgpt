@@ -465,9 +465,9 @@ Also run Node 20 focused concurrency/crash loops, static mutation/reserved-artif
 
 Reconcile code, both READMEs, security, changelog, configuration, AGENTS, master plan, Memory, archive, relative links, archive-volume size, stale claims, naming, and rollback. State explicitly: writable atomic V1 is active; V2 internals exist; V2 public startup remains unavailable until Phase 3D supplies `move_paths`.
 
-- [ ] **Step 3: Publish and require exact-head CI**
+- [x] **Step 3: Publish and require exact-head CI**
 
-Stage the complete reviewed Phase 3C batch, commit `feat: enable audited atomic workspace mutations`, push `main`, and require all Ubuntu/Windows Node 20/24 jobs to pass Build, Regression, Smoke, and Package before beginning Phase 3D.
+Published the complete reviewed Phase 3C batch as commit `50ec99b` (`feat: enable audited atomic workspace mutations`). Exact-head run `29390317879` passed Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
 
 - [ ] **Step 4: Write the Phase 3D TDD plan**
 

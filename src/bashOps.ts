@@ -173,20 +173,51 @@ function assertBashSession(config: CodexProConfig, sessionId?: string): string |
   return config.bashSessionId;
 }
 
-function makeEnv(config: CodexProConfig): NodeJS.ProcessEnv {
+export function createBashEnvironment(
+  config: CodexProConfig,
+  hostEnv: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
+): NodeJS.ProcessEnv {
   if (config.inheritEnv) {
-    return { ...process.env, NO_COLOR: "1", CI: process.env.CI ?? "1" };
+    return { ...hostEnv, NO_COLOR: "1", CI: hostEnv.CI ?? "1" };
   }
-  return {
-    PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
-    HOME: process.env.HOME ?? "",
-    USER: process.env.USER ?? "",
-    SHELL: process.env.SHELL ?? "/bin/bash",
-    TMPDIR: process.env.TMPDIR ?? "/tmp",
+  const env: NodeJS.ProcessEnv = {
+    PATH: hostEnv.PATH ?? "/usr/local/bin:/usr/bin:/bin",
+    HOME: hostEnv.HOME ?? hostEnv.USERPROFILE ?? "",
+    USER: hostEnv.USER ?? "",
+    SHELL: hostEnv.SHELL ?? "/bin/bash",
+    TMPDIR: hostEnv.TMPDIR ?? "/tmp",
     TERM: "dumb",
     NO_COLOR: "1",
     CI: "1"
   };
+
+  if (platform === "win32") {
+    const userProfile = hostEnv.USERPROFILE?.trim() ? hostEnv.USERPROFILE : undefined;
+    const appData = hostEnv.APPDATA?.trim()
+      ? hostEnv.APPDATA
+      : userProfile
+        ? path.win32.join(userProfile, "AppData", "Roaming")
+        : undefined;
+    const localAppData = hostEnv.LOCALAPPDATA?.trim()
+      ? hostEnv.LOCALAPPDATA
+      : userProfile
+        ? path.win32.join(userProfile, "AppData", "Local")
+        : undefined;
+
+    if (userProfile) env.USERPROFILE = userProfile;
+    if (appData) {
+      env.APPDATA = appData;
+      env.GH_CONFIG_DIR = hostEnv.GH_CONFIG_DIR?.trim()
+        ? hostEnv.GH_CONFIG_DIR
+        : path.win32.join(appData, "GitHub CLI");
+    } else if (hostEnv.GH_CONFIG_DIR?.trim()) {
+      env.GH_CONFIG_DIR = hostEnv.GH_CONFIG_DIR;
+    }
+    if (localAppData) env.LOCALAPPDATA = localAppData;
+  }
+
+  return env;
 }
 
 function bashExecutable(): string {
@@ -250,7 +281,7 @@ export async function runBash(
   return new Promise((resolve, reject) => {
     const child = spawn(bashExecutable(), ["-lc", command], {
       cwd,
-      env: makeEnv(config),
+      env: createBashEnvironment(config),
       stdio: ["ignore", "pipe", "pipe"]
     });
 

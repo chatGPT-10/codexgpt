@@ -8,6 +8,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
 const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createBashEnvironment } = await tsImport("../src/bashOps.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   BASH_ERROR_MESSAGES,
@@ -90,6 +91,68 @@ const failureCases = [
     message: "The Bash request failed because of an internal error."
   }
 ];
+
+test("isolated Windows Bash inherits only the GitHub CLI host paths", () => {
+  const hostEnv = {
+    PATH: "C:\\Windows\\System32",
+    USERPROFILE: "C:\\Users\\Noah",
+    APPDATA: "C:\\Users\\Noah\\AppData\\Roaming",
+    LOCALAPPDATA: "C:\\Users\\Noah\\AppData\\Local",
+    GH_CONFIG_DIR: "D:\\GitHub CLI",
+    GH_TOKEN: "must-not-leak",
+    PRIVATE_API_KEY: "must-not-leak"
+  };
+
+  const env = createBashEnvironment({ inheritEnv: false }, hostEnv, "win32");
+
+  assert.equal(env.PATH, hostEnv.PATH);
+  assert.equal(env.HOME, hostEnv.USERPROFILE);
+  assert.equal(env.USERPROFILE, hostEnv.USERPROFILE);
+  assert.equal(env.APPDATA, hostEnv.APPDATA);
+  assert.equal(env.LOCALAPPDATA, hostEnv.LOCALAPPDATA);
+  assert.equal(env.GH_CONFIG_DIR, hostEnv.GH_CONFIG_DIR);
+  assert.equal(env.GH_TOKEN, undefined);
+  assert.equal(env.PRIVATE_API_KEY, undefined);
+  assert.equal(env.CI, "1");
+  assert.equal(env.NO_COLOR, "1");
+});
+
+test("isolated Windows Bash derives the default GitHub CLI config directory", () => {
+  const hostEnv = {
+    APPDATA: "C:\\Users\\Noah\\AppData\\Roaming",
+    GH_TOKEN: "must-not-leak"
+  };
+
+  const windowsEnv = createBashEnvironment({ inheritEnv: false }, hostEnv, "win32");
+  const linuxEnv = createBashEnvironment({ inheritEnv: false }, hostEnv, "linux");
+
+  assert.equal(
+    windowsEnv.GH_CONFIG_DIR,
+    "C:\\Users\\Noah\\AppData\\Roaming\\GitHub CLI"
+  );
+  assert.equal(windowsEnv.APPDATA, hostEnv.APPDATA);
+  assert.equal(windowsEnv.GH_TOKEN, undefined);
+  assert.equal(linuxEnv.APPDATA, undefined);
+  assert.equal(linuxEnv.GH_CONFIG_DIR, undefined);
+});
+
+test("isolated Windows Bash derives standard app-data paths from USERPROFILE", () => {
+  const hostEnv = {
+    USERPROFILE: "C:\\Users\\Noah",
+    GH_TOKEN: "must-not-leak"
+  };
+
+  const env = createBashEnvironment({ inheritEnv: false }, hostEnv, "win32");
+
+  assert.equal(env.HOME, hostEnv.USERPROFILE);
+  assert.equal(env.APPDATA, "C:\\Users\\Noah\\AppData\\Roaming");
+  assert.equal(env.LOCALAPPDATA, "C:\\Users\\Noah\\AppData\\Local");
+  assert.equal(
+    env.GH_CONFIG_DIR,
+    "C:\\Users\\Noah\\AppData\\Roaming\\GitHub CLI"
+  );
+  assert.equal(env.GH_TOKEN, undefined);
+});
 
 test("bash success constructor produces the strict schema-v1 envelope", () => {
   const result = createBashSuccess(sampleBashData(), 7);

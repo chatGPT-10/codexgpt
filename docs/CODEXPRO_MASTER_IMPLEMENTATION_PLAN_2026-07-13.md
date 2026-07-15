@@ -5,9 +5,9 @@
 > 状态：当前权威实施路线  
 > 工作区：`D:\Dev\codexpro`  
 > 基线版本：`codexpro@0.28.6`  
-> 当前阶段：Phase 3C Tasks 8–9 已在同一未发布工作树中本地完成；Task 10 阶段验收与文档对账进行中
+> 当前阶段：Phase 3C 已由 commit `50ec99b` 发布并通过 exact-head run `29390317879` 的 Ubuntu/Windows Node 20/24 四矩阵；Phase 3D 设计 grilling 与对抗性审查已在 `.ai-bridge/current-plan.md` 完成，当前仍先完成并独立发布 Windows Bash/GitHub CLI 配置发现维护
 >
-> 下一门禁：完成 Phase 3C 全量本地验收与 neat-freak，一次性发布该 Phase，并要求精确头四矩阵 CI 全绿后再进入 Phase 3D
+> 下一门禁：维护批次 exact-head CI 通过并重启 CodexPro 后，将已审查计划提升为 tracked Phase 3D TDD 计划，修正规格勘误，并执行 V1 wire-contract 冻结、原生 Windows 可行性与 participant-aware recovery 基线门
 >
 > 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 
@@ -1437,4 +1437,4 @@ Phase 1 Slice 28 codexpro
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1、Policy Kernel、Phase 2A、Phase 2B、Phase 3A 和 Phase 3B 已正式关闭。Phase 3C Task 1–7 已分段发布并通过各自精确头 CI，Task 7 commit `b9864e4` 的 run `29384188481` 覆盖 Ubuntu/Windows Node 20/24 四矩阵。Tasks 8–9 已在同一未发布工作树中完成 owner-bound undo、Policy batch resource、完整 reverse preflight、生产 runtime composition、HTTP/STDIO 生命周期接线和 writable atomic V1 激活；V1 保持精确 28 工具契约，V2 仍因缺少 `move_paths` 失败关闭。按用户 2026-07-15 指令，Task 级只运行本地门，不再逐 Task 提交、推送或触发 CI；完整 Phase 通过本地验收和 neat-freak 后一次性发布并要求精确头 CI。按 2026-07-14 扩展授权，采用推荐选项连续推进至 Phase 8。Phase 9、生产部署、真实凭据操作、破坏性数据/历史操作和规格外扩权仍未授权。
+Phase 1、Policy Kernel、Phase 2A、Phase 2B、Phase 3A、Phase 3B 和 Phase 3C 已正式关闭。Phase 3C commit `50ec99b` 激活了 owner-bound undo 内部能力、生产 runtime composition、HTTP/STDIO 生命周期接线和 writable atomic V1，并通过 exact-head run `29390317879` 的 Ubuntu/Windows Node 20/24 Build、Regression、完整 Smoke 和 Package；V1 保持精确 28 工具契约，V2 仍失败关闭。Phase 3D 设计 grilling 与对抗性审查已完成：除 `move_paths` 外，V2 激活前必须修复当前 `committed_pending_participants` 的 participant commit-decision 崩溃窗口，加入 handle-based 文件身份、Transaction/Change Set V2、真实 MCP wire-contract 冻结以及生命周期与平台强制门。当前仍先独立完成并发布收窄环境的 Windows Bash/GitHub CLI 配置发现维护批次：允许配置与系统 keyring 发现，但不继承 `GH_TOKEN` 或任意 API 变量；其 exact-head CI 通过并重启 CodexPro 后，才把已审查协调计划提升为 tracked Phase 3D 计划并执行 Task 1。按用户 2026-07-15 指令，Task 级只运行本地门，不逐 Task 提交、推送或触发 CI；完整 Phase 通过本地验收和 neat-freak 后一次性发布并要求精确头 CI。按 2026-07-14 扩展授权，采用推荐选项连续推进至 Phase 8。Phase 9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。

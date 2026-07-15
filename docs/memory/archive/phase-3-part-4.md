@@ -89,3 +89,91 @@ This append-only volume continues active Phase 3 implementation records after cl
 **Rollback method:** Before publication, restore the complete Task 8–10 file set from `HEAD`. After publication, revert the single Phase 3C commit with a new commit; never delete persisted installation, transaction, audit, change-set, or recovery evidence.
 
 **Next step:** Run the final fresh complete regression, stage the reviewed Phase 3C batch, commit `feat: enable audited atomic workspace mutations`, push `main`, and require exact-head Ubuntu/Windows Node 20/24 CI before any Phase 3D work.
+
+## STEP-296 - Close Phase 3C publication
+
+**Status:** Complete and published.
+
+**Goal:** Replace the final pre-publication state with exact commit and CI evidence before any Phase 3D work begins.
+
+**Files changed:** `AGENTS.md`; `Memory.md`; the master implementation plan; the Phase 3C plan; this archive.
+
+**Implementation summary:** Published the complete Tasks 8–10 batch as commit `50ec99b` (`feat: enable audited atomic workspace mutations`). The commit contains owner-bound undo internals, production runtime composition, writable atomic V1, lifecycle/resource cleanup, Windows Smoke state isolation, public documentation, and exact tests. No Task 8 or Task 9 publication or remote CI was performed separately.
+
+**Verification commands:** Public GitHub REST queries for commit `50ec99b97f7ec3e4d689b5306f0caa0f60afdc45`, workflow run `29390317879`, and its jobs; final local `show_changes` after push.
+
+**Verification results:** Exact-head run `29390317879` concluded `success`. Ubuntu Node 20/24 and Windows Node 20/24 all completed Build, Regression, complete Smoke, and Package successfully. Local `main` matched `origin/main` and the worktree was clean after publication.
+
+**Decisions made:** Phase 3C is formally closed. Keep V1 at the exact 28-tool public surface and keep V2 startup fail-closed until Phase 3D supplies `move_paths` and validates the coherent exact 31-tool snapshot.
+
+**Risks or limitations:** This closure does not activate public V2 query or undo tools. The atomic backend remains subject to the documented same-volume filesystem and external-process limitations.
+
+**Rollback method:** Revert commit `50ec99b` with a new commit if the whole Phase 3C batch must be withdrawn. Never delete persisted installation, transaction, audit, change-set, or recovery evidence.
+
+**Next step:** Resolve the Windows isolated-Bash GitHub CLI configuration-discovery maintenance without inheriting token variables, then write the Phase 3D TDD plan.
+
+## STEP-297 - Preserve GitHub CLI keyring discovery in isolated Windows Bash
+
+**Status:** Complete locally; publication approved under Gate 0.
+
+**Goal:** Let `gh` reuse its normal Windows configuration and OS keyring when `inheritEnv=false`, while continuing to exclude `GH_TOKEN` and unrelated parent credentials from Bash child processes.
+
+**Files changed:** `src/bashOps.ts`; `test/bash-contract.test.mjs`; `README.md`; `README_ZH.md`; `SECURITY.md`; `config.example.env`; `CHANGELOG.md`; `AGENTS.md`; `Memory.md`; the master implementation plan; this archive.
+
+**Implementation summary:** Extracted `createBashEnvironment` as a testable boundary. The narrowed Windows environment preserves explicit `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, and `GH_CONFIG_DIR`; when the app-data variables are absent, it derives the standard roaming/local paths from `USERPROFILE` and derives the default GitHub CLI config directory. Arbitrary parent variables, `GH_TOKEN`, and unrelated API credentials remain excluded. Documentation now distinguishes this defense-in-depth narrowing from OS-level credential isolation and warns that `CODEXPRO_INHERIT_ENV=1` exposes the complete parent environment.
+
+**Verification commands:** `node --test test/bash-contract.test.mjs`; `npm run build`; a real `gh auth status` child launched with `createBashEnvironment({ inheritEnv: false })`; `node --test test/bash-contract.test.mjs test/doctor-shell.test.mjs test/codexpro-self-test-contract.test.mjs test/auth-documentation.test.mjs`; `node scripts/smoke-platform-compat.mjs`; `git diff --check`; exact intended-file review.
+
+**Verification results:** Bash contract tests passed 15/15. Build passed. The real narrowed child returned `gh auth status` exit 0 for account `chatGPT-10` using the Windows keyring; output contained only GitHub CLI's masked token display, and the child environment did not inherit `GH_TOKEN`. The combined Bash/Doctor/Self-test/documentation gate passed 40/40. Main Smoke passed. `git diff --check` passed with only expected Windows LF-to-CRLF warnings; the final credential-shape scan returned no matches; exact review confirmed only the intended maintenance, tests, documentation, and memory files changed.
+
+**Decisions made:** Solve CLI discovery through bounded path compatibility, never by copying token variables. Keep full environment inheritance explicit and opt-in only.
+
+**Risks or limitations:** Environment narrowing is not an OS sandbox; a same-user child may still access account-readable files and system keyrings. The currently running CodexPro process must be restarted after publication to load the new runtime code.
+
+**Rollback method:** Restore the listed STEP-297 files from commit `50ec99b` before publication, or revert the later maintenance commit with a new commit. Do not modify the user's GitHub CLI configuration or keyring.
+
+**Next step:** Publish this maintenance batch under Gate 0, require exact-head CI, restart CodexPro, then promote and execute the reviewed Phase 3D TDD plan.
+
+## STEP-298 - Remove obsolete CI reproduction artifacts
+
+**Status:** Complete locally.
+
+**Goal:** Remove explicitly approved, ignored CI reproduction checkouts, temporary runtimes, logs, HTML captures, and anonymous cookies without touching active bridge handoff state or the current uncommitted maintenance batch.
+
+**Files changed:** `Memory.md`; this archive. Deleted ignored paths: `.ai-bridge/ci-repro/`; `.ai-bridge/node20/`; `.ai-bridge/node20.zip`; `.ai-bridge/ci-job.html`; `.ai-bridge/node20-test.log`; `.ai-bridge/win20-job.html`; `.ai-bridge/win20-regression.log`; `.ai-bridge/github-anon.cookies`; `.ai-bridge/audit-lock-repro-*.log`; `.worktrees/ci-phase3a-repro/`; the now-empty `.worktrees/` directory.
+
+**Implementation summary:** Confirmed the Phase 3A reproduction worktree was a clean detached checkout at `c5b0226`, removed it through `git worktree remove`, and then deleted only the enumerated CI reproduction artifacts. Preserved all normal `.ai-bridge` coordination files, including current plan/status, decisions, execution/session logs, implementation diff, self-test, open questions, Pro context, and bridge README.
+
+**Verification commands:** `git worktree list --porcelain`; bounded `.ai-bridge` and `.worktrees` trees before deletion; alternate-worktree open/status check; `git worktree remove .worktrees/ci-phase3a-repro`; bounded post-delete trees; root workspace reopen/status check.
+
+**Verification results:** Git now lists only `D:/Dev/codexpro` on branch `main`. `.ai-bridge/` contains exactly eleven normal bridge files and no CI reproduction artifacts. `.worktrees/` was empty after worktree removal and was deleted. The original twelve unstaged maintenance files remain the only Git-visible changes; no source, test, documentation, branch, commit, or user credential state was altered by the cleanup itself.
+
+**Decisions made:** Treat CI reproduction directories, downloaded runtimes, captured workflow pages, logs, and anonymous cookies as disposable ignored diagnostics after their issue is closed. Preserve active `.ai-bridge` handoff and session state unless separately approved.
+
+**Risks or limitations:** Deleted diagnostic artifacts cannot be inspected locally again; they can be recreated from Git history, GitHub Actions, and fresh reproduction commands if needed. No tracked source history was removed.
+
+**Rollback method:** Recreate a detached worktree from commit `c5b0226` and rerun the relevant CI reproduction/download commands. Do not restore stale anonymous cookies.
+
+**Next step:** Publish the verified maintenance batch under Gate 0 and require exact-head CI before starting Phase 3D.
+
+## STEP-299 - Adversarially correct the Phase 3D implementation plan
+
+**Status:** Complete as design and planning work; implementation has not started.
+
+**Goal:** Attack the approved Phase 3D `move_paths` plan from transaction consistency, crash recovery, filesystem identity, contract, lifecycle, platform, and rollback perspectives; correct any design claims or sequencing gaps before tracked implementation begins.
+
+**Files changed:** `.ai-bridge/current-plan.md` (ignored coordination plan); `AGENTS.md`; `Memory.md`; `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`; this archive. Source and test implementation files changed: none.
+
+**Implementation summary:** Replaced the initial 13-task plan with a corrected Gate 0 plus 16-task fail-closed sequence. The review found that current Manifest V1 recovery maps `committed_pending_participants` to rollback even when audit and change-set participant effects may already be durable, creating a participant-complete crash window between participant persistence and the final committed-manifest transition. The corrected plan makes durable commit decision and participant-aware reconciliation a Phase 3 closure blocker for both existing V1 writers and new V2 moves. It also separates non-mutating preview eligibility from execution-time hard-link proof; replaces path-only `lstat`/`readFile` reasoning with open-handle stable object identity and streamed hash checks; introduces `ChangeSetManifestV2` alongside `TransactionManifestV2`; narrows atomicity claims to process-crash recovery, no-clobber mapping, and complete bytes; defines cancellation, disconnect, shutdown, workspace-close, and Windows state-aware retry behavior; freezes the actual MCP V1 wire contract before refactoring; and makes native Windows and Ubuntu invariants mandatory rather than broadly skippable. V1 remains the default exact 28-tool public contract, and V2 remains fail-closed until the coherent exact 31-tool wire surface and total Phase 3 acceptance pass.
+
+**Verification commands:** CodexPro targeted `read` and `search` inspection of `.ai-bridge/current-plan.md`, `src/transactions/engine.ts`, `src/transactions/recovery.ts`, `src/transactions/atomicFs.ts`, `src/transactions/atomicStateFile.ts`, `src/mutations/runtime.ts`, `src/changesets/undo.ts`, `src/audit/store.ts`, `src/policy/resources.ts`, `src/server.ts`, `src/codexproSupertool.ts`, and self-test schemas; searches for `committed_pending_participants`, file identity construction, Manifest/Change Set version fields, reserved artifacts, audit-query cursors, and stale Phase 3D next-action wording; post-rewrite plan reads and key-term searches; `AGENTS.md`, root `Memory.md`, master-plan authority header/next-action, and active archive size/state review; final `show_changes` scope review.
+
+**Verification results:** The participant recovery mismatch was confirmed in current code and tests: `committed_pending_participants` is currently classified as `restore_before_state`, while participant effects are persisted before the final committed transition. Current file identity construction includes mutable size/mtime facts, move recovery and undo still use whole-file reads, Change Set V1 lacks an authenticated created-directory list, the supertool and self-test retain V1-specific tool-set limits, and the initial plan overclaimed preview hard-link proof. The corrected coordination plan is 570 lines and contains explicit tasks and final acceptance invariants for every finding. `Memory.md` remains below its 150-line/18-KB practical limit. No implementation test or build was run because no runtime source changed.
+
+**Decisions made:** Publish the current Bash/keyring maintenance separately and require exact-head CI before creating the tracked Phase 3D plan. Phase 3D Task 1 freezes the actual V1 MCP wire contract and proves native Windows feasibility before refactoring. Existing create/replace/delete writers continue persisting Manifest/Change Set V1; move and move undo use V2 formats. Participant-complete recovery must finish commit, participant-empty recovery must roll back, partial effects must be reconciled with correlated evidence, and unverifiable state must freeze the workspace. Preview never promises future link success. Task-level work remains local and unpublished; Phase 3 publishes once after the complete local gate and neat-freak reconciliation.
+
+**Risks or limitations:** The discovered participant commit-decision window exists in the currently published Phase 3C implementation and must be repaired before public V2 activation. This planning step does not change runtime behavior. The corrected move design still cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary external readers during an in-progress batch, guaranteed progress under external Windows contention, or absolute sudden-power-loss durability where directory sync is unsupported.
+
+**Rollback method:** Restore only `.ai-bridge/current-plan.md`, `Memory.md`, and this appended archive entry to their prior planning state if the review conclusions are rejected. Do not alter published Phase 3C code, persisted transaction/audit/change-set evidence, Git history, or the current STEP-297 maintenance batch. Because the archive is append-only after publication, correct this entry later through a new correction entry rather than rewriting it.
+
+**Next step:** Publish the independently verified maintenance batch under Gate 0. After exact-head CI is green and the running CodexPro process is restarted, copy the corrected coordination plan to `docs/superpowers/plans/2026-07-15-phase-3d-move-paths-and-acceptance.md`, reconcile the approved Phase 3D design errata, and execute Task 1 wire-contract and native-Windows feasibility probes.

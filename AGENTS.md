@@ -122,6 +122,8 @@ Memory rules:
 - Doctor must report an unavailable required Bash backend before a Bash tool call fails.
 - A saved profile with `bash: off` must not require Bash.
 - `doctor --no-profile` must skip every saved-profile read and validation.
+- With `inheritEnv=false`, keep arbitrary parent variables and tokens out of Bash. On Windows, preserve or derive only the bounded user/configuration paths needed for normal CLI and OS-keyring discovery; never solve CLI authentication by copying `GH_TOKEN` into the child environment.
+- `CODEXPRO_INHERIT_ENV=1` exposes the complete parent environment and is restricted to trusted local repositories.
 - Full Bash is for trusted local repositories only.
 
 ### 5.5 External references
@@ -169,7 +171,7 @@ Memory rules:
 - `docs/memory/archive/phase-3-part-2.md` — closed Phase 3 Volume 2 covering STEP-278 through STEP-285.
 - `docs/memory/archive/phase-3-part-3.md` — closed Phase 3 Volume 3 covering STEP-286 through STEP-291.
 - `docs/memory/archive/phase-3-part-4.md` — active Phase 3 Volume 4 beginning with STEP-292.
-- Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published. Phase 3C Task 7 is published through exact-head run `29384188481`; Tasks 8–9 are locally complete in one unpublished phase batch, and Task 10 acceptance is active.
+- Phase 1, Phase 2A, Phase 2B, Phase 3A, Phase 3B, and Phase 3C are published. Phase 3C commit `50ec99b` passed exact-head run `29390317879` across Ubuntu/Windows Node 20/24; Phase 3D is next.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -209,6 +211,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published and closed. Phase 3C Task 7 commit `b9864e4` passed exact-head run `29384188481` across Ubuntu/Windows Node 20/24. Tasks 8–9 are locally complete in one unpublished worktree: owner-bound undo, Policy batch resources, complete reverse preflight, production runtime composition, HTTP/STDIO lifecycle wiring, and writable atomic V1 are implemented. Task 10 complete local acceptance and reconciliation is the current approved work. Contract V1 remains the exact 28-tool public surface; contract V2 startup stays fail-closed until Phase 3D supplies `move_paths` and the coherent exact 31-tool snapshot.
+Phase 1 through Phase 3C are published and closed. Phase 3C commit `50ec99b` passed exact-head run `29390317879` across Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package. V1 remains the exact 28-tool public surface; V2 stays fail-closed until Phase 3D adds `move_paths`, repairs participant-aware recovery, and validates the exact 31-tool wire contract. Current maintenance preserves Windows GitHub CLI config/keyring discovery in narrowed Bash without inheriting `GH_TOKEN`. The adversarially reviewed Phase 3D plan is in `.ai-bridge/current-plan.md`; after maintenance exact-head CI is green, promote it to the tracked plan and run Task 1 wire-contract/native-Windows feasibility probes.
 
-The user explicitly authorized continuous implementation through Phase 8 using the recommended options and authorized scoped staging, English commits, and pushes after each verified phase. Individual Tasks receive local design/TDD/verification gates only; do not commit, push, or run remote CI after each Task. Publish once at the complete phase boundary after neat-freak and the full local gate, then require exact-head CI before beginning the next phase. A failed gate must be fixed rather than bypassed. This authorization covers repository implementation and reversible fixture-based validation. It does not authorize destructive user-data or Git-history operations, production deployment, disclosure of credentials, or silent expansion beyond the phase specifications. Use `Memory.md` for the current head/evidence, the master plan for sequencing, and `docs/memory/archive/phase-3-part-4.md` for active Phase 3 records.
+The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Tasks receive local design/TDD/verification gates only; publish once at the complete phase boundary after neat-freak and the full local gate, then require exact-head CI before beginning the next phase. Failed gates must be fixed rather than bypassed. This excludes destructive user-data or Git-history operations, production deployment, credential disclosure, and silent scope expansion. Use `Memory.md` for current evidence, the master plan for sequencing, and `docs/memory/archive/phase-3-part-4.md` for active Phase 3 records.

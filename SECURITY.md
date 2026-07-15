@@ -105,6 +105,8 @@ The following distinctions are security requirements:
 - A query-token or Bearer token is a shared-secret identity, not proof of a human owner.
 - Runtime profiles do not contain permission rules; strict Permission Profile V1 documents live under `~/.codexpro/permissions/`.
 - Safe Bash is not an OS sandbox.
+- With `CODEXPRO_INHERIT_ENV` unset, Bash excludes arbitrary parent variables and token variables. On Windows it supplies only the bounded user/configuration paths needed for normal CLI discovery, including GitHub CLI configuration and OS-keyring access. `CODEXPRO_INHERIT_ENV=1` disables that narrowing and exposes the complete parent environment to the child process.
+- Environment narrowing is defense in depth, not filesystem or credential isolation: a same-user process may still access files and operating-system services allowed to that account.
 - A Windows Job Object, when later available, would establish only tested process-tree controls, not filesystem, registry, credential, or network isolation.
 - Cloudflare Tunnel is inbound transport infrastructure and does not enforce local policy or outbound egress.
 - Missing or partial enforcement capabilities produce stable fail-closed errors rather than current-user execution.
