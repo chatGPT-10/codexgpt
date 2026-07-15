@@ -211,18 +211,18 @@ const REVIEWED_ALLOWLIST = Object.freeze({
   "src/moves/engine.ts": Object.freeze({
     purpose: "Atomic same-volume move staging, installation, bounded backend retry, rollback, and cleanup inside authorized workspaces.",
     occurrences: Object.freeze([
-      "644:15:mkdir:c34693a030c4",
-      "691:15:link:e658cd7588fe",
-      "725:15:unlink:01b2b4b052ca",
-      "766:15:link:e3266b53bae4",
-      "797:15:unlink:9ae293a598dc",
-      "842:15:rmdir:f7455b6f1fd7",
-      "909:13:link:759d678d36b8",
-      "923:15:unlink:0df109c8d786",
-      "946:15:link:e13c597bfcfe",
-      "961:13:unlink:9ae293a598dc",
-      "991:17:rmdir:f7455b6f1fd7",
-      "1118:17:unlink:9ae293a598dc"
+      "661:15:mkdir:c34693a030c4",
+      "708:15:link:e658cd7588fe",
+      "746:17:unlink:01b2b4b052ca",
+      "793:15:link:e3266b53bae4",
+      "824:15:unlink:9ae293a598dc",
+      "870:15:rmdir:f7455b6f1fd7",
+      "937:13:link:759d678d36b8",
+      "951:15:unlink:0df109c8d786",
+      "974:15:link:e13c597bfcfe",
+      "989:13:unlink:9ae293a598dc",
+      "1019:17:rmdir:f7455b6f1fd7",
+      "1146:17:unlink:9ae293a598dc"
     ])
   }),
   "src/moves/recovery.ts": Object.freeze({

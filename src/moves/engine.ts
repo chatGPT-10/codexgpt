@@ -150,6 +150,23 @@ async function assertExpectedHandle(operation: InspectedMovePath): Promise<void>
   }
 }
 
+async function openExpectedHandle(
+  absPath: string,
+  expected: { device: string; fileId: string }
+): Promise<FileHandle> {
+  const handle = await fsp.open(absPath, "r");
+  try {
+    const actual = await handleIdentity(handle);
+    if (!identityEquals(expected, actual)) {
+      throw new TransactionError("FILE_VERSION_CONFLICT", "A move handoff handle identifies an unexpected file object.");
+    }
+    return handle;
+  } catch (error) {
+    await handle.close().catch(() => undefined);
+    throw error;
+  }
+}
+
 async function assertDestinationSpelling(absPath: string): Promise<void> {
   if (process.platform !== "win32") return;
   const parent = path.dirname(absPath);
@@ -716,29 +733,39 @@ export class MoveTransactionCoordinator {
       await this.assertSourcePolicy(context, inspected);
       await assertExpectedHandle(inspected);
       await assertExpectedPath(inspected.sourceAbsPath, operation.objectIdentity);
-      await this.faults.hit("before_each_source_unlink", {
-        operationId: operation.operationId,
-        index,
-        operationCount: ordered.length
-      });
-      await withTransientRetry(
-        () => this.filesystem.unlink(inspected.sourceAbsPath),
-        async () => {
-          await this.assertSourcePolicy(context, inspected);
-          await assertExpectedHandle(inspected);
-          await assertExpectedPath(inspected.sourceAbsPath, operation.objectIdentity);
-          await assertExpectedPath(stageAbsPath, operation.objectIdentity);
-        }
-      );
-      await this.faults.hit("after_each_source_unlink_before_manifest", {
-        operationId: operation.operationId,
-        index,
-        operationCount: ordered.length
-      });
-      operation = { ...operation, state: "source_name_removed" };
-      context.manifest = this.transition(context.manifest, {
-        operations: this.replaceOperation(context.manifest.operations, operation)
-      });
+      const sourceHandle = inspected.handle;
+      const stageHandle = await openExpectedHandle(stageAbsPath, operation.objectIdentity);
+      let stageHandleTransferred = false;
+      try {
+        await this.faults.hit("before_each_source_unlink", {
+          operationId: operation.operationId,
+          index,
+          operationCount: ordered.length
+        });
+        await withTransientRetry(
+          () => this.filesystem.unlink(inspected.sourceAbsPath),
+          async () => {
+            await this.assertSourcePolicy(context, inspected);
+            await assertExpectedHandle(inspected);
+            await assertExpectedPath(inspected.sourceAbsPath, operation.objectIdentity);
+            await assertExpectedPath(stageAbsPath, operation.objectIdentity);
+          }
+        );
+        await sourceHandle.close();
+        inspected.handle = stageHandle;
+        stageHandleTransferred = true;
+        await this.faults.hit("after_each_source_unlink_before_manifest", {
+          operationId: operation.operationId,
+          index,
+          operationCount: ordered.length
+        });
+        operation = { ...operation, state: "source_name_removed" };
+        context.manifest = this.transition(context.manifest, {
+          operations: this.replaceOperation(context.manifest.operations, operation)
+        });
+      } finally {
+        if (!stageHandleTransferred) await stageHandle.close().catch(() => undefined);
+      }
     }
   }
 
@@ -801,6 +828,7 @@ export class MoveTransactionCoordinator {
           await assertExpectedPath(inspected.destinationAbsPath, operation.objectIdentity);
         }
       );
+      await inspected.handle.close();
       await this.faults.hit("after_each_stage_unlink_before_manifest", {
         operationId: operation.operationId,
         index,

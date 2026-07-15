@@ -189,24 +189,42 @@ test("external target creation after prepare never clobbers the target", () => f
   assert.equal(await fsp.readFile(path.join(workspaceRoot, "b.txt"), "utf8"), "external");
 }));
 
-test("external source replacement after prepare freezes instead of moving an unrelated object", () => fixture(async ({
-  workspaceRoot,
-  workspace,
-  engine
-}) => {
-  await fsp.writeFile(path.join(workspaceRoot, "a.txt"), "A");
-  const prepared = await engine.prepareMove(request(workspace, [{
-    source: "a.txt", destination: "b.txt", expectedSha256: digest("A")
-  }]));
-  await fsp.unlink(path.join(workspaceRoot, "a.txt"));
-  await fsp.writeFile(path.join(workspaceRoot, "a.txt"), "A");
-  await assert.rejects(
-    () => prepared.commit(),
-    (error) => error?.code === "ROLLBACK_FAILED"
-  );
-  assert.equal(await fsp.readFile(path.join(workspaceRoot, "a.txt"), "utf8"), "A");
-  await absent(path.join(workspaceRoot, "b.txt"));
-}));
+test("external source replacement after prepare freezes instead of moving an unrelated object", () => {
+  let replacementPath;
+  let sourcePath;
+  return fixture(async ({ workspaceRoot, workspace, engine }) => {
+    sourcePath = path.join(workspaceRoot, "a.txt");
+    replacementPath = path.join(workspaceRoot, "replacement.txt");
+    await fsp.writeFile(sourcePath, "A");
+    await fsp.writeFile(replacementPath, "A");
+    const [originalStat, replacementStat] = await Promise.all([
+      fsp.stat(sourcePath, { bigint: true }),
+      fsp.stat(replacementPath, { bigint: true })
+    ]);
+    assert.notDeepEqual(
+      { device: originalStat.dev, fileId: originalStat.ino },
+      { device: replacementStat.dev, fileId: replacementStat.ino }
+    );
+    const prepared = await engine.prepareMove(request(workspace, [{
+      source: "a.txt", destination: "b.txt", expectedSha256: digest("A")
+    }]));
+    await assert.rejects(
+      () => prepared.commit(),
+      (error) => error?.code === "ROLLBACK_FAILED"
+    );
+    assert.equal(await fsp.readFile(sourcePath, "utf8"), "A");
+    await absent(path.join(workspaceRoot, "b.txt"));
+    await absent(replacementPath);
+  }, {
+    faultInjector: {
+      async hit(point) {
+        if (point !== "after_each_source_unlink_before_manifest") return;
+        await fsp.rename(replacementPath, sourcePath);
+        throw new Error("injected external source replacement");
+      }
+    }
+  });
+});
 
 test("native Windows rejects a destination parent replaced by a junction after prepare", {
   skip: process.platform !== "win32"

@@ -13,7 +13,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and Phase 3A–3C are closed. Exact historical commit/run evidence is retained in the linked archives.
 - Phase 3C commit `50ec99b` passed exact-head run `29390317879`; Gate 0 maintenance commit `77b1e9069798235d674342a2c33a234a4266b564` passed exact-head run `29402504990`, both across Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
 - Phase 3D implementation commit `3000aa6d88190f31c6b93c35ae59e7889317aae4` is published on `main`. It implements `move_paths`, authenticated Manifest/Change Set V2, parent-identity/reparse-point revalidation, participant-aware V1/V2 recovery, recoverable move undo, service-level mutation quiesce/drain, bounded audit query, Policy resource composition, and exact direct/supertool V2 registration.
-- Its first exact-head run `29436565136` passed Build in all four matrices but failed Regression because two new tests were not cross-platform deterministic: the V1 call fingerprint included runtime paths/platform evidence, and the Ubuntu replacement fixture allowed inode reuse. The current test-only follow-up fixes both; replacement exact-head CI remains required.
+- Its first exact-head run `29436565136` exposed two cross-platform test-determinism defects. Test-only commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` fixed them; replacement run `29437987007` then passed every Ubuntu Node 20/24 and Windows Node 24 job but exposed one real Windows Node 20 move-runtime incompatibility. The current handle-handoff repair awaits publication and replacement exact-head CI.
 
 ## Approved execution boundary
 
@@ -48,9 +48,9 @@ The user authorized continuous recommended-option implementation through Phase 8
 ## Verification evidence
 
 - Phase 3C: commit `50ec99b97f7ec3e4d689b5306f0caa0f60afdc45`, run `29390317879`; Gate 0: commit `77b1e9069798235d674342a2c33a234a4266b564`, run `29402504990`. Both exact heads passed all Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package jobs.
-- Phase 3D publication: commit `3000aa6d88190f31c6b93c35ae59e7889317aae4`; exact-head run `29436565136`. All four Ubuntu/Windows Node 20/24 jobs passed Build and failed only Regression; Smoke and Package were skipped by the workflow after that failure.
-- CI-fix local gate: deterministic move-undo replacement coverage passed 5/5; the platform-neutral V1 wire fingerprint passed five consecutive runs; combined Phase 3D plus production runtime passed 84/84; TypeScript Build passed; complete Node discovery passed 809/810 with zero failures and one established platform skip.
-- The earlier Phase 3D acceptance evidence remains valid for unchanged production code: seven fresh Smoke sections, prior isolated evidence for the protected eighth section, native-Windows Stress, 308-entry package dry-run, 17/17 static architecture/package gates, and `git diff --check`. Replacement exact-head CI must supply fresh four-matrix Regression, Smoke, and Package evidence.
+- Phase 3D implementation commit `3000aa6d88190f31c6b93c35ae59e7889317aae4` triggered run `29436565136`; test-only portability commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` triggered run `29437987007`. The latter completed full Build, Regression, Smoke, and Package successfully on Ubuntu Node 20/24 and Windows Node 24; Windows Node 20 passed Build and failed Regression before Smoke/Package.
+- Windows Node 20 root cause: after unlinking a source name, Node 20 returns `EPERM` for `lstat(oldPath)` while the original path-opened handle remains live. The repair opens and verifies a stage-link handle, keeps the original handle through source-name removal, closes it immediately after unlink, continues through the stage handle, and closes the stage handle after destination installation. No global `EPERM` weakening was introduced.
+- Current local gate: official Windows Node `20.20.2` passed the exact 46-test move/crash/undo matrix and all 91 other test files; the handoff file is environment-constrained locally but passed in run `29437987007`. Node 24 passed the complete 809/810 regression with zero failures and one established skip. Build, affected 84/84, native-Windows Stress, 17/17 static gates, `git diff --check`, and the 308-entry package dry-run passed.
 - A real `gh auth status` launched with `createBashEnvironment({ inheritEnv: false })` exited 0 for account `chatGPT-10` through the Windows keyring. The child did not inherit `GH_TOKEN`; CLI output exposed only its normal masked token display.
 
 ## Known limitations
@@ -69,11 +69,12 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the test-only CI correction and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success.
+1. Publish the Windows Node 20 move-handle compatibility repair and require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success.
 2. Close Phase 3 and begin Phase 4 only after that replacement exact-head CI is green.
 
 ## Recent summaries
 
+- **STEP-304 - Repair Windows Node 20 move handles:** classified run `29437987007`, reproduced Node 20.20.2 unlinked-name `EPERM`, handed object ownership from the original source handle to a verified stage handle, moved the external-replacement test into the real post-unlink/pre-manifest window, and passed Node 20 move 46/46, all other 91 test files, Node 24 complete 809/810, Stress, static, and package gates.
 - **STEP-303 - Repair first Phase 3D exact-head CI:** published `3000aa6`, classified run `29436565136` as two test-portability failures, made the replacement-object fixture immune to inode reuse, normalized only environment-dependent V1 call facts, and restored Build, 84/84 affected tests, and 809/810 complete regression with zero failures.
 - **STEP-302 - Repair the Phase 3D adversarial gaps and repeat acceptance:** added true syscall-boundary recovery, parent/reparse identity revalidation, recoverable original-change-set reconciliation, service-level quiesce/drain, real child-process crash oracles, Windows retry/EXDEV/junction/multi-process coverage, exact V1 wire fingerprints, and the refreshed 809/810 regression plus 308-entry package evidence.
 - **STEP-301 - Close the neat-freak follow-up gate:** reconciled the remaining V2 documentation test and the then-current pre-adversarial local gate; STEP-302 supersedes its verification counts and acceptance status.

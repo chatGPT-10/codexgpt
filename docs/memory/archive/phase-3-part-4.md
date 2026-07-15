@@ -261,3 +261,29 @@ This append-only volume continues active Phase 3 implementation records after cl
 **Rollback method:** Revert the test-only follow-up commit. The published Phase 3D implementation commit remains independently revertible as `3000aa6`.
 
 **Next step:** Run the final static/package/diff/scope gate, publish the test-only correction, and require replacement exact-head CI before closing Phase 3 or beginning Phase 4.
+
+## STEP-304 - Repair Windows Node 20 move-handle compatibility
+
+**Status:** The second replacement CI failure is classified and repaired locally. Publication and a new exact-head run remain pending.
+
+**Goal:** Preserve the Phase 3D stable-object safety invariant while making move execution compatible with Windows Node 20 filesystem handle semantics.
+
+**Files changed:** `src/moves/engine.ts`; `test/phase-3d-move-engine.test.mjs`; `test/mutation-architecture.test.mjs`; `CHANGELOG.md`; `AGENTS.md`; `Memory.md`; the master implementation plan; this archive.
+
+**CI evidence:** Test-portability commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` triggered run `29437987007`. Ubuntu Node 20/24 and Windows Node 24 completed Build, Regression, Smoke, and Package successfully. Windows Node 20 passed Build but failed Regression before Smoke/Package. Its first move failure was `EPERM` from `lstat` on a source name that had been unlinked while the original path-opened handle remained live; cleanup crash expectations and later move rollback assertions then failed as consequences.
+
+**Implementation summary:** Reproduced the issue with official Windows Node `20.20.2` and a minimal hard-link probe. After stage-link creation and exact object-identity verification, execution now opens a verified stage handle. The original source handle remains open through source-name removal, then closes immediately after unlink and the inspected operation transfers to the stage handle. The stage handle remains live through destination installation and closes after stage-name removal. This keeps a verified handle throughout the move while allowing the deleted source name to become ordinary `ENOENT` under Node 20. No `EPERM` result is reclassified or ignored. The external source-replacement fixture now pre-creates a distinct replacement object and injects it in the real post-unlink/pre-manifest window. Exact mutation syscall positions were updated without broadening the fail-closed scanner.
+
+**Verification commands:** Official Node 20.20.2 minimal handle probes; Node 20 move/crash/undo focused matrix; Node 24 Phase 3D plus production-runtime aggregate; Node 20 all test files except the locally control-channel-incompatible handoff file; Node 24 complete regression; `npm run stress`; static architecture/package gates; package dry-run; `git diff --check`; scope and secret-shape review.
+
+**Verification results:** Node 20 move/crash/undo passed 46/46. The other 91 Node 20 test files exited 0; `handoff-to-agent-contract.test.mjs` cannot finish through this local control channel but passed in the Windows Node 20 Regression of run `29437987007` before any move failure. Node 24 affected aggregate passed 84/84 and complete regression passed 809/810 with zero failures and one established platform skip. Native-Windows Stress passed. Static gates passed 17/17. Package dry-run retained 308 entries, 727633 packed bytes, and 3949205 unpacked bytes while excluding tests, fixtures, and memory archives. Build passed and the protected Smoke sources remained exact.
+
+**Decisions made:** Use verified handle handoff rather than weakening path checks, retrying a permanent Node 20 condition, or treating `EPERM` as absence. Preserve the requirement that the original source handle remains live through stage-link creation and source-name removal. Keep the external replacement test at an operating-system-realistic race boundary.
+
+**Risks or limitations:** A new exact-head Ubuntu/Windows Node 20/24 run is required. The local connector cannot safely host the handoff process-tree test under the downloaded Node 20 binary; the prior exact-head Windows Node 20 job is the evidence for that unchanged file.
+
+**Rollback method:** Revert the Windows Node 20 compatibility commit. Do not revert the published Phase 3D or test-portability commits unless rolling back the complete phase.
+
+**Next step:** Run the final post-documentation gate, publish this compatibility repair, and require replacement exact-head Build, Regression, complete Smoke, and Package success across all four matrices before closing Phase 3.
+
+**STEP-304 final package correction:** The final post-documentation package dry-run retained 308 entries and measured 727756 packed bytes and 3949494 unpacked bytes. These values supersede the preliminary STEP-304 package byte counts above.
