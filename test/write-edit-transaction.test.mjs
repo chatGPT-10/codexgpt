@@ -38,7 +38,7 @@ const digest = (value) => createHash("sha256").update(value).digest("hex");
 const OWNER = `owner_${"5".repeat(64)}`;
 const NOW = Date.parse("2026-07-14T12:00:00.000Z");
 
-async function fixture(action) {
+async function fixture(action, engineOptions = {}) {
   const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-write-edit-txn-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
@@ -57,7 +57,8 @@ async function fixture(action) {
   const guard = new PathGuard(config);
   const registry = new ProcessInstanceRegistry(stateRoot);
   const engine = new AtomicTransactionEngine(config, guard, stateRoot, registry, {
-    now: () => NOW
+    ...engineOptions,
+    now: engineOptions.now ?? (() => NOW)
   });
   const store = new ChangeSetStore({
     stateRoot,
@@ -327,34 +328,36 @@ test("a post-commit projection defect is recovery-class and never invites a blin
   assert.equal(await fsp.readFile(path.join(workspaceRoot, "projection.txt"), "utf8"), "after");
 }));
 
-test("atomic replacement readers observe only complete old or complete new bytes", () => fixture(async ({ workspaceRoot, workspace, config, guard, runtime }) => {
-  const oldBytes = Buffer.alloc(256 * 1024, 0x61);
-  const newBytes = Buffer.alloc(256 * 1024, 0x62);
-  const target = path.join(workspaceRoot, "visible.txt");
-  await fsp.writeFile(target, oldBytes);
-  const prepared = await prepareWriteTextFile(config, guard, workspace, "visible.txt", newBytes.toString("utf8"), {
-    createDirs: false,
-    overwrite: true,
-    expectedSha256: digest(oldBytes)
-  });
-  const result = await pendingFor(runtime, workspace, prepared, "write");
-  const seen = new Set([digest(await fsp.readFile(target))]);
-  const transientOpenErrors = new Set();
-  let reading = true;
-  const reader = (async () => {
-    while (reading) {
-      try {
-        seen.add(digest(await fsp.readFile(target)));
-      } catch (error) {
-        if (!["ENOENT", "EPERM", "EBUSY"].includes(error?.code)) throw error;
-        transientOpenErrors.add(error.code);
+test("atomic replacement exposes complete bytes before and after the visible install point", () => {
+  let signalInstalled;
+  let releaseInstalled;
+  const installed = new Promise((resolve) => { signalInstalled = resolve; });
+  const release = new Promise((resolve) => { releaseInstalled = resolve; });
+  return fixture(async ({ workspaceRoot, workspace, config, guard, runtime }) => {
+    const oldBytes = Buffer.alloc(256 * 1024, 0x61);
+    const newBytes = Buffer.alloc(256 * 1024, 0x62);
+    const target = path.join(workspaceRoot, "visible.txt");
+    await fsp.writeFile(target, oldBytes);
+    const prepared = await prepareWriteTextFile(config, guard, workspace, "visible.txt", newBytes.toString("utf8"), {
+      createDirs: false,
+      overwrite: true,
+      expectedSha256: digest(oldBytes)
+    });
+    const result = await pendingFor(runtime, workspace, prepared, "write");
+    assert.ok((await fsp.readFile(target)).equals(oldBytes));
+    const committing = pendingWorkspaceMutation(result).commit({ result, persistAudit: async () => {} });
+    await installed;
+    assert.ok((await fsp.readFile(target)).equals(newBytes));
+    releaseInstalled();
+    await committing;
+    assert.ok((await fsp.readFile(target)).equals(newBytes));
+  }, {
+    faultInjector: {
+      async hit(point) {
+        if (point !== "after_each_install") return;
+        signalInstalled();
+        await release;
       }
     }
-  })();
-  await pendingWorkspaceMutation(result).commit({ result, persistAudit: async () => {} });
-  reading = false;
-  await reader;
-  seen.add(digest(await fsp.readFile(target)));
-  assert.deepEqual([...seen].sort(), [...new Set([digest(oldBytes), digest(newBytes)])].sort());
-  assert.ok([...transientOpenErrors].every((code) => ["ENOENT", "EPERM", "EBUSY"].includes(code)));
-}));
+  });
+});
