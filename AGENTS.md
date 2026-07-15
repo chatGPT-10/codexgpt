@@ -161,7 +161,7 @@ Memory rules:
 - `docs/memory/archive/phase-3.md` — closed Phase 3 Volume 1 covering STEP-263 through STEP-277.
 - `docs/memory/archive/phase-3-part-2.md` — closed Phase 3 Volume 2 covering STEP-278 through STEP-285.
 - `docs/memory/archive/phase-3-part-3.md` — active Phase 3 Volume 3 beginning with STEP-286.
-- Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published. Phase 3C Task 6 is published at `918d55d`; run `29381264649` exposed an Ubuntu-only unbounded diff-failure artifact, and the bounded-output repair is the current verified publication candidate.
+- Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published. Phase 3C Task 6 and repair are closed through `124f555`; replacement run `29382183625` passed. Task 7 static mutation closure is next.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -201,6 +201,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published and closed. Phase 3C Task 6 is published at `918d55d`, but exact-head run `29381264649` failed Ubuntu Node 20/24 Smoke because an oversized Git-diff error escaped the caller byte limit. The bounded UTF-8 artifact repair is locally verified and must pass replacement exact-head CI before Task 7 begins. Contract V1 remains the exact 28-tool public surface, and contract V2 startup stays fail-closed until Phase 3D supplies `move_paths` and the coherent exact 31-tool snapshot. Writable atomic construction remains fail-closed until the Phase 3C mutation-closure and production-wiring gates pass; remaining direct writes must be classified by Task 7 before activation.
+Phase 1, Phase 2A, Phase 2B, Phase 3A, and Phase 3B are published and closed. Phase 3C Task 6 implementation `918d55d` plus bounded-output repair `124f555` passed replacement exact-head run `29382183625` across Ubuntu/Windows Node 20/24. Task 7 static mutation closure is the current approved work. Contract V1 remains the exact 28-tool public surface, and contract V2 startup stays fail-closed until Phase 3D supplies `move_paths` and the coherent exact 31-tool snapshot. Writable atomic construction remains fail-closed until the Phase 3C mutation-closure and production-wiring gates pass; remaining direct writes must be classified by Task 7 before activation.
 
 The user explicitly authorized continuous implementation through Phase 8 using the recommended options and authorized scoped staging, English commits, and pushes after each verified phase part. Every part still requires its design/TDD/verification/neat-freak/CI gate; a failed gate must be fixed before later work is stacked on it. This authorization covers repository implementation and its reversible fixture-based validation. It does not authorize destructive user-data or Git-history operations, production deployment, disclosure of credentials, or silent expansion beyond the phase specifications. Use `Memory.md` for the current head/evidence, the master plan for sequencing, and `docs/memory/archive/phase-3-part-3.md` for active Phase 3 records.

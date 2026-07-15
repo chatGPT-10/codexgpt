@@ -91,3 +91,25 @@ This append-only volume continues Phase 3 after the closed `phase-3-part-2.md` v
 **Rollback method:** Revert the repair commit with a new commit. Do not revert to the unbounded fallback while Task 6 transactional CLI writers remain active. No user workspace, audit, change-set, or transaction state requires migration.
 
 **Next step:** Publish the repair, require replacement exact-head Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package, then mark Task 6 closed and begin Task 7 static mutation-closure RED inventory.
+
+## STEP-290 - Close Phase 3C Task 6 publication
+
+**Status:** Complete and published.
+
+**Goal:** Record the exact replacement-CI evidence and formally open Task 7 only after Task 6's implementation and repair passed every required matrix.
+
+**Files changed:** `AGENTS.md`; `Memory.md`; the Phase 3C plan; this archive.
+
+**Implementation summary:** Bounded-output repair `124f555` was pushed on top of Task 6 implementation `918d55d`. Exact-head run `29382183625` completed Ubuntu and Windows on Node 20 and Node 24. Every job passed Build, the complete Regression suite, all Smoke sections including the original large-dirty failure fixture, and package-content validation. Marked Task 6 verification/publication complete and advanced the approved boundary to Task 7 only.
+
+**Verification commands:** `gh run watch 29382183625 --exit-status`; `gh run view 29382183625 --json status,conclusion,headSha,url`; documentation-state, archive-link, size, protected-Smoke, secret-signature, scope, and `git diff --check` neat-freak checks.
+
+**Verification results:** Run `29382183625` completed with conclusion `success` for exact head `124f55582adc598f63f43c64be3468a25671eb60`. Ubuntu Node 20/24, Windows Node 20/24, and every required job step passed. The repository was clean before this documentation-only closure update.
+
+**Decisions made:** Treat exact-head CI as the completion fact, not a locally inferred success. Keep Task 7 separate so its inventory RED result cannot blur Task 6's acceptance evidence.
+
+**Risks or limitations:** This closure changes no runtime behavior. Writable atomic production activation remains blocked behind Tasks 7-9 and Phase 3D.
+
+**Rollback method:** Revert this documentation-only closure commit with a new commit if its recorded evidence is wrong; do not rewrite the append-only archive. Runtime implementation and user data are unaffected.
+
+**Next step:** Execute Task 7's fail-closed static mutation inventory, remove or narrowly classify every bypass, and require its independent local and exact-head CI gates.

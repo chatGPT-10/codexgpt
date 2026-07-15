@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
 - Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
-- Phase 3: Phase 3A/3B are closed. Phase 3C Task 6 is published at `918d55d`; run `29381264649` exposed an Ubuntu unbounded diff-failure artifact, and the bounded-output repair is the current publication candidate.
+- Phase 3: Phase 3A/3B are closed. Phase 3C Task 6 plus repair are closed through `124f555`; replacement run `29382183625` passed. Task 7 static mutation closure is active.
 
 ## Approved execution boundary
 
@@ -59,7 +59,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Phase 3C Task 5 local gate: RED exposed three parser gaps (zero-count insertion coordinates, unsupported metadata, and case-folded expected-file duplicates). The repaired preflight and one-change-set mutation path passed 29/29 focused/legacy apply-patch tests, the complete 687/688 regression with 0 failures and 1 established skip, Build, all eight Smoke sections, native-Windows Stress, and a 259-file package dry-run. V1 remains exact; V2 remains dormant.
 - Phase 3C Task 5 publication: commit `b1df763` passed exact-head run `29379729314` on Ubuntu/Windows Node 20/24; every job completed Build, Regression, Smoke, and Package.
 - Phase 3C Task 6 local gate: one shared bounded text-batch builder now covers missing-directory scaffold creation, complete-file append replacements, handoff, Pro-context, self-test non-retention, `pro-apply`, and execute/watch/loop CLI artifacts. Focused/legacy coverage passed 94/94, complete regression 701/702 with 0 failures and 1 established skip, Build, all eight Smoke sections, Stress, and a 261-file package dry-run.
-- Task 6 repair: `918d55d` triggered Ubuntu Node 20/24 Smoke failures in run `29381264649` when Git diff overflow text bypassed the caller limit. Final UTF-8 bytes now include the marker inside the limit; 3/3 focused tests, regression 704/705 with 0 failures and 1 skip, Build, all Smoke, Stress, and a 262-file package dry-run passed locally.
+- Task 6 repair: `918d55d` triggered Ubuntu Node 20/24 Smoke failures in run `29381264649` when Git diff overflow text bypassed the caller limit. Repair `124f555` bounds final UTF-8 bytes including the marker; replacement run `29382183625` passed all four matrices.
 - Phase 3B implementation boundary: persistent storage, query, diagnostics, Policy wrapper integration points, and transaction participant are published, but current V1 production registration still does not inject or expose it. Phase 3C owns runtime/writer/undo preparation; complete public V2 activation is deferred to the Phase 3D 31-tool gate.
 
 ## Known limitations
@@ -81,11 +81,12 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the Task 6 bounded-output repair, require replacement Ubuntu/Windows Node 20/24 CI, then begin Task 7 static mutation-closure inventory.
+1. Execute Phase 3C Task 7 static mutation-closure inventory and remove or narrowly classify every workspace-write bypass.
 
 ## Recent summaries
 
-- **STEP-289 - Bound CLI diff failure artifacts:** exact-head Ubuntu CI exposed an oversized error artifact; final UTF-8 output now includes the marker inside the caller limit, and the complete local gate passed.
+- **STEP-290 - Close Phase 3C Task 6:** repair `124f555` passed replacement run `29382183625` across Ubuntu/Windows Node 20/24; Task 7 may begin.
+- **STEP-289 - Bound CLI diff failure artifacts:** exact-head Ubuntu CI exposed an oversized error artifact; final UTF-8 output now includes the marker inside the caller limit.
 - **STEP-288 - Migrate bridge and CLI workspace writers:** added bounded multi-file text batches, transaction-owned directory creation, shared durable-audit local mutation service, atomic handoff/Pro-context/self-test/CLI paths, and historical committed-manifest recovery semantics; published at `918d55d` before STEP-289 repaired its CI finding.
 - **STEP-287 - Add transaction-backed multi-file apply_patch:** added complete UTF-8 diff preflight, deterministic create/replace/delete transactions, strict expected-file and V2 facts, all-or-nothing rollback, and fail-closed unsupported-patch handling; the complete local gate passed.
 - **STEP-286 - Repair the Windows atomic-visibility CI hang:** replaced an unbounded cross-platform reader race with deterministic reads at the transaction's installed-pending boundary; repair `bb5b863` passed exact-head run `29378357522`.

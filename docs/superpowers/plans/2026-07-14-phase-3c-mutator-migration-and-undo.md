@@ -330,7 +330,7 @@ Run: `npm run build && node --test test/bridge-writer-transaction.test.mjs test/
 
 Read bounded existing logs, construct complete after bytes, and send all operations through `WorkspaceMutationRuntime`. Classify app-state writes in `scripts/codexpro.mjs` separately; do not route profile, credential reference, process state, installer, or transaction state through workspace mutations.
 
-- [ ] **Step 4: Verify and publish**
+- [x] **Step 4: Verify and publish**
 
 Run focused tests, existing handoff/Pro-context/self-test suites, CLI smoke, Build, neat-freak, commit `feat: migrate bridge workspace writers`, push, and exact-head CI.
 
