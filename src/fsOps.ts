@@ -73,6 +73,41 @@ export interface PreparedFileMutation<TResult extends WriteFileResult | EditFile
   operation: Extract<TransactionRequestOperationV1, { kind: "create" | "replace" }>;
 }
 
+export type WorkspaceTextBatchMode = "replace" | "append" | "create_if_missing";
+
+export interface WorkspaceTextBatchWrite {
+  path: string;
+  content: string;
+  mode: WorkspaceTextBatchMode;
+  expectedSha256?: string;
+  missingContent?: string;
+}
+
+export interface PreparedWorkspaceTextBatchOperation {
+  path: string;
+  before: PreparedFileBefore;
+  afterSha256: string;
+  operation: Extract<TransactionRequestOperationV1, { kind: "create" | "replace" }>;
+}
+
+export interface PreparedWorkspaceTextBatch {
+  operations: PreparedWorkspaceTextBatchOperation[];
+  createdPaths: string[];
+  totalAfterBytes: number;
+}
+
+export const AI_BRIDGE_SCAFFOLD_FILES: Readonly<Record<string, string>> = Object.freeze({
+  "README.md": `# AI Bridge\n\nShared planning context for ChatGPT, other planning models, Codex, OpenCode, Pi, or another local implementation agent.\n\n- current-plan.md: plan produced by ChatGPT or another planning model for the implementation agent.\n- agent-status.md: generic implementation notes, touched files, test results, blockers, and review notes.\n- implementation-diff.patch: final review diff from the implementation agent when practical.\n- codex-status.md: legacy Codex-specific status file, kept for existing workflows.\n- decisions.md: architectural decisions that should remain stable.\n- open-questions.md: unresolved questions.\n- execution-log.jsonl: append-only generic agent handoff and execution events.\n- handoff-run-state.json: machine-readable run lifecycle (running/completed/failed/timed_out) written by execute-handoff/watch-handoff/loop-handoff and polled by the read-only wait_for_handoff tool.\n- session-log.jsonl: append-only legacy session events.\n`,
+  "current-plan.md": "# Current Plan\n\nNo plan written yet.\n",
+  "agent-status.md": "# Agent Status\n\nNo implementation agent status written yet.\n",
+  "implementation-diff.patch": "",
+  "codex-status.md": "# Codex Status\n\nNo Codex status written yet.\n",
+  "decisions.md": "# Decisions\n\n",
+  "open-questions.md": "# Open Questions\n\n",
+  "execution-log.jsonl": "",
+  "session-log.jsonl": ""
+});
+
 export function sha256(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -151,6 +186,99 @@ async function inspectPreparedTextTarget(
       text: ""
     };
   }
+}
+
+export async function prepareWorkspaceTextBatch(
+  config: CodexProConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  writes: readonly WorkspaceTextBatchWrite[],
+  options: { maxBatchBytes?: number } = {}
+): Promise<PreparedWorkspaceTextBatch> {
+  if (writes.length < 1 || writes.length > 1_000) {
+    throw new TransactionError("TRANSACTION_PRECONDITION_FAILED", "Workspace batch operation count is invalid.");
+  }
+  const maxBatchBytes = options.maxBatchBytes ?? config.maxWriteBytes;
+  if (!Number.isSafeInteger(maxBatchBytes) || maxBatchBytes < 1 || maxBatchBytes > 64 * 1024 * 1024) {
+    throw new TransactionError("TRANSACTION_PRECONDITION_FAILED", "Workspace batch byte limit is invalid.");
+  }
+  const operations: PreparedWorkspaceTextBatchOperation[] = [];
+  const createdPaths: string[] = [];
+  const comparisonKeys = new Set<string>();
+  let totalAfterBytes = 0;
+
+  for (let index = 0; index < writes.length; index += 1) {
+    const write = writes[index];
+    assertExpectedSha256(write.expectedSha256);
+    const inspected = await inspectPreparedTextTarget(config, guard, workspace, write.path);
+    const comparisonKey = process.platform === "win32"
+      ? inspected.relPath.toLocaleLowerCase("en-US")
+      : inspected.relPath;
+    if (comparisonKeys.has(comparisonKey)) {
+      throw new TransactionError("TRANSACTION_PRECONDITION_FAILED", "Workspace batch paths are duplicate.");
+    }
+    comparisonKeys.add(comparisonKey);
+    if (write.expectedSha256 !== undefined && inspected.before.sha256 !== write.expectedSha256) {
+      throw versionConflict(inspected.relPath);
+    }
+    if (write.mode === "create_if_missing" && inspected.before.exists) continue;
+
+    const after = write.mode === "append"
+      ? inspected.before.exists
+        ? `${inspected.text}${write.content}`
+        : write.missingContent ?? write.content
+      : write.content;
+    if (hasSecretValue(after)) {
+      throw new CodexProError(
+        "Secret-looking content is blocked from write. Use placeholders such as [REDACTED_SECRET] in handoff files."
+      );
+    }
+    const bytes = Buffer.from(after, "utf8");
+    if (bytes.length > config.maxWriteBytes) {
+      throw new CodexProError(
+        `Write content is too large (${bytes.length} bytes). Limit: ${config.maxWriteBytes} bytes.`
+      );
+    }
+    totalAfterBytes += bytes.length;
+    if (totalAfterBytes > maxBatchBytes) {
+      throw new TransactionError(
+        "TRANSACTION_PRECONDITION_FAILED",
+        "Workspace batch payload exceeds the aggregate byte limit."
+      );
+    }
+    const operationId = `op_batch_${String(index).padStart(4, "0")}`;
+    const operation: PreparedWorkspaceTextBatchOperation["operation"] = inspected.before.exists
+      ? {
+          operationId,
+          kind: "replace",
+          relativePath: inspected.relPath,
+          bytes,
+          expectedSha256: inspected.before.sha256
+        }
+      : {
+          operationId,
+          kind: "create",
+          relativePath: inspected.relPath,
+          bytes,
+          expectedAbsent: true
+        };
+    operations.push({
+      path: inspected.relPath,
+      before: inspected.before,
+      afterSha256: sha256(bytes),
+      operation
+    });
+    if (!inspected.before.exists) createdPaths.push(inspected.relPath);
+  }
+  return { operations, createdPaths, totalAfterBytes };
+}
+
+export function aiBridgeScaffoldWrites(config: Pick<CodexProConfig, "contextDir">): WorkspaceTextBatchWrite[] {
+  return Object.entries(AI_BRIDGE_SCAFFOLD_FILES).map(([name, content]) => ({
+    path: `${config.contextDir}/${name}`,
+    content,
+    mode: "create_if_missing"
+  }));
 }
 
 export async function prepareWriteTextFile(
@@ -593,19 +721,8 @@ export async function editTextFile(
 }
 
 export async function ensureAiBridge(config: CodexProConfig, guard: PathGuard, workspace: Workspace): Promise<string[]> {
-  const files: Record<string, string> = {
-    "README.md": `# AI Bridge\n\nShared planning context for ChatGPT, other planning models, Codex, OpenCode, Pi, or another local implementation agent.\n\n- current-plan.md: plan produced by ChatGPT or another planning model for the implementation agent.\n- agent-status.md: generic implementation notes, touched files, test results, blockers, and review notes.\n- implementation-diff.patch: final review diff from the implementation agent when practical.\n- codex-status.md: legacy Codex-specific status file, kept for existing workflows.\n- decisions.md: architectural decisions that should remain stable.\n- open-questions.md: unresolved questions.\n- execution-log.jsonl: append-only generic agent handoff and execution events.\n- handoff-run-state.json: machine-readable run lifecycle (running/completed/failed/timed_out) written by execute-handoff/watch-handoff/loop-handoff and polled by the read-only wait_for_handoff tool.\n- session-log.jsonl: append-only legacy session events.\n`,
-    "current-plan.md": "# Current Plan\n\nNo plan written yet.\n",
-    "agent-status.md": "# Agent Status\n\nNo implementation agent status written yet.\n",
-    "implementation-diff.patch": "",
-    "codex-status.md": "# Codex Status\n\nNo Codex status written yet.\n",
-    "decisions.md": "# Decisions\n\n",
-    "open-questions.md": "# Open Questions\n\n",
-    "execution-log.jsonl": "",
-    "session-log.jsonl": ""
-  };
   const created: string[] = [];
-  for (const [name, content] of Object.entries(files)) {
+  for (const [name, content] of Object.entries(AI_BRIDGE_SCAFFOLD_FILES)) {
     const rel = `${config.contextDir}/${name}`;
     const resolved = guard.resolve(workspace, rel, { forWrite: true });
     if (!fs.existsSync(resolved.absPath)) {

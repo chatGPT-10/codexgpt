@@ -1683,9 +1683,43 @@ function codeBlock(label, value) {
   return `## ${label}\n\n\`\`\`text\n${String(value || '').replace(/```/g, '`\\`\\`') || '(empty)'}\n\`\`\`\n`;
 }
 
-function writeExecutionOutputs(root, contextDir, commandInfo, result, diffText, gitStatusText) {
+let localMutationModulesPromise;
+
+async function localMutationModules() {
+  localMutationModulesPromise ??= Promise.all([
+    import(pathToFileURL(path.join(projectRoot, 'dist', 'config.js')).href),
+    import(pathToFileURL(path.join(projectRoot, 'dist', 'guard.js')).href),
+    import(pathToFileURL(path.join(projectRoot, 'dist', 'fsOps.js')).href),
+    import(pathToFileURL(path.join(projectRoot, 'dist', 'mutations', 'index.js')).href)
+  ]);
+  return localMutationModulesPromise;
+}
+
+function workspaceRelativePath(root, absolutePath) {
+  const relative = path.relative(root, absolutePath).replace(/\\/g, '/');
+  if (!relative || relative.startsWith('../') || path.isAbsolute(relative)) {
+    throw new Error('Workspace mutation path is outside the selected root.');
+  }
+  return relative;
+}
+
+async function commitWorkspaceWrites(root, writes, toolName) {
+  const [configModule, guardModule, fsOpsModule, mutationModule] = await localMutationModules();
+  const config = configModule.loadConfig([...process.argv.slice(2), '--root', root]);
+  const guard = new guardModule.PathGuard(config);
+  const workspaces = new guardModule.WorkspaceManager(config);
+  const workspace = workspaces.openWorkspace(root);
+  const prepared = await fsOpsModule.prepareWorkspaceTextBatch(config, guard, workspace, writes);
+  const service = new mutationModule.LocalMutationService(config, guard);
+  try {
+    await service.executeBatch(workspace, prepared, { ok: true }, { toolName });
+  } finally {
+    service.dispose();
+  }
+}
+
+async function writeExecutionOutputs(root, contextDir, commandInfo, result, diffText, gitStatusText, finalRunState) {
   const bridgeDir = resolveWorkspaceFile(root, contextDir);
-  fs.mkdirSync(bridgeDir, { recursive: true, mode: 0o700 });
   const statusPath = path.join(bridgeDir, 'agent-status.md');
   const diffPath = path.join(bridgeDir, 'implementation-diff.patch');
   const logPath = path.join(bridgeDir, 'execution-log.jsonl');
@@ -1709,8 +1743,6 @@ function writeExecutionOutputs(root, contextDir, commandInfo, result, diffText, 
     codeBlock('Stdout excerpt', result.stdout),
     codeBlock('Stderr excerpt', result.stderr)
   ].filter(Boolean).join('\n');
-  fs.writeFileSync(statusPath, status, { mode: 0o600 });
-  fs.writeFileSync(diffPath, diffText || '', { mode: 0o600 });
   const logEvent = {
     ts: new Date().toISOString(),
     event: 'execute_handoff',
@@ -1727,7 +1759,20 @@ function writeExecutionOutputs(root, contextDir, commandInfo, result, diffText, 
     diff_path: path.posix.join(contextDir, 'implementation-diff.patch'),
     status_path: path.posix.join(contextDir, 'agent-status.md')
   };
-  fs.appendFileSync(logPath, `${JSON.stringify(logEvent)}\n`, { mode: 0o600 });
+  const writes = [
+    { path: workspaceRelativePath(root, statusPath), content: status, mode: 'replace' },
+    { path: workspaceRelativePath(root, diffPath), content: diffText || '', mode: 'replace' },
+    { path: workspaceRelativePath(root, logPath), content: `${JSON.stringify(logEvent)}\n`, mode: 'append' }
+  ];
+  if (finalRunState) {
+    const statePath = handoffRunStatePath(root, contextDir);
+    writes.push({
+      path: workspaceRelativePath(root, statePath),
+      content: `${JSON.stringify({ version: 1, updated_at: new Date().toISOString(), ...finalRunState }, null, 2)}\n`,
+      mode: 'replace'
+    });
+  }
+  await commitWorkspaceWrites(root, writes, 'execute_handoff');
   return { statusPath, diffPath, logPath };
 }
 
@@ -1804,7 +1849,7 @@ async function executeHandoffRequest(request, args, options = {}) {
   const iteration = Number.isFinite(options.iteration) ? options.iteration : 1;
   const runPlanHash = planHash(request.planText);
   const startedAt = new Date().toISOString();
-  writeHandoffRunState(request.root, request.contextDir, {
+  await writeHandoffRunState(request.root, request.contextDir, {
     state: 'running',
     iteration,
     started_at: startedAt,
@@ -1823,11 +1868,9 @@ async function executeHandoffRequest(request, args, options = {}) {
   });
   const diffText = readGitDiffExcludingContext(request.root, request.contextDir, request.maxOutputBytes);
   const gitStatusText = readGitStatus(request.root, request.maxOutputBytes);
-  const outputs = writeExecutionOutputs(request.root, request.contextDir, request.commandInfo, result, diffText, gitStatusText);
-
   const runState = result.timedOut ? 'timed_out' : (result.exitCode === 0 ? 'completed' : 'failed');
   const testsAbsPath = path.join(request.bridgeDir, 'loop-tests.txt');
-  writeHandoffRunState(request.root, request.contextDir, {
+  const finalRunState = {
     state: runState,
     iteration,
     started_at: startedAt,
@@ -1842,7 +1885,16 @@ async function executeHandoffRequest(request, args, options = {}) {
     diff_file: path.posix.join(request.contextDir, 'implementation-diff.patch'),
     log_file: path.posix.join(request.contextDir, 'execution-log.jsonl'),
     ...(fs.existsSync(testsAbsPath) ? { tests_file: path.posix.join(request.contextDir, 'loop-tests.txt') } : {})
-  });
+  };
+  const outputs = await writeExecutionOutputs(
+    request.root,
+    request.contextDir,
+    request.commandInfo,
+    result,
+    diffText,
+    gitStatusText,
+    finalRunState
+  );
   statusLine(result.exitCode === 0 ? 'ok' : 'warn', `Agent exited with code ${result.exitCode ?? 'null'}${result.signal ? ` signal=${result.signal}` : ''}`);
   console.log(`Status: ${path.relative(request.root, outputs.statusPath)}`);
   console.log(`Diff:   ${path.relative(request.root, outputs.diffPath)}`);
@@ -1884,11 +1936,6 @@ function readWatchState(statePath) {
   }
 }
 
-function writeWatchState(statePath, state) {
-  fs.mkdirSync(path.dirname(statePath), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
-}
-
 function handoffRunStatePath(root, contextDir) {
   return resolveWorkspaceFile(root, path.posix.join(contextDir, 'handoff-run-state.json'));
 }
@@ -1896,18 +1943,24 @@ function handoffRunStatePath(root, contextDir) {
 // Machine-readable lifecycle state for an in-flight or completed handoff run.
 // ChatGPT-side tooling (the read-only wait_for_handoff MCP tool) polls this file
 // instead of inferring run state from markdown/log artifacts.
-function writeHandoffRunState(root, contextDir, state) {
+async function writeHandoffRunState(root, contextDir, state) {
   const statePath = handoffRunStatePath(root, contextDir);
-  fs.mkdirSync(path.dirname(statePath), { recursive: true, mode: 0o700 });
   const payload = { version: 1, updated_at: new Date().toISOString(), ...state };
-  fs.writeFileSync(statePath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+  await commitWorkspaceWrites(root, [{
+    path: workspaceRelativePath(root, statePath),
+    content: `${JSON.stringify(payload, null, 2)}\n`,
+    mode: 'replace'
+  }], 'execute_handoff');
 }
 
-function appendBridgeLog(root, contextDir, event) {
+async function appendBridgeLog(root, contextDir, event) {
   const bridgeDir = resolveWorkspaceFile(root, contextDir);
-  fs.mkdirSync(bridgeDir, { recursive: true, mode: 0o700 });
   const logPath = path.join(bridgeDir, 'execution-log.jsonl');
-  fs.appendFileSync(logPath, `${JSON.stringify({ ts: new Date().toISOString(), ...event })}\n`, { mode: 0o600 });
+  await commitWorkspaceWrites(root, [{
+    path: workspaceRelativePath(root, logPath),
+    content: `${JSON.stringify({ ts: new Date().toISOString(), ...event })}\n`,
+    mode: 'append'
+  }], 'handoff_run_log');
 }
 
 async function waitForStablePlan(planPath, debounceMs) {
@@ -2024,7 +2077,7 @@ async function runWatchHandoff(argv) {
       continue;
     }
 
-    appendBridgeLog(root, contextDir, {
+    await appendBridgeLog(root, contextDir, {
       event: 'watch_handoff_started',
       plan_hash: currentHash,
       agent: request.commandInfo.agent,
@@ -2042,16 +2095,27 @@ async function runWatchHandoff(argv) {
       exitCode,
       planPath: path.posix.join(contextDir, 'current-plan.md')
     };
-    writeWatchState(statePath, state);
-    appendBridgeLog(root, contextDir, {
-      event: 'watch_handoff_finished',
-      plan_hash: currentHash,
-      agent: request.commandInfo.agent,
-      model: request.commandInfo.model || undefined,
-      exit_code: exitCode,
-      status_path: path.posix.join(contextDir, 'agent-status.md'),
-      diff_path: path.posix.join(contextDir, 'implementation-diff.patch')
-    });
+    await commitWorkspaceWrites(root, [
+      {
+        path: workspaceRelativePath(root, statePath),
+        content: `${JSON.stringify(state, null, 2)}\n`,
+        mode: 'replace'
+      },
+      {
+        path: path.posix.join(contextDir, 'execution-log.jsonl'),
+        content: `${JSON.stringify({
+          ts: new Date().toISOString(),
+          event: 'watch_handoff_finished',
+          plan_hash: currentHash,
+          agent: request.commandInfo.agent,
+          model: request.commandInfo.model || undefined,
+          exit_code: exitCode,
+          status_path: path.posix.join(contextDir, 'agent-status.md'),
+          diff_path: path.posix.join(contextDir, 'implementation-diff.patch')
+        })}\n`,
+        mode: 'append'
+      }
+    ], 'watch_handoff');
 
     if (args.once) {
       if (execution.result && execution.result.exitCode !== 0) process.exitCode = execution.result.exitCode ?? 1;
@@ -2352,8 +2416,7 @@ function readGitDiffExcludingContext(root, contextDir, maxBytes) {
   }
 }
 
-function writeLoopTestOutput(paths, result, commandText) {
-  fs.mkdirSync(paths.bridgeDir, { recursive: true, mode: 0o700 });
+async function writeLoopTestOutput(root, paths, result, commandText) {
   const content = [
     '# Loop Test Output',
     '',
@@ -2367,7 +2430,11 @@ function writeLoopTestOutput(paths, result, commandText) {
     codeBlock('Stdout excerpt', result.stdout),
     codeBlock('Stderr excerpt', result.stderr)
   ].filter(Boolean).join('\n');
-  fs.writeFileSync(paths.testsPath, content, { mode: 0o600 });
+  await commitWorkspaceWrites(root, [{
+    path: workspaceRelativePath(root, paths.testsPath),
+    content,
+    mode: 'replace'
+  }], 'loop_handoff');
 }
 
 function explicitReviewVerdict(text) {
@@ -2379,8 +2446,7 @@ function explicitReviewVerdict(text) {
   return '';
 }
 
-function writeLoopReviewOutput(paths, result, commandText, verdict, nextPlanChanged) {
-  fs.mkdirSync(paths.bridgeDir, { recursive: true, mode: 0o700 });
+async function writeLoopReviewOutput(root, paths, result, commandText, verdict, nextPlanChanged) {
   const content = [
     '# Loop Review',
     '',
@@ -2396,7 +2462,11 @@ function writeLoopReviewOutput(paths, result, commandText, verdict, nextPlanChan
     codeBlock('Stdout excerpt', result.stdout),
     codeBlock('Stderr excerpt', result.stderr)
   ].filter(Boolean).join('\n');
-  fs.writeFileSync(paths.reviewPath, content, { mode: 0o600 });
+  await commitWorkspaceWrites(root, [{
+    path: workspaceRelativePath(root, paths.reviewPath),
+    content,
+    mode: 'replace'
+  }], 'loop_handoff');
 }
 
 async function runLoopCommand(commandInfo, root, timeoutMs, maxOutputBytes, label) {
@@ -2479,11 +2549,6 @@ function printLoopDryRun(request, reviewCommand, testCommand, maxIters) {
   ]);
 }
 
-function writeLoopState(paths, state) {
-  fs.mkdirSync(paths.bridgeDir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(paths.statePath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
-}
-
 async function runLoopHandoff(argv) {
   const args = parseArgs(argv);
   if (args.help) {
@@ -2551,7 +2616,7 @@ async function runLoopHandoff(argv) {
       break;
     }
 
-    appendBridgeLog(root, contextDir, {
+    await appendBridgeLog(root, contextDir, {
       event: 'loop_handoff_iteration_started',
       iteration,
       plan_hash: currentPlanHash,
@@ -2562,7 +2627,6 @@ async function runLoopHandoff(argv) {
     const beforeExecutionFingerprint = changeFingerprintExcludingContext(root, contextDir);
     const execution = await executeHandoffRequest(request, { ...args, yes: true }, { skipConfirmation: true, iteration });
     const diffText = readGitDiffExcludingContext(root, contextDir, maxOutputBytes);
-    fs.writeFileSync(paths.diffPath, diffText || '', { mode: 0o600 });
     const currentChangeFingerprint = changeFingerprintExcludingContext(root, contextDir);
     const changedThisIteration = currentChangeFingerprint !== beforeExecutionFingerprint;
 
@@ -2584,7 +2648,7 @@ async function runLoopHandoff(argv) {
     let testResult = null;
     if (iterationTestCommand) {
       testResult = await runLoopCommand(iterationTestCommand, root, testTimeoutMs, maxOutputBytes, 'Test');
-      writeLoopTestOutput(paths, testResult, commandDisplay(iterationTestCommand));
+      await writeLoopTestOutput(root, paths, testResult, commandDisplay(iterationTestCommand));
       statusLine(testResult.exitCode === 0 ? 'ok' : 'warn', `Tests exited with code ${testResult.exitCode ?? 'null'}${testResult.signal ? ` signal=${testResult.signal}` : ''}`);
     }
 
@@ -2600,7 +2664,7 @@ async function runLoopHandoff(argv) {
     let verdict = explicitReviewVerdict(`${reviewResult.stdout}\n${reviewResult.stderr}`);
     if (!verdict && args.allowImplicitReviewVerdict && nextPlanChanged && reviewResult.exitCode === 0) verdict = 'FAIL';
     if (!verdict && args.allowImplicitReviewVerdict && afterReviewPlanExists && reviewResult.exitCode === 0 && execution.result?.exitCode === 0 && (!testResult || testResult.exitCode === 0)) verdict = 'PASS';
-    writeLoopReviewOutput(paths, reviewResult, commandDisplay(iterationReviewCommand), verdict, nextPlanChanged);
+    await writeLoopReviewOutput(root, paths, reviewResult, commandDisplay(iterationReviewCommand), verdict, nextPlanChanged);
     let acceptedVerdict = verdict;
     let rejectedPassReason = '';
     if (verdict === 'PASS' && reviewResult.exitCode !== 0) {
@@ -2614,7 +2678,7 @@ async function runLoopHandoff(argv) {
       rejectedPassReason = 'tests_failed';
     }
 
-    appendBridgeLog(root, contextDir, {
+    const iterationFinishedEvent = {
       event: 'loop_handoff_iteration_finished',
       iteration,
       plan_hash: currentPlanHash,
@@ -2634,8 +2698,8 @@ async function runLoopHandoff(argv) {
       diff_path: path.posix.join(contextDir, 'implementation-diff.patch'),
       tests_path: iterationTestCommand ? path.posix.join(contextDir, 'loop-tests.txt') : undefined,
       review_path: path.posix.join(contextDir, 'loop-review.md')
-    });
-    writeLoopState(paths, {
+    };
+    const iterationState = {
       updatedAt: new Date().toISOString(),
       iteration,
       maxIters,
@@ -2649,7 +2713,19 @@ async function runLoopHandoff(argv) {
       changedThisIteration,
       executorExitCode: execution.result?.exitCode ?? null,
       reviewerExitCode: reviewResult.exitCode
-    });
+    };
+    await commitWorkspaceWrites(root, [
+      {
+        path: workspaceRelativePath(root, paths.logPath),
+        content: `${JSON.stringify({ ts: new Date().toISOString(), ...iterationFinishedEvent })}\n`,
+        mode: 'append'
+      },
+      {
+        path: workspaceRelativePath(root, paths.statePath),
+        content: `${JSON.stringify(iterationState, null, 2)}\n`,
+        mode: 'replace'
+      }
+    ], 'loop_handoff');
 
     if (acceptedVerdict === 'PASS') {
       finalVerdict = 'PASS';
@@ -2701,7 +2777,7 @@ async function runLoopHandoff(argv) {
     statusLine('wait', `Reviewer requested another iteration (${iteration}/${maxIters}).`);
   }
 
-  appendBridgeLog(root, contextDir, {
+  await appendBridgeLog(root, contextDir, {
     event: 'loop_handoff_finished',
     verdict: finalVerdict,
     stop_reason: stopReason

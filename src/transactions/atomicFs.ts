@@ -17,6 +17,11 @@ export interface InspectedWorkspacePath {
   comparisonKey: string;
   targetAbsPath: string;
   before: BeforeFileFactV1;
+  artifactParentAbsPath: string;
+  missingDirectories: readonly {
+    relativePath: string;
+    absPath: string;
+  }[];
 }
 
 export interface AtomicWorkspaceFsDependencies {
@@ -151,7 +156,9 @@ export class AtomicWorkspaceFs {
         relativePath: facts.relPath,
         comparisonKey: facts.comparisonKey,
         targetAbsPath: facts.absPath,
-        before
+        before,
+        artifactParentAbsPath: path.dirname(facts.absPath),
+        missingDirectories: []
       };
     } catch (error) {
       if (error instanceof TransactionError) throw error;
@@ -172,16 +179,25 @@ export class AtomicWorkspaceFs {
         relativePath: facts.relPath,
         comparisonKey: facts.comparisonKey,
         targetAbsPath: facts.absPath,
-        before
+        before,
+        artifactParentAbsPath: facts.existingParent,
+        missingDirectories: facts.unresolvedSuffix.slice(0, -1).map((_, index) => {
+          const segments = facts.unresolvedSuffix.slice(0, index + 1);
+          const absPath = path.join(facts.existingParent, ...segments);
+          return {
+            relativePath: artifactRelativePath(this.workspace.root, absPath),
+            absPath
+          };
+        })
       };
     }
   }
 
-  private async writeStage(targetAbsPath: string, bytes: Buffer, mode?: number): Promise<string> {
+  private async writeStage(targetAbsPath: string, artifactParentAbsPath: string, bytes: Buffer, mode?: number): Promise<string> {
     if (bytes.length > this.maxBytes) {
       throw new TransactionError("TRANSACTION_PRECONDITION_FAILED", "Transaction payload exceeds the byte limit.");
     }
-    const stage = reservedSibling(targetAbsPath, "stage", this.dependencies.randomBytes(8));
+    const stage = reservedSibling(path.join(artifactParentAbsPath, path.basename(targetAbsPath)), "stage", this.dependencies.randomBytes(8));
     const handle = await fsp.open(stage, "wx", 0o600);
     try {
       let offset = 0;
@@ -264,8 +280,8 @@ export class AtomicWorkspaceFs {
   ): Promise<PreparedAtomicOperation> {
     const inspected = await this.inspect(relativePath);
     if (inspected.before.exists) throw conflict(inspected.relativePath);
-    const stageAbsPath = await this.writeStage(inspected.targetAbsPath, bytes);
-    const probe = reservedSibling(inspected.targetAbsPath, "move", this.dependencies.randomBytes(8));
+    const stageAbsPath = await this.writeStage(inspected.targetAbsPath, inspected.artifactParentAbsPath, bytes);
+    const probe = reservedSibling(path.join(inspected.artifactParentAbsPath, path.basename(inspected.targetAbsPath)), "move", this.dependencies.randomBytes(8));
     try {
       await this.linkVerified(stageAbsPath, probe);
     } finally {
@@ -282,7 +298,14 @@ export class AtomicWorkspaceFs {
       before: inspected.before,
       after: { exists: true, sha256: sha256(bytes), bytes: bytes.length }
     };
-    return { operation, targetAbsPath: inspected.targetAbsPath, stageAbsPath, backupAbsPath: null };
+    return {
+      operation,
+      targetAbsPath: inspected.targetAbsPath,
+      stageAbsPath,
+      backupAbsPath: null,
+      artifactParentAbsPath: inspected.artifactParentAbsPath,
+      missingDirectories: inspected.missingDirectories
+    };
   }
 
   async stageReplace(
@@ -295,7 +318,7 @@ export class AtomicWorkspaceFs {
     if (!inspected.before.exists || (expectedSha256 !== null && inspected.before.sha256 !== expectedSha256)) {
       throw conflict(inspected.relativePath);
     }
-    const stageAbsPath = await this.writeStage(inspected.targetAbsPath, bytes, inspected.before.metadata.mode);
+    const stageAbsPath = await this.writeStage(inspected.targetAbsPath, inspected.artifactParentAbsPath, bytes, inspected.before.metadata.mode);
     const backupAbsPath = reservedSibling(inspected.targetAbsPath, "backup", this.dependencies.randomBytes(8));
     try {
       await this.linkVerified(inspected.targetAbsPath, backupAbsPath);
@@ -317,7 +340,14 @@ export class AtomicWorkspaceFs {
       before: inspected.before,
       after: { exists: true, sha256: sha256(bytes), bytes: bytes.length }
     };
-    return { operation, targetAbsPath: inspected.targetAbsPath, stageAbsPath, backupAbsPath };
+    return {
+      operation,
+      targetAbsPath: inspected.targetAbsPath,
+      stageAbsPath,
+      backupAbsPath,
+      artifactParentAbsPath: inspected.artifactParentAbsPath,
+      missingDirectories: inspected.missingDirectories
+    };
   }
 
   async stageDelete(
@@ -342,7 +372,14 @@ export class AtomicWorkspaceFs {
       before: inspected.before,
       after: { exists: false, sha256: null, bytes: 0, identity: null }
     };
-    return { operation, targetAbsPath: inspected.targetAbsPath, stageAbsPath: null, backupAbsPath };
+    return {
+      operation,
+      targetAbsPath: inspected.targetAbsPath,
+      stageAbsPath: null,
+      backupAbsPath,
+      artifactParentAbsPath: inspected.artifactParentAbsPath,
+      missingDirectories: inspected.missingDirectories
+    };
   }
 
   private async assertCurrentMatches(
@@ -442,7 +479,7 @@ export class AtomicWorkspaceFs {
       if (!/^\.codexpro-txn-[a-f0-9]{16}\.(?:stage|backup|move)$/.test(basename)) {
         throw new TransactionError("TRANSACTION_STATE_CORRUPT", "Transaction artifact name is invalid.");
       }
-      if (path.dirname(artifact) !== path.dirname(prepared.targetAbsPath)) {
+      if (path.dirname(artifact) !== prepared.artifactParentAbsPath) {
         throw new TransactionError("TRANSACTION_STATE_CORRUPT", "Transaction artifact parent is invalid.");
       }
       try {

@@ -155,3 +155,62 @@ test("public engine failures do not expose absolute workspace roots", () => fixt
     assert.equal(JSON.stringify(error.safeDetails).includes(workspaceRoot), false);
   }
 }));
+
+test("create transactions stage before visibility and atomically create missing parent directories", () => fixture(async ({ workspaceRoot, workspace, engine, stateRoot }) => {
+  const prepared = await engine.prepare({
+    workspace,
+    requiredParticipants: [],
+    operations: [{
+      operationId: "op_nested_create",
+      kind: "create",
+      relativePath: ".ai-bridge/current-plan.md",
+      bytes: Buffer.from("# Plan\n"),
+      expectedAbsent: true
+    }]
+  });
+  await assert.rejects(() => fsp.stat(path.join(workspaceRoot, ".ai-bridge")), { code: "ENOENT" });
+  const pending = await prepared.commit();
+  const committed = await pending.finalize();
+  assert.equal(committed.operationCount, 1);
+  assert.equal(
+    await fsp.readFile(path.join(workspaceRoot, ".ai-bridge", "current-plan.md"), "utf8"),
+    "# Plan\n"
+  );
+  const manifests = new TransactionManifestStore(stateRoot).list(engine.workspaceStateKey(workspace.root));
+  assert.deepEqual(manifests.at(-1).createdDirectories, [".ai-bridge"]);
+}));
+
+test("failure after a transaction-owned directory creation removes the empty directory and all staged artifacts", () => {
+  let failed = false;
+  return fixture(async ({ workspaceRoot, workspace, engine }) => {
+    const prepared = await engine.prepare({
+      workspace,
+      requiredParticipants: [],
+      operations: [{
+        operationId: "op_nested_create",
+        kind: "create",
+        relativePath: ".ai-bridge/current-plan.md",
+        bytes: Buffer.from("# Plan\n"),
+        expectedAbsent: true
+      }]
+    });
+    await assert.rejects(
+      () => prepared.commit(),
+      (error) => error.code === "TRANSACTION_FAILED"
+    );
+    await assert.rejects(() => fsp.stat(path.join(workspaceRoot, ".ai-bridge")), { code: "ENOENT" });
+    assert.deepEqual(
+      (await fsp.readdir(workspaceRoot)).filter((name) => name.startsWith(".codexpro-txn-")),
+      []
+    );
+  }, {
+    faultInjector: {
+      hit(point) {
+        if (point === "after_each_directory_create" && !failed) {
+          failed = true;
+          throw new Error("injected directory failure");
+        }
+      }
+    }
+  });
+});

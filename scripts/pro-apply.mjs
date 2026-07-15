@@ -86,10 +86,16 @@ async function main() {
   }
   requireBuild();
 
-  const [{ loadConfig }, { WorkspaceManager, PathGuard }, { ensureAiBridge, readTextFile, writeTextFile }] = await Promise.all([
+  const [
+    { loadConfig },
+    { WorkspaceManager, PathGuard },
+    { AI_BRIDGE_SCAFFOLD_FILES, aiBridgeScaffoldWrites, makeUnifiedDiff, prepareWorkspaceTextBatch },
+    { LocalMutationService }
+  ] = await Promise.all([
     import('../dist/config.js'),
     import('../dist/guard.js'),
-    import('../dist/fsOps.js')
+    import('../dist/fsOps.js'),
+    import('../dist/mutations/index.js')
   ]);
 
   const config = loadConfig(process.argv.slice(2));
@@ -100,37 +106,42 @@ async function main() {
   const planPath = `${config.contextDir}/current-plan.md`;
   const rawPlan = await readPlan(args);
   const newPlan = normalizePlan(rawPlan, args.title);
-  await ensureAiBridge(config, guard, workspace);
-  let content = newPlan;
-
-  if (args.append) {
-    const resolved = guard.resolve(workspace, planPath);
-    const existing = await readTextFile(config, guard, workspace, planPath, { maxBytes: config.maxReadBytes });
-    const rawExisting = await fsp.readFile(resolved.absPath, 'utf8');
-    content = `${rawExisting.trimEnd()}\n\n---\n\n${newPlan}`;
-    void existing;
-  }
-
-  const result = await writeTextFile(config, guard, workspace, planPath, content, {
-    createDirs: true,
-    overwrite: true
-  });
-
   const logRel = `${config.contextDir}/session-log.jsonl`;
   const executionLogRel = `${config.contextDir}/execution-log.jsonl`;
-  const logResolved = guard.resolve(workspace, logRel, { forWrite: true });
-  const executionLogResolved = guard.resolve(workspace, executionLogRel, { forWrite: true });
   const event = jsonlEvent('pro_apply', {
     plan_path: planPath,
     source_file: args.file ? resolvePlanPath(args) : 'stdin',
     append: Boolean(args.append)
   });
-  await fsp.appendFile(logResolved.absPath, event, 'utf8');
-  await fsp.appendFile(executionLogResolved.absPath, event, 'utf8');
+  const replacedPaths = new Set([planPath, logRel, executionLogRel]);
+  const prepared = await prepareWorkspaceTextBatch(config, guard, workspace, [
+    ...aiBridgeScaffoldWrites(config).filter((write) => !replacedPaths.has(write.path)),
+    {
+      path: planPath,
+      content: args.append ? `\n\n---\n\n${newPlan}` : newPlan,
+      mode: args.append ? 'append' : 'replace',
+      missingContent: args.append
+        ? `${AI_BRIDGE_SCAFFOLD_FILES['current-plan.md'].trimEnd()}\n\n---\n\n${newPlan}`
+        : undefined
+    },
+    { path: logRel, content: event, mode: 'append' },
+    { path: executionLogRel, content: event, mode: 'append' }
+  ]);
+  const planOperation = prepared.operations.find((operation) => operation.path === planPath);
+  if (!planOperation) throw new Error('Atomic plan operation is missing.');
+  const previousText = planOperation.before.bytes?.toString('utf8') ?? '';
+  const content = planOperation.operation.bytes.toString('utf8');
+  const diff = makeUnifiedDiff(previousText, content, planPath);
+  const service = new LocalMutationService(config, guard);
+  try {
+    await service.executeBatch(workspace, prepared, { ok: true }, { toolName: 'pro_apply' });
+  } finally {
+    service.dispose();
+  }
 
   console.log(`Wrote ${path.join(workspace.root, planPath)}`);
-  console.log(`Bytes: ${result.bytes}`);
-  console.log(`Diff stats: +${result.diff.additions} -${result.diff.deletions}`);
+  console.log(`Bytes: ${planOperation.operation.bytes.length}`);
+  console.log(`Diff stats: +${diff.additions} -${diff.deletions}`);
   console.log(`Session log: ${path.join(workspace.root, logRel)}`);
   console.log(`Execution log: ${path.join(workspace.root, executionLogRel)}`);
 }

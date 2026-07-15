@@ -107,14 +107,18 @@ export const transactionOperationV1Schema = z.object({
     ["stageRelativePath", value.stageRelativePath],
     ["backupRelativePath", value.backupRelativePath]
   ] as const) {
-    if (artifact && path.posix.dirname(artifact.replace(/\\/g, "/")) !== logicalParent) {
+    if (artifact) {
+      const artifactParent = path.posix.dirname(artifact.replace(/\\/g, "/"));
+      const isCreateStageAncestor = value.kind === "create" && field === "stageRelativePath" &&
+        (artifactParent === "." || logicalParent.startsWith(`${artifactParent}/`));
+      if (artifactParent === logicalParent || isCreateStageAncestor) continue;
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: [field],
         message: "Transaction artifacts must be siblings of their logical path."
       });
     }
-  }
+}
 
   const planned = value.state === "planned";
   if (value.kind === "create") {

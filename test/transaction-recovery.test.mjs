@@ -127,6 +127,40 @@ test("committed recovery only finishes artifact cleanup", () => fixture(async ({
   coordinator.dispose();
 }));
 
+test("a cleaned committed manifest does not freeze a target changed by a later valid transaction", () => fixture(async ({ workspaceRoot, stateRoot, workspace, config }) => {
+  const atomicFs = new AtomicWorkspaceFs(config, new PathGuard(config), workspace);
+  const prepared = await atomicFs.stageCreate("op_create_history", "history.txt", Buffer.from("first"));
+  const installed = await atomicFs.install(prepared);
+  await atomicFs.finalize(installed);
+  const installation = loadOrCreateInstallationState({ stateRoot });
+  const masterKey = installationMasterKey(installation);
+  const workspaceStateKey = workspaceStateKeyForRoot(workspaceRoot, masterKey);
+  masterKey.fill(0);
+  const store = new TransactionManifestStore(stateRoot);
+  const initial = {
+    schemaVersion: 1,
+    transactionId: "tx_" + "7".repeat(32),
+    changeSetId: "cs_" + "8".repeat(32),
+    workspaceStateKey,
+    generation: 1,
+    createdAt: "2026-07-14T00:00:00.000Z",
+    updatedAt: "2026-07-14T00:00:00.000Z",
+    state: "preparing",
+    operations: [installed.operation],
+    createdDirectories: [],
+    requiredParticipants: [],
+    participantFacts: {}
+  };
+  store.writeInitial(initial);
+  store.writeNext(initial, nextManifest(initial, { state: "committed" }));
+  await fsp.writeFile(path.join(workspaceRoot, "history.txt"), "second");
+
+  const coordinator = createDefaultTransactionRecoveryCoordinator(config, { stateRoot });
+  coordinator.ensureWorkspaceReady(workspaceRoot);
+  assert.equal(await fsp.readFile(path.join(workspaceRoot, "history.txt"), "utf8"), "second");
+  coordinator.dispose();
+}));
+
 test("unprovable recovery freezes the workspace and retains evidence", () => fixture(async ({ workspaceRoot, stateRoot, workspace, config }) => {
   const atomicFs = new AtomicWorkspaceFs(config, new PathGuard(config), workspace);
   const create = await atomicFs.stageCreate("op_create_a", "conflict.txt", Buffer.from("ours"));

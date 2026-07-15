@@ -132,7 +132,8 @@ function validateArtifactPath(
   workspaceRoot: string,
   targetAbsPath: string,
   relativePath: string | null,
-  kind: "stage" | "backup"
+  kind: "stage" | "backup",
+  allowAncestor = false
 ): string | null {
   if (!relativePath) return null;
   const artifact = path.resolve(workspaceRoot, relativePath);
@@ -141,7 +142,8 @@ function validateArtifactPath(
     : /^\.codexpro-txn-[a-f0-9]{16}\.backup$/;
   if (
     !isContainedPath(artifact, workspaceRoot) ||
-    path.dirname(artifact) !== path.dirname(targetAbsPath) ||
+    (path.dirname(artifact) !== path.dirname(targetAbsPath) &&
+      !(allowAncestor && isContainedPath(path.dirname(targetAbsPath), path.dirname(artifact)))) ||
     !expected.test(path.basename(artifact))
   ) {
     throw new TransactionError(
@@ -331,7 +333,8 @@ export class TransactionRecoveryCoordinator {
         workspaceRoot,
         resolved.absPath,
         operation.stageRelativePath,
-        "stage"
+        "stage",
+        operation.kind === "create"
       ),
       backup: validateArtifactPath(
         workspaceRoot,
@@ -413,13 +416,10 @@ export class TransactionRecoveryCoordinator {
   }
 
   private verifyCommittedState(workspaceRoot: string, operation: TransactionOperationV1): void {
-    const { target, stage, backup } = this.targetAndArtifacts(workspaceRoot, operation);
-    if (!matchesAfter(currentFileFact(target, this.config.maxWriteBytes), operation.after)) {
-      throw new TransactionError(
-        "TRANSACTION_RECOVERY_REQUIRED",
-        "Committed workspace state no longer matches the manifest."
-      );
-    }
+    const { stage, backup } = this.targetAndArtifacts(workspaceRoot, operation);
+    // A committed transaction is historical and cannot be rolled back. Its target may
+    // legitimately have been changed by a later transaction; only leftover artifacts
+    // remain in this recovery domain and each is authenticated against signed facts.
     removeArtifactIfProven(stage, operation.after, this.config.maxWriteBytes);
     removeArtifactIfProven(backup, operation.before, this.config.maxWriteBytes);
   }

@@ -292,7 +292,7 @@ Run: `npm run build && node --test test/apply-patch-transaction.test.mjs test/ap
 
 Parse all hunks and read all before bytes before calling the runtime. Sort transaction operations by comparison key while preserving caller file order in output.
 
-- [ ] **Step 4: Verify and publish**
+- [x] **Step 4: Verify and publish**
 
 Run focused tests, patch smoke compatibility, Build, neat-freak, commit `feat: migrate patch transactions`, push, and exact-head CI.
 
@@ -318,15 +318,15 @@ Run focused tests, patch smoke compatibility, Build, neat-freak, commit `feat: m
 - Self-test mutates only `.ai-bridge/codexpro-self-test.md` and requests non-retained change-set material.
 - `pro-apply` imports the built mutation service and performs plan plus both logs in one transaction.
 
-- [ ] **Step 1: Write RED all-or-nothing tests**
+- [x] **Step 1: Write RED all-or-nothing tests**
 
 Cover empty scaffold, partial pre-existing scaffold, append replacement, later-file fault rollback, audit failure rollback for every writer, size bounds before mutation, no orphan plan/state/log, Pro-context overwrite, self-test restricted path/non-retention, CLI success/rollback, and V1 compatibility.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: `npm run build && node --test test/bridge-writer-transaction.test.mjs test/pro-apply-transaction.test.mjs`
 
-- [ ] **Step 3: Implement one shared operation builder**
+- [x] **Step 3: Implement one shared operation builder**
 
 Read bounded existing logs, construct complete after bytes, and send all operations through `WorkspaceMutationRuntime`. Classify app-state writes in `scripts/codexpro.mjs` separately; do not route profile, credential reference, process state, installer, or transaction state through workspace mutations.
 

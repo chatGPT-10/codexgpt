@@ -8,11 +8,16 @@ export {
 export {
   attachPreparedPatchMutation,
   attachPreparedFileMutation,
+  attachPreparedBatchMutation,
   preserveMutationResult
 } from "./writers.js";
 export type {
   AttachPreparedPatchMutationInput,
   AttachPreparedFileMutationInput,
+  AttachPreparedBatchMutationInput,
+  BatchMutationContext,
+  BatchMutationFileProjection,
+  BatchMutationPublicProjection,
   FileMutationContext,
   FileMutationPublicProjection,
   PatchMutationContext,
@@ -30,3 +35,9 @@ export type {
   PendingWorkspaceMutation,
   WorkspaceMutationPreparation
 } from "./types.js";
+
+export {
+  LocalMutationService,
+  type ExecuteLocalBatchOptions,
+  type LocalMutationServiceOptions
+} from "./localService.js";

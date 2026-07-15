@@ -19,7 +19,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Policy Kernel Gate: passed on 2026-07-14 after final approval of the compiled-kernel Approach B four-specification package.
 - Phase 2A: formally closed on 2026-07-14. Implementation commit `e6798b6` plus Linux-path test repair `dea25ec` passed replacement exact-head CI run `29326459987` on Ubuntu/Windows Node 20/24.
 - Phase 2B: formally closed on 2026-07-14. Implementation and reconciliation commit `2fb622d` passed exact-head CI run `29332007110`; replacement closure-verification commit `c08024d` passed run `29334446539` across Ubuntu/Windows Node 20/24 after one non-reproduced Windows Node 20 failure on the preceding documentation head.
-- Phase 3: Phase 3A and Phase 3B are published and closed. Phase 3C Tasks 1-4 and the Task 4 Windows repair are published through `bb5b863`; replacement exact-head run `29378357522` passed. Task 5 transaction-backed multi-file `apply_patch` is locally complete and verified as the current publication candidate.
+- Phase 3: Phase 3A and Phase 3B are published and closed. Phase 3C Tasks 1-5 are published through `b1df763`; exact-head run `29379729314` passed. Task 6 transaction-backed bridge, handoff, Pro-context, self-test, and CLI writers are locally complete and verified as the current publication candidate.
 
 ## Approved execution boundary
 
@@ -57,6 +57,8 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Phase 3C Tasks 1-3: commits `a9acc14`, `c01a698`, and `68036e8` passed exact-head runs `29372615528`, `29374274230`, and `29375830950`; their full local evidence remains in Phase 3 Volumes 2-3.
 - Phase 3C Task 4: implementation `ac06b2c` exposed an unbounded Windows reader/rename CI hang in run `29377484728`; deterministic boundary testing in `bb5b863` passed replacement run `29378357522` across Ubuntu/Windows Node 20/24. Local closure included 220/220 repeated focused tests, 672/673 complete regression, Build, all Smoke sections, Stress, and package dry-run.
 - Phase 3C Task 5 local gate: RED exposed three parser gaps (zero-count insertion coordinates, unsupported metadata, and case-folded expected-file duplicates). The repaired preflight and one-change-set mutation path passed 29/29 focused/legacy apply-patch tests, the complete 687/688 regression with 0 failures and 1 established skip, Build, all eight Smoke sections, native-Windows Stress, and a 259-file package dry-run. V1 remains exact; V2 remains dormant.
+- Phase 3C Task 5 publication: commit `b1df763` passed exact-head run `29379729314` on Ubuntu/Windows Node 20/24; every job completed Build, Regression, Smoke, and Package.
+- Phase 3C Task 6 local gate: one shared bounded text-batch builder now covers missing-directory scaffold creation, complete-file append replacements, handoff, Pro-context, self-test non-retention, `pro-apply`, and execute/watch/loop CLI artifacts. Focused/legacy coverage passed 94/94, complete regression 701/702 with 0 failures and 1 established skip, Build, all eight Smoke sections, Stress, and a 261-file package dry-run.
 - Phase 3B implementation boundary: persistent storage, query, diagnostics, Policy wrapper integration points, and transaction participant are published, but current V1 production registration still does not inject or expose it. Phase 3C owns runtime/writer/undo preparation; complete public V2 activation is deferred to the Phase 3D 31-tool gate.
 
 ## Known limitations
@@ -69,19 +71,20 @@ The user authorized continuous recommended-option implementation through Phase 8
 - The managed pinned Cloudflared binary is not installed in the user profile. macOS archive installs are version-checked but are not re-hashed during later `ensure/status` operations.
 - Several legacy failure classifiers still depend on bounded internal message prefixes or Node error codes. Exact tool-level details remain in the Phase 1 archives.
 - Protected main/HTTP Smoke compatibility depends on exact source strings; source drift fails closed and requires a same-change compatibility update.
-- Context, handoff, export, session, and wait operations use bounded non-atomic snapshots or multi-file writes; they fail closed on detected drift but do not provide transaction rollback.
-- The dormant atomic `write` adapter currently requires an existing parent directory. `create_dirs=true` for missing parents remains an activation blocker; direct `mkdir` is forbidden because it would escape audit and rollback. A continuously conflicting external Windows file handle can make atomic install fail and roll back; byte atomicity does not imply guaranteed forward progress under external contention.
-- The dormant atomic `apply_patch` adapter supports exact UTF-8 text create/replace/delete hunks with existing parent directories. It fails closed for binary, symlink, rename/copy, and executable or other mode-changing patches because the transaction model does not yet encode those semantics. Its 1,000-target and per-file limits are finite but still permit a large aggregate batch; a shared aggregate transaction-byte ceiling remains an activation blocker for the later writer-closure gate.
+- Read-only context, session, and wait operations use bounded snapshots. Task 6 migrates bridge scaffold, handoff, export, self-test, and supported CLI workspace artifacts to rollback-capable transactions, but production writable atomic server construction remains gated until Tasks 7-9 close inventory, undo, schemas, and runtime wiring.
+- Atomic transactions can create missing parent directories through recorded empty-directory rollback. A continuously conflicting external Windows file handle can still make install fail and roll back; byte atomicity does not imply guaranteed forward progress under external contention.
+- The dormant atomic `apply_patch` adapter supports exact bounded UTF-8 text create/replace/delete hunks and fails closed for binary, symlink, rename/copy, and mode changes. Shared batch preparation now enforces an aggregate after-byte ceiling before transaction state is created.
 - Inventory, Skill discovery, session indexing, and review checkpoints are intentionally bounded or process-local rather than complete persistent indexes.
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
 
 ## Open items
 
-1. Publish Phase 3C Task 5, require exact-head Ubuntu/Windows Node 20/24 CI, then begin Task 6 bridge, handoff, Pro-context, probe, and CLI writer migration.
+1. Publish Phase 3C Task 6, require exact-head Ubuntu/Windows Node 20/24 CI, then begin Task 7 static mutation-closure inventory.
 
 ## Recent summaries
 
+- **STEP-288 - Migrate bridge and CLI workspace writers:** added bounded multi-file text batches, transaction-owned directory creation, shared durable-audit local mutation service, atomic handoff/Pro-context/self-test/CLI paths, and historical committed-manifest recovery semantics; the complete local gate passed.
 - **STEP-287 - Add transaction-backed multi-file apply_patch:** added complete UTF-8 diff preflight, deterministic create/replace/delete transactions, strict expected-file and V2 facts, all-or-nothing rollback, and fail-closed unsupported-patch handling; the complete local gate passed.
 - **STEP-286 - Repair the Windows atomic-visibility CI hang:** replaced an unbounded cross-platform reader race with deterministic reads at the transaction's installed-pending boundary; repair `bb5b863` passed exact-head run `29378357522`.
 - **STEP-285 — Add transaction-backed write and edit adapters:** added exact-byte preparation, caller/observed hash checks, strict V2 results/failures, V1 projection compatibility, required-audit rollback, Windows concurrency coverage, and an explicit missing-parent activation blocker; the complete local gate passed.

@@ -4,10 +4,13 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import type { CodexProConfig } from "./config.js";
 import {
+  aiBridgeScaffoldWrites,
   ensureAiBridge,
   makeUnifiedDiff,
+  prepareWorkspaceTextBatch,
   writeTextFile,
-  type DiffResult
+  type DiffResult,
+  type PreparedWorkspaceTextBatch
 } from "./fsOps.js";
 import { PathGuard, type Workspace } from "./guard.js";
 import { hasSecretValue } from "./redact.js";
@@ -138,6 +141,11 @@ export interface AgentHandoffProviderContext {
   workspace: Workspace;
   request: PreparedAgentHandoffRequest;
   output: PreparedAgentHandoffOutput;
+}
+
+export interface PreparedAgentHandoffMutation {
+  result: HandoffWriteResult;
+  prepared: PreparedWorkspaceTextBatch;
 }
 
 const EMPTY_SCAFFOLD_PLAN = "# Current Plan\n\nNo plan written yet.";
@@ -524,6 +532,14 @@ export async function writePreparedAgentHandoff(
     throw new HandoffOperationError("LOG_WRITE_FAILED");
   }
 
+  return buildHandoffWriteResult(context, createdContextFiles);
+}
+
+function buildHandoffWriteResult(
+  context: AgentHandoffProviderContext,
+  createdContextFiles: string[]
+): HandoffWriteResult {
+  const { config, workspace, request, output } = context;
   return {
     workspaceId: workspace.id,
     root: workspace.root,
@@ -562,4 +578,35 @@ export async function writePreparedAgentHandoff(
     prompt: request.prompt,
     promptBytes: Buffer.byteLength(request.prompt, "utf8")
   };
+}
+
+export async function prepareAgentHandoffMutation(
+  context: AgentHandoffProviderContext
+): Promise<PreparedAgentHandoffMutation> {
+  const { config, guard, workspace, request, output } = context;
+  try {
+    const replacedPaths = new Set([request.planPath, request.logPath, request.executionLogPath]);
+    const writes = [
+      ...aiBridgeScaffoldWrites(config).filter((write) => !replacedPaths.has(write.path)),
+      { path: request.planPath, content: output.finalPlan, mode: "replace" as const },
+      { path: request.logPath, content: output.event, mode: "append" as const },
+      { path: request.executionLogPath, content: output.event, mode: "append" as const }
+    ];
+    const prepared = await prepareWorkspaceTextBatch(config, guard, workspace, writes);
+    const actualCreated = new Set(prepared.createdPaths);
+    if (
+      actualCreated.size !== output.expectedCreatedContextFiles.length ||
+      output.expectedCreatedContextFiles.some((value) => !actualCreated.has(value))
+    ) {
+      throw new HandoffOperationError("HANDOFF_WRITE_FAILED");
+    }
+    return {
+      result: buildHandoffWriteResult(context, [...output.expectedCreatedContextFiles]),
+      prepared
+    };
+  } catch (error) {
+    const recognized = recognizedHandoffError(error);
+    if (recognized) throw recognized;
+    throw new HandoffOperationError("HANDOFF_WRITE_FAILED");
+  }
 }

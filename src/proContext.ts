@@ -6,7 +6,16 @@ import { minimatch } from "minimatch";
 import type { CodexProConfig } from "./config.js";
 import type { Workspace } from "./guard.js";
 import { CodexProError, PathGuard, normalizeRelPath } from "./guard.js";
-import { listFiles, readTextFile, repoTree, writeTextFile, ensureAiBridge } from "./fsOps.js";
+import {
+  aiBridgeScaffoldWrites,
+  listFiles,
+  readTextFile,
+  repoTree,
+  writeTextFile,
+  ensureAiBridge,
+  prepareWorkspaceTextBatch,
+  type PreparedWorkspaceTextBatch
+} from "./fsOps.js";
 import { gitDiff, gitLog, gitStatus } from "./gitOps.js";
 import { readHandoffContext, resolveCodexContextTarget } from "./workspaceOps.js";
 import { redactSensitiveText } from "./redact.js";
@@ -94,6 +103,11 @@ export interface ProContextBuildResult {
 export interface ProContextExportResult extends ProContextBuildResult {
   path: string;
   existed: boolean;
+}
+
+export interface PreparedProContextMutation {
+  result: ProContextExportResult;
+  prepared: PreparedWorkspaceTextBatch;
 }
 
 export type ProContextResult = ProContextBuildResult | ProContextExportResult;
@@ -478,7 +492,9 @@ export async function buildPreparedProContext(
   guard: PathGuard,
   workspace: Workspace,
   request: PreparedProContextRequest,
-  createdContextFiles: readonly string[] = []
+  createdContextFiles: readonly string[] = [],
+  virtualAiBridge: Readonly<Record<string, string>> = {},
+  virtualFiles: Readonly<Record<string, string>> = {}
 ): Promise<ProContextBuildResult> {
   try {
     const status = gitStatus(config, workspace);
@@ -509,6 +525,27 @@ export async function buildPreparedProContext(
     const filesSkipped: ExportProContextSkipped[] = [];
     const fileChunks: string[] = [];
     for (const rel of attempted) {
+      const virtualText = virtualFiles[rel];
+      if (virtualText !== undefined) {
+        const virtualBytes = Buffer.byteLength(virtualText, "utf8");
+        if (virtualBytes > request.maxFileBytes) {
+          filesSkipped.push({ path: rel, reason: "too_large", bytes: virtualBytes });
+          continue;
+        }
+        filesIncluded.push(rel);
+        fileChunks.push([
+          `### ${rel}`,
+          "",
+          `Bytes: ${virtualBytes}`,
+          `SHA-256: ${createHash("sha256").update(virtualText).digest("hex")}`,
+          `Lines: 1-${virtualText.length === 0 ? 0 : virtualText.split(/\r?\n/).length}`,
+          "",
+          `\`\`\`${languageForPath(rel)}`,
+          virtualText,
+          "```"
+        ].join("\n"));
+        continue;
+      }
       let observedBytes: number | null = null;
       try {
         const resolved = guard.resolve(workspace, rel);
@@ -554,14 +591,35 @@ export async function buildPreparedProContext(
     let aiText = `No ${config.contextDir} handoff context exists yet. Use handoff_to_agent or handoff_to_codex to create it when a plan is ready.`;
     if (request.includeAiBridge) {
       const handoff = await readHandoffContext(config, guard, workspace);
-      if (handoff.contextExists) {
-        aiContextFiles = handoff.artifacts.map((artifact) => artifact.path);
-        aiContextUnavailable = handoff.unavailable.map((item) => ({
+      const artifacts = [...handoff.artifacts];
+      const unavailable = [...handoff.unavailable];
+      for (const definition of READ_HANDOFF_ARTIFACT_DEFINITIONS) {
+        const relPath = `${config.contextDir}/${definition.name}`;
+        const text = virtualAiBridge[relPath];
+        if (text === undefined || artifacts.some((artifact) => artifact.path === relPath)) continue;
+        const bytes = Buffer.byteLength(text, "utf8");
+        artifacts.push({
+          path: relPath,
+          kind: definition.kind,
+          bytes,
+          lineCount: text.length === 0 ? 0 : text.split(/\r?\n/).length,
+          text
+        });
+        const unavailableIndex = unavailable.findIndex((item) => item.path === relPath);
+        if (unavailableIndex >= 0) unavailable.splice(unavailableIndex, 1);
+      }
+      artifacts.sort((left, right) =>
+        READ_HANDOFF_ARTIFACT_DEFINITIONS.findIndex((definition) => `${config.contextDir}/${definition.name}` === left.path) -
+        READ_HANDOFF_ARTIFACT_DEFINITIONS.findIndex((definition) => `${config.contextDir}/${definition.name}` === right.path)
+      );
+      if (handoff.contextExists || artifacts.length > 0) {
+        aiContextFiles = artifacts.map((artifact) => artifact.path);
+        aiContextUnavailable = unavailable.map((item) => ({
           path: item.path,
           reason: item.reason,
           bytes: item.bytes
         }));
-        aiText = formatAiContext(handoff.contextDir, handoff.artifacts, handoff.unavailable);
+        aiText = formatAiContext(handoff.contextDir, artifacts, unavailable);
       }
     }
 
@@ -702,6 +760,54 @@ export async function exportPreparedProContext(
       existed: write.existed,
       bytes: write.bytes,
       sha256: write.sha256
+    };
+  } catch (error) {
+    if (error instanceof ProContextOperationError) throw error;
+    throw new ProContextOperationError("CONTEXT_WRITE_FAILED");
+  }
+}
+
+export async function prepareProContextMutation(
+  config: CodexProConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  request: PreparedProContextRequest,
+  preparedOutput?: PreparedProContextOutput
+): Promise<PreparedProContextMutation> {
+  const output = preparedOutput ?? await preflightProContextOutput(config, guard, workspace, request);
+  try {
+    const scaffoldWrites = request.includeAiBridge ? aiBridgeScaffoldWrites(config) : [];
+    const virtualAiBridge: Record<string, string> = {};
+    for (const write of scaffoldWrites) {
+      const resolved = guard.resolve(workspace, write.path, { forWrite: true });
+      if (!fs.existsSync(resolved.absPath)) virtualAiBridge[write.path] = write.content;
+    }
+    const createdContextFiles = Object.keys(virtualAiBridge);
+    const built = await buildPreparedProContext(
+      config,
+      guard,
+      workspace,
+      request,
+      createdContextFiles,
+      virtualAiBridge
+    );
+    const prepared = await prepareWorkspaceTextBatch(config, guard, workspace, [
+      ...scaffoldWrites,
+      { path: output.path, content: built.markdown, mode: "replace" }
+    ]);
+    const outputOperation = prepared.operations.find((operation) => operation.path === output.path);
+    if (!outputOperation || outputOperation.afterSha256 !== built.sha256) {
+      throw new ProContextOperationError("CONTEXT_WRITE_FAILED");
+    }
+    return {
+      result: {
+        ...built,
+        path: output.path,
+        existed: outputOperation.before.exists,
+        bytes: outputOperation.operation.bytes.length,
+        sha256: outputOperation.afterSha256
+      },
+      prepared
     };
   } catch (error) {
     if (error instanceof ProContextOperationError) throw error;

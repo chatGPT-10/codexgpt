@@ -181,6 +181,7 @@ export type TransactionFaultPoint =
   | "after_each_stage"
   | "after_manifest_prepared"
   | "after_manifest_committing"
+  | "after_each_directory_create"
   | "after_each_install"
   | "after_manifest_pending_participants"
   | "after_each_participant"
@@ -223,4 +224,9 @@ export interface PreparedAtomicOperation {
   readonly targetAbsPath: string;
   readonly stageAbsPath: string | null;
   readonly backupAbsPath: string | null;
+  readonly artifactParentAbsPath: string;
+  readonly missingDirectories: readonly {
+    relativePath: string;
+    absPath: string;
+  }[];
 }

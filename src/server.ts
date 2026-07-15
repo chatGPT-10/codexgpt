@@ -15,6 +15,9 @@ import {
   type TransactionRecoveryHook
 } from "./transactions/index.js";
 import {
+  attachPendingWorkspaceMutation,
+  pendingWorkspaceMutation,
+  attachPreparedBatchMutation,
   attachPreparedPatchMutation,
   attachPreparedFileMutation,
   type WorkspaceMutationRuntime
@@ -63,6 +66,7 @@ import {
   buildProContext,
   capProContextUtf8,
   exportPreparedProContext,
+  prepareProContextMutation,
   prepareProContextRequest,
   preflightProContextOutput,
   type PreparedProContextOutput,
@@ -74,6 +78,7 @@ import {
   prepareAgentHandoffRequest,
   preflightAgentHandoffOutput,
   writePreparedAgentHandoff,
+  prepareAgentHandoffMutation,
   type AgentHandoffProviderContext,
   type HandoffWriteResult
 } from "./handoffOps.js";
@@ -108,6 +113,7 @@ import {
   codexproSelfTestFailureText,
   codexproSelfTestHumanText,
   defaultCodexProSelfTestProvider,
+  prepareAtomicCodexProSelfTest,
   normalizeCodexProSelfTestRequest,
   safeCodexProSelfTestWorkspaceId,
   type CodexProSelfTestProvider
@@ -1866,29 +1872,37 @@ async function validateHandoffProviderResult(
     throw new CodexProError("Handoff provider identity or integrity mismatch.");
   }
 
-  const planResolved = guard.resolve(workspace, result.planPath);
-  await guard.assertTextFile(planResolved.absPath, config.maxWriteBytes);
-  const planArtifact = await fsp.readFile(planResolved.absPath);
-  if (
-    planArtifact.byteLength !== result.planBytes ||
-    !planArtifact.equals(Buffer.from(result.finalPlan, "utf8")) ||
-    createHash("sha256").update(planArtifact).digest("hex") !== result.planSha256
-  ) {
-    throw new CodexProError("Handoff plan artifact integrity mismatch.");
-  }
-
-  for (const logPath of expectedLoggedPaths) {
-    const resolved = guard.resolve(workspace, logPath);
-    const tail = await readExactFileTail(resolved.absPath, result.eventBytes);
+  const pending = pendingWorkspaceMutation(rawResult);
+  if (!pending) {
+    const planResolved = guard.resolve(workspace, result.planPath);
+    await guard.assertTextFile(planResolved.absPath, config.maxWriteBytes);
+    const planArtifact = await fsp.readFile(planResolved.absPath);
     if (
-      !tail.equals(Buffer.from(result.event, "utf8")) ||
-      createHash("sha256").update(tail).digest("hex") !== result.eventSha256
+      planArtifact.byteLength !== result.planBytes ||
+      !planArtifact.equals(Buffer.from(result.finalPlan, "utf8")) ||
+      createHash("sha256").update(planArtifact).digest("hex") !== result.planSha256
     ) {
-      throw new CodexProError("Handoff log artifact integrity mismatch.");
+      throw new CodexProError("Handoff plan artifact integrity mismatch.");
+    }
+
+    for (const logPath of expectedLoggedPaths) {
+      const resolved = guard.resolve(workspace, logPath);
+      const tail = await readExactFileTail(resolved.absPath, result.eventBytes);
+      if (
+        !tail.equals(Buffer.from(result.event, "utf8")) ||
+        createHash("sha256").update(tail).digest("hex") !== result.eventSha256
+      ) {
+        throw new CodexProError("Handoff log artifact integrity mismatch.");
+      }
     }
   }
 
-  return result;
+  return pending ? attachPendingWorkspaceMutation(result, pending) : result;
+}
+
+function carryPendingMutation<T extends object>(source: unknown, result: T): T {
+  const pending = pendingWorkspaceMutation(source);
+  return pending ? attachPendingWorkspaceMutation(result, pending) : result;
 }
 
 const PRO_CONTEXT_OPERATION_CODES = new Set([
@@ -4211,7 +4225,7 @@ function registerToolCompat(
   const mutationRegistration = mutationRegistrationByServer.get(server as object);
   const mutationAwareHandler: CodexToolHandler = mutationRegistration?.toolNames.has(name)
     ? (args) => mutationRegistration.runtime.invokeProvider({
-        requiresMutation: true,
+        requiresMutation: name !== "codexpro_self_test",
         provider: () => handler(args)
       })
     : handler;
@@ -5037,21 +5051,85 @@ export function createCodexProServer(
       }));
   const exportProContextProvider =
     dependencies.exportProContextProvider ??
-    ((context: ExportProContextProviderContext) =>
-      exportPreparedProContext(
+    (async (context: ExportProContextProviderContext) => {
+      if (config.fileTransactions !== "atomic") {
+        return exportPreparedProContext(
+          context.config,
+          context.guard,
+          context.workspace,
+          context.request,
+          context.output
+        );
+      }
+      const runtime = dependencies.workspaceMutationRuntime;
+      if (!runtime) throw new TransactionError("ATOMIC_BACKEND_UNAVAILABLE", "Atomic export runtime is unavailable.");
+      const mutation = await prepareProContextMutation(
         context.config,
         context.guard,
         context.workspace,
         context.request,
         context.output
-      ));
+      );
+      return attachPreparedBatchMutation({
+        runtime,
+        workspace: context.workspace,
+        prepared: mutation.prepared,
+        context: {
+          toolName: "export_pro_context",
+          requestId: null,
+          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+          policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+          contractVersion: config.toolContractVersion,
+          retentionMs: config.changeSetRetention.activeRetentionMs
+        },
+        result: mutation.result
+      });
+    });
   const handoffToAgentProvider =
     dependencies.handoffToAgentProvider ??
-    ((context: AgentHandoffProviderContext) => writePreparedAgentHandoff(context));
+    (async (context: AgentHandoffProviderContext) => {
+      if (config.fileTransactions !== "atomic") return writePreparedAgentHandoff(context);
+      const runtime = dependencies.workspaceMutationRuntime;
+      if (!runtime) throw new TransactionError("ATOMIC_BACKEND_UNAVAILABLE", "Atomic handoff runtime is unavailable.");
+      const mutation = await prepareAgentHandoffMutation(context);
+      return attachPreparedBatchMutation({
+        runtime,
+        workspace: context.workspace,
+        prepared: mutation.prepared,
+        context: {
+          toolName: "handoff_to_agent",
+          requestId: null,
+          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+          policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+          contractVersion: config.toolContractVersion,
+          retentionMs: config.changeSetRetention.activeRetentionMs
+        },
+        result: mutation.result
+      });
+    });
   const handoffToAgentNow = dependencies.handoffToAgentNow ?? (() => new Date().toISOString());
   const handoffToCodexProvider =
     dependencies.handoffToCodexProvider ??
-    ((context: AgentHandoffProviderContext) => writePreparedAgentHandoff(context));
+    (async (context: AgentHandoffProviderContext) => {
+      if (config.fileTransactions !== "atomic") return writePreparedAgentHandoff(context);
+      const runtime = dependencies.workspaceMutationRuntime;
+      if (!runtime) throw new TransactionError("ATOMIC_BACKEND_UNAVAILABLE", "Atomic handoff runtime is unavailable.");
+      const mutation = await prepareAgentHandoffMutation(context);
+      return attachPreparedBatchMutation({
+        runtime,
+        workspace: context.workspace,
+        prepared: mutation.prepared,
+        context: {
+          toolName: "handoff_to_codex",
+          requestId: null,
+          ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+          policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+          contractVersion: config.toolContractVersion,
+          retentionMs: config.changeSetRetention.activeRetentionMs
+        },
+        result: mutation.result
+      });
+    });
   const handoffToCodexNow = dependencies.handoffToCodexNow ?? (() => new Date().toISOString());
   const waitForHandoffNow = dependencies.waitForHandoffNow ?? Date.now;
   const waitForHandoffSleep = dependencies.waitForHandoffSleep ??
@@ -5303,11 +5381,41 @@ export function createCodexProServer(
       const request = normalizeCodexProSelfTestRequest(args);
       const expectedTools = [...toolNamesForMode(config)].sort();
       const registeredTools = [...registeredToolNames(server)].sort();
-      const provider = (
+      const injectedProvider = (
         dependencies as CodexProServerDependencies & {
           codexproSelfTestProvider?: CodexProSelfTestProvider;
         }
-      ).codexproSelfTestProvider ?? defaultCodexProSelfTestProvider;
+      ).codexproSelfTestProvider;
+      const provider: CodexProSelfTestProvider = injectedProvider ?? (
+        config.fileTransactions !== "atomic"
+          ? defaultCodexProSelfTestProvider
+          : async (providerContext) => {
+              const mutation = await prepareAtomicCodexProSelfTest(providerContext);
+              if (!mutation.prepared) return mutation.result;
+              const runtime = dependencies.workspaceMutationRuntime;
+              if (!runtime) {
+                throw new TransactionError(
+                  "ATOMIC_BACKEND_UNAVAILABLE",
+                  "Atomic self-test runtime is unavailable."
+                );
+              }
+              return attachPreparedBatchMutation({
+                runtime,
+                workspace: providerContext.workspace,
+                prepared: mutation.prepared,
+                context: {
+                  toolName: "codexpro_self_test",
+                  requestId: null,
+                  ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource),
+                  policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+                  contractVersion: config.toolContractVersion,
+                  retentionMs: config.changeSetRetention.activeRetentionMs,
+                  retainChangeSet: false
+                },
+                result: mutation.result
+              });
+            }
+      );
       const context = {
         config,
         guard,
@@ -5320,9 +5428,12 @@ export function createCodexProServer(
       try {
         const facts = await provider(context);
         const data = buildCodexProSelfTestData(facts, context);
-        return textResult(
-          codexproSelfTestHumanText(data),
-          createCodexProSelfTestSuccess(data)
+        return carryPendingMutation(
+          facts,
+          textResult(
+            codexproSelfTestHumanText(data),
+            createCodexProSelfTestSuccess(data)
+          )
         );
       } catch (error) {
         const code = error instanceof CodexProSelfTestInternalError
@@ -8161,25 +8272,30 @@ export function createCodexProServer(
           output_limited: result.outputLimited,
           redacted: result.redacted
         });
-        const artifactPath = guard.resolve(workspace, output.path);
-        if (artifactPath.relPath !== output.path) {
-          throw new CodexProError("Export artifact path mismatch.");
+        if (!pendingWorkspaceMutation(rawResult)) {
+          const artifactPath = guard.resolve(workspace, output.path);
+          if (artifactPath.relPath !== output.path) {
+            throw new CodexProError("Export artifact path mismatch.");
+          }
+          await guard.assertTextFile(
+            artifactPath.absPath,
+            Math.max(config.maxWriteBytes, config.maxReadBytes)
+          );
+          const artifact = await fsp.readFile(artifactPath.absPath);
+          if (
+            artifact.byteLength !== result.bytes ||
+            createHash("sha256").update(artifact).digest("hex") !== result.sha256 ||
+            artifact.toString("utf8") !== result.markdown
+          ) {
+            throw new CodexProError("Export artifact integrity mismatch.");
+          }
         }
-        await guard.assertTextFile(
-          artifactPath.absPath,
-          Math.max(config.maxWriteBytes, config.maxReadBytes)
-        );
-        const artifact = await fsp.readFile(artifactPath.absPath);
-        if (
-          artifact.byteLength !== result.bytes ||
-          createHash("sha256").update(artifact).digest("hex") !== result.sha256 ||
-          artifact.toString("utf8") !== result.markdown
-        ) {
-          throw new CodexProError("Export artifact integrity mismatch.");
-        }
-        return textResult(
-          exportProContextSuccessText(data),
-          createExportProContextSuccess(data, Date.now() - startedAt)
+        return carryPendingMutation(
+          rawResult,
+          textResult(
+            exportProContextSuccessText(data),
+            createExportProContextSuccess(data, Date.now() - startedAt)
+          )
         );
       } catch {
         return exportProContextFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
@@ -8437,9 +8553,12 @@ export function createCodexProServer(
           prompt: result.prompt,
           prompt_bytes: result.promptBytes
         });
-        return textResult(
-          handoffToAgentSuccessText(data),
-          createHandoffToAgentSuccess(data, Date.now() - startedAt)
+        return carryPendingMutation(
+          result,
+          textResult(
+            handoffToAgentSuccessText(data),
+            createHandoffToAgentSuccess(data, Date.now() - startedAt)
+          )
         );
       } catch {
         return handoffToAgentFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
@@ -8573,9 +8692,12 @@ export function createCodexProServer(
           prompt: result.prompt,
           prompt_bytes: result.promptBytes
         });
-        return textResult(
-          handoffToCodexSuccessText(data),
-          createHandoffToCodexSuccess(data, Date.now() - startedAt)
+        return carryPendingMutation(
+          result,
+          textResult(
+            handoffToCodexSuccessText(data),
+            createHandoffToCodexSuccess(data, Date.now() - startedAt)
+          )
         );
       } catch {
         return handoffToCodexFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);

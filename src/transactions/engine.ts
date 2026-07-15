@@ -1,4 +1,5 @@
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
+import fsp from "node:fs/promises";
 import type { CodexProConfig } from "../config.js";
 import type { PathGuard } from "../guard.js";
 import { AtomicWorkspaceFs } from "./atomicFs.js";
@@ -373,6 +374,37 @@ export class AtomicTransactionEngine {
       await this.faults.hit("after_manifest_committing", {
         operationCount: context.prepared.length
       });
+      const directories = new Map<string, string>();
+      for (const prepared of context.prepared) {
+        for (const directory of prepared.missingDirectories) {
+          directories.set(directory.relativePath, directory.absPath);
+        }
+      }
+      const orderedDirectories = [...directories.entries()].sort(([left], [right]) =>
+        left.split("/").length - right.split("/").length || left.localeCompare(right)
+      );
+      for (let index = 0; index < orderedDirectories.length; index += 1) {
+        const [relativePath, absPath] = orderedDirectories[index];
+        try {
+          await fsp.mkdir(absPath);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+            throw new TransactionError(
+              "FILE_VERSION_CONFLICT",
+              "A transaction directory appeared concurrently.",
+              { relativePath }
+            );
+          }
+          throw error;
+        }
+        context.manifest = this.transition(context.manifest, {
+          createdDirectories: [...context.manifest.createdDirectories, relativePath]
+        });
+        await this.faults.hit("after_each_directory_create", {
+          index,
+          directoryCount: orderedDirectories.length
+        });
+      }
       for (let index = 0; index < context.prepared.length; index += 1) {
         const installed = await context.atomicFs.install(context.prepared[index]);
         context.prepared[index] = installed;
@@ -512,6 +544,20 @@ export class AtomicTransactionEngine {
         context.manifest = this.transition(context.manifest, {
           operations: this.replaceOperation(context.manifest.operations, current.operation)
         });
+      }
+      for (let index = context.manifest.createdDirectories.length - 1; index >= 0; index -= 1) {
+        const relativePath = context.manifest.createdDirectories[index];
+        const expectedAbsPath = context.prepared
+          .flatMap((prepared) => prepared.missingDirectories)
+          .find((directory) => directory.relativePath === relativePath)?.absPath;
+        if (!expectedAbsPath) {
+          throw new TransactionError("ROLLBACK_FAILED", "Created-directory rollback evidence is invalid.");
+        }
+        try {
+          await fsp.rmdir(expectedAbsPath);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
       }
       context.manifest = this.transition(context.manifest, { state: "rolled_back" });
       context.lifecycle = "rolled_back";

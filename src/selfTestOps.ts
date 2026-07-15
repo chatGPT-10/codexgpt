@@ -4,10 +4,19 @@ import type { CodexProConfig } from "./config.js";
 import { probeAuditReadiness } from "./audit/diagnostics.js";
 import { probeBashAvailability, runBash } from "./bashOps.js";
 import { codexproInventory } from "./capabilitiesOps.js";
-import { editTextFile, writeTextFile } from "./fsOps.js";
+import {
+  editTextFile,
+  prepareWorkspaceTextBatch,
+  writeTextFile,
+  type PreparedWorkspaceTextBatch
+} from "./fsOps.js";
 import { gitStatus } from "./gitOps.js";
 import type { PathGuard, Workspace } from "./guard.js";
-import { buildProContext } from "./proContext.js";
+import {
+  buildPreparedProContext,
+  buildProContext,
+  prepareProContextRequest
+} from "./proContext.js";
 import { identityForStdio } from "./policy/identity.js";
 import { inspectPolicyConfiguration, policyIdentityScopes } from "./policy/runtime.js";
 import {
@@ -143,6 +152,11 @@ export interface CodexProSelfTestProviderContext {
 export type CodexProSelfTestProvider = (
   context: CodexProSelfTestProviderContext
 ) => CodexProSelfTestProviderResult | Promise<CodexProSelfTestProviderResult>;
+
+export interface PreparedCodexProSelfTestMutation {
+  result: CodexProSelfTestProviderResult;
+  prepared: PreparedWorkspaceTextBatch | null;
+}
 
 export class CodexProSelfTestInternalError extends Error {
   constructor() {
@@ -558,6 +572,104 @@ export const defaultCodexProSelfTestProvider: CodexProSelfTestProvider = async (
     }
   };
 };
+
+async function runAtomicProContextProbe(
+  context: CodexProSelfTestProviderContext
+): Promise<CodexProSelfTestProviderResult["pro_context_probe"]> {
+  if (!context.request.pro_context_probe) {
+    return { outcome: "skipped", reason_code: "PRO_CONTEXT_PROBE_DISABLED" };
+  }
+  try {
+    const request = await prepareProContextRequest(context.config, context.guard, context.workspace, {
+      title: "CodexPro Self Test Context",
+      selectedPaths: [CODEXPRO_SELF_TEST_ARTIFACT],
+      includeImportantFiles: false,
+      includeChangedFiles: false,
+      includeDiff: false,
+      includeAiBridge: false,
+      maxFiles: 4,
+      maxTotalBytes: 80_000
+    });
+    const built = await buildPreparedProContext(
+      context.config,
+      context.guard,
+      context.workspace,
+      request,
+      [],
+      {},
+      { [CODEXPRO_SELF_TEST_ARTIFACT]: SELF_TEST_SCAFFOLD_AFTER }
+    );
+    return built.filesIncluded.length === 1 && built.filesIncluded[0] === CODEXPRO_SELF_TEST_ARTIFACT
+      ? { outcome: "pass", reason_code: "PRO_CONTEXT_PROBE_PASSED" }
+      : { outcome: "fail", reason_code: "PRO_CONTEXT_PROBE_FAILED" };
+  } catch {
+    return { outcome: "fail", reason_code: "PRO_CONTEXT_PROBE_FAILED" };
+  }
+}
+
+export async function prepareAtomicCodexProSelfTest(
+  context: CodexProSelfTestProviderContext
+): Promise<PreparedCodexProSelfTestMutation> {
+  if (!context.request.write_probe || context.config.writeMode === "off") {
+    return { result: await defaultCodexProSelfTestProvider(context), prepared: null };
+  }
+  let existing: string | null;
+  try {
+    existing = await readExistingProbe(context.guard, context.workspace);
+  } catch {
+    existing = null;
+  }
+  if (
+    existing !== null &&
+    existing !== SELF_TEST_SCAFFOLD_BEFORE &&
+    existing !== SELF_TEST_SCAFFOLD_AFTER &&
+    !isRecognizedLegacyProbe(existing, context.workspace)
+  ) {
+    const baseline = await defaultCodexProSelfTestProvider({
+      ...context,
+      request: { ...context.request, write_probe: false, pro_context_probe: false }
+    });
+    return {
+      result: {
+        ...baseline,
+        request: { ...context.request },
+        write_probe: {
+          outcome: "fail",
+          reason_code: "WRITE_EDIT_PROBE_CONFLICT",
+          probe_artifact: null,
+          files_touched: []
+        },
+        pro_context_probe: { outcome: "skipped", reason_code: "PRO_CONTEXT_PROBE_UNAVAILABLE" }
+      },
+      prepared: null
+    };
+  }
+
+  const baseline = await defaultCodexProSelfTestProvider({
+    ...context,
+    request: { ...context.request, write_probe: false, pro_context_probe: false }
+  });
+  const prepared = await prepareWorkspaceTextBatch(
+    context.config,
+    context.guard,
+    context.workspace,
+    [{ path: CODEXPRO_SELF_TEST_ARTIFACT, content: SELF_TEST_SCAFFOLD_AFTER, mode: "replace" }]
+  );
+  return {
+    result: {
+      ...baseline,
+      request: { ...context.request },
+      write_probe: {
+        outcome: "pass",
+        reason_code: "WRITE_EDIT_PROBE_PASSED",
+        probe_artifact: CODEXPRO_SELF_TEST_ARTIFACT,
+        files_touched: [CODEXPRO_SELF_TEST_ARTIFACT]
+      },
+      pro_context_probe: await runAtomicProContextProbe(context)
+    },
+    prepared
+  };
+}
 
 function check(
   name: CodexProSelfTestCheck["name"],
