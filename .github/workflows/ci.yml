@@ -7,8 +7,60 @@ on:
       - main
 
 jobs:
+  classify:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.changes.outputs.docs_only }}
+      runtime: ${{ steps.changes.outputs.runtime }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+
+      - name: Classify runtime and documentation changes
+        id: changes
+        run: node scripts/ci-change-classifier.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}" --head "${{ github.sha }}"
+
+  policy:
+    name: Repository policy
+    needs: classify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Enforce repository operational policy
+        run: npm run policy:check
+
+      - name: Policy and workflow regression
+        run: node --test test/ci-workflow.test.mjs test/mutation-architecture.test.mjs test/operational-reliability.test.mjs test/test-domain-classification.test.mjs test/read-contract.test.mjs test/bash-contract.test.mjs test/package-contents.test.mjs
+
+      - name: Check package contents
+        run: npm pack --dry-run
+
   ubuntu:
     name: Ubuntu / Node ${{ matrix.node-version }}
+    needs: classify
+    if: needs.classify.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -20,7 +72,7 @@ jobs:
         uses: actions/checkout@v7.0.0
 
       - name: Setup Node
-        uses: actions/setup-node@v6.4.0
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
@@ -32,16 +84,27 @@ jobs:
         run: npm run build
 
       - name: Regression Tests
-        run: node --test
+        run: node scripts/run-and-summarize.mjs --label regression-ubuntu-node-${{ matrix.node-version }} -- node --test
 
       - name: Smoke Test
-        run: npm run smoke
+        run: node scripts/run-and-summarize.mjs --label smoke-ubuntu-node-${{ matrix.node-version }} -- npm run smoke
 
       - name: Check Package Contents
         run: npm pack --dry-run
 
+      - name: Upload bounded failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ci-failure-ubuntu-node-${{ matrix.node-version }}
+          path: .ai-bridge/ci-logs
+          if-no-files-found: ignore
+          retention-days: 14
+
   windows:
     name: Windows / Node ${{ matrix.node-version }}
+    needs: classify
+    if: needs.classify.outputs.runtime == 'true'
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -53,7 +116,7 @@ jobs:
         uses: actions/checkout@v7.0.0
 
       - name: Setup Node
-        uses: actions/setup-node@v6.4.0
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
@@ -65,10 +128,19 @@ jobs:
         run: npm run build
 
       - name: Regression Tests
-        run: node --test
+        run: node scripts/run-and-summarize.mjs --label regression-windows-node-${{ matrix.node-version }} -- node --test
 
       - name: Smoke Test
-        run: npm run smoke
+        run: node scripts/run-and-summarize.mjs --label smoke-windows-node-${{ matrix.node-version }} -- npm run smoke
 
       - name: Check Package Contents
         run: npm pack --dry-run
+
+      - name: Upload bounded failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ci-failure-windows-node-${{ matrix.node-version }}
+          path: .ai-bridge/ci-logs
+          if-no-files-found: ignore
+          retention-days: 14

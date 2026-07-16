@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { createBoundedCliEnvironment } from "./cliEnvironment.js";
 import type { CodexProConfig } from "./config.js";
 import type { Workspace } from "./guard.js";
 import { CodexProError, PathGuard } from "./guard.js";
@@ -173,7 +174,7 @@ function assertBashSession(config: CodexProConfig, sessionId?: string): string |
   return config.bashSessionId;
 }
 
-export function createBashEnvironment(
+function createLegacyBashEnvironment(
   config: CodexProConfig,
   hostEnv: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform
@@ -218,6 +219,19 @@ export function createBashEnvironment(
   }
 
   return env;
+}
+
+export function createBashEnvironment(
+  config: CodexProConfig,
+  hostEnv: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
+): NodeJS.ProcessEnv {
+  return createBoundedCliEnvironment({
+    inheritEnv: config.inheritEnv,
+    includeCi: true,
+    hostEnv,
+    platform
+  });
 }
 
 function bashExecutable(): string {

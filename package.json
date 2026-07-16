@@ -82,7 +82,17 @@
     "connect:ngrok": "node scripts/codexpro-entry.mjs ngrok",
     "connect:tailscale": "node scripts/codexpro-entry.mjs tailscale",
     "pro:bundle": "node scripts/pro-bundle.mjs",
-    "pro:apply": "node scripts/pro-apply.mjs"
+    "pro:apply": "node scripts/pro-apply.mjs",
+    "policy:check": "node scripts/repository-policy.mjs",
+    "ci:classify": "node scripts/ci-change-classifier.mjs",
+    "ci:failure-summary": "npm run build --silent && node scripts/ci-failure-summary.mjs",
+    "ci:exact-head": "npm run build --silent && node scripts/exact-head-ci.mjs",
+    "task:runner": "node scripts/long-task-runner.mjs",
+    "toolchain:status": "node scripts/toolchain-manager.mjs status",
+    "toolchain:ensure": "node scripts/toolchain-manager.mjs ensure",
+    "toolchain:matrix": "node scripts/toolchain-manager.mjs matrix --major all --",
+    "test:ordinary": "node scripts/test-domains.mjs run --domain ordinary",
+    "test:control-domain": "node scripts/test-domains.mjs run --domain control"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.4",

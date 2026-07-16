@@ -417,6 +417,30 @@ test("read maps a complete file above maxReadBytes to FILE_TOO_LARGE", async () 
   );
 });
 
+test("read can scan a multi-megabyte text file while returning only a bounded line range", async () => {
+  const largeText = `${"x".repeat(3 * 1024 * 1024)}\ntarget\n`;
+  await withTempWorkspace(
+    { "large-ranged.txt": largeText },
+    async (root) => {
+      await withInMemoryClient(
+        { root, configOverrides: { maxReadBytes: 1000 } },
+        async (client) => {
+          const result = await client.callTool({
+            name: "read",
+            arguments: { path: "large-ranged.txt", start_line: 2, end_line: 2 }
+          });
+          const parsed = parseReadResult(result);
+          assert.equal(parsed.ok, true);
+          assert.equal(parsed.data.text, "2 | target");
+          assert.ok(Buffer.byteLength(parsed.data.text, "utf8") < 1000);
+          assert.ok(parsed.data.bytes > 3_000_000);
+          assert.equal(parsed.data.truncated, true);
+        }
+      );
+    }
+  );
+});
+
 test("read maps a selected numbered range above maxReadBytes to FILE_TOO_LARGE", async () => {
   await withTempWorkspace(
     { "large-range.txt": `small\n${"x".repeat(1500)}\n` },

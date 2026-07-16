@@ -162,6 +162,12 @@ async function importMigratedSmokeSource() {
   );
   source = replaceExactCount(
     source,
+    "'x'.repeat(190000)",
+    "'x'.repeat(260000)",
+    1
+  );
+  source = replaceExactCount(
+    source,
     '}, /File is too large/);',
     '}, /EXISTING_PLAN_TOO_LARGE/);',
     1

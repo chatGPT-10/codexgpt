@@ -86,9 +86,57 @@ const MUTATION_PRIMITIVES = new Set([
 const SPECIAL_MUTATION_PRIMITIVES = new Set(["open", "openSync", "write"]);
 const FILESYSTEM_MODULES = new Set(["fs", "fs/promises", "node:fs", "node:fs/promises"]);
 
-// Every entry is exact: canonical path + reviewed purpose + line/column/call digest.
+// Legacy entries retain line/column for review history, but identity comparison uses syscall + semantic call digest only.
 // Keep empty until the RED inventory has exposed every current direct writer.
 const REVIEWED_ALLOWLIST = Object.freeze({
+  "scripts/ci-change-classifier.mjs": Object.freeze({
+    purpose: "CI-only GitHub output emission for runtime-versus-documentation path classification.",
+    occurrences: Object.freeze([
+      "appendFile:bbcb885992d0"
+    ])
+  }),
+  "scripts/exact-head-ci.mjs": Object.freeze({
+    purpose: "Ignored .ai-bridge exact-head CI evidence outside tracked repository state.",
+    occurrences: Object.freeze([
+      "mkdir:4a6587afbb60",
+      "writeFile:7709a9e8cec6"
+    ])
+  }),
+  "scripts/long-task-runner.mjs": Object.freeze({
+    purpose: "Ignored .ai-bridge detached-run metadata, PID, result, and bounded log state.",
+    occurrences: Object.freeze([
+      "openSync:4d6c0a37d258",
+      "openSync:e167a02437e4",
+      "writeFile:d6ef8f907069",
+      "writeFile:3290e082b9ef",
+      "mkdir:7371ea0fac79",
+      "writeFile:7097a47c6b00",
+      "writeFile:ea2e45822431",
+      "writeFile:297c69867119"
+    ])
+  }),
+  "scripts/run-and-summarize.mjs": Object.freeze({
+    purpose: "CI-local redacted logs, compact failure summaries, and GitHub step summary output.",
+    occurrences: Object.freeze([
+      "mkdir:df8def470718",
+      "createWriteStream:30066316311e",
+      "writeFile:0099597e9240",
+      "appendFile:fcbdb7d64929"
+    ])
+  }),
+  "scripts/toolchain-manager.mjs": Object.freeze({
+    purpose: "Verified official Node toolchain download, atomic installation, manifest recording, and temporary cleanup outside authorized workspaces.",
+    occurrences: Object.freeze([
+      "createWriteStream:0aef67d719ec",
+      "writeFile:2dc7c9e9d65e",
+      "rename:2b73a699394a",
+      "mkdir:2ac12b7246b3",
+      "mkdtemp:a3f08d96eb94",
+      "mkdir:22dca29f42dc",
+      "rename:1292735ff8ce",
+      "rm:87e7619dd1f8"
+    ])
+  }),
   "scripts/cloudflared-installer.mjs": Object.freeze({
     purpose: "Verified cloudflared installer staging, rollback, and replacement outside authorized workspaces.",
     occurrences: Object.freeze([
@@ -383,6 +431,11 @@ function callDigest(call, sourceFile) {
     .slice(0, 12);
 }
 
+function reviewedIdentity(entry) {
+  const parts = entry.split(":");
+  return parts.length >= 4 ? parts.slice(-2).join(":") : entry;
+}
+
 function literalText(node) {
   return ts.isStringLiteralLike(node) ? node.text : undefined;
 }
@@ -487,7 +540,8 @@ function scanFile(relativePath, source) {
       if (primitive && (MUTATION_PRIMITIVES.has(primitive) || SPECIAL_MUTATION_PRIMITIVES.has(primitive))) {
         const location = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
         occurrences.push({
-          key: `${location.line + 1}:${location.character + 1}:${primitive}:${callDigest(node, sourceFile)}`,
+          key: `${primitive}:${callDigest(node, sourceFile)}`,
+          diagnostic: `${location.line + 1}:${location.character + 1}`,
           line: location.line + 1,
           primitive,
           source: node.getText(sourceFile).replace(/\s+/g, " ")
@@ -501,7 +555,7 @@ function scanFile(relativePath, source) {
 }
 
 function formatOccurrence(relativePath, occurrence) {
-  return `${relativePath}:${occurrence.key} ${occurrence.source}`;
+  return `${relativePath}:${occurrence.diagnostic}:${occurrence.key} ${occurrence.source}`;
 }
 
 test("the scanner detects CommonJS filesystem aliases and ignores read-only opens", () => {
@@ -537,6 +591,15 @@ test("the scanner detects CommonJS filesystem aliases and ignores read-only open
       "write"
     ]
   );
+});
+
+test("mutation review identity ignores line and column drift", () => {
+  const compact = 'import fs from "node:fs";\nfs.writeFileSync("a.txt", "A");';
+  const shifted = '\n\nimport fs from "node:fs";\n\n  fs.writeFileSync("a.txt", "A");';
+  const compactOccurrence = scanFile("scripts/example.mjs", compact)[0];
+  const shiftedOccurrence = scanFile("scripts/example.mjs", shifted)[0];
+  assert.equal(compactOccurrence.key, shiftedOccurrence.key);
+  assert.notEqual(compactOccurrence.diagnostic, shiftedOccurrence.diagnostic);
 });
 
 test("legacy workspace writers are unreachable from the atomic default server path", async () => {
@@ -588,7 +651,7 @@ test("all shipped mutation primitives have an exact reviewed classification", as
   const stale = [];
   for (const [relativePath, occurrences] of actual) {
     const reviewed = REVIEWED_ALLOWLIST[relativePath];
-    const reviewedKeys = new Set(reviewed?.occurrences ?? []);
+    const reviewedKeys = new Set((reviewed?.occurrences ?? []).map(reviewedIdentity));
     for (const occurrence of occurrences) {
       if (!reviewed?.purpose || !reviewedKeys.has(occurrence.key)) {
         unreviewed.push(formatOccurrence(relativePath, occurrence));
@@ -599,11 +662,12 @@ test("all shipped mutation primitives have an exact reviewed classification", as
     assert.equal(typeof reviewed.purpose, "string", `${relativePath} must have a reviewed purpose`);
     assert.ok(reviewed.purpose.length > 0, `${relativePath} must have a reviewed purpose`);
     const actualKeys = new Set((actual.get(relativePath) ?? []).map((occurrence) => occurrence.key));
-    for (const key of reviewed.occurrences) {
-      if (!actualKeys.has(key)) stale.push(`${relativePath}:${key} (${reviewed.purpose})`);
+    for (const entry of reviewed.occurrences) {
+      const key = reviewedIdentity(entry);
+      if (!actualKeys.has(key)) stale.push(`${relativePath}:${entry} => ${key} (${reviewed.purpose})`);
     }
   }
 
   assert.deepEqual(unreviewed, [], `Unreviewed mutation primitives:\n${unreviewed.join("\n")}`);
-  assert.deepEqual(stale, [], `Stale mutation allowlist entries (line/call drift):\n${stale.join("\n")}`);
+  assert.deepEqual(stale, [], `Stale mutation allowlist entries (syscall/call drift):\n${stale.join("\n")}`);
 });

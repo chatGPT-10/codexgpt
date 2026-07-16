@@ -437,9 +437,10 @@ export async function prepareEditTextFile(
   };
 }
 
-// ponytail: bounded scan window covers normal source files over the read cap; add a separate knob only if real repos need larger files.
+// Ranged reads may scan larger text files, but each returned range remains capped by maxReadBytes.
+// Separating scan capacity from response capacity prevents multi-megabyte connector payloads and 502 truncation.
 export function textScanByteLimit(config: CodexProConfig): number {
-  return Math.min(2_000_000, config.maxReadBytes * 4);
+  return Math.max(config.maxReadBytes, 8 * 1024 * 1024);
 }
 
 function splitLines(text: string): string[] {

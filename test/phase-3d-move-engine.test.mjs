@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { createDistinctReplacement } from "./fixtures/filesystem-identity.js";
 import { PathGuard } from "../dist/guard.js";
 import {
   AtomicTransactionEngine,
@@ -196,15 +197,7 @@ test("external source replacement after prepare freezes instead of moving an unr
     sourcePath = path.join(workspaceRoot, "a.txt");
     replacementPath = path.join(workspaceRoot, "replacement.txt");
     await fsp.writeFile(sourcePath, "A");
-    await fsp.writeFile(replacementPath, "A");
-    const [originalStat, replacementStat] = await Promise.all([
-      fsp.stat(sourcePath, { bigint: true }),
-      fsp.stat(replacementPath, { bigint: true })
-    ]);
-    assert.notDeepEqual(
-      { device: originalStat.dev, fileId: originalStat.ino },
-      { device: replacementStat.dev, fileId: replacementStat.ino }
-    );
+    await createDistinctReplacement(sourcePath, replacementPath, "A");
     const prepared = await engine.prepareMove(request(workspace, [{
       source: "a.txt", destination: "b.txt", expectedSha256: digest("A")
     }]));

@@ -497,8 +497,8 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "export_pro_context", "handoff_to_agent"
       ],
       descriptorHash: "5a29174c8ea440c2ec40f37216e8683561388bddb74da97664f67fa121c125db",
-      directCallHash: "5648cececfd5b499125778e30d3ce0b8a20a7f0fc2ddcbcdfd4307ed292a69d4",
-      supertoolCallHash: "5648cececfd5b499125778e30d3ce0b8a20a7f0fc2ddcbcdfd4307ed292a69d4",
+      directCallHash: "c14469627df4dfce5cb1f1d24c6c718049c370c09fa30161962c0336ae253b7b",
+      supertoolCallHash: "c14469627df4dfce5cb1f1d24c6c718049c370c09fa30161962c0336ae253b7b",
       supertoolEnvelope: {
         codexpro_super_action: "server_config",
         wrapped_tool: "server_config"

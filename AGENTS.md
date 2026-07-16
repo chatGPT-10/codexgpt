@@ -149,6 +149,23 @@ Memory rules:
 - The exact direct writers in `src/fsOps.ts` and `src/handoffOps.ts` are a one-cycle compatibility exception for `fileTransactions=legacy` only. The static gate must also prove that the default atomic server path selects prepared transaction mutations before any legacy provider and never falls back to these writers.
 - Fixture writers are excluded only by the test's exact source-file selection. Do not add directory, filename-pattern, or regular-expression exemptions.
 
+### 5.8 Operational reliability gates
+
+The following rules are mandatory and are enforced by `npm run policy:check` plus CI contract tests:
+
+- Use `scripts/toolchain-manager.mjs` for exact native-Windows Node 20/24 reproduction. The managed root is `%LOCALAPPDATA%\CodexPro\toolchains`; each installation must be downloaded from the official Node distribution, verified against official `SHASUMS256.txt`, and recorded in the local `manifest.json`. Temporary-directory runtimes are migration sources only and are never the authoritative retained toolchain.
+- Filesystem handles, hard links, unlink/rename behavior, process trees, signals, junctions/reparse points, sharing violations, and file locks require the affected tests under both pinned Node 20 and Node 24 before publication.
+- Full regression, complete Smoke, handoff, signal, Control-C, process-tree, child-crash, and multi-process lock tests must not remain synchronously attached to the connector control request. `scripts/test-domains.mjs` is the authoritative partition: run the `ordinary` domain locally through `scripts/long-task-runner.mjs`; run the `control` or `all` domain only in GitHub Actions or an independently proven native terminal/process domain. Retain the returned run ID and inspect `status`/result JSON and bounded log files.
+- Before retrying an interrupted long task, list runner state and prove that no runner with the same kind remains active. Stop only an exact recorded run ID; never kill every `node.exe` process or infer ownership from a PID alone.
+- GitHub CLI diagnostics must use `scripts/exact-head-ci.mjs` or `scripts/ci-failure-summary.mjs`. These use the bounded Windows user/configuration environment, omit `CI=1` for interactive `gh` discovery, and never inherit `GH_TOKEN` or `GITHUB_TOKEN` by default.
+- CI failure analysis starts from the exact 40-character HEAD SHA, selects the exact-head run, waits for terminal state, and fixes the first underlying error. Use compact summaries and uploaded bounded logs rather than returning the complete regression log through the connector.
+- Phase closure is defined by the closure commit SHA plus a successful exact-head CI run for that SHA. Exact-head evidence may be written only below ignored `.ai-bridge/`; never create a follow-up repository commit solely to record the run ID, because that creates a new unverified HEAD.
+- Runtime/contract changes require the complete Ubuntu/Windows Node 20/24 matrix. Documentation-only changes use the CI documentation/policy gate and must not trigger a recursive closure commit. Any change to scripts, workflow, package metadata, tests, configuration, source, or fixtures is runtime-relevant.
+- Adversarial replacement fixtures must pre-create the replacement while the original still exists and assert distinct stable object identity before the replacement is installed. Do not assume inode/file-index monotonicity, timestamp change, or non-reuse after delete-and-create.
+- Mutation review identity must use repository path, syscall type, and a normalized semantic AST/call digest. Line and column are diagnostic only and must not be primary allowlist identity.
+- Large single files must be read through explicit line ranges. Raising the scan ceiling must not raise the per-response output ceiling or return multi-megabyte tool payloads through the connector.
+- `npm run policy:check` is required before staging and runs in every CI path, including documentation-only changes.
+
 ## 6. Documentation map
 
 - `Memory.md` — current state and next action.
@@ -170,8 +187,8 @@ Memory rules:
 - `docs/memory/archive/phase-3.md` — closed Phase 3 Volume 1 covering STEP-263 through STEP-277.
 - `docs/memory/archive/phase-3-part-2.md` — closed Phase 3 Volume 2 covering STEP-278 through STEP-285.
 - `docs/memory/archive/phase-3-part-3.md` — closed Phase 3 Volume 3 covering STEP-286 through STEP-291.
-- `docs/memory/archive/phase-3-part-4.md` — closed Phase 3 Volume 4 covering STEP-292 through STEP-305.
-- Phase 1, Phase 2A, Phase 2B, and complete Phase 3 are published and closed. Phase 3D commits `3000aa6`, `e5d9d27`, and `2df4a1f` culminated in exact-head run `29441752493`, which passed Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
+- `docs/memory/archive/phase-3-part-4.md` — closed Phase 3 Volume 4 covering STEP-292 through STEP-306.
+- Phase 1, Phase 2A, Phase 2B, and complete Phase 3 are published and closed. Runtime head `2df4a1f` passed run `29441752493`; documentation closure head `3a04064` passed final run `29443158835`. Both exact heads completed Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
 - `SECURITY.md` — active security guidance and public-entry rules.
 - `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
@@ -191,7 +208,9 @@ For every implementation step:
 5. Run `git diff --check` or an equivalent dedicated check.
 6. Confirm no secret-looking values were introduced.
 7. Confirm only intended files changed.
-8. Update `Memory.md` and append the phase archive entry.
+8. Run `npm run policy:check`.
+9. For platform/runtime-sensitive changes, verify through the managed Node 20/24 toolchains; launch long suites through the detached runner rather than the connector request.
+10. Update `Memory.md` and append the phase archive entry.
 
 Distinguish clearly between:
 
@@ -211,6 +230,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phase 1 through complete Phase 3 are published and closed. Phase 3D commits `3000aa6d88190f31c6b93c35ae59e7889317aae4`, `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5`, and `2df4a1f50c692ef414f1b913dabdaf7b198c97a2` culminated in exact-head run `29441752493`, which passed Ubuntu/Windows Node 20/24 Build, complete Regression, all protected Smoke sections, and Package. The next approved boundary is Phase 4 design review and local TDD execution under the closed Phase 3 compatibility, recovery, audit, rollback, and security gates. Exact evidence is in `Memory.md` and STEP-305.
+Phase 1 through complete Phase 3 are published and closed. Runtime head `2df4a1f50c692ef414f1b913dabdaf7b198c97a2` passed exact-head run `29441752493`; documentation closure head `3a040647da1f443513ea8348cc3c02a0603ca9b0` passed final exact-head run `29443158835`. Both runs completed Ubuntu/Windows Node 20/24 Build, complete Regression, all protected Smoke sections, and Package. Retain the verified portable Node `v20.20.2` runtime at `%LOCALAPPDATA%\CodexPro\toolchains\node-v20.20.2-win-x64\node.exe`; cleanup must not remove it without explicit relocation or user approval. The next approved boundary is Phase 4 design review and local TDD execution under the closed Phase 3 compatibility, recovery, audit, rollback, and security gates. Exact evidence is in `Memory.md` and STEP-306.
 
 The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Tasks receive local design/TDD/verification gates only; publish once at the complete phase boundary after neat-freak and the full local gate, then require exact-head CI before beginning the next phase. Failed gates must be fixed rather than bypassed. This excludes destructive user-data or Git-history operations, production deployment, credential disclosure, and silent scope expansion. Use `Memory.md` for current evidence, the master plan for sequencing, and `docs/memory/archive/phase-3-part-4.md` for the closed Phase 3 record.

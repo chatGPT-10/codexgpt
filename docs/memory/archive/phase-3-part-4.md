@@ -307,3 +307,23 @@ This append-only volume continues active Phase 3 implementation records after cl
 **Rollback method:** Revert only the closure documentation commit if its facts are wrong. Runtime rollback remains configuration-first and must retain V2 readers, participant reconciliation, and recovery evidence.
 
 **Next step:** Publish the documentation-only Phase 3 closure, require exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package success, then begin Phase 4 design review.
+
+## STEP-306 - Finalize Phase 3 memory and retain Node 20.20.2
+
+**Status:** Complete locally. The documentation closure head is exact-head validated, Phase 3 memory is reconciled, and the downloaded Node 20.20.2 runtime is retained for future reproduction.
+
+**Goal:** Replace the last provisional Phase 3 closure state with the final four-matrix evidence and prevent cleanup from deleting the verified Windows Node 20 runtime used to reproduce the compatibility defect.
+
+**Files changed:** `AGENTS.md`; `Memory.md`; the master implementation plan; the Phase 3D implementation plan; this archive.
+
+**Final CI evidence:** Documentation closure commit `3a040647da1f443513ea8348cc3c02a0603ca9b0` triggered exact-head run `29443158835`. The run completed with conclusion `success`; Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24 each passed Build, complete Regression, all protected Smoke sections, and Package. Runtime head `2df4a1f50c692ef414f1b913dabdaf7b198c97a2` had already passed the same complete matrix in run `29441752493`.
+
+**Retained runtime:** Node `v20.20.2` and Node `v24.15.0` are installed under `%LOCALAPPDATA%\CodexPro\toolchains\` from the official Node distribution. The local manifest records official `SHASUMS256.txt` verification; Node 20 archive SHA-256 is `dc3700fdd57a63eedb8fd7e3c7baaa32e6a740a1b904167ff4204bc68ed8bf77` and Node 24 archive SHA-256 is `cc5149eabd53779ce1e7bdc5401643622d0c7e6800ade18928a767e940bb0e62`. Cleanup must not delete the managed toolchain root without user approval; the former Temp copy was not deleted in this step.
+
+**Decisions made:** Treat run `29443158835` as the final Phase 3 documentation-head authority while retaining run `29441752493` as the runtime-head authority. Keep only concise current evidence in `Memory.md`; preserve the complete publication and repair sequence in this append-only archive. Advance the active boundary to Phase 4 design review without starting implementation in this maintenance step.
+
+**Verification:** Public GitHub Actions API confirmed the exact full SHA, terminal status, and success conclusion. The retained executable was checked for existence and returned version `v20.20.2`. Final neat-freak checks cover intended file scope, stale provisional wording, memory/AGENTS size limits, secret-shaped values, and `git diff --check`.
+
+**Rollback method:** Revert only this memory-reconciliation change if its evidence is incorrect. Do not delete the retained runtime as part of rollback.
+
+**Next step:** Begin Phase 4 design review against the authoritative master plan while preserving all closed Phase 3 gates.

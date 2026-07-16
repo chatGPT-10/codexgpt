@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "stableRoot": "%LOCALAPPDATA%\\CodexPro\\toolchains",
+  "distribution": "https://nodejs.org/dist",
+  "toolchains": {
+    "20": {
+      "version": "20.20.2",
+      "platform": "win-x64",
+      "archive": "node-v20.20.2-win-x64.zip",
+      "shasums": "SHASUMS256.txt"
+    },
+    "24": {
+      "version": "24.15.0",
+      "platform": "win-x64",
+      "archive": "node-v24.15.0-win-x64.zip",
+      "shasums": "SHASUMS256.txt"
+    }
+  }
+}

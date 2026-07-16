@@ -614,7 +614,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     },
     permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXPRO_PERMISSION_PROFILE),
     inheritEnv: process.env.CODEXPRO_INHERIT_ENV === "1",
-    maxReadBytes: numberFrom(process.env.CODEXPRO_MAX_READ_BYTES, 180_000, 4_000, 2_000_000),
+    maxReadBytes: numberFrom(process.env.CODEXPRO_MAX_READ_BYTES, 250_000, 4_000, 2_000_000),
     maxWriteBytes: numberFrom(process.env.CODEXPRO_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),
     moveMaxFileBytes: strictNumberFrom(
       "CODEXPRO_MOVE_MAX_FILE_BYTES",
