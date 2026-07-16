@@ -6,7 +6,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-15.
+- Date: 2026-07-16.
 - Workspace: `D:\Dev\codexpro`; branch: `main`; package: `codexpro@0.28.6`.
 - GitHub repository and `origin`: `chatGPT-10/codexgpt` over HTTPS.
 - Primary platform: native Windows; WSL remains optional.
@@ -14,7 +14,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 3C commit `50ec99b` passed exact-head run `29390317879`; Gate 0 maintenance commit `77b1e9069798235d674342a2c33a234a4266b564` passed exact-head run `29402504990`, both across Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
 - Phase 3D implementation commit `3000aa6d88190f31c6b93c35ae59e7889317aae4` is published on `main`. It implements `move_paths`, authenticated Manifest/Change Set V2, parent-identity/reparse-point revalidation, participant-aware V1/V2 recovery, recoverable move undo, service-level mutation quiesce/drain, bounded audit query, Policy resource composition, and exact direct/supertool V2 registration.
 - Test-only commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` repaired the first cross-platform CI findings. Windows Node 20 compatibility commit `2df4a1f50c692ef414f1b913dabdaf7b198c97a2` passed runtime exact-head run `29441752493`. Documentation closure commit `3a040647da1f443513ea8348cc3c02a0603ca9b0` passed final exact-head run `29443158835`; both runs completed Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package successfully.
-- Post-Phase 3 operational hardening is implemented and locally verified but remains unstaged: bounded Windows `gh` discovery, non-recursive exact-head evidence, compact CI diagnostics, detached run ownership, isolated control-test domains, verified Node 20/24 toolchains, deterministic replacement fixtures, semantic mutation identities, docs-only CI filtering, and bounded large-file ranged reads. The running connector must be restarted to load the new read defaults.
+- Post-Phase 3 operational hardening was published in maintenance commit `8153db2ab123d6845a51aa4d4242d6759a601124`. Its first exact-head run exposed a Windows-only `spawn EINVAL` in the CI summary wrapper because `.cmd` files are not native executables under `shell:false`; the follow-up repair launches `npm-cli.js` through the active pinned `node.exe`. Successful repair-run evidence remains external by policy and must not create a run-ID-only commit. The running connector must be restarted to load the new read defaults.
 
 ## Approved execution boundary
 
@@ -56,6 +56,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Final local evidence before publication included official Windows Node 20.20.2 move/crash/undo 46/46 plus all other 91 test files, Node 24 complete 809/810 with zero failures and one established skip, affected 84/84, native-Windows Stress, static gates 17/17, clean diff checks, and a 308-entry package dry-run.
 - A real bounded `gh auth status` exited 0 for account `chatGPT-10` through the Windows keyring without inheriting `GH_TOKEN`; exact-head closure verification and compact failed-run extraction also succeeded.
 - Post-Phase 3 hardening passed managed Node 20/24 ordinary-domain Regression, all eight Smoke sections, both Builds, affected gates 73/73 per version, policy checks, and a 319-file package dry-run. Authoritative runner IDs and supply-chain hashes are archived in STEP-307.
+- Exact-head run `29471013791` for maintenance commit `8153db2ab123d6845a51aa4d4242d6759a601124` failed only in Windows Node 20/24 when `run-and-summarize.mjs` attempted to spawn `npm.cmd` with `shell:false`. The repair is locally green under managed Node 20/24 and adds an exact Windows npm-launch regression; its successful exact-head evidence is intentionally external.
 
 ## Known limitations
 
@@ -78,6 +79,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Recent summaries
 
+- **STEP-308 - Repair Windows CI command launch:** exact-head run `29471013791` showed that `.cmd` cannot be spawned as a native executable with `shell:false`; the summary wrapper now resolves `npm-cli.js` and executes it through the active pinned `node.exe`, with managed Node 20/24 regression coverage.
 - **STEP-307 - Enforce Phase 3D operational lessons:** added bounded Windows `gh` discovery, exact-head evidence without recursive commits, compact CI diagnostics, detached run ownership, isolated control-test domains, verified Node 20/24 toolchains, semantic mutation identities, docs-only CI classification, and bounded ranged reads; final managed Node 20/24 Regression, Smoke, Build, policy, and package gates passed locally.
 - **STEP-306 - Finalize Phase 3 memory:** final closure commit `3a040647da1f443513ea8348cc3c02a0603ca9b0` passed exact-head run `29443158835` across all four complete matrices; retained the verified portable Node 20.20.2 runtime for future reproduction and advanced the next boundary to Phase 4 design review.
 - **STEP-305 - Close Phase 3:** runtime exact-head run `29441752493` passed Ubuntu/Windows Node 20/24 Build, complete Regression, all protected Smoke sections, and Package for commit `2df4a1f`; Phase 3D and complete Phase 3 were formally closed pending the documentation-head confirmation recorded in STEP-306.

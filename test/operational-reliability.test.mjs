@@ -172,6 +172,24 @@ test("bounded failure summary redacts token-shaped output and preserves the firs
   }
 });
 
+test("bounded summary launches npm through the active Node runtime on Windows", { skip: process.platform !== "win32" }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-summary-npm-test-"));
+  try {
+    const { stdout } = await execute(summaryScript, [
+      "--label", "npm-version",
+      "--log-dir", root,
+      "--",
+      "npm",
+      "--version"
+    ]);
+    assert.match(stdout, /^\d+\.\d+\.\d+/m);
+    const log = await fs.readFile(path.join(root, "npm-version.log"), "utf8");
+    assert.match(log, /^\d+\.\d+\.\d+/m);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("toolchain status is deterministic and keeps managed runtimes outside Temp", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-toolchain-status-"));
   try {

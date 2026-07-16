@@ -152,4 +152,43 @@ The first dual-version Smoke rerun also found that the Node 20 npm entry launche
 
 ### Publication boundary
 
-This maintenance batch remains unstaged, uncommitted, and unpushed. Before publication, review the final diff, stage only the intended files, create one normal maintenance commit, push it, and require one successful exact-head CI run for that commit. After that successful run, do not create another commit solely to write the run ID into repository memory.
+The base maintenance batch was published as commit `8153db2ab123d6845a51aa4d4242d6759a601124`. Its first exact-head CI run exposed a Windows-only command-launch defect described in STEP-308. The repair is published as a normal follow-up change; successful exact-head evidence remains external and must not trigger another commit solely to write the run ID into repository memory.
+
+## STEP-308 - Repair Windows CI command launch without enabling a shell
+
+**Date:** 2026-07-16
+**Status:** Implemented and locally verified; exact-head success evidence is intentionally external.
+**Scope:** `scripts/run-and-summarize.mjs`, `test/operational-reliability.test.mjs`, and current-memory reconciliation.
+
+### Failure evidence
+
+Exact-head run `29471013791` for commit `8153db2ab123d6845a51aa4d4242d6759a601124` completed with failure only in Windows Node 20 and Windows Node 24. The compact failed-step reader identified the same first error in both jobs:
+
+- `Error: spawn EINVAL`
+- call site: `scripts/run-and-summarize.mjs`
+- Node runtimes: `v20.20.2` and `v24.18.0`
+
+Ubuntu and repository-policy paths did not expose this platform-specific launch defect.
+
+### Root cause
+
+The wrapper translated `npm` into `npm.cmd` and then called `spawn(..., { shell: false })`. On Windows, `.cmd` is a command-script format interpreted by `cmd.exe`; it is not a native executable that Node can launch directly with shell execution disabled. The local Git Bash environment had not reproduced the GitHub-hosted runner behavior, so the original focused test covered redaction and exit propagation but not an actual npm launch on Windows.
+
+### Repair
+
+The wrapper continues to use `shell: false`. For Windows `npm` and `npx` commands, it now:
+
+1. resolves `npm-cli.js` or `npx-cli.js` from the active `npm_execpath` directory or the active Node installation;
+2. launches that CLI through the current `process.execPath`;
+3. preserves the exact argument array without shell parsing;
+4. fails explicitly with exit code 127 if the CLI cannot be resolved.
+
+This keeps the pinned Node runtime authoritative and avoids command-string quoting or shell-injection ambiguity.
+
+### Regression and verification
+
+A Windows-only regression now runs the summary wrapper with `npm --version`, requires a successful exit, and verifies the bounded log. The managed toolchain matrix passed 13/13 focused tests under Node 20.20.2 and 13/13 under Node 24.15.0, including CI workflow, semantic mutation review, runner lifecycle, redaction, exact npm launch, and toolchain status. `npm run policy:check` also passed.
+
+### Closure rule
+
+The repair receives one exact-head CI run for its own commit. A successful result is stored through ignored `.ai-bridge` evidence and reported externally; no repository commit is created solely to record that successful run ID.

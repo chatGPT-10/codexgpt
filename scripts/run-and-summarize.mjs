@@ -63,10 +63,33 @@ function consume(chunk, destination) {
   for (const line of lines) rememberLine(line);
 }
 
-const executable = process.platform === "win32" && /^(?:npm|npx|pnpm|yarn)$/.test(command)
-  ? `${command}.cmd`
-  : command;
-const child = spawn(executable, args, {
+function resolveLaunch(program, programArgs) {
+  if (process.platform !== "win32" || (program !== "npm" && program !== "npx")) {
+    return { executable: program, args: programArgs };
+  }
+
+  const cliName = program === "npm" ? "npm-cli.js" : "npx-cli.js";
+  const configuredNpmCli = process.env.npm_execpath;
+  const configuredCandidate = configuredNpmCli
+    ? path.join(path.dirname(configuredNpmCli), cliName)
+    : undefined;
+  const bundledCandidate = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", cliName);
+  const cliPath = [configuredCandidate, bundledCandidate]
+    .find((candidate) => candidate && fs.existsSync(candidate));
+  if (!cliPath) {
+    throw new Error(`Unable to resolve ${cliName} for the active Node runtime ${process.execPath}.`);
+  }
+  return { executable: process.execPath, args: [cliPath, ...programArgs] };
+}
+
+let launch;
+try {
+  launch = resolveLaunch(command, args);
+} catch (error) {
+  console.error(redact(error.stack ?? error.message));
+  process.exit(127);
+}
+const child = spawn(launch.executable, launch.args, {
   cwd: process.cwd(),
   env: process.env,
   shell: false,
