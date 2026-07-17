@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { OutputQuotaManager } = await tsImport("./fixtures/process-output-imports.ts", import.meta.url);
+const { OutputQuotaManager } = await tsImport("../fixtures/ts-imports/process-output-imports.ts", import.meta.url);
 
 test("server/session/process/terminal caps and reservations are independent", () => {
   const quota = new OutputQuotaManager({ maxServerProcesses: 2, maxSessionProcesses: 1, maxServerRecords: 2, maxSessionRecords: 1, maxServerOutputBytes: 10, maxProcessOutputBytes: 6, sessionOutputReservationBytes: 0 });

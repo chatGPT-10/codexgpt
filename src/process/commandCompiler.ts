@@ -48,12 +48,12 @@ export function compileCommandForWindowsHost(input: {
   deadlineMs: number;
 }): CompiledWindowsHostCommandV1 {
   if (!Number.isSafeInteger(input.deadlineMs) || input.deadlineMs < 1 || input.deadlineMs > 600_000) throw processHostError("COMMAND_DEADLINE_INVALID");
-  const cwd = path.resolve(input.cwd);
+  const cwd = path.win32.resolve(input.cwd);
   const environment = validateEnvironment(input.environment);
   const authorization = Object.freeze({ backendId: input.backend.backendId, backendVersion: input.backend.backendVersion, backendIdentity: input.backend.identity, effectiveEnvironment: environment, cwd, deadlineMs: input.deadlineMs });
   if (input.command.kind === "argv") {
     if (input.backend.kind !== "argv") throw processHostError("BACKEND_STALE");
-    const executable = path.resolve(input.command.executable);
+    const executable = path.win32.resolve(input.command.executable);
     if (executable.toLocaleLowerCase("en-US") !== input.backend.realPath.toLocaleLowerCase("en-US")) throw processHostError("BACKEND_STALE");
     const args = validateArguments(input.command.args ?? []);
     return Object.freeze({ request: { operation: "run" as const, input: { executable, arguments: args, cwd, environment, stdinBase64: "", timeoutMs: input.deadlineMs, stdoutLimitBytes: 1_048_576, stderrLimitBytes: 1_048_576 } }, spawnArgv: Object.freeze([executable, ...args]), authorization });

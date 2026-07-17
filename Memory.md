@@ -12,20 +12,20 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and complete Phase 3 are closed. Exact historical commit/run evidence is retained in the linked archives.
 - Phase 3 runtime and closure heads passed exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package; exact SHAs and run IDs remain in the Phase 3 archive.
-- Current published head is `ae0575d`: post-Phase 3 runner/CI hardening plus the Windows npm-launch repair. The running connector must be restarted to load the newer read defaults.
-- Reduced Phase 4 Tasks 4A0a–4A10, diagnostic 4B0, documentation reconciliation 4C0, and the complete local gate 4C1 are complete but unpublished. V3 trusted-code execution retains its exact R3, lifecycle, output, emergency-control, audit, and V1/V2 compatibility gates; Task 4C2 publication is next. Tasks 4B1–4B6 and every `workspace` activation path remain deferred.
+- Initial reduced Phase 4 publication head `60f62daea95f4ab489baac062574211a8ccd2fd0` is on `main`. Exact-head run `29586912907` correctly failed closed on Windows checkout-byte drift, controller-platform Windows path resolution, and Node 24.18 test-fixture discovery.
+- The bounded CI-portability repair is complete locally and is recorded in the next scoped commit. That repair SHA is the sole Phase 4 closure candidate; successful exact-head evidence stays below ignored `.ai-bridge/` and must not create an evidence-only follow-up commit. Tasks 4B1–4B6 and every `workspace` activation path remain deferred.
 - Phase 5's paired exact design/TDD plan is adversarially reviewed. No Phase 5 runtime work has started; Task 5A0/Gate G0 remains blocked on complete Phase 4 exact-head closure.
 
 ## Approved execution boundary
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Reduced Phase 4 is locally accepted; Task 4C2 is the next boundary: stage once, create one English phase commit, push, and require exact-head Ubuntu/Windows Node 20/24 CI. Task 4B1–4B6 and `workspace` remain deferred; Phase 5 waits only for that exact-head closure. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
+The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Task 4C2 published the approved Phase 4 boundary; the failed exact-head run authorizes only the bounded portability repair recorded in STEP-337. Push that repair once and require exact-head Ubuntu/Windows Node 20/24 CI. Task 4B1–4B6 and `workspace` remain deferred; Phase 5 waits only for terminal success of the repair SHA. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
 
 ## Active decisions and constraints
 
 - Keep CodexPro self-hosted. Cloudflare is limited to DNS, TLS, and Tunnel; authorization and path enforcement remain local.
 - Native Windows is primary. Git Bash is the temporary execution backend; native PowerShell remains required future work.
 - Use the verified managed Node runtimes under `%LOCALAPPDATA%\CodexPro\toolchains\`: Node `v20.20.2` and `v24.15.0` are installed from the official distribution, verified against `SHASUMS256.txt`, and recorded in the local toolchain manifest. Cleanup must not remove this managed root without explicit user approval.
-- Node 20 test-loader rule: repeated `tsx/esm/api` `tsImport` calls can deadlock/cache-spin when a test loads a shared TS graph twice. Use one test-only integration barrel, load the leaf implementation before a server that imports it, or load `PendingApprovalStore` before the shared policy graph; do not use `Promise.all` where it exposes untranspiled `import type`. Confirm recurrence with a managed-Node-20 narrow test and exact owned-process evidence.
+- Node test-loader rules: repeated Node 20 `tsx/esm/api` `tsImport` calls can deadlock/cache-spin when a test loads a shared TS graph twice. Use one test-only integration barrel, load leaf implementations before shared servers, and do not use `Promise.all` where it exposes untranspiled `import type`. Node 24.18 recursively discovers TypeScript below `test/`; keep executable/import barrels under package-excluded `fixtures/ts-imports/`, with only inert sentinels under `test/fixtures/`.
 - Safe Bash is a command-policy filter, not an operating-system sandbox.
 - `scripts/codexpro-entry.mjs` is the supported public CLI entry; direct `scripts/codexpro.mjs` launch is unsupported.
 - The public CLI defaults to the personal ChatGPT query-token flow when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; `CODEXPRO_ALLOW_QUERY_TOKEN=0` is only for compatible non-ChatGPT Bearer clients.
@@ -45,7 +45,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Gate S remains a truthful blocked diagnostic for the former AppContainer/LPAC design. Its exact denial rules are preserved only to prevent future overclaiming; it is no longer a current Phase 4 publication dependency. `workspace` stays unavailable with no `full_access` fallback.
 - With `inheritEnv=false`, Windows Bash preserves or derives only bounded user/configuration paths required for normal CLI and keyring discovery. Do not copy `GH_TOKEN` or arbitrary API variables into the child; `CODEXPRO_INHERIT_ENV=1` is explicit full-environment opt-in for trusted repositories only.
 - Mutation inventory binds each direct primitive to path, syscall, semantic digest, and reviewed purpose; atomic production paths cannot fall back to legacy writers.
-- CI debugging binds the exact HEAD SHA, uses bounded Windows `gh` environment, emits compact summaries, and stores evidence only below ignored `.ai-bridge/`.
+- CI debugging binds the exact HEAD SHA, uses bounded Windows `gh` environment, emits compact summaries, and stores evidence only below ignored `.ai-bridge/`. Manifest-bound `scripts/windows-*.cs|ps1|json` assets are pinned to LF by `.gitattributes`; exact raw-byte hashes remain fail-closed. Windows host compilation uses `path.win32` semantics on every controller platform.
 - Full Regression and Smoke run through detached runner schema 2. Gate O binds PID creation time, 256-bit nonce, command identities, stable run-directory identity, and independently capped stdout/stderr tails; exact stop revalidates ownership before `taskkill`, and its destructive oracle remains control-domain only.
 - Gate N uses the source-shipped PowerShell/C# host with exact `CXP4` framing, creation-time Job/handle-list ownership, fixed clean Windows environment, executable identity, bounded output, native deadlines, and an isolated Job-owned ConPTY worker. Capability is `job_object_members_only`; WMI broker escape resistance remains `none`.
 - `SystemDrive`, `SystemRoot`, `WINDIR`, `ProgramData`, `ComSpec`, minimal `PATH=System32;Windows`, and `PATHEXT` are fixed system values in clean native child environments; caller values cannot override them.
@@ -55,10 +55,11 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 - Closed Phase 3 runtime and documentation heads passed exact-head runs `29441752493` and `29443158835` across Ubuntu/Windows Node 20/24 Build, complete Regression, all protected Smoke sections, and Package.
 - Post-Phase 3 operational hardening and the Windows `npm-cli.js` launch repair are published through current head `ae0575d`; full command and run evidence is in STEP-307/308.
-- STEP-309 through STEP-331 retain the exact Phase 4 design and complete Phase 4A evidence. The final ordinary Node 20/24 run passed 873 tests with one platform skip per runtime; independent native control passed 99/99 per runtime. Exact task-level runs, repairs, and skips remain in the Phase 4 archives. No Phase 4 publication or exact-head CI has occurred.
+- STEP-309 through STEP-331 retain the exact Phase 4 design and complete Phase 4A evidence. The final pre-publication ordinary Node 20/24 run passed 873 tests with one platform skip per runtime; independent native control passed 99/99 per runtime. Exact task-level runs, repairs, and skips remain in the Phase 4 archives.
 - STEP-323 retains the adversarially repaired Phase 5 exact design/TDD plan; runtime remains blocked on complete Phase 4 closure.
 - STEP-332/333 implement and adversarially re-verify diagnostic 4B0. Its final evidence remains `blocked` with successful UDP sends and incomplete broker/network isolation; cleanup passed and no production sandbox is activated.
-- STEP-335/336 close 4C0/4C1: focused 115/115 passed; managed Node 20.20.2 and 24.15.0 ordinary each passed 880/881 with one established skip, control each passed 100/100, both eight-part Smoke suites passed, and the 394-file package dry-run plus build, policy, inventory, links, secrets, and diff gates passed. Authoritative run IDs remain in the active Phase 4 archive.
+- STEP-335/336 close 4C0/4C1: focused 115/115 passed; managed Node 20.20.2 and 24.15.0 ordinary each passed 880/881 with one established skip, control each passed 100/100, both eight-part Smoke suites passed, and the 394-file package dry-run plus build, policy, inventory, links, secrets, and diff gates passed.
+- STEP-337 records initial publication `60f62da`, failed exact-head run `29586912907`, all three portability root causes, and the local repair gate: affected 59/59, focused 6/6, Build, policy, diff, 394-file package, managed Node 20 at 983/984 and Node 24 at 989/990, each with one established skip.
 
 ## Known limitations
 
@@ -77,13 +78,14 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Execute Task 4C2 only: confirm intended scope, stage once, create one English Phase 4 commit, push, and require exact-head CI.
-2. Do not start Task 4B1–4B6 or activate `workspace`; do not weaken or hide retained 4B0 findings.
-3. Begin Phase 5 Task 5A0/Gate G0 only after the reduced Phase 4 closure SHA passes exact-head CI.
+1. Publish the single STEP-337 portability-repair commit and require exact-head Ubuntu/Windows Node 20/24 CI for that exact 40-character SHA.
+2. Do not create an evidence-only follow-up commit; keep successful replacement-run evidence below ignored `.ai-bridge/`.
+3. Do not start Task 4B1–4B6 or activate `workspace`; begin Phase 5 Task 5A0/Gate G0 only after the repair SHA reaches terminal exact-head success.
 
 ## Recent summaries
 
-- **STEP-336 - Pass 4C1 and neat-freak:** complete Node 20/24 ordinary/control, Smoke, package, policy, inventory, link, secret, scope, and diff gates passed; Task 4C2 is next.
+- **STEP-337 - Repair first exact-head CI:** initial Phase 4 publication and run `29586912907` exposed CRLF manifest drift, POSIX resolution of Windows paths, and Node 24 TypeScript fixture discovery; the bounded repair and complete local matrix now pass.
+- **STEP-336 - Pass 4C1 and neat-freak:** complete Node 20/24 ordinary/control, Smoke, package, policy, inventory, link, secret, scope, and diff gates passed before publication.
 - **STEP-335 - Complete 4C0:** public English/Chinese setup, FAQ, security, config, UI copy, rules, and roadmap now describe exact V3 trusted-code authority and unavailable `workspace`.
 - **STEP-334 - Approve reduced Phase 4 scope:** strong AppContainer/LPAC sandbox work was deferred while blocked 4B0 evidence remains truthful.
 
@@ -109,7 +111,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - [Post-Phase 3 operational hardening — STEP-307 through STEP-308](docs/memory/archive/post-phase-3-operational-hardening.md)
 - [Closed Phase 4 Volume 1 — STEP-309 through STEP-318](docs/memory/archive/phase-4.md)
 - [Closed Phase 4 Volume 2 — STEP-319 through STEP-325](docs/memory/archive/phase-4-part-2.md)
-- [Active Phase 4 Volume 3 — STEP-326 onward; local acceptance complete at STEP-336](docs/memory/archive/phase-4-part-3.md)
+- [Active Phase 4 Volume 3 — STEP-326 onward; publication repair complete locally at STEP-337](docs/memory/archive/phase-4-part-3.md)
 
 ## Memory maintenance protocol
 

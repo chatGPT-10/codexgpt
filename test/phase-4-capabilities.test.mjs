@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const policy = await tsImport("./fixtures/phase-4-policy-imports.ts", import.meta.url);
+const policy = await tsImport("../fixtures/ts-imports/phase-4-policy-imports.ts", import.meta.url);
 const {
   CapabilityEvidenceStoreV3,
   fullAccessCapabilityReportV3,

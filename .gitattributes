@@ -1,0 +1,4 @@
+# Manifest-bound Windows source assets must have platform-stable byte identity.
+scripts/windows-*.cs text eol=lf
+scripts/windows-*.ps1 text eol=lf
+scripts/windows-*.json text eol=lf

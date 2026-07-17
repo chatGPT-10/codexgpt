@@ -1,4 +1,1 @@
-export * from "../../src/process/outputRing.js";
-export * from "../../src/process/outputQuota.js";
-export * from "../../src/process/outputCursor.js";
-export * from "../../src/process/streamingRedactor.js";
+// Import barrel moved to fixtures/ts-imports so Node test discovery cannot execute it directly.

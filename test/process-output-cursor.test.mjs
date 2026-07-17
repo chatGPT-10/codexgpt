@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { OutputCursorCodec } = await tsImport("./fixtures/process-output-imports.ts", import.meta.url);
+const { OutputCursorCodec } = await tsImport("../fixtures/ts-imports/process-output-imports.ts", import.meta.url);
 
 test("AEAD cursor hides offsets and rejects forge, context, version, and expiry drift", () => {
   let now = 1000;

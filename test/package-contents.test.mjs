@@ -79,6 +79,11 @@ test("published package keeps website assets but excludes internal memory archiv
     "Published package must exclude Gate-S attack fixtures"
   );
   assert.equal(
+    files.some((file) => file.startsWith("fixtures/ts-imports/")),
+    false,
+    "Published package must exclude test-only TypeScript import barrels"
+  );
+  assert.equal(
     files.some((file) => file.startsWith("docs/memory/")),
     false,
     "Published package must not contain internal project memory"

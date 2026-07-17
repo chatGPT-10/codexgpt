@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { fullAccessWarning } = await tsImport("./fixtures/full-access-imports.ts", import.meta.url);
+const { fullAccessWarning } = await tsImport("../fixtures/ts-imports/full-access-imports.ts", import.meta.url);
 
 test("confirmed-root warning does not claim process isolation", () => {
   const warning = fullAccessWarning("read_write");

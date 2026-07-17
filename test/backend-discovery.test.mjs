@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const processHost = await tsImport("./fixtures/process-host-imports.ts", import.meta.url);
+const processHost = await tsImport("../fixtures/ts-imports/process-host-imports.ts", import.meta.url);
 const {
   compileCommandForWindowsHost,
   discoverWindowsBackends,
@@ -29,6 +29,22 @@ test("production host manifest binds the exact package-root sources and protocol
   assert.equal(verified.manifest.conPtyWorkerSha256, sha256(await fsp.readFile("scripts/windows-conpty-worker.ps1")));
   assert.equal(PROCESS_HOST_PROTOCOL.headerLength, 64);
   assert.equal(Object.isFrozen(verified.manifest), true);
+});
+
+test("manifest-bound Windows assets pin checkout bytes to LF", async () => {
+  const attributes = new Set(
+    (await fsp.readFile(".gitattributes", "utf8"))
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+  );
+  for (const required of [
+    "scripts/windows-*.cs text eol=lf",
+    "scripts/windows-*.ps1 text eol=lf",
+    "scripts/windows-*.json text eol=lf"
+  ]) {
+    assert.ok(attributes.has(required), `Missing stable checkout rule: ${required}`);
+  }
 });
 
 test("backend discovery accepts only digest-reviewed explicit paths and deterministic Windows locations", async (t) => {

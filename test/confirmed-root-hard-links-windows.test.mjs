@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { ConfirmedRootFileGuard } = await tsImport("./fixtures/full-access-imports.ts", import.meta.url);
+const { ConfirmedRootFileGuard } = await tsImport("../fixtures/ts-imports/full-access-imports.ts", import.meta.url);
 
 test("confirmed-root ordinary files require one stable link", async () => {
   let facts = { volumeSerial: "v1", fileId: "f1", numberOfLinks: 2, kind: "file" };

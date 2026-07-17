@@ -895,3 +895,67 @@ Prove the complete reduced Phase 4 runtime, compatibility, control, documentatio
 **Next step**
 
 Stop before Task 4C2. On the next explicit execution, confirm the intended Phase 4 scope, stage once, create one English phase-boundary commit, push, and require exact-head Ubuntu/Windows Node 20/24 CI before Phase 5.
+
+## STEP-337 — Publish Phase 4 and repair exact-head CI portability
+
+**Status**
+
+The initial Phase 4 publication is pushed. Its first exact-head run failed on three cross-platform CI defects; the bounded portability repair is complete locally and requires one replacement exact-head run before Phase 4 can close.
+
+**Goal**
+
+Publish the approved reduced Phase 4 boundary once, bind CI to its exact SHA, diagnose every failing matrix domain from primary logs, and repair portability without weakening manifest identity, test discovery, policy, or package boundaries.
+
+**Published evidence**
+
+- Initial Phase 4 commit: `60f62daea95f4ab489baac062574211a8ccd2fd0` (`feat: add Phase 4 trusted Windows execution`).
+- Initial exact-head CI run: `29586912907`.
+- Change classification and repository policy passed; Ubuntu/Windows Node 20/24 regression jobs failed.
+- Exact run discovery and verification evidence is retained only below ignored `.ai-bridge/`.
+
+**Root causes**
+
+- Windows checkout converted manifest-bound C#, PowerShell, and JSON assets from LF to CRLF. The CI-observed SHA-256 values exactly matched the CRLF byte forms, so host and local-control manifests correctly failed closed as stale.
+- `compileCommandForWindowsHost()` used controller-platform `path.resolve()` for Windows paths. Ubuntu therefore rewrote `C:\\...` inputs as POSIX paths and rejected a valid reviewed backend as `BACKEND_STALE`.
+- Node 24.18 recursively executed TypeScript import barrels below `test/fixtures/` as tests. Native TypeScript loading could not resolve their source `.js` specifiers because those barrels are intended only for `tsx` test imports.
+
+**Files changed**
+
+- `.gitattributes`
+- `.npmignore`
+- `src/process/commandCompiler.ts`
+- `fixtures/ts-imports/*.ts`
+- the six former `test/fixtures/*-imports.ts` barrels
+- affected Phase 4 and process-output tests
+- `test/backend-discovery.test.mjs`
+- `test/package-contents.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/phase-4-part-3.md`
+
+**Implementation summary**
+
+- Pinned `scripts/windows-*.cs`, `scripts/windows-*.ps1`, and `scripts/windows-*.json` to `text eol=lf`; manifest hashes remain the reviewed LF identities rather than being weakened or made platform-specific.
+- Switched Windows host compilation to `path.win32.resolve()` for executable and working-directory identity on every controller platform.
+- Moved `tsx` import barrels to `fixtures/ts-imports/`, updated every consumer, left inert compatibility sentinels under `test/fixtures/`, and excluded the new test-only directory from published packages.
+- Added regression checks for the mandatory LF attributes and package exclusion.
+
+**Verification results**
+
+- Affected regression set: 59/59 passed.
+- Manifest-attribute and package-boundary focused set: 6/6 passed.
+- TypeScript Build passed.
+- Managed ordinary matrix run `2026-07-17T14-31-32-859Z-phase4ci-repair-ordinary-bd2f9e70` completed with exit code 0, zero stderr, and no log truncation.
+- Managed Node 20.20.2 passed 983/984 with the one established platform skip; Node 24.15.0 passed 989/990 with the same skip. The six additional Node 24 successes are the inert TypeScript fixture sentinels.
+- Package dry-run retained 394 files, 897,594 packed bytes, and 4,851,128 unpacked bytes; zero `fixtures/ts-imports/` files were published.
+- Repository policy and `git diff --check` passed.
+
+**Decisions made**
+
+- Raw source identity must be made checkout-stable at the Git boundary; runtime hash comparison remains exact and fail-closed.
+- Windows command compilation is a Windows semantic domain even when tests or controllers run on Ubuntu.
+- Test-only executable/import helpers must stay outside Node's recursive `test/` discovery tree and outside the npm package.
+- The repair will be one scoped follow-up to the failed Phase 4 publication. Successful replacement CI evidence must remain ignored; no evidence-only closure commit is allowed.
+
+**Next step**
+
+Create and push one concise portability-repair commit, bind a replacement CI run to its exact 40-character SHA, and require Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package success before Phase 5.

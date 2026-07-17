@@ -4,3 +4,4 @@ node_modules/
 .env.*
 *.tgz
 scripts/windows-process-host-spike.mjs
+fixtures/ts-imports/

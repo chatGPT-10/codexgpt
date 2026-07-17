@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const access = await tsImport("./fixtures/full-access-imports.ts", import.meta.url);
+const access = await tsImport("../fixtures/ts-imports/full-access-imports.ts", import.meta.url);
 const { RootAdmissionCoordinator, RootAdmissionRuntimeV3, createStatFreeRootAdmissionRequest } = access;
 
 const binding = Object.freeze({

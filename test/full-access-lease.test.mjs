@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { FullAccessLeaseManager } = await tsImport("./fixtures/full-access-imports.ts", import.meta.url);
+const { FullAccessLeaseManager } = await tsImport("../fixtures/ts-imports/full-access-imports.ts", import.meta.url);
 
 const rootIdentity = Object.freeze({
   canonicalRoot: "C:\\Data",

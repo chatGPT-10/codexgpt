@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { PathGuard, ProtectedRootPolicy, WorkspaceManager, assertConfirmedRootPathInput } = await tsImport("./fixtures/full-access-imports.ts", import.meta.url);
+const { PathGuard, ProtectedRootPolicy, WorkspaceManager, assertConfirmedRootPathInput } = await tsImport("../fixtures/ts-imports/full-access-imports.ts", import.meta.url);
 
 test("Windows confirmed roots reject device, UNC, ADS, reserved, and protected stores", () => {
   for (const value of ["\\\\?\\C:\\Data", "\\\\server\\share", "C:relative", "C:\\Data\\x.txt:ads", "C:\\Data\\CON.txt"]) {

@@ -3,7 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { WindowsProcessHostClient } = await tsImport("./fixtures/process-host-imports.ts", import.meta.url);
+const { WindowsProcessHostClient } = await tsImport("../fixtures/ts-imports/process-host-imports.ts", import.meta.url);
 const windowsOnly = process.platform === "win32" ? test : test.skip;
 
 windowsOnly("production client starts the manifest-verified host and owns an independent lifecycle", async (t) => {

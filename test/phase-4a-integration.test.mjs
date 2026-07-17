@@ -12,7 +12,7 @@ const {
   createCodexProServer,
   createExecutionFailure,
   loadConfig
-} = await tsImport("./fixtures/phase-4a-integration-imports.ts", import.meta.url);
+} = await tsImport("../fixtures/ts-imports/phase-4a-integration-imports.ts", import.meta.url);
 
 function withEnv(changes, action) {
   const previous = new Map();

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { StreamingRedactor, OUTPUT_REDACTION_CAPABILITY } = await tsImport("./fixtures/process-output-imports.ts", import.meta.url);
+const { StreamingRedactor, OUTPUT_REDACTION_CAPABILITY } = await tsImport("../fixtures/ts-imports/process-output-imports.ts", import.meta.url);
 
 test("known bearer prefix split at every byte boundary is redacted before output", () => {
   const source = Buffer.from("before Authorization: Bearer abcdefghijklmnop after", "utf8");

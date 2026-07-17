@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { OutputRing, StreamingRedactor } = await tsImport("./fixtures/process-output-imports.ts", import.meta.url);
+const { OutputRing, StreamingRedactor } = await tsImport("../fixtures/ts-imports/process-output-imports.ts", import.meta.url);
 
 test("ring evicts oldest bytes and old cursors resume with truncation", () => {
   const ring = new OutputRing({ capacityBytes: 5 });
