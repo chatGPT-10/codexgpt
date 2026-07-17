@@ -1050,3 +1050,68 @@ Complete locally. The second portability commit is published, but its exact-head
 **Next step**
 
 Publish the STEP-339 bounded repair, bind the next CI run to its exact 40-character SHA, and require terminal success across all policy and matrix jobs. Do not create an evidence-only follow-up commit after success.
+
+## STEP-340 — Normalize ConPTY probe completion after explicit ETX evidence
+
+**Status**
+
+Complete locally. The STEP-339 repair is published, but its exact-head run isolated one remaining Windows-only ConPTY probe defect. A final bounded native-host repair is ready for publication and exact-head verification.
+
+**Published evidence**
+
+- STEP-339 commit: `2d5429b1d9e26a576ec2ee27dd6f9eadc32332ac` (`fix: stabilize Phase 4 exact-head regression`).
+- Exact-head run: `29592584591`.
+- Repository policy, Ubuntu Node 20, and Ubuntu Node 24 passed completely.
+- Windows Node 20 and Node 24 both completed the serialized all-domain regression and failed only the same two ConPTY control tests.
+- The earlier `HELLO_TIMEOUT` failures and non-terminating leaked hosts did not recur, confirming the STEP-339 scheduler and startup-abort repairs.
+
+**Root cause**
+
+- The ConPTY probe sent Ctrl+C, then observed the dedicated `CXP4_ETX_ACK`, and finally issued bare `exit` to `cmd.exe`.
+- Windows Server runner images can preserve the nonzero `ERRORLEVEL` left by Ctrl+C. Bare `exit` propagated that shell state even though ConPTY creation, resize, input acknowledgement, ETX delivery, and ETX acknowledgement had all succeeded.
+- The probe therefore reported `CONPTY_EVIDENCE_MISMATCH` solely because `exitCode != 0`; the test was measuring an ambient shell-status residue rather than the explicit evidence it was designed to prove.
+
+**Files changed**
+
+- `scripts/windows-process-host.cs`
+- `scripts/windows-process-host-manifest.json`
+- `test/windows-process-host-protocol.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/phase-4-part-3.md`
+
+**Implementation summary**
+
+- Changed only the probe's final command from `exit` to `exit /b 0`, after `CXP4_ETX_ACK` is emitted.
+- Retained every existing evidence requirement: no timeout, process exit 0, ready marker, input acknowledgement, ETX delivery, ETX acknowledgement, Job-at-creation ownership, exact handle list, image identity, bounded output, and bounded ConPTY close.
+- Updated the manifest-bound C# SHA-256 to `2be05b58a4724a1703088bcfc367d224d65f2268921041488a6f05041a0b8c5f`; raw-byte verification remains exact and fail-closed.
+- Added a source regression proving exit normalization occurs only after the ETX acknowledgement and that the former bare-exit sequence cannot return.
+
+**Verification results**
+
+- Focused native-host, manifest, architecture, multi-server, and package gate passed 18/18 with zero failures or skips.
+- TypeScript Build passed.
+- Repository policy passed.
+- `git diff --check` passed, with only the established Windows working-tree line-ending warning on a non-manifest test file.
+- Package dry-run retained 394 files, 897,498 packed bytes, and 4,851,520 unpacked bytes.
+- Control/all-domain execution was not rerun through the connector-backed local process domain; the exact Windows ConPTY behavior remains reserved for isolated exact-head CI as required by repository policy.
+
+**Decisions made**
+
+- Explicit probe evidence, not ambient `cmd.exe` error-level residue, defines ConPTY success.
+- Exit normalization is allowed only after the ETX acknowledgement marker is written; it cannot hide missing ETX, missing output, timeout, Job, handle, identity, or close failures.
+- The manifest must move with the C# byte change in the same commit; no runtime hash bypass or platform-specific alternate digest is allowed.
+- This remains a bounded Task 4C2 repair. Phase 5 and deferred sandbox work remain blocked until the next exact SHA reaches terminal success.
+
+**Risks or limitations**
+
+- The local focused gate proves source shape, manifest identity, and package inclusion but cannot reproduce the GitHub Windows Server ConPTY environment from the connector-backed process domain.
+- A further Windows failure must be diagnosed from the next exact-head bounded artifacts; tests and evidence requirements must not be weakened to force closure.
+
+**Rollback method**
+
+- Revert the STEP-340 commit as one unit, restoring the prior C# bytes, manifest digest, regression assertion, and memory entry.
+- Do not revert STEP-337 through STEP-339 portability, scheduler, or cleanup fixes.
+
+**Next step**
+
+Create and push one English bounded repair commit, bind the next CI run to its exact 40-character SHA, and require repository policy plus Ubuntu/Windows Node 20/24 Build, complete all-domain Regression, protected Smoke, and Package success. Keep successful run evidence below ignored `.ai-bridge/` and do not create an evidence-only commit.

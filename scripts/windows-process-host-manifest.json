@@ -9,7 +9,7 @@
   "conPtyWorker": "scripts/windows-conpty-worker.ps1",
   "protocolAuthority": "scripts/windows-process-host-protocol-v1.json",
   "productionPowerShellSha256": "d7b9f31331bfdc4a1640e05dca1990a96a27175a167542bd7d5b48de9d50b1a0",
-  "productionCSharpSha256": "fb4310ea62f0353f1e93e065bca18839176f42bcf503228425a4c931f10780a2",
+  "productionCSharpSha256": "2be05b58a4724a1703088bcfc367d224d65f2268921041488a6f05041a0b8c5f",
   "conPtyWorkerSha256": "aacf8c8cc8c63d978a40aa1ec80df18bc6420377004d4af7dca8bfc3f4e22f27",
   "protocolSha256": "5a9a3672aebffa67097e2932a8c3f7ff16deff40212dc62815e7f8d470d0ab40",
   "bootstrapSecretTransport": "private_parent_stdin",

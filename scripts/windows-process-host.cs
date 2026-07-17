@@ -979,7 +979,7 @@ namespace CodexPro.Phase4
                     inputStream.Flush();
                     etxDelivered = true;
                     Thread.Sleep(1000);
-                    byte[] exitCommand = Encoding.UTF8.GetBytes("\r\necho CXP4_ETX_ACK\r\nexit\r\n");
+                    byte[] exitCommand = Encoding.UTF8.GetBytes("\r\necho CXP4_ETX_ACK\r\nexit /b 0\r\n");
                     inputStream.Write(exitCommand, 0, exitCommand.Length);
                     inputStream.Flush();
                 }

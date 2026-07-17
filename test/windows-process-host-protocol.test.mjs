@@ -178,6 +178,12 @@ test("parser queue cap is fatal and does not retain unbounded partial input", ()
   assert.equal(errorCode(() => parser.push(Buffer.alloc(1))), "PARSER_FATAL");
 });
 
+test("ConPTY probe explicitly normalizes exit only after the ETX acknowledgement", async () => {
+  const source = await fs.readFile(path.join(repositoryRoot, "scripts", "windows-process-host.cs"), "utf8");
+  assert.match(source, /echo CXP4_ETX_ACK\\r\\nexit \/b 0\\r\\n/);
+  assert.doesNotMatch(source, /echo CXP4_ETX_ACK\\r\\nexit\\r\\n/);
+});
+
 test("startup abort terminates the exact spawned host and removes its temporary root", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-host-abort-test-"));
   const child = new EventEmitter();
