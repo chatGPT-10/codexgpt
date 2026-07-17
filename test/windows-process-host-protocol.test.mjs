@@ -195,6 +195,9 @@ test("ConPTY probe uses one manifest-bound Node child and retains bounded failur
   assert.match(child, /line === "CXP4_INPUT"/);
   assert.match(child, /line === "CXP4_EXIT"/);
   assert.match(child, /const PROBE_TIMEOUT_MS = 20_000;/);
+  assert.match(source, /const uint StatusControlCExit = 0xC000013A;/);
+  assert.match(source, /bool expectedExit = exitCode == 0 \|\| exitCode == StatusControlCExit;/);
+  assert.match(source, /bool evidenceOk = !timedOut && expectedExit && outputContainsReady && outputContainsInputAck && outputContainsEtxAck;/);
   for (const key of [
     "conPtyCreated",
     "resized",

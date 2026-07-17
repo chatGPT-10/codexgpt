@@ -10,7 +10,7 @@
   "conPtyProbeChild": "scripts/windows-conpty-probe-child.mjs",
   "protocolAuthority": "scripts/windows-process-host-protocol-v1.json",
   "productionPowerShellSha256": "244f41bc50fa2183d40767707aaed86b545563ea2d810d90608ee17db5243e45",
-  "productionCSharpSha256": "1ea275450e30220c27d5b34cd290b3795ba4f01941d51b762781ea76191ab452",
+  "productionCSharpSha256": "6180f03652b9c24111498d6ea38523b06678a51f6ca811faab094df8c4350b8b",
   "conPtyWorkerSha256": "3506524dc4a095db3cf78a3915a203ddce8e4494da6a674698a2bc72b4f93e89",
   "conPtyProbeChildSha256": "9fca85b7114b93170a849feef730a9b2e133c051ba5089164c8c3d0d2383ef02",
   "protocolSha256": "5a9a3672aebffa67097e2932a8c3f7ff16deff40212dc62815e7f8d470d0ab40",

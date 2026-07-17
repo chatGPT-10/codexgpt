@@ -12,13 +12,13 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and complete Phase 3 are closed. Exact historical commit/run evidence is retained in the linked archives.
 - Phase 3 runtime and closure heads passed exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package; exact SHAs and run IDs remain in the Phase 3 archive.
-- Reduced Phase 4 is published through STEP-340 head `05f5d87b0ab52a13ab5dfdf3074de28278570e48`. Exact-head run `29594381790` passed repository policy and Ubuntu Node 20/24; Windows Node 20/24 exposed remaining shell-dependent ConPTY probe behavior and 30-second native startup/request boundaries.
-- STEP-341 replaces the shell probe with an exact manifest-bound Node child, preserves bounded safe failure evidence, and raises only reviewed native startup/request windows to 60 seconds. Local Node 20/24 ordinary, eight-part Smoke, Build, policy, package, and diff gates pass; this is the sole Phase 4 closure candidate. Tasks 4B1–4B6 and every `workspace` activation path remain deferred.
+- Reduced Phase 4 is published through STEP-341 head `31289592c5bd136a50e9f9544f4171a013a1af7f`. Exact-head run `29601639970` passed policy and Ubuntu Node 20/24; Windows Node 20/24 proved every ConPTY/Job/ETX fact but returned exact `STATUS_CONTROL_C_EXIT` (`0xC000013A`).
+- STEP-342 accepts only exit 0 or that exact Windows Ctrl+C status while still requiring no timeout and every ready/input/ETX marker. Focused 17/17, ordinary 886/887 with one established skip, Build, policy, package, and diff gates pass; this is the sole Phase 4 closure candidate. Tasks 4B1–4B6 and `workspace` remain deferred.
 - Phase 5's paired exact design/TDD plan is adversarially reviewed. No Phase 5 runtime work has started; Task 5A0/Gate G0 remains blocked on complete Phase 4 exact-head closure.
 
 ## Approved execution boundary
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Task 4C2 published the approved Phase 4 boundary; failed exact-head runs authorize only the bounded repairs recorded in STEP-337 through STEP-341. Publish STEP-341 once and require exact-head Ubuntu/Windows Node 20/24 CI. Task 4B1–4B6 and `workspace` remain deferred; Phase 5 waits only for terminal success of the next repair SHA. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
+The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Task 4C2 published the approved Phase 4 boundary; failed exact-head runs authorize only the bounded repairs recorded in STEP-337 through STEP-342. Publish STEP-342 once and require exact-head Ubuntu/Windows Node 20/24 CI. Task 4B1–4B6 and `workspace` remain deferred; Phase 5 waits only for terminal success of the next repair SHA. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
 
 ## Active decisions and constraints
 
@@ -47,7 +47,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Mutation inventory binds each direct primitive to path, syscall, semantic digest, and reviewed purpose; atomic production paths cannot fall back to legacy writers.
 - CI debugging binds the exact HEAD SHA, uses bounded Windows `gh` environment, emits compact summaries, and stores evidence only below ignored `.ai-bridge/`. Manifest-bound `scripts/windows-*.cs|ps1|json` assets are pinned to LF by `.gitattributes`; exact raw-byte hashes remain fail-closed. Windows host compilation uses `path.win32` semantics on every controller platform. POSIX command lookup uses fixed `/bin/sh -c` scripts with candidate commands passed only as quoted positional data; never use `shell: true` with argv.
 - Complete Regression is the authoritative `all` domain from `scripts/test-domains.mjs`; Ubuntu keeps runtime-default concurrency and Windows uses concurrency 1 so native host/control tests do not cold-start concurrently. Ordinary local Regression and Smoke run through detached runner schema 2. Gate O binds PID creation time, 256-bit nonce, command identities, stable run-directory identity, and independently capped stdout/stderr tails; exact stop revalidates ownership before `taskkill`, and its destructive oracle remains control-domain only.
-- Gate N uses the source-shipped PowerShell/C# host with exact `CXP4` framing, creation-time Job/handle-list ownership, fixed clean Windows environment, executable identity, bounded output, native deadlines, and an isolated Job-owned ConPTY worker. Capability is `job_object_members_only`; WMI broker escape resistance remains `none`. The ConPTY probe uses an exact manifest-bound Node child instead of shell command parsing; ready/input/ETX markers, timeout, Job, handle, image, output, and close evidence remain mandatory, with reviewed startup/request windows capped at 60 seconds.
+- Gate N uses the source-shipped PowerShell/C# host with exact `CXP4` framing, creation-time Job/handle-list ownership, fixed clean Windows environment, executable identity, bounded output, native deadlines, and an isolated Job-owned ConPTY worker. Capability is `job_object_members_only`; WMI broker escape resistance remains `none`. The manifest-bound Node probe requires ready/input/ETX markers plus timeout, Job, handle, image, output, and close evidence; success accepts only exit 0 or exact Windows `STATUS_CONTROL_C_EXIT`, with reviewed startup/request windows capped at 60 seconds.
 - `SystemDrive`, `SystemRoot`, `WINDIR`, `ProgramData`, `ComSpec`, minimal `PATH=System32;Windows`, and `PATHEXT` are fixed system values in clean native child environments; caller values cannot override them.
 - The master implementation plan is the sequencing authority. Complete isolated regression uses `node scripts/test-domains.mjs run --domain all`; connector-backed local regression uses `--domain ordinary`. There is no `npm test` script.
 
@@ -58,7 +58,8 @@ The user authorized continuous recommended-option implementation through Phase 8
 - STEP-323 retains the adversarially repaired Phase 5 design/TDD plan; runtime remains blocked on complete Phase 4 closure.
 - STEP-337 through STEP-339 record the first three exact-head portability/scheduling repairs: LF-stable manifests, Windows path semantics, Node 24 fixture isolation, safe POSIX lookup, authoritative all-domain CI routing, Windows serialization, and exact startup cleanup.
 - STEP-340 published head `05f5d87`; exact-head run `29594381790` passed policy and Ubuntu Node 20/24 but failed Windows Node 20/24 on ConPTY probe determinism plus native startup/request timing.
-- STEP-341 records the manifest-bound Node probe and bounded timeout repair. Managed ordinary run `2026-07-17T16-45-19-488Z-phase4ci-step341-ordinary-final-a9cc1d2c` passed 886/887 with one established skip per runtime; managed Smoke run `2026-07-17T17-01-33-806Z-phase4ci-step341-smoke-2bfa1475` passed all eight sections on Node 20/24 with exit 0, zero stderr, and no truncation. Build, policy, diff, and a 395-file package dry-run also passed.
+- STEP-341 published head `3128959`; exact-head run `29601639970` passed policy and Ubuntu Node 20/24, while both Windows jobs failed only because the fully acknowledged ETX probe exited with exact `0xC000013A` instead of 0.
+- STEP-342 records the exact-status repair. Focused native/manifest/package tests passed 17/17; managed ordinary run `2026-07-17T18-09-38-162Z-phase4ci-step342-ordinary-final-a85aed67` passed 886/887 with one established skip, exit 0, zero stderr, and no truncation. Build, policy, diff, and the 395-file package dry-run passed.
 
 ## Known limitations
 
@@ -77,14 +78,14 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the single STEP-341 bounded native-host repair commit and require exact-head Ubuntu/Windows Node 20/24 CI for that exact 40-character SHA.
-2. Keep successful replacement-run evidence below ignored `.ai-bridge/`; do not create an evidence-only follow-up commit.
-3. Begin Phase 5 Task 5A0/Gate G0 only after that SHA reaches terminal success; Task 4B1–4B6 and `workspace` remain deferred.
+1. Publish the single STEP-342 exact Ctrl+C-status repair and require exact-head Ubuntu/Windows Node 20/24 CI for that exact SHA.
+2. Keep run evidence below ignored `.ai-bridge/`; do not create an evidence-only follow-up commit.
+3. Begin Phase 5 Task 5A0/Gate G0 only after terminal success; Task 4B1–4B6 and `workspace` remain deferred.
 
 ## Recent summaries
 
-- **STEP-341 - Make ConPTY probing deterministic:** run `29594381790` passed policy and Ubuntu but exposed shell-dependent probe behavior and 30-second Windows startup/request limits; the repair uses a manifest-bound Node child, safe bounded failure evidence, and reviewed 60-second windows.
-- **STEP-340 - Normalize ConPTY completion:** run `29592584591` passed policy and Ubuntu but exposed Ctrl+C shell-status residue on Windows; its bounded fix was published as `05f5d87` before STEP-341 diagnosed the remaining shell dependency.
+- **STEP-342 - Accept exact Ctrl+C termination evidence:** run `29601639970` proved all required ConPTY facts but returned Windows `0xC000013A`; only exit 0 or that exact status is now accepted alongside every mandatory marker.
+- **STEP-341 - Make ConPTY probing deterministic:** published `3128959` replaced shell parsing with a manifest-bound Node child, safe failure evidence, and reviewed 60-second windows.
 - **STEP-339 - Align exact-head regression domains:** run `29590793061` exposed a wrong Ubuntu doctor assertion plus Windows control contention; CI now uses the authoritative complete domain, serializes Windows, and cleans failed startup exactly.
 - **STEP-338 - Repair remaining Ubuntu regressions:** run `29589048926` exposed unsafe POSIX shell lookup and a POSIX fixture for a Windows-host contract; lookup now uses positional `/bin/sh` and the fixture is Windows-semantic.
 - **STEP-336 - Pass 4C1 and neat-freak:** complete Node 20/24 ordinary/control, Smoke, package, policy, inventory, link, secret, scope, and diff gates passed before publication.
@@ -111,7 +112,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - [Post-Phase 3 operational hardening — STEP-307 through STEP-308](docs/memory/archive/post-phase-3-operational-hardening.md)
 - [Closed Phase 4 Volume 1 — STEP-309 through STEP-318](docs/memory/archive/phase-4.md)
 - [Closed Phase 4 Volume 2 — STEP-319 through STEP-325](docs/memory/archive/phase-4-part-2.md)
-- [Active Phase 4 Volume 3 — STEP-326 onward; deterministic ConPTY repair complete locally at STEP-341](docs/memory/archive/phase-4-part-3.md)
+- [Active Phase 4 Volume 3 — STEP-326 onward; exact Ctrl+C-status repair complete locally at STEP-342](docs/memory/archive/phase-4-part-3.md)
 
 ## Memory maintenance protocol
 

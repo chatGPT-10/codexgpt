@@ -182,7 +182,7 @@ test("ConPTY create, read, write, resize, ETX delivery, Job ownership, and bound
     assert.equal(body.outputContainsReady, true);
     assert.equal(body.outputContainsInputAck, true);
     assert.equal(body.outputContainsEtxAck, true);
-    assert.equal(body.exitCode, 0);
+    assert.ok(body.exitCode === 0 || body.exitCode === 0xC000013A, JSON.stringify(body));
     assert.equal(body.timedOut, false);
     assert.equal(body.workerInOwnedJob, true);
     assert.equal(body.targetInInheritedJobAtCreation, true);

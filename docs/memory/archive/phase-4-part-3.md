@@ -1213,3 +1213,56 @@ Make ConPTY evidence independent of `cmd.exe` control-flow and ambient shell sta
 **Next step**
 
 Stage the exact STEP-341 scope once, create one concise English repair commit, push it, and bind a new CI run to that exact 40-character SHA. Phase 4 closes only if repository policy and Ubuntu/Windows Node 20/24 Build, complete all-domain Regression, protected Smoke, and Package all reach terminal success. Keep successful run evidence below ignored `.ai-bridge/`; do not create an evidence-only follow-up commit.
+
+## STEP-342 — Accept exact Windows Ctrl+C termination evidence
+
+**Status**
+
+Complete locally after STEP-341 exact-head run `29601639970` reached terminal failure. One bounded replacement commit is ready for publication.
+
+**Published evidence and root cause**
+
+- STEP-341 commit: `31289592c5bd136a50e9f9544f4171a013a1af7f` (`fix: make ConPTY probe deterministic`).
+- Change classification, repository policy, Ubuntu Node 20, and Ubuntu Node 24 passed.
+- Windows Node 20 and Node 24 each failed only the same two isolated ConPTY tests.
+- Both failure envelopes proved ConPTY creation, resize, ETX delivery, ready/input/ETX acknowledgements, worker and target Job ownership, exact handle list, executable identity, no timeout, and bounded zero-millisecond close.
+- The sole mismatch was target exit `3221225786`, hexadecimal `0xC000013A`, the exact Windows `STATUS_CONTROL_C_EXIT` value. The prior success predicate accepted only exit 0 despite the explicit ETX acknowledgement already proving the intended terminal-control event.
+
+**Implementation summary**
+
+- Added a local C# constant for exact `0xC000013A` and an `expectedExit` predicate accepting only exit 0 or that exact status.
+- Kept every other success condition unchanged: no timeout plus all ready, input, and ETX acknowledgement markers remain mandatory.
+- Arbitrary nonzero exits, missing markers, timeouts, Job/handle/image mismatches, output failures, and close failures remain fail-closed.
+- Preserved the actual exit code in returned and failure evidence; no normalization or diagnostic hiding was introduced.
+- Updated the exact manifest-bound C# SHA-256 and the Windows control/source regression assertions.
+
+**TDD and verification results**
+
+- Added source assertions for the exact constant, exact two-value predicate, and unchanged full evidence conjunction; the focused protocol test produced the intended RED before implementation.
+- Post-fix focused native-host, manifest, architecture, package, and Phase 4 smoke tests passed 17/17.
+- Managed ordinary run `2026-07-17T18-09-38-162Z-phase4ci-step342-ordinary-final-a85aed67` passed 886/887 with one established platform skip, zero failures, exit code 0, zero stderr, and no truncation.
+- TypeScript Build passed.
+- Repository operational policy passed.
+- Package dry-run retained 395 files, 898,985 packed bytes, and 4,858,669 unpacked bytes; the manifest-bound Node probe remains included.
+- `git diff --check` passed with only established Windows working-tree line-ending notices on the two modified test files.
+
+**Decisions made**
+
+- Ctrl+C success is defined by the conjunction of exact delivery/acknowledgement evidence and an exact expected Windows termination status, not by a universal zero-exit assumption.
+- `STATUS_CONTROL_C_EXIT` is not generalized into an accepted class of nonzero exits; only the exact value is allowed.
+- The observed exit code remains visible because evidence should report what Windows did rather than rewrite it to zero.
+- This is a bounded Task 4C2 repair only. It does not activate deferred sandbox, `workspace`, Task 4B1–4B6, or Phase 5 behavior.
+
+**Risks or limitations**
+
+- Connector-backed local execution cannot reproduce the isolated GitHub Windows control domain; the next exact-head CI run remains authoritative.
+- A further failure must preserve the exact evidence predicates and be diagnosed from primary bounded logs rather than weakening the gate.
+
+**Rollback method**
+
+- Revert the STEP-342 commit as one unit, restoring the zero-only exit predicate, prior manifest digest, tests, and memory entry.
+- Preserve STEP-337 through STEP-341 portability, scheduling, deterministic probe, and timeout repairs.
+
+**Next step**
+
+Stage and publish the exact STEP-342 scope, then bind a new CI run to its full SHA. Phase 4 closes only on terminal success across repository policy and Ubuntu/Windows Node 20/24 Build, complete all-domain Regression, protected Smoke, and Package. Keep run evidence below ignored `.ai-bridge/` and do not create an evidence-only follow-up commit.

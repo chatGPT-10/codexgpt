@@ -1022,7 +1022,9 @@ namespace CodexPro.Phase4
                 bool outputContainsReady = outputText.IndexOf("CXP4_CONPTY_READY", StringComparison.Ordinal) >= 0;
                 bool outputContainsInputAck = outputText.IndexOf("CXP4_INPUT_ACK", StringComparison.Ordinal) >= 0;
                 bool outputContainsEtxAck = outputText.IndexOf("CXP4_ETX_ACK", StringComparison.Ordinal) >= 0;
-                bool evidenceOk = !timedOut && exitCode == 0 && outputContainsReady && outputContainsInputAck && outputContainsEtxAck;
+                const uint StatusControlCExit = 0xC000013A;
+                bool expectedExit = exitCode == 0 || exitCode == StatusControlCExit;
+                bool evidenceOk = !timedOut && expectedExit && outputContainsReady && outputContainsInputAck && outputContainsEtxAck;
                 totalTimer.Stop();
                 Dictionary<string, object> result = evidenceOk ? SuccessResult() : ErrorResult(timedOut ? "CONPTY_PROCESS_TIMED_OUT" : "CONPTY_EVIDENCE_MISMATCH");
                 if (evidenceOk) result["code"] = "CONPTY_PROBE_OK";
