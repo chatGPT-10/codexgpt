@@ -538,10 +538,9 @@ function optionalWriteOption(args, profile, mode) {
 }
 
 function commandExists(command) {
-  const result = spawnSync(process.platform === 'win32' ? 'where' : 'command', process.platform === 'win32' ? [command] : ['-v', command], {
-    shell: process.platform !== 'win32',
-    stdio: 'ignore'
-  });
+  const result = process.platform === 'win32'
+    ? spawnSync('where', [command], { stdio: 'ignore' })
+    : spawnSync('/bin/sh', ['-c', 'command -v "$1"', 'codexpro-command-v', command], { stdio: 'ignore' });
   return result.status === 0;
 }
 
@@ -551,7 +550,7 @@ function commandPaths(command) {
     if (result.status !== 0) return [];
     return String(result.stdout).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   }
-  const result = spawnSync('command', ['-v', command], { encoding: 'utf8', shell: true, stdio: ['ignore', 'pipe', 'ignore'] });
+  const result = spawnSync('/bin/sh', ['-c', 'command -v "$1"', 'codexpro-command-v', command], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   if (result.status !== 0) return [];
   return String(result.stdout).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }

@@ -959,3 +959,44 @@ Publish the approved reduced Phase 4 boundary once, bind CI to its exact SHA, di
 **Next step**
 
 Create and push one concise portability-repair commit, bind a replacement CI run to its exact 40-character SHA, and require Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package success before Phase 5.
+
+## STEP-338 — Repair remaining Ubuntu exact-head regressions
+
+**Status**
+
+Complete locally. The first portability commit is published, but its exact-head run cannot close Phase 4 because Ubuntu Node 20/24 exposed two additional cross-platform regressions. A second bounded repair is ready for publication.
+
+**Published evidence**
+
+- First portability commit: `87d6101ea0838a16c331404beeb19f9a8e226347` (`fix: make Phase 4 CI portable`).
+- Exact-head run: `29589048926`.
+- Repository policy passed. Ubuntu Node 20 and Node 24 each failed the same doctor and `run_command` contract tests; their bounded artifacts were read directly from GitHub without writing them into the repository.
+- The Windows jobs remained non-terminal after the SHA was already disqualified by Ubuntu failures and are not treated as closure evidence.
+
+**Root causes**
+
+- POSIX CLI command discovery invoked the shell builtin `command -v` through `spawnSync(..., { shell: true })` while also passing argv. Node 24 emits DEP0190 for that unsafe concatenation shape, and the CI deprecation policy made the doctor subprocess exit nonzero.
+- `test/run-command-contract.test.mjs` used an Ubuntu temporary path as the executable for a runtime whose production contract is explicitly Windows-host compilation. After production correctly switched to `path.win32`, that fixture no longer represented the contract and failed as `BACKEND_STALE`.
+
+**Implementation summary**
+
+- Replaced both POSIX command lookup paths with an explicit `/bin/sh -c` invocation whose script is fixed and whose candidate command is passed only as quoted positional parameter `$1`; `shell: true` is no longer used.
+- Changed the runtime contract fixture to an explicit `C:\\Tools\\fake.exe` identity while retaining the platform-local temporary root only for test state.
+- Added a source-level regression asserting that CLI command discovery contains no `shell: true` and uses the fixed `/bin/sh` positional-argument form twice.
+
+**Verification results**
+
+- Focused doctor/runtime contract gate passed 7/7.
+- TypeScript Build and `git diff --check` passed.
+- Managed ordinary matrix run `2026-07-17T14-55-26-558Z-phase4ci-repair2-ordinary-72e906a7` completed with exit code 0, zero stderr, and no log truncation.
+- Managed Node 20.20.2 and Node 24.15.0 retained zero failures and one established platform skip per runtime.
+
+**Decisions made**
+
+- Shell builtins must be invoked through an explicit shell executable with a fixed script and positional data, never through `shell: true` argv concatenation.
+- Cross-platform tests for Windows-host contracts must use Windows path identity even when their controller and temporary state are POSIX.
+- The next commit remains a bounded CI repair under Task 4C2; Phase 5 and deferred sandbox work remain blocked.
+
+**Next step**
+
+Publish this second bounded repair, bind the next CI run to its exact SHA, and continue fail-closed diagnosis until all four Ubuntu/Windows Node 20/24 jobs reach terminal success.

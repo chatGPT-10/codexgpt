@@ -160,6 +160,12 @@ test("V3 direct and supertool execution traverse one live policy and handler pat
   });
 });
 
+test("POSIX command discovery never concatenates argv through shell true", async () => {
+  const source = await fs.readFile("scripts/codexpro.mjs", "utf8");
+  assert.doesNotMatch(source, /shell:\s*true/);
+  assert.equal(source.match(/spawnSync\('\/bin\/sh', \['-c', 'command -v "\$1"'/g)?.length, 2);
+});
+
 test("doctor separates backend, Job, ConPTY, approval, root, full-access, and sandbox evidence", async () => {
   const port = await freePort();
   const result = spawnSync(process.execPath, [
