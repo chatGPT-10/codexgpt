@@ -17,6 +17,15 @@ const HEADER_LENGTH = PROCESS_HOST_PROTOCOL.headerLength;
 const TAG_OFFSET = 48;
 const TAG_LENGTH = PROCESS_HOST_PROTOCOL.tagLength;
 const MAX_PAYLOAD = PROCESS_HOST_PROTOCOL.maxFramePayloadBytes;
+const DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS = 60_000;
+const CONPTY_CONTROL_REQUEST_TIMEOUT_MS = 60_000;
+
+export function conPtyProbeInput() {
+  return Object.freeze({
+    nodeExecutable: process.execPath,
+    probeScript: path.join(scriptDirectory, "windows-conpty-probe-child.mjs")
+  });
+}
 const ALLOWED_KINDS = new Set(Object.values(PROCESS_HOST_PROTOCOL.kinds));
 
 function protocolError(code, message = code) {
@@ -430,7 +439,7 @@ export async function startWindowsProcessHostSpike({ platform = process.platform
     const timer = setTimeout(() => {
       session.pending.delete(requestId);
       reject(protocolError("HELLO_TIMEOUT"));
-    }, 30000);
+    }, DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS);
     session.pending.set(requestId, {
       resolve: (value) => { clearTimeout(timer); resolve(value); },
       reject: (error) => { clearTimeout(timer); reject(error); }
@@ -461,6 +470,7 @@ async function sha256File(file) {
 
 async function nativeHostSourceIdentity() {
   const files = [
+    "windows-conpty-probe-child.mjs",
     "windows-conpty-worker.ps1",
     "windows-native-api-inventory-v1.json",
     "windows-process-host-protocol-v1.json",
@@ -501,10 +511,11 @@ async function writeCapabilityEvidence() {
   let restartedConPty;
   let closed = false;
   try {
+    const probeInput = conPtyProbeInput();
     capabilities = (await session.request("capabilities", {})).body;
-    conPty = (await session.request("conpty_probe", {}, { timeoutMs: 30000 })).body;
-    closeWatchdog = (await session.request("conpty_close_hang_probe", {}, { timeoutMs: 20000 })).body;
-    restartedConPty = (await session.request("conpty_probe", {}, { timeoutMs: 30000 })).body;
+    conPty = (await session.request("conpty_probe", probeInput, { timeoutMs: CONPTY_CONTROL_REQUEST_TIMEOUT_MS })).body;
+    closeWatchdog = (await session.request("conpty_close_hang_probe", probeInput, { timeoutMs: CONPTY_CONTROL_REQUEST_TIMEOUT_MS })).body;
+    restartedConPty = (await session.request("conpty_probe", probeInput, { timeoutMs: CONPTY_CONTROL_REQUEST_TIMEOUT_MS })).body;
   } finally {
     await session.close();
     closed = true;

@@ -55,10 +55,12 @@ export interface WindowsHostManifestV1 {
   productionPowerShell: string;
   productionCSharp: string;
   conPtyWorker: string;
+  conPtyProbeChild: string;
   protocolAuthority: string;
   productionPowerShellSha256: string;
   productionCSharpSha256: string;
   conPtyWorkerSha256: string;
+  conPtyProbeChildSha256: string;
   protocolSha256: string;
   bootstrapSecretTransport: "private_parent_stdin";
   hostStdout: "protocol_only";

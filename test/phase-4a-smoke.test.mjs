@@ -13,6 +13,7 @@ test("registered Phase 4A smoke freezes contracts and manifest-bound native sour
     ok: true,
     contracts: { v1: 28, v2: 31, v3: 39 },
     nativeHost: "manifest_verified",
-    conptyWorker: "manifest_verified"
+    conptyWorker: "manifest_verified",
+    conptyProbeChild: "manifest_verified"
   });
 });

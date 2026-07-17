@@ -13,8 +13,8 @@
     "scripts/windows-sandbox-spike.cs",
     "scripts/windows-sandbox-spike.ps1"
   ],
-  "entryCount": 365,
-  "inventoryDigest": "2da3601a1ab39f4aa4966286af1e01c5b8acd81367909e4085b037d06cacea9e",
+  "entryCount": 367,
+  "inventoryDigest": "20d89da8729655818c9b8e6d540e6f41a9588a6205fad1c6b30c3a724ec82f87",
   "apiPurposes": {
     "csharp:CloseHandle": "Release only exact native handles owned by the reviewed host or probe.",
     "csharp:ClosePseudoConsole": "Close only the exact worker-owned HPCON through the bounded close path.",

@@ -27,6 +27,8 @@ test("production host manifest binds the exact package-root sources and protocol
   assert.equal(verified.manifest.productionCSharpSha256, sha256(await fsp.readFile("scripts/windows-process-host.cs")));
   assert.equal(verified.manifest.productionPowerShellSha256, sha256(await fsp.readFile("scripts/windows-process-host.ps1")));
   assert.equal(verified.manifest.conPtyWorkerSha256, sha256(await fsp.readFile("scripts/windows-conpty-worker.ps1")));
+  assert.equal(verified.manifest.conPtyProbeChildSha256, sha256(await fsp.readFile("scripts/windows-conpty-probe-child.mjs")));
+  assert.equal(verified.conPtyProbeChild, await fsp.realpath("scripts/windows-conpty-probe-child.mjs"));
   assert.equal(PROCESS_HOST_PROTOCOL.headerLength, 64);
   assert.equal(Object.isFrozen(verified.manifest), true);
 });
@@ -41,7 +43,8 @@ test("manifest-bound Windows assets pin checkout bytes to LF", async () => {
   for (const required of [
     "scripts/windows-*.cs text eol=lf",
     "scripts/windows-*.ps1 text eol=lf",
-    "scripts/windows-*.json text eol=lf"
+    "scripts/windows-*.json text eol=lf",
+    "scripts/windows-conpty-probe-child.mjs text eol=lf"
   ]) {
     assert.ok(attributes.has(required), `Missing stable checkout rule: ${required}`);
   }

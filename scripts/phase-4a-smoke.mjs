@@ -23,6 +23,7 @@ assert.equal(CONTRACT_V3_CHILD_TOOLS.includes("bash"), false);
 assert.equal(manifest.productionCSharpSha256, digest(manifest.productionCSharp));
 assert.equal(manifest.productionPowerShellSha256, digest(manifest.productionPowerShell));
 assert.equal(manifest.conPtyWorkerSha256, digest(manifest.conPtyWorker));
+assert.equal(manifest.conPtyProbeChildSha256, digest(manifest.conPtyProbeChild));
 assert.equal(manifest.protocolSha256, digest(manifest.protocolAuthority));
 
 process.stdout.write(JSON.stringify({
@@ -30,5 +31,6 @@ process.stdout.write(JSON.stringify({
   ok: true,
   contracts: { v1: 28, v2: 31, v3: 39 },
   nativeHost: "manifest_verified",
-  conptyWorker: "manifest_verified"
+  conptyWorker: "manifest_verified",
+  conptyProbeChild: "manifest_verified"
 }) + "\n");

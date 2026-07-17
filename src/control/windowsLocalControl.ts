@@ -7,6 +7,7 @@ import type { LocalApprovalServer } from "./localApprovalServer.js";
 import { localControlResponseV3Schema, type LocalControlResponseV3 } from "./schemas.js";
 
 const MAX_MESSAGE_BYTES = 64 * 1024;
+const DEFAULT_WINDOWS_LOCAL_CONTROL_STARTUP_TIMEOUT_MS = 60_000;
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(moduleDirectory, "..", "..");
 
@@ -277,7 +278,7 @@ export class WindowsLocalControlRuntime {
       ready = await Promise.race([
         nextLine() as Promise<ReadyRecord>,
         new Promise<never>((_, reject) => {
-          const timer = setTimeout(() => reject(controlError("CONTROL_READY_TIMEOUT")), options.startupTimeoutMs ?? 30_000);
+          const timer = setTimeout(() => reject(controlError("CONTROL_READY_TIMEOUT")), options.startupTimeoutMs ?? DEFAULT_WINDOWS_LOCAL_CONTROL_STARTUP_TIMEOUT_MS);
           timer.unref?.();
         })
       ]);

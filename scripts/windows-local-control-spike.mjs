@@ -13,6 +13,7 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "..");
 const hostScriptPath = path.join(scriptDirectory, "windows-local-control-spike.ps1");
 const MAX_MESSAGE_BYTES = 64 * 1024;
+const DEFAULT_WINDOWS_LOCAL_CONTROL_SPIKE_STARTUP_TIMEOUT_MS = 60_000;
 
 function controlError(code, message = code) {
   const error = new Error(message);
@@ -370,7 +371,7 @@ export async function startWindowsLocalControlSpike({ platform = process.platfor
     ready = await Promise.race([
       nextLine(),
       new Promise((_, reject) => {
-        const timer = setTimeout(() => reject(controlError("CONTROL_READY_TIMEOUT")), 30000);
+        const timer = setTimeout(() => reject(controlError("CONTROL_READY_TIMEOUT")), DEFAULT_WINDOWS_LOCAL_CONTROL_SPIKE_STARTUP_TIMEOUT_MS);
         timer.unref?.();
       })
     ]);

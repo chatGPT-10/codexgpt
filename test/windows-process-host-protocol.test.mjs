@@ -178,10 +178,53 @@ test("parser queue cap is fatal and does not retain unbounded partial input", ()
   assert.equal(errorCode(() => parser.push(Buffer.alloc(1))), "PARSER_FATAL");
 });
 
-test("ConPTY probe explicitly normalizes exit only after the ETX acknowledgement", async () => {
-  const source = await fs.readFile(path.join(repositoryRoot, "scripts", "windows-process-host.cs"), "utf8");
-  assert.match(source, /echo CXP4_ETX_ACK\\r\\nexit \/b 0\\r\\n/);
-  assert.doesNotMatch(source, /echo CXP4_ETX_ACK\\r\\nexit\\r\\n/);
+test("ConPTY probe uses one manifest-bound Node child and retains bounded failure evidence", async () => {
+  const [source, child] = await Promise.all([
+    fs.readFile(path.join(repositoryRoot, "scripts", "windows-process-host.cs"), "utf8"),
+    fs.readFile(path.join(repositoryRoot, "scripts", "windows-conpty-probe-child.mjs"), "utf8")
+  ]);
+  const inputCommand = source.indexOf("CXP4_INPUT\\r\\n");
+  const etx = source.indexOf("inputStream.WriteByte(0x03)");
+  const completion = source.indexOf("CXP4_EXIT\\r\\n");
+  assert.ok(inputCommand >= 0 && inputCommand < etx, "input acknowledgement must precede ETX delivery");
+  assert.ok(completion > etx, "probe completion must occur only after ETX delivery");
+  assert.match(source, /BuildCommandLine\(executable, new string\[\] \{ probeScript \}\)/);
+  assert.doesNotMatch(source, /string executable = Path\.Combine\(systemRoot, "System32", "cmd\.exe"\)|ping -n/);
+  assert.match(child, /process\.on\("SIGINT", acknowledgeEtx\)/);
+  assert.match(child, /byte === 0x03/);
+  assert.match(child, /line === "CXP4_INPUT"/);
+  assert.match(child, /line === "CXP4_EXIT"/);
+  assert.match(child, /const PROBE_TIMEOUT_MS = 20_000;/);
+  for (const key of [
+    "conPtyCreated",
+    "resized",
+    "etxDelivered",
+    "outputContainsReady",
+    "outputContainsInputAck",
+    "outputContainsEtxAck",
+    "exitCode",
+    "timedOut",
+    "workerInOwnedJob",
+    "targetInInheritedJobAtCreation",
+    "closeDurationMs",
+    "closeDeadlineMs"
+  ]) {
+    assert.match(source, new RegExp(`failed\\[\\"${key}\\"\\]`), `failed ConPTY probes must retain safe ${key} evidence`);
+  }
+  assert.doesNotMatch(source, /failed\["outputBase64"\]/, "failure diagnostics must not expose terminal output");
+
+  assert.match(source, /new byte\[0\],\s*60000,\s*32768,\s*4096/);
+
+  const [client, spike] = await Promise.all([
+    fs.readFile(path.join(repositoryRoot, "src", "process", "windowsHostClient.ts"), "utf8"),
+    fs.readFile(path.join(repositoryRoot, "scripts", "windows-process-host-spike.mjs"), "utf8")
+  ]);
+  assert.match(client, /const DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS = 60_000;/);
+  assert.match(client, /options\.startupTimeoutMs \?\? DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS/);
+  assert.match(spike, /const DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS = 60_000;/);
+  assert.match(spike, /const CONPTY_CONTROL_REQUEST_TIMEOUT_MS = 60_000;/);
+  assert.match(spike, /HELLO_TIMEOUT"\)\);\s*}, DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS/);
+  assert.match(spike, /conpty_close_hang_probe[\s\S]*timeoutMs: CONPTY_CONTROL_REQUEST_TIMEOUT_MS/);
 });
 
 test("startup abort terminates the exact spawned host and removes its temporary root", async () => {

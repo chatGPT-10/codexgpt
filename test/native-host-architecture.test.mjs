@@ -280,11 +280,17 @@ test("production native host keeps fixed package-root bootstrap without adding a
   const nodeHost = await fs.readFile(path.join(repositoryRoot, "src", "process", "windowsHostClient.ts"), "utf8");
   const powerShellHost = await fs.readFile(path.join(scriptsRoot, "windows-process-host.ps1"), "utf8");
   const conPtyWorker = await fs.readFile(path.join(scriptsRoot, "windows-conpty-worker.ps1"), "utf8");
+  const conPtyProbeChild = await fs.readFile(path.join(scriptsRoot, "windows-conpty-probe-child.mjs"), "utf8");
   const packageJson = JSON.parse(await fs.readFile(path.join(repositoryRoot, "package.json"), "utf8"));
   assert.match(nodeHost, /-NoLogo[\s\S]*-NoProfile[\s\S]*-NonInteractive/);
   assert.match(nodeHost, /windows-process-host-manifest\.json/);
   assert.match(powerShellHost, /windows-process-host\.cs/);
   assert.match(powerShellHost, /windows-process-host-protocol-v1\.json/);
   assert.match(conPtyWorker, /windows-process-host\.cs/);
+  assert.match(conPtyWorker, /NodeExecutable/);
+  assert.match(conPtyWorker, /ProbeScript/);
+  assert.match(conPtyProbeChild, /CXP4_CONPTY_READY/);
+  assert.match(conPtyProbeChild, /process\.on\("SIGINT"/);
+  assert.match(conPtyProbeChild, /byte === 0x03/);
   assert.equal(Object.keys(packageJson.bin).some((name) => /process|shell|terminal|conpty/i.test(name)), false);
 });

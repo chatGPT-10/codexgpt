@@ -47,6 +47,7 @@ test("published package keeps website assets but excludes internal memory archiv
 
   assert.ok(files.includes("docs/index.html"), "Published package must retain the documentation website");
   for (const requiredNativeHostFile of [
+    "scripts/windows-conpty-probe-child.mjs",
     "scripts/windows-conpty-worker.ps1",
     "scripts/windows-local-control-spike.cs",
     "scripts/windows-local-control-spike.mjs",

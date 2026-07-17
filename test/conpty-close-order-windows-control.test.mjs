@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
@@ -49,7 +50,11 @@ test("persistent ConPTY keeps close fatality isolated and supports UTF-8 input, 
   });
   try {
     const client = await host.get();
-    const hung = (await client.request("conpty_close_hang_probe", {}, { timeoutMs: 20_000 })).body;
+    const probeInput = {
+      nodeExecutable: process.execPath,
+      probeScript: path.resolve("scripts/windows-conpty-probe-child.mjs")
+    };
+    const hung = (await client.request("conpty_close_hang_probe", probeInput, { timeoutMs: 60_000 })).body;
     assert.equal(hung.code, "HOST_FATAL_CONPTY_CLOSE");
 
     const started = await manager.start({

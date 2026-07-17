@@ -39,6 +39,7 @@ const requiredFiles = [
   "scripts/test-domains.mjs",
   "scripts/windows-process-host-manifest.json",
   "scripts/windows-process-host-protocol-v1.json",
+  "scripts/windows-conpty-probe-child.mjs",
   "scripts/windows-process-host.cs",
   "scripts/windows-process-host.ps1",
   "src/cliEnvironment.ts",
@@ -53,6 +54,7 @@ const processHostSources = [
   ["productionPowerShellSha256", "scripts/windows-process-host.ps1"],
   ["productionCSharpSha256", "scripts/windows-process-host.cs"],
   ["conPtyWorkerSha256", "scripts/windows-conpty-worker.ps1"],
+  ["conPtyProbeChildSha256", "scripts/windows-conpty-probe-child.mjs"],
   ["protocolSha256", "scripts/windows-process-host-protocol-v1.json"]
 ];
 if (

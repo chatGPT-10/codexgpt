@@ -2,3 +2,4 @@
 scripts/windows-*.cs text eol=lf
 scripts/windows-*.ps1 text eol=lf
 scripts/windows-*.json text eol=lf
+scripts/windows-conpty-probe-child.mjs text eol=lf

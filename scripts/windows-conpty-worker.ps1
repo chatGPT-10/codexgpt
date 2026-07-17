@@ -1,6 +1,8 @@
 param(
     [switch]$SimulateCloseHang,
-    [switch]$Persistent
+    [switch]$Persistent,
+    [string]$NodeExecutable,
+    [string]$ProbeScript
 )
 
 Set-StrictMode -Version Latest
@@ -18,5 +20,5 @@ if ($Persistent.IsPresent) {
     [CodexPro.Phase4.ProcessHost]::RunConPtyPersistentWorker()
     exit [Environment]::ExitCode
 }
-[CodexPro.Phase4.ProcessHost]::RunConPtyWorker($SimulateCloseHang.IsPresent)
+[CodexPro.Phase4.ProcessHost]::RunConPtyWorker($SimulateCloseHang.IsPresent, $NodeExecutable, $ProbeScript)
 exit [Environment]::ExitCode

@@ -557,21 +557,25 @@ namespace CodexPro.Phase4
 
         private static Dictionary<string, object> RunConPtyProbe(Dictionary<string, object> input, bool simulateCloseHang)
         {
-            RequireExactKeys(input, new string[0]);
+            RequireExactKeys(input, new string[] { "nodeExecutable", "probeScript" });
+            string nodeExecutable = RequireAbsoluteFile(input["nodeExecutable"]);
+            string probeScript = RequireAbsoluteFile(input["probeScript"]);
+            string expectedProbe = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "scripts", "windows-conpty-probe-child.mjs"));
+            if (!String.Equals(probeScript, expectedProbe, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("CONPTY_PROBE_IDENTITY_MISMATCH");
             string systemRoot = Environment.GetEnvironmentVariable("SystemRoot") ?? "C:\\Windows";
             string executable = Path.Combine(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
             string workerScript = Path.Combine(Directory.GetCurrentDirectory(), "scripts", "windows-conpty-worker.ps1");
             if (!File.Exists(workerScript)) return ErrorResult("CONPTY_WORKER_MISSING");
             string[] workerArguments = simulateCloseHang
-                ? new string[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", workerScript, "-SimulateCloseHang" }
-                : new string[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", workerScript };
+                ? new string[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", workerScript, "-SimulateCloseHang", "-NodeExecutable", nodeExecutable, "-ProbeScript", probeScript }
+                : new string[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", workerScript, "-NodeExecutable", nodeExecutable, "-ProbeScript", probeScript };
             ProcessRunResult worker = RunOwnedProcess(
                 executable,
                 workerArguments,
                 Directory.GetCurrentDirectory(),
                 AsEnvironment(new Dictionary<string, object>()),
                 new byte[0],
-                30000,
+                60000,
                 32768,
                 4096);
             if (simulateCloseHang && !worker.Ok && worker.StdoutTotalBytes == 0)
@@ -602,6 +606,19 @@ namespace CodexPro.Phase4
                 failed["workerTimedOut"] = worker.TimedOut;
                 failed["workerJobAssignedAtCreation"] = worker.JobAssignedAtCreation;
                 failed["workerExactHandleList"] = worker.ExactHandleList;
+                failed["workerImageIdentityVerified"] = worker.ImageIdentityVerified;
+                if (result.ContainsKey("conPtyCreated")) failed["conPtyCreated"] = result["conPtyCreated"];
+                if (result.ContainsKey("resized")) failed["resized"] = result["resized"];
+                if (result.ContainsKey("etxDelivered")) failed["etxDelivered"] = result["etxDelivered"];
+                if (result.ContainsKey("outputContainsReady")) failed["outputContainsReady"] = result["outputContainsReady"];
+                if (result.ContainsKey("outputContainsInputAck")) failed["outputContainsInputAck"] = result["outputContainsInputAck"];
+                if (result.ContainsKey("outputContainsEtxAck")) failed["outputContainsEtxAck"] = result["outputContainsEtxAck"];
+                if (result.ContainsKey("exitCode")) failed["exitCode"] = result["exitCode"];
+                if (result.ContainsKey("timedOut")) failed["timedOut"] = result["timedOut"];
+                if (result.ContainsKey("workerInOwnedJob")) failed["workerInOwnedJob"] = result["workerInOwnedJob"];
+                if (result.ContainsKey("targetInInheritedJobAtCreation")) failed["targetInInheritedJobAtCreation"] = result["targetInInheritedJobAtCreation"];
+                if (result.ContainsKey("closeDurationMs")) failed["closeDurationMs"] = result["closeDurationMs"];
+                if (result.ContainsKey("closeDeadlineMs")) failed["closeDeadlineMs"] = result["closeDeadlineMs"];
                 return failed;
             }
             result["workerJobAssignedAtCreation"] = worker.JobAssignedAtCreation;
@@ -614,10 +631,10 @@ namespace CodexPro.Phase4
             return result;
         }
 
-        public static void RunConPtyWorker(bool simulateCloseHang)
+        public static void RunConPtyWorker(bool simulateCloseHang, string nodeExecutable, string probeScript)
         {
             Dictionary<string, object> result;
-            try { result = RunConPtyWorkerCore(simulateCloseHang); }
+            try { result = RunConPtyWorkerCore(simulateCloseHang, nodeExecutable, probeScript); }
             catch (Exception error) { result = ErrorResult(SafeErrorCode(error)); }
             Console.Out.WriteLine(Json.Serialize(result));
             Console.Out.Flush();
@@ -873,10 +890,15 @@ namespace CodexPro.Phase4
             }
         }
 
-        private static Dictionary<string, object> RunConPtyWorkerCore(bool simulateCloseHang)
+        private static Dictionary<string, object> RunConPtyWorkerCore(bool simulateCloseHang, string requestedNodeExecutable, string requestedProbeScript)
         {
             if (!HasProc("kernel32.dll", "CreatePseudoConsole") || !HasProc("kernel32.dll", "ResizePseudoConsole") || !HasProc("kernel32.dll", "ClosePseudoConsole"))
                 return ErrorResult("CONPTY_UNAVAILABLE");
+            string executable = Path.GetFullPath(requestedNodeExecutable ?? String.Empty);
+            string probeScript = Path.GetFullPath(requestedProbeScript ?? String.Empty);
+            string expectedProbe = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "scripts", "windows-conpty-probe-child.mjs"));
+            if (!File.Exists(executable) || !File.Exists(probeScript) || !String.Equals(probeScript, expectedProbe, StringComparison.OrdinalIgnoreCase))
+                return ErrorResult("CONPTY_PROBE_IDENTITY_MISMATCH");
 
             IntPtr pseudoConsole = IntPtr.Zero;
             SafeFileHandle inputRead = null;
@@ -915,9 +937,7 @@ namespace CodexPro.Phase4
                 STARTUPINFOEX startup = new STARTUPINFOEX();
                 startup.StartupInfo.cb = Marshal.SizeOf(typeof(STARTUPINFOEX));
                 startup.lpAttributeList = attributeList;
-                string systemRoot = Environment.GetEnvironmentVariable("SystemRoot") ?? "C:\\Windows";
-                string executable = Path.Combine(systemRoot, "System32", "cmd.exe");
-                string commandLine = BuildCommandLine(executable, new string[] { "/d", "/q", "/k", "echo CXP4_CONPTY_READY" });
+                string commandLine = BuildCommandLine(executable, new string[] { probeScript });
                 SECURITY_ATTRIBUTES processAttributes = new SECURITY_ATTRIBUTES();
                 processAttributes.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
                 SECURITY_ATTRIBUTES threadAttributes = new SECURITY_ATTRIBUTES();
@@ -967,7 +987,7 @@ namespace CodexPro.Phase4
                 using (FileStream inputStream = new FileStream(inputWrite, FileAccess.Write, 4096, false))
                 {
                     inputWrite = null;
-                    byte[] interactiveCommands = Encoding.UTF8.GetBytes("echo CXP4_INPUT_ACK\r\n");
+                    byte[] interactiveCommands = Encoding.UTF8.GetBytes("CXP4_INPUT\r\n");
                     inputStream.Write(interactiveCommands, 0, interactiveCommands.Length);
                     inputStream.Flush();
                     Thread.Sleep(500);
@@ -979,7 +999,7 @@ namespace CodexPro.Phase4
                     inputStream.Flush();
                     etxDelivered = true;
                     Thread.Sleep(1000);
-                    byte[] exitCommand = Encoding.UTF8.GetBytes("\r\necho CXP4_ETX_ACK\r\nexit /b 0\r\n");
+                    byte[] exitCommand = Encoding.UTF8.GetBytes("CXP4_EXIT\r\n");
                     inputStream.Write(exitCommand, 0, exitCommand.Length);
                     inputStream.Flush();
                 }

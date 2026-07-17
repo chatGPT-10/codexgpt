@@ -17,6 +17,7 @@ import {
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(moduleDirectory, "..", "..");
 const SAFE_HOST_CODE = /^[A-Z][A-Z0-9_]{0,79}$/;
+const DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS = 60_000;
 
 async function digestFile(file: string): Promise<string> {
   const handle = await fsp.open(file, "r");
@@ -41,11 +42,12 @@ function parseManifest(value: unknown): WindowsHostManifestV1 {
     manifest.productionPowerShell !== "scripts/windows-process-host.ps1" ||
     manifest.productionCSharp !== "scripts/windows-process-host.cs" ||
     manifest.conPtyWorker !== "scripts/windows-conpty-worker.ps1" ||
+    manifest.conPtyProbeChild !== "scripts/windows-conpty-probe-child.mjs" ||
     manifest.protocolAuthority !== "scripts/windows-process-host-protocol-v1.json" ||
     manifest.bootstrapSecretTransport !== "private_parent_stdin" || manifest.hostStdout !== "protocol_only" ||
     manifest.hostStderr !== "bounded_safe_codes" || typeof manifest.nativeFactoryClass !== "string" ||
     !validateDigest(manifest.productionPowerShellSha256) || !validateDigest(manifest.productionCSharpSha256) || !validateDigest(manifest.conPtyWorkerSha256) ||
-    !validateDigest(manifest.protocolSha256)
+    !validateDigest(manifest.conPtyProbeChildSha256) || !validateDigest(manifest.protocolSha256)
   ) throw processHostError("HOST_MANIFEST_INVALID");
   return Object.freeze({ ...manifest }) as WindowsHostManifestV1;
 }
@@ -56,6 +58,7 @@ export async function loadAndVerifyWindowsHostManifest(options: { scriptsRoot?: 
   powerShellSource: string;
   csharpSource: string;
   conPtyWorker: string;
+  conPtyProbeChild: string;
   protocolAuthority: string;
 }> {
   const requestedRoot = path.resolve(options.scriptsRoot ?? path.join(packageRoot, "scripts"));
@@ -66,20 +69,21 @@ export async function loadAndVerifyWindowsHostManifest(options: { scriptsRoot?: 
   const powerShellSource = path.join(scriptsRoot, path.basename(manifest.productionPowerShell));
   const csharpSource = path.join(scriptsRoot, path.basename(manifest.productionCSharp));
   const conPtyWorker = path.join(scriptsRoot, path.basename(manifest.conPtyWorker));
+  const conPtyProbeChild = path.join(scriptsRoot, path.basename(manifest.conPtyProbeChild));
   const protocolAuthority = path.join(scriptsRoot, path.basename(manifest.protocolAuthority));
-  for (const file of [manifestPath, powerShellSource, csharpSource, conPtyWorker, protocolAuthority]) {
+  for (const file of [manifestPath, powerShellSource, csharpSource, conPtyWorker, conPtyProbeChild, protocolAuthority]) {
     const real = await fsp.realpath(file);
     if (path.dirname(real).toLocaleLowerCase("en-US") !== scriptsRoot.toLocaleLowerCase("en-US") || real.toLocaleLowerCase("en-US") !== file.toLocaleLowerCase("en-US")) {
       throw processHostError("HOST_MANIFEST_INVALID");
     }
   }
-  const [powerShellDigest, csharpDigest, conPtyWorkerDigest, protocolDigest] = await Promise.all([
-    digestFile(powerShellSource), digestFile(csharpSource), digestFile(conPtyWorker), digestFile(protocolAuthority)
+  const [powerShellDigest, csharpDigest, conPtyWorkerDigest, conPtyProbeChildDigest, protocolDigest] = await Promise.all([
+    digestFile(powerShellSource), digestFile(csharpSource), digestFile(conPtyWorker), digestFile(conPtyProbeChild), digestFile(protocolAuthority)
   ]);
-  if (powerShellDigest !== manifest.productionPowerShellSha256 || csharpDigest !== manifest.productionCSharpSha256 || conPtyWorkerDigest !== manifest.conPtyWorkerSha256 || protocolDigest !== manifest.protocolSha256) {
+  if (powerShellDigest !== manifest.productionPowerShellSha256 || csharpDigest !== manifest.productionCSharpSha256 || conPtyWorkerDigest !== manifest.conPtyWorkerSha256 || conPtyProbeChildDigest !== manifest.conPtyProbeChildSha256 || protocolDigest !== manifest.protocolSha256) {
     throw processHostError("HOST_MANIFEST_STALE");
   }
-  return Object.freeze({ manifest, scriptsRoot, powerShellSource, csharpSource, conPtyWorker, protocolAuthority });
+  return Object.freeze({ manifest, scriptsRoot, powerShellSource, csharpSource, conPtyWorker, conPtyProbeChild, protocolAuthority });
 }
 
 function fixedWindowsPaths(): { systemRoot: string; systemDrive: string; powershell: string } {
@@ -178,7 +182,7 @@ export class WindowsProcessHostClient {
     const client = new WindowsProcessHostClient({ child, nodeToHostKey, hostToNodeKey, tempRoot, manifest: verified.manifest });
     try {
       child.stdin.write(Buffer.concat([nodeToHostKey, hostToNodeKey]));
-      const hello = await client.#requestFrame(PROCESS_HOST_PROTOCOL.kinds.HELLO, { schemaVersion: 1, protocolVersion: 1, nonce }, options.startupTimeoutMs ?? 30_000);
+      const hello = await client.#requestFrame(PROCESS_HOST_PROTOCOL.kinds.HELLO, { schemaVersion: 1, protocolVersion: 1, nonce }, options.startupTimeoutMs ?? DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS);
       if (hello.frame.kind !== PROCESS_HOST_PROTOCOL.kinds.HELLO_ACK || hello.body.nonce !== nonce || hello.body.protocolVersion !== 1) throw processHostError("HELLO_MISMATCH");
       return client;
     } catch (error) {

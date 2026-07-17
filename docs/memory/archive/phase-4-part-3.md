@@ -1115,3 +1115,101 @@ Complete locally. The STEP-339 repair is published, but its exact-head run isola
 **Next step**
 
 Create and push one English bounded repair commit, bind the next CI run to its exact 40-character SHA, and require repository policy plus Ubuntu/Windows Node 20/24 Build, complete all-domain Regression, protected Smoke, and Package success. Keep successful run evidence below ignored `.ai-bridge/` and do not create an evidence-only commit.
+
+## STEP-341 — Replace shell-dependent ConPTY probing and widen bounded native startup windows
+
+**Status**
+
+Complete locally. STEP-340 is published, but its exact-head run proved that shell exit normalization did not remove the underlying ConPTY command-parser dependency and that fresh Windows native compilation can exceed the former 30-second startup/request windows. One bounded replacement commit is ready for publication.
+
+**Goal**
+
+Make ConPTY evidence independent of `cmd.exe` control-flow and ambient shell state, retain enough safe failure facts for exact diagnosis, and accommodate reviewed cold native-host compilation latency without weakening process lifetime, ownership, close, output, or protocol bounds.
+
+**Published evidence**
+
+- STEP-340 commit: `05f5d87b0ab52a13ab5dfdf3074de28278570e48` (`fix: normalize ConPTY probe completion`).
+- Exact-head run: `29594381790`.
+- Change classification, repository policy, Ubuntu Node 20, and Ubuntu Node 24 passed.
+- Windows Node 24 failed only the two isolated ConPTY worker tests with `CONPTY_EVIDENCE_MISMATCH` and worker exit 1.
+- Windows Node 20 additionally exposed `CONTROL_READY_TIMEOUT`, the resulting `CONTROL_SERVER_STALE`, and one persistent ConPTY request timeout before reproducing the same two isolated-worker failures.
+- Exact run discovery and compact failure evidence remain below ignored `.ai-bridge/`.
+
+**Root causes**
+
+- The probe still depended on `cmd.exe` interactive command parsing after Ctrl+C. Changing the final text from `exit` to `exit /b 0` adjusted one shell command but did not make ETX acknowledgement and successful completion independent of shell parser state.
+- The worker failure envelope retained only the outer code, worker code, exit code, timeout, Job-at-creation, and handle-list facts. It omitted the already available safe ready/input/ETX/exit/close facts needed to distinguish child-command failure from ownership or close failure.
+- Production and diagnostic native host/local-control startup remained capped at 30 seconds. Fresh GitHub Windows compilation and serialized control-domain load can legitimately cross that threshold without violating the separately bounded operation or process-lifetime contracts.
+- The persistent ConPTY control tests still used 20–45 second request windows, which were narrower than the reviewed worker/native-host path under cold CI load.
+
+**Files changed**
+
+- `.gitattributes`
+- `scripts/phase-4a-smoke.mjs`
+- `scripts/repository-policy.mjs`
+- `scripts/windows-conpty-probe-child.mjs`
+- `scripts/windows-conpty-worker.ps1`
+- `scripts/windows-local-control-spike.mjs`
+- `scripts/windows-native-api-inventory-v1.json`
+- `scripts/windows-process-host-manifest.json`
+- `scripts/windows-process-host-spike.mjs`
+- `scripts/windows-process-host.cs`
+- `scripts/windows-process-host.ps1`
+- `src/control/windowsLocalControl.ts`
+- `src/process/types.ts`
+- `src/process/windowsHostClient.ts`
+- `test/approval-multi-server.test.mjs`
+- `test/backend-discovery.test.mjs`
+- `test/conpty-close-order-windows-control.test.mjs`
+- `test/native-host-architecture.test.mjs`
+- `test/package-contents.test.mjs`
+- `test/phase-4a-smoke.test.mjs`
+- `test/windows-process-host-control.test.mjs`
+- `test/windows-process-host-protocol.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/phase-4-part-3.md`
+
+**Implementation summary**
+
+- Added one exact Node probe child with a fixed line protocol: it emits `CXP4_CONPTY_READY`, acknowledges `CXP4_INPUT`, observes ETX directly through either `SIGINT` or byte `0x03`, emits `CXP4_ETX_ACK`, and accepts `CXP4_EXIT` only as the post-ETX completion request. It exits 0 only after ETX acknowledgement and has its own 20-second internal deadline.
+- Replaced the ConPTY target from interactive `cmd.exe` to the current exact Node executable plus the fixed repository probe path. The C# host rejects a non-file or non-exact probe path.
+- Bound the new child into the production manifest, PowerShell bootstrap verification, runtime verifier, source identity, repository policy, package contents, Phase 4 smoke, and LF checkout rules. All source digests remain exact and fail closed.
+- Retained safe failed-probe facts for ConPTY creation, resize, ETX delivery, ready/input/ETX markers, exit, timeout, Job ownership, inherited-Job state, and close deadline/duration. Terminal output remains omitted from the failure envelope.
+- Raised only production/diagnostic native-host and local-control startup plus ConPTY control-request windows to 60 seconds. Existing worker operation deadlines, persistent process lifetimes, output caps, Job ownership, handle identity, and close-fatality checks remain independently bounded.
+- Updated native inventory, schemas, focused source/manifest/package tests, dynamic Windows control tests, and the protected Phase 4 smoke contract.
+
+**Verification results**
+
+- Managed ordinary matrix run `2026-07-17T16-45-19-488Z-phase4ci-step341-ordinary-final-a9cc1d2c` completed with exit code 0, zero stderr, and no truncation.
+- Managed Node 20.20.2 and Node 24.15.0 each passed 886/887 ordinary tests with the one established Windows/POSIX filename skip and zero failures.
+- Managed Smoke run `2026-07-17T17-01-33-806Z-phase4ci-step341-smoke-2bfa1475` completed with exit code 0, zero stderr, and no truncation.
+- Both managed runtimes passed all eight protected Smoke sections: analysis, analysis CLI, main, HTTP, Pro CLI, doctor, settings, and execute/watch/loop handoff.
+- TypeScript Build passed.
+- Repository operational policy passed.
+- Package dry-run retained 395 files, 898,935 packed bytes, and 4,858,525 unpacked bytes; the manifest-bound Node probe is included.
+- `git diff --check` passed; only established Windows working-tree LF-to-CRLF notices appeared for non-staged files, while all manifest-bound assets are explicitly pinned to LF.
+- Control/all-domain execution was not rerun through the connector-backed local process domain. Exact Windows native and ConPTY behavior remains reserved for the replacement exact-head CI run under the repository's control-domain rule.
+
+**Decisions made**
+
+- A deterministic probe must own its input and ETX state directly; shell command parsing is not acceptable evidence for terminal-control semantics.
+- The probe child is a reviewed source asset, not an arbitrary helper. It must remain manifest-bound, package-present, LF-stable, and exact-path checked.
+- Startup/request tolerance may cover bounded cold compilation latency, but it must not widen process lifetime, output, ownership, or ConPTY close guarantees.
+- Safe failure evidence should expose boolean/numeric proof facts needed for diagnosis while withholding terminal content.
+- This remains one bounded Task 4C2 repair. No Task 4B1–4B6, `workspace`, Phase 5 runtime, or sandbox claim is included.
+
+**Risks or limitations**
+
+- The local machine proves the complete ordinary and Smoke surfaces but does not reproduce GitHub Windows Server timing and ConPTY delivery exactly; the replacement exact-head run remains authoritative.
+- The host accepts the current runtime's absolute Node executable for this private diagnostic request and exact-checks the probe path. This does not convert the diagnostic request into a public process-execution surface.
+- A new exact-head failure must be diagnosed from bounded primary logs; the manifest, evidence requirements, control-domain coverage, and deferred sandbox boundary must not be weakened.
+
+**Rollback method**
+
+- Revert the STEP-341 commit as one unit, restoring the prior shell-dependent probe, manifest/source digests, timeout values, tests, and memory entry.
+- Preserve STEP-337 through STEP-340 portability, scheduler, startup cleanup, and earlier probe evidence repairs.
+- Do not delete managed toolchains, local ignored CI evidence, user configuration, or process history during rollback.
+
+**Next step**
+
+Stage the exact STEP-341 scope once, create one concise English repair commit, push it, and bind a new CI run to that exact 40-character SHA. Phase 4 closes only if repository policy and Ubuntu/Windows Node 20/24 Build, complete all-domain Regression, protected Smoke, and Package all reach terminal success. Keep successful run evidence below ignored `.ai-bridge/`; do not create an evidence-only follow-up commit.

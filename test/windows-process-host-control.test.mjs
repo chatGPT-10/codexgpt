@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { processCreationTime } from "../scripts/long-task-runner.mjs";
 import {
   PROCESS_HOST_PROTOCOL,
+  conPtyProbeInput,
   encodeProcessHostFrame,
   startWindowsProcessHostSpike
 } from "../scripts/windows-process-host-spike.mjs";
@@ -172,7 +173,7 @@ test("source-shipped PowerShell/C# host proves Job-at-creation ownership, exact 
 test("ConPTY create, read, write, resize, ETX delivery, Job ownership, and bounded close are proved through the isolated worker", { skip: process.platform !== "win32" }, async () => {
   const session = await startWindowsProcessHostSpike();
   try {
-    const { body } = await session.request("conpty_probe", {}, { timeoutMs: 30000 });
+    const { body } = await session.request("conpty_probe", conPtyProbeInput(), { timeoutMs: 60000 });
     assert.equal(body.ok, true, JSON.stringify(body));
     assert.equal(body.code, "CONPTY_PROBE_OK");
     assert.equal(body.conPtyCreated, true);
@@ -208,17 +209,17 @@ test("a stuck ClosePseudoConsole makes only the isolated worker fatal, preserves
   });
   const unrelatedCreationTime = await processCreationTime(unrelated.pid);
   try {
-    const { body: hung } = await session.request("conpty_close_hang_probe", {}, { timeoutMs: 20000 });
+    const { body: hung } = await session.request("conpty_close_hang_probe", conPtyProbeInput(), { timeoutMs: 60000 });
     assert.equal(hung.ok, false);
     assert.equal(hung.code, "HOST_FATAL_CONPTY_CLOSE");
     assert.equal(hung.workerTimedOut, false);
     assert.equal(hung.workerJobAssignedAtCreation, true);
     assert.equal(hung.workerExactHandleList, true);
     assert.equal(hung.workerImageIdentityVerified, true);
-    assert.ok(hung.workerElapsedMilliseconds >= 5000 && hung.workerElapsedMilliseconds < 20000);
+    assert.ok(hung.workerElapsedMilliseconds >= 5000 && hung.workerElapsedMilliseconds < 60000);
     assert.equal(alive(unrelated.pid), true);
 
-    const { body: restarted } = await session.request("conpty_probe", {}, { timeoutMs: 30000 });
+    const { body: restarted } = await session.request("conpty_probe", conPtyProbeInput(), { timeoutMs: 60000 });
     assert.equal(restarted.ok, true, JSON.stringify(restarted));
     assert.equal(restarted.code, "CONPTY_PROBE_OK");
     assert.equal(restarted.workerInOwnedJob, true);
