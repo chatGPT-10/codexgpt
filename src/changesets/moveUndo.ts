@@ -41,6 +41,7 @@ export interface PrepareMoveUndoChangeSetInput<T extends object = Record<string,
   policyRevision: string;
   requestId: string | null;
   preview: boolean;
+  contractVersion: 2 | 3;
   projectFailure?: (input: { error: unknown; result: T }) => T | null;
 }
 
@@ -477,7 +478,7 @@ export class MoveUndoChangeSetService {
       requestId: input.requestId,
       ownerBinding: input.ownerBinding,
       policyRevision: input.policyRevision,
-      contractVersion: 2,
+      contractVersion: input.contractVersion,
       state: "active",
       undoSupported: false,
       undoReason: "reverted_change_set",

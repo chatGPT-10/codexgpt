@@ -158,7 +158,7 @@ Phase 2A adds a local Policy Kernel with three explicit rollout modes:
 
 An optional `CODEXPRO_PERMISSION_PROFILE=<id>` selects a strict JSON document at `~/.codexpro/permissions/<id>.json`. Runtime profiles and Permission Profiles are separate: `toolMode` controls discovery only, while filesystem, Git, Shell, Process, and Network ceilings come from identity scopes, hard policy, the selected Permission Profile, bounded session grants, and demonstrated enforcement capabilities.
 
-Phase 2A intentionally remains restrictive. No approval-management UI or MCP approval tool is exposed yet, so operations classified as approval-required return `APPROVAL_REQUIRED` until a later approved surface issues an exact bounded grant. Safe Bash remains a command filter rather than an OS sandbox. In `enforce` mode, opaque Shell or Process execution returns a sandbox-unavailable error when the required Windows/Linux capabilities have not been demonstrated. Cloudflare Tunnel protects inbound routing; it does not enforce local authorization or outbound network access.
+Contracts V1 and V2 intentionally retain their original behavior and never create pending approvals. Explicit Contract V3 adds a local-only approval CLI for confirmed roots and trusted-code process execution; it does not expose an MCP approval tool and does not treat the remote client as proof of a human decision. Safe Bash remains a command filter rather than an OS sandbox. Cloudflare Tunnel protects inbound routing; it does not enforce local authorization or outbound network access.
 
 Rollback during the migration cycle is limited to the reviewed `legacy` behavior, the generated compatibility profile, or a narrower read-only profile. Policy-loading failure never falls through to unguarded execution.
 
@@ -173,6 +173,74 @@ Phase 3 connects the transaction, change-set, persistent-audit, recovery, and mo
 - Audit, authenticated change-set, and transaction state stay outside workspaces and Git. They exclude raw file contents, complete diffs, command output, credentials, and canonical workspace roots.
 
 Contract V1 remains the default exact 28-tool public surface. Explicit contract V2 (`CODEXPRO_TOOL_CONTRACT_VERSION=2`) requires atomic transactions and persistent audit and defines exactly 31 child tools. Standard/full mode adds `move_paths` and `undo_change_set`; full mode also adds `query_audit_events`. Minimal and connection-test surfaces expose none of the three additions. `move_paths` is limited to 64 hash-guarded ordinary files inside one workspace and one volume, never overwrites an unrelated target, and treats preview as validation rather than a promise that the later hard-link operation will succeed. See [SECURITY.md](SECURITY.md) for recovery, integrity, retention, owner-binding, undo, and trust-boundary details.
+
+## Trusted-Code Windows Execution (Contract V3)
+
+Contract V3 is opt-in and defines exactly 39 tools: it inherits the non-`bash` V2 surface and adds `open_full_access_workspace`, `run_command`, `start_process`, and six typed process-management tools. It requires atomic transactions, durable audit, Policy Kernel `enforce`, a stable session identity, and the local approval runtime.
+
+A minimal Windows PowerShell activation for a trusted repository is:
+
+```powershell
+$env:CODEXPRO_FILE_TRANSACTIONS = "atomic"
+$env:CODEXPRO_AUDIT_MODE = "required"
+$env:CODEXPRO_POLICY_ENGINE = "enforce"
+$env:CODEXPRO_TOOL_CONTRACT_VERSION = "3"
+$env:CODEXPRO_TOOL_MODE = "full"
+$env:CODEXPRO_PERMISSION_PROFILE = "trusted-local"
+$env:CODEXPRO_EXECUTION_PROFILE = "full_access"
+$env:CODEXPRO_LOCAL_FILE_ACCESS = "confirmed_roots" # optional
+codexpro start --root D:\Dev\your-repo --write workspace --bash off
+```
+
+Create `%USERPROFILE%\.codexpro\permissions\trusted-local.json` first. The following profile explicitly acknowledges ambient current-user authority; replace the root with an exact directory you intend to use:
+
+```json
+{
+  "schemaVersion": 3,
+  "id": "trusted-local",
+  "description": "Trusted repositories on this Windows account",
+  "workspaceRoots": ["D:\\Dev\\your-repo"],
+  "shell": { "mode": "execute", "requireSandbox": false },
+  "process": { "manage": true, "persistent": true, "requireSandbox": false },
+  "network": {
+    "enabled": true,
+    "rules": [],
+    "allowLoopback": true,
+    "allowPrivate": true,
+    "allowLinkLocal": true,
+    "requireEnforcement": false
+  },
+  "fullAccess": {
+    "ambientFilesystem": true,
+    "ambientCredentials": true,
+    "ambientRegistry": true,
+    "unrestrictedNetwork": true,
+    "requireBlockedPathEnforcement": false,
+    "requireCredentialIsolation": false,
+    "requireRegistryIsolation": false,
+    "requireDeviceIsolation": false,
+    "requireNetworkEnforcement": false,
+    "requireSandbox": false
+  }
+}
+```
+
+When ChatGPT requests a V3 R3 action, CodexPro returns an approval ID and local server ID. Review and approve it from a separate local terminal, then retry the identical tool call:
+
+```powershell
+codexpro approvals list --server <server_id>
+codexpro approvals approve <approval_id> --server <server_id>
+# or: codexpro approvals deny <approval_id> --server <server_id>
+```
+
+Persistent processes remain locally inspectable and terminable even when the remote client is unavailable:
+
+```powershell
+codexpro processes list --server <server_id>
+codexpro processes terminate <process_id> --server <server_id>
+```
+
+`full_access` is for code you trust. It runs with the ambient authority of the current Windows user and does **not** isolate files, credentials, registry, devices, COM/WMI/service brokers, or network access. Job Objects control only recorded Job members; ConPTY provides terminal I/O, not isolation; output redaction recognizes known patterns but is not DLP. The reserved `workspace` execution profile remains unavailable and never falls back to `full_access`.
 
 ## Workspace Sessions
 
@@ -190,6 +258,7 @@ For one compatibility cycle, tools that omit `workspace_id` still resolve only t
 - Safe bash blocks broad shell patterns and secret/build/cache paths.
 - By default, Bash receives a narrow child environment rather than arbitrary parent variables. On Windows, CodexPro derives `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, and `GH_CONFIG_DIR` so tools such as GitHub CLI can reuse their config and OS keyring, while `GH_TOKEN` and unrelated API variables are not copied.
 - `CODEXPRO_INHERIT_ENV=1` opts into the full parent environment and should be used only for trusted local repositories.
+- Contract V3 defaults to execution `off`; enable `full_access` only with an explicit V3 Permission Profile and local one-use approvals. The reserved `workspace` sandbox profile remains unavailable.
 - `apply_patch` is workspace-scoped and rejects blocked paths, symlink patches, and secret-looking patch content.
 - `show_changes` keeps a review checkpoint so repeated unchanged reviews collapse.
 - Tool-card metadata is off unless `CODEXPRO_TOOL_CARDS=1`.

@@ -323,8 +323,8 @@ codexpro settings delete --yes
 
 `legacy` 是迁移周期默认值，保持原有执行路径。`shadow` 仍执行原路径，同时只计算经过脱敏的比较结果。`enforce` 让编译后的 Policy Kernel 成为权威判断；策略或所需执行能力事实不可用时直接失败关闭。
 
-Phase 2A 的 `enforce` 有意保持严格。目前还没有审批管理 UI 或 MCP 审批工具，因此写入或其他需要受限审批的操作可能返回 `APPROVAL_REQUIRED`，但暂时不能交互式授予。任意 Shell 和 Process 操作在没有证明所需操作系统沙箱能力时也保持不可用。建议先使用 `shadow` 检查兼容性，把 `enforce` 视为安全验证模式，而不是完整功能的无缝替代。
+Contract V1 与 V2 保留原有严格行为，不会创建 pending approval。显式 Contract V3 为 confirmed root 和可信代码 Windows 进程执行增加仅限本机的审批 CLI；远程 MCP 客户端不能批准自己的请求。`full_access` 仍具有当前 Windows 用户的环境权限，不是沙箱。由于 AppContainer/LPAC 隔离门没有通过，保留的 `workspace` profile 仍不可用。
 
-Permission Profile 是 `~/.codexpro/permissions/` 下的严格本地 JSON 文件，与保存的运行连接 Profile 分离。`toolMode` 只改变工具是否可见，不会扩大 Permission Profile、hard policy、身份 scope 或 sandbox capability。
+Permission Profile 是 `~/.codexpro/permissions/` 下的严格本地 JSON 文件，与保存的运行连接 Profile 分离。`toolMode` 只改变工具是否可见，不会扩大 Permission Profile、hard policy、身份 scope 或执行能力。启用方式和本机审批流程见 [README_ZH.md](README_ZH.md) 的 Contract V3 章节。
 
 迁移周期内可以回滚到经过审查的 `legacy` 行为、生成的兼容 profile，或更窄的只读 profile。Policy Kernel 启动或 profile 错误不会自动退回无策略执行。

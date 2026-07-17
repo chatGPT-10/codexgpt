@@ -1,11 +1,16 @@
-import type { CodexProConfig } from "../config.js";
+import type { CodexProConfig, ToolContractVersion } from "../config.js";
+import { contractIncludesV2 } from "./contracts/catalog.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import {
   AuditError,
   auditQueryFilterDigest,
+  auditQueryFilterDigestV3,
   queryAuditEventsInputV2Schema,
+  queryAuditEventsInputV3Schema,
   queryAuditEventsV2,
-  type AuditQueryHandlerV2
+  queryAuditEventsV3,
+  type AuditQueryHandlerV2,
+  type AuditQueryHandlerV3
 } from "../audit/index.js";
 import {
   UndoChangeSetError,
@@ -33,13 +38,17 @@ import {
 } from "./schemas/undoChangeSet.js";
 import {
   createQueryAuditEventsFailure,
+  createQueryAuditEventsFailureV3,
   createQueryAuditEventsSuccess,
-  queryAuditEventsOutputShape
+  createQueryAuditEventsSuccessV3,
+  queryAuditEventsOutputShape,
+  queryAuditEventsOutputShapeV3
 } from "./schemas/queryAuditEvents.js";
 
 export interface Phase3DServerDependencies {
   movePathsService?: Pick<MovePathsService, "prepare">;
   auditQueryHandler?: AuditQueryHandlerV2;
+  auditQueryHandlerV3?: AuditQueryHandlerV3;
   policySessionContextSource?: PolicySessionContextSource;
   changeSetOwnerBindingKey?: Buffer;
   undoChangeSetService?: Pick<UndoChangeSetService, "prepare" | "describeResource">;
@@ -57,6 +66,7 @@ export interface CreatePhase3DResourceResolverInput {
   workspaces: WorkspaceManager;
   guard: PathGuard;
   dependencies: Phase3DServerDependencies;
+  toolContractVersion?: ToolContractVersion;
 }
 
 export interface CreatePhase3DServerIntegrationInput extends CreatePhase3DResourceResolverInput {
@@ -155,15 +165,17 @@ export function composePhase3DResourceResolver(
 export function createPhase3DResourceResolver(
   input: CreatePhase3DResourceResolverInput
 ): ToolResourceResolver {
-  const { workspaces, guard, dependencies } = input;
+  const { workspaces, guard, dependencies, toolContractVersion = 2 } = input;
   return {
     describe(toolName, args) {
       if (toolName === "query_audit_events") {
-        const parsed = queryAuditEventsInputV2Schema.parse(args);
+        const filterDigest = toolContractVersion === 3
+          ? auditQueryFilterDigestV3(queryAuditEventsInputV3Schema.parse(args))
+          : auditQueryFilterDigest(queryAuditEventsInputV2Schema.parse(args));
         return {
           resource: describeAuditResource({
             workspaceId: null,
-            filterDigest: auditQueryFilterDigest(parsed)
+            filterDigest
           })
         };
       }
@@ -209,10 +221,14 @@ export function createPhase3DServerIntegration(
   input: CreatePhase3DServerIntegrationInput
 ): Phase3DServerIntegration {
   const { config, workspaces, dependencies } = input;
-  const resourceResolver = createPhase3DResourceResolver(input);
+  const resourceResolver = createPhase3DResourceResolver({
+    ...input,
+    toolContractVersion: config.toolContractVersion
+  });
 
   function registerTools(register: Phase3DToolRegistrar): void {
-    if (config.toolContractVersion !== 2 || config.connectionTest || config.toolMode === "minimal") {
+    const contractVersion = config.toolContractVersion;
+    if (!contractIncludesV2(contractVersion) || config.connectionTest || config.toolMode === "minimal") {
       return;
     }
 
@@ -259,7 +275,8 @@ export function createPhase3DServerIntegration(
           ownerBinding: ownerBinding(dependencies),
           policyRevision: input.policyRevision(),
           requestId: null,
-          preview: parsed.data.preview ?? false
+          preview: parsed.data.preview ?? false,
+          contractVersion
         });
         const structured = createUndoChangeSetSuccess({
           workspace_id: prepared.workspaceId,
@@ -333,19 +350,21 @@ export function createPhase3DServerIntegration(
         preview: parsed.data.preview ?? false,
         requestId: null,
         ownerBinding: ownerBinding(dependencies),
-        policyRevision: input.policyRevision()
+        policyRevision: input.policyRevision(),
+        contractVersion
       });
     });
 
     if (config.toolMode === "full") {
-      if (!dependencies.auditQueryHandler) {
-        throw new Error("Contract V2 audit query service is unavailable.");
+      const v3 = contractVersion === 3;
+      if (v3 ? !dependencies.auditQueryHandlerV3 : !dependencies.auditQueryHandler) {
+        throw new Error(`Contract V${contractVersion} audit query service is unavailable.`);
       }
       register("query_audit_events", {
         title: "Query Audit Events",
         description: "Query the authenticated installation audit log with bounded filters and cursor pagination.",
-        inputSchema: queryAuditEventsInputV2Schema,
-        outputSchema: queryAuditEventsOutputShape,
+        inputSchema: v3 ? queryAuditEventsInputV3Schema : queryAuditEventsInputV2Schema,
+        outputSchema: v3 ? queryAuditEventsOutputShapeV3 : queryAuditEventsOutputShape,
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -359,17 +378,21 @@ export function createPhase3DServerIntegration(
       }, async (args) => {
         const startedAt = Date.now();
         try {
-          const page = await queryAuditEventsV2(dependencies.auditQueryHandler!, args);
-          const structured = createQueryAuditEventsSuccess(page, Date.now() - startedAt);
+          const page = v3
+            ? await queryAuditEventsV3(dependencies.auditQueryHandlerV3!, args)
+            : await queryAuditEventsV2(dependencies.auditQueryHandler!, args);
+          const structured = v3
+            ? createQueryAuditEventsSuccessV3(page as Awaited<ReturnType<AuditQueryHandlerV3>>, Date.now() - startedAt)
+            : createQueryAuditEventsSuccess(page as Awaited<ReturnType<AuditQueryHandlerV2>>, Date.now() - startedAt);
           return toolResult(
             structured as unknown as Record<string, unknown>,
             `Returned ${page.records.length} authenticated audit event(s).`
           );
         } catch (error) {
-          const structured = createQueryAuditEventsFailure(
-            error instanceof AuditError ? error.code : "INTERNAL_ERROR",
-            Date.now() - startedAt
-          );
+          const code = error instanceof AuditError ? error.code : "INTERNAL_ERROR";
+          const structured = v3
+            ? createQueryAuditEventsFailureV3(code, Date.now() - startedAt)
+            : createQueryAuditEventsFailure(code, Date.now() - startedAt);
           return toolResult(
             structured as unknown as Record<string, unknown>,
             structured.error?.message ?? "Audit query failed.",

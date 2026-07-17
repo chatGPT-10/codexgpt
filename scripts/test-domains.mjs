@@ -5,11 +5,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const CONTROL_DOMAIN_TESTS = Object.freeze([
+  "conpty-close-order-windows-control.test.mjs",
   "handoff-to-agent-contract.test.mjs",
   "handoff-to-codex-contract.test.mjs",
+  "local-control-pipe-windows-control.test.mjs",
   "phase-3d-child-crash-oracle.test.mjs",
   "phase-3d-multiprocess-lock.test.mjs",
-  "wait-for-handoff-contract.test.mjs"
+  "runner-stop-identity-windows-control.test.mjs",
+  "windows-sandbox-control.test.mjs",
+  "wait-for-handoff-contract.test.mjs",
+  "windows-process-host-integration-windows-control.test.mjs",
+  "run-command-windows-control.test.mjs",
+  "process-lifecycle-windows-control.test.mjs",
+  "persistent-process-production-windows-control.test.mjs",
+  "process-local-control-cli.test.mjs",
+  "windows-process-host-control.test.mjs"
 ]);
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));

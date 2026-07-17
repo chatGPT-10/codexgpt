@@ -1,10 +1,13 @@
 import type { ToolContractVersion } from "../../config.js";
 import type {
   CanonicalToolV1,
+  CanonicalTool,
   CanonicalToolV2,
+  CanonicalToolV3,
   ToolContractDescriptor,
   ToolContractProjectionInput
 } from "./types.js";
+import { CONTRACT_V3_ADDITIONS } from "./v3.js";
 
 export const CONTRACT_V1_CHILD_TOOLS = Object.freeze([
   "apply_patch",
@@ -48,6 +51,11 @@ export const CONTRACT_V2_CHILD_TOOLS = Object.freeze([
   ...CONTRACT_V2_ADDITIONS
 ] as const satisfies readonly CanonicalToolV2[]);
 
+export const CONTRACT_V3_CHILD_TOOLS = Object.freeze([
+  ...CONTRACT_V2_CHILD_TOOLS.filter((name) => name !== "bash"),
+  ...CONTRACT_V3_ADDITIONS
+] as const satisfies readonly CanonicalToolV3[]);
+
 const V2_DESCRIPTORS = Object.freeze({
   query_audit_events: Object.freeze({
     name: "query_audit_events",
@@ -69,14 +77,19 @@ const V2_DESCRIPTORS = Object.freeze({
   })
 } satisfies Record<(typeof CONTRACT_V2_ADDITIONS)[number], ToolContractDescriptor>);
 
-export function canonicalToolsForVersion(version: ToolContractVersion): readonly CanonicalToolV2[] {
+export function contractIncludesV2(version: ToolContractVersion): version is 2 | 3 {
+  return version === 2 || version === 3;
+}
+
+export function canonicalToolsForVersion(version: ToolContractVersion): readonly CanonicalTool[] {
   if (version === 1) return CONTRACT_V1_CHILD_TOOLS;
   if (version === 2) return CONTRACT_V2_CHILD_TOOLS;
+  if (version === 3) return CONTRACT_V3_CHILD_TOOLS;
   throw new Error("Unsupported tool contract version.");
 }
 
 export function v2ToolsForProjection(input: ToolContractProjectionInput): readonly CanonicalToolV2[] {
-  if (input.version === 1 || input.connectionTest) return Object.freeze([]);
+  if (!contractIncludesV2(input.version) || input.connectionTest) return Object.freeze([]);
   return Object.freeze(CONTRACT_V2_ADDITIONS.filter((name) =>
     (V2_DESCRIPTORS[name].modes as readonly string[]).includes(input.mode)
   ));
@@ -85,7 +98,7 @@ export function v2ToolsForProjection(input: ToolContractProjectionInput): readon
 export function isCanonicalToolForVersion(
   version: ToolContractVersion,
   value: string
-): value is CanonicalToolV2 {
+): value is CanonicalTool {
   return (canonicalToolsForVersion(version) as readonly string[]).includes(value);
 }
 

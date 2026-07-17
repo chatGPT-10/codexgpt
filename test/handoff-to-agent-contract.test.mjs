@@ -8,11 +8,11 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
+const schemaModule = await tsImport("../src/tools/schemas/handoffToAgent.ts", import.meta.url).catch(() => null);
+const handoffModule = await tsImport("../src/handoffOps.ts", import.meta.url).catch(() => null);
 const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
 const { PathGuard } = await tsImport("../src/guard.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
-const schemaModule = await tsImport("../src/tools/schemas/handoffToAgent.ts", import.meta.url).catch(() => null);
-const handoffModule = await tsImport("../src/handoffOps.ts", import.meta.url).catch(() => null);
 
 const {
   HANDOFF_TO_AGENT_APPEND_WARNING,

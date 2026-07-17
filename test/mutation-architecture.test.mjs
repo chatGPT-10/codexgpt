@@ -105,14 +105,37 @@ const REVIEWED_ALLOWLIST = Object.freeze({
   "scripts/long-task-runner.mjs": Object.freeze({
     purpose: "Ignored .ai-bridge detached-run metadata, PID, result, and bounded log state.",
     occurrences: Object.freeze([
-      "openSync:4d6c0a37d258",
-      "openSync:e167a02437e4",
-      "writeFile:d6ef8f907069",
-      "writeFile:3290e082b9ef",
-      "mkdir:7371ea0fac79",
-      "writeFile:7097a47c6b00",
-      "writeFile:ea2e45822431",
-      "writeFile:297c69867119"
+      "writeFile:beaaea3e80cd",
+      "rename:2b73a699394a",
+      "mkdir:6b206662cb80",
+      "writeFile:c9aa6cdf9733",
+      "writeFile:45f0808a2445"
+    ])
+  }),
+  "scripts/windows-process-host-spike.mjs": Object.freeze({
+    purpose: "Isolated native-host temporary bootstrap cleanup plus atomic ignored Gate N capability evidence under .ai-bridge/phase-4.",
+    occurrences: Object.freeze([
+      "rm:fa5bd97f7b6a",
+      "mkdtemp:87d4d233e205",
+      "mkdir:8d59c783ac4b",
+      "writeFile:cfb2f2c460f2",
+      "rename:2b73a699394a"
+    ])
+  }),
+  "scripts/windows-local-control-spike.mjs": Object.freeze({
+    purpose: "Gate-A0-only private temporary state-root creation and exact-session cleanup outside authorized workspaces.",
+    occurrences: Object.freeze([
+      "rm:d429a2552f37",
+      "mkdtemp:170e5c4d3d8f",
+      "mkdir:2ac12b7246b3",
+      "rm:e98c88543b7d"
+    ])
+  }),
+  "src/process/windowsHostClient.ts": Object.freeze({
+    purpose: "Per-production-runtime private native-host bootstrap directory creation and authenticated exact-session cleanup outside authorized workspaces.",
+    occurrences: Object.freeze([
+      "mkdtemp:87d4d233e205",
+      "rm:215633a2342e"
     ])
   }),
   "scripts/run-and-summarize.mjs": Object.freeze({
@@ -208,6 +231,15 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "576:7:ftruncateSync:2a87c094f9f8",
       "585:7:unlinkSync:5a3c43527031",
       "757:13:unlinkSync:05ecea30c390"
+    ])
+  }),
+  "src/control/windowsLocalControl.ts": Object.freeze({
+    purpose: "Production V3 local-control per-server state-root creation and exact owned-root cleanup outside authorized workspaces.",
+    occurrences: Object.freeze([
+      "mkdir:171e413dcf4a",
+      "mkdir:91371b31b8c6",
+      "rm:aa7c17562af1",
+      "rm:f0ce62377a5d"
     ])
   }),
   "src/changesets/moveStore.ts": Object.freeze({
@@ -670,4 +702,20 @@ test("all shipped mutation primitives have an exact reviewed classification", as
 
   assert.deepEqual(unreviewed, [], `Unreviewed mutation primitives:\n${unreviewed.join("\n")}`);
   assert.deepEqual(stale, [], `Stale mutation allowlist entries (syscall/call drift):\n${stale.join("\n")}`);
+});
+
+test("native mutation review covers every shipped C#/PowerShell source without directory exemptions", async () => {
+  const nativeInventory = JSON.parse(await fs.readFile(path.join(scriptsRoot, "windows-native-api-inventory-v1.json"), "utf8"));
+  const actualNativeFiles = (await fs.readdir(scriptsRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && (entry.name.endsWith(".cs") || entry.name.endsWith(".ps1")))
+    .map((entry) => `scripts/${entry.name}`)
+    .sort();
+  assert.deepEqual(nativeInventory.reviewedFiles, actualNativeFiles);
+  assert.equal(nativeInventory.schemaVersion, 1);
+  assert.ok(nativeInventory.entryCount > 0);
+  assert.match(nativeInventory.inventoryDigest, /^[a-f0-9]{64}$/);
+  const nativeArchitectureTest = await fs.readFile(path.join(repositoryRoot, "test", "native-host-architecture.test.mjs"), "utf8");
+  assert.match(nativeArchitectureTest, /async function nativeSourceFiles\(\)/);
+  assert.match(nativeArchitectureTest, /entry\.isDirectory\(\)\) await visit\(target\)/);
+  assert.doesNotMatch(nativeArchitectureTest, /\b(?:NATIVE_SOURCE_EXEMPTIONS|IGNORED_NATIVE_PATHS|NATIVE_FIXTURE_EXEMPTIONS)\b/);
 });

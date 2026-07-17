@@ -139,12 +139,105 @@ export type AuditEventV2 =
   | RecoveryAuditEventV2
   | AdministrativeAuditEventV2;
 
+export type ApprovalLifecycleTransitionV3 =
+  | "requested"
+  | "prepared"
+  | "granted"
+  | "denied"
+  | "expired"
+  | "reserved"
+  | "consumed"
+  | "burned";
+
+export type RootLeaseLifecycleTransitionV3 = "created" | "revoked" | "expired";
+
+export type ProcessLifecycleTransitionV3 =
+  | "started"
+  | "exited"
+  | "user_terminated"
+  | "timed_out"
+  | "expired"
+  | "policy_revoked"
+  | "evidence_revoked"
+  | "transport_closed"
+  | "lease_revoked"
+  | "output_limit_exceeded"
+  | "host_crashed"
+  | "cleanup_completed";
+
+export type SnapshotLifecycleTransitionV3 =
+  | "prepare_requested"
+  | "prepared"
+  | "validated"
+  | "attached"
+  | "cleanup_pending"
+  | "cleaned"
+  | "recovered"
+  | "failed";
+
+export interface AuditEventCommonV3 {
+  schemaVersion: 3;
+  contractVersion: 3;
+  eventId: string;
+  timestamp: string;
+  requestId: string | null;
+  authorizationEventId: string | null;
+  decisionId: string | null;
+  credentialRef: string | null;
+  transportSessionId: string | null;
+  toolName: string | null;
+  canonicalAction: string;
+  workspaceId: string | null;
+  workspaceRef: string | null;
+  policyRevision: string | null;
+  subjectFingerprint: string;
+  contextFingerprint: string;
+  resultCode: string | null;
+  counts: Record<string, number>;
+}
+
+export interface ApprovalLifecycleAuditEventV3 extends AuditEventCommonV3 {
+  eventType: "approval_lifecycle";
+  transition: ApprovalLifecycleTransitionV3;
+  approvalId: string;
+  grantId: string | null;
+  reservationId: string | null;
+}
+
+export interface RootLeaseLifecycleAuditEventV3 extends AuditEventCommonV3 {
+  eventType: "root_lease_lifecycle";
+  transition: RootLeaseLifecycleTransitionV3;
+  rootLeaseId: string;
+}
+
+export interface ProcessLifecycleAuditEventV3 extends AuditEventCommonV3 {
+  eventType: "process_lifecycle";
+  transition: ProcessLifecycleTransitionV3;
+  processId: string;
+  processGeneration: number | null;
+}
+
+export interface SnapshotLifecycleAuditEventV3 extends AuditEventCommonV3 {
+  eventType: "snapshot_lifecycle";
+  transition: SnapshotLifecycleTransitionV3;
+  snapshotId: string;
+}
+
+export type AuditEventV3 =
+  | ApprovalLifecycleAuditEventV3
+  | RootLeaseLifecycleAuditEventV3
+  | ProcessLifecycleAuditEventV3
+  | SnapshotLifecycleAuditEventV3;
+
+export type PersistedAuditEvent = AuditEventV2 | AuditEventV3;
+export type AuditEventTypeV3 = AuditEventType | AuditEventV3["eventType"];
+
 export interface AuditEnvelopeV1 {
   storeVersion: 1;
   sequence: number;
   segmentId: string;
   previousMac: string;
-  event: AuditEventV2;
+  event: PersistedAuditEvent;
   recordMac: string;
 }
 
@@ -216,6 +309,35 @@ export interface AuditQueryRecordV2 {
 export interface QueryAuditEventsResultV2 {
   schemaVersion: 2;
   records: AuditQueryRecordV2[];
+  nextCursor: string | null;
+  filterDigest: string;
+  startTime: string;
+  endTime: string;
+  limit: number;
+  integrityState: "healthy" | "degraded" | "integrity_failed";
+}
+
+export interface QueryAuditEventsInputV3 {
+  startTime?: string;
+  endTime?: string;
+  limit?: number;
+  cursor?: string;
+  eventTypes?: AuditEventTypeV3[];
+  toolNames?: string[];
+  requestIds?: string[];
+  changeSetIds?: string[];
+  workspaceRefs?: string[];
+  statuses?: ExecutionAuditStatus[];
+}
+
+export interface AuditQueryRecordV3 {
+  sequence: number;
+  event: PersistedAuditEvent;
+}
+
+export interface QueryAuditEventsResultV3 {
+  schemaVersion: 3;
+  records: AuditQueryRecordV3[];
   nextCursor: string | null;
   filterDigest: string;
   startTime: string;

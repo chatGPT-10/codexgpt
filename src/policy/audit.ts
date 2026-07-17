@@ -48,6 +48,14 @@ export function safePolicySummary(resource: ResourceDescriptorV1): string {
       return `network:${resource.operation}:${safeOneLine(resource.host, 120) || "[host omitted]"}:${resource.port}`;
     case "audit":
       return `audit:${resource.operation}:${resource.filterDigest.slice(0, 16)}`;
+    default: {
+      const v3 = resource as unknown as { schemaVersion?: number; kind?: unknown; operation?: unknown; backendId?: unknown };
+      if (v3.schemaVersion === 3 && typeof v3.kind === "string" && typeof v3.operation === "string") {
+        const backend = typeof v3.backendId === "string" ? `:${safeOneLine(v3.backendId, 80)}` : "";
+        return `${safeOneLine(v3.kind, 40)}:${safeOneLine(v3.operation, 80)}${backend}`;
+      }
+      return "policy:[resource omitted]";
+    }
   }
 }
 

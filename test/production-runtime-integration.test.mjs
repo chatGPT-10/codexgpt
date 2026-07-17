@@ -11,7 +11,9 @@ import { createStdioPolicySessionSource } from "../dist/policy/identity.js";
 import { policyIdentityScopes } from "../dist/policy/runtime.js";
 import {
   CONTRACT_V1_CHILD_TOOLS,
-  CONTRACT_V2_CHILD_TOOLS
+  CONTRACT_V2_CHILD_TOOLS,
+  CONTRACT_V3_ADDITIONS,
+  CONTRACT_V3_CHILD_TOOLS
 } from "../dist/tools/contracts/index.js";
 import {
   connectProductionCodexProServer,
@@ -78,6 +80,22 @@ function sourceFor(config, sessionId) {
     sessionId,
     scopes: policyIdentityScopes(config)
   });
+}
+
+async function assertEventuallyMissing(targetPath, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await fs.stat(targetPath);
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        return;
+      }
+      throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  await assert.rejects(() => fs.stat(targetPath), { code: "ENOENT" });
 }
 
 function productionOptions(stateHome, overrides = {}) {
@@ -185,7 +203,9 @@ test("legacy production construction creates no Phase 3 state or runtime", () =>
     stateRoot: null,
     registryInstanceId: null,
     mutationRuntime: null,
-    auditRuntime: null
+    auditRuntime: null,
+    localApprovalServerId: null,
+    processHostConfigured: false
   });
   await server.close();
   await assert.rejects(() => fs.stat(path.join(stateHome, "state", "v1")), { code: "ENOENT" });
@@ -232,9 +252,8 @@ test("production construction disposes runtime state when an observation hook fa
   );
   assert.ok(observation?.stateRoot);
   assert.ok(observation?.registryInstanceId);
-  await assert.rejects(
-    () => fs.stat(path.join(observation.stateRoot, "instances", `${observation.registryInstanceId}.json`)),
-    { code: "ENOENT" }
+  await assertEventuallyMissing(
+    path.join(observation.stateRoot, "instances", `${observation.registryInstanceId}.json`)
   );
 }));
 
@@ -551,6 +570,39 @@ test("contract V2 production construction exposes the exact 31-child universe", 
       .sort();
     assert.deepEqual(childNames, [...CONTRACT_V2_CHILD_TOOLS].sort());
   });
+}));
+
+test("contract V3 production registration keeps exact profile projections and the closed 39-child full universe", () => fixture(async ({ workspaceRoot, stateHome }) => {
+  const scenarios = [
+    { id: "minimal", toolMode: "minimal", connectionTest: false, expectedV3: [] },
+    { id: "standard", toolMode: "standard", connectionTest: false, expectedV3: ["run_command", "read_process_output"] },
+    { id: "full", toolMode: "full", connectionTest: false, expectedV3: [...CONTRACT_V3_ADDITIONS] },
+    { id: "connection", toolMode: "full", connectionTest: true, expectedV3: [] }
+  ];
+  for (const scenario of scenarios) {
+    const config = configFor(workspaceRoot, stateHome, {
+      toolContractVersion: "3",
+      toolMode: scenario.toolMode,
+      connectionTest: scenario.connectionTest,
+      policyEngineMode: "enforce",
+      bashMode: "safe",
+      codexSessions: "read"
+    });
+    const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+      policySessionContextSource: sourceFor(config, `session_v3_${scenario.id}`)
+    }));
+    await connect(server, async (client) => {
+      const listed = await client.listTools();
+      const names = listed.tools.map((tool) => tool.name);
+      const projectedV3 = names.filter((name) => CONTRACT_V3_ADDITIONS.includes(name));
+      assert.deepEqual(projectedV3.sort(), [...scenario.expectedV3].sort());
+      assert.equal(names.includes("bash"), false);
+      if (scenario.id === "full") {
+        const childNames = names.filter((name) => name !== "codexpro").sort();
+        assert.deepEqual(childNames, [...CONTRACT_V3_CHILD_TOOLS].sort());
+      }
+    });
+  }
 }));
 
 test("contract V2 direct and supertool wire paths share move undo and audit behavior", () => fixture(async ({ workspaceRoot, stateHome }) => {

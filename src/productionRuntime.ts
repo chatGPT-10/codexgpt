@@ -6,10 +6,21 @@ import {
   type CodexProConfig
 } from "./config.js";
 import { PathGuard } from "./guard.js";
+import type { LocalApprovalRuntimeV3 } from "./control/runtime.js";
+import type { RootAdmissionRuntimeV3 } from "./access/rootAdmission.js";
+import { WindowsProcessHostRuntime } from "./process/windowsHostClient.js";
+import { RunCommandRuntimeV3 } from "./process/runCommand.js";
+import { ProcessManagerV3 } from "./process/processManager.js";
+import { ProcessAuditCoordinatorV3 } from "./process/processAuditCoordinator.js";
+import { WindowsPersistentProcessBackendV3 } from "./process/windowsPersistentBackend.js";
+import { compilePermissionProfileV3, loadPermissionProfileGraphV3 } from "./policy/profileStore.js";
+import { inspectPolicyConfiguration } from "./policy/runtime.js";
+import { semanticDigest } from "./policy/authorizationFacts.js";
 import {
   PersistentAuditRuntimeV2,
   PersistentAuditStore,
-  createAuditQueryHandler
+  createAuditQueryHandler,
+  createAuditQueryHandlerV3
 } from "./audit/index.js";
 import { ChangeSetStore } from "./changesets/store.js";
 import { MoveChangeSetStore } from "./changesets/moveStore.js";
@@ -57,12 +68,16 @@ export interface ProductionRuntimeObservation {
   registryInstanceId: string | null;
   mutationRuntime: WorkspaceMutationRuntime | null;
   auditRuntime: PersistentAuditRuntimeV2 | null;
+  localApprovalServerId: string | null;
+  processHostConfigured: boolean;
 }
 
 export interface ProductionCodexProServerOptions {
   policySessionContextSource?: PolicySessionContextSource;
   stateRootOptions?: TransactionStateRootOptions;
   observeRuntime?: (value: ProductionRuntimeObservation) => void;
+  localApprovalRuntimeV3?: LocalApprovalRuntimeV3;
+  rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
 }
 
 interface RuntimeResources {
@@ -84,7 +99,9 @@ function noRuntime(
       stateRoot: null,
       registryInstanceId: null,
       mutationRuntime: null,
-      auditRuntime: null
+      auditRuntime: null,
+      localApprovalServerId: null,
+      processHostConfigured: false
     },
     lifecycle,
     async dispose() {
@@ -112,6 +129,20 @@ function composeRuntime(
   const durableAudit = config.auditMode !== "off" && (
     config.policyEngineMode !== "legacy" || atomic
   );
+  if (options.localApprovalRuntimeV3 && (
+    Number(config.toolContractVersion) !== 3 ||
+    config.policyEngineMode !== "enforce" ||
+    !durableAudit
+  )) {
+    throw new Error("V3 local approval requires contract 3, Policy Kernel enforce, and durable audit.");
+  }
+  if (options.rootAdmissionRuntimeV3 && (
+    Number(config.toolContractVersion) !== 3 ||
+    config.localFileAccess !== "confirmed_roots" ||
+    !options.localApprovalRuntimeV3
+  )) {
+    throw new Error("Confirmed-root admission requires contract 3, confirmed_roots mode, and the local approval runtime.");
+  }
 
   assertFileTransactionConfiguration(config, {
     workspaceMutatorsAtomic: atomic
@@ -122,7 +153,10 @@ function composeRuntime(
   assertToolContractConfiguration(config, {
     durableAuditAvailable: durableAudit,
     stateRootAvailable: atomic || durableAudit,
-    movePathsAvailable: atomic
+    movePathsAvailable: atomic,
+    stableSessionAvailable: Boolean(options.policySessionContextSource),
+    atomicStateReadersAvailable: atomic && durableAudit,
+    contractV3MigrationAvailable: true
   });
 
   if (!atomic && !durableAudit) {
@@ -146,6 +180,11 @@ function composeRuntime(
   let auditStore: PersistentAuditStore | null = null;
   let auditRuntime: PersistentAuditRuntimeV2 | null = null;
   let mutationRuntime: WorkspaceMutationRuntime | null = null;
+  let windowsProcessHostRuntime: WindowsProcessHostRuntime | null = null;
+  let runCommandRuntime: RunCommandRuntimeV3 | null = null;
+  let processManager: ProcessManagerV3 | null = null;
+  let executionContextFingerprint: (() => string) | null = null;
+  let executionInspection: ReturnType<typeof inspectPolicyConfiguration> | null = null;
 
   try {
     registry = new ProcessInstanceRegistry(stateRoot);
@@ -157,8 +196,54 @@ function composeRuntime(
     const guard = new PathGuard(config);
     const dependencies: CodexProServerDependencies = {
       policySessionContextSource: options.policySessionContextSource,
-      transactionRecoveryCoordinator: recovery
+      transactionRecoveryCoordinator: recovery,
+      localApprovalRuntimeV3: options.localApprovalRuntimeV3,
+      rootAdmissionRuntimeV3: options.rootAdmissionRuntimeV3
     };
+    if (config.executionProfile === "full_access") {
+      if (!config.permissionProfileId || !options.policySessionContextSource) {
+        throw new Error("Full-access execution requires an explicit Permission Profile V3 and stable session context.");
+      }
+      windowsProcessHostRuntime = new WindowsProcessHostRuntime();
+      dependencies.windowsProcessHostRuntimeV3 = windowsProcessHostRuntime;
+      const fullAccessProfile = compilePermissionProfileV3(loadPermissionProfileGraphV3(config.permissionProfileId)).fullAccess;
+      const inspection = inspectPolicyConfiguration(config);
+      executionInspection = inspection;
+      const contextFingerprint = () => semanticDigest({
+        serverId: options.localApprovalRuntimeV3?.serverId ?? "local-server-unavailable",
+        contractVersion: 3,
+        policyRevision: inspection.policyRevision,
+        evidenceRevision: inspection.evidenceRevision,
+        transportKind: options.policySessionContextSource!.transportKind,
+        transportSessionId: options.policySessionContextSource!.transportSessionId(),
+        identity: options.policySessionContextSource!.identity
+      });
+      executionContextFingerprint = contextFingerprint;
+      runCommandRuntime = new RunCommandRuntimeV3({
+        config,
+        fullAccessProfile,
+        hostRuntime: windowsProcessHostRuntime,
+        contextFingerprint,
+        policyRevision: () => inspection.policyRevision,
+        evidenceRevision: () => inspection.evidenceRevision
+      });
+      dependencies.toolResourceResolver = runCommandRuntime;
+      const result = (structured: Record<string, unknown>) => ({
+        content: [{ type: "text" as const, text: structured.ok === true ? "Command completed." : "Command failed." }],
+        structuredContent: structured,
+        ...(structured.ok === false ? { isError: true } : {})
+      });
+      dependencies.v3ToolHandlers = {
+        run_command: async (args) => result(await runCommandRuntime!.runCommand(args)),
+        read_process_output: async (args) => result(runCommandRuntime!.readProcessOutput(args))
+      };
+    }
+    if (options.rootAdmissionRuntimeV3) {
+      options.localApprovalRuntimeV3!.setApprovalPreparation(
+        (record) => options.rootAdmissionRuntimeV3!.prepareApproval(record),
+        (record) => options.rootAdmissionRuntimeV3!.approvalDisplay(record)
+      );
+    }
 
     if (durableAudit) {
       auditStore = PersistentAuditStore.open({
@@ -170,6 +255,65 @@ function composeRuntime(
       auditRuntime = new PersistentAuditRuntimeV2(auditStore);
       dependencies.persistentAuditRuntime = auditRuntime;
       dependencies.auditQueryHandler = createAuditQueryHandler(auditStore);
+      dependencies.auditQueryHandlerV3 = createAuditQueryHandlerV3(auditStore);
+      if (runCommandRuntime && windowsProcessHostRuntime && executionContextFingerprint && executionInspection) {
+        const digest = (value: unknown) => semanticDigest(value).replace(/^sha256:/, "");
+        processManager = new ProcessManagerV3({
+          contextFingerprint: executionContextFingerprint,
+          startResourceResolver: runCommandRuntime,
+          backend: new WindowsPersistentProcessBackendV3({
+            hostRuntime: windowsProcessHostRuntime,
+            executionRuntime: runCommandRuntime
+          }),
+          audit: new ProcessAuditCoordinatorV3({
+            sink: (event) => auditStore!.append(event).then(() => {}),
+            context: () => ({
+              credentialRef: options.policySessionContextSource!.identity.credentialRef,
+              transportSessionId: options.policySessionContextSource!.transportSessionId(),
+              policyRevision: executionInspection!.policyRevision,
+              subjectFingerprint: digest(options.policySessionContextSource!.identity),
+              contextFingerprint: digest({
+                serverId: options.localApprovalRuntimeV3?.serverId ?? "local-server-unavailable",
+                contractVersion: 3,
+                policyRevision: executionInspection!.policyRevision,
+                evidenceRevision: executionInspection!.evidenceRevision,
+                transportKind: options.policySessionContextSource!.transportKind,
+                transportSessionId: options.policySessionContextSource!.transportSessionId(),
+                identity: options.policySessionContextSource!.identity
+              })
+            })
+          })
+        });
+        const manager = processManager;
+        dependencies.toolResourceResolver = {
+          describe(toolName, args) {
+            if (toolName === "run_command") return runCommandRuntime!.describe(toolName, args);
+            if (toolName === "start_process") return manager.describe(toolName, args);
+            if (toolName === "read_process_output" && !manager.owns(String(args.process_id ?? ""))) return runCommandRuntime!.describe(toolName, args);
+            return manager.describe(toolName, args);
+          }
+        };
+        const result = (structured: Record<string, unknown>) => ({
+          content: [{ type: "text" as const, text: structured.ok === true ? "Process action completed." : "Process action failed." }],
+          structuredContent: structured,
+          ...(structured.ok === false ? { isError: true } : {})
+        });
+        dependencies.v3ToolHandlers = {
+          ...dependencies.v3ToolHandlers,
+          start_process: async (args) => result(await manager.start(args)),
+          read_process_output: async (args) => {
+            const processId = String(args.process_id ?? "");
+            if (manager.owns(processId)) return result(manager.read(processId, typeof args.cursor === "string" ? args.cursor : undefined, typeof args.max_bytes === "number" ? args.max_bytes : undefined));
+            return result(runCommandRuntime!.readProcessOutput(args));
+          },
+          write_process_input: async (args) => result(await manager.writeResult(args)),
+          interrupt_process: async (args) => result(await manager.interruptResult(args)),
+          terminate_process: async (args) => result(await manager.terminateResult(args)),
+          resize_process_terminal: async (args) => result(await manager.resizeResult(args)),
+          list_processes: async () => result(manager.list())
+        };
+        options.localApprovalRuntimeV3?.setProcessControl(manager.localControl());
+      }
     }
 
     if (atomic) {
@@ -236,17 +380,31 @@ function composeRuntime(
       stateRoot,
       registryInstanceId: registry.record.instanceId,
       mutationRuntime,
-      auditRuntime
+      auditRuntime,
+      localApprovalServerId: options.localApprovalRuntimeV3?.serverId ?? null,
+      processHostConfigured: windowsProcessHostRuntime !== null
     };
     let disposePromise: Promise<void> | null = null;
-    const disposeResources = () => {
-      auditStore?.dispose();
-      changeSetStore?.dispose();
-      moveChangeSetStore?.dispose();
-      ownerBindingKey?.fill(0);
-      recovery?.dispose();
-      registry?.dispose();
-      if (lifecycle.state() !== "disposed") lifecycle.markDisposed();
+    const disposeResources = async () => {
+      let failure: unknown;
+      try {
+        await processManager?.close();
+        await options.rootAdmissionRuntimeV3?.close();
+        await options.localApprovalRuntimeV3?.close();
+        runCommandRuntime?.close();
+        await windowsProcessHostRuntime?.close();
+      } catch (error) {
+        failure = error;
+      } finally {
+        auditStore?.dispose();
+        changeSetStore?.dispose();
+        moveChangeSetStore?.dispose();
+        ownerBindingKey?.fill(0);
+        recovery?.dispose();
+        registry?.dispose();
+        if (lifecycle.state() !== "disposed") lifecycle.markDisposed();
+      }
+      if (failure) throw failure;
     };
     return {
       dependencies,
@@ -256,8 +414,7 @@ function composeRuntime(
         if (disposePromise) return disposePromise;
         lifecycle.quiesce();
         if (lifecycle.isDrained()) {
-          disposeResources();
-          disposePromise = Promise.resolve();
+          disposePromise = disposeResources();
           return disposePromise;
         }
         disposePromise = lifecycle.drain().then(disposeResources);
@@ -271,6 +428,11 @@ function composeRuntime(
     ownerBindingKey?.fill(0);
     recovery?.dispose();
     registry?.dispose();
+    void processManager?.close();
+    void options.rootAdmissionRuntimeV3?.close();
+    void options.localApprovalRuntimeV3?.close();
+    runCommandRuntime?.close();
+    void windowsProcessHostRuntime?.close();
     throw error;
   } finally {
     masterKey.fill(0);

@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   boundedTextArtifact,
+  OUTPUT_REDACTION_CAPABILITY,
   trimUtf8Bytes
 } from "../scripts/output-bounds.mjs";
+
+test("public output metadata describes known-pattern best effort rather than DLP", () => {
+  assert.equal(OUTPUT_REDACTION_CAPABILITY, "best_effort_known_patterns");
+});
 
 test("trimUtf8Bytes limits the final UTF-8 payload including its truncation marker", () => {
   const maxBytes = 128;

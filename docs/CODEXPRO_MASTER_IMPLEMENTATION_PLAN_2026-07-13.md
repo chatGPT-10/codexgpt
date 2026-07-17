@@ -1,13 +1,14 @@
 # CodexPro 总体实施计划
 
-> 版本：2.1  
-> 生效日期：2026-07-13  
-> 状态：当前权威实施路线  
-> 工作区：`D:\Dev\codexpro`  
-> 基线版本：`codexpro@0.28.6`  
-> 当前阶段：Phase 3C 已由 commit `50ec99b` 发布并通过 exact-head run `29390317879` 的 Ubuntu/Windows Node 20/24 四矩阵；Phase 3D 设计 grilling 与对抗性审查已在 `.ai-bridge/current-plan.md` 完成，当前仍先完成并独立发布 Windows Bash/GitHub CLI 配置发现维护
+> 版本：2.2
+> 生效日期：2026-07-13
+> 最近核对：2026-07-17
+> 状态：当前权威实施路线
+> 工作区：`D:\Dev\codexpro`
+> 基线版本：`codexpro@0.28.6`
+> 当前阶段：Phase 1–3 已关闭；reduced Phase 4 的 4A、诊断性 4B0、文档对账 4C0 与完整本地门 4C1 均已完成、未发布；强 sandbox 工作延期；Phase 5 exact design/TDD plan 已审查但 runtime 未开始
 >
-> 下一门禁：维护批次 exact-head CI 通过并重启 CodexPro 后，将已审查计划提升为 tracked Phase 3D TDD 计划，修正规格勘误，并执行 V1 wire-contract 冻结、原生 Windows 可行性与 participant-aware recovery 基线门
+> 下一门禁：执行 Task 4C2，一次性发布 reduced Phase 4 并要求 exact-head Ubuntu/Windows Node 20/24 CI；`workspace` 与 Task 4B1–4B6 保持延期，Phase 5 runtime 仅等待 Phase 4 closure SHA 通过
 >
 > 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 
@@ -100,8 +101,9 @@ mcp.<user-domain>
 | Policy Kernel 设计门 | 已通过 | 2026-07-14 批准 compiled-kernel Approach B；四份设计规格完整并通过自审 |
 | Phase 2A | 正式关闭 | 12 个 TDD 任务与 84 个步骤完成；实现 `e6798b6` 与 Linux 路径测试修复 `dea25ec` 通过 exact-head run `29326459987` 的 Ubuntu/Windows Node 20/24 四矩阵 |
 | Phase 2B | 正式关闭 | 工作区生命周期实现与替换 CI 已通过 Ubuntu/Windows Node 20/24 四矩阵 |
-| Phase 3 | 进行中 | 3A/3B 与 CI repairs 已发布；`88bd4b9` 通过 run `29369658101` 四矩阵，3C/3D 待 closure 头验证后继续 |
-| Phase 4–8 | 已批准、尚未开始 | 采用各设计门的推荐选项连续实施；每个可回滚子部分独立验证、整理、提交、推送并通过精确头 CI |
+| Phase 3 | 正式关闭 | runtime head `2df4a1f` 与 documentation closure head `3a04064` 均通过 Ubuntu/Windows Node 20/24 Build、Regression、完整 Smoke 与 Package |
+| Phase 4 | reduced scope 的 4A、诊断性 4B0、4C0、4C1 本地完成，待 4C2 发布 | trusted-code full access/ConPTY、文档、Node 20/24 ordinary/control、双 Smoke、package/policy/inventory 门均通过；4B0 保留 blocked 诊断，`workspace` 与 Task 4B1–4B6 延期 |
+| Phase 5–8 | 已批准、尚未开始 | 采用各设计门的推荐选项连续实施；完整 Phase 边界统一发布并通过精确头 CI 后才进入下一 Phase |
 | Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
 Phase 0.5 已验证的外部入口事实：公开 `https://codexpro.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexPro，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
@@ -205,7 +207,7 @@ Phase 3：原子编辑与持久审计
   ↓
 Phase 4A：Windows Shell backend 与持久进程
   ↓
-Phase 4B：OS Sandbox 与网络出口控制
+Phase 4B：保留诊断证据，强 OS Sandbox 延期
   ↓
 Phase 5：Git 写能力与任务 Worktree
   ↓
@@ -870,124 +872,86 @@ Phase 3 完成门至少包括：
 
 ## 11. Phase 4A — Windows Shell backend 与持久进程
 
-### 11.1 目标
+### 11.1 精确设计
 
-在 Windows 原生环境中提供明确 backend、可控生命周期和有界输出的 Shell/Process 服务。
+权威规格为 `docs/superpowers/specs/2026-07-16-phase-4-windows-execution-and-sandbox-design.md`，权威 TDD 顺序为 `docs/superpowers/plans/2026-07-16-phase-4-windows-execution-and-sandbox.md`。Phase 4A 的公开结果是显式 V3，而不是重解释 V1/V2 `bash`。
 
-### 11.2 Backend 顺序
+V3 的精确 canonical universe 是 39 个工具：V2 的 31 个工具减去 `bash`，加入 8 个 typed execution/process 工具和 `open_full_access_workspace`。V1=28 与 V2=31 的名字、wire、failure envelope 和无 pending-approval 行为保持不变。
 
-1. PowerShell 7。
-2. Windows PowerShell 兼容 backend。
-3. Git Bash 可选 backend。
-4. CMD 仅在明确场景启用。
-5. WSL 始终可选，不成为项目要求。
+### 11.2 三类不同边界
 
-### 11.3 持久进程契约
+- `confirmed_roots`：本机精确确认后，让 brokered 文件工具临时打开配置 roots 外的普通本地目录；仍保留 PathGuard、hard deny、原子事务、审计和固定绝对 TTL，不修改 `allowedRoots`。
+- `full_access`：当前 Windows 用户权限的 ambient process；没有 filesystem、credential、registry 或 network isolation，只用于用户信任的代码。每次 start/input 都需要新的本机 decision record，但同用户 unrestricted code 已运行后，这只是工作流门，不是不可伪造的人类在场证明。
+- `workspace`：只有 Phase 4B 的 AppContainer/LPAC + filtered snapshot 证据完整时才启用。
 
-```ts
-interface ProcessSession {
-  processId: string;
-  workspaceId: string;
-  commandSummary: string;
-  backend: string;
-  startedAt: string;
-  status: "running" | "exited" | "failed" | "terminated";
-  exitCode: number | null;
-}
+本项目面向用户显示为 **Full access (ask first)**。这不是 sandbox；确认授权风险，不创建 OS 边界。第一次 ambient start 在不存在既有 unrestricted same-user code 的前提下要求本机人类动作；若未来要保证每一次都是真人确认，必须另设 Windows Hello/UAC/独立 principal 架构门。
 
-interface ProcessOutputPage {
-  processId: string;
-  status: ProcessSession["status"];
-  exitCode: number | null;
-  earliestCursor: string;
-  nextCursor: string;
-  chunks: Array<{
-    cursor: string;
-    stream: "stdout" | "stderr";
-    text: string;
-  }>;
-  droppedBytes: number;
-  retainedBytes: number;
-  truncated: boolean;
-  eof: boolean;
-}
-```
+### 11.3 强制前置门
 
-正式设计必须决定 opaque cursor、chunk 上限、UTF-8 边界、stdout/stderr 顺序、重复读取、断线恢复和过期语义。
+- Gate O：先修复 detached runner 的 PID 复用误杀和无界日志问题；Gate O 自己的 destructive oracle 由既有独立 CI/native control harness 直接运行，不通过待修 runner。
+- Gate N：固定 PowerShell/C# host 证明 creation-time Job、exact handle list、64-byte authenticated bounded protocol、native timeout、PowerShell exit/Unicode、broker escape limitation 和 Windows 19044 ConPTY fatal-restart close path。
+- Gate A0/A1：证明 production 共用的 native pipe factory、owner/DACL/SACL/integrity/token checks、remote flag、multi-server 路由、bounded queue 和 R3 atomic consume；V1/V2 不获得新 approval wire。
+- Gate C：V3 只在 Policy Kernel `enforce`、required durable audit、stable session 和 Phase 3 atomic runtime 完整时注册；所有仅判断 `=== 2` 的继承/持久链必须迁移。存储 shape 不变，因此所有 generic writer 保持 schema 1/contract 3、move/undo 保持 schema 2/contract 3，不伪造 manifest schema 3。新 approval/root/process/snapshot lifecycle 使用独立 `AuditEventV3`；V2 audit wire 不变并过滤 V3 事件，V3 使用独立 projection/cursor。
 
-### 11.4 主要实施内容
+### 11.4 关键安全与 UX 契约
 
-- `start_process`
-- `read_process_output`
-- `write_process_input`
-- `interrupt_process`
-- `terminate_process`
-- `list_processes`
-- ConPTY/PTY
-- 有界 ring buffer
-- stdin、Ctrl+C、timeout、orphan cleanup
-- Windows Job Object 终止整棵进程树
-- process 与 workspace、identity、policy snapshot 绑定
-- 输出截断和安全脱敏
-
-### 11.5 验收条件
-
-- backend 不存在时在执行前返回稳定错误。
-- 输出永远有界，cursor 可增量读取并明确数据丢弃。
-- timeout/terminate 能结束完整 Windows 进程树。
-- 另一个会话不能读取、输入或终止不属于它的进程。
-- workspace 关闭、授权撤销或 session 过期后的进程处理有确定规则。
-- 文档明确 Job Object 不是沙箱。
+- `run_command` 返回可继续分页的 terminal `process_id`；standard profile 同时包含 `read_process_output`。
+- `start_process` 必须同时要求 execute、process manage 与 persistent scopes，不能用 `process:manage` 绕过 shell 禁用。
+- 输出先经过有界 streaming recognizer 再保留；full-access 只称 known-pattern best-effort redaction，不称 DLP。
+- cursor 使用 AEAD 或有界随机 server-side map；MAC-only 可读 offset 不满足保密声明。
+- native host 负责 monotonic wall timeout 和 output backpressure；Job、ConPTY、sandbox 分别报告。
+- confirmed-root 普通文件一律要求 hard-link count 为 1；所有 mutation provider 通过 stable handle 在副作用/commit 前复核，仅限 V3 confirmed-root。
+- full-access 明示 `process_tree_control: job_object_members_only` 与 `broker_escape_resistance: none`；TTL/terminate/server close 不承诺清理 WMI/COM/scheduler/service broker escape。
+- local emergency terminate 不依赖远程 approval。
+- 每个工具用 closed semantic authorization facts；R3 grant 并发 retry 只能有一个执行。
 
 ---
 
-## 12. Phase 4B — OS Sandbox 与网络出口控制
+## 12. Phase 4B — 延期的可选 OS Sandbox 研究
 
-### 12.1 目标
+### 12.1 当前产品边界
 
-让 `workspace` Shell 模式从“策略声明”变为经测试的操作系统边界。
+本项目主要服务于用户自己的可信仓库。当前 Phase 4 不再以运行不可信代码为交付目标，而以 4A 的 brokered roots、逐次本机审批、truthful `full_access`、Job-member 生命周期、bounded output、audit 与 emergency termination 为实际产品范围。
 
-### 12.2 主要实施内容
+`full_access` 只能用于用户信任的仓库、脚本和依赖，并明确具有当前 Windows 用户的 ambient filesystem、credential、registry、IPC、broker 与 network authority。它不是 sandbox。
 
-- Windows SandboxBackend 能力探测。
-- 文件、进程、环境、凭据和网络隔离。
-- 与 Permission Profile 编译结果一致的 sandbox policy。
-- 私网、loopback、公网和域名/端口出口控制。
-- 重定向和 DNS 解析后的再验证。
-- sandbox unavailable 的 fail-closed 契约。
-- 受限 backend 的 Windows 集成和攻击性测试。
+### 12.2 4B0 证据处置
 
-### 12.3 验收条件
+Task 4B0 已完成并保留为 fail-closed capability diagnostic。其 blocked 结果不改写为成功，也不进入生产激活路径。现有探针只需保持：
 
-- 测试进程无法读取明确禁止的工作区外文件。
-- 无网络授权时无法通过常见解释器、子进程或代理访问网络。
-- 私网和 loopback 规则独立生效。
-- sandbox 无法执行完整策略时拒绝启动，不退化到当前用户权限。
-- 所有公开安全声明都由可重复测试支撑。
+- package exclusion 与无生产入口；
+- 不修改 firewall、WFP、service、scheduler、共享 runtime ACL 或 machine policy；
+- 只清理经过认证的 probe-owned profile、ACL、Job、handle、临时树和 registry canary；
+- 输出有界且不包含真实凭据或秘密。
 
-### 12.4 非目标
+### 12.3 延期任务
 
-Phase 4B 完成前，`safe` 仍只称为策略过滤；不得提前启用或宣传真正的 `workspace` sandbox 模式。
+Task 4B1–4B6 的 snapshot、two-stage prepared execution、production AppContainer/LPAC backend、immutable sandbox environment、deny-all network、workspace integration 与完整 sandbox adversarial matrix 从当前路线移除。
+
+只有未来确实需要运行不可信代码时，才新建独立设计门。优先考虑 Hyper-V、Windows Sandbox 或隔离 VM-backed executor 等真实 OS 边界；在完整证明前不得复用 `workspace` 名称或宣传 sandbox 能力。
+
+当前 `workspace` 保持 unavailable，绝不退化为 `full_access`。Phase 4 可以按 reduced 4A scope 完成文档、完整本地门、发布和 exact-head CI。
 
 ---
 
 ## 13. Phase 5 — Git 写能力与任务 Worktree
 
-### 13.1 目标
+### 13.1 权威设计与入口门
 
-把真实项目变更放入可审查、可追踪的 Git 和任务 Worktree 生命周期中。
+Phase 5 的权威边界是配对的 [exact design](superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) 与 [mandatory TDD plan](superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md)。两者已经完成第一性原理设计和对抗性修复，但 runtime 尚未开始。只有完整 Phase 4 closure SHA 通过 exact-head Ubuntu/Windows Node 20/24 CI 后，才可从 Task 5A0 / Gate G0 开始；不得提前修改 Phase 5 runtime。
 
-### 13.2 主要实施内容
+### 13.2 精确架构
 
-- typed Git results。
-- branch、stage、commit、restore、stash。
-- task worktree create/list/get/merge/remove。
-- clean baseline 检查。
-- Windows file lock、长路径和占用诊断。
-- merge 前状态、测试和 diff 审查。
-- Git hooks 运行风险进入 Policy/Sandbox/Approval。
+- Tool Contract V4 opt-in exact 51：完整继承 V3=39，并只增加十二个 typed local-Git/task-worktree 工具；V1=28、V2=31、V3=39 与 V1 默认值保持精确。
+- safe Git capsule 绑定 exact executable/capability，通过 Phase 4 native host 运行 fixed argv/environment/config。它不是 OS sandbox。
+- safe mutation 使用 raw blob、private index、quarantined object-only merge 与显式 object/file/index/ref/audit journal participants；merge 新对象只在完整 path/message/secret scan 后进入主 ODB。不使用 `git add`、porcelain stash、live-checkout merge/checkout，也不声称对外部 Git 进程提供同时可见的原子性。
+- task worktree 是 `%LOCALAPPDATA%` 下持久、owner-bound、opaque 的 managed artifact；session handle 可重发，但绝不修改 `allowedRoots`，也不提供进程隔离。
+- incomplete/truncated scan 不产生 mutation token；sparse/split index、reftable、缺少 object-only merge 能力均 fail closed。
 
-### 13.3 默认禁止
+### 13.3 Policy 与默认禁止
+
+- typed reads 是 R0；index-only stage 是 R2；branch/commit/task create/candidate prepare/merge/destructive restore-stash/remove 与 approved integrations 均是 fresh exact one-use R3。
+- typed surface 不提供 remote、credential、force、branch deletion 或 arbitrary Git。单独批准的 ambient `full_access` 仍可运行用户自己的 Git，且明确没有 filesystem/credential/registry/network/broker-escape isolation。
 
 ```text
 git push
@@ -998,15 +962,15 @@ remote branch deletion
 force worktree deletion
 ```
 
-这些能力即使未来增加，也必须是独立高权限工具和单独批准项。
+这些能力即使未来增加，也必须是独立高权限工具和单独批准项，不得从 V4 typed builder 或 failure fallback 获得。
 
 ### 13.4 验收条件
 
-- 默认任务修改可在独立 worktree 中完成。
-- 未提交修改时拒绝非显式强制删除。
-- merge 前展示状态、验证结果和 diff。
-- Worktree 不被描述为安全沙箱。
-- Git 子进程继续受同一 Policy/Sandbox/Audit 约束。
+- Gates 4P → G0 → C4 → R → I/D → W → M → optional X → P 按配对计划的 TDD 顺序通过；失败不降级到 shell、legacy `spawnSync`、live checkout、generic recursive delete 或 remote Git。
+- 默认任务修改可在 managed worktree 中完成；merge 前绑定 exact candidate OID、完整状态/diff/secret scan 与验证 receipts。
+- dirty/untracked/ignored/reparse/foreign/locked checkout 不能删除；没有 force，删除 checkout 不删除 branch/stash/commit。
+- V1/V2/V3 回归、V4 exact 51、managed Node 20/24、Windows control canaries、Ubuntu/Windows CI、policy/package/mutation/secret/link/neat-freak 全部通过。
+- Worktree、safe capsule、approval、Git lock 均不得被描述为安全沙箱或 secure human-presence proof。
 
 ---
 
@@ -1299,16 +1263,16 @@ focused contract tests
 ### 21.2 设计门决定、当前不得假定
 
 - Permission Profile 的最终文件格式和规则具体度算法。
-- Windows SandboxBackend 的具体技术组合。
-- Approval mode 枚举、缓存粒度和有效期。
-- 网络 egress enforcement 的具体实现。
+- Phase 4 的 source-shipped PowerShell/C# host 已通过本地 Gate N 可行性与控制域验证；filtered-snapshot AppContainer/LPAC 只保留为 blocked 诊断与未来候选，当前 reduced scope 不注册或宣传 `workspace` sandbox。
+- Phase 4 V3 已决定使用本机 V3-only pending issuer、R3 两分钟一次性 grant、confirmed-root 固定绝对租约和 atomic consume；实现证据仍待 Gates A0/A1。
+- Phase 4 正向网络 egress 明确不可用；未来 WFP/privileged broker 需要新的设计和授权。
 - OAuth 身份提供器和凭据生命周期。
 - Hooks 的最终 manifest、事件 payload 和执行 backend。
 - Serena/LSP 的具体接入方式。
 
 ### 21.3 禁止静默改变
 
-- allowed roots 和秘密内容保护。
+- allowed roots 和秘密内容保护；V3 confirmed root 只能经本机精确 R3、session-local 固定租约临时扩展，不能修改或持久化 `allowedRoots`。
 - query-token 当前兼容事实。
 - 公开入口与 Host/Origin 本地校验。
 - 当前阶段和审批门。
@@ -1336,7 +1300,9 @@ focused contract tests
 
 ---
 
-## 23. 当前停止点和下一动作
+## 23. 历史停止点记录和当前下一动作
+
+下列长代码块保留早期阶段的历史 checkpoint，不代表当前执行位置；当前事实以本节末尾总结、`Memory.md` 和配对 Phase 4/5 文档为准。
 
 当前停止点：
 
@@ -1437,4 +1403,4 @@ Phase 1 Slice 28 codexpro
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1、Policy Kernel、Phase 2A、Phase 2B 与完整 Phase 3 已正式关闭。Gate 0 commit `77b1e9069798235d674342a2c33a234a4266b564` 已通过 run `29402504990`。Phase 3D 发布链为实现 commit `3000aa6d88190f31c6b93c35ae59e7889317aae4`、测试可移植性 commit `e5d9d27f37f6fd2b7c1b76c8db38755da32c6ab5` 与 Windows Node 20 兼容 commit `2df4a1f50c692ef414f1b913dabdaf7b198c97a2`。Runtime exact-head run `29441752493` 与 documentation-closure exact-head run `29443158835` 均在 Ubuntu/Windows Node 20/24 四个矩阵完成 Build、完整 Regression、全部 protected Smoke 与 Package，结论全部为 success。Windows Node 20 通过已验证的 source→stage handle 交接保持连续对象证明，没有弱化 `EPERM`、identity、rollback 或 recovery 语义。保留 `%LOCALAPPDATA%\CodexPro\toolchains\node-v20.20.2-win-x64\node.exe` 作为后续跨版本复现运行时，清理任务不得删除，除非先显式迁移或用户批准。下一步从 Phase 4 设计审查开始，并继续沿用 Phase 3 的精确 V1/V2、恢复、审计、回滚与跨平台门。按用户 2026-07-15 指令，Task 级只运行本地门；按 2026-07-14 扩展授权，采用推荐选项连续推进至 Phase 8。Phase 9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。
+Phase 1、Policy Kernel、Phase 2A、Phase 2B 与完整 Phase 3 已正式关闭。Runtime exact-head run `29441752493` 与 documentation-closure exact-head run `29443158835` 均在 Ubuntu/Windows Node 20/24 完成 Build、完整 Regression、全部 protected Smoke 与 Package。Reduced Phase 4 的完整 4A、诊断性 4B0、4C0 与 4C1 已在本地关闭但未发布；one-shot、persistent `full_access` 与 interactive ConPTY 的 exact R3、backend-drift、ambient-authority、owner-bound lifecycle、bounded output、local emergency control、单一生产路径和 exact V1/V2 compatibility 门保持不变。4B0 的真实 Gate S 结果仍为 `blocked`，仅作为防止未来过度宣称的诊断证据；Task 4B1–4B6、sandbox authority 与 `workspace` profile 延期且不可用。4C1 的 managed Node 20/24 ordinary 各通过 880/881（一个既有平台 skip），control 各通过 100/100，双版本八段 Smoke、focused 115/115、build、package dry-run、policy、native/mutation inventory、links、secret 分类与 diff 检查均通过。下一步仅为 Task 4C2：一次性发布并要求 exact-head CI；成功后才允许进入 Phase 5 Task 5A0/Gate G0。Phase 9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。

@@ -91,6 +91,23 @@ function denyDecision(code = "POLICY_DENIED") {
   };
 }
 
+function allowDecision() {
+  return {
+    ...denyDecision(),
+    decisionId: "decision-allow",
+    outcome: "allow",
+    reasonCode: null,
+    provenance: [{
+      sourceKind: "session_grant",
+      safeRuleId: "approval.r3.grant",
+      specificity: [],
+      grantId: "grant-v3",
+      approvalId: null,
+      enforcementBackend: null
+    }]
+  };
+}
+
 function fakeRuntime(mode, decision, audits = []) {
   return {
     mode,
@@ -183,4 +200,98 @@ test("policy failures are branded non-enumerably and contain bounded safe text o
   assert.equal(JSON.stringify(failure).includes(sensitiveMarker), false);
   assert.equal(failure.structuredContent, undefined);
   assert.equal(failure.isError, true);
+});
+
+test("a reserved V3 grant commits after required authorization audit and before one handler call", async () => {
+  const order = [];
+  let handlerCalls = 0;
+  const runtime = {
+    mode: "enforce",
+    authorize() {
+      return {
+        decision: allowDecision(),
+        auditEvent: null,
+        auditContext: {
+          authorizationEvent: {},
+          requirement: "required",
+          riskClass: "R3",
+          mutating: false
+        },
+        reservation: {
+          schemaVersion: 3,
+          commit() { order.push("commit"); },
+          burn() { order.push("burn"); }
+        }
+      };
+    },
+    audit() {},
+    persistAuthorization() { order.push("authorization-audit"); },
+    persistExecution() { order.push("execution-audit"); }
+  };
+  const server = createCodexProServer(config({ policyEngineMode: "enforce" }), {
+    policyRuntime: runtime,
+    readResultProvider() {
+      handlerCalls += 1;
+      order.push("handler");
+      return {
+        path: "README.md",
+        text: "ok",
+        startLine: 1,
+        endLine: 1,
+        totalLines: 1,
+        bytes: 2,
+        sha256: "a".repeat(64),
+        truncated: false
+      };
+    }
+  });
+  await withClient(server, async (client) => {
+    const result = await client.callTool({ name: "read", arguments: { path: "README.md", end_line: 1 } });
+    assert.equal(result.isError, undefined);
+  });
+  assert.equal(handlerCalls, 1);
+  assert.deepEqual(order.slice(0, 3), ["authorization-audit", "commit", "handler"]);
+  assert.equal(order.includes("burn"), false);
+});
+
+test("required authorization audit failure burns a V3 reservation and executes zero handlers", async () => {
+  let handlerCalls = 0;
+  let burns = 0;
+  const runtime = {
+    mode: "enforce",
+    authorize() {
+      return {
+        decision: allowDecision(),
+        auditEvent: null,
+        auditContext: {
+          authorizationEvent: {},
+          requirement: "required",
+          riskClass: "R3",
+          mutating: false
+        },
+        reservation: {
+          schemaVersion: 3,
+          commit() { throw new Error("must not commit"); },
+          burn() { burns += 1; }
+        }
+      };
+    },
+    audit() {},
+    persistAuthorization() { throw new Error("AUDIT_UNAVAILABLE"); },
+    persistExecution() {}
+  };
+  const server = createCodexProServer(config({ policyEngineMode: "enforce" }), {
+    policyRuntime: runtime,
+    readResultProvider() {
+      handlerCalls += 1;
+      return "must not execute";
+    }
+  });
+  await withClient(server, async (client) => {
+    const result = await client.callTool({ name: "read", arguments: { path: "README.md", end_line: 1 } });
+    assert.equal(result.isError, true);
+    assert.match(result.content[0].text, /POLICY_CONFIG_INVALID/);
+  });
+  assert.equal(handlerCalls, 0);
+  assert.equal(burns, 1);
 });

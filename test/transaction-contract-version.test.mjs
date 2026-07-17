@@ -9,6 +9,7 @@ import {
   CANONICAL_CODEXPRO_CHILD_TOOLS,
   CANONICAL_CODEXPRO_CHILD_TOOLS_V1,
   CANONICAL_CODEXPRO_CHILD_TOOLS_V2,
+  CANONICAL_CODEXPRO_CHILD_TOOLS_V3,
   canonicalCodexProChildTools
 } from "../dist/tools/schemas/codexpro.js";
 
@@ -51,24 +52,26 @@ test("tool contract version defaults to 1 and rejects unknown values", () => {
   assert.equal(config({}, ["--bash", "off", "--tool-contract-version", "2"]).toolContractVersion, 2);
   assert.throws(
     () => config({ CODEXPRO_TOOL_CONTRACT_VERSION: "v2" }),
-    /CODEXPRO_TOOL_CONTRACT_VERSION must be 1 or 2/
+    /CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, or 3/
   );
   assert.throws(
     () => config({}, ["--bash", "off", "--tool-contract-version"]),
-    /--tool-contract-version requires a value of 1 or 2/
+    /--tool-contract-version requires a value of 1, 2, or 3/
   );
 });
 
-test("canonical V1 stays exact while V2 reserves the complete 31-tool snapshot", () => {
+test("canonical V1 and V2 stay exact while V3 reserves its complete 39-tool snapshot", () => {
   assert.strictEqual(CANONICAL_CODEXPRO_CHILD_TOOLS, CANONICAL_CODEXPRO_CHILD_TOOLS_V1);
   assert.strictEqual(canonicalCodexProChildTools(1), CANONICAL_CODEXPRO_CHILD_TOOLS_V1);
   assert.strictEqual(canonicalCodexProChildTools(2), CANONICAL_CODEXPRO_CHILD_TOOLS_V2);
-  assert.throws(() => canonicalCodexProChildTools(3), /Unsupported tool contract version/);
+  assert.strictEqual(canonicalCodexProChildTools(3), CANONICAL_CODEXPRO_CHILD_TOOLS_V3);
   assert.equal(Object.isFrozen(CANONICAL_CODEXPRO_CHILD_TOOLS_V1), true);
   assert.equal(Object.isFrozen(CANONICAL_CODEXPRO_CHILD_TOOLS_V2), true);
+  assert.equal(Object.isFrozen(CANONICAL_CODEXPRO_CHILD_TOOLS_V3), true);
   assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS_V1.length, 28);
   assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS_V2.length, 31);
   assert.equal(new Set(CANONICAL_CODEXPRO_CHILD_TOOLS_V2).size, 31);
+  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS_V3.length, 39);
   assert.deepEqual(
     CANONICAL_CODEXPRO_CHILD_TOOLS_V2.slice(0, 28),
     CANONICAL_CODEXPRO_CHILD_TOOLS_V1
@@ -81,14 +84,6 @@ test("canonical V1 stays exact while V2 reserves the complete 31-tool snapshot",
 });
 
 test("contract V2 requires atomic transactions persistent audit state and move_paths", () => {
-  assert.throws(
-    () => assertToolContractConfiguration(
-      { ...config(), toolContractVersion: 3 },
-      COMPLETE_V2_CAPABILITIES
-    ),
-    /Unsupported tool contract version/
-  );
-
   const legacyV2 = config({ CODEXPRO_TOOL_CONTRACT_VERSION: "2" });
   assert.throws(
     () => assertToolContractConfiguration(legacyV2, COMPLETE_V2_CAPABILITIES),

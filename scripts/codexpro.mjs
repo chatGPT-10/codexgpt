@@ -32,6 +32,12 @@ Usage:
   codexpro start --root /path/to/repo
   codexpro settings
   codexpro doctor
+  codexpro approvals list --server <server_id>
+  codexpro approvals watch --server <server_id>
+  codexpro approvals approve <approval_id> --server <server_id>
+  codexpro approvals deny <approval_id> --server <server_id>
+  codexpro processes list --server <server_id>
+  codexpro processes terminate <process_id> --server <server_id>
   codexpro connection-test --root /path/to/repo
   codexpro inspect --root /path/to/repo [--json]
   codexpro review --root /path/to/repo [--staged] [--path src/file.ts] [--json]
@@ -3050,6 +3056,72 @@ async function runDoctor(argv) {
     record('fail', 'Tunnel', `unknown tunnel mode: ${tunnel}`);
   }
 
+  const contractVersion = String(process.env.CODEXPRO_TOOL_CONTRACT_VERSION ?? '1');
+  const policyMode = String(process.env.CODEXPRO_POLICY_ENGINE ?? 'legacy');
+  const auditMode = String(process.env.CODEXPRO_AUDIT_MODE ?? 'off');
+  const executionProfile = String(process.env.CODEXPRO_EXECUTION_PROFILE ?? 'off');
+  const localFileAccess = String(process.env.CODEXPRO_LOCAL_FILE_ACCESS ?? 'configured_roots');
+  const permissionProfile = String(process.env.CODEXPRO_PERMISSION_PROFILE ?? '');
+  const nativeManifest = path.join(projectRoot, 'scripts', 'windows-process-host-manifest.json');
+  const nativeBackendCandidate = process.platform === 'win32' && fs.existsSync(nativeManifest);
+  const v3ApprovalConfiguration =
+    contractVersion === '3' &&
+    policyMode === 'enforce' &&
+    auditMode === 'required';
+  record(
+    executionProfile === 'off' || nativeBackendCandidate ? 'ok' : 'fail',
+    'Execution backend',
+    executionProfile === 'off'
+      ? 'disabled'
+      : nativeBackendCandidate
+        ? 'manifest-bound Windows host configured; identity is rechecked at execution'
+        : 'full_access requires the packaged native Windows host'
+  );
+  record(
+    executionProfile === 'off' ? 'ok' : 'warn',
+    'Job ownership',
+    executionProfile === 'off'
+      ? 'inactive'
+      : 'candidate available; creation-time Job membership is proved per process'
+  );
+  record(
+    executionProfile === 'off' ? 'ok' : 'warn',
+    'ConPTY',
+    executionProfile === 'off'
+      ? 'inactive'
+      : 'candidate available; capability and close watchdog are proved per interactive start'
+  );
+  record(
+    executionProfile === 'off' || v3ApprovalConfiguration ? 'ok' : 'fail',
+    'Approval pipe',
+    executionProfile === 'off'
+      ? 'inactive'
+      : v3ApprovalConfiguration
+        ? 'required local decision channel configured; not a human-presence proof'
+        : 'full_access requires contract 3, Policy Kernel enforce, and required audit'
+  );
+  record(
+    localFileAccess === 'confirmed_roots' ? 'warn' : 'ok',
+    'Confirmed roots',
+    localFileAccess === 'confirmed_roots'
+      ? 'requested; activation still requires the built-in stable identity oracle and local approval'
+      : 'configured_roots only'
+  );
+  record(
+    executionProfile === 'full_access' && !permissionProfile ? 'fail' : executionProfile === 'full_access' ? 'warn' : 'ok',
+    'Full access',
+    executionProfile === 'full_access'
+      ? permissionProfile
+        ? 'ambient current-user authority; no filesystem, credential, registry, network, or broker-escape isolation'
+        : 'CODEXPRO_PERMISSION_PROFILE is required'
+      : 'disabled'
+  );
+  record(
+    'warn',
+    'Sandbox evidence',
+    'unavailable; workspace mode must remain fail-closed until Phase 4B proves an offline filtered snapshot'
+  );
+
   const failures = checks.filter((status) => status === 'fail').length;
   const warnings = checks.filter((status) => status === 'warn').length;
   console.log('');
@@ -3759,6 +3831,122 @@ function runControlPanel(details, cleanup = cleanupChildren) {
   });
 }
 
+function parseLocalControlCliArgs(argv) {
+  const values = {
+    serverId: '',
+    timeoutMs: 1000,
+    reveal: false,
+    once: false,
+    positionals: []
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index];
+    if (value === '--server' || value === '--timeout-ms') {
+      const next = argv[index + 1];
+      if (!next || next.startsWith('--')) throw new Error(`${value} requires a value.`);
+      if (value === '--server') values.serverId = next;
+      else values.timeoutMs = Number(next);
+      index += 1;
+      continue;
+    }
+    if (value.startsWith('--server=')) {
+      values.serverId = value.slice('--server='.length);
+      continue;
+    }
+    if (value.startsWith('--timeout-ms=')) {
+      values.timeoutMs = Number(value.slice('--timeout-ms='.length));
+      continue;
+    }
+    if (value === '--reveal') {
+      values.reveal = true;
+      continue;
+    }
+    if (value === '--once') {
+      values.once = true;
+      continue;
+    }
+    if (value.startsWith('--')) throw new Error(`Unknown local-control option: ${value}`);
+    values.positionals.push(value);
+  }
+  if (!/^[a-f0-9]{32}$/.test(values.serverId)) {
+    throw new Error('--server with the exact 32-character server id is required; "latest" is never selected implicitly.');
+  }
+  if (!Number.isInteger(values.timeoutMs) || values.timeoutMs < 1 || values.timeoutMs > 30_000) {
+    throw new Error('--timeout-ms must be an integer from 1 to 30000.');
+  }
+  return values;
+}
+
+function printLocalApprovals(response, renderLocalApprovalEntry, reveal) {
+  if (response.approvals.length === 0) {
+    console.log('No approvals on this server.');
+    return;
+  }
+  console.log(response.approvals.map((entry) => renderLocalApprovalEntry(entry, { reveal })).join('\n\n'));
+}
+
+async function runLocalControlCli(family, argv) {
+  const parsed = parseLocalControlCliArgs(argv);
+  const [operation, target, ...extra] = parsed.positionals;
+  if (!operation || extra.length > 0) throw new Error(`Invalid ${family} command.`);
+  const clientPath = path.join(projectRoot, 'dist', 'control', 'localApprovalClient.js');
+  const serverPath = path.join(projectRoot, 'dist', 'control', 'localApprovalServer.js');
+  if (!fs.existsSync(clientPath) || !fs.existsSync(serverPath)) {
+    throw new Error('Local approval runtime is not built. Run npm run build first.');
+  }
+  const [{ LocalApprovalClient }, { escapeTerminalText, renderLocalApprovalEntry }] = await Promise.all([
+    import(pathToFileURL(clientPath).href),
+    import(pathToFileURL(serverPath).href)
+  ]);
+  const client = new LocalApprovalClient({ timeoutMs: Math.min(30_000, parsed.timeoutMs + 5_000) });
+
+  if (family === 'approvals' && operation === 'list' && !target) {
+    const response = await client.list(parsed.serverId);
+    printLocalApprovals(response, renderLocalApprovalEntry, parsed.reveal);
+    return;
+  }
+  if (family === 'approvals' && operation === 'watch' && !target) {
+    let response = await client.list(parsed.serverId);
+    printLocalApprovals(response, renderLocalApprovalEntry, parsed.reveal);
+    do {
+      response = await client.watch(parsed.serverId, response.sequence, parsed.timeoutMs);
+      if (response.changed) printLocalApprovals(response, renderLocalApprovalEntry, parsed.reveal);
+    } while (!parsed.once);
+    return;
+  }
+  if (family === 'approvals' && (operation === 'approve' || operation === 'deny')) {
+    if (!target || !/^approval_[a-f0-9]{32}$/.test(target)) {
+      throw new Error(`${operation} requires one exact approval_id.`);
+    }
+    const response = operation === 'approve'
+      ? await client.approve(parsed.serverId, target)
+      : await client.deny(parsed.serverId, target);
+    console.log(`${response.code}: ${target}`);
+    const entry = response.approvals.find((value) => value.approvalId === target);
+    if (entry) console.log(renderLocalApprovalEntry(entry, { reveal: parsed.reveal }));
+    if (!response.ok) process.exitCode = 1;
+    return;
+  }
+  if (family === 'processes' && operation === 'list' && !target) {
+    const response = await client.listProcesses(parsed.serverId);
+    if (response.processes.length === 0) console.log('No owned processes on this server.');
+    else for (const entry of response.processes) {
+      console.log(`${escapeTerminalText(entry.processId)}  ${escapeTerminalText(entry.state)}  ${escapeTerminalText(entry.summary, 240)}`);
+    }
+    return;
+  }
+  if (family === 'processes' && operation === 'terminate') {
+    if (!target || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(target)) {
+      throw new Error('terminate requires one exact process_id.');
+    }
+    const response = await client.terminateProcess(parsed.serverId, target);
+    console.log(`${response.code}: ${target}`);
+    if (!response.ok) process.exitCode = 1;
+    return;
+  }
+  throw new Error(`Unknown ${family} operation: ${operation}`);
+}
+
 async function main() {
   let argv = process.argv.slice(2);
   let connectionTest = false;
@@ -3819,6 +4007,10 @@ async function main() {
   }
   if (subcommand === 'doctor') {
     await runDoctor(argv.slice(1));
+    return;
+  }
+  if (subcommand === 'approvals' || subcommand === 'processes') {
+    await runLocalControlCli(subcommand, argv.slice(1));
     return;
   }
   if (argv[0] === 'stable') {

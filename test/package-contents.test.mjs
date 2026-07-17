@@ -46,6 +46,38 @@ test("published package keeps website assets but excludes internal memory archiv
   const files = report[0].files.map((entry) => entry.path.replaceAll("\\", "/"));
 
   assert.ok(files.includes("docs/index.html"), "Published package must retain the documentation website");
+  for (const requiredNativeHostFile of [
+    "scripts/windows-conpty-worker.ps1",
+    "scripts/windows-local-control-spike.cs",
+    "scripts/windows-local-control-spike.mjs",
+    "scripts/windows-local-control-spike.ps1",
+    "scripts/windows-local-control.cs",
+    "scripts/windows-local-control.ps1",
+    "scripts/windows-local-control-manifest.json",
+    "scripts/windows-native-api-inventory-v1.json",
+    "scripts/windows-process-host-manifest.json",
+    "scripts/windows-process-host-protocol-v1.json",
+    "scripts/windows-process-host.cs",
+    "scripts/windows-process-host.ps1"
+  ]) {
+    assert.ok(files.includes(requiredNativeHostFile), `Published package must retain ${requiredNativeHostFile}`);
+  }
+  for (const internalSpikeFile of [
+    "scripts/windows-process-host-spike.mjs",
+    "scripts/windows-sandbox-attack-probe.cs",
+    "scripts/windows-sandbox-cleanup.ps1",
+    "scripts/windows-sandbox-evidence.mjs",
+    "scripts/windows-sandbox-spike.cs",
+    "scripts/windows-sandbox-spike.mjs",
+    "scripts/windows-sandbox-spike.ps1"
+  ]) {
+    assert.equal(files.includes(internalSpikeFile), false, `Published package must exclude ${internalSpikeFile}`);
+  }
+  assert.equal(
+    files.some((file) => file.startsWith("fixtures/sandbox-attacks/")),
+    false,
+    "Published package must exclude Gate-S attack fixtures"
+  );
   assert.equal(
     files.some((file) => file.startsWith("docs/memory/")),
     false,

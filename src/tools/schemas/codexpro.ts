@@ -3,13 +3,16 @@ import type { ToolContractVersion } from "../../config.js";
 import {
   CONTRACT_V1_CHILD_TOOLS,
   CONTRACT_V2_CHILD_TOOLS,
+  CONTRACT_V3_CHILD_TOOLS,
   canonicalToolsForVersion
 } from "../contracts/catalog.js";
 import {
   queryAuditEventsInputV2Schema,
-  queryAuditEventsResultV2Schema
+  queryAuditEventsResultV2Schema,
+  queryAuditEventsInputV3Schema,
+  queryAuditEventsResultV3Schema
 } from "../../audit/schemas.js";
-import { applyPatchOutputSchema } from "./applyPatch.js";
+import { applyPatchOutputSchema, applyPatchOutputSchemaV2 } from "./applyPatch.js";
 import { bashOutputSchema } from "./bash.js";
 import { closeWorkspaceOutputSchema } from "./closeWorkspace.js";
 import { codexContextOutputSchema } from "./codexContext.js";
@@ -17,7 +20,7 @@ import { codexproInventoryOutputSchema } from "./codexproInventory.js";
 import { codexproSelfTestOutputSchema } from "./codexproSelfTest.js";
 import { codexSessionsOutputSchema } from "./codexSessions.js";
 import { createToolMeta, toolErrorSchema, toolMetaSchema } from "./common.js";
-import { editOutputSchema } from "./edit.js";
+import { editOutputSchema, editOutputSchemaV2 } from "./edit.js";
 import { exportProContextOutputSchema } from "./exportProContext.js";
 import { gitDiffOutputSchema } from "./gitDiff.js";
 import { gitStatusOutputSchema } from "./gitStatus.js";
@@ -37,32 +40,40 @@ import { showChangesOutputSchema } from "./showChanges.js";
 import { treeOutputSchema } from "./tree.js";
 import { waitForHandoffOutputSchema } from "./waitForHandoff.js";
 import { workspaceSnapshotOutputSchema } from "./workspaceSnapshot.js";
-import { writeOutputSchema } from "./write.js";
+import { writeOutputSchema, writeOutputSchemaV2 } from "./write.js";
 import {
   undoChangeSetInputV2Schema,
   undoChangeSetOutputSchema
 } from "./undoChangeSet.js";
 import { movePathsOutputSchema } from "./movePaths.js";
-import { queryAuditEventsOutputSchema } from "./queryAuditEvents.js";
+import {
+  queryAuditEventsOutputSchema,
+  queryAuditEventsOutputSchemaV3 as queryAuditEventsToolOutputSchemaV3
+} from "./queryAuditEvents.js";
+import { openFullAccessWorkspaceOutputSchema } from "./openFullAccessWorkspace.js";
+import { EXECUTION_OUTPUT_SCHEMAS } from "./execution.js";
 
 export const CANONICAL_CODEXPRO_CHILD_TOOLS_V1 = CONTRACT_V1_CHILD_TOOLS;
 export const CANONICAL_CODEXPRO_CHILD_TOOLS_V2 = CONTRACT_V2_CHILD_TOOLS;
+export const CANONICAL_CODEXPRO_CHILD_TOOLS_V3 = CONTRACT_V3_CHILD_TOOLS;
 export const CANONICAL_CODEXPRO_CHILD_TOOLS = CANONICAL_CODEXPRO_CHILD_TOOLS_V1;
 
 export type CanonicalCodexProChildTool = typeof CANONICAL_CODEXPRO_CHILD_TOOLS[number];
 export type CanonicalCodexProChildToolV2 = typeof CANONICAL_CODEXPRO_CHILD_TOOLS_V2[number];
+export type CanonicalCodexProChildToolV3 = typeof CANONICAL_CODEXPRO_CHILD_TOOLS_V3[number];
 
 export function canonicalCodexProChildTools(version: ToolContractVersion) {
   return canonicalToolsForVersion(version);
 }
 
-// Dormant contract V2 helpers. The final V2 name set is reserved now, but
-// production V2 construction remains fail-closed until Phase 3D implements
-// move_paths and supplies a complete registration and output-schema map.
+// Versioned contract helpers. The server contract selector remains the sole
+// authority for which exact V1/V2/V3 child universe is publicly registered.
 export const queryAuditEventsInputSchemaV2 = queryAuditEventsInputV2Schema;
 export const queryAuditEventsOutputSchemaV2 = queryAuditEventsResultV2Schema;
 export const undoChangeSetInputSchemaV2 = undoChangeSetInputV2Schema;
 export const undoChangeSetOutputSchemaV2 = undoChangeSetOutputSchema;
+export const queryAuditEventsInputSchemaV3 = queryAuditEventsInputV3Schema;
+export const queryAuditEventsOutputSchemaV3 = queryAuditEventsResultV3Schema;
 
 export const CODEXPRO_ADDITIONAL_OUTPUT_SCHEMAS_V2 = Object.freeze({
   query_audit_events: queryAuditEventsOutputSchema,
@@ -519,6 +530,9 @@ const codexproOwnedOutputSchemaV2 = z.object({
 
 const childOutputSchemasV2: Record<CanonicalCodexProChildToolV2, z.ZodTypeAny> = {
   ...childOutputSchemas,
+  write: writeOutputSchemaV2,
+  edit: editOutputSchemaV2,
+  apply_patch: applyPatchOutputSchemaV2,
   ...CODEXPRO_ADDITIONAL_OUTPUT_SCHEMAS_V2
 };
 
@@ -663,6 +677,202 @@ export function wrapCodexProChildResultV2(
   }
   const parsedChild = childOutputSchemasV2[wrappedTool].parse(child);
   return codexproOutputSchemaV2.parse({
+    ...parsedChild,
+    codexpro_super_action: safePublicAction(action),
+    wrapped_tool: wrappedTool
+  });
+}
+
+const canonicalToolSchemaV3 = z.enum(
+  [...CANONICAL_CODEXPRO_CHILD_TOOLS_V3] as unknown as [
+    CanonicalCodexProChildToolV3,
+    ...CanonicalCodexProChildToolV3[]
+  ]
+);
+const canonicalToolSetV3 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V3);
+
+const childOutputSchemasV3 = Object.fromEntries([
+  ...Object.entries(childOutputSchemasV2).filter(([name]) => name !== "bash"),
+  ["query_audit_events", queryAuditEventsToolOutputSchemaV3],
+  ["open_full_access_workspace", openFullAccessWorkspaceOutputSchema],
+  ...Object.entries(EXECUTION_OUTPUT_SCHEMAS)
+]) as Record<CanonicalCodexProChildToolV3, z.ZodTypeAny>;
+
+export const CODEXPRO_CHILD_OUTPUT_SCHEMAS_V3 = Object.freeze(childOutputSchemasV3);
+
+export function resolveCodexProActionV3(action: string): CanonicalCodexProChildToolV3 | null {
+  if (canonicalToolSetV3.has(action)) return action as CanonicalCodexProChildToolV3;
+  const alias = CODEXPRO_ACTION_ALIASES[action as CodexProAlias];
+  return alias && canonicalToolSetV3.has(alias) ? alias : null;
+}
+
+const actionNotAvailableErrorSchemaV3 = toolErrorSchema.extend({
+  code: z.literal("ACTION_NOT_AVAILABLE"),
+  message: z.literal(CODEXPRO_ERROR_MESSAGES.ACTION_NOT_AVAILABLE),
+  retryable: z.literal(false),
+  details: z.object({ action: safeActionSchema }).strict()
+}).strict();
+
+const actionArgumentsInvalidErrorSchemaV3 = toolErrorSchema.extend({
+  code: z.literal("ACTION_ARGUMENTS_INVALID"),
+  message: z.literal(CODEXPRO_ERROR_MESSAGES.ACTION_ARGUMENTS_INVALID),
+  retryable: z.literal(false),
+  details: z.object({
+    action: safeActionSchema,
+    wrapped_tool: canonicalToolSchemaV3
+  }).strict()
+}).strict();
+
+const childResultInvalidErrorSchemaV3 = toolErrorSchema.extend({
+  code: z.literal("CHILD_RESULT_INVALID"),
+  message: z.literal(CODEXPRO_ERROR_MESSAGES.CHILD_RESULT_INVALID),
+  retryable: z.literal(false),
+  details: z.object({
+    action: safeActionSchema,
+    wrapped_tool: canonicalToolSchemaV3
+  }).strict()
+}).strict();
+
+const codexproErrorSchemaV3 = z.union([
+  actionNotAvailableErrorSchemaV3,
+  actionArgumentsInvalidErrorSchemaV3,
+  childResultInvalidErrorSchemaV3,
+  internalErrorSchema
+]);
+
+const codexproListActionsDataSchemaV3 = z.object({
+  actions: z.array(canonicalToolSchemaV3),
+  action_count: z.number().int().nonnegative()
+}).strict().superRefine((value, context) => {
+  if (value.action_count !== value.actions.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["action_count"], message: "action_count must equal actions.length." });
+  }
+  if (new Set(value.actions).size !== value.actions.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["actions"], message: "actions must be unique." });
+  }
+  const sorted = [...value.actions].sort();
+  if (sorted.some((action, index) => action !== value.actions[index])) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["actions"], message: "actions must be sorted." });
+  }
+});
+
+const codexproOwnedOutputSchemaV3 = z.object({
+  codexpro_tool: z.literal("codexpro"),
+  codexpro_title: z.literal("CodexPro"),
+  ok: z.boolean(),
+  data: codexproListActionsDataSchemaV3.nullable(),
+  error: codexproErrorSchemaV3.nullable(),
+  meta: toolMetaSchema
+}).strict().superRefine((value, context) => {
+  if (value.ok && (value.data === null || value.error !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful CodexPro V3 results require data and no error." });
+  }
+  if (!value.ok && (value.data !== null || value.error === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed CodexPro V3 results require an error and no data." });
+  }
+});
+
+export const codexproOutputShapeV3 = {
+  codexpro_tool: z.union([z.literal("codexpro"), canonicalToolSchemaV3]),
+  codexpro_title: z.string().min(1),
+  ok: z.boolean(),
+  data: z.record(z.unknown()).nullable(),
+  error: z.union([codexproErrorSchemaV3, toolErrorSchema]).nullable(),
+  meta: toolMetaSchema,
+  codexpro_super_action: safeActionSchema.optional(),
+  wrapped_tool: canonicalToolSchemaV3.optional()
+};
+
+const codexproOutputBaseSchemaV3 = z.object(codexproOutputShapeV3).strict();
+
+export const codexproOutputSchemaV3 = codexproOutputBaseSchemaV3.superRefine((value, context) => {
+  if (value.codexpro_tool === "codexpro") {
+    if (!codexproOwnedOutputSchemaV3.safeParse(value).success) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid wrapper-owned CodexPro V3 result." });
+    }
+    return;
+  }
+  if (!value.codexpro_super_action || !value.wrapped_tool) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Wrapped V3 child results require wrapper identity fields." });
+    return;
+  }
+  if (value.codexpro_tool !== value.wrapped_tool ||
+      resolveCodexProActionV3(value.codexpro_super_action) !== value.wrapped_tool) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "CodexPro V3 action and wrapped tool do not match." });
+    return;
+  }
+  if (!childOutputSchemasV3[value.wrapped_tool].safeParse(stripWrapperFields(value)).success) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Wrapped V3 child result does not match its exact child schema." });
+  }
+});
+
+export type CodexProStructuredResultV3 = z.infer<typeof codexproOutputBaseSchemaV3>;
+
+export function createCodexProListActionsSuccessV3(
+  actions: readonly string[],
+  durationMs = 0
+): CodexProStructuredResultV3 {
+  const uniqueActions = [...new Set(actions)];
+  for (const action of uniqueActions) {
+    if (!canonicalToolSetV3.has(action)) throw new Error("Invalid canonical CodexPro V3 child action.");
+  }
+  uniqueActions.sort();
+  return codexproOwnedOutputSchemaV3.parse({
+    codexpro_tool: "codexpro",
+    codexpro_title: "CodexPro",
+    ok: true,
+    data: { actions: uniqueActions, action_count: uniqueActions.length },
+    error: null,
+    meta: createToolMeta(durationMs)
+  });
+}
+
+type CodexProFailureInputV3 =
+  | { code: "ACTION_NOT_AVAILABLE"; details: { action: unknown } }
+  | { code: "ACTION_ARGUMENTS_INVALID" | "CHILD_RESULT_INVALID"; details: { action: unknown; wrapped_tool: CanonicalCodexProChildToolV3 } }
+  | { code: "INTERNAL_ERROR"; details?: Record<string, never> };
+
+export function createCodexProFailureV3(
+  failure: CodexProFailureInputV3,
+  durationMs = 0
+): CodexProStructuredResultV3 {
+  const details = failure.code === "ACTION_NOT_AVAILABLE"
+    ? { action: safePublicAction(failure.details.action) }
+    : failure.code === "INTERNAL_ERROR"
+      ? {}
+      : { action: safePublicAction(failure.details.action), wrapped_tool: failure.details.wrapped_tool };
+  return codexproOwnedOutputSchemaV3.parse({
+    codexpro_tool: "codexpro",
+    codexpro_title: "CodexPro",
+    ok: false,
+    data: null,
+    error: {
+      code: failure.code,
+      message: CODEXPRO_ERROR_MESSAGES[failure.code],
+      retryable: false,
+      details
+    },
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export function wrapCodexProChildResultV3(
+  action: string,
+  wrappedTool: CanonicalCodexProChildToolV3,
+  childStructuredContent: unknown
+): CodexProStructuredResultV3 {
+  if (resolveCodexProActionV3(action) !== wrappedTool) {
+    throw new Error("CodexPro V3 action and wrapped tool do not match.");
+  }
+  if (!childStructuredContent || typeof childStructuredContent !== "object" || Array.isArray(childStructuredContent)) {
+    throw new Error("CodexPro V3 child structured result must be an object.");
+  }
+  const child = childStructuredContent as Record<string, unknown>;
+  if ("codexpro_super_action" in child || "wrapped_tool" in child) {
+    throw new Error("CodexPro V3 child structured result already contains wrapper fields.");
+  }
+  const parsedChild = childOutputSchemasV3[wrappedTool].parse(child);
+  return codexproOutputSchemaV3.parse({
     ...parsedChild,
     codexpro_super_action: safePublicAction(action),
     wrapped_tool: wrappedTool

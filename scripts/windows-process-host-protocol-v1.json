@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "name": "CXP4",
+  "magicHex": "43585034",
+  "version": 1,
+  "headerLength": 64,
+  "tagLength": 16,
+  "hmac": "HMAC-SHA-256",
+  "byteOrder": "little-endian",
+  "maxFramePayloadBytes": 65536,
+  "maxHelloPayloadBytes": 4096,
+  "maxInflightPerProcess": 8,
+  "maxInflightPerHost": 64,
+  "maxHostToNodeQueuedBytesPerProcess": 1048576,
+  "maxHostToNodeQueuedBytesPerHost": 16777216,
+  "maxNodeToHostQueuedBytesPerProcess": 262144,
+  "maxNodeToHostQueuedBytesPerHost": 4194304,
+  "kinds": {
+    "HELLO": 1,
+    "HELLO_ACK": 2,
+    "REQUEST_JSON": 16,
+    "RESPONSE_JSON": 17,
+    "EVENT_JSON": 18,
+    "OUTPUT": 32,
+    "INPUT": 33,
+    "CREDIT": 34,
+    "CANCEL": 35,
+    "FATAL": 127
+  },
+  "flags": {
+    "STDERR": 1,
+    "EOF": 2
+  },
+  "rules": {
+    "firstSequence": 1,
+    "strictIncrement": true,
+    "sequenceWrap": false,
+    "requestIdBytes": 16,
+    "processGenerationBytes": 8,
+    "reservedBytesMustBeZero": true,
+    "creditPayloadBytes": 8,
+    "cancelPayloadBytes": 0,
+    "jsonRoot": "object",
+    "jsonEncoding": "strict-utf8",
+    "duplicateJsonKeys": false,
+    "directionalKeys": true,
+    "tagCoverageHeaderBytes": 48
+  }
+}

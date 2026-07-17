@@ -6,11 +6,17 @@ import path from "node:path";
 import { minimatch } from "minimatch";
 import type { CodexProConfig } from "./config.js";
 import { expandHome } from "./config.js";
+import { ProtectedRootPolicy } from "./access/protectedRoots.js";
 
 export interface Workspace {
   id: string;
   root: string;
   openedAt: string;
+  accessClass?: "confirmed_root";
+  access?: "read_only" | "read_write";
+  leaseId?: string;
+  idleExpiresAt?: string;
+  absoluteExpiresAt?: string;
 }
 
 export interface PolicyPathFacts {
@@ -153,6 +159,11 @@ export interface WorkspaceManagerOptions {
   randomBytes?: (size: number) => Buffer;
   maxTombstones?: number;
   beforeWorkspaceUse?: (canonicalRoot: string) => void;
+  confirmedRoots?: {
+    getWorkspace(id: string): Workspace;
+    listWorkspaces(): Workspace[];
+    closeWorkspace(id: string): ClosedWorkspace | null;
+  };
 }
 
 export interface ClosedWorkspace {
@@ -173,6 +184,7 @@ export class WorkspaceManager {
   private readonly beforeWorkspaceUse: (canonicalRoot: string) => void;
   private readonly ttlMs: number;
   private readonly maxTombstones: number;
+  private readonly confirmedRoots?: WorkspaceManagerOptions["confirmedRoots"];
 
   constructor(
     private readonly config: CodexProConfig,
@@ -190,6 +202,7 @@ export class WorkspaceManager {
       Math.min(24 * 60 * 60_000, config.workspaceTtlMs ?? config.httpSessionTtlMs ?? 30 * 60_000)
     );
     this.maxTombstones = Math.max(16, Math.min(4096, options.maxTombstones ?? 256));
+    this.confirmedRoots = options.confirmedRoots;
   }
 
   defaultWorkspace(): Workspace {
@@ -253,6 +266,14 @@ export class WorkspaceManager {
     }
     this.pruneExpired();
     const record = this.records.get(id);
+    if (!record) {
+      try {
+        const confirmed = this.confirmedRoots?.getWorkspace(id);
+        if (confirmed) return { ...confirmed };
+      } catch {
+        // Preserve the same opaque not-found result for stale or foreign handles.
+      }
+    }
     if (!record || !this.recordMatchesCurrentBinding(record)) {
       if (record) this.revokeRecord(record, "policy_revision_changed");
       throw new CodexProError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
@@ -271,6 +292,14 @@ export class WorkspaceManager {
     }
     this.pruneExpired();
     const record = this.records.get(id);
+    if (!record) {
+      try {
+        const closed = this.confirmedRoots?.closeWorkspace(id);
+        if (closed) return closed;
+      } catch {
+        // Preserve the same opaque not-found result for stale or foreign handles.
+      }
+    }
     if (!record || !this.recordMatchesCurrentBinding(record)) {
       if (record) this.revokeRecord(record, "policy_revision_changed");
       throw new CodexProError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
@@ -282,9 +311,12 @@ export class WorkspaceManager {
 
   listWorkspaces(): Workspace[] {
     this.pruneExpired();
-    return [...this.records.values()]
+    const configured = [...this.records.values()]
       .filter((record) => this.recordMatchesCurrentBinding(record))
       .map((record) => ({ ...record.workspace }));
+    let confirmed: Workspace[] = [];
+    try { confirmed = this.confirmedRoots?.listWorkspaces().map((workspace) => ({ ...workspace })) ?? []; } catch { }
+    return [...configured, ...confirmed];
   }
 
   revokeAll(reason: WorkspaceRevocationReason = "transport_closed"): void {
@@ -292,6 +324,11 @@ export class WorkspaceManager {
     for (const record of [...this.records.values()]) {
       this.revokeRecord(record, reason, revokedAt);
     }
+    try {
+      for (const workspace of this.confirmedRoots?.listWorkspaces() ?? []) {
+        this.confirmedRoots?.closeWorkspace(workspace.id);
+      }
+    } catch { }
   }
 
   revokeForPolicyRevision(activePolicyRevision: string): void {
@@ -365,10 +402,15 @@ export class WorkspaceManager {
 }
 
 export class PathGuard {
+  private readonly protectedRoots: ProtectedRootPolicy;
+  private readonly confirmedFileBindings = new Map<string, { dev: string; ino: string; nlink: number }>();
+
   constructor(
     private readonly config: Pick<CodexProConfig, "blockedGlobs">,
     private readonly platform: NodeJS.Platform = process.platform
-  ) {}
+  ) {
+    this.protectedRoots = new ProtectedRootPolicy({ platform });
+  }
 
   isBlockedRelativePath(relPath: string): boolean {
     const rel = normalizeRelPath(relPath).replace(/^\.\//, "");
@@ -387,12 +429,19 @@ export class PathGuard {
   }
 
   resolve(workspace: Workspace, inputPath = ".", options: { forWrite?: boolean } = {}): { absPath: string; relPath: string } {
+    if (workspace.accessClass === "confirmed_root" && options.forWrite && workspace.access !== "read_write") {
+      throw new CodexProError("Confirmed-root workspace is read-only.");
+    }
     assertSafePathInput(inputPath || ".", this.platform);
     const expanded = expandHome(inputPath || ".");
     const candidate = path.isAbsolute(expanded) ? expanded : path.join(workspace.root, expanded);
     let absPath = path.resolve(candidate);
     const realTarget = maybeRealpath(absPath);
     let relPath = displayPath(absPath, workspace.root);
+
+    if (workspace.accessClass === "confirmed_root" && this.protectedRoots.classify(absPath).blocked) {
+      throw new CodexProError("Path is protected from confirmed-root access.");
+    }
 
     if (!isSubpath(absPath, workspace.root)) {
       if (realTarget && isSubpath(realTarget, workspace.root)) {
@@ -419,6 +468,22 @@ export class PathGuard {
       }
       const realRel = displayPath(realTarget, workspace.root);
       this.assertNotBlocked(realRel);
+      if (workspace.accessClass === "confirmed_root") {
+        if (this.protectedRoots.classify(realTarget).blocked) {
+          throw new CodexProError("Resolved path is protected from confirmed-root access.");
+        }
+        const targetStat = fs.statSync(realTarget, { bigint: true });
+        if (targetStat.isFile() && targetStat.nlink !== 1n) {
+          throw new CodexProError("Confirmed-root ordinary files must have exactly one hard link.");
+        }
+        if (targetStat.isFile()) {
+          this.confirmedFileBindings.set(realTarget, {
+            dev: targetStat.dev.toString(),
+            ino: targetStat.ino.toString(),
+            nlink: Number(targetStat.nlink)
+          });
+        }
+      }
     }
 
     if (options.forWrite) {
@@ -437,6 +502,9 @@ export class PathGuard {
       if (realParent) {
         const realParentRel = displayPath(realParent, workspace.root);
         this.assertNotBlocked(realParentRel);
+        if (workspace.accessClass === "confirmed_root" && this.protectedRoots.classify(realParent).blocked) {
+          throw new CodexProError("Write parent is protected from confirmed-root access.");
+        }
       }
     }
 
@@ -493,6 +561,15 @@ export class PathGuard {
 
   async assertTextFile(absPath: string, maxBytes: number): Promise<void> {
     const stat = await fsp.stat(absPath);
+    const confirmed = this.confirmedFileBindings.get(absPath);
+    if (confirmed && (
+      String(stat.dev) !== confirmed.dev ||
+      String(stat.ino) !== confirmed.ino ||
+      stat.nlink !== confirmed.nlink ||
+      stat.nlink !== 1
+    )) {
+      throw new CodexProError("Confirmed-root file identity or link count changed before access.");
+    }
     if (!stat.isFile()) {
       throw new CodexProError(`Not a file: ${absPath}`);
     }

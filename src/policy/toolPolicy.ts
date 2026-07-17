@@ -1,5 +1,42 @@
 import { CANONICAL_CODEXPRO_CHILD_TOOLS, type CanonicalCodexProChildTool } from "../tools/schemas/codexpro.js";
-import type { PolicyScope, RiskClass } from "./types.js";
+import {
+  CONTRACT_V3_ADDITIONS
+} from "../tools/contracts/index.js";
+import type { PolicyScope, PolicyScopeV3, RiskClass } from "./types.js";
+export type { PolicyScopeV3 } from "./types.js";
+
+export interface RequiredScopesInputV3 {
+  contractVersion: 3;
+  mode?: "full_access" | "workspace";
+}
+
+const V3_PROCESS_SCOPES = Object.freeze({
+  open_full_access_workspace: Object.freeze(["workspace:full-access"] as const),
+  read_process_output: Object.freeze(["process:manage"] as const),
+  list_processes: Object.freeze(["process:manage"] as const),
+  resize_process_terminal: Object.freeze(["process:manage"] as const),
+  write_process_input: Object.freeze(["process:manage"] as const),
+  interrupt_process: Object.freeze(["process:manage"] as const),
+  terminate_process: Object.freeze(["process:manage"] as const)
+});
+
+export function requiredScopesForTool(toolName: string, input: RequiredScopesInputV3): readonly PolicyScopeV3[] {
+  if (input.contractVersion !== 3) throw new Error("Composite scopes require contract 3.");
+  if (toolName === "run_command") {
+    return Object.freeze(input.mode === "full_access"
+      ? ["shell:execute", "host:full-access"]
+      : ["shell:execute"]);
+  }
+  if (toolName === "start_process") {
+    return Object.freeze(input.mode === "full_access"
+      ? ["shell:execute", "process:manage", "process:persistent", "host:full-access"]
+      : ["shell:execute", "process:manage", "process:persistent"]);
+  }
+  const scopes = V3_PROCESS_SCOPES[toolName as keyof typeof V3_PROCESS_SCOPES];
+  if (scopes) return scopes;
+  const definition = toolPolicyDefinition(toolName);
+  return definition.requiredScope ? Object.freeze([definition.requiredScope]) : Object.freeze([]);
+}
 
 export type ToolPolicyResourceMode =
   | "context_only"
@@ -10,6 +47,7 @@ export type ToolPolicyResourceMode =
   | "bridge_write"
   | "git_read"
   | "shell"
+  | "disabled"
   | "resolved";
 
 export interface ToolPolicyDefinition {
@@ -50,11 +88,31 @@ export const TOOL_POLICY_DEFINITIONS: Readonly<Record<CanonicalCodexProChildTool
 });
 
 const canonicalSet = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS);
+const v3AdditionSet = new Set<string>(CONTRACT_V3_ADDITIONS);
+
+export const DISABLED_V3_TOOL_POLICY: ToolPolicyDefinition = Object.freeze({
+  riskClass: "R4",
+  requiredScope: null,
+  resourceMode: "disabled"
+});
+
+const V3_TOOL_POLICY_DEFINITIONS: Readonly<Record<string, ToolPolicyDefinition>> = Object.freeze({
+  open_full_access_workspace: Object.freeze({ riskClass: "R3", requiredScope: null, resourceMode: "resolved" }),
+  run_command: Object.freeze({ riskClass: "R3", requiredScope: "shell:execute", resourceMode: "resolved" }),
+  start_process: Object.freeze({ riskClass: "R3", requiredScope: "shell:execute", resourceMode: "resolved" }),
+  read_process_output: Object.freeze({ riskClass: "R0", requiredScope: "process:manage", resourceMode: "resolved" }),
+  write_process_input: Object.freeze({ riskClass: "R3", requiredScope: "process:manage", resourceMode: "resolved" }),
+  interrupt_process: Object.freeze({ riskClass: "R2", requiredScope: "process:manage", resourceMode: "resolved" }),
+  terminate_process: Object.freeze({ riskClass: "R2", requiredScope: "process:manage", resourceMode: "resolved" }),
+  resize_process_terminal: Object.freeze({ riskClass: "R0", requiredScope: "process:manage", resourceMode: "resolved" }),
+  list_processes: Object.freeze({ riskClass: "R0", requiredScope: "process:manage", resourceMode: "resolved" })
+});
 
 export function toolPolicyDefinition(toolName: string): ToolPolicyDefinition {
   if (toolName === "undo_change_set") return UNDO_CHANGE_SET_TOOL_POLICY_V2;
   if (toolName === "move_paths") return MOVE_PATHS_TOOL_POLICY_V2;
   if (toolName === "query_audit_events") return AUDIT_QUERY_TOOL_POLICY_V2;
+  if (v3AdditionSet.has(toolName)) return V3_TOOL_POLICY_DEFINITIONS[toolName];
   if (!canonicalSet.has(toolName)) throw new Error("Registered tool is outside the closed Policy Kernel tool set.");
   return TOOL_POLICY_DEFINITIONS[toolName as CanonicalCodexProChildTool];
 }

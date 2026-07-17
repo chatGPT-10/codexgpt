@@ -1,13 +1,21 @@
 import { z } from "zod";
 import {
   queryAuditEventsInputV2Schema,
-  queryAuditEventsResultV2Schema
+  queryAuditEventsResultV2Schema,
+  queryAuditEventsInputV3Schema,
+  queryAuditEventsResultV3Schema
 } from "../../audit/schemas.js";
-import type { AuditErrorCode, QueryAuditEventsResultV2 } from "../../audit/types.js";
+import type {
+  AuditErrorCode,
+  QueryAuditEventsResultV2,
+  QueryAuditEventsResultV3
+} from "../../audit/types.js";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 
 export const queryAuditEventsInputSchema = queryAuditEventsInputV2Schema;
 export const queryAuditEventsDataSchema = queryAuditEventsResultV2Schema;
+export const queryAuditEventsInputSchemaV3 = queryAuditEventsInputV3Schema;
+export const queryAuditEventsDataSchemaV3 = queryAuditEventsResultV3Schema;
 
 export const QUERY_AUDIT_EVENTS_ERROR_MESSAGES = Object.freeze({
   AUDIT_ACCESS_DENIED: "Audit access was denied.",
@@ -125,6 +133,63 @@ export function createQueryAuditEventsFailure(
   durationMs = 0
 ): QueryAuditEventsStructuredResult {
   return queryAuditEventsOutputSchema.parse({
+    codexpro_tool: "query_audit_events",
+    codexpro_title: "Query Audit Events",
+    ok: false,
+    data: null,
+    error: {
+      code,
+      message: QUERY_AUDIT_EVENTS_ERROR_MESSAGES[code],
+      retryable: retryableByCode[code],
+      details: {}
+    },
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export const queryAuditEventsOutputShapeV3 = {
+  codexpro_tool: z.literal("query_audit_events"),
+  codexpro_title: z.literal("Query Audit Events"),
+  ok: z.boolean(),
+  data: queryAuditEventsDataSchemaV3.nullable(),
+  error: queryAuditEventsErrorSchema.nullable(),
+  meta: toolMetaSchema
+};
+
+const queryAuditEventsOutputBaseSchemaV3 = z.object(queryAuditEventsOutputShapeV3).strict();
+
+export const queryAuditEventsOutputSchemaV3 = queryAuditEventsOutputBaseSchemaV3.superRefine(
+  (value, context) => {
+    if (value.ok && (value.data === null || value.error !== null)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful V3 audit queries require data and no error." });
+    }
+    if (!value.ok && (value.data !== null || value.error === null)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed V3 audit queries require an error and no data." });
+    }
+  }
+);
+
+export type QueryAuditEventsStructuredResultV3 = z.infer<typeof queryAuditEventsOutputBaseSchemaV3>;
+
+export function createQueryAuditEventsSuccessV3(
+  data: QueryAuditEventsResultV3,
+  durationMs = 0
+): QueryAuditEventsStructuredResultV3 {
+  return queryAuditEventsOutputSchemaV3.parse({
+    codexpro_tool: "query_audit_events",
+    codexpro_title: "Query Audit Events",
+    ok: true,
+    data,
+    error: null,
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export function createQueryAuditEventsFailureV3(
+  code: AuditErrorCode,
+  durationMs = 0
+): QueryAuditEventsStructuredResultV3 {
+  return queryAuditEventsOutputSchemaV3.parse({
     codexpro_tool: "query_audit_events",
     codexpro_title: "Query Audit Events",
     ok: false,

@@ -1,12 +1,17 @@
 import { createHash, randomUUID } from "node:crypto";
 import { resolveAuditRequirement, type CodexProConfig } from "../config.js";
+import { CONTRACT_V3_ADDITIONS } from "../tools/contracts/index.js";
 import { authorizationAuditEventV2Schema } from "../audit/schemas.js";
+import type { LocalApprovalRuntimeV3 } from "../control/runtime.js";
+import type { RootAdmissionRuntimeV3 } from "../access/rootAdmission.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import { SessionGrantStore } from "./approval.js";
+import { createAuthorizationFactsV3, semanticDigest } from "./authorizationFacts.js";
 import { createAuditEvent } from "./audit.js";
 import { compileCompatibilityProfile } from "./compat.js";
 import { createRequestContext } from "./context.js";
 import { baselineNodeCapabilityReport } from "./enforcement.js";
+import type { CapabilityEvidenceStoreV3 } from "./executionCapabilities.js";
 import { evaluatePolicy } from "./evaluator.js";
 import { HARD_POLICY_REVISION } from "./hardPolicy.js";
 import type {
@@ -17,7 +22,9 @@ import type {
 import type { PolicySessionContextSource } from "./identity.js";
 import {
   compilePermissionProfile,
+  compilePermissionProfileV3,
   loadPermissionProfileGraph,
+  loadPermissionProfileGraphV3,
   policyRevisionForSources,
   type LoadedPermissionProfileGraph
 } from "./profileStore.js";
@@ -29,7 +36,7 @@ import {
   fingerprintResource
 } from "./resources.js";
 import { policyDecisionV1Schema } from "./schemas.js";
-import { toolPolicyDefinition } from "./toolPolicy.js";
+import { requiredScopesForTool, toolPolicyDefinition, type PolicyScopeV3 } from "./toolPolicy.js";
 import type {
   AuditEventV1,
   CompiledPermissionProfileV1,
@@ -67,6 +74,12 @@ function compiledProfile(config: CodexProConfig): {
 } {
   let graph: LoadedPermissionProfileGraph;
   if (config.permissionProfileId) {
+    if (config.toolContractVersion === 3) {
+      const graphV3 = loadPermissionProfileGraphV3(config.permissionProfileId);
+      const compiledV3 = compilePermissionProfileV3(graphV3, process.platform);
+      const { fullAccess: _fullAccess, schemaVersion: _schemaVersion, ...base } = compiledV3;
+      return { profile: { ...base, schemaVersion: 1 }, sourceHashes: graphV3.sourceHashes };
+    }
     graph = loadPermissionProfileGraph(config.permissionProfileId);
   } else {
     const document = compileCompatibilityProfile(config);
@@ -84,6 +97,46 @@ function compiledProfile(config: CodexProConfig): {
 
 function inputDigest(args: Record<string, unknown>): string {
   return `sha256:${createHash("sha256").update(JSON.stringify(args), "utf8").digest("hex")}`;
+}
+
+function operationForApproval(resource: ResourceDescriptorV1): string {
+  return `${resource.kind}.${resource.operation}`;
+}
+
+function approvalArgumentCount(args: Record<string, unknown>): number {
+  if (args.command && typeof args.command === "object") {
+    const command = args.command as Record<string, unknown>;
+    return command.kind === "argv" && Array.isArray(command.args) ? Math.min(command.args.length, 100_000) : 0;
+  }
+  if (Array.isArray(args.argv)) return Math.min(args.argv.length, 100_000);
+  if (typeof args.command === "string") {
+    const value = args.command.trim();
+    return value ? Math.min(value.split(/\s+/).length, 100_000) : 0;
+  }
+  return Math.min(Object.keys(args).filter((key) => key !== "environment" && key !== "env").length, 100_000);
+}
+
+function approvalRevealArguments(args: Record<string, unknown>): string[] {
+  if (args.command && typeof args.command === "object") {
+    const command = args.command as Record<string, unknown>;
+    return command.kind === "argv" && Array.isArray(command.args)
+      ? [typeof command.executable === "string" ? command.executable : "[executable omitted]", ...command.args.filter((value): value is string => typeof value === "string")].slice(0, 32)
+      : [];
+  }
+  if (Array.isArray(args.argv)) {
+    return args.argv.filter((value): value is string => typeof value === "string").slice(0, 32);
+  }
+  if (typeof args.command === "string") return [args.command];
+  return [];
+}
+
+function decisionWithApprovalId(decision: PolicyDecisionV1, approvalId: string): PolicyDecisionV1 {
+  return policyDecisionV1Schema.parse({
+    ...decision,
+    provenance: decision.provenance.map((item) => item.sourceKind === "approval_policy"
+      ? { ...item, approvalId }
+      : item)
+  });
 }
 
 function repositoryKey(workspace: Workspace): string {
@@ -116,6 +169,15 @@ function toolMayMutate(toolName: string, config: CodexProConfig): boolean {
   return mode === "workspace_write" || mode === "exact_write" || mode === "bridge_write" || mode === "resolved";
 }
 
+interface DescribedPolicyResource {
+  resource: ResourceDescriptorV1;
+  requiredCapabilities: RequiredCapabilityV1[];
+  riskClass: RiskClass;
+  requiredScope: PolicyScope | null;
+  requiredScopes: readonly PolicyScopeV3[];
+  semanticFactsDigest: string | null;
+}
+
 function describeResource(
   toolName: string,
   args: Record<string, unknown>,
@@ -123,16 +185,32 @@ function describeResource(
   workspaces: WorkspaceManager,
   guard: PathGuard,
   resourceResolver?: ToolResourceResolver
-): { resource: ResourceDescriptorV1; requiredCapabilities: RequiredCapabilityV1[]; riskClass: RiskClass; requiredScope: PolicyScope | null } {
+): DescribedPolicyResource {
   const definition = toolPolicyDefinition(toolName);
   if (definition.resourceMode === "resolved") {
     if (!resourceResolver) throw new Error("Policy resource resolver is unavailable.");
     const described = resourceResolver.describe(toolName, args);
+    const v3Addition = (CONTRACT_V3_ADDITIONS as readonly string[]).includes(toolName);
+    const requiredScopes = described.requiredScopes
+      ? [...described.requiredScopes] as PolicyScopeV3[]
+      : v3Addition
+        ? [...requiredScopesForTool(toolName, {
+            contractVersion: 3,
+            mode: args.mode === "full_access" ? "full_access" : "workspace"
+          })]
+        : definition.requiredScope
+          ? [definition.requiredScope]
+          : [];
+    if (v3Addition && !described.semanticFactsDigest) {
+      throw new Error("V3 policy resource resolver did not provide semantic authorization facts.");
+    }
     return {
       resource: described.resource,
       requiredCapabilities: described.requiredCapabilities ?? [{ name: "filesystemWriteBoundary", minimum: "brokered" }],
-      riskClass: definition.riskClass,
-      requiredScope: definition.requiredScope
+      riskClass: described.riskClass ?? definition.riskClass,
+      requiredScope: definition.requiredScope,
+      requiredScopes,
+      semanticFactsDigest: described.semanticFactsDigest ?? null
     };
   }
   const workspace = workspaceFor(definition.resourceMode, args, workspaces);
@@ -146,7 +224,7 @@ function describeResource(
       persistence: false,
       executable: null
     });
-    return { resource, requiredCapabilities, riskClass: definition.riskClass, requiredScope: definition.requiredScope };
+    return { resource, requiredCapabilities, riskClass: definition.riskClass, requiredScope: definition.requiredScope, requiredScopes: definition.requiredScope ? [definition.requiredScope] : [], semanticFactsDigest: null };
   }
 
   if (!workspace) throw new Error("Policy resource requires a workspace.");
@@ -159,7 +237,7 @@ function describeResource(
       operation: definition.resourceMode === "exact_read" ? "read" : "list",
       inputPath: definition.resourceMode === "exact_read" ? stringArg(args, "path", ".") : stringArg(args, "path", ".")
     });
-    return { resource, requiredCapabilities, riskClass: definition.riskClass, requiredScope: definition.requiredScope };
+    return { resource, requiredCapabilities, riskClass: definition.riskClass, requiredScope: definition.requiredScope, requiredScopes: definition.requiredScope ? [definition.requiredScope] : [], semanticFactsDigest: null };
   }
 
   if (definition.resourceMode === "exact_write" || definition.resourceMode === "workspace_write" || definition.resourceMode === "bridge_write") {
@@ -170,7 +248,7 @@ function describeResource(
         ? config.contextDir
         : ".";
     const resource = describeFilesystemResource({ workspace, guard, operation: "write", inputPath });
-    return { resource, requiredCapabilities, riskClass: definition.riskClass, requiredScope: definition.requiredScope };
+    return { resource, requiredCapabilities, riskClass: definition.riskClass, requiredScope: definition.requiredScope, requiredScopes: definition.requiredScope ? [definition.requiredScope] : [], semanticFactsDigest: null };
   }
 
   if (definition.resourceMode === "git_read") {
@@ -184,7 +262,7 @@ function describeResource(
       remoteName: null,
       remoteHost: null
     });
-    return { resource, requiredCapabilities, riskClass: definition.riskClass, requiredScope: definition.requiredScope };
+    return { resource, requiredCapabilities, riskClass: definition.riskClass, requiredScope: definition.requiredScope, requiredScopes: definition.requiredScope ? [definition.requiredScope] : [], semanticFactsDigest: null };
   }
 
   const command = stringArg(args, "command", "");
@@ -210,18 +288,22 @@ function describeResource(
     resource,
     requiredCapabilities,
     riskClass: verification ? "R1" : definition.riskClass,
-    requiredScope: verification ? "shell:verify" : definition.requiredScope
+    requiredScope: verification ? "shell:verify" : definition.requiredScope,
+    requiredScopes: [verification ? "shell:verify" : definition.requiredScope ?? "shell:execute"],
+    semanticFactsDigest: null
   };
 }
 
 function contextDecision(input: {
   contextPolicyRevision: string;
   resource: ResourceDescriptorV1;
-  requiredScope: PolicyScope | null;
-  scopes: readonly PolicyScope[];
+  requiredScopes: readonly PolicyScopeV3[];
+  scopes: readonly string[];
   riskClass: RiskClass;
+  granted?: { grantId: string; approvalId: string };
 }): PolicyDecisionV1 {
-  const allowedScope = !input.requiredScope || input.scopes.includes(input.requiredScope);
+  const missingScopes = input.requiredScopes.filter((scope) => !input.scopes.includes(scope));
+  const allowedScope = missingScopes.length === 0;
   let outcome: PolicyDecisionV1["outcome"];
   let reasonCode: PolicyDecisionV1["reasonCode"];
   let requiredApproval: PolicyDecisionV1["requiredApproval"] = null;
@@ -232,21 +314,21 @@ function contextDecision(input: {
     reasonCode = "POLICY_DENIED";
     provenance = [{
       sourceKind: allowedScope ? "approval_policy" : "identity_scope",
-      safeRuleId: allowedScope ? "approval.r4.unapprovable" : `scope.${input.requiredScope}`,
+      safeRuleId: allowedScope ? "approval.r4.unapprovable" : `scope.${missingScopes[0]}`,
       specificity: [],
       grantId: null,
       approvalId: null,
       enforcementBackend: null
     }];
-  } else if (input.riskClass === "R0") {
+  } else if (input.riskClass === "R0" || input.granted) {
     outcome = "allow";
     reasonCode = null;
     provenance = [{
-      sourceKind: "identity_scope",
-      safeRuleId: input.requiredScope ? `scope.${input.requiredScope}` : "scope.not-required",
+      sourceKind: input.granted ? "session_grant" : "identity_scope",
+      safeRuleId: input.granted ? "approval.grant.consume" : input.requiredScopes.length ? `scope.${input.requiredScopes.join("+")}` : "scope.not-required",
       specificity: [],
-      grantId: null,
-      approvalId: null,
+      grantId: input.granted?.grantId ?? null,
+      approvalId: input.granted?.approvalId ?? null,
       enforcementBackend: null
     }];
   } else {
@@ -322,7 +404,10 @@ export interface CreateDefaultPolicyRuntimeInput {
   auditSink?: (event: AuditEventV1) => void | Promise<void>;
   persistentAudit?: Required<Pick<PolicyRuntime, "persistAuthorization" | "persistExecution">>;
   grants?: SessionGrantStore;
+  localApprovalRuntimeV3?: LocalApprovalRuntimeV3;
   resourceResolver?: ToolResourceResolver;
+  capabilityEvidenceStoreV3?: CapabilityEvidenceStoreV3;
+  rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
 }
 
 export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInput): PolicyRuntime & {
@@ -332,25 +417,28 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
 } {
   const capabilities = baselineNodeCapabilityReport(process.platform);
   const compiled = compiledProfile(input.config);
-  const policyRevision = policyRevisionForSources(
+  const currentEvidenceRevision = () => input.capabilityEvidenceStoreV3?.snapshot().evidenceRevision
+    ?? capabilities.evidenceRevision;
+  const currentPolicyRevision = () => policyRevisionForSources(
     compiled.sourceHashes,
     HARD_POLICY_REVISION,
-    capabilities.evidenceRevision
+    currentEvidenceRevision()
   );
-  const grants = input.grants ?? new SessionGrantStore();
+  const grants = input.localApprovalRuntimeV3?.grants ?? input.grants ?? new SessionGrantStore();
+  const contractV3 = Number(input.config.toolContractVersion) === 3;
 
   return {
     mode: input.config.policyEngineMode ?? "legacy",
     diagnostics() {
       return {
-        policyRevision,
+        policyRevision: currentPolicyRevision(),
         permissionProfileId: compiled.profile.id,
         hardPolicyRevision: HARD_POLICY_REVISION,
         grantRevision: grants.revision(),
         enforcement: {
           active: (input.config.policyEngineMode ?? "legacy") !== "legacy",
           backendId: capabilities.backendId,
-          evidenceRevision: capabilities.evidenceRevision,
+          evidenceRevision: currentEvidenceRevision(),
           missingCapabilities: [
             "processTreeControl",
             "networkEgressControl",
@@ -363,11 +451,14 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         }
       };
     },
-    policyRevision,
+    get policyRevision() {
+      return currentPolicyRevision();
+    },
     permissionProfileId: compiled.profile.id,
     grants,
     async authorize(toolName, args): Promise<PolicyAuthorizationResult> {
       const started = Date.now();
+      const policyRevision = currentPolicyRevision();
       const described = describeResource(
         toolName,
         args,
@@ -387,15 +478,32 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         sessionGrantRevision: grants.revision(),
         receivedAt: now
       });
+      const effectiveScopes: PolicyScopeV3[] = [...context.identity.scopes];
+      if (contractV3 && input.config.executionProfile !== "off") effectiveScopes.push("process:manage", "shell:execute", "process:persistent");
+      if (contractV3 && input.config.executionProfile === "full_access") effectiveScopes.push("host:full-access", "workspace:full-access", "network:connect");
 
       const digest = inputDigest(args);
-      const decision = toolPolicyDefinition(toolName).resourceMode === "context_only"
+      const matchInput = {
+        context,
+        operation: operationForApproval(described.resource),
+        resourceFingerprint: described.resource.resourceFingerprint,
+        inputDigest: digest,
+        riskClass: described.riskClass,
+        toolContractVersion: String(input.config.toolContractVersion),
+        now
+      };
+      const reserved = contractV3 && input.localApprovalRuntimeV3 && described.riskClass !== "R0" && described.riskClass !== "R4"
+        ? await input.localApprovalRuntimeV3.reserveMatching(matchInput)
+        : null;
+      const v3Addition = contractV3 && (CONTRACT_V3_ADDITIONS as readonly string[]).includes(toolName);
+      let decision = toolPolicyDefinition(toolName).resourceMode === "context_only" || v3Addition
         ? contextDecision({
             contextPolicyRevision: policyRevision,
             resource: described.resource,
-            requiredScope: described.requiredScope,
-            scopes: context.identity.scopes,
-            riskClass: described.riskClass
+            requiredScopes: described.requiredScopes,
+            scopes: effectiveScopes,
+            riskClass: described.riskClass,
+            granted: reserved ? { grantId: reserved.reservation.grantId, approvalId: reserved.approval.approvalId } : undefined
           })
         : evaluatePolicy({
             context,
@@ -403,7 +511,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
             profile: compiled.profile,
             resource: described.resource,
             riskClass: described.riskClass,
-            grants: grants.snapshot(),
+            grants: reserved ? [reserved.reservation.grant] : contractV3 ? [] : grants.snapshot(),
             requiredCapabilities: described.requiredCapabilities,
             capabilities,
             deploymentDisabled: false,
@@ -412,6 +520,92 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
             toolContractVersion: String(input.config.toolContractVersion),
             inputDigest: digest
           });
+
+      if (reserved && decision.outcome !== "allow") {
+        await input.localApprovalRuntimeV3!.burn(reserved, "POLICY_NOT_ALLOWED", now);
+      }
+
+      let localApproval: PolicyAuthorizationResult["localApproval"];
+      if (contractV3 && decision.outcome === "approval_required") {
+        if (!input.localApprovalRuntimeV3) throw new Error("V3 local approval runtime is unavailable.");
+        const canonicalAction = operationForApproval(described.resource);
+        const semanticFacts = described.semanticFactsDigest ?? semanticDigest({
+          canonicalAction,
+          operation: operationForApproval(described.resource),
+          resourceFingerprint: described.resource.resourceFingerprint,
+          inputDigest: digest,
+          args
+        });
+        const executionDisplay = described.resource as unknown as { kind?: string; backendId?: unknown; argumentCount?: unknown; accessMode?: unknown };
+        const facts = createAuthorizationFactsV3({
+          serverId: input.localApprovalRuntimeV3.serverId,
+          credentialRef: context.identity.credentialRef,
+          credentialRevision: context.identity.credentialRef
+            ? semanticDigest({ credentialRef: context.identity.credentialRef })
+            : "credential-none",
+          transportKind: context.transportKind,
+          transportSessionId: context.transportSessionId,
+          identityKind: context.identity.kind,
+          identitySubject: context.identity.subject,
+          workspaceId: context.workspaceId,
+          leaseId: null,
+          policyRevision,
+          evidenceRevision: currentEvidenceRevision(),
+          toolContractVersion: "3",
+          toolName,
+          canonicalAction,
+          operation: operationForApproval(described.resource),
+          resourceFingerprint: described.resource.resourceFingerprint,
+          inputDigest: digest,
+          semanticFactsDigest: semanticFacts,
+          riskClass: described.riskClass as "R1" | "R2" | "R3"
+        });
+        const requested = await input.localApprovalRuntimeV3.request({
+          facts,
+          summary: {
+            backend: executionDisplay.kind === "execution" && typeof executionDisplay.backendId === "string"
+              ? executionDisplay.backendId
+              : capabilities.backendId,
+            actionKind: operationForApproval(described.resource),
+            argumentCount: executionDisplay.kind === "execution" && typeof executionDisplay.argumentCount === "number"
+              ? executionDisplay.argumentCount
+              : approvalArgumentCount(args),
+            logicalScope: context.workspaceId ?? "server",
+            identityLabel: context.identity.subject ?? context.identity.kind,
+            authoritySummary: executionDisplay.kind === "execution" && executionDisplay.accessMode === "full_access"
+              ? "full_access: current-user unrestricted filesystem, credentials, registry, and network; no sandbox; host writeback possible; job-object members only; broker escape resistance none"
+              : described.riskClass === "R3"
+                ? "ambient or destructive authority; local decision required"
+              : "bounded local authority; local decision required",
+            digestPrefix: semanticFacts.replace(/^sha256:/, "").slice(0, 16),
+            revealArguments: approvalRevealArguments(args)
+          },
+          createdAt: now
+        });
+        if (toolName === "open_full_access_workspace") {
+          if (!input.rootAdmissionRuntimeV3) throw new Error("Confirmed-root admission runtime is unavailable.");
+          input.rootAdmissionRuntimeV3.registerPendingApproval(requested.approval.approvalId, args, {
+            serverId: input.localApprovalRuntimeV3.serverId,
+            credentialRef: context.identity.credentialRef,
+            credentialRevision: context.identity.credentialRef
+              ? semanticDigest({ credentialRef: context.identity.credentialRef })
+              : "credential-none",
+            transportKind: context.transportKind,
+            transportSessionId: context.transportSessionId,
+            identityKind: context.identity.kind,
+            identitySubject: context.identity.subject,
+            policyRevision,
+            contractVersion: 3,
+            evidenceRevision: currentEvidenceRevision()
+          });
+        }
+        decision = decisionWithApprovalId(decision, requested.approval.approvalId);
+        localApproval = {
+          schemaVersion: 3,
+          approvalId: requested.approval.approvalId,
+          serverId: input.localApprovalRuntimeV3.serverId
+        };
+      }
 
       const grantId = decision.provenance.find((item) => item.grantId)?.grantId ?? null;
       const approvalState: AuditEventV1["approvalState"] = decision.outcome === "approval_required"
@@ -474,7 +668,19 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
             riskClass: described.riskClass,
             mutating
           };
-      return { decision, auditEvent, auditContext };
+      return {
+        decision,
+        auditEvent,
+        auditContext,
+        localApproval,
+        reservation: reserved && decision.outcome === "allow"
+          ? {
+              schemaVersion: 3,
+              commit: () => input.localApprovalRuntimeV3!.commitConsume(reserved, new Date().toISOString()),
+              burn: (resultCode: string) => input.localApprovalRuntimeV3!.burn(reserved, resultCode, new Date().toISOString())
+            }
+          : undefined
+      };
     },
     async audit(event): Promise<void> {
       await input.auditSink?.(event);

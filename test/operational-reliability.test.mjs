@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { createBoundedCliEnvironment } from "../dist/cliEnvironment.js";
+import { createDetachedRunnerEnvironment, stopExactWindowsTree } from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -58,6 +59,34 @@ test("bounded CLI environment restores Windows GitHub discovery without token in
   assert.equal(env.GITHUB_TOKEN, undefined);
 });
 
+test("detached runner derives only missing Windows user application-data paths", () => {
+  const hostEnv = {
+    USERPROFILE: "C:\\Users\\Noah",
+    APPDATA: "D:\\Existing\\Roaming",
+    CUSTOM_VALUE: "preserved"
+  };
+  const env = createDetachedRunnerEnvironment({ hostEnv, platform: "win32" });
+  assert.notEqual(env, hostEnv);
+  assert.equal(env.USERPROFILE, hostEnv.USERPROFILE);
+  assert.equal(env.APPDATA, hostEnv.APPDATA);
+  assert.equal(env.LOCALAPPDATA, "C:\\Users\\Noah\\AppData\\Local");
+  assert.equal(env.CUSTOM_VALUE, "preserved");
+  assert.equal(hostEnv.LOCALAPPDATA, undefined);
+
+  const homeParts = createDetachedRunnerEnvironment({
+    hostEnv: { HOMEDRIVE: "C:", HOMEPATH: "\\Users\\Noah" },
+    platform: "win32"
+  });
+  assert.equal(homeParts.USERPROFILE, "C:\\Users\\Noah");
+  assert.equal(homeParts.APPDATA, "C:\\Users\\Noah\\AppData\\Roaming");
+  assert.equal(homeParts.LOCALAPPDATA, "C:\\Users\\Noah\\AppData\\Local");
+
+  assert.deepEqual(
+    createDetachedRunnerEnvironment({ hostEnv: { HOME: "/home/noah" }, platform: "linux" }),
+    { HOME: "/home/noah" }
+  );
+});
+
 test("detached runner rejects duplicate kinds and records an exact completed result", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-test-"));
   try {
@@ -68,7 +97,7 @@ test("detached runner rejects duplicate kinds and records an exact completed res
       "--",
       process.execPath,
       "-e",
-      "setTimeout(() => console.log('runner-ok'), 700)"
+      "setTimeout(() => console.log('runner-ok'), 5000)"
     ]);
     const metadata = JSON.parse(started.stdout);
     assert.equal(metadata.kind, "probe");
@@ -97,28 +126,26 @@ test("detached runner rejects duplicate kinds and records an exact completed res
   }
 });
 
-test("detached runner stops only the exact recorded process tree and reports stopped state", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-stop-test-"));
-  try {
-    const started = await execute(runnerScript, [
-      "start",
-      "--root", root,
-      "--kind", "stop-probe",
-      "--",
-      process.execPath,
-      "-e",
-      "setTimeout(() => console.log('too-late'), 10000)"
-    ]);
-    const metadata = JSON.parse(started.stdout);
-    const stopped = await execute(runnerScript, ["stop", "--root", root, "--run", metadata.runId]);
-    assert.equal(JSON.parse(stopped.stdout).status, "stop_requested");
-    const status = await execute(runnerScript, ["status", "--root", root, "--run", metadata.runId]);
-    const state = JSON.parse(status.stdout);
-    assert.equal(state.status, "stopped");
-    assert.equal(state.stopped.runId, metadata.runId);
-  } finally {
-    await fs.rm(root, { recursive: true, force: true });
-  }
+test("Windows exact stop retries transient taskkill failure without widening the owned PID", async () => {
+  const calls = [];
+  let attempts = 0;
+  await stopExactWindowsTree({
+    pid: 4242,
+    expectedCreationTime: "20260717051540.000000+000",
+    creationTimeFor: async (pid) => {
+      assert.equal(pid, 4242);
+      return "20260717051540.000000+000";
+    },
+    taskkill: (pid) => {
+      calls.push(pid);
+      attempts += 1;
+      return attempts < 3
+        ? { status: 1, stdout: "", stderr: "transient resource shortage" }
+        : { status: 0, stdout: "SUCCESS", stderr: "" };
+    },
+    wait: async () => {}
+  });
+  assert.deepEqual(calls, [4242, 4242, 4242]);
 });
 
 test("detached runner rejects secret-looking command arguments before persisting metadata", async () => {

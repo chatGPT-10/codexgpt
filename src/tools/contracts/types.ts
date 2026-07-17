@@ -32,6 +32,20 @@ export type CanonicalToolV1 =
 
 export type CanonicalToolV2 = CanonicalToolV1 | "query_audit_events" | "undo_change_set" | "move_paths";
 
+export type CanonicalToolV3Addition =
+  | "open_full_access_workspace"
+  | "run_command"
+  | "start_process"
+  | "read_process_output"
+  | "write_process_input"
+  | "interrupt_process"
+  | "terminate_process"
+  | "resize_process_terminal"
+  | "list_processes";
+
+export type CanonicalToolV3 = Exclude<CanonicalToolV2, "bash"> | CanonicalToolV3Addition;
+export type CanonicalTool = CanonicalToolV2 | CanonicalToolV3;
+
 export interface ToolContractProjectionInput {
   version: ToolContractVersion;
   mode: ToolMode;
@@ -39,7 +53,7 @@ export interface ToolContractProjectionInput {
 }
 
 export interface ToolContractDescriptor {
-  name: CanonicalToolV2;
+  name: CanonicalTool;
   introducedIn: ToolContractVersion;
   modes: readonly ToolMode[];
   connectionTest: boolean;

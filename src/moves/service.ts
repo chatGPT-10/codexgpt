@@ -49,6 +49,7 @@ export interface PrepareMovePathsInput {
   requestId: string | null;
   ownerBinding: string;
   policyRevision: string;
+  contractVersion: 2 | 3;
 }
 
 function timestamp(now: () => number): string {
@@ -316,7 +317,7 @@ export class MovePathsService {
       requestId: input.requestId,
       ownerBinding: input.ownerBinding,
       policyRevision: input.policyRevision,
-      contractVersion: 2,
+      contractVersion: input.contractVersion,
       state: "active",
       undoSupported: true,
       undoReason: null,

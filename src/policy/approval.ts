@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import { sessionGrantV1Schema } from "./schemas.js";
 import type {
   RequestContextV1,
@@ -108,10 +108,32 @@ export interface MatchGrantInput {
   now: string;
 }
 
+export interface GrantReservationV3 {
+  schemaVersion: 3;
+  contractVersion: 3;
+  reservationId: string;
+  grantId: string;
+  grant: SessionGrantV1;
+  reservedAt: string;
+  expiresAt: string;
+}
+
+export interface SessionGrantStoreOptions {
+  randomBytes?: (size: number) => Buffer;
+}
+
 export class SessionGrantStore {
   readonly #grants = new Map<string, SessionGrantV1>();
+  readonly #reservations = new Map<string, GrantReservationV3>();
+  readonly #reservedGrantIds = new Map<string, string>();
+  readonly #terminalReservations = new Map<string, "consumed" | "burned">();
+  readonly #randomBytes: (size: number) => Buffer;
   #revision = 0;
   #sequence = 0;
+
+  constructor(options: SessionGrantStoreOptions = {}) {
+    this.#randomBytes = options.randomBytes ?? nodeRandomBytes;
+  }
 
   revision(): string {
     return `grant-revision-${this.#revision}`;
@@ -121,8 +143,18 @@ export class SessionGrantStore {
     return this.#grants.size;
   }
 
+  reservationCount(): number {
+    return this.#reservations.size;
+  }
+
   snapshot(): SessionGrantV1[] {
-    return [...this.#grants.values()].map((grant) => structuredClone(grant));
+    return [...this.#grants.values()]
+      .filter((grant) => !this.#reservedGrantIds.has(grant.grantId))
+      .map((grant) => structuredClone(grant));
+  }
+
+  reservationSnapshot(): GrantReservationV3[] {
+    return [...this.#reservations.values()].map((reservation) => structuredClone(reservation));
   }
 
   issue(input: IssueGrantInput): SessionGrantV1 {
@@ -177,38 +209,63 @@ export class SessionGrantStore {
   }
 
   findMatching(input: MatchGrantInput): SessionGrantV1 | null {
-    if (input.riskClass === "R0" || input.riskClass === "R4") return null;
-    const now = Date.parse(input.now);
-    if (!Number.isFinite(now)) throw new Error("Grant match time is invalid.");
+    const now = this.#validatedMatchTime(input);
     this.#removeExpired(now);
     for (const grant of this.#grants.values()) {
-      if (
-        grant.credentialRef === input.context.identity.credentialRef &&
-        grant.transportSessionId === input.context.transportSessionId &&
-        grant.workspaceId === input.context.workspaceId &&
-        grant.policyRevision === input.context.policyRevision &&
-        grant.toolContractVersion === input.toolContractVersion &&
-        grant.operation === input.operation &&
-        grant.resourceFingerprint === input.resourceFingerprint &&
-        grant.inputDigest === input.inputDigest &&
-        grant.riskClass === input.riskClass &&
-        Date.parse(grant.issuedAt) <= now &&
-        Date.parse(grant.expiresAt) > now &&
-        (grant.usesRemaining === null || grant.usesRemaining > 0)
-      ) return structuredClone(grant);
+      if (this.#reservedGrantIds.has(grant.grantId)) continue;
+      if (this.#matches(input, grant, now)) return structuredClone(grant);
     }
     return null;
   }
 
+  reserveMatching(input: MatchGrantInput): GrantReservationV3 | null {
+    const now = this.#validatedMatchTime(input);
+    this.#removeExpired(now);
+    for (const grant of this.#grants.values()) {
+      if (this.#reservedGrantIds.has(grant.grantId) || !this.#matches(input, grant, now)) continue;
+      const random = this.#randomBytes(16);
+      if (!Buffer.isBuffer(random) || random.length !== 16) throw new Error("Grant reservation random source returned an invalid value.");
+      const reservation: GrantReservationV3 = Object.freeze({
+        schemaVersion: 3,
+        contractVersion: 3,
+        reservationId: `reservation_${random.toString("hex")}`,
+        grantId: grant.grantId,
+        grant: structuredClone(grant),
+        reservedAt: new Date(now).toISOString(),
+        expiresAt: grant.expiresAt
+      });
+      if (this.#reservations.has(reservation.reservationId)) throw new Error("Grant reservation identity collision.");
+      this.#reservations.set(reservation.reservationId, reservation);
+      this.#reservedGrantIds.set(grant.grantId, reservation.reservationId);
+      this.#revision += 1;
+      return structuredClone(reservation);
+    }
+    return null;
+  }
+
+  commitConsume(reservationId: string): boolean {
+    return this.#finalizeReservation(reservationId, "consumed");
+  }
+
+  burnReservation(reservationId: string): boolean {
+    return this.#finalizeReservation(reservationId, "burned");
+  }
+
+  reservationResult(reservationId: string): "active" | "consumed" | "burned" | null {
+    if (this.#reservations.has(reservationId)) return "active";
+    return this.#terminalReservations.get(reservationId) ?? null;
+  }
+
   consume(grantId: string): void {
+    if (this.#reservedGrantIds.has(grantId)) return;
     const grant = this.#grants.get(grantId);
     if (!grant || grant.usesRemaining === null) return;
-    if (grant.usesRemaining <= 1) {
-      this.#grants.delete(grantId);
-    } else {
-      this.#grants.set(grantId, { ...grant, usesRemaining: grant.usesRemaining - 1 });
-    }
+    this.#consumeGrant(grant);
     this.#revision += 1;
+  }
+
+  revokeGrant(grantId: string): void {
+    this.#deleteWhere((grant) => grant.grantId === grantId);
   }
 
   revokeTransportSession(transportSessionId: string): void {
@@ -220,12 +277,57 @@ export class SessionGrantStore {
   }
 
   clear(): void {
-    if (this.#grants.size === 0) return;
+    if (this.#grants.size === 0 && this.#reservations.size === 0) return;
+    for (const reservationId of this.#reservations.keys()) this.#terminalReservations.set(reservationId, "burned");
     this.#grants.clear();
+    this.#reservations.clear();
+    this.#reservedGrantIds.clear();
     this.#revision += 1;
   }
 
+  #validatedMatchTime(input: MatchGrantInput): number {
+    if (input.riskClass === "R0" || input.riskClass === "R4") return Number.NaN;
+    const now = Date.parse(input.now);
+    if (!Number.isFinite(now)) throw new Error("Grant match time is invalid.");
+    return now;
+  }
+
+  #matches(input: MatchGrantInput, grant: SessionGrantV1, now: number): boolean {
+    if (!Number.isFinite(now)) return false;
+    return grant.credentialRef === input.context.identity.credentialRef &&
+      grant.transportSessionId === input.context.transportSessionId &&
+      grant.workspaceId === input.context.workspaceId &&
+      grant.policyRevision === input.context.policyRevision &&
+      grant.toolContractVersion === input.toolContractVersion &&
+      grant.operation === input.operation &&
+      grant.resourceFingerprint === input.resourceFingerprint &&
+      grant.inputDigest === input.inputDigest &&
+      grant.riskClass === input.riskClass &&
+      Date.parse(grant.issuedAt) <= now &&
+      Date.parse(grant.expiresAt) > now &&
+      (grant.usesRemaining === null || grant.usesRemaining > 0);
+  }
+
+  #finalizeReservation(reservationId: string, outcome: "consumed" | "burned"): boolean {
+    const reservation = this.#reservations.get(reservationId);
+    if (!reservation) return false;
+    const grant = this.#grants.get(reservation.grantId);
+    this.#reservations.delete(reservationId);
+    this.#reservedGrantIds.delete(reservation.grantId);
+    this.#terminalReservations.set(reservationId, outcome);
+    if (grant && grant.usesRemaining !== null) this.#consumeGrant(grant);
+    this.#revision += 1;
+    return true;
+  }
+
+  #consumeGrant(grant: SessionGrantV1): void {
+    if (grant.usesRemaining === null) return;
+    if (grant.usesRemaining <= 1) this.#grants.delete(grant.grantId);
+    else this.#grants.set(grant.grantId, { ...grant, usesRemaining: grant.usesRemaining - 1 });
+  }
+
   #removeExpired(now: number): void {
+    if (!Number.isFinite(now)) return;
     this.#deleteWhere((grant) => Date.parse(grant.expiresAt) <= now);
   }
 
@@ -233,6 +335,12 @@ export class SessionGrantStore {
     let changed = false;
     for (const [id, grant] of this.#grants) {
       if (!predicate(grant)) continue;
+      const reservationId = this.#reservedGrantIds.get(id);
+      if (reservationId) {
+        this.#reservations.delete(reservationId);
+        this.#reservedGrantIds.delete(id);
+        this.#terminalReservations.set(reservationId, "burned");
+      }
       this.#grants.delete(id);
       changed = true;
     }

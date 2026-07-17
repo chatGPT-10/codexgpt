@@ -50,7 +50,7 @@ export interface ChangeSetManifestV1 {
   requestId: string | null;
   ownerBinding: string;
   policyRevision: string;
-  contractVersion: 1 | 2;
+  contractVersion: 1 | 2 | 3;
   state: ChangeSetState;
   undoSupported: boolean;
   undoReason: ChangeSetUndoReason | null;
@@ -88,7 +88,7 @@ export interface MoveChangeSetManifestV2 {
   requestId: string | null;
   ownerBinding: string;
   policyRevision: string;
-  contractVersion: 2;
+  contractVersion: 2 | 3;
   state: ChangeSetState;
   undoSupported: boolean;
   undoReason: ChangeSetUndoReason | null;

@@ -17,15 +17,17 @@ import {
   auditRecordMac,
   canonicalJson,
   deriveAuditCursorKey,
+  deriveAuditQueryV3CursorKey,
   deriveAuditRecordKey
 } from "./canonicalJson.js";
 import { AuditWriterLock } from "./lock.js";
-import { auditQueryFilterDigest } from "./queryTool.js";
+import { auditQueryFilterDigest, auditQueryFilterDigestV3 } from "./queryTool.js";
 import {
   auditEnvelopeV1Schema,
-  auditEventV2Schema,
   auditIndexV1Schema,
-  queryAuditEventsInputV2Schema
+  persistedAuditEventSchema,
+  queryAuditEventsInputV2Schema,
+  queryAuditEventsInputV3Schema
 } from "./schemas.js";
 import {
   AuditError,
@@ -33,10 +35,13 @@ import {
   type AuditEnvelopeV1,
   type AuditEventV2,
   type AuditIndexV1,
+  type PersistedAuditEvent,
   type AuditSegmentMetadataV1,
   type AuditStoreDiagnostics,
   type QueryAuditEventsInputV2,
   type QueryAuditEventsResultV2,
+  type QueryAuditEventsInputV3,
+  type QueryAuditEventsResultV3,
   type RecoveryAuditEventV2
 } from "./types.js";
 
@@ -141,6 +146,7 @@ export class PersistentAuditStore {
   private readonly indexFile: string;
   private readonly recordKey: Buffer;
   private readonly cursorKey: Buffer;
+  private readonly cursorKeyV3: Buffer;
   private readonly indexStore: AtomicJsonFileStore<AuditIndexV1>;
   private readonly writerLock: AuditWriterLock;
   private readonly now: () => number;
@@ -176,6 +182,7 @@ export class PersistentAuditStore {
     try {
       this.recordKey = deriveAuditRecordKey(masterKey);
       this.cursorKey = deriveAuditCursorKey(masterKey);
+      this.cursorKeyV3 = deriveAuditQueryV3CursorKey(masterKey);
     } finally {
       masterKey.fill(0);
     }
@@ -195,6 +202,7 @@ export class PersistentAuditStore {
   dispose(): void {
     this.recordKey.fill(0);
     this.cursorKey.fill(0);
+    this.cursorKeyV3.fill(0);
   }
 
   private randomHex(bytes: number): string {
@@ -414,13 +422,13 @@ export class PersistentAuditStore {
     if (create) syncDirectoryBestEffort(this.segmentsDirectory);
   }
 
-  private envelopeFor(index: AuditIndexV1, event: AuditEventV2, segmentId: string): AuditEnvelopeV1 {
+  private envelopeFor(index: AuditIndexV1, event: PersistedAuditEvent, segmentId: string): AuditEnvelopeV1 {
     const withoutMac = {
       storeVersion: 1 as const,
       sequence: index.lastSequence + 1,
       segmentId,
       previousMac: index.lastMac,
-      event: auditEventV2Schema.parse(event)
+      event: persistedAuditEventSchema.parse(event)
     };
     return auditEnvelopeV1Schema.parse({
       ...withoutMac,
@@ -430,7 +438,7 @@ export class PersistentAuditStore {
 
   private appendEnvelope(
     index: AuditIndexV1,
-    event: AuditEventV2,
+    event: PersistedAuditEvent,
     segmentId: string,
     create: boolean
   ): { envelope: AuditEnvelopeV1; index: AuditIndexV1; scan: ScanResult } {
@@ -448,7 +456,7 @@ export class PersistentAuditStore {
     return { envelope, index: nextIndex, scan };
   }
 
-  private estimateEnvelopeBytes(index: AuditIndexV1, event: AuditEventV2, segmentId: string): number {
+  private estimateEnvelopeBytes(index: AuditIndexV1, event: PersistedAuditEvent, segmentId: string): number {
     return Buffer.byteLength(canonicalJson(this.envelopeFor(index, event, segmentId)), "utf8") + 1;
   }
 
@@ -630,8 +638,8 @@ export class PersistentAuditStore {
     throw new AuditError("AUDIT_BUSY", "Audit writer lock remained unavailable.");
   }
 
-  async append(event: AuditEventV2): Promise<AuditEnvelopeV1> {
-    const parsedEvent = auditEventV2Schema.parse(event);
+  async append(event: PersistedAuditEvent): Promise<AuditEnvelopeV1> {
+    const parsedEvent = persistedAuditEventSchema.parse(event);
     return this.withWriterLock(() => {
       try {
         let { index, scan } = this.loadVerifiedState(true);
@@ -826,6 +834,49 @@ export class PersistentAuditStore {
     }
   }
 
+  private encodeCursorV3(filterDigest: string, lastSequence: number): string {
+    const payload = {
+      projectionVersion: 3,
+      filterDigest,
+      lastSequence,
+      expiresAt: new Date(this.now() + 15 * 60 * 1000).toISOString()
+    };
+    const encoded = Buffer.from(canonicalJson(payload), "utf8").toString("base64url");
+    const mac = createHmac("sha256", this.cursorKeyV3).update(encoded, "utf8").digest("hex");
+    return `${encoded}.${mac}`;
+  }
+
+  private decodeCursorV3(cursor: string, filterDigest: string): number {
+    try {
+      const [encoded, suppliedMac, extra] = cursor.split(".");
+      if (!encoded || !suppliedMac || extra !== undefined || !/^[a-f0-9]{64}$/.test(suppliedMac)) {
+        throw new Error("invalid shape");
+      }
+      const expectedMac = createHmac("sha256", this.cursorKeyV3).update(encoded, "utf8").digest("hex");
+      const supplied = Buffer.from(suppliedMac, "hex");
+      const expected = Buffer.from(expectedMac, "hex");
+      if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+        throw new Error("invalid mac");
+      }
+      const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as Record<string, unknown>;
+      if (
+        payload.projectionVersion !== 3 ||
+        payload.filterDigest !== filterDigest ||
+        !Number.isSafeInteger(payload.lastSequence) ||
+        Number(payload.lastSequence) < 1 ||
+        typeof payload.expiresAt !== "string" ||
+        !Number.isFinite(Date.parse(payload.expiresAt)) ||
+        Date.parse(payload.expiresAt) < this.now() ||
+        Object.keys(payload).sort().join(",") !== "expiresAt,filterDigest,lastSequence,projectionVersion"
+      ) {
+        throw new Error("invalid payload");
+      }
+      return Number(payload.lastSequence);
+    } catch {
+      throw new AuditError("AUDIT_CURSOR_INVALID", "Audit query cursor is invalid or expired.");
+    }
+  }
+
   async probeIntegrity(): Promise<void> {
     await this.withWriterLock(() => {
       try {
@@ -880,6 +931,7 @@ export class PersistentAuditStore {
       try {
         const { index, scan } = this.loadVerifiedState(true);
         const matched = scan.envelopes
+          .filter((envelope): envelope is AuditEnvelopeV1 & { event: AuditEventV2 } => envelope.event.schemaVersion === 2)
           .filter((envelope) => {
             const event = envelope.event;
             const timestamp = Date.parse(event.timestamp);
@@ -904,6 +956,90 @@ export class PersistentAuditStore {
           : null;
         return {
           schemaVersion: 2,
+          records: page.map((envelope) => ({ sequence: envelope.sequence, event: envelope.event })),
+          nextCursor,
+          filterDigest,
+          startTime: new Date(startMs).toISOString(),
+          endTime: new Date(endMs).toISOString(),
+          limit,
+          integrityState: index.state
+        };
+      } catch (error) {
+        if (error instanceof AuditError && (
+          error.code === "AUDIT_INTEGRITY_FAILURE" || error.code === "AUDIT_RECORD_INVALID"
+        )) {
+          this.markIntegrityFailure();
+          throw new AuditError("AUDIT_INTEGRITY_FAILURE", "Audit evidence failed integrity verification.");
+        }
+        throw error;
+      }
+    });
+  }
+
+  async queryV3(input: QueryAuditEventsInputV3): Promise<QueryAuditEventsResultV3> {
+    const parsedResult = queryAuditEventsInputV3Schema.safeParse(input);
+    if (!parsedResult.success) {
+      throw new AuditError(
+        input && typeof input === "object" && "cursor" in input
+          ? "AUDIT_CURSOR_INVALID"
+          : "AUDIT_RANGE_INVALID",
+        "Audit query input is invalid."
+      );
+    }
+    const parsed = parsedResult.data;
+    const limit = parsed.limit ?? 50;
+    const endMs = parsed.endTime === undefined ? this.now() : Date.parse(parsed.endTime);
+    const startMs = parsed.startTime === undefined
+      ? endMs - 24 * 60 * 60 * 1000
+      : Date.parse(parsed.startTime);
+    if (
+      !Number.isFinite(startMs) ||
+      !Number.isFinite(endMs) ||
+      startMs > endMs ||
+      endMs - startMs > 7 * 24 * 60 * 60 * 1000
+    ) {
+      throw new AuditError("AUDIT_RANGE_INVALID", "Audit query range is invalid or exceeds seven days.");
+    }
+    const filterDigest = auditQueryFilterDigestV3({ ...parsed, limit });
+    const beforeSequence = parsed.cursor === undefined
+      ? Number.POSITIVE_INFINITY
+      : this.decodeCursorV3(parsed.cursor, filterDigest);
+    const eventTypes = parsed.eventTypes ? new Set(parsed.eventTypes) : null;
+    const toolNames = parsed.toolNames ? new Set(parsed.toolNames) : null;
+    const requestIds = parsed.requestIds ? new Set(parsed.requestIds) : null;
+    const changeSetIds = parsed.changeSetIds ? new Set(parsed.changeSetIds) : null;
+    const workspaceRefs = parsed.workspaceRefs ? new Set(parsed.workspaceRefs) : null;
+    const statuses = parsed.statuses ? new Set(parsed.statuses) : null;
+
+    return this.withWriterLock(() => {
+      try {
+        const { index, scan } = this.loadVerifiedState(true);
+        const matched = scan.envelopes
+          .filter((envelope) => {
+            const event = envelope.event;
+            const timestamp = Date.parse(event.timestamp);
+            if (envelope.sequence >= beforeSequence || timestamp < startMs || timestamp > endMs) return false;
+            if (eventTypes && !eventTypes.has(event.eventType)) return false;
+            if (toolNames && (event.toolName === null || !toolNames.has(event.toolName))) return false;
+            if (requestIds && (event.requestId === null || !requestIds.has(event.requestId))) return false;
+            if (workspaceRefs && (event.workspaceRef === null || !workspaceRefs.has(event.workspaceRef))) return false;
+            if (changeSetIds) {
+              if (event.schemaVersion !== 2 ||
+                  (event.eventType !== "execution" && event.eventType !== "recovery")) return false;
+              if (event.changeSetId === null || !changeSetIds.has(event.changeSetId)) return false;
+            }
+            if (statuses) {
+              if (event.schemaVersion !== 2 || event.eventType !== "execution" || !statuses.has(event.status)) return false;
+            }
+            return true;
+          })
+          .sort((left, right) => right.sequence - left.sequence);
+        const page = matched.slice(0, limit);
+        const nextCursor = matched.length > limit && page.length > 0
+          ? this.encodeCursorV3(filterDigest, page.at(-1)!.sequence)
+          : null;
+        return {
+          schemaVersion: 3,
           records: page.map((envelope) => ({ sequence: envelope.sequence, event: envelope.event })),
           nextCursor,
           filterDigest,

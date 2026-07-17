@@ -5,9 +5,15 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { loadConfig } from "../dist/config.js";
+import { ChangeSetStore } from "../dist/changesets/index.js";
 import { aiBridgeScaffoldWrites, prepareWorkspaceTextBatch } from "../dist/fsOps.js";
 import { PathGuard, WorkspaceManager } from "../dist/guard.js";
 import { LocalMutationService } from "../dist/mutations/index.js";
+import {
+  installationMasterKey,
+  loadOrCreateInstallationState,
+  workspaceStateKeyForRoot
+} from "../dist/transactions/index.js";
 
 async function fixture(action) {
   const root = await fsp.realpath(await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-pro-apply-")));
@@ -83,4 +89,40 @@ test("pro-apply mutation service rolls back every file when durable audit fails"
     service.dispose();
   }
   await assert.rejects(() => fsp.stat(path.join(workspaceRoot, ".ai-bridge")), { code: "ENOENT" });
+}));
+
+test("local mutation service persists its selected V3 caller contract without a new manifest schema", () => fixture(async ({ root, workspaceRoot }) => {
+  const config = {
+    ...loadConfig(["--root", workspaceRoot]),
+    toolContractVersion: 3,
+    fileTransactions: "atomic",
+    auditMode: "required"
+  };
+  const guard = new PathGuard(config);
+  const workspaces = new WorkspaceManager(config);
+  const workspace = workspaces.openWorkspace(workspaceRoot);
+  const prepared = await prepareWorkspaceTextBatch(config, guard, workspace, [{
+    path: ".ai-bridge/local-v3.txt",
+    content: "caller contract three\n"
+  }]);
+  const stateRoot = path.join(root, "state-v3");
+  const service = new LocalMutationService(config, guard, { stateRoot });
+  try {
+    await service.executeBatch(workspace, prepared, { ok: true }, { toolName: "pro_apply" });
+  } finally {
+    service.dispose();
+  }
+
+  const masterKey = installationMasterKey(loadOrCreateInstallationState({ stateRoot }));
+  const workspaceStateKey = workspaceStateKeyForRoot(workspace.root, masterKey);
+  const store = new ChangeSetStore({ stateRoot, masterKey });
+  masterKey.fill(0);
+  try {
+    const manifests = store.list(workspaceStateKey);
+    assert.equal(manifests.length, 1);
+    assert.equal(manifests[0].schemaVersion, 1);
+    assert.equal(manifests[0].contractVersion, 3);
+  } finally {
+    store.dispose();
+  }
 }));

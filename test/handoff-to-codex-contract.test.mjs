@@ -8,10 +8,10 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
-const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport("../src/tools/schemas/handoffToCodex.ts", import.meta.url).catch(() => null);
 const handoffModule = await tsImport("../src/handoffOps.ts", import.meta.url).catch(() => null);
+const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 
 const {
   HANDOFF_TO_CODEX_APPEND_WARNING,

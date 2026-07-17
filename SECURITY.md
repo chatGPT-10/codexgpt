@@ -28,6 +28,7 @@ CodexPro can expose:
 - git status and diffs
 - `.ai-bridge` planning files
 - optional shell command execution through the `bash` tool, hidden when bash mode is off
+- opt-in Contract V3 confirmed-root admission and trusted-code Windows process execution, each guarded by a separate local approval flow
 - optional write/edit/apply_patch capability depending on `CODEXPRO_WRITE_MODE`, advertised only in workspace write mode
 - optional local handoff execution through `codexpro execute-handoff`, run from the user's terminal only
 - optional local execute/review looping through `codexpro loop-handoff`, run from the user's terminal only with a user-provided reviewer command and iteration limit
@@ -43,6 +44,8 @@ Review changes against these failure modes before release:
 | ChatGPT can edit outside the intended repo | Allowed roots are explicit; path resolution rejects escapes, blocked globs, and symlink traversal. |
 | A copied workspace handle is reused from another MCP session | Workspace handles are random, server-session scoped, checked against the issuing lifecycle domain, and invalidated by close, idle expiry, transport teardown, or policy-revision change. |
 | ChatGPT can run arbitrary shell by default | Bash defaults to safe mode, can be disabled, and full mode is a trusted-local-only choice. Safe mode can still run repo package scripts, so use `--no-bash` for untrusted repos. |
+| Contract V3 `full_access` is mistaken for a sandbox | It is opt-in, requires an explicit V3 Permission Profile and a fresh local one-use approval, and reports ambient current-user filesystem, credential, registry, broker, device, and network authority. |
+| A failed sandbox probe silently falls back to ambient execution | The reserved `workspace` profile remains unavailable and never falls back to `full_access`; retained Gate S evidence stays blocked and diagnostic only. |
 | Handoff mode still exposes generic writes | Handoff/pro modes do not advertise generic `write`/`edit`/`apply_patch`; bounded handoff tools write `.ai-bridge` files only. |
 | Local Codex history is treated as ChatGPT memory | Codex session access is opt-in metadata/read mode and never attaches to a live Codex app session. |
 | Browser admin mutates live runtime unexpectedly | Admin profile changes apply on restart; active runtime policy stays stable for the current session. |
@@ -55,6 +58,7 @@ The main risks are:
 - connecting an untrusted MCP client
 - exposing the server through a public tunnel without auth
 - running with `CODEXPRO_BASH_MODE=full`
+- enabling Contract V3 `CODEXPRO_EXECUTION_PROFILE=full_access` for code, dependencies, or scripts you do not trust
 - running with `CODEXPRO_WRITE_MODE=workspace` on an important repo
 - executing an untrusted `.ai-bridge/current-plan.md` or custom `execute-handoff --command`
 - running `loop-handoff` with an untrusted reviewer command or without a small `--max-iters`
@@ -107,13 +111,36 @@ The following distinctions are security requirements:
 - Safe Bash is not an OS sandbox.
 - With `CODEXPRO_INHERIT_ENV` unset, Bash excludes arbitrary parent variables and token variables. On Windows it supplies only the bounded user/configuration paths needed for normal CLI discovery, including GitHub CLI configuration and OS-keyring access. `CODEXPRO_INHERIT_ENV=1` disables that narrowing and exposes the complete parent environment to the child process.
 - Environment narrowing is defense in depth, not filesystem or credential isolation: a same-user process may still access files and operating-system services allowed to that account.
-- A Windows Job Object, when later available, would establish only tested process-tree controls, not filesystem, registry, credential, or network isolation.
+- Contract V3 `full_access` uses a Windows Job Object only for recorded Job members. It does not isolate files, registry, credentials, devices, COM/WMI/service brokers, or network, and it does not prove that broker-created descendants remain controllable.
+- ConPTY is terminal transport, not a sandbox.
 - Cloudflare Tunnel is inbound transport infrastructure and does not enforce local policy or outbound egress.
-- Missing or partial enforcement capabilities produce stable fail-closed errors rather than current-user execution.
+- Any profile that claims blocked-path, credential, registry, device, destination-network, or sandbox enforcement against an ambient child fails closed before approval or spawn. `full_access` is admitted only when the selected profile explicitly accepts that those protections do not apply.
 
-Phase 2A does not claim complete Windows sandboxing, OAuth-grade owner isolation, elimination of symlink/junction TOCTOU, persistent audit storage, approval UI, or safe arbitrary Git remote writes. The synthetic Windows capability spike reads and writes only temporary fixtures and reports unproved capabilities as `none`; it does not install firewall rules, services, scheduled tasks, registry policy, or sandbox software.
+Contracts V1 and V2 retain their exact behavior and do not create pending approvals. Contract V3 adds a local-only approval and emergency-control surface, durable V3 lifecycle audit, and typed Windows process tools. It still does not claim OAuth-grade owner isolation, complete Windows sandboxing, elimination of all same-user TOCTOU or broker escapes, DLP, or safe arbitrary Git remote writes.
 
 During the migration cycle, rollback is permitted only to reviewed legacy behavior, the exact generated compatibility profile, or a narrower read-only profile. Invalid policy configuration cannot fall through to an unguarded execution path.
+
+## Contract V3 Trusted-Code Execution Boundaries
+
+Contract V3 is disabled by default. Enabling its non-minimal execution surface requires all of the following:
+
+- `CODEXPRO_TOOL_CONTRACT_VERSION=3`;
+- `CODEXPRO_FILE_TRANSACTIONS=atomic`;
+- durable audit through `CODEXPRO_AUDIT_MODE=auto|required`;
+- `CODEXPRO_POLICY_ENGINE=enforce`;
+- a strict schema-3 Permission Profile;
+- `CODEXPRO_EXECUTION_PROFILE=full_access` for ambient process execution, or `CODEXPRO_LOCAL_FILE_ACCESS=confirmed_roots` for brokered root admission;
+- an available local approval runtime bound to the exact server lifecycle.
+
+V3 R3 actions create a bounded pending request but do not execute. A separate local terminal must inspect and approve the exact action through `codexpro approvals ...`; the resulting grant is one-use, context-bound, and consumed atomically. A retry with changed executable, arguments, working directory, backend, environment, policy, evidence, session, or root identity requires a new approval. The remote MCP client cannot approve its own request.
+
+`run_command` and `start_process` under `full_access` run with the current Windows user's ambient authority. They may read, modify, delete, encode, or transmit anything that account can reach. The fixed clean child environment and known-pattern streaming redaction reduce accidental exposure but do not isolate account-readable files, keyrings, credentials, registry, devices, brokers, or network and do not provide DLP.
+
+Process IDs are random owner-bound handles. Lifetime, timeout, interrupt, resize, input, output, termination, and server-close guarantees apply only to processes that remain members of the exact native Job. Local emergency commands can list or terminate those recorded processes even when the remote transport is unavailable. They do not kill unrelated processes and do not claim control over WMI, COM, service, scheduler, or other broker-created escapes.
+
+`open_full_access_workspace` is a brokered confirmed-root admission path, not permission for an ambient child. It requires an exact local approval, stable Windows object identity, hard-link count 1 for ordinary confirmed-root files, fixed absolute lease expiry, PathGuard checks, atomic transactions for supported writes, and audit. It does not persistently widen global `allowedRoots`.
+
+The reserved `CODEXPRO_EXECUTION_PROFILE=workspace` is not a reduced-security mode. The AppContainer/LPAC Gate S probe did not prove the required network and broker isolation on the tested host, so production registration and activation remain unavailable. Task 4B0 fixtures are diagnostic, package-excluded, non-persistent, and cannot activate a sandbox. There is no automatic fallback from `workspace` to `full_access`.
 
 ## Workspace Lifecycle Boundaries
 
@@ -170,6 +197,9 @@ The HMAC chain detects accidental damage and untrusted modification that does no
 - Keep Codex session history access off unless needed. `--codex-sessions metadata` only lists local Codex JSONL metadata; `--codex-sessions read` allows bounded transcript reads.
 - Keep `CODEXPRO_CONTEXT_DIR` as a workspace-relative hidden directory such as `.ai-bridge`; CodexPro rejects source, build, dependency, credential, and absolute context directories.
 - Use `--bash full` only for trusted local repos.
+- Enable Contract V3 `full_access` only for repositories, package scripts, dependencies, compilers, and executables you trust under the current Windows account.
+- Review V3 approvals locally with `codexpro approvals list --server <server_id>`; do not approve an action whose displayed executable, arguments, working directory, authority, or lifetime is unexpected.
+- Keep `CODEXPRO_EXECUTION_PROFILE=workspace` unavailable. Do not relabel the retained AppContainer capability probe as a production sandbox or weaken its blocked evidence.
 - Do not treat MCP session ids or bash session labels as Codex conversation ids. CodexPro does not execute inside a Codex app session.
 - Prefer a repo-specific `--root` instead of `--allow-home`.
 - Use `--no-install-cloudflared --cloudflared <path>` if your organization requires a managed Cloudflare Tunnel binary.

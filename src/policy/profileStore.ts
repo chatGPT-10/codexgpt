@@ -4,12 +4,16 @@ import path from "node:path";
 import { codexProHome } from "../profileStore.js";
 import {
   compiledPermissionProfileV1Schema,
-  permissionProfileDocumentV1Schema
+  compiledPermissionProfileV3Schema,
+  permissionProfileDocumentV1Schema,
+  permissionProfileDocumentV3Schema
 } from "./schemas.js";
 import type {
   CompiledPermissionProfileV1,
+  CompiledPermissionProfileV3,
   FilesystemRuleV1,
   PermissionProfileDocumentV1,
+  PermissionProfileDocumentV3,
   PolicySourceHashV1
 } from "./types.js";
 
@@ -28,6 +32,12 @@ export class PolicyConfigError extends Error {
 export interface LoadedPermissionProfileGraph {
   id: string;
   order: PermissionProfileDocumentV1[];
+  sourceHashes: PolicySourceHashV1[];
+}
+
+export interface LoadedPermissionProfileGraphV3 {
+  id: string;
+  order: Array<PermissionProfileDocumentV1 | PermissionProfileDocumentV3>;
   sourceHashes: PolicySourceHashV1[];
 }
 
@@ -131,6 +141,72 @@ export function loadPermissionProfileGraph(
   };
 
   visit(id, 1);
+  return { id, order, sourceHashes };
+}
+
+function readAndValidateProfileForV3(
+  id: string,
+  home?: string
+): { document: PermissionProfileDocumentV1 | PermissionProfileDocumentV3; sha256: string } {
+  const filePath = permissionProfilePath(id, home);
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(filePath);
+  } catch (error) {
+    throw new PolicyConfigError("Permission profile does not exist or could not be inspected.", { cause: error });
+  }
+  if (stat.isSymbolicLink() || !stat.isFile() || stat.size > MAX_PROFILE_BYTES) {
+    throw new PolicyConfigError("Permission profile must be a bounded regular file, not a symbolic link.");
+  }
+  let bytes: Buffer;
+  try {
+    bytes = fs.readFileSync(filePath);
+  } catch (error) {
+    throw new PolicyConfigError("Permission profile could not be read.", { cause: error });
+  }
+  if (bytes.length > MAX_PROFILE_BYTES) throw new PolicyConfigError("Permission profile is too large; the maximum is 256 KiB.");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bytes.toString("utf8"));
+  } catch (error) {
+    throw new PolicyConfigError("Permission profile is not valid JSON.", { cause: error });
+  }
+  const v1 = permissionProfileDocumentV1Schema.safeParse(parsed);
+  const v3 = v1.success ? null : permissionProfileDocumentV3Schema.safeParse(parsed);
+  const document = v1.success ? v1.data : v3?.success ? v3.data : null;
+  if (!document) throw new PolicyConfigError("Permission profile does not match Permission Profile V1 or V3.");
+  if (document.id !== id) throw new PolicyConfigError("Permission profile id does not match its file name.");
+  return { document, sha256: createHash("sha256").update(bytes).digest("hex") };
+}
+
+export function loadPermissionProfileGraphV3(
+  id: string,
+  options: { home?: string; maxDepth?: number } = {}
+): LoadedPermissionProfileGraphV3 {
+  const maxDepth = options.maxDepth ?? 8;
+  if (!Number.isInteger(maxDepth) || maxDepth < 1 || maxDepth > 8) {
+    throw new PolicyConfigError("Permission profile inheritance depth must be between one and eight.");
+  }
+  const visited = new Set<string>();
+  const active = new Set<string>();
+  const order: Array<PermissionProfileDocumentV1 | PermissionProfileDocumentV3> = [];
+  const sourceHashes: PolicySourceHashV1[] = [];
+  const visit = (currentId: string, depth: number): void => {
+    if (depth > maxDepth) throw new PolicyConfigError("Permission profile inheritance exceeds eight levels.");
+    if (active.has(currentId)) throw new PolicyConfigError("Permission profile inheritance cycle detected.");
+    if (visited.has(currentId)) return;
+    active.add(currentId);
+    const loaded = readAndValidateProfileForV3(currentId, options.home);
+    if (loaded.document.extends) visit(loaded.document.extends, depth + 1);
+    active.delete(currentId);
+    visited.add(currentId);
+    order.push(loaded.document);
+    sourceHashes.push({ id: currentId, sha256: loaded.sha256 });
+  };
+  visit(id, 1);
+  if (order.at(-1)?.schemaVersion !== 3) {
+    throw new PolicyConfigError("Contract V3 requires a Permission Profile V3 leaf document.");
+  }
   return { id, order, sourceHashes };
 }
 
@@ -274,6 +350,46 @@ export function compilePermissionProfile(
   });
 
   return deepFreeze(compiled);
+}
+
+export function compilePermissionProfileV3(
+  graph: LoadedPermissionProfileGraphV3,
+  platform: NodeJS.Platform = process.platform
+): CompiledPermissionProfileV3 {
+  const leaf = graph.order.at(-1);
+  if (graph.order.length === 0 || leaf?.id !== graph.id || leaf.schemaVersion !== 3) {
+    throw new PolicyConfigError("Permission Profile V3 graph must end with its V3 leaf document.");
+  }
+  const v1Graph: LoadedPermissionProfileGraph = {
+    id: graph.id,
+    order: graph.order.map((document) => {
+      const { schemaVersion: _schemaVersion, ...rest } = document;
+      if ("fullAccess" in rest) delete rest.fullAccess;
+      return { schemaVersion: 1, ...rest } as PermissionProfileDocumentV1;
+    }),
+    sourceHashes: graph.sourceHashes
+  };
+  const base = compilePermissionProfile(v1Graph, platform);
+  const fullAccess = {
+    ambientFilesystem: false,
+    ambientCredentials: false,
+    ambientRegistry: false,
+    unrestrictedNetwork: false,
+    requireBlockedPathEnforcement: true,
+    requireCredentialIsolation: true,
+    requireRegistryIsolation: true,
+    requireDeviceIsolation: true,
+    requireNetworkEnforcement: true,
+    requireSandbox: true
+  };
+  for (const document of graph.order) {
+    if (document.schemaVersion === 3 && document.fullAccess) Object.assign(fullAccess, document.fullAccess);
+  }
+  return deepFreeze(compiledPermissionProfileV3Schema.parse({
+    ...base,
+    schemaVersion: 3,
+    fullAccess
+  }));
 }
 
 export function policyRevisionForSources(

@@ -97,10 +97,11 @@ test("Move Change Set V2 rejects malformed move facts and detects tampering", ()
     assert.throws(() => store.create(draft({
       operations: [{ ...draft().operations[0], destinationRelativePath: "a.txt" }]
     })), /invalid/i);
-    const created = store.create(draft());
+    const created = store.create(draft({ contractVersion: 3 }));
+    assert.equal(created.contractVersion, 3);
     const file = path.join(changeSetDirectoryFor(stateRoot, created.workspaceStateKey, created.changeSetId), "manifest.json");
     const tampered = JSON.parse(fs.readFileSync(file, "utf8"));
-    tampered.operations[0].bytes = 8;
+    tampered.contractVersion = 2;
     fs.writeFileSync(file, JSON.stringify(tampered));
     assert.equal(store.probe(created.workspaceStateKey, created.changeSetId), "unknown");
     assert.throws(() => store.read(created.workspaceStateKey, created.changeSetId), /authentication|invalid/i);

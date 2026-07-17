@@ -253,7 +253,7 @@ function originalManifest(engine, workspace, overrides = {}) {
       requestId: "request_undo_fixture",
       ownerBinding: overrides.ownerBinding ?? OWNER,
       policyRevision: "policy-fixture",
-      contractVersion: 2,
+      contractVersion: overrides.contractVersion ?? 2,
       state: overrides.state ?? "active",
       undoSupported: overrides.undoSupported ?? true,
       undoReason: overrides.undoReason ?? null,
@@ -294,6 +294,7 @@ async function prepareDefault(context, overrides = {}) {
     policyRevision: "policy-fixture",
     requestId: "request_undo",
     preview: false,
+    contractVersion: 2,
     ...overrides
   });
 }
@@ -344,7 +345,7 @@ test("bounded filesystem_batch descriptions are deterministic and enforce every 
 
 test("undo restores create replace delete append-replacement and patch members only after audited commit", () => fixture(async (context) => {
   await seedAfterState(context.workspaceRoot);
-  const original = context.store.create(originalManifest(context.engine, context.workspace));
+  const original = context.store.create(originalManifest(context.engine, context.workspace, { contractVersion: 3 }));
   const prepared = await prepareDefault(context);
   assert.equal(prepared.preview, false);
   assert.equal(prepared.revertsChangeSetId, original.changeSetId);
@@ -370,10 +371,22 @@ test("undo restores create replace delete append-replacement and patch members o
   assert.equal(undone.state, "undone");
   assert.equal(undone.undoSupported, false);
   const reverse = context.store.read(original.workspaceStateKey, pending.changeSetId);
+  assert.equal(original.contractVersion, 3);
+  assert.equal(reverse.contractVersion, 2);
   assert.equal(reverse.revertsChangeSetId, original.changeSetId);
   assert.equal(reverse.undoSupported, false);
   assert.equal(reverse.undoReason, "reverted_change_set");
   assert.equal(pending.revertsChangeSetId, original.changeSetId);
+}));
+
+test("a V3 undo writes the caller contract while retaining lineage to a V3 source", () => fixture(async (context) => {
+  await seedAfterState(context.workspaceRoot);
+  const original = context.store.create(originalManifest(context.engine, context.workspace, { contractVersion: 3 }));
+  const prepared = await prepareDefault(context, { contractVersion: 3 });
+  await prepared.pending.commit({ result: { ok: true }, async persistAudit() {} });
+  const reverse = context.store.read(original.workspaceStateKey, prepared.pending.changeSetId);
+  assert.equal(reverse.contractVersion, 3);
+  assert.equal(reverse.revertsChangeSetId, original.changeSetId);
 }));
 
 test("preview performs full validation without filesystem transaction or change-set mutation", () => fixture(async (context) => {
@@ -548,7 +561,8 @@ test("authenticated rollback plaintext must still match the manifest before-stat
       ownerBinding: OWNER,
       policyRevision: "policy-fixture",
       requestId: "request-blob-mismatch",
-      preview: false
+      preview: false,
+      contractVersion: 2
     }),
     (error) => error instanceof UndoChangeSetError && error.code === "INTERNAL_ERROR"
   );

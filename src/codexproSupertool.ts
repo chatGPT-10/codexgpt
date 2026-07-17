@@ -1,19 +1,26 @@
 import { z } from "zod";
+import type { ToolContractVersion } from "./config.js";
 import { isPolicyToolFailure } from "./policy/integration.js";
 import {
   CANONICAL_CODEXPRO_CHILD_TOOLS,
   CANONICAL_CODEXPRO_CHILD_TOOLS_V2,
+  CANONICAL_CODEXPRO_CHILD_TOOLS_V3,
   CODEXPRO_ERROR_MESSAGES,
   codexproOutputShape,
   codexproOutputShapeV2,
+  codexproOutputShapeV3,
   createCodexProFailure,
   createCodexProFailureV2,
+  createCodexProFailureV3,
   createCodexProListActionsSuccess,
   createCodexProListActionsSuccessV2,
+  createCodexProListActionsSuccessV3,
   resolveCodexProAction,
   resolveCodexProActionV2,
+  resolveCodexProActionV3,
   wrapCodexProChildResult,
-  wrapCodexProChildResultV2
+  wrapCodexProChildResultV2,
+  wrapCodexProChildResultV3
 } from "./tools/schemas/codexpro.js";
 
 interface ToolCallResult {
@@ -68,6 +75,7 @@ interface SupertoolContract {
 
 const canonicalToolsV1 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS);
 const canonicalToolsV2 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V2);
+const canonicalToolsV3 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V3);
 const v2OnlyTools = new Set<string>(
   CANONICAL_CODEXPRO_CHILD_TOOLS_V2.filter((name) => !canonicalToolsV1.has(name))
 );
@@ -79,6 +87,7 @@ const codexproInputSchema = z.object({
 
 const codexproAdvertisedOutputSchema = z.object(codexproOutputShape).strict();
 const codexproAdvertisedOutputSchemaV2 = z.object(codexproOutputShapeV2).strict();
+const codexproAdvertisedOutputSchemaV3 = z.object(codexproOutputShapeV3).strict();
 
 function elapsedMs(startedAt: number): number {
   return Math.max(0, Date.now() - startedAt);
@@ -86,9 +95,19 @@ function elapsedMs(startedAt: number): number {
 
 function contractFor(
   tools: Record<string, RegisteredToolEntry>,
-  requestedVersion?: 1 | 2
+  requestedVersion?: ToolContractVersion
 ): SupertoolContract {
   const inferredV2 = Object.keys(tools).some((name) => v2OnlyTools.has(name));
+  if (requestedVersion === 3) {
+    return {
+      canonicalTools: canonicalToolsV3,
+      outputSchema: codexproAdvertisedOutputSchemaV3,
+      createFailure: createCodexProFailureV3 as unknown as FailureFactory,
+      createList: createCodexProListActionsSuccessV3 as unknown as ListFactory,
+      resolve: resolveCodexProActionV3 as ResolveFactory,
+      wrap: wrapCodexProChildResultV3 as unknown as WrapFactory
+    };
+  }
   const useV2 = requestedVersion === 2 || (requestedVersion === undefined && inferredV2);
   if (useV2) {
     return {
@@ -175,7 +194,7 @@ function actionNames(structuredContent: Record<string, unknown>): string[] {
 
 export function upgradeCodexProSupertool(
   server: unknown,
-  contractVersion?: 1 | 2
+  contractVersion?: ToolContractVersion
 ): void {
   const candidate = server as Partial<ServerWithRegisteredTools>;
   const tools = candidate._registeredTools;

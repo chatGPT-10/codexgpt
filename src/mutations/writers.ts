@@ -22,7 +22,7 @@ export interface FileMutationContext {
   requestId: string | null;
   ownerBinding: string;
   policyRevision: string;
-  contractVersion: 1 | 2;
+  contractVersion: 1 | 2 | 3;
   now?: () => number;
   retentionMs?: number;
 }
@@ -48,7 +48,7 @@ export interface PatchMutationContext {
   requestId: string | null;
   ownerBinding: string;
   policyRevision: string;
-  contractVersion: 1 | 2;
+  contractVersion: 1 | 2 | 3;
   now?: () => number;
   retentionMs?: number;
 }
@@ -80,7 +80,7 @@ export interface BatchMutationContext {
   requestId: string | null;
   ownerBinding: string;
   policyRevision: string;
-  contractVersion: 1 | 2;
+  contractVersion: 1 | 2 | 3;
   now?: () => number;
   retentionMs?: number;
   retainChangeSet?: boolean;

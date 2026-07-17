@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fsp from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,12 +37,32 @@ const requiredFiles = [
   "scripts/toolchain-manager.mjs",
   "scripts/toolchains.json",
   "scripts/test-domains.mjs",
+  "scripts/windows-process-host-manifest.json",
+  "scripts/windows-process-host-protocol-v1.json",
+  "scripts/windows-process-host.cs",
+  "scripts/windows-process-host.ps1",
   "src/cliEnvironment.ts",
   "test/fixtures/filesystem-identity.js",
   "test/operational-reliability.test.mjs",
   "test/test-domain-classification.test.mjs"
 ];
 await Promise.all(requiredFiles.map(requireFile));
+
+const processHostManifest = JSON.parse(await read("scripts/windows-process-host-manifest.json"));
+const processHostSources = [
+  ["productionPowerShellSha256", "scripts/windows-process-host.ps1"],
+  ["productionCSharpSha256", "scripts/windows-process-host.cs"],
+  ["conPtyWorkerSha256", "scripts/windows-conpty-worker.ps1"],
+  ["protocolSha256", "scripts/windows-process-host-protocol-v1.json"]
+];
+if (
+  processHostManifest.schemaVersion !== 1 || processHostManifest.protocolName !== "CXP4" ||
+  processHostManifest.protocolVersion !== 1 || processHostManifest.headerLength !== 64
+) failures.push("Windows process-host manifest contract must remain exact CXP4 protocol V1 with a 64-byte header.");
+for (const [field, relativePath] of processHostSources) {
+  const digest = createHash("sha256").update(await fsp.readFile(path.join(root, relativePath))).digest("hex");
+  if (processHostManifest[field] !== digest) failures.push(`Windows process-host manifest digest drifted for ${relativePath}.`);
+}
 
 const [agents, packageText, workflow, config, fsOps, mutationTest, gitignore, toolchainText, cliEnvironment, configExample, toolchainManager, smokeCompat] = await Promise.all([
   read("AGENTS.md"),

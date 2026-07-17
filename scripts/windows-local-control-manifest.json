@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "protocolName": "codexpro-local-control",
+  "protocolVersion": 1,
+  "maximumMessageBytes": 65536,
+  "nativeFactoryClass": "CodexPro.Phase4.LocalControlSpike",
+  "productionPowerShell": "scripts/windows-local-control.ps1",
+  "productionCSharp": "scripts/windows-local-control.cs",
+  "gateA0CSharp": "scripts/windows-local-control-spike.cs",
+  "productionPowerShellSha256": "317f872028e4e79d182fd50371cf228578ccd8798904be9576716908f9e5f7cc",
+  "productionCSharpSha256": "af0f6583feaaff33b0badcda80bea494b284bd3e097ca161d40e3f810da5915c",
+  "gateA0CSharpSha256": "af0f6583feaaff33b0badcda80bea494b284bd3e097ca161d40e3f810da5915c",
+  "requiredPipeModeFlags": [
+    "PIPE_TYPE_MESSAGE",
+    "PIPE_READMODE_MESSAGE",
+    "PIPE_WAIT",
+    "PIPE_REJECT_REMOTE_CLIENTS"
+  ],
+  "bootstrapSecretTransports": [
+    "private_parent_stdin",
+    "private_local_pipe"
+  ]
+}

@@ -57,21 +57,7 @@ After every meaningful completed step:
 3. Record exact verification commands and results.
 4. Record risks, limitations, rollback, and the next approved action.
 
-Archive entry fields:
-
-```text
-Step ID and title
-Status
-Goal
-Files changed
-Implementation summary
-Verification commands
-Verification results
-Decisions made
-Risks or limitations
-Rollback method
-Next step
-```
+Every archive entry records the step/title, status, goal, changed files, implementation, exact verification/results, decisions, risks, rollback, and next step.
 
 Memory rules:
 
@@ -153,49 +139,32 @@ Memory rules:
 
 The following rules are mandatory and are enforced by `npm run policy:check` plus CI contract tests:
 
-- Use `scripts/toolchain-manager.mjs` for exact native-Windows Node 20/24 reproduction. The managed root is `%LOCALAPPDATA%\CodexPro\toolchains`; each installation must be downloaded from the official Node distribution, verified against official `SHASUMS256.txt`, and recorded in the local `manifest.json`. Temporary-directory runtimes are migration sources only and are never the authoritative retained toolchain.
-- Filesystem handles, hard links, unlink/rename behavior, process trees, signals, junctions/reparse points, sharing violations, and file locks require the affected tests under both pinned Node 20 and Node 24 before publication.
-- Full regression, complete Smoke, handoff, signal, Control-C, process-tree, child-crash, and multi-process lock tests must not remain synchronously attached to the connector control request. `scripts/test-domains.mjs` is the authoritative partition: run the `ordinary` domain locally through `scripts/long-task-runner.mjs`; run the `control` or `all` domain only in GitHub Actions or an independently proven native terminal/process domain. Retain the returned run ID and inspect `status`/result JSON and bounded log files.
-- Before retrying an interrupted long task, list runner state and prove that no runner with the same kind remains active. Stop only an exact recorded run ID; never kill every `node.exe` process or infer ownership from a PID alone.
-- GitHub CLI diagnostics must use `scripts/exact-head-ci.mjs` or `scripts/ci-failure-summary.mjs`. These use the bounded Windows user/configuration environment, omit `CI=1` for interactive `gh` discovery, and never inherit `GH_TOKEN` or `GITHUB_TOKEN` by default.
-- CI failure analysis starts from the exact 40-character HEAD SHA, selects the exact-head run, waits for terminal state, and fixes the first underlying error. Use compact summaries and uploaded bounded logs rather than returning the complete regression log through the connector.
-- Phase closure is defined by the closure commit SHA plus a successful exact-head CI run for that SHA. Exact-head evidence may be written only below ignored `.ai-bridge/`; never create a follow-up repository commit solely to record the run ID, because that creates a new unverified HEAD.
+- Use `scripts/toolchain-manager.mjs` and the verified `%LOCALAPPDATA%\CodexPro\toolchains` manifest for exact native-Windows Node 20/24 reproduction. Temporary runtimes are migration sources only. Platform-sensitive filesystem and process behavior requires both pinned majors before publication.
+- Use `scripts/test-domains.mjs` as the authoritative partition. Run `ordinary` through `scripts/long-task-runner.mjs`; run `control`/`all` only in CI or a proven independent native terminal. Retain the run ID and bounded result/log evidence. Before retrying, prove no same-kind run is active; stop only an exact owned run ID and never kill all `node.exe` processes.
+- Diagnose CI through `scripts/exact-head-ci.mjs` or `scripts/ci-failure-summary.mjs`, bound to the exact 40-character HEAD with bounded Windows user/config environment and no inherited GitHub tokens. Fix the first underlying error and keep evidence only below ignored `.ai-bridge/`.
+- A phase closes only when its closure SHA passes exact-head CI; never create a follow-up repository commit solely to record the run ID.
 - Runtime/contract changes require the complete Ubuntu/Windows Node 20/24 matrix. Documentation-only changes use the CI documentation/policy gate and must not trigger a recursive closure commit. Any change to scripts, workflow, package metadata, tests, configuration, source, or fixtures is runtime-relevant.
-- Adversarial replacement fixtures must pre-create the replacement while the original still exists and assert distinct stable object identity before the replacement is installed. Do not assume inode/file-index monotonicity, timestamp change, or non-reuse after delete-and-create.
-- Mutation review identity must use repository path, syscall type, and a normalized semantic AST/call digest. Line and column are diagnostic only and must not be primary allowlist identity.
-- Large single files must be read through explicit line ranges. Raising the scan ceiling must not raise the per-response output ceiling or return multi-megabyte tool payloads through the connector.
+- Replacement fixtures must pre-create a distinct stable object before installation; never infer identity from monotonic inode/file-index or timestamps. Mutation review identity must use repository path, syscall type, and a normalized semantic AST/call digest. Line/column are diagnostic only.
+- Large single files must be read through explicit line ranges. Scan ceilings must not enlarge connector response ceilings.
 - `npm run policy:check` is required before staging and runs in every CI path, including documentation-only changes.
+
+### 5.9 Phase 4 design boundary
+
+- Follow the paired Phase 4 [spec](docs/superpowers/specs/2026-07-16-phase-4-windows-execution-and-sandbox-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-4-windows-execution-and-sandbox.md). Reduced closure delivers trusted-code Phase 4A; diagnostic 4B0 stays blocked/package-excluded, while Tasks 4B1–4B6 and `workspace` activation are deferred.
+- Preserve exact V1=28/V2=31/V3=39, required V3 enforce/audit/session/atomic/local-approval gates, and all persistence/rollback/native-host contracts. `confirmed_roots` remains brokered; `full_access` is ambient trusted-code authority with no filesystem/credential/registry/network/broker isolation; `workspace` is unavailable with no fallback. Destructive ownership tests run only in an independent control harness.
+
+### 5.10 Phase 5 design boundary
+
+- Follow the paired Phase 5 [spec](docs/superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md); runtime waits for Phase 4 exact-head closure. V4 is opt-in exact 51 and preserves V1/V2/V3.
+- Safe Git writes require exact executable identity, private indexes, quarantined object-only merge, complete mutation tokens, R3 ref/history approval, and journaled participants. Managed task worktrees are owner-bound artifacts outside repositories; neither mechanism is a sandbox, widens `allowedRoots`, deletes branches/history, or enables typed remote/credential/force operations.
 
 ## 6. Documentation map
 
-- `Memory.md` — current state and next action.
-- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` — current authoritative architecture, phase ordering, Policy Kernel design gate, acceptance criteria, and next action.
-- `docs/memory/archive/phase-0-and-0.5.md` — closed Phase 0 and Phase 0.5 history through STEP-065.
-- `docs/memory/archive/interphase-maintenance.md` — closed maintenance records from STEP-066 through STEP-072.
-- `docs/memory/archive/phase-1.md` — unchanged Phase 1 Volume 1 covering STEP-073 through STEP-139.
-- `docs/memory/archive/phase-1-part-2.md` — closed Phase 1 Volume 2 covering STEP-140 through STEP-151.
-- `docs/memory/archive/phase-1-part-3.md` — closed Phase 1 Volume 3 covering STEP-152 through STEP-165.
-- `docs/memory/archive/phase-1-part-4.md` — closed Phase 1 Volume 4 covering STEP-166 through STEP-179.
-- `docs/memory/archive/phase-1-part-5.md` — closed Phase 1 Volume 5 covering STEP-180 through STEP-193.
-- `docs/memory/archive/phase-1-part-6.md` — closed Phase 1 Volume 6 covering STEP-194 through STEP-205.
-- `docs/memory/archive/phase-1-part-7.md` — closed Phase 1 Volume 7 covering STEP-206 through STEP-219, with the append-only STEP-205 count correction at its start.
-- `docs/memory/archive/phase-1-part-8.md` — closed Phase 1 Volume 8 covering STEP-220 through STEP-236.
-- `docs/memory/archive/phase-1-part-9.md` — closed Phase 1 Volume 9 covering STEP-237 through STEP-247.
-- `docs/superpowers/specs/` and `docs/superpowers/plans/` — paired exact-contract designs and TDD plans for the twenty-eight Phase 1 slices, the Policy Kernel Gate, Phase 2A, Phase 2B workspace lifecycle, and Phase 3A–3D, including the current Phase 3D implementation and acceptance evidence.
-- `docs/memory/archive/policy-kernel-gate.md` — closed Policy Kernel Gate and Phase 2A records covering STEP-248 through STEP-253.
-- `docs/memory/archive/phase-2b-workspace-lifecycle.md` — closed Phase 2B workspace-lifecycle records covering STEP-254 through STEP-262.
-- `docs/memory/archive/phase-3.md` — closed Phase 3 Volume 1 covering STEP-263 through STEP-277.
-- `docs/memory/archive/phase-3-part-2.md` — closed Phase 3 Volume 2 covering STEP-278 through STEP-285.
-- `docs/memory/archive/phase-3-part-3.md` — closed Phase 3 Volume 3 covering STEP-286 through STEP-291.
-- `docs/memory/archive/phase-3-part-4.md` — closed Phase 3 Volume 4 covering STEP-292 through STEP-306.
-- Phase 1, Phase 2A, Phase 2B, and complete Phase 3 are published and closed. Runtime head `2df4a1f` passed run `29441752493`; documentation closure head `3a04064` passed final run `29443158835`. Both exact heads completed Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package.
-- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` — historical 2026-07-11 audit baseline; active sequencing is superseded by the authoritative master implementation plan.
-- `SECURITY.md` — active security guidance and public-entry rules.
-- `CLOUDFLARED_VERIFIED_INSTALL.md` — pinned Cloudflared installation and routing policy.
-- `design.md` — UI and documentation visual design rules.
-- `README.md` / `README_ZH.md` — user-facing setup and usage.
+- `Memory.md` indexes current state and `docs/memory/archive/` append-only history.
+- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` controls sequencing; paired files under `docs/superpowers/specs/` and `plans/` control exact phase contracts/TDD.
+- `README.md`, `README_ZH.md`, `SECURITY.md`, `CLOUDFLARED_VERIFIED_INSTALL.md`, and `design.md` are the active user/security/design references. `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` is a historical baseline.
 
-Do not duplicate long architecture descriptions, historical narratives, or step logs in this file. Update the appropriate document and keep only rules required for the next coding session here.
+Keep long mechanisms and history out of this rule file.
 
 ## 7. Verification rules
 
@@ -230,6 +199,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phase 1 through complete Phase 3 are published and closed. Runtime head `2df4a1f50c692ef414f1b913dabdaf7b198c97a2` passed exact-head run `29441752493`; documentation closure head `3a040647da1f443513ea8348cc3c02a0603ca9b0` passed final exact-head run `29443158835`. Both runs completed Ubuntu/Windows Node 20/24 Build, complete Regression, all protected Smoke sections, and Package. Retain the verified portable Node `v20.20.2` runtime at `%LOCALAPPDATA%\CodexPro\toolchains\node-v20.20.2-win-x64\node.exe`; cleanup must not remove it without explicit relocation or user approval. The next approved boundary is Phase 4 design review and local TDD execution under the closed Phase 3 compatibility, recovery, audit, rollback, and security gates. Exact evidence is in `Memory.md` and STEP-306.
+Phases 1–3 are published and closed. Reduced Phase 4 Tasks 4A0a–4A10, diagnostic 4B0, 4C0, and 4C1 are locally complete; 4B0 remains blocked/non-production and `workspace`/4B1–4B6 stay deferred. Preserve the managed Node toolchains. Current evidence and next action are in `Memory.md`.
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Tasks receive local design/TDD/verification gates only; publish once at the complete phase boundary after neat-freak and the full local gate, then require exact-head CI before beginning the next phase. Failed gates must be fixed rather than bypassed. This excludes destructive user-data or Git-history operations, production deployment, credential disclosure, and silent scope expansion. Use `Memory.md` for current evidence, the master plan for sequencing, and `docs/memory/archive/phase-3-part-4.md` for the closed Phase 3 record.
+Implementation is authorized through Phase 8 using recommended options, scoped staging, English commits, and one push after each verified phase. Task 4C2 publication and exact-head CI are next; Phase 5 waits for that closure SHA. Fix required gates rather than bypassing them; do not weaken the deferred sandbox claim. Destructive user data/history changes, production deployment, credential disclosure, and silent scope expansion remain excluded.

@@ -16,7 +16,15 @@ export const POLICY_SCOPES = [
   "admin:credentials"
 ] as const;
 
+export const POLICY_SCOPES_V3 = [
+  ...POLICY_SCOPES,
+  "workspace:full-access",
+  "host:full-access",
+  "process:persistent"
+] as const;
+
 export type PolicyScope = typeof POLICY_SCOPES[number];
+export type PolicyScopeV3 = typeof POLICY_SCOPES_V3[number];
 export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
 export type PolicyOutcome = "allow" | "deny" | "approval_required" | "enforcement_unavailable";
 export type PolicyReasonCode =
@@ -139,6 +147,38 @@ export interface CompiledPermissionProfileV1 {
   };
 }
 
+export interface FullAccessPermissionV3 {
+  ambientFilesystem: boolean;
+  ambientCredentials: boolean;
+  ambientRegistry: boolean;
+  unrestrictedNetwork: boolean;
+  requireBlockedPathEnforcement: boolean;
+  requireCredentialIsolation: boolean;
+  requireRegistryIsolation: boolean;
+  requireDeviceIsolation: boolean;
+  requireNetworkEnforcement: boolean;
+  requireSandbox: boolean;
+}
+
+export interface PermissionProfileDocumentV3 {
+  schemaVersion: 3;
+  id: string;
+  extends?: string;
+  description?: string;
+  workspaceRoots?: string[];
+  filesystem?: PermissionProfileDocumentV1["filesystem"];
+  git?: PermissionProfileDocumentV1["git"];
+  shell?: PermissionProfileDocumentV1["shell"];
+  process?: PermissionProfileDocumentV1["process"];
+  network?: PermissionProfileDocumentV1["network"];
+  fullAccess?: Partial<FullAccessPermissionV3>;
+}
+
+export interface CompiledPermissionProfileV3 extends Omit<CompiledPermissionProfileV1, "schemaVersion"> {
+  schemaVersion: 3;
+  fullAccess: FullAccessPermissionV3;
+}
+
 export interface PolicySourceHashV1 {
   id: string;
   sha256: string;
@@ -171,6 +211,11 @@ export interface RequestIdentityV1 {
   assuranceLevel: "local" | "low" | "shared_secret" | "strong";
 }
 
+export interface RequestIdentityV3 extends Omit<RequestIdentityV1, "schemaVersion" | "scopes"> {
+  schemaVersion: 3;
+  scopes: PolicyScopeV3[];
+}
+
 export interface RequestContextV1 {
   schemaVersion: 1;
   requestId: string;
@@ -183,6 +228,11 @@ export interface RequestContextV1 {
   policyRevision: string;
   sessionGrantRevision: string;
   receivedAt: string;
+}
+
+export interface RequestContextV3 extends Omit<RequestContextV1, "schemaVersion" | "identity"> {
+  schemaVersion: 3;
+  identity: RequestIdentityV3;
 }
 
 export interface FilesystemResourceV1 {

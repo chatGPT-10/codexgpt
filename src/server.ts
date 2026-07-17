@@ -30,6 +30,39 @@ import {
   createPhase3DServerIntegration,
   type Phase3DServerDependencies
 } from "./tools/phase3dServer.js";
+import {
+  contractIncludesV2,
+  v2ToolsForProjection,
+  v3ToolsForProjection,
+  type CanonicalToolV3Addition
+} from "./tools/contracts/index.js";
+import {
+  createOpenFullAccessWorkspaceFailure,
+  createOpenFullAccessWorkspaceSuccess,
+  openFullAccessWorkspaceInputV1Schema,
+  openFullAccessWorkspaceOutputShape
+} from "./tools/schemas/openFullAccessWorkspace.js";
+import type { RootAdmissionRuntimeV3 } from "./access/rootAdmission.js";
+import {
+  createExecutionFailure,
+  interruptProcessInputV1Schema,
+  interruptProcessOutputShape,
+  listProcessesInputV1Schema,
+  listProcessesOutputShape,
+  readProcessOutputInputV1Schema,
+  readProcessOutputOutputShape,
+  resizeProcessTerminalInputV1Schema,
+  resizeProcessTerminalOutputShape,
+  runCommandInputV1Schema,
+  runCommandOutputShape,
+  startProcessInputV1Schema,
+  startProcessOutputShape,
+  terminateProcessInputV1Schema,
+  terminateProcessOutputShape,
+  writeProcessInputV1Schema,
+  writeProcessInputOutputShape,
+  type ExecutionToolName
+} from "./tools/schemas/execution.js";
 import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
 import {
   repoTree,
@@ -552,7 +585,12 @@ const workspaceSnapshotAiProviderResultSchema = z.object({
 const listWorkspacesProviderItemSchema = z.object({
   id: z.string().min(1),
   root: z.string().min(1),
-  openedAt: z.string().min(1)
+  openedAt: z.string().min(1),
+  accessClass: z.literal("confirmed_root").optional(),
+  access: z.enum(["read_only", "read_write"]).optional(),
+  leaseId: z.string().min(1).optional(),
+  idleExpiresAt: z.string().min(1).optional(),
+  absoluteExpiresAt: z.string().min(1).optional()
 }).strict();
 
 const listWorkspacesProviderResultSchema = z.array(listWorkspacesProviderItemSchema);
@@ -3717,6 +3755,8 @@ function errorResult(error: unknown): any {
 }
 
 function validateToolArgs(name: string, options: Record<string, unknown>, args: unknown): any {
+  const strictV3Schema = V3_INPUT_SCHEMAS[name];
+  if (strictV3Schema) return strictV3Schema.parse(args ?? {});
   const inputSchema = options.inputSchema;
   if (!inputSchema || typeof inputSchema !== "object" || Array.isArray(inputSchema)) return args ?? {};
   const shape: Record<string, z.ZodTypeAny> = {};
@@ -4147,6 +4187,10 @@ export interface CodexProServerDependencies extends Phase3DServerDependencies {
   changeSetOwnerBindingKey?: Buffer;
   toolResourceResolver?: ToolResourceResolver;
   persistentAuditRuntime?: Required<Pick<PolicyRuntime, "persistAuthorization" | "persistExecution">>;
+  localApprovalRuntimeV3?: import("./control/runtime.js").LocalApprovalRuntimeV3;
+  v3ToolHandlers?: Partial<Record<CanonicalToolV3Addition, CodexToolHandler>>;
+  rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
+  windowsProcessHostRuntimeV3?: import("./process/windowsHostClient.js").WindowsProcessHostRuntime;
 }
 
 const SUPERTOOL_NAME = "codexpro";
@@ -4353,6 +4397,12 @@ const CONNECTION_TEST_HIDDEN_TOOLS = new Set<string>([
   "undo_change_set"
 ]);
 
+const V3_ADDITION_TOOLS = new Set<string>(v3ToolsForProjection({
+  version: 3,
+  mode: "full",
+  connectionTest: false
+}));
+
 function codexSessionToolNames(config: CodexProConfig): string[] {
   if (config.codexSessions === "off") return [];
   return config.codexSessions === "read"
@@ -4367,7 +4417,7 @@ function toolNamesForMode(config: CodexProConfig): string[] {
       : config.toolMode === "minimal"
         ? [...MINIMAL_TOOL_NAMES]
         : [...STANDARD_TOOL_NAMES];
-  if (config.bashMode === "off") {
+  if (config.toolContractVersion === 3 || config.bashMode === "off") {
     const bashIndex = names.indexOf("bash");
     if (bashIndex !== -1) names.splice(bashIndex, 1);
   }
@@ -4382,8 +4432,19 @@ function toolNamesForMode(config: CodexProConfig): string[] {
     const analysisIndex = names.indexOf("inspect_workspace");
     if (analysisIndex !== -1) names.splice(analysisIndex, 1);
   }
-  if (config.toolContractVersion === 2 && config.toolMode !== "minimal" && !names.includes("undo_change_set")) {
-    names.push("undo_change_set");
+  for (const name of v2ToolsForProjection({
+    version: config.toolContractVersion,
+    mode: config.toolMode,
+    connectionTest: config.connectionTest
+  })) {
+    if (!names.includes(name)) names.push(name);
+  }
+  for (const name of v3ToolsForProjection({
+    version: config.toolContractVersion,
+    mode: config.toolMode,
+    connectionTest: config.connectionTest
+  })) {
+    if (!names.includes(name)) names.push(name);
   }
   if (config.connectionTest) {
     for (const hiddenTool of CONNECTION_TEST_HIDDEN_TOOLS) {
@@ -4414,10 +4475,17 @@ function registeredToolNames(server: McpServer): string[] {
 
 function shouldRegisterTool(config: CodexProConfig, name: string): boolean {
   if (config.connectionTest && CONNECTION_TEST_HIDDEN_TOOLS.has(name)) return false;
-  if (name === "undo_change_set") {
-    return config.toolContractVersion === 2 && config.toolMode !== "minimal";
+  if (V3_ADDITION_TOOLS.has(name)) {
+    return (v3ToolsForProjection({
+      version: config.toolContractVersion,
+      mode: config.toolMode,
+      connectionTest: config.connectionTest
+    }) as readonly string[]).includes(name);
   }
-  if (name === "bash" && config.bashMode === "off") return false;
+  if (name === "undo_change_set") {
+    return contractIncludesV2(config.toolContractVersion) && config.toolMode !== "minimal";
+  }
+  if (name === "bash" && (config.toolContractVersion === 3 || config.bashMode === "off")) return false;
   if ((name === "write" || name === "edit" || name === "apply_patch") && config.writeMode !== "workspace") return false;
   if (name === "codex_sessions") return config.codexSessions !== "off";
   if (name === "read_codex_session") return config.codexSessions === "read";
@@ -4447,6 +4515,192 @@ function registerCodexTool(
   rememberRegisteredToolHandler(server, name, mutationAwareHandler);
 }
 
+const V3_INPUT_SCHEMAS: Record<string, z.ZodTypeAny> = Object.freeze({
+  open_full_access_workspace: openFullAccessWorkspaceInputV1Schema,
+  run_command: runCommandInputV1Schema,
+  start_process: startProcessInputV1Schema,
+  read_process_output: readProcessOutputInputV1Schema,
+  write_process_input: writeProcessInputV1Schema,
+  interrupt_process: interruptProcessInputV1Schema,
+  terminate_process: terminateProcessInputV1Schema,
+  resize_process_terminal: resizeProcessTerminalInputV1Schema,
+  list_processes: listProcessesInputV1Schema
+});
+
+interface V3ContractToolDefinition {
+  name: CanonicalToolV3Addition;
+  title: string;
+  description: string;
+  inputSchema: z.ZodObject<any>;
+  outputSchema: Record<string, z.ZodTypeAny>;
+  annotations: Record<string, unknown>;
+}
+
+const V3_READ_ANNOTATIONS = Object.freeze({
+  readOnlyHint: true,
+  openWorldHint: false,
+  destructiveHint: false,
+  idempotentHint: true
+});
+const V3_MUTATION_ANNOTATIONS = Object.freeze({
+  readOnlyHint: false,
+  openWorldHint: false,
+  destructiveHint: true,
+  idempotentHint: false
+});
+const V3_EXECUTION_ANNOTATIONS = Object.freeze({
+  readOnlyHint: false,
+  openWorldHint: true,
+  destructiveHint: true,
+  idempotentHint: false
+});
+
+const V3_CONTRACT_TOOL_DEFINITIONS: readonly V3ContractToolDefinition[] = Object.freeze([
+  {
+    name: "open_full_access_workspace",
+    title: "Open Full Access Workspace",
+    description: "Request a bounded local approval before opening one exact local root outside configured roots.",
+    inputSchema: openFullAccessWorkspaceInputV1Schema,
+    outputSchema: openFullAccessWorkspaceOutputShape,
+    annotations: V3_MUTATION_ANNOTATIONS
+  },
+  {
+    name: "run_command",
+    title: "Run Command",
+    description: "Run one structured command through the selected V3 execution authority and return bounded retained output.",
+    inputSchema: runCommandInputV1Schema,
+    outputSchema: runCommandOutputShape,
+    annotations: V3_EXECUTION_ANNOTATIONS
+  },
+  {
+    name: "start_process",
+    title: "Start Process",
+    description: "Start one bounded persistent process through the selected V3 execution authority.",
+    inputSchema: startProcessInputV1Schema,
+    outputSchema: startProcessOutputShape,
+    annotations: V3_EXECUTION_ANNOTATIONS
+  },
+  {
+    name: "read_process_output",
+    title: "Read Process Output",
+    description: "Read a bounded page from a process owned by this transport and identity context.",
+    inputSchema: readProcessOutputInputV1Schema,
+    outputSchema: readProcessOutputOutputShape,
+    annotations: V3_READ_ANNOTATIONS
+  },
+  {
+    name: "write_process_input",
+    title: "Write Process Input",
+    description: "Write bounded input to a process owned by this transport and identity context.",
+    inputSchema: writeProcessInputV1Schema,
+    outputSchema: writeProcessInputOutputShape,
+    annotations: V3_MUTATION_ANNOTATIONS
+  },
+  {
+    name: "interrupt_process",
+    title: "Interrupt Process",
+    description: "Request a bounded interrupt for a process owned by this transport and identity context.",
+    inputSchema: interruptProcessInputV1Schema,
+    outputSchema: interruptProcessOutputShape,
+    annotations: V3_MUTATION_ANNOTATIONS
+  },
+  {
+    name: "terminate_process",
+    title: "Terminate Process",
+    description: "Terminate a process owned by this transport and identity context.",
+    inputSchema: terminateProcessInputV1Schema,
+    outputSchema: terminateProcessOutputShape,
+    annotations: V3_MUTATION_ANNOTATIONS
+  },
+  {
+    name: "resize_process_terminal",
+    title: "Resize Process Terminal",
+    description: "Resize the ConPTY terminal attached to a process owned by this transport and identity context.",
+    inputSchema: resizeProcessTerminalInputV1Schema,
+    outputSchema: resizeProcessTerminalOutputShape,
+    annotations: V3_MUTATION_ANNOTATIONS
+  },
+  {
+    name: "list_processes",
+    title: "List Processes",
+    description: "List bounded process summaries owned by this transport and identity context.",
+    inputSchema: listProcessesInputV1Schema,
+    outputSchema: listProcessesOutputShape,
+    annotations: V3_READ_ANNOTATIONS
+  }
+]);
+
+function disabledV3ToolResult(name: CanonicalToolV3Addition): any {
+  if (name === "open_full_access_workspace") {
+    const structured = createOpenFullAccessWorkspaceFailure("LOCAL_ROOT_APPROVAL_REQUIRED", {
+      next_action: "Enable the confirmed-root admission runtime and request local approval."
+    });
+    return {
+      ...textResult(structured.error?.message ?? "Local root approval is required.", structured as unknown as Record<string, unknown>),
+      isError: true
+    };
+  }
+  const structured = createExecutionFailure(name as ExecutionToolName, "EXECUTION_PROFILE_DISABLED", {
+    next_action: "Enable an eligible V3 execution profile and restart CodexPro."
+  });
+  return {
+    ...textResult("The requested V3 execution profile is disabled.", structured),
+    isError: true
+  };
+}
+
+function registerV3ContractTools(
+  config: CodexProConfig,
+  server: McpServer,
+  dependencies: CodexProServerDependencies
+): void {
+  if (config.toolContractVersion !== 3) return;
+  for (const definition of V3_CONTRACT_TOOL_DEFINITIONS) {
+    const rootAdmissionHandler = definition.name === "open_full_access_workspace" && dependencies.rootAdmissionRuntimeV3
+      ? async (args: Record<string, unknown>) => {
+          const startedAt = Date.now();
+          try {
+            const data = await dependencies.rootAdmissionRuntimeV3!.open(args);
+            const structured = createOpenFullAccessWorkspaceSuccess(data, Date.now() - startedAt);
+            return textResult(
+              `Opened a locally confirmed ${data.access === "read_write" ? "read-write" : "read-only"} root until ${data.absolute_expires_at}. This file lease is not a process sandbox.`,
+              structured as unknown as Record<string, unknown>
+            );
+          } catch {
+            const structured = createOpenFullAccessWorkspaceFailure("LOCAL_ROOT_ADMISSION_STALE", {
+              next_action: "Request local approval again and retry the identical root admission."
+            }, Date.now() - startedAt);
+            return {
+              ...textResult(structured.error?.message ?? "The root admission is stale.", structured as unknown as Record<string, unknown>),
+              isError: true
+            };
+          }
+        }
+      : undefined;
+    const handler = dependencies.v3ToolHandlers?.[definition.name] ?? rootAdmissionHandler ??
+      (() => disabledV3ToolResult(definition.name));
+    registerCodexTool(
+      config,
+      server,
+      definition.name,
+      {
+        title: definition.title,
+        description: definition.description,
+        inputSchema: definition.inputSchema.shape,
+        outputSchema: definition.outputSchema,
+        annotations: definition.annotations,
+        _meta: {
+          ...toolCardMeta(),
+          "codexpro/preserveStructuredContent": true,
+          "openai/toolInvocation/invoking": `${definition.title}...`,
+          "openai/toolInvocation/invoked": `${definition.title} complete`
+        }
+      },
+      handler
+    );
+  }
+}
+
 function serverInstructions(config: CodexProConfig): string {
   const editInstruction =
     config.connectionTest
@@ -4457,7 +4711,9 @@ function serverInstructions(config: CodexProConfig): string {
         ? "4. Source writes are disabled and generic write/edit/apply_patch tools are unavailable. Use handoff_to_agent/handoff_to_codex for plans."
         : "4. Write/edit/apply_patch tools are disabled. Do not attempt direct file writes; use handoff or context export workflows instead.";
   const bashInstruction =
-    config.bashMode === "off"
+    config.toolContractVersion === 3
+      ? "5. Contract V3 does not expose the legacy bash tool. Use structured run_command only when the selected execution profile permits it."
+      : config.bashMode === "off"
       ? "5. Bash is disabled and the bash tool is unavailable. Do not attempt shell commands."
       : "5. Use bash only for meaningful verification commands such as npm test, npm run build, lint, typecheck, or an existing project script.";
 
@@ -4944,7 +5200,15 @@ export function createCodexProServer(
   assertToolContractConfiguration(config, {
     durableAuditAvailable: Boolean(dependencies.persistentAuditRuntime),
     stateRootAvailable: Boolean(dependencies.workspaceMutationRuntime),
-    movePathsAvailable: Boolean(dependencies.movePathsService)
+    movePathsAvailable: Boolean(dependencies.movePathsService),
+    stableSessionAvailable: Boolean(dependencies.policySessionContextSource),
+    atomicStateReadersAvailable: Boolean(
+      dependencies.workspaceMutationRuntime &&
+      dependencies.movePathsService &&
+      dependencies.undoChangeSetService &&
+      dependencies.persistentAuditRuntime
+    ),
+    contractV3MigrationAvailable: true
   });
   const transactionRecoveryCoordinator = config.fileTransactions === "atomic"
     ? dependencies.transactionRecoveryCoordinator ?? createDefaultTransactionRecoveryCoordinator(config)
@@ -4962,11 +5226,12 @@ export function createCodexProServer(
     },
     beforeWorkspaceUse: transactionRecoveryCoordinator
       ? (canonicalRoot) => transactionRecoveryCoordinator.ensureWorkspaceReady(canonicalRoot)
-      : undefined
+      : undefined,
+    confirmedRoots: dependencies.rootAdmissionRuntimeV3
   });
   const guard = new PathGuard(config);
   const policyEngineMode = config.policyEngineMode ?? "legacy";
-  const toolResourceResolver: ToolResourceResolver | undefined = dependencies.undoChangeSetService || dependencies.toolResourceResolver
+  const toolResourceResolver: ToolResourceResolver | undefined = dependencies.undoChangeSetService || dependencies.toolResourceResolver || dependencies.rootAdmissionRuntimeV3
     ? {
         describe(toolName, args) {
           if (toolName === "undo_change_set") {
@@ -4986,6 +5251,10 @@ export function createCodexProServer(
                 )
               })
             };
+          }
+          if (toolName === "open_full_access_workspace") {
+            if (!dependencies.rootAdmissionRuntimeV3) throw new Error("Confirmed-root resource resolver is unavailable.");
+            return dependencies.rootAdmissionRuntimeV3.describe(toolName, args);
           }
           if (!dependencies.toolResourceResolver) {
             throw new Error("Policy resource resolver does not support this tool.");
@@ -5007,10 +5276,17 @@ export function createCodexProServer(
           sessionSource: dependencies.policySessionContextSource,
           auditSink: dependencies.policyAuditSink,
           persistentAudit: dependencies.persistentAuditRuntime,
-          resourceResolver: config.toolContractVersion === 2
+          localApprovalRuntimeV3: dependencies.localApprovalRuntimeV3,
+          rootAdmissionRuntimeV3: dependencies.rootAdmissionRuntimeV3,
+          resourceResolver: contractIncludesV2(config.toolContractVersion)
             ? composePhase3DResourceResolver(
                 toolResourceResolver,
-                createPhase3DResourceResolver({ workspaces, guard, dependencies })
+                createPhase3DResourceResolver({
+                  workspaces,
+                  guard,
+                  dependencies,
+                  toolContractVersion: config.toolContractVersion
+                })
               )
             : toolResourceResolver
         })
@@ -5350,6 +5626,7 @@ export function createCodexProServer(
     rememberRegisteredToolHandler(server, name, policyEntry.handler as CodexToolHandler);
     registeredToolNamesByServer.get(server as object)?.push(name);
   });
+  registerV3ContractTools(config, server, dependencies);
   registerToolCardResource(server, config);
 
   registerCodexTool(
@@ -6719,14 +6996,14 @@ export function createCodexProServer(
         content: z.string().describe("Complete file contents to write."),
         create_dirs: z.boolean().optional().describe("Create parent directories if missing. Default: true."),
         overwrite: z.boolean().optional().describe("Allow overwriting existing files. Default: true."),
-        ...(config.toolContractVersion === 2
+        ...(contractIncludesV2(config.toolContractVersion)
           ? {
               expected_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional()
                 .describe("Optional exact current-file SHA-256 precondition.")
             }
           : {})
       },
-      outputSchema: config.toolContractVersion === 2 ? writeOutputShapeV2 : writeOutputShape,
+      outputSchema: contractIncludesV2(config.toolContractVersion) ? writeOutputShapeV2 : writeOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -6799,7 +7076,7 @@ export function createCodexProServer(
             retentionMs: config.changeSetRetention.activeRetentionMs
           },
           result: response,
-          project: config.toolContractVersion === 2
+          project: contractIncludesV2(config.toolContractVersion)
             ? ({ result: committedResult, transaction, beforeSha256 }) => ({
                 ...committedResult,
                 structuredContent: createWriteSuccessV2({
@@ -6811,7 +7088,7 @@ export function createCodexProServer(
             : undefined,
           projectFailure: ({ result: failedResult, error }) => {
             const durationMs = resultDurationMs(failedResult);
-            if (config.toolContractVersion === 2) {
+            if (contractIncludesV2(config.toolContractVersion)) {
               const code = publicMutationFailureCode(error) ?? "TRANSACTION_FAILED";
               const structured = createWriteTransactionFailureV2({
                 code,
@@ -6837,7 +7114,7 @@ export function createCodexProServer(
           }
         });
       } catch (error) {
-        if (config.toolContractVersion === 2) {
+        if (contractIncludesV2(config.toolContractVersion)) {
           const code = publicMutationFailureCode(error);
           if (code) {
             const requestedPath = publicMutationFailurePath(error, args.path ?? "[path omitted]");
@@ -6884,14 +7161,14 @@ export function createCodexProServer(
         new_text: z.string().describe("Replacement text."),
         replace_all: z.boolean().optional().describe("Replace all occurrences. Default: false."),
         expected_replacements: z.number().int().min(1).optional().describe("Fail if actual replacement count differs."),
-        ...(config.toolContractVersion === 2
+        ...(contractIncludesV2(config.toolContractVersion)
           ? {
               expected_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional()
                 .describe("Optional exact current-file SHA-256 precondition.")
             }
           : {})
       },
-      outputSchema: config.toolContractVersion === 2 ? editOutputShapeV2 : editOutputShape,
+      outputSchema: contractIncludesV2(config.toolContractVersion) ? editOutputShapeV2 : editOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -6966,7 +7243,7 @@ export function createCodexProServer(
             retentionMs: config.changeSetRetention.activeRetentionMs
           },
           result: response,
-          project: config.toolContractVersion === 2
+          project: contractIncludesV2(config.toolContractVersion)
             ? ({ result: committedResult, transaction, beforeSha256 }) => ({
                 ...committedResult,
                 structuredContent: createEditSuccessV2({
@@ -6978,7 +7255,7 @@ export function createCodexProServer(
             : undefined,
           projectFailure: ({ result: failedResult, error }) => {
             const durationMs = resultDurationMs(failedResult);
-            if (config.toolContractVersion === 2) {
+            if (contractIncludesV2(config.toolContractVersion)) {
               const code = (publicMutationFailureCode(error) ?? "TRANSACTION_FAILED") as EditTransactionErrorCode;
               const structured = createEditTransactionFailureV2({
                 code,
@@ -7004,7 +7281,7 @@ export function createCodexProServer(
           }
         });
       } catch (error) {
-        if (config.toolContractVersion === 2) {
+        if (contractIncludesV2(config.toolContractVersion)) {
           const code = publicMutationFailureCode(error) as EditTransactionErrorCode | null;
           if (code) {
             const requestedPath = publicMutationFailurePath(error, args.path ?? "[path omitted]");
@@ -7048,7 +7325,7 @@ export function createCodexProServer(
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         patch: z.string().describe("Unified diff patch to apply. File paths must stay inside the workspace and avoid blocked paths."),
-        ...(config.toolContractVersion === 2
+        ...(contractIncludesV2(config.toolContractVersion)
           ? {
               expected_files: z.record(
                 z.string().min(1).max(240),
@@ -7059,7 +7336,7 @@ export function createCodexProServer(
             }
           : {})
       },
-      outputSchema: config.toolContractVersion === 2 ? applyPatchOutputShapeV2 : applyPatchOutputShape,
+      outputSchema: contractIncludesV2(config.toolContractVersion) ? applyPatchOutputShapeV2 : applyPatchOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -7174,7 +7451,7 @@ export function createCodexProServer(
           },
           projectFailure: ({ result: failedResult, error }) => {
             const durationMs = resultDurationMs(failedResult);
-            if (config.toolContractVersion === 2) {
+            if (contractIncludesV2(config.toolContractVersion)) {
               const code = publicMutationFailureCode(error) ?? "TRANSACTION_FAILED";
               const conflictPath = publicMutationFailurePath(error, expectedPaths[0] ?? "[path omitted]");
               const structured = createApplyPatchTransactionFailureV2({
@@ -7201,7 +7478,7 @@ export function createCodexProServer(
           }
         });
       } catch (error) {
-        if (config.toolContractVersion === 2) {
+        if (contractIncludesV2(config.toolContractVersion)) {
           const code = publicMutationFailureCode(error);
           if (code) {
             const conflictPath = publicMutationFailurePath(error, "[path omitted]");
@@ -8853,7 +9130,8 @@ export function createCodexProServer(
     }
   );
 
-  if (config.toolContractVersion === 2) {
+  const undoContractVersion = config.toolContractVersion;
+  if (contractIncludesV2(undoContractVersion)) {
     registerCodexTool(
       config,
       server,
@@ -8903,6 +9181,7 @@ export function createCodexProServer(
             policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
             requestId: null,
             preview: args.preview === true,
+            contractVersion: undoContractVersion,
             projectFailure: ({ error }) => undoChangeSetFailureResult(error, args, startedAt)
           });
         } catch (error) {
@@ -8931,7 +9210,7 @@ export function createCodexProServer(
     );
   }
 
-  upgradeCodexProSupertool(server);
+  upgradeCodexProSupertool(server, config.toolContractVersion);
   if ((policyEngineMode !== "legacy" || requiresAtomicAuditWrapper) && !effectivePolicyRuntime) {
     throw new Error("Policy Kernel runtime is required for shadow, enforce, or writable atomic audit mode.");
   }

@@ -1,6 +1,6 @@
 import type { CodexProConfig } from "../config.js";
-import { permissionProfileDocumentV1Schema } from "./schemas.js";
-import type { FilesystemRuleV1, PermissionProfileDocumentV1 } from "./types.js";
+import { permissionProfileDocumentV1Schema, permissionProfileDocumentV3Schema } from "./schemas.js";
+import type { FilesystemRuleV1, PermissionProfileDocumentV1, PermissionProfileDocumentV3 } from "./types.js";
 
 const HARD_GLOB_PATTERNS = [
   /^\.git(?:\/\*\*)?$/i,
@@ -82,6 +82,29 @@ export function compileCompatibilityProfile(config: CodexProConfig): PermissionP
       allowPrivate: false,
       allowLinkLocal: false,
       requireEnforcement: true
+    }
+  });
+}
+
+export function compileCompatibilityProfileV3(config: CodexProConfig): PermissionProfileDocumentV3 {
+  const v1 = compileCompatibilityProfile(config);
+  const { schemaVersion: _schemaVersion, ...base } = v1;
+  return permissionProfileDocumentV3Schema.parse({
+    ...base,
+    schemaVersion: 3,
+    id: "compat-v3",
+    description: "Generated conservative V3 profile. Ambient full access is not eligible without an explicit profile.",
+    fullAccess: {
+      ambientFilesystem: false,
+      ambientCredentials: false,
+      ambientRegistry: false,
+      unrestrictedNetwork: false,
+      requireBlockedPathEnforcement: true,
+      requireCredentialIsolation: true,
+      requireRegistryIsolation: true,
+      requireDeviceIsolation: true,
+      requireNetworkEnforcement: true,
+      requireSandbox: true
     }
   });
 }

@@ -272,6 +272,8 @@ undo_change
 
 Git and worktrees:
 
+The following is the historical candidate inventory. The exact Phase 5 design supersedes it and explicitly rejects `git_apply_patch` in favor of guarded `apply_patch` plus exact-path `git_stage`.
+
 ```text
 git_status
 git_diff
@@ -415,7 +417,7 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Historical-status note (2026-07-14): this document preserves the original audit baseline and first-seven-slice snapshot below. Active sequencing is superseded by `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`. All twenty-eight Phase 1 slices are published and cross-platform exact-head CI-validated. Unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed run `29314923948` on Ubuntu/Windows Node 20/24, and Phase 1 is formally closed. Current evidence is indexed in `Memory.md`. Phase 2 has not started; its production behavior remains closed until the design-only Policy Kernel gate passes.
+Historical-status note (2026-07-14): this document preserves the original audit baseline and first-seven-slice snapshot below. Active sequencing is superseded by `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`. All twenty-eight Phase 1 slices are published and cross-platform exact-head CI-validated. Unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed run `29314923948` on Ubuntu/Windows Node 20/24, and Phase 1 is formally closed. At that date Phase 2 had not started. Current state and evidence are indexed in `Memory.md`.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
 - delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, `read`, direct `search`, `git_status`, direct `git_diff`, and direct `show_changes`, with real MCP success/failure contract tests;
@@ -451,6 +453,8 @@ Historical outline only. The active route requires Phase 1 completion and unifie
 
 ### Phase 4 — Windows shell and process sessions
 
+Historical outline only. The current Phase 4 contract and sequence are superseded by the paired 2026-07-16 design and TDD plan listed in `AGENTS.md`.
+
 - shell backend interface;
 - native PowerShell backend;
 - optional Windows PowerShell, CMD, Git Bash, and WSL backends;
@@ -463,6 +467,8 @@ Historical outline only. The active route requires Phase 1 completion and unifie
 
 ### Phase 5 — Git and task worktrees
 
+Historical outline only. The exact Phase 5 boundary and TDD sequence are superseded by the adversarially reviewed 2026-07-16 [design](superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md). Runtime implementation has not started and remains blocked on complete Phase 4 exact-head closure.
+
 - typed Git results;
 - branch, stage, commit, restore, and stash;
 - task-worktree lifecycle;
@@ -470,7 +476,7 @@ Historical outline only. The active route requires Phase 1 completion and unifie
 - Windows file-lock and long-path handling;
 - merge review and safe deletion.
 
-Do not expose push, force push, remote mutation, credential mutation, or force deletion by default.
+Do not expose push, force push, remote mutation, credential mutation, or force deletion by default. The exact design additionally requires V4=51, raw-blob/private-index safe writes, object-only merge, R3 history mutation, managed task roots that never widen `allowedRoots`, and fail-closed unsupported repository formats.
 
 ### Phase 6 — AGENTS and Skills trust model
 

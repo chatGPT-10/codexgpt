@@ -1,13 +1,18 @@
 import { z } from "zod";
 import {
   POLICY_SCOPES,
+  POLICY_SCOPES_V3,
   type AuditEventV1,
   type CompiledPermissionProfileV1,
+  type CompiledPermissionProfileV3,
   type CompiledPolicySnapshotV1,
   type PermissionProfileDocumentV1,
+  type PermissionProfileDocumentV3,
   type PolicyDecisionV1,
   type RequestContextV1,
+  type RequestContextV3,
   type RequestIdentityV1,
+  type RequestIdentityV3,
   type ResourceDescriptorV1,
   type SandboxCapabilityReportV1,
   type SessionGrantV1
@@ -152,6 +157,63 @@ export const compiledPermissionProfileV1Schema: z.ZodType<CompiledPermissionProf
   }
 });
 
+const fullAccessPermissionV3Schema = z.object({
+  ambientFilesystem: z.boolean(),
+  ambientCredentials: z.boolean(),
+  ambientRegistry: z.boolean(),
+  unrestrictedNetwork: z.boolean(),
+  requireBlockedPathEnforcement: z.boolean(),
+  requireCredentialIsolation: z.boolean(),
+  requireRegistryIsolation: z.boolean(),
+  requireDeviceIsolation: z.boolean(),
+  requireNetworkEnforcement: z.boolean(),
+  requireSandbox: z.boolean()
+}).strict();
+
+export const permissionProfileDocumentV3Schema: z.ZodType<PermissionProfileDocumentV3> = z.object({
+  schemaVersion: z.literal(3),
+  id: profileIdSchema,
+  extends: profileIdSchema.optional(),
+  description: z.string().max(500).optional(),
+  workspaceRoots: z.array(z.string().min(1).max(1000)).max(64).optional(),
+  filesystem: filesystemDocumentSchema.optional(),
+  git: gitDocumentSchema.optional(),
+  shell: shellDocumentSchema.optional(),
+  process: processDocumentSchema.optional(),
+  network: networkDocumentSchema.optional(),
+  fullAccess: fullAccessPermissionV3Schema.partial().optional()
+}).strict();
+
+export const compiledPermissionProfileV3Schema: z.ZodType<CompiledPermissionProfileV3> = z.object({
+  schemaVersion: z.literal(3),
+  id: profileIdSchema,
+  sourceProfileIds: z.array(profileIdSchema).min(1).max(8),
+  workspaceRoots: z.array(z.string().min(1).max(1000)).max(64),
+  filesystem: z.object({
+    default: z.enum(["deny", "read"]),
+    rules: z.array(filesystemRuleV1Schema).max(2048)
+  }).strict(),
+  git: z.object({ read: z.boolean(), write: z.boolean(), remoteWrite: z.boolean() }).strict(),
+  shell: z.object({ mode: z.enum(["disabled", "verify", "execute"]), requireSandbox: z.boolean() }).strict(),
+  process: z.object({ manage: z.boolean(), persistent: z.boolean(), requireSandbox: z.boolean() }).strict(),
+  network: z.object({
+    enabled: z.boolean(),
+    rules: z.array(networkRuleV1Schema).max(2048),
+    allowLoopback: z.boolean(),
+    allowPrivate: z.boolean(),
+    allowLinkLocal: z.boolean(),
+    requireEnforcement: z.boolean()
+  }).strict(),
+  fullAccess: fullAccessPermissionV3Schema
+}).strict().superRefine((value, context) => {
+  if (value.process.persistent && !value.process.manage) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["process", "persistent"], message: "Persistent processes require process management." });
+  }
+  if (value.git.remoteWrite && !value.git.write) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["git", "remoteWrite"], message: "Git remote write requires Git write." });
+  }
+});
+
 export const policySourceHashV1Schema = z.object({
   id: profileIdSchema,
   sha256: bareSha256Schema
@@ -206,6 +268,35 @@ export const requestIdentityV1Schema: z.ZodType<RequestIdentityV1> = z.object({
   }
 });
 
+export const requestIdentityV3Schema: z.ZodType<RequestIdentityV3> = z.object({
+  schemaVersion: z.literal(3),
+  kind: z.enum([
+    "local_process",
+    "loopback_unauthenticated",
+    "shared_secret_query",
+    "shared_secret_bearer",
+    "oauth_subject"
+  ]),
+  authenticationMode: z.enum(["stdio", "loopback_none", "query_token", "bearer", "oauth2"]),
+  credentialRef: z.string().regex(/^cred_[a-z2-7]{16,52}$/).nullable(),
+  subject: z.string().min(1).max(240).nullable(),
+  scopes: z.array(z.enum(POLICY_SCOPES_V3)).max(POLICY_SCOPES_V3.length),
+  assuranceLevel: z.enum(["local", "low", "shared_secret", "strong"])
+}).strict().superRefine((value, context) => {
+  const expected = {
+    local_process: ["stdio", "local", false, false],
+    loopback_unauthenticated: ["loopback_none", "low", false, false],
+    shared_secret_query: ["query_token", "shared_secret", true, false],
+    shared_secret_bearer: ["bearer", "shared_secret", true, false],
+    oauth_subject: ["oauth2", "strong", true, true]
+  } as const;
+  const [mode, assurance, requiresCredential, requiresSubject] = expected[value.kind];
+  if (value.authenticationMode !== mode) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authenticationMode"], message: "Authentication mode does not match identity kind." });
+  if (value.assuranceLevel !== assurance) context.addIssue({ code: z.ZodIssueCode.custom, path: ["assuranceLevel"], message: "Assurance level does not match identity kind." });
+  if (requiresCredential !== (value.credentialRef !== null)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["credentialRef"], message: "Credential reference does not match identity kind." });
+  if (requiresSubject !== (value.subject !== null)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["subject"], message: "Subject does not match identity kind." });
+});
+
 export const requestContextV1Schema: z.ZodType<RequestContextV1> = z.object({
   schemaVersion: z.literal(1),
   requestId: safeIdSchema,
@@ -243,6 +334,20 @@ export const filesystemResourceV1Schema = z.object({
   containment: z.enum(["inside", "outside", "unknown"]),
   existingParentIdentity: z.string().min(1).max(1000),
   unresolvedSuffix: z.array(z.string().min(1).max(255)).max(256)
+}).strict();
+
+export const requestContextV3Schema: z.ZodType<RequestContextV3> = z.object({
+  schemaVersion: z.literal(3),
+  requestId: safeIdSchema,
+  transportKind: z.enum(["stdio", "streamable_http"]),
+  transportSessionId: safeIdSchema,
+  identity: requestIdentityV3Schema,
+  workspaceId: safeIdSchema.nullable(),
+  runtimeProfileId: profileIdSchema,
+  permissionProfileId: profileIdSchema,
+  policyRevision: safeIdSchema,
+  sessionGrantRevision: safeIdSchema,
+  receivedAt: isoDateSchema
 }).strict();
 
 const filesystemBatchEntryV1Schema = z.object({

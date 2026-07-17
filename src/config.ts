@@ -11,7 +11,10 @@ export type CodexSessionsMode = "off" | "metadata" | "read";
 export type WriteMode = "off" | "handoff" | "workspace";
 export type ToolMode = "minimal" | "standard" | "full";
 export type FileTransactionMode = "legacy" | "atomic";
-export type ToolContractVersion = 1 | 2;
+export type ToolContractVersion = 1 | 2 | 3;
+export type LocalFileAccessMode = "configured_roots" | "confirmed_roots";
+export type ExecutionProfile = "off" | "full_access" | "workspace";
+export type ExecutionDependencies = "off" | "node_modules";
 
 export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
 export type AuditMode = "auto" | "off" | "best_effort" | "required";
@@ -48,6 +51,9 @@ export interface CodexProConfig {
   auditRetention: AuditRetentionConfig;
   changeSetRetention: ChangeSetRetentionConfig;
   permissionProfileId?: string;
+  localFileAccess: LocalFileAccessMode;
+  executionProfile: ExecutionProfile;
+  executionDependencies: ExecutionDependencies;
   inheritEnv: boolean;
   maxReadBytes: number;
   maxWriteBytes: number;
@@ -242,7 +248,8 @@ function toolContractVersionFrom(value: string | undefined): ToolContractVersion
   const normalized = value?.trim();
   if (!normalized || normalized === "1") return 1;
   if (normalized === "2") return 2;
-  throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION must be 1 or 2.");
+  if (normalized === "3") return 3;
+  throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, or 3.");
 }
 
 export interface FileTransactionCapabilities {
@@ -276,37 +283,80 @@ function policyEngineModeFrom(value: string | undefined): PolicyEngineMode {
   throw new Error("CODEXPRO_POLICY_ENGINE must be legacy, shadow, or enforce.");
 }
 
+function localFileAccessFrom(value: string | undefined): LocalFileAccessMode {
+  const normalized = value?.trim();
+  if (!normalized) return "configured_roots";
+  if (normalized === "configured_roots" || normalized === "confirmed_roots") return normalized;
+  throw new Error("CODEXPRO_LOCAL_FILE_ACCESS must be configured_roots or confirmed_roots.");
+}
+
+function executionProfileFrom(value: string | undefined): ExecutionProfile {
+  const normalized = value?.trim();
+  if (!normalized) return "off";
+  if (normalized === "off" || normalized === "full_access" || normalized === "workspace") return normalized;
+  throw new Error("CODEXPRO_EXECUTION_PROFILE must be off, full_access, or workspace.");
+}
+
+function executionDependenciesFrom(value: string | undefined): ExecutionDependencies {
+  const normalized = value?.trim();
+  if (!normalized) return "off";
+  if (normalized === "off" || normalized === "node_modules") return normalized;
+  throw new Error("CODEXPRO_EXECUTION_DEPENDENCIES must be off or node_modules.");
+}
+
 export interface ToolContractCapabilities {
   durableAuditAvailable: boolean;
   stateRootAvailable: boolean;
   movePathsAvailable: boolean;
+  stableSessionAvailable?: boolean;
+  atomicStateReadersAvailable?: boolean;
+  contractV3MigrationAvailable?: boolean;
 }
 
 export function assertToolContractConfiguration(
-  config: Pick<CodexProConfig, "fileTransactions" | "auditMode"> &
-    Partial<Pick<CodexProConfig, "toolContractVersion">>,
+  config: Pick<CodexProConfig, "fileTransactions" | "auditMode" | "policyEngineMode"> &
+    Partial<Pick<CodexProConfig, "toolContractVersion" | "toolMode" | "connectionTest">>,
   capabilities: ToolContractCapabilities
 ): void {
   // Existing programmatic callers may omit the new field for one migration
   // cycle. Missing remains contract V1, matching loadConfig's default.
   if (config.toolContractVersion === undefined || config.toolContractVersion === 1) return;
-  if (config.toolContractVersion !== 2) {
+  if (config.toolContractVersion !== 2 && config.toolContractVersion !== 3) {
     throw new Error("Unsupported tool contract version.");
   }
+  const contractLabel = `Contract V${config.toolContractVersion}`;
   if (config.fileTransactions !== "atomic") {
-    throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION=2 requires CODEXPRO_FILE_TRANSACTIONS=atomic.");
+    throw new Error(`${contractLabel} requires CODEXPRO_FILE_TRANSACTIONS=atomic.`);
   }
   if (!capabilities.movePathsAvailable) {
-    throw new Error("Contract V2 is incomplete without the Phase 3D move_paths runtime.");
+    throw new Error(`${contractLabel} is incomplete without the Phase 3D move_paths runtime.`);
   }
   if (config.auditMode === "off") {
-    throw new Error("Contract V2 requires persistent audit; CODEXPRO_AUDIT_MODE cannot be off.");
+    throw new Error(`${contractLabel} requires persistent audit; CODEXPRO_AUDIT_MODE cannot be off.`);
   }
   if (!capabilities.durableAuditAvailable) {
-    throw new Error("Contract V2 requires an available persistent audit runtime.");
+    throw new Error(`${contractLabel} requires an available persistent audit runtime.`);
   }
   if (!capabilities.stateRootAvailable) {
-    throw new Error("Contract V2 requires an available Phase 3 state root.");
+    throw new Error(`${contractLabel} requires an available Phase 3 state root.`);
+  }
+  const exposesV3Actions = config.connectionTest !== true && config.toolMode !== "minimal";
+  if (config.toolContractVersion === 3 && exposesV3Actions) {
+    if (config.policyEngineMode !== "enforce") {
+      throw new Error("Contract V3 requires Policy Kernel enforce mode.");
+    }
+    if (config.auditMode !== "auto" && config.auditMode !== "required") {
+      throw new Error("Contract V3 requires required durable audit semantics.");
+    }
+    if (!capabilities.stableSessionAvailable) {
+      throw new Error("Contract V3 requires a stable transport session and identity context.");
+    }
+    if (!capabilities.atomicStateReadersAvailable) {
+      throw new Error("Contract V3 requires the Phase 3 atomic mutation and persisted-state readers.");
+    }
+    if (!capabilities.contractV3MigrationAvailable) {
+      throw new Error("Contract V3 migration gate is not complete.");
+    }
   }
 }
 
@@ -499,7 +549,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     ? args["file-transactions"]
     : undefined;
   if (args["tool-contract-version"] === true) {
-    throw new Error("--tool-contract-version requires a value of 1 or 2.");
+    throw new Error("--tool-contract-version requires a value of 1, 2, or 3.");
   }
   const toolContractVersionArg = typeof args["tool-contract-version"] === "string"
     ? args["tool-contract-version"]
@@ -613,6 +663,9 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
       )
     },
     permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXPRO_PERMISSION_PROFILE),
+    localFileAccess: localFileAccessFrom(process.env.CODEXPRO_LOCAL_FILE_ACCESS),
+    executionProfile: executionProfileFrom(process.env.CODEXPRO_EXECUTION_PROFILE),
+    executionDependencies: executionDependenciesFrom(process.env.CODEXPRO_EXECUTION_DEPENDENCIES),
     inheritEnv: process.env.CODEXPRO_INHERIT_ENV === "1",
     maxReadBytes: numberFrom(process.env.CODEXPRO_MAX_READ_BYTES, 250_000, 4_000, 2_000_000),
     maxWriteBytes: numberFrom(process.env.CODEXPRO_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),
@@ -660,6 +713,16 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
       maxRelationships: numberFrom(process.env.CODEXPRO_ANALYSIS_MAX_RELATIONSHIPS, DEFAULT_ANALYSIS_LIMITS.maxRelationships, 100, 2_000_000)
     }
   };
+  if (
+    config.toolContractVersion !== 3 &&
+    (
+      config.localFileAccess !== "configured_roots" ||
+      config.executionProfile !== "off" ||
+      config.executionDependencies !== "off"
+    )
+  ) {
+    throw new Error("Contract V3 is required for confirmed roots, execution profiles, or execution dependency views.");
+  }
   assertAuditConfiguration(config, { durableStoreAvailable: true });
   return config;
 }

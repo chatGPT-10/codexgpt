@@ -30,7 +30,7 @@ function ids(seed) {
   };
 }
 
-function input(seed, createdAt = "2026-07-14T12:00:00.000Z", plaintext = Buffer.from("before")) {
+function input(seed, createdAt = "2026-07-14T12:00:00.000Z", plaintext = Buffer.from("before"), contractVersion = 2) {
   const identity = ids(seed);
   const expiresAt = new Date(Date.parse(createdAt) + 24 * 60 * 60_000).toISOString();
   return {
@@ -47,7 +47,7 @@ function input(seed, createdAt = "2026-07-14T12:00:00.000Z", plaintext = Buffer.
       requestId: "request-1",
       ownerBinding: `owner_${"5".repeat(64)}`,
       policyRevision: "policy-1",
-      contractVersion: 2,
+      contractVersion,
       state: "active",
       undoSupported: true,
       undoReason: null,
@@ -120,6 +120,31 @@ test("store publishes ciphertext before a strict manifest and reads authenticate
       (error) => error?.code === "CHANGE_SET_STATE_CONFLICT"
     );
   } finally {
+    fs.rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("schema-1 V3 manifests authenticate the contract field instead of trusting a valid downgraded pair", () => {
+  const stateRoot = root();
+  const subject = store(stateRoot);
+  try {
+    const created = subject.create(input("a", undefined, undefined, 3));
+    assert.equal(created.schemaVersion, 1);
+    assert.equal(created.contractVersion, 3);
+    const manifestPath = path.join(
+      changeSetDirectoryFor(stateRoot, created.workspaceStateKey, created.changeSetId),
+      "manifest.json"
+    );
+    const tampered = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    tampered.contractVersion = 2;
+    fs.writeFileSync(manifestPath, `${JSON.stringify(tampered)}\n`, "utf8");
+    assert.equal(subject.probe(created.workspaceStateKey, created.changeSetId), "unknown");
+    assert.throws(
+      () => subject.read(created.workspaceStateKey, created.changeSetId),
+      /authentication|invalid/i
+    );
+  } finally {
+    subject.dispose();
     fs.rmSync(stateRoot, { recursive: true, force: true });
   }
 });

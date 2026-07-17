@@ -1,9 +1,10 @@
 # Design - CodexPro
 
 A locked product-system note for CodexPro docs and the local admin surface.
-Every redesign should keep the same trust story: ChatGPT can act on one local
-workspace through a token-protected MCP bridge, while shell, writes, Codex
-history, and handoff execution stay explicit user choices.
+Every redesign should keep the same trust story: ChatGPT can act through a
+token-protected local MCP bridge, while configured roots, locally confirmed
+roots, trusted-code process execution, writes, Codex history, and handoff
+execution remain visibly separate user choices.
 
 ## Genre
 
@@ -19,8 +20,10 @@ CodexPro should explain itself in this order:
 2. Run setup inside one repo.
 3. Paste the copied Server URL into ChatGPT Developer Mode.
 4. Let ChatGPT inspect, edit, verify, or hand off work inside that workspace.
-5. Keep the safety boundary visible: it is a local bridge, not a quota bypass,
-   model proxy, hosted SaaS, or OS sandbox.
+5. Offer confirmed roots and **Full access (ask first)** only as advanced,
+   explicitly approved choices for trusted local code.
+6. Keep the safety boundary visible: it is a local bridge, not a quota bypass,
+   model proxy, hosted SaaS, DLP system, or OS sandbox.
 
 ## Macrostructure Family
 
@@ -62,9 +65,17 @@ motion support. Animate transform and opacity only.
 ## Copy Rules
 
 - Say what CodexPro does, then say what it does not do.
+- Keep `configured_roots`, `confirmed_roots`, trusted-code `full_access`, and
+  unavailable `workspace` visually and verbally distinct.
+- Label ambient execution **Full access (ask first)** and state that it has no
+  filesystem, credential, registry, broker, device, or network isolation.
+- Describe Job Objects as member lifetime control and ConPTY as terminal I/O;
+  never call either one a sandbox.
 - Do not claim permanent ChatGPT memory. Say repo-backed context files.
-- Do not imply CodexPro unlocks models, bypasses limits, or automates approval
-  gates.
+- Do not imply CodexPro unlocks models, bypasses limits, automates approval
+  gates, or provides secure human-presence proof after same-user code runs.
+- Never present the reserved `workspace` profile or retained Gate S probe as a
+  usable sandbox. Unavailable means unavailable; no fallback to `full_access`.
 - Do not expose raw local paths as marketing proof. Local admin can show them
   because it is token-protected and opened by the local user.
 

@@ -58,11 +58,24 @@ export interface PolicyAuthorizationResult {
   decision: PolicyDecisionV1;
   auditEvent: AuditEventV1 | null;
   auditContext?: AuditAuthorizationContextV2;
+  localApproval?: {
+    schemaVersion: 3;
+    approvalId: string;
+    serverId: string;
+  };
+  reservation?: {
+    schemaVersion: 3;
+    commit(): void | Promise<void>;
+    burn(resultCode: string): void | Promise<void>;
+  };
 }
 
 export interface ResourceResolutionResult {
   resource: ResourceDescriptorV1;
   requiredCapabilities?: RequiredCapabilityV1[];
+  requiredScopes?: readonly string[];
+  semanticFactsDigest?: string;
+  riskClass?: "R0" | "R1" | "R2" | "R3" | "R4";
 }
 
 export interface ToolResourceResolver {
@@ -94,6 +107,20 @@ export interface PolicyRuntime {
 const POLICY_FAILURE = Symbol("codexpro.policy.failure");
 const POLICY_WRAPPED_HANDLER = Symbol("codexpro.policy.wrapped-handler");
 const installedServers = new WeakSet<object>();
+const AUTHORIZED_RESOURCE = Symbol.for("codexpro.policy.authorized-resource");
+
+export function authorizedResourceFingerprint(args: object): string | null {
+  return (args as Record<symbol, unknown>)[AUTHORIZED_RESOURCE] as string ?? null;
+}
+
+export async function withAuthorizedResourceBinding<T>(args: object, fingerprint: string, operation: () => T | Promise<T>): Promise<T> {
+  Object.defineProperty(args, AUTHORIZED_RESOURCE, { value: fingerprint, configurable: true, enumerable: false });
+  try {
+    return await operation();
+  } finally {
+    delete (args as Record<symbol, unknown>)[AUTHORIZED_RESOURCE];
+  }
+}
 
 function safeId(value: unknown, fallback: string): string {
   return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(value)
@@ -115,13 +142,29 @@ function safeReason(value: unknown): string {
   return typeof value === "string" && allowed.has(value) ? value : "POLICY_CONFIG_INVALID";
 }
 
-export function createPolicyToolFailure(decision: Pick<PolicyDecisionV1, "reasonCode" | "policyRevision">): ToolCallResult {
+export function createPolicyToolFailure(
+  decision: Pick<PolicyDecisionV1, "reasonCode" | "policyRevision">,
+  localApproval?: PolicyAuthorizationResult["localApproval"]
+): ToolCallResult {
   const reasonCode = safeReason(decision.reasonCode);
   const policyRevision = safeId(decision.policyRevision, "policy-unavailable");
+  const approvalLines = localApproval && reasonCode === "APPROVAL_REQUIRED"
+    ? [
+        `Approval ID: ${safeId(localApproval.approvalId, "approval-unavailable")}`,
+        `Server: ${safeId(localApproval.serverId, "server-unavailable")}`,
+        `Next: codexpro approvals list --server ${safeId(localApproval.serverId, "server-unavailable")}`,
+        "After a local decision, retry the identical operation."
+      ]
+    : [];
   const result: ToolCallResult = {
     content: [{
       type: "text",
-      text: `CodexPro policy refused this operation.\nCode: ${reasonCode}\nPolicy revision: ${policyRevision}`
+      text: [
+        "CodexPro policy refused this operation.",
+        `Code: ${reasonCode}`,
+        `Policy revision: ${policyRevision}`,
+        ...approvalLines
+      ].join("\n")
     }],
     isError: true
   };
@@ -168,11 +211,14 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
     toolPolicyDefinition(toolName);
     const original = registered;
     entry.handler = async (args, extra) => {
-      let authorization: PolicyAuthorizationResult;
+      let authorization: PolicyAuthorizationResult | undefined;
       try {
         authorization = await runtime.authorize(toolName, args, extra);
         if (authorization.auditEvent) await runtime.audit(authorization.auditEvent);
       } catch {
+        if (authorization?.reservation) {
+          try { await authorization.reservation.burn("AUTHORIZATION_AUDIT_FAILED"); } catch { }
+        }
         if (runtime.mode === "enforce") return unavailableFailure();
         return original(args, extra);
       }
@@ -183,11 +229,17 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
           if (!runtime.persistAuthorization) throw new Error("Persistent audit runtime is unavailable.");
           await runtime.persistAuthorization(auditContext);
         } catch {
+          if (authorization.reservation) {
+            try { await authorization.reservation.burn("AUTHORIZATION_AUDIT_FAILED"); } catch { }
+          }
           if (auditContext.requirement === "required") return unavailableFailure();
         }
       }
 
       if (runtime.mode === "enforce" && authorization.decision.outcome !== "allow") {
+        if (authorization.reservation) {
+          try { await authorization.reservation.burn("POLICY_NOT_ALLOWED"); } catch { }
+        }
         if (auditContext) {
           const notExecuted: AuditExecutionInputV2 = {
             status: "not_executed",
@@ -208,12 +260,24 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
             // A denied operation remains denied even when terminal audit persistence is degraded.
           }
         }
-        return createPolicyToolFailure(authorization.decision);
+        return createPolicyToolFailure(authorization.decision, authorization.localApproval);
+      }
+
+      if (authorization.reservation) {
+        try {
+          await authorization.reservation.commit();
+        } catch {
+          return unavailableFailure();
+        }
       }
 
       const startedAt = Date.now();
       try {
-        let result = await original(args, extra);
+        let result = await withAuthorizedResourceBinding(
+          args,
+          authorization.decision.resourceFingerprint,
+          () => original(args, extra)
+        );
         const workspaceMutation = pendingWorkspaceMutation(result);
         if (workspaceMutation && (
           !auditContext ||

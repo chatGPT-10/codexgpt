@@ -2,18 +2,26 @@ import { createHash } from "node:crypto";
 import { canonicalJson } from "./canonicalJson.js";
 import {
   queryAuditEventsInputV2Schema,
-  queryAuditEventsResultV2Schema
+  queryAuditEventsResultV2Schema,
+  queryAuditEventsInputV3Schema,
+  queryAuditEventsResultV3Schema
 } from "./schemas.js";
 import type { PersistentAuditStore } from "./store.js";
 import {
   AuditError,
   type QueryAuditEventsInputV2,
-  type QueryAuditEventsResultV2
+  type QueryAuditEventsResultV2,
+  type QueryAuditEventsInputV3,
+  type QueryAuditEventsResultV3
 } from "./types.js";
 
 export type AuditQueryHandlerV2 = (
   input: QueryAuditEventsInputV2
 ) => Promise<QueryAuditEventsResultV2>;
+
+export type AuditQueryHandlerV3 = (
+  input: QueryAuditEventsInputV3
+) => Promise<QueryAuditEventsResultV3>;
 
 export function auditQueryFilterDigest(input: QueryAuditEventsInputV2): string {
   const parsed = queryAuditEventsInputV2Schema.parse(input);
@@ -32,9 +40,38 @@ export function auditQueryFilterDigest(input: QueryAuditEventsInputV2): string {
   }), "utf8").digest("hex");
 }
 
+export function auditQueryFilterDigestV3(input: QueryAuditEventsInputV3): string {
+  const parsed = queryAuditEventsInputV3Schema.parse(input);
+  const sorted = <T extends string>(values: T[] | undefined): T[] | null =>
+    values ? [...values].sort() : null;
+  return createHash("sha256")
+    .update("audit-query-v3\0", "utf8")
+    .update(canonicalJson({
+      projectionVersion: 3,
+      startTime: parsed.startTime ?? null,
+      endTime: parsed.endTime ?? null,
+      limit: parsed.limit ?? 50,
+      eventTypes: sorted(parsed.eventTypes),
+      toolNames: sorted(parsed.toolNames),
+      requestIds: sorted(parsed.requestIds),
+      changeSetIds: sorted(parsed.changeSetIds),
+      workspaceRefs: sorted(parsed.workspaceRefs),
+      statuses: sorted(parsed.statuses)
+    }), "utf8")
+    .digest("hex");
+}
+
 export function createAuditQueryHandler(store: PersistentAuditStore): AuditQueryHandlerV2 {
   return async (input) => {
     const result = await store.query(input);
+    await store.recordQuery(result.filterDigest, result.records.length);
+    return result;
+  };
+}
+
+export function createAuditQueryHandlerV3(store: PersistentAuditStore): AuditQueryHandlerV3 {
+  return async (input) => {
+    const result = await store.queryV3(input);
     await store.recordQuery(result.filterDigest, result.records.length);
     return result;
   };
@@ -49,6 +86,29 @@ export async function queryAuditEventsV2(
     throw new AuditError("AUDIT_RANGE_INVALID", "Audit query input is invalid.");
   }
   return queryAuditEventsResultV2Schema.parse(await handler(parsed.data));
+}
+
+export async function queryAuditEventsV3(
+  handler: AuditQueryHandlerV3,
+  input: unknown
+): Promise<QueryAuditEventsResultV3> {
+  const parsed = queryAuditEventsInputV3Schema.safeParse(input);
+  if (!parsed.success) {
+    throw new AuditError("AUDIT_RANGE_INVALID", "Audit query input is invalid.");
+  }
+  return queryAuditEventsResultV3Schema.parse(await handler(parsed.data));
+}
+
+export function createDirectAuditQueryAdapterV3(
+  handler: AuditQueryHandlerV3
+): (input: unknown) => Promise<QueryAuditEventsResultV3> {
+  return (input) => queryAuditEventsV3(handler, input);
+}
+
+export function createSupertoolAuditQueryAdapterV3(
+  handler: AuditQueryHandlerV3
+): (input: unknown) => Promise<QueryAuditEventsResultV3> {
+  return (input) => queryAuditEventsV3(handler, input);
 }
 
 export function createDirectAuditQueryAdapterV2(

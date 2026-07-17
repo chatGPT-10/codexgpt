@@ -3,3 +3,4 @@ node_modules/
 .env
 .env.*
 *.tgz
+scripts/windows-process-host-spike.mjs

@@ -1,3 +1,5 @@
+export const OUTPUT_REDACTION_CAPABILITY = 'best_effort_known_patterns';
+
 function utf8Prefix(buffer, maxBytes) {
   let end = Math.min(buffer.byteLength, Math.max(0, maxBytes));
   while (end > 0 && end < buffer.byteLength && (buffer[end] & 0xc0) === 0x80) {

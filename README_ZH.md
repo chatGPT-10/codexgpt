@@ -356,7 +356,7 @@ Phase 2A 新增本地 Policy Kernel，并提供三个明确的迁移状态：
 
 可选的 `CODEXPRO_PERMISSION_PROFILE=<id>` 会选择 `~/.codexpro/permissions/<id>.json` 下的严格 JSON 权限文件。Runtime Profile 与 Permission Profile 是两个不同概念：`toolMode` 只控制工具是否可见；文件、Git、Shell、Process 和 Network 的权限上限由身份 scopes、immutable hard policy、Permission Profile、受限 SessionGrant 与已证明的执行能力共同决定。
 
-Phase 2A 有意保持严格限制。目前尚未暴露审批管理 UI 或 MCP 审批工具，因此被分类为需要审批的操作会返回 `APPROVAL_REQUIRED`，直到后续独立批准的界面签发精确、受限的 grant。Safe Bash 仍只是命令策略过滤器，不是操作系统沙箱。在 `enforce` 模式下，如果 Windows/Linux 后端没有证明所需隔离能力，任意 Shell 或 Process 操作会返回 sandbox-unavailable 错误。Cloudflare Tunnel 只保护入站路由，不负责本地授权或出站网络限制。
+Contract V1 与 V2 会精确保留原有行为，不会创建 pending approval。显式启用 Contract V3 后，confirmed root 与可信代码进程执行可使用仅限本机的审批 CLI；CodexPro 不会向 MCP 暴露审批工具，也不会把远程客户端请求当作真人确认。Safe Bash 仍只是命令策略过滤器，不是操作系统沙箱。Cloudflare Tunnel 只保护入站路由，不负责本地授权或出站网络限制。
 
 迁移周期内只允许回滚到经过审查的 `legacy` 行为、生成的兼容 Permission Profile，或更窄的只读 profile。Policy 加载失败不会自动退回无策略执行。
 
@@ -371,6 +371,74 @@ Phase 3 已把 transaction、change-set、persistent audit、recovery 与 move �
 - 审计、经过认证的 change-set 与 transaction 状态位于工作区和 Git 之外，不记录原始文件内容、完整 diff、命令输出、凭据或规范工作区根路径。
 
 Contract V1 仍是默认的精确 28 工具公开表面。显式选择 Contract V2（`CODEXPRO_TOOL_CONTRACT_VERSION=2`）时，必须同时启用 atomic transaction 与 persistent audit，并使用精确的 31 个子工具集合。standard/full 模式新增 `move_paths` 与 `undo_change_set`；只有 full 模式再新增 `query_audit_events`；minimal 与 connection-test 不暴露这三个工具。`move_paths` 最多处理同一工作区、同一卷内 64 个带 SHA-256 前置条件的普通文件，不覆盖无关目标；preview 只证明当前验证通过，不承诺稍后的 hard-link 执行一定成功。恢复、完整性、保留期、owner binding、undo 和信任边界详见 [SECURITY.md](SECURITY.md)。
+
+## 可信代码 Windows 执行（Contract V3）
+
+Contract V3 需要显式启用，精确包含 39 个工具：继承 V2 中除 `bash` 外的工具，再加入 `open_full_access_workspace`、`run_command`、`start_process` 和六个类型化进程管理工具。它要求 atomic transaction、durable audit、Policy Kernel `enforce`、稳定会话身份和本机审批 runtime。
+
+在 Windows PowerShell 中，可按下面的最小配置为可信仓库启用：
+
+```powershell
+$env:CODEXPRO_FILE_TRANSACTIONS = "atomic"
+$env:CODEXPRO_AUDIT_MODE = "required"
+$env:CODEXPRO_POLICY_ENGINE = "enforce"
+$env:CODEXPRO_TOOL_CONTRACT_VERSION = "3"
+$env:CODEXPRO_TOOL_MODE = "full"
+$env:CODEXPRO_PERMISSION_PROFILE = "trusted-local"
+$env:CODEXPRO_EXECUTION_PROFILE = "full_access"
+$env:CODEXPRO_LOCAL_FILE_ACCESS = "confirmed_roots" # 可选
+codexpro start --root D:\Dev\your-repo --write workspace --bash off
+```
+
+启动前创建 `%USERPROFILE%\.codexpro\permissions\trusted-local.json`。下面的 profile 明确接受当前 Windows 用户权限；请把 root 替换成你实际信任的精确目录：
+
+```json
+{
+  "schemaVersion": 3,
+  "id": "trusted-local",
+  "description": "Trusted repositories on this Windows account",
+  "workspaceRoots": ["D:\\Dev\\your-repo"],
+  "shell": { "mode": "execute", "requireSandbox": false },
+  "process": { "manage": true, "persistent": true, "requireSandbox": false },
+  "network": {
+    "enabled": true,
+    "rules": [],
+    "allowLoopback": true,
+    "allowPrivate": true,
+    "allowLinkLocal": true,
+    "requireEnforcement": false
+  },
+  "fullAccess": {
+    "ambientFilesystem": true,
+    "ambientCredentials": true,
+    "ambientRegistry": true,
+    "unrestrictedNetwork": true,
+    "requireBlockedPathEnforcement": false,
+    "requireCredentialIsolation": false,
+    "requireRegistryIsolation": false,
+    "requireDeviceIsolation": false,
+    "requireNetworkEnforcement": false,
+    "requireSandbox": false
+  }
+}
+```
+
+ChatGPT 请求 V3 R3 操作时，CodexPro 会返回 approval ID 和本机 server ID。你需要在另一个本机终端中检查并批准，然后让 ChatGPT 重试完全相同的 tool call：
+
+```powershell
+codexpro approvals list --server <server_id>
+codexpro approvals approve <approval_id> --server <server_id>
+# 或：codexpro approvals deny <approval_id> --server <server_id>
+```
+
+即使远程客户端不可用，持久进程仍可在本机列出和终止：
+
+```powershell
+codexpro processes list --server <server_id>
+codexpro processes terminate <process_id> --server <server_id>
+```
+
+`full_access` 只适用于你信任的代码。进程拥有当前 Windows 用户的环境权限，**不会**隔离文件、凭据、registry、设备、COM/WMI/service broker 或网络。Job Object 只控制实际加入 Job 的进程；ConPTY 只提供终端输入输出；输出脱敏只识别已知模式，不是 DLP。保留的 `workspace` execution profile 当前不可用，也绝不会自动回退到 `full_access`。
 
 ## 工作区会话
 
@@ -394,6 +462,7 @@ CodexPro 是本地开发桥，不是操作系统级沙箱。
 - safe bash 只允许常见检查、搜索、git、lint、test、typecheck、build 等命令。
 - Bash 默认使用收窄后的子进程环境，不复制任意宿主变量。Windows 下会从 `USERPROFILE` 派生 `APPDATA`、`LOCALAPPDATA` 和 `GH_CONFIG_DIR`，让 GitHub CLI 等工具复用配置和系统 keyring，但不会复制 `GH_TOKEN` 或无关 API 变量。
 - `CODEXPRO_INHERIT_ENV=1` 会改为继承完整宿主环境，只应在受信任的本地仓库中使用。
+- Contract V3 默认 execution `off`；只有显式 V3 Permission Profile 和本机一次性审批才能启用 `full_access`。保留的 `workspace` sandbox profile 当前不可用。
 - `codexpro start --no-bash` 会完全关闭 ChatGPT 可调用的 bash 工具。
 - `execute-handoff` 和 `watch-handoff` 是本地 CLI 命令，不是远程 MCP 工具。
 

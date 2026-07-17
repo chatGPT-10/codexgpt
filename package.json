@@ -88,6 +88,8 @@
     "ci:failure-summary": "npm run build --silent && node scripts/ci-failure-summary.mjs",
     "ci:exact-head": "npm run build --silent && node scripts/exact-head-ci.mjs",
     "task:runner": "node scripts/long-task-runner.mjs",
+    "native-host:spike": "node scripts/windows-process-host-spike.mjs",
+    "native-host:evidence": "node scripts/windows-process-host-spike.mjs --write-evidence",
     "toolchain:status": "node scripts/toolchain-manager.mjs status",
     "toolchain:ensure": "node scripts/toolchain-manager.mjs ensure",
     "toolchain:matrix": "node scripts/toolchain-manager.mjs matrix --major all --",

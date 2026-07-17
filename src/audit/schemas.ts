@@ -1,13 +1,16 @@
 import { z } from "zod";
 import type {
   AdministrativeAuditEventV2,
+  ApprovalLifecycleAuditEventV3,
   AuditEnvelopeV1,
   AuditEventV2,
+  AuditEventV3,
   AuditIndexV1,
   AuditRetentionStateV1,
   AuditSegmentMetadataV1,
   AuthorizationAuditEventV2,
   ExecutionAuditEventV2,
+  QueryAuditEventsResultV3,
   QueryAuditEventsResultV2,
   RecoveryAuditEventV2
 } from "./types.js";
@@ -187,6 +190,74 @@ export const auditEventV2Schema: z.ZodType<AuditEventV2> = rawAuditEventV2Schema
   }
 );
 
+const commonV3Shape = {
+  schemaVersion: z.literal(3),
+  contractVersion: z.literal(3),
+  eventId: eventIdSchema,
+  timestamp: timestampSchema,
+  requestId: nullableSafeIdSchema,
+  authorizationEventId: eventIdSchema.nullable(),
+  decisionId: nullableSafeIdSchema,
+  credentialRef: nullableSafeIdSchema,
+  transportSessionId: nullableSafeIdSchema,
+  toolName: safeOneLineSchema.nullable(),
+  canonicalAction: safeOneLineSchema,
+  workspaceId: nullableSafeIdSchema,
+  workspaceRef: workspaceRefSchema,
+  policyRevision: nullableSafeIdSchema,
+  subjectFingerprint: sha256Schema,
+  contextFingerprint: sha256Schema,
+  resultCode: safeOneLineSchema.nullable(),
+  counts: boundedByteCountsSchema
+};
+
+const rawApprovalLifecycleAuditEventV3Schema = z.object({
+  ...commonV3Shape,
+  eventType: z.literal("approval_lifecycle"),
+  transition: z.enum(["requested", "prepared", "granted", "denied", "expired", "reserved", "consumed", "burned"]),
+  approvalId: z.string().regex(/^approval_[a-f0-9]{32}$/),
+  grantId: safeIdSchema.nullable(),
+  reservationId: z.string().regex(/^reservation_[a-f0-9]{32}$/).nullable()
+}).strict();
+
+const rawRootLeaseLifecycleAuditEventV3Schema = z.object({
+  ...commonV3Shape,
+  eventType: z.literal("root_lease_lifecycle"),
+  transition: z.enum(["created", "revoked", "expired"]),
+  rootLeaseId: safeIdSchema
+}).strict();
+
+const rawProcessLifecycleAuditEventV3Schema = z.object({
+  ...commonV3Shape,
+  eventType: z.literal("process_lifecycle"),
+  transition: z.enum([
+    "started", "exited", "user_terminated", "timed_out", "expired", "policy_revoked",
+    "evidence_revoked", "transport_closed", "lease_revoked", "output_limit_exceeded",
+    "host_crashed", "cleanup_completed"
+  ]),
+  processId: safeIdSchema,
+  processGeneration: nonnegativeIntegerSchema.nullable()
+}).strict();
+
+const rawSnapshotLifecycleAuditEventV3Schema = z.object({
+  ...commonV3Shape,
+  eventType: z.literal("snapshot_lifecycle"),
+  transition: z.enum(["prepare_requested", "prepared", "validated", "attached", "cleanup_pending", "cleaned", "recovered", "failed"]),
+  snapshotId: safeIdSchema
+}).strict();
+
+export const approvalLifecycleAuditEventV3Schema: z.ZodType<ApprovalLifecycleAuditEventV3> =
+  rawApprovalLifecycleAuditEventV3Schema;
+
+export const auditEventV3Schema: z.ZodType<AuditEventV3> = z.discriminatedUnion("eventType", [
+  rawApprovalLifecycleAuditEventV3Schema,
+  rawRootLeaseLifecycleAuditEventV3Schema,
+  rawProcessLifecycleAuditEventV3Schema,
+  rawSnapshotLifecycleAuditEventV3Schema
+]);
+
+export const persistedAuditEventSchema = z.union([auditEventV2Schema, auditEventV3Schema]);
+
 const segmentIdSchema = z.string().regex(/^audit-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}$/);
 
 export const auditEnvelopeV1Schema: z.ZodType<AuditEnvelopeV1> = z.object({
@@ -194,7 +265,7 @@ export const auditEnvelopeV1Schema: z.ZodType<AuditEnvelopeV1> = z.object({
   sequence: z.number().int().positive().safe(),
   segmentId: segmentIdSchema,
   previousMac: sha256Schema,
-  event: auditEventV2Schema,
+  event: persistedAuditEventSchema,
   recordMac: sha256Schema
 }).strict();
 
@@ -274,6 +345,47 @@ export const queryAuditEventsResultV2Schema: z.ZodType<QueryAuditEventsResultV2>
   records: z.array(z.object({
     sequence: z.number().int().positive().safe(),
     event: auditEventV2Schema
+  }).strict()).max(100),
+  nextCursor: z.string().min(16).max(2048).regex(/^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/).nullable(),
+  filterDigest: sha256Schema,
+  startTime: timestampSchema,
+  endTime: timestampSchema,
+  limit: z.number().int().min(1).max(100),
+  integrityState: z.enum(["healthy", "degraded", "integrity_failed"])
+}).strict();
+
+export const queryAuditEventsInputV3Schema = z.object({
+  startTime: timestampSchema.optional(),
+  endTime: timestampSchema.optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  cursor: z.string().min(16).max(2048).regex(/^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/).optional(),
+  eventTypes: z.array(z.enum([
+    "authorization",
+    "execution",
+    "recovery",
+    "administrative",
+    "approval_lifecycle",
+    "root_lease_lifecycle",
+    "process_lifecycle",
+    "snapshot_lifecycle"
+  ])).min(1).max(8).refine(uniqueValues, "Audit event types must be unique.").optional(),
+  toolNames: z.array(safeOneLineSchema)
+    .min(1).max(32).refine(uniqueValues, "Audit tool names must be unique.").optional(),
+  requestIds: z.array(safeIdSchema)
+    .min(1).max(32).refine(uniqueValues, "Audit request IDs must be unique.").optional(),
+  changeSetIds: z.array(z.string().regex(/^cs_[a-f0-9]{32}$/))
+    .min(1).max(32).refine(uniqueValues, "Audit change-set IDs must be unique.").optional(),
+  workspaceRefs: z.array(z.string().regex(/^awr_[a-f0-9]{32}$/))
+    .min(1).max(32).refine(uniqueValues, "Audit workspace references must be unique.").optional(),
+  statuses: z.array(z.enum(["not_executed", "succeeded", "failed", "rolled_back", "recovery_required"]))
+    .min(1).max(5).refine(uniqueValues, "Audit execution statuses must be unique.").optional()
+}).strict();
+
+export const queryAuditEventsResultV3Schema: z.ZodType<QueryAuditEventsResultV3> = z.object({
+  schemaVersion: z.literal(3),
+  records: z.array(z.object({
+    sequence: z.number().int().positive().safe(),
+    event: persistedAuditEventSchema
   }).strict()).max(100),
   nextCursor: z.string().min(16).max(2048).regex(/^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/).nullable(),
   filterDigest: sha256Schema,

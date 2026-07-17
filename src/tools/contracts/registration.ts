@@ -1,18 +1,19 @@
 import type { ToolContractVersion } from "../../config.js";
 import { canonicalToolsForVersion, v2ToolsForProjection } from "./catalog.js";
-import type { CanonicalToolV2, ToolContractProjectionInput } from "./types.js";
+import { v3ToolsForProjection } from "./v3.js";
+import type { CanonicalTool, ToolContractProjectionInput } from "./types.js";
 
 export interface RegistrationProjection extends ToolContractProjectionInput {
   registeredV1Tools: readonly string[];
 }
 
-export function projectedRegisteredTools(input: RegistrationProjection): readonly CanonicalToolV2[] {
+export function projectedRegisteredTools(input: RegistrationProjection): readonly CanonicalTool[] {
   const canonical = canonicalToolsForVersion(input.version);
   const v1 = [...new Set(input.registeredV1Tools)];
-  const invalid = v1.filter((name) => !canonical.includes(name as CanonicalToolV2));
+  const invalid = v1.filter((name) => !canonical.includes(name as CanonicalTool));
   if (invalid.length) throw new Error(`Registration contains non-contract tools: ${invalid.join(",")}`);
-  const additions = v2ToolsForProjection(input);
-  return Object.freeze([...v1, ...additions] as CanonicalToolV2[]);
+  const additions = [...v2ToolsForProjection(input), ...v3ToolsForProjection(input)];
+  return Object.freeze([...v1, ...additions] as CanonicalTool[]);
 }
 
 export function assertExactRegisteredToolUniverse(

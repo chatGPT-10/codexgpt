@@ -66,7 +66,7 @@ async function fixture(action) {
   }
 }
 
-async function commitMove({ workspace, move }, moves, createParents = false) {
+async function commitMove({ workspace, move }, moves, createParents = false, contractVersion = 2) {
   const preparedResult = await move.prepare({
     workspace,
     moves,
@@ -74,7 +74,8 @@ async function commitMove({ workspace, move }, moves, createParents = false) {
     preview: false,
     requestId: "request_move_before_undo",
     ownerBinding,
-    policyRevision: "policy_phase3d"
+    policyRevision: "policy_phase3d",
+    contractVersion
   });
   const pending = pendingWorkspaceMutation(preparedResult);
   assert.ok(pending);
@@ -85,14 +86,15 @@ async function commitMove({ workspace, move }, moves, createParents = false) {
   return pending.changeSetId;
 }
 
-function undoInput(workspace, changeSetId, preview) {
+function undoInput(workspace, changeSetId, preview, contractVersion = 2) {
   return {
     workspace,
     changeSetId,
     ownerBinding,
     policyRevision: "policy_phase3d",
     requestId: "request_move_undo",
-    preview
+    preview,
+    contractVersion
   };
 }
 
@@ -102,7 +104,7 @@ test("move undo preview is zero-mutation and committed undo restores the source"
   await fsp.writeFile(path.join(workspaceRoot, "a.txt"), "alpha");
   const originalId = await commitMove({ workspace, move }, [
     { source: "a.txt", destination: "b.txt", expectedSha256: sha("alpha") }
-  ]);
+  ], false, 3);
 
   const preview = await undo.prepare(undoInput(workspace, originalId, true));
   assert.equal(preview.preview, true);
@@ -113,7 +115,7 @@ test("move undo preview is zero-mutation and committed undo restores the source"
   assert.equal(await fsp.readFile(path.join(workspaceRoot, "b.txt"), "utf8"), "alpha");
   await assert.rejects(() => fsp.stat(path.join(workspaceRoot, "a.txt")), { code: "ENOENT" });
 
-  const prepared = await undo.prepare(undoInput(workspace, originalId, false));
+  const prepared = await undo.prepare(undoInput(workspace, originalId, false, 3));
   assert.ok(prepared.pending);
   await prepared.pending.commit({ result: { ok: true }, async persistAudit() {} });
   assert.equal(await fsp.readFile(path.join(workspaceRoot, "a.txt"), "utf8"), "alpha");
@@ -121,9 +123,11 @@ test("move undo preview is zero-mutation and committed undo restores the source"
 
   const workspaceKey = engine.workspaceStateKey(workspace.root);
   assert.equal(store.read(workspaceKey, originalId).state, "undone");
+  assert.equal(store.read(workspaceKey, originalId).contractVersion, 3);
   const reverse = store.read(workspaceKey, prepared.changeSetId);
   assert.equal(reverse.toolName, "undo_change_set");
   assert.equal(reverse.revertsChangeSetId, originalId);
+  assert.equal(reverse.contractVersion, 3);
   assert.equal(reverse.undoSupported, false);
   assert.equal(reverse.undoReason, "reverted_change_set");
 }));
