@@ -1000,3 +1000,53 @@ Complete locally. The first portability commit is published, but its exact-head 
 **Next step**
 
 Publish this second bounded repair, bind the next CI run to its exact SHA, and continue fail-closed diagnosis until all four Ubuntu/Windows Node 20/24 jobs reach terminal success.
+
+## STEP-339 — Align exact-head regression with authoritative test domains
+
+**Status**
+
+Complete locally. The second portability commit is published, but its exact-head run exposed one final Ubuntu assertion defect and confirmed that Windows CI was bypassing the repository's established control-domain scheduling and timeout cleanup rules.
+
+**Published evidence**
+
+- Second portability commit: `89f0dcfb0c4f33c46f9a8ef1726635ddf1814e54` (`fix: close Phase 4 CI portability gaps`).
+- Exact-head run: `29590793061`.
+- Repository policy passed. Ubuntu Node 20/24 each failed only the same doctor assertion after all earlier Ubuntu defects were eliminated.
+- The disqualified run was cancelled only after its Ubuntu failures were terminal, so its long-running Windows jobs could release runners and expose bounded logs.
+- Older disqualified run `29589048926` was likewise cancelled after terminal Ubuntu failure; its completed Windows logs provided the primary scheduling and cleanup evidence.
+
+**Root causes**
+
+- The doctor test incorrectly required exit code 0 on Ubuntu while explicitly selecting `full_access`. Production correctly returned exit code 1 because the packaged native Windows host is unavailable outside Windows; the test contradicted the fail-closed contract.
+- CI invoked raw `node --test`, bypassing `scripts/test-domains.mjs`. On Windows this ran all ordinary and control-domain tests concurrently instead of the repository's existing `--test-concurrency=1` rule.
+- Concurrent cold starts caused repeated 30-second `HELLO_TIMEOUT` failures in the source-shipped host and ConPTY control tests, followed by a ConPTY evidence mismatch.
+- The handshake timeout rejected before `startWindowsProcessHostSpike()` returned a session. That path had no cleanup owner, so the exact spawned PowerShell host could remain alive and keep the Node test process from exiting.
+
+**Implementation summary**
+
+- Made the doctor assertion platform-exact: Windows requires success; non-Windows requires the explicit native-host blocker and exit code 1.
+- Changed Ubuntu and Windows CI regression steps to run the complete authoritative `all` domain through `scripts/test-domains.mjs` and the existing bounded summary wrapper.
+- Retained runtime-default concurrency on Ubuntu and the existing deterministic concurrency 1 on Windows; no tests were removed or skipped.
+- Added workflow and domain regression checks that freeze complete-domain routing and Windows serialization.
+- Added `WindowsProcessHostSpikeSession.abort()`. Failed startup destroys private stdin, terminates the exact spawned child, awaits its exit, removes the private temporary root, and rethrows the original handshake failure.
+- Added a dynamic abort test with a controlled child plus a startup-path binding assertion.
+
+**Verification results**
+
+- Focused workflow, domain, doctor, and host-protocol gate passed 16/16.
+- TypeScript Build, repository policy, and `git diff --check` passed.
+- Managed ordinary-domain matrix run `2026-07-17T15-19-26-251Z-phase4ci-repair3-ordinary-f5170609` completed with exit code 0, zero stderr, and no log truncation.
+- Managed Node 20.20.2 and Node 24.15.0 each passed 884/885 with the one established platform skip.
+- Package dry-run retained 394 files, 897,493 packed bytes, and 4,851,515 unpacked bytes.
+- Control/all-domain execution remains blocked in connector-backed local execution and is reserved for the next isolated exact-head CI run.
+
+**Decisions made**
+
+- The authoritative complete regression is the `all` test domain, not raw runtime discovery. This preserves complete coverage while applying the reviewed process-domain scheduler.
+- Windows control-domain tests must be serialized. Increasing handshake deadlines would hide contention and retain nondeterministic ownership failures, so deadlines remain unchanged.
+- Any failure before session handoff must retain a cleanup owner and remove the exact spawned process before rethrowing.
+- Phase 4 remains open until the next exact SHA passes Ubuntu/Windows Node 20/24 Build, complete all-domain Regression, protected Smoke, and Package.
+
+**Next step**
+
+Publish the STEP-339 bounded repair, bind the next CI run to its exact 40-character SHA, and require terminal success across all policy and matrix jobs. Do not create an evidence-only follow-up commit after success.

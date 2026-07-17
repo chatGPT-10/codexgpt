@@ -190,7 +190,11 @@ test("doctor separates backend, Job, ConPTY, approval, root, full-access, and sa
       CODEXPRO_LOCAL_FILE_ACCESS: "configured_roots"
     }
   });
-  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const expectedStatus = process.platform === "win32" ? 0 : 1;
+  assert.equal(result.status, expectedStatus, result.stderr || result.stdout);
+  if (process.platform !== "win32") {
+    assert.match(result.stdout, /FAIL Execution backend\s+full_access requires the packaged native Windows host/);
+  }
   for (const label of [
     "Execution backend",
     "Job ownership",

@@ -66,6 +66,12 @@ test("test domains partition every discovered test and freeze the connector-host
   );
 });
 
+test("Windows all-domain execution is serialized while other platforms retain runtime concurrency", async () => {
+  const source = await fs.readFile(script, "utf8");
+  assert.match(source, /process\.platform === "win32" \? "1" : undefined/);
+  assert.match(source, /nodeArgs\.push\(`--test-concurrency=\$\{concurrency\}`\)/);
+});
+
 test("connector-backed local execution fails closed for control and all domains", async () => {
   const env = { ...process.env };
   delete env.GITHUB_ACTIONS;

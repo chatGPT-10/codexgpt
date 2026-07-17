@@ -49,8 +49,8 @@ test("CI classifies changes, always enforces policy, and bounds full-matrix logs
     assert.match(block, /if:\s*needs\.classify\.outputs\.runtime == 'true'/, `${name} full matrix must be runtime-only`);
     assert.match(
       block,
-      /scripts\/run-and-summarize\.mjs[^\r\n]*-- node --test/,
-      `${name} CI must run complete Node test discovery through the bounded summary wrapper`
+      /scripts\/run-and-summarize\.mjs[^\r\n]*-- node scripts\/test-domains\.mjs run --domain all/,
+      `${name} CI must run the complete authoritative test domain through the bounded summary wrapper`
     );
     assert.match(
       block,

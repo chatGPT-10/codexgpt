@@ -394,6 +394,14 @@ export class WindowsProcessHostSpikeSession {
     await fsp.rm(this.tempRoot, { recursive: true, force: true });
     return outcome;
   }
+
+  async abort() {
+    this.child.stdin.destroy();
+    if (this.child.exitCode === null && this.child.signalCode === null) this.child.kill();
+    const outcome = await this.exitPromise;
+    await fsp.rm(this.tempRoot, { recursive: true, force: true });
+    return outcome;
+  }
 }
 
 export async function startWindowsProcessHostSpike({ platform = process.platform } = {}) {
@@ -433,7 +441,13 @@ export async function startWindowsProcessHostSpike({ platform = process.platform
     protocolVersion: 1,
     nonce
   }, { requestId });
-  const hello = await helloPromise;
+  let hello;
+  try {
+    hello = await helloPromise;
+  } catch (error) {
+    await session.abort();
+    throw error;
+  }
   if (hello.frame.kind !== PROCESS_HOST_PROTOCOL.kinds.HELLO_ACK || hello.body.nonce !== nonce || hello.body.protocolVersion !== 1) {
     await session.close();
     throw protocolError("HELLO_MISMATCH");

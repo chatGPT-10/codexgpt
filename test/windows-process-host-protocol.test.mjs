@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { EventEmitter } from "node:events";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   PROCESS_HOST_PROTOCOL,
   ProcessHostFrameParser,
+  WindowsProcessHostSpikeSession,
   decodeProcessHostFrame,
   encodeProcessHostFrame,
   parseStrictJsonObject
@@ -172,4 +176,37 @@ test("parser queue cap is fatal and does not retain unbounded partial input", ()
   const parser = new ProcessHostFrameParser({ key, maxQueuedBytes: 128 });
   assert.equal(errorCode(() => parser.push(Buffer.alloc(129))), "HOST_QUEUE_LIMIT_EXCEEDED");
   assert.equal(errorCode(() => parser.push(Buffer.alloc(1))), "PARSER_FATAL");
+});
+
+test("startup abort terminates the exact spawned host and removes its temporary root", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-host-abort-test-"));
+  const child = new EventEmitter();
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.exitCode = null;
+  child.signalCode = null;
+  child.killCalls = 0;
+  child.kill = () => {
+    child.killCalls += 1;
+    child.exitCode = 1;
+    queueMicrotask(() => child.emit("close", 1, null));
+    return true;
+  };
+
+  const session = new WindowsProcessHostSpikeSession({
+    child,
+    nodeToHostKey: Buffer.alloc(32, 0x55),
+    hostToNodeKey: Buffer.alloc(32, 0x66),
+    nonce: "n".repeat(64),
+    tempRoot
+  });
+  const outcome = await session.abort();
+  assert.equal(child.killCalls, 1);
+  assert.equal(child.stdin.destroyed, true);
+  assert.equal(outcome.code, 1);
+  await assert.rejects(fs.stat(tempRoot), (error) => error?.code === "ENOENT");
+
+  const source = await fs.readFile(path.join(repositoryRoot, "scripts", "windows-process-host-spike.mjs"), "utf8");
+  assert.match(source, /catch \(error\) \{\s*await session\.abort\(\);\s*throw error;\s*\}/);
 });
