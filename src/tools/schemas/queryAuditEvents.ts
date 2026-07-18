@@ -3,7 +3,9 @@ import {
   queryAuditEventsInputV2Schema,
   queryAuditEventsResultV2Schema,
   queryAuditEventsInputV3Schema,
-  queryAuditEventsResultV3Schema
+  queryAuditEventsResultV3Schema,
+  queryAuditEventsInputV4Schema,
+  queryAuditEventsResultV4Schema
 } from "../../audit/schemas.js";
 import type {
   AuditErrorCode,
@@ -16,6 +18,8 @@ export const queryAuditEventsInputSchema = queryAuditEventsInputV2Schema;
 export const queryAuditEventsDataSchema = queryAuditEventsResultV2Schema;
 export const queryAuditEventsInputSchemaV3 = queryAuditEventsInputV3Schema;
 export const queryAuditEventsDataSchemaV3 = queryAuditEventsResultV3Schema;
+export const queryAuditEventsInputSchemaV4 = queryAuditEventsInputV4Schema;
+export const queryAuditEventsDataSchemaV4 = queryAuditEventsResultV4Schema;
 
 export const QUERY_AUDIT_EVENTS_ERROR_MESSAGES = Object.freeze({
   AUDIT_ACCESS_DENIED: "Audit access was denied.",
@@ -198,6 +202,44 @@ export function createQueryAuditEventsFailureV3(
       code,
       message: QUERY_AUDIT_EVENTS_ERROR_MESSAGES[code],
       retryable: retryableByCode[code],
+      details: {}
+    },
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export const queryAuditEventsOutputShapeV4 = {
+  codexpro_tool: z.literal("query_audit_events"),
+  codexpro_title: z.literal("Query Audit Events"),
+  ok: z.boolean(),
+  data: queryAuditEventsDataSchemaV4.nullable(),
+  error: queryAuditEventsErrorSchema.nullable(),
+  meta: toolMetaSchema
+};
+
+const queryAuditEventsOutputBaseSchemaV4 = z.object(queryAuditEventsOutputShapeV4).strict();
+
+export const queryAuditEventsOutputSchemaV4 = queryAuditEventsOutputBaseSchemaV4.superRefine(
+  (value, context) => {
+    if (value.ok && (value.data === null || value.error !== null)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful V4 audit queries require data and no error." });
+    }
+    if (!value.ok && (value.data !== null || value.error === null)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed V4 audit queries require an error and no data." });
+    }
+  }
+);
+
+export function createQueryAuditEventsUnavailableV4(durationMs = 0) {
+  return queryAuditEventsOutputSchemaV4.parse({
+    codexpro_tool: "query_audit_events",
+    codexpro_title: "Query Audit Events",
+    ok: false,
+    data: null,
+    error: {
+      code: "AUDIT_UNAVAILABLE",
+      message: QUERY_AUDIT_EVENTS_ERROR_MESSAGES.AUDIT_UNAVAILABLE,
+      retryable: true,
       details: {}
     },
     meta: createToolMeta(durationMs)

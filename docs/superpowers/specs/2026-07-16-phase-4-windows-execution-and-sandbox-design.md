@@ -1,6 +1,6 @@
 # Phase 4 Windows Execution and Trusted-Workspace Design
 
-**Status:** reduced personal-use design and complete local acceptance are closed; Phase 4 is ready for publication and exact-head CI; strong sandbox implementation is deferred
+**Status:** reduced personal-use Phase 4 is published and exact-head closed; strong sandbox implementation is deferred
 **Date:** 2026-07-16
 **Scope decision:** 2026-07-17 — Phase 4 closes around trusted-code execution and brokered roots; the `workspace` OS-sandbox profile remains unavailable
 **Scope:** Phase 4A native Windows execution, locally confirmed full access for trusted repositories, and retained Phase 4B capability evidence only
@@ -736,7 +736,7 @@ No failed gate may be bypassed by direct spawn, PATH helper, `taskkill`, live-ro
 - Long tests use the detached runner and authoritative ordinary/control partition with retained run IDs and bounded logs.
 - Documentation and memory are reconciled after runtime evidence.
 - The phase is staged, committed in English, and pushed only once at its complete approved boundary.
-- Phase 5 waits for exact 40-character HEAD CI success; evidence remains below ignored `.ai-bridge/`.
+- Closure head `d19e65ba75938c35afa472d23d91d1724fe7fabf` passed exact-head run `29603060944`; Phase 5 Task 5A0 / Gate G0 may begin. Evidence remains below ignored `.ai-bridge/`.
 
 ## 17. Rollback
 
@@ -780,4 +780,4 @@ No failed gate may be bypassed by direct spawn, PATH helper, `taskkill`, live-ro
 
 ## 20. Implementation handoff
 
-The paired TDD plan is `docs/superpowers/plans/2026-07-16-phase-4-windows-execution-and-sandbox.md`. Gates O, N, A0, A1, C, and F plus Tasks 4A3–4A10, diagnostic 4B0, documentation reconciliation 4C0, and the complete local gate 4C1 are closed locally and unpublished. Trusted-code `full_access` still requires exact local R3 approval, backend revalidation, truthful ambient-authority reporting, bounded redacted output, owner-bound handles, and Job-member-only lifecycle control. The production integration, exact V1/V2 wire, rollback readers, package exclusion, public documentation, managed Node 20/24 ordinary/control domains, both Smoke matrices, and package/policy/inventory gates passed. Task 4C2 publication and exact-head CI are next. Task 4B0 remains blocked diagnostic evidence; Tasks 4B1–4B6 and `workspace` remain deferred.
+The paired TDD plan is `docs/superpowers/plans/2026-07-16-phase-4-windows-execution-and-sandbox.md`. Reduced Phase 4 is published and closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed classification, repository policy, and Ubuntu/Windows Node 20/24. Trusted-code `full_access` still requires exact local R3 approval, backend revalidation, truthful ambient-authority reporting, bounded redacted output, owner-bound handles, and Job-member-only lifecycle control. Task 4B0 remains blocked diagnostic evidence; Tasks 4B1–4B6 and `workspace` remain deferred. Phase 5 Tasks 5A0 / Gate G0 through 5A3 / Gate R are locally complete; Task 5A4 / Gate I is next.

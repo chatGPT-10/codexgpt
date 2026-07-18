@@ -1,5 +1,18 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import {
+  defineGitV4Tool,
+  gitV4BranchIdSchema,
+  gitV4ExecutionIsolationSchema,
+  gitV4IntegrationsSchema,
+  gitV4LiteralPathSchema,
+  gitV4OidSchema,
+  gitV4OptionalPathsSchema,
+  gitV4RepositoryIdSchema,
+  gitV4ReviewTokenSchema,
+  gitV4StateTokenSchema,
+  gitV4WorkspaceIdSchema
+} from "./gitV4Common.js";
 
 export const GIT_STATUS_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not available. Open the workspace before retrying.",
@@ -199,3 +212,78 @@ export function createGitStatusFailure(
     meta: createToolMeta(durationMs)
   });
 }
+
+export const gitStatusInputV4Schema = z.object({
+  workspace_id: gitV4WorkspaceIdSchema,
+  paths: gitV4OptionalPathsSchema
+}).strict();
+
+const gitStatusHeadV4Schema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("branch"), branch_id: gitV4BranchIdSchema, oid: gitV4OidSchema }).strict(),
+  z.object({ kind: z.literal("detached"), branch_id: z.null(), oid: gitV4OidSchema }).strict(),
+  z.object({ kind: z.literal("unborn"), branch_id: gitV4BranchIdSchema, oid: z.null() }).strict()
+]);
+
+const gitStatusEntryV4Schema = z.object({
+  path: gitV4LiteralPathSchema,
+  old_path: gitV4LiteralPathSchema.nullable(),
+  index: z.enum(["unmodified", "added", "modified", "deleted", "renamed", "copied", "type_changed", "unmerged"]),
+  worktree: z.enum(["unmodified", "added", "modified", "deleted", "renamed", "copied", "type_changed", "unmerged", "untracked"]),
+  submodule: z.boolean()
+}).strict();
+
+export const gitStatusDataV4Schema = z.object({
+  repository_id: gitV4RepositoryIdSchema,
+  head: gitStatusHeadV4Schema,
+  entries: z.array(gitStatusEntryV4Schema).max(4096),
+  changed_count: z.number().int().nonnegative(),
+  untracked_count: z.number().int().nonnegative(),
+  ignored_count: z.number().int().nonnegative(),
+  omitted_blocked_count: z.number().int().nonnegative(),
+  omitted_secret_count: z.number().int().nonnegative(),
+  scan_complete: z.boolean(),
+  mutation_state: z.enum(["complete", "incomplete"]),
+  state_token: gitV4StateTokenSchema.nullable(),
+  integration_review_token: gitV4ReviewTokenSchema.nullable(),
+  integration_identity_count: z.number().int().nonnegative().max(128),
+  integration_identity_digest: z.string().regex(/^[a-f0-9]{64}$/u).nullable(),
+  integration_identities: z.array(z.object({
+    kind: z.enum(["hook", "filter", "merge_driver", "fsmonitor", "signing", "identity"]),
+    config_key_digest: z.string().regex(/^[a-f0-9]{64}$/u),
+    executable_digest: z.string().regex(/^[a-f0-9]{64}$/u).nullable(),
+    content_digest: z.string().regex(/^[a-f0-9]{64}$/u)
+  }).strict()).max(128),
+  execution_isolation: gitV4ExecutionIsolationSchema,
+  repository_integrations: gitV4IntegrationsSchema
+}).strict().superRefine((value, context) => {
+  if ((value.scan_complete && value.mutation_state !== "complete") ||
+      (!value.scan_complete && value.mutation_state !== "incomplete")) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["mutation_state"], message: "mutation_state must match scan completeness." });
+  }
+  if ((value.mutation_state === "complete") !== (value.state_token !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["state_token"], message: "Only complete state may carry a token." });
+  }
+  if (value.integration_identity_count !== value.integration_identities.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["integration_identity_count"], message: "Integration identity count must match the preview." });
+  }
+  if (value.repository_integrations === "disabled") {
+    if (
+      value.integration_review_token !== null ||
+      value.integration_identity_count !== 0 ||
+      value.integration_identity_digest !== null
+    ) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["repository_integrations"], message: "Disabled integrations cannot carry review facts." });
+    }
+  } else if (value.mutation_state === "complete") {
+    if (value.integration_review_token === null || value.integration_identity_digest === null) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["integration_review_token"], message: "Complete approved integrations require exact review facts." });
+    }
+  }
+});
+
+const gitStatusV4Tool = defineGitV4Tool("git_status", "Git Status", gitStatusDataV4Schema);
+export const gitStatusOutputShapeV4 = gitStatusV4Tool.outputShape;
+export const gitStatusOutputSchemaV4 = gitStatusV4Tool.outputSchema;
+export const createGitStatusSuccessV4 = gitStatusV4Tool.success;
+export const createGitStatusFailureV4 = gitStatusV4Tool.failure;
+export const createGitStatusUnavailableV4 = gitStatusV4Tool.unavailable;

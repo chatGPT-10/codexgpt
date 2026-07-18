@@ -237,7 +237,7 @@ function mutationWriterCalls(filePath) {
   return calls;
 }
 
-test("every production mutation-writer call site passes the selected caller contract instead of a hard-coded V2", () => {
+test("every production mutation-writer call site maps the selected public contract to its persisted contract instead of hard-coding V2", () => {
   const serverCalls = mutationWriterCalls(fileURLToPath(new URL("../src/server.ts", import.meta.url)));
   assert.deepEqual(
     Object.fromEntries(["attachPreparedFileMutation", "attachPreparedPatchMutation", "attachPreparedBatchMutation"].map((name) => [
@@ -251,13 +251,13 @@ test("every production mutation-writer call site passes the selected caller cont
     }
   );
   for (const call of serverCalls) {
-    assert.match(call.text, /contractVersion:\s*config\.toolContractVersion/);
+    assert.match(call.text, /contractVersion:\s*persistedMutationContractVersion\(config\.toolContractVersion\)/);
     assert.doesNotMatch(call.text, /contractVersion:\s*2\b/);
   }
 
   const localCalls = mutationWriterCalls(fileURLToPath(new URL("../src/mutations/localService.ts", import.meta.url)));
   assert.equal(localCalls.length, 1);
   assert.equal(localCalls[0].name, "attachPreparedBatchMutation");
-  assert.match(localCalls[0].text, /contractVersion:\s*this\.config\.toolContractVersion/);
+  assert.match(localCalls[0].text, /contractVersion:\s*persistedMutationContractVersion\(this\.config\.toolContractVersion\)/);
   assert.doesNotMatch(localCalls[0].text, /contractVersion:\s*2\b/);
 });

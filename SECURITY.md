@@ -46,6 +46,10 @@ Review changes against these failure modes before release:
 | ChatGPT can run arbitrary shell by default | Bash defaults to safe mode, can be disabled, and full mode is a trusted-local-only choice. Safe mode can still run repo package scripts, so use `--no-bash` for untrusted repos. |
 | Contract V3 `full_access` is mistaken for a sandbox | It is opt-in, requires an explicit V3 Permission Profile and a fresh local one-use approval, and reports ambient current-user filesystem, credential, registry, broker, device, and network authority. |
 | A failed sandbox probe silently falls back to ambient execution | The reserved `workspace` profile remains unavailable and never falls back to `full_access`; retained Gate S evidence stays blocked and diagnostic only. |
+| The Contract V4 Git capsule is mistaken for a sandbox | The capsule fixes executable identity, environment, arguments, prompts, network/lazy fetch, and integrations, but still runs as the current user and reports `execution_isolation: none`. |
+| A task checkout is mistaken for process isolation | Managed worktrees separate workflow state only. They share repository metadata and provide no credential, registry, device, broker, or network isolation. |
+| A clean task removal is mistaken for branch deletion | Removal deletes only the revalidated owned checkout and registration. The generated branch, commits, private stashes, and audit are retained. |
+| Merge preparation is mistaken for live-target execution | Preparation creates an immutable reviewed candidate; execution separately revalidates clean target state, normalization, OIDs, and CAS preconditions. |
 | Handoff mode still exposes generic writes | Handoff/pro modes do not advertise generic `write`/`edit`/`apply_patch`; bounded handoff tools write `.ai-bridge` files only. |
 | Local Codex history is treated as ChatGPT memory | Codex session access is opt-in metadata/read mode and never attaches to a live Codex app session. |
 | Browser admin mutates live runtime unexpectedly | Admin profile changes apply on restart; active runtime policy stays stable for the current session. |
@@ -117,6 +121,22 @@ The following distinctions are security requirements:
 - Any profile that claims blocked-path, credential, registry, device, destination-network, or sandbox enforcement against an ambient child fails closed before approval or spawn. `full_access` is admitted only when the selected profile explicitly accepts that those protections do not apply.
 
 Contracts V1 and V2 retain their exact behavior and do not create pending approvals. Contract V3 adds a local-only approval and emergency-control surface, durable V3 lifecycle audit, and typed Windows process tools. It still does not claim OAuth-grade owner isolation, complete Windows sandboxing, elimination of all same-user TOCTOU or broker escapes, DLP, or safe arbitrary Git remote writes.
+
+## Contract V4 Git and Task-Worktree Boundaries
+
+Contract V4 is exact 51 and requires atomic state, durable audit, Policy Kernel `enforce`, stable session identity, verified native Git execution, and local approval support. `CODEXPRO_GIT_MODE=read` is the mutation-off default; `local` activates only the typed local operations admitted by policy and Gate R.
+
+- The safe capsule binds one executable identity and uses direct argv, a clean bounded environment, fixed disabling config, no prompts, no lazy fetch, and no network protocol. It is not an OS sandbox.
+- Safe stage, restore, stash, task materialization, divergent merge, and target integration use private indexes, raw blobs, object quarantine, and explicit file/index/ref participants. They do not invoke porcelain `git add`, `checkout`, `reset`, `clean`, `stash`, or live-checkout `merge`.
+- Affected EOL, text, encoding, ident, clean/smudge/LFS, or other checkout transformations fail before effects. `CODEXPRO_GIT_INTEGRATIONS=off` executes no repository integration.
+- Remote, credential, config mutation, force, branch/history deletion, shared `refs/stash`, GC, and caller-selected arbitrary Git arguments are absent from the typed surface. A separately approved unrestricted process remains ambient authority outside this guarantee.
+- Gate R persists authorization before effects and terminal audit before success. It coordinates CodexPro-owned locks and participants only; external Git processes are not excluded and simultaneous database visibility is not claimed. Unprovable restart state freezes the repository instead of guessing rollback or deletion.
+- Public repository, task, branch, plan, review, receipt, and workspace values are opaque. Canonical task paths remain local-control information. Persistent task owner binding is versioned; session workspace handles are not revived after restart.
+- Task create and remove are review/execute state machines. Create's review has no branch/root/admin effect. Remove requires a clean exact inventory and retains the branch, commits, and private stashes.
+- Fast-forward merge preparation is effect-free. Divergent preparation computes/scans in quarantine under review authority; object/ref promotion requires a fresh candidate-bound R3 retry. Merge execute is a separate R3 CAS and may still fail after checks if external state changes.
+- Same-binary rollback to V3 hides V4 tools but keeps compatible readers and recovery state. Configuration rollback never means deleting tasks, branches, stashes, candidates, or audit.
+
+Repository integrations that require hooks, filters, signing, merge helpers, or similar programs are not run by the safe path. Enabling a configuration value never authorizes silent ambient execution; if an exact approved integration path is unavailable, the operation fails with an action-oriented error. Gate X requires explicit `approved_full_access`, local Git mode, one exact fresh R3 grant, and unchanged executable/repository/integration identities. It exposes only private-index stage, shadow-directory commit, quarantined object-only merge, and private-destination checkout; no caller-selected Git command or typed remote, credential, force, or config mutation exists. These four operations remain ambient current-user execution with no filesystem, credential, registry, network, or broker isolation, and both the local approval display and public result state that limit.
 
 During the migration cycle, rollback is permitted only to reviewed legacy behavior, the exact generated compatibility profile, or a narrower read-only profile. Invalid policy configuration cannot fall through to an unguarded execution path.
 

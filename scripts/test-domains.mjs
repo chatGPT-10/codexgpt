@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 export const CONTROL_DOMAIN_TESTS = Object.freeze([
   "conpty-close-order-windows-control.test.mjs",
+  "git-execution-windows-control.test.mjs",
   "handoff-to-agent-contract.test.mjs",
   "handoff-to-codex-contract.test.mjs",
   "local-control-pipe-windows-control.test.mjs",
@@ -19,7 +20,8 @@ export const CONTROL_DOMAIN_TESTS = Object.freeze([
   "process-lifecycle-windows-control.test.mjs",
   "persistent-process-production-windows-control.test.mjs",
   "process-local-control-cli.test.mjs",
-  "windows-process-host-control.test.mjs"
+  "windows-process-host-control.test.mjs",
+  "worktree-windows-control.test.mjs"
 ]);
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));

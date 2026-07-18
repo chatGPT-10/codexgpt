@@ -5,6 +5,7 @@ import {
   executionAuditFacts
 } from "../audit/transactionParticipant.js";
 import { type AuditMutationKind, type AuthorizationAuditEventV2, type ExecutionAuditStatus } from "../audit/types.js";
+import type { AuthorizationAuditEventV4 } from "../audit/types.js";
 import { TransactionError } from "../transactions/types.js";
 import { pendingWorkspaceMutation } from "../mutations/index.js";
 import { toolPolicyDefinition } from "./toolPolicy.js";
@@ -13,7 +14,7 @@ import type {
   PolicyDecisionV1,
   PolicyEngineMode,
   RequiredCapabilityV1,
-  ResourceDescriptorV1,
+  ResourceDescriptorV4,
   RiskClass
 } from "./types.js";
 
@@ -63,6 +64,7 @@ export interface PolicyAuthorizationResult {
     approvalId: string;
     serverId: string;
   };
+  v4Authorization?: AuthorizationAuditEventV4;
   reservation?: {
     schemaVersion: 3;
     commit(): void | Promise<void>;
@@ -71,7 +73,7 @@ export interface PolicyAuthorizationResult {
 }
 
 export interface ResourceResolutionResult {
-  resource: ResourceDescriptorV1;
+  resource: ResourceDescriptorV4;
   requiredCapabilities?: RequiredCapabilityV1[];
   requiredScopes?: readonly string[];
   semanticFactsDigest?: string;
@@ -108,9 +110,14 @@ const POLICY_FAILURE = Symbol("codexpro.policy.failure");
 const POLICY_WRAPPED_HANDLER = Symbol("codexpro.policy.wrapped-handler");
 const installedServers = new WeakSet<object>();
 const AUTHORIZED_RESOURCE = Symbol.for("codexpro.policy.authorized-resource");
+const AUTHORIZATION_V4 = Symbol.for("codexpro.policy.authorization-v4");
 
 export function authorizedResourceFingerprint(args: object): string | null {
   return (args as Record<symbol, unknown>)[AUTHORIZED_RESOURCE] as string ?? null;
+}
+
+export function authorizedGitEventV4(args: object): AuthorizationAuditEventV4 | null {
+  return (args as Record<symbol, unknown>)[AUTHORIZATION_V4] as AuthorizationAuditEventV4 ?? null;
 }
 
 export async function withAuthorizedResourceBinding<T>(args: object, fingerprint: string, operation: () => T | Promise<T>): Promise<T> {
@@ -119,6 +126,20 @@ export async function withAuthorizedResourceBinding<T>(args: object, fingerprint
     return await operation();
   } finally {
     delete (args as Record<symbol, unknown>)[AUTHORIZED_RESOURCE];
+  }
+}
+
+async function withAuthorizationV4Binding<T>(
+  args: object,
+  authorization: AuthorizationAuditEventV4 | undefined,
+  operation: () => T | Promise<T>
+): Promise<T> {
+  if (!authorization) return operation();
+  Object.defineProperty(args, AUTHORIZATION_V4, { value: authorization, configurable: true, enumerable: false });
+  try {
+    return await operation();
+  } finally {
+    delete (args as Record<symbol, unknown>)[AUTHORIZATION_V4];
   }
 }
 
@@ -276,7 +297,7 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
         let result = await withAuthorizedResourceBinding(
           args,
           authorization.decision.resourceFingerprint,
-          () => original(args, extra)
+          () => withAuthorizationV4Binding(args, authorization.v4Authorization, () => original(args, extra))
         );
         const workspaceMutation = pendingWorkspaceMutation(result);
         if (workspaceMutation && (

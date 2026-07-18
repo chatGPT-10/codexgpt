@@ -56,6 +56,19 @@ export class LocalApprovalRuntimeV3 {
   }
 
   static async start(options: LocalApprovalRuntimeV3Options): Promise<LocalApprovalRuntimeV3> {
+    const runtime = LocalApprovalRuntimeV3.create({
+      ...options,
+      startNativeControl: false
+    });
+    if (options.startNativeControl !== false) {
+      await runtime.activateNativeControl(options.stateBaseRoot);
+    }
+    return runtime;
+  }
+
+  static create(options: LocalApprovalRuntimeV3Options & {
+    startNativeControl: false;
+  }): LocalApprovalRuntimeV3 {
     const serverId = localControlServerId();
     const approvals = new PendingApprovalStore({
       ...options.pendingStoreOptions,
@@ -71,13 +84,16 @@ export class LocalApprovalRuntimeV3 {
       now: options.now
     });
     const runtime = new LocalApprovalRuntimeV3({ serverId, approvals, grants, server });
-    if (options.startNativeControl !== false) {
-      runtime.#nativeControl = await WindowsLocalControlRuntime.start({
-        server,
-        stateBaseRoot: options.stateBaseRoot
-      });
-    }
     return runtime;
+  }
+
+  async activateNativeControl(stateBaseRoot: string): Promise<void> {
+    this.#assertOpen();
+    if (this.#nativeControl) return;
+    this.#nativeControl = await WindowsLocalControlRuntime.start({
+      server: this.server,
+      stateBaseRoot
+    });
   }
 
   nativeControl(): WindowsLocalControlRuntime | null {

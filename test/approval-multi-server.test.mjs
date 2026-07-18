@@ -8,15 +8,16 @@ import { tsImport } from "tsx/esm/api";
 import { processCreationTime } from "../scripts/long-task-runner.mjs";
 import { remotePipeRefused } from "../scripts/windows-local-control-spike.mjs";
 
-const { LocalApprovalClient } = await tsImport("../src/control/localApprovalClient.ts", import.meta.url);
-const { LocalApprovalServer } = await tsImport("../src/control/localApprovalServer.ts", import.meta.url);
 const {
+  SessionGrantStore,
+  PendingApprovalStore,
+  createAuthorizationFactsV3,
+  semanticDigest,
+  LocalApprovalClient,
+  LocalApprovalServer,
   WindowsLocalControlRuntime,
   localControlServerId
-} = await tsImport("../src/control/windowsLocalControl.ts", import.meta.url);
-const { SessionGrantStore } = await tsImport("../src/policy/approval.ts", import.meta.url);
-const { PendingApprovalStore } = await tsImport("../src/policy/pendingApprovals.ts", import.meta.url);
-const { createAuthorizationFactsV3, semanticDigest } = await tsImport("../src/policy/authorizationFacts.ts", import.meta.url);
+} = await tsImport("../fixtures/ts-imports/local-approval-integration-imports.ts", import.meta.url);
 
 const windowsOnly = process.platform === "win32" ? test : test.skip;
 const fingerprint = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;

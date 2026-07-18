@@ -46,6 +46,18 @@ test("published package keeps website assets but excludes internal memory archiv
   const files = report[0].files.map((entry) => entry.path.replaceAll("\\", "/"));
 
   assert.ok(files.includes("docs/index.html"), "Published package must retain the documentation website");
+  for (const requiredGateRFile of [
+    "dist/git/durableState.js",
+    "dist/git/locks.js",
+    "dist/git/objectQuarantine.js",
+    "dist/git/operationStore.js",
+    "dist/git/recovery.js",
+    "dist/git/repositoryStore.js",
+    "dist/git/resources.js",
+    "dist/audit/lifecycleV4.js"
+  ]) {
+    assert.ok(files.includes(requiredGateRFile), `Published package must retain ${requiredGateRFile}`);
+  }
   for (const requiredNativeHostFile of [
     "scripts/windows-conpty-probe-child.mjs",
     "scripts/windows-conpty-worker.ps1",
@@ -64,6 +76,9 @@ test("published package keeps website assets but excludes internal memory archiv
     assert.ok(files.includes(requiredNativeHostFile), `Published package must retain ${requiredNativeHostFile}`);
   }
   for (const internalSpikeFile of [
+    "scripts/git-capability-spike.mjs",
+    "scripts/worktree-delete-control.mjs",
+    "scripts/git-execution-manifest-v1.json",
     "scripts/windows-process-host-spike.mjs",
     "scripts/windows-sandbox-attack-probe.cs",
     "scripts/windows-sandbox-cleanup.ps1",
@@ -78,6 +93,11 @@ test("published package keeps website assets but excludes internal memory archiv
     files.some((file) => file.startsWith("fixtures/sandbox-attacks/")),
     false,
     "Published package must exclude Gate-S attack fixtures"
+  );
+  assert.equal(
+    files.some((file) => file.startsWith("fixtures/git-")),
+    false,
+    "Published package must exclude private Gate-G0 canary fixtures"
   );
   assert.equal(
     files.some((file) => file.startsWith("fixtures/ts-imports/")),

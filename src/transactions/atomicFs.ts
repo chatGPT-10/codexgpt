@@ -127,10 +127,10 @@ export class AtomicWorkspaceFs {
 
     try {
       const stat = await fsp.lstat(facts.absPath, { bigint: true });
-      if (stat.isSymbolicLink() || !stat.isFile()) {
+      if (stat.isSymbolicLink() || !stat.isFile() || stat.nlink !== 1n) {
         throw new TransactionError(
           "TRANSACTION_PRECONDITION_FAILED",
-          "Atomic transactions support ordinary files only."
+          "Atomic transactions support single-link ordinary files only."
         );
       }
       if (stat.size > BigInt(this.maxBytes)) {

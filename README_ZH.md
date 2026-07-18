@@ -372,6 +372,35 @@ Phase 3 已把 transaction、change-set、persistent audit、recovery 与 move �
 
 Contract V1 仍是默认的精确 28 工具公开表面。显式选择 Contract V2（`CODEXPRO_TOOL_CONTRACT_VERSION=2`）时，必须同时启用 atomic transaction 与 persistent audit，并使用精确的 31 个子工具集合。standard/full 模式新增 `move_paths` 与 `undo_change_set`；只有 full 模式再新增 `query_audit_events`；minimal 与 connection-test 不暴露这三个工具。`move_paths` 最多处理同一工作区、同一卷内 64 个带 SHA-256 前置条件的普通文件，不覆盖无关目标；preview 只证明当前验证通过，不承诺稍后的 hard-link 执行一定成功。恢复、完整性、保留期、owner binding、undo 和信任边界详见 [SECURITY.md](SECURITY.md)。
 
+## 类型化本地 Git 与托管任务 Worktree（Contract V4）
+
+Contract V4 需要显式启用，精确包含 51 个工具。它保留 V1/V2/V3，并新增类型化的纯本地 Git 读写与 owner-bound 托管任务 worktree。受支持的 STDIO/HTTP 启动路径会先验证唯一 Git 可执行文件并完成 Gate R 恢复，之后才接受 transport 连接。
+
+```powershell
+$env:CODEXPRO_TOOL_CONTRACT_VERSION = "4"
+$env:CODEXPRO_FILE_TRANSACTIONS = "atomic"
+$env:CODEXPRO_AUDIT_MODE = "required"
+$env:CODEXPRO_POLICY_ENGINE = "enforce"
+$env:CODEXPRO_TOOL_MODE = "full"
+$env:CODEXPRO_PERMISSION_PROFILE = "trusted-local" # 必须只授予所需 V4 Git/worktree scopes
+$env:CODEXPRO_GIT_MODE = "local"                   # 设为 "read" 会禁用全部 Git mutation
+$env:CODEXPRO_GIT_INTEGRATIONS = "off"
+$env:CODEXPRO_TASK_WORKTREE_ROOT = "D:\CodexProTasks"
+codexpro start --root D:\Dev\your-repo --write workspace --bash off
+```
+
+安全 Git capsule 固定可执行文件身份、参数、环境、prompt、网络/lazy fetch 与 repository integration。它仍以当前 Windows 用户权限运行，是执行策略边界，不是操作系统 sandbox。CodexPro lock 只协调 CodexPro 自己的操作；外部 Git 进程仍可能制造竞态，此时系统会失败关闭或要求人工恢复。
+
+创建任务的第一次调用只返回不可变审查，不创建 branch、管理目录或任务根。通过本机一次性审批后的重试才会创建生成的 `codex/*` branch，并把精确本地 Git blob 原始物化到配置的托管根。任务 workspace handle 仅在当前 session 有效；owner-bound 任务记录、branch、commit、私有 stash 与 audit 可以跨重启保留。`remove_task_worktree` 只删除经过证明的干净 checkout 及其精确 CodexPro registration，保留 branch、commit 和私有 stash。
+
+Merge prepare 不更新 live target。fast-forward prepare 无副作用；divergent merge 先在 quarantine 内计算并完整扫描，再要求一次与 candidate 绑定的新本机审批，之后才提升 immutable object 和一个应用私有 candidate ref。Execute 会重新验证 plan、task/target/candidate OID、干净 checkout 或两次证明未 checkout 的 target、normalization 事实与一次性审批，再执行 file/index/ref CAS。候选检查通过不代表稍后的 live-target execute 必然成功。
+
+受支持默认值是 `CODEXPRO_GIT_INTEGRATIONS=off`：不会执行 hook、filter、signing program、merge helper、fsmonitor、editor、pager、credential helper 或 remote command。需要这些程序的仓库会返回 integration/normalization 错误，不会静默切换到 ambient execution。V4 类型化工具不提供 remote、credential、force、branch delete、reset、clean、GC、共享 stash stack 或调用者自选任意 Git command。
+
+只有同时显式设置 `CODEXPRO_GIT_INTEGRATIONS=approved_full_access`、本地 Git mutation mode 和 `full_access` execution profile，才能选择 Gate X。每次新鲜且精确的 R3 批准会绑定 repository/worktree、Git 可执行文件、已发现的 integration 身份、语义状态、tool 和 canonical action。运行时随后只允许四类固定类型化 builder：私有 index stage、shadow Git dir commit、quarantine 内 object-only merge，以及写入私有目标的 checkout。调用方不能传入 Git command、subcommand、参数向量、remote/credential/force 动作或 config mutation。其子进程仍具有当前用户的 ambient `full_access`；批准卡和公开结果都会明确显示不存在 filesystem、credential、registry、network 或 broker isolation。
+
+把配置回滚到 V3 只会隐藏 V4 工具，不会删除持久任务、`codex/*` branch、私有 stash、candidate recovery state 或 audit。删除状态前应使用同版本 binary 的 cleanup/recovery 路径。
+
 ## 可信代码 Windows 执行（Contract V3）
 
 Contract V3 需要显式启用，精确包含 39 个工具：继承 V2 中除 `bash` 外的工具，再加入 `open_full_access_workspace`、`run_command`、`start_process` 和六个类型化进程管理工具。它要求 atomic transaction、durable audit、Policy Kernel `enforce`、稳定会话身份和本机审批 runtime。

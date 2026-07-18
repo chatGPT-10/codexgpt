@@ -45,6 +45,12 @@ export interface ProContextOptions {
   maxTotalBytes?: number;
 }
 
+export interface ProContextGitProviders {
+  status?: () => string | Promise<string>;
+  log?: () => string | Promise<string>;
+  diff?: () => string | Promise<string>;
+}
+
 export interface PreparedProContextRequest {
   readonly title: string;
   readonly selectedPaths: readonly string[];
@@ -494,10 +500,11 @@ export async function buildPreparedProContext(
   request: PreparedProContextRequest,
   createdContextFiles: readonly string[] = [],
   virtualAiBridge: Readonly<Record<string, string>> = {},
-  virtualFiles: Readonly<Record<string, string>> = {}
+  virtualFiles: Readonly<Record<string, string>> = {},
+  gitProviders: ProContextGitProviders = {}
 ): Promise<ProContextBuildResult> {
   try {
-    const status = gitStatus(config, workspace);
+    const status = gitProviders.status ? await gitProviders.status() : gitStatus(config, workspace);
     const changedFiles = parseChangedFiles(status);
     const importantFiles = request.includeImportantFiles ? await existingImportantFiles(guard, workspace) : [];
     const changedFileCandidates = request.includeChangedFiles ? changedFiles : [];
@@ -644,11 +651,13 @@ export async function buildPreparedProContext(
       maxEntries: 700
     })).text);
     appendSection(parts, "Git Status", `\`\`\`text\n${status}\n\`\`\``);
-    appendSection(parts, "Recent Commits", `\`\`\`text\n${gitLog(config, workspace, 8)}\n\`\`\``);
+    const log = gitProviders.log ? await gitProviders.log() : gitLog(config, workspace, 8);
+    appendSection(parts, "Recent Commits", `\`\`\`text\n${log}\n\`\`\``);
 
     let diffTruncated = false;
     if (request.includeDiff) {
-      const diff = capProContextUtf8(gitDiff(config, guard, workspace), request.maxDiffBytes, EXPORT_PRO_CONTEXT_DIFF_TRUNCATION_MARKER);
+      const rawDiff = gitProviders.diff ? await gitProviders.diff() : gitDiff(config, guard, workspace);
+      const diff = capProContextUtf8(rawDiff, request.maxDiffBytes, EXPORT_PRO_CONTEXT_DIFF_TRUNCATION_MARKER);
       diffTruncated = diff.truncated;
       appendSection(parts, "Git Diff", `\`\`\`diff\n${diff.text}\n\`\`\``);
     }
@@ -733,7 +742,8 @@ export async function exportPreparedProContext(
   guard: PathGuard,
   workspace: Workspace,
   request: PreparedProContextRequest,
-  preparedOutput?: PreparedProContextOutput
+  preparedOutput?: PreparedProContextOutput,
+  gitProviders: ProContextGitProviders = {}
 ): Promise<ProContextExportResult> {
   const output = preparedOutput ?? await preflightProContextOutput(config, guard, workspace, request);
   let createdContextFiles: string[] = [];
@@ -745,7 +755,7 @@ export async function exportPreparedProContext(
     }
   }
 
-  const built = await buildPreparedProContext(config, guard, workspace, request, createdContextFiles);
+  const built = await buildPreparedProContext(config, guard, workspace, request, createdContextFiles, {}, {}, gitProviders);
   try {
     const write = await writeTextFile(config, guard, workspace, output.path, built.markdown, {
       createDirs: true,
@@ -772,7 +782,8 @@ export async function prepareProContextMutation(
   guard: PathGuard,
   workspace: Workspace,
   request: PreparedProContextRequest,
-  preparedOutput?: PreparedProContextOutput
+  preparedOutput?: PreparedProContextOutput,
+  gitProviders: ProContextGitProviders = {}
 ): Promise<PreparedProContextMutation> {
   const output = preparedOutput ?? await preflightProContextOutput(config, guard, workspace, request);
   try {
@@ -789,7 +800,9 @@ export async function prepareProContextMutation(
       workspace,
       request,
       createdContextFiles,
-      virtualAiBridge
+      virtualAiBridge,
+      {},
+      gitProviders
     );
     const prepared = await prepareWorkspaceTextBatch(config, guard, workspace, [
       ...scaffoldWrites,

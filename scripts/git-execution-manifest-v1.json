@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "capabilityName": "codexpro-git-execution",
+  "capabilityVersion": 1,
+  "commandTransport": "direct_argv",
+  "executionIsolation": "none",
+  "repositoryIntegrations": "disabled",
+  "processTreeControl": "job_object_members_only",
+  "brokerEscapeResistance": "none",
+  "promptPolicy": "fail_closed",
+  "remotePolicy": "deny_all",
+  "candidateOrder": [
+    "%ProgramFiles%\\Git\\cmd\\git.exe",
+    "%ProgramFiles%\\Git\\bin\\git.exe"
+  ],
+  "allowedOperations": [
+    "version",
+    "init_private_probe",
+    "object_format",
+    "worktree_list_porcelain_z",
+    "status_porcelain_v2",
+    "diff_no_ext",
+    "hash_object_write_raw",
+    "read_tree_empty",
+    "read_tree_oid",
+    "update_index_cacheinfo",
+    "write_tree",
+    "commit_tree",
+    "update_ref_expected_old",
+    "merge_tree_write_stdin_z",
+    "cat_file_exists",
+    "positive_control_add"
+  ],
+  "fixedConfigKeys": [
+    "advice.detachedHead=false",
+    "core.askPass=",
+    "core.editor=",
+    "core.fsmonitor=false",
+    "core.pager=cat",
+    "credential.helper=",
+    "diff.external=",
+    "gc.auto=0",
+    "maintenance.auto=false",
+    "pager.branch=false",
+    "pager.diff=false",
+    "pager.log=false",
+    "pager.status=false",
+    "protocol.allow=never",
+    "protocol.file.allow=never",
+    "sequence.editor=",
+    "tag.gpgSign=false",
+    "commit.gpgSign=false"
+  ],
+  "deniedEnvironmentPrefixes": [
+    "GIT_",
+    "SSH_"
+  ],
+  "deniedEnvironmentNames": [
+    "ALL_PROXY",
+    "CREDENTIALS_DIRECTORY",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "PAGER"
+  ],
+  "limits": {
+    "stdinBytes": 131072,
+    "stdoutBytes": 1048576,
+    "stderrBytes": 1048576,
+    "diagnosticBytes": 4096,
+    "timeoutMs": 60000,
+    "argumentCount": 128,
+    "argumentBytes": 8192,
+    "argumentTotalBytes": 65536
+  }
+}

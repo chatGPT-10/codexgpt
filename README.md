@@ -174,6 +174,35 @@ Phase 3 connects the transaction, change-set, persistent-audit, recovery, and mo
 
 Contract V1 remains the default exact 28-tool public surface. Explicit contract V2 (`CODEXPRO_TOOL_CONTRACT_VERSION=2`) requires atomic transactions and persistent audit and defines exactly 31 child tools. Standard/full mode adds `move_paths` and `undo_change_set`; full mode also adds `query_audit_events`. Minimal and connection-test surfaces expose none of the three additions. `move_paths` is limited to 64 hash-guarded ordinary files inside one workspace and one volume, never overwrites an unrelated target, and treats preview as validation rather than a promise that the later hard-link operation will succeed. See [SECURITY.md](SECURITY.md) for recovery, integrity, retention, owner-binding, undo, and trust-boundary details.
 
+## Typed Local Git and Managed Task Worktrees (Contract V4)
+
+Contract V4 is opt-in and defines exactly 51 tools. It preserves V1/V2/V3, adds typed local-only Git reads and mutations, and adds owner-bound managed task worktrees. The supported STDIO and HTTP launch paths probe one exact Git executable and finish Gate R recovery before accepting a transport connection.
+
+```powershell
+$env:CODEXPRO_TOOL_CONTRACT_VERSION = "4"
+$env:CODEXPRO_FILE_TRANSACTIONS = "atomic"
+$env:CODEXPRO_AUDIT_MODE = "required"
+$env:CODEXPRO_POLICY_ENGINE = "enforce"
+$env:CODEXPRO_TOOL_MODE = "full"
+$env:CODEXPRO_PERMISSION_PROFILE = "trusted-local" # must grant the exact V4 Git/worktree scopes
+$env:CODEXPRO_GIT_MODE = "local"                   # use "read" to disable all Git mutations
+$env:CODEXPRO_GIT_INTEGRATIONS = "off"
+$env:CODEXPRO_TASK_WORKTREE_ROOT = "D:\CodexProTasks"
+codexpro start --root D:\Dev\your-repo --write workspace --bash off
+```
+
+The safe Git capsule fixes executable identity, arguments, environment, prompts, network/lazy fetch, and repository integrations. It is an execution-policy boundary running as the current Windows user, not an OS sandbox. CodexPro locks coordinate only CodexPro-owned operations; unrelated Git processes can still race and cause a fail-closed state or manual recovery.
+
+Task creation first returns an immutable review and creates no branch, administrative directory, or task root. The approved retry creates a generated `codex/*` branch and raw-materializes exact local Git blobs beneath the configured managed root. Task workspace handles are session-local; the owner-bound task record, branch, commits, private stashes, and audit may survive restart. `remove_task_worktree` removes only a proven-clean checkout and its exact CodexPro registration; it retains the branch, commits, and private stashes.
+
+Merge preparation never updates the live target. Fast-forward preparation is effect-free. A divergent merge is computed and scanned in quarantine, then a fresh candidate-bound local approval is required before immutable objects and one app-owned candidate ref are promoted. Execute revalidates the exact plan, task/target/candidate OIDs, clean checkout or twice-proved unchecked-out target, normalization facts, and one-use approval before file/index/ref CAS. Candidate checks and preparation are not proof that live-target execution will still succeed.
+
+`CODEXPRO_GIT_INTEGRATIONS=off` is the supported default and executes no hooks, filters, signing programs, merge helpers, fsmonitor, editors, pagers, credential helpers, or remote commands. Repositories that require those programs fail with an integration/normalization error; separately approved ambient integration execution is not silently substituted. Typed V4 tools expose no remote, credential, force, branch-delete, reset, clean, GC, shared-stash-stack, or caller-selected arbitrary Git-command operation.
+
+Gate X can be selected only with `CODEXPRO_GIT_INTEGRATIONS=approved_full_access`, local Git mutation mode, and the explicit `full_access` execution profile. A fresh exact R3 approval binds the repository/worktree, Git executable, discovered integration identities, semantic state, tool, and canonical action. The runtime can then invoke only four fixed typed builders: private-index stage, shadow-Git-dir commit, quarantined object-only merge, or private-destination checkout. The caller cannot provide a Git command, subcommand, argument vector, remote action, credential action, force option, or configuration mutation. These subprocesses still have ambient current-user `full_access`; the approval card and public result explicitly report that there is no filesystem, credential, registry, network, or broker isolation.
+
+Rolling configuration back to V3 hides the V4 tools but does not delete persistent tasks, `codex/*` branches, private stashes, candidate recovery state, or audit records. Use the same binary's cleanup/recovery paths before removing state.
+
 ## Trusted-Code Windows Execution (Contract V3)
 
 Contract V3 is opt-in and defines exactly 39 tools: it inherits the non-`bash` V2 surface and adds `open_full_access_workspace`, `run_command`, `start_process`, and six typed process-management tools. It requires atomic transactions, durable audit, Policy Kernel `enforce`, a stable session identity, and the local approval runtime.

@@ -44,7 +44,23 @@ export type CanonicalToolV3Addition =
   | "list_processes";
 
 export type CanonicalToolV3 = Exclude<CanonicalToolV2, "bash"> | CanonicalToolV3Addition;
-export type CanonicalTool = CanonicalToolV2 | CanonicalToolV3;
+
+export type CanonicalToolV4Addition =
+  | "git_log"
+  | "git_branch"
+  | "git_create_branch"
+  | "git_stage"
+  | "git_commit"
+  | "git_restore"
+  | "git_stash"
+  | "create_task_worktree"
+  | "list_task_worktrees"
+  | "get_task_worktree"
+  | "merge_task_worktree"
+  | "remove_task_worktree";
+
+export type CanonicalToolV4 = CanonicalToolV3 | CanonicalToolV4Addition;
+export type CanonicalTool = CanonicalToolV2 | CanonicalToolV3 | CanonicalToolV4;
 
 export interface ToolContractProjectionInput {
   version: ToolContractVersion;

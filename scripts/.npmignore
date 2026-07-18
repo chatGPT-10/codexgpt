@@ -1,3 +1,6 @@
+git-capability-spike.mjs
+git-execution-manifest-v1.json
+worktree-delete-control.mjs
 windows-process-host-spike.mjs
 windows-sandbox-attack-probe.cs
 windows-sandbox-cleanup.ps1

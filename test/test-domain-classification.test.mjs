@@ -11,6 +11,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const script = path.join(repositoryRoot, "scripts", "test-domains.mjs");
 const expectedControl = [
   "conpty-close-order-windows-control.test.mjs",
+  "git-execution-windows-control.test.mjs",
   "handoff-to-agent-contract.test.mjs",
   "handoff-to-codex-contract.test.mjs",
   "local-control-pipe-windows-control.test.mjs",
@@ -24,7 +25,8 @@ const expectedControl = [
   "wait-for-handoff-contract.test.mjs",
   "windows-process-host-control.test.mjs",
   "windows-process-host-integration-windows-control.test.mjs",
-  "windows-sandbox-control.test.mjs"
+  "windows-sandbox-control.test.mjs",
+  "worktree-windows-control.test.mjs"
 ];
 
 async function execute(args, env = process.env) {

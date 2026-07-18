@@ -6,48 +6,48 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-17.
+- Date: 2026-07-19.
 - Workspace: `D:\Dev\codexpro`; branch: `main`; package: `codexpro@0.28.6`.
 - GitHub repository and `origin`: `chatGPT-10/codexgpt` over HTTPS.
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and complete Phase 3 are closed. Exact historical commit/run evidence is retained in the linked archives.
 - Phase 3 runtime and closure heads passed exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package; exact SHAs and run IDs remain in the Phase 3 archive.
-- Reduced Phase 4 is published through STEP-341 head `31289592c5bd136a50e9f9544f4171a013a1af7f`. Exact-head run `29601639970` passed policy and Ubuntu Node 20/24; Windows Node 20/24 proved every ConPTY/Job/ETX fact but returned exact `STATUS_CONTROL_C_EXIT` (`0xC000013A`).
-- STEP-342 accepts only exit 0 or that exact Windows Ctrl+C status while still requiring no timeout and every ready/input/ETX marker. Focused 17/17, ordinary 886/887 with one established skip, Build, policy, package, and diff gates pass; this is the sole Phase 4 closure candidate. Tasks 4B1–4B6 and `workspace` remain deferred.
-- Phase 5's paired exact design/TDD plan is adversarially reviewed. No Phase 5 runtime work has started; Task 5A0/Gate G0 remains blocked on complete Phase 4 exact-head closure.
+- Reduced Phase 4 is formally closed at head `d19e65ba75938c35afa472d23d91d1724fe7fabf`. Exact-head run `29603060944` completed successfully across repository policy and Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package.
+- Phase 4 retains truthful trusted-code `full_access`; diagnostic 4B0 remains blocked/non-production, while `workspace` and Tasks 4B1–4B6 remain deferred with no fallback.
+- Phase 5 is locally complete and is the closure candidate. V4 provides typed local Git, owner-bound managed task worktrees, raw-blob materialization, immutable merge plans, checked-out target CAS, clean reviewed removal, and Gate X. Gate X accepts only private stage, shadow commit, quarantined object merge, and private checkout after exact identity binding and R3 approval; default integrations remain off. One publication and closure-SHA exact-head success remain before Phase 6.
 
 ## Approved execution boundary
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and pushes after each verified phase. Task 4C2 published the approved Phase 4 boundary; failed exact-head runs authorize only the bounded repairs recorded in STEP-337 through STEP-342. Publish STEP-342 once and require exact-head Ubuntu/Windows Node 20/24 CI. Task 4B1–4B6 and `workspace` remain deferred; Phase 5 waits only for terminal success of the next repair SHA. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
+The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and one push after each verified phase. Complete the final Phase 5 gates, publish once, and require terminal exact-head success before Phase 6. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
 
 ## Active decisions and constraints
 
 - Keep CodexPro self-hosted. Cloudflare is limited to DNS, TLS, and Tunnel; authorization and path enforcement remain local.
 - Native Windows is primary. Git Bash is the temporary execution backend; native PowerShell remains required future work.
-- Use the verified managed Node runtimes under `%LOCALAPPDATA%\CodexPro\toolchains\`: Node `v20.20.2` and `v24.15.0` are installed from the official distribution, verified against `SHASUMS256.txt`, and recorded in the local toolchain manifest. Cleanup must not remove this managed root without explicit user approval.
-- Node test-loader rules: repeated Node 20 `tsx/esm/api` `tsImport` calls can deadlock/cache-spin when a test loads a shared TS graph twice. Use one test-only integration barrel, load leaf implementations before shared servers, and do not use `Promise.all` where it exposes untranspiled `import type`. Node 24.18 recursively discovers TypeScript below `test/`; keep executable/import barrels under package-excluded `fixtures/ts-imports/`, with only inert sentinels under `test/fixtures/`.
+- Preserve the verified managed Node `v20.20.2` and `v24.15.0` runtimes under `%LOCALAPPDATA%\CodexPro\toolchains\`; cleanup requires explicit user approval.
+- Node test-loader rules: use one test-only integration barrel, load leaf implementations before shared servers, and keep executable TypeScript import barrels under package-excluded `fixtures/ts-imports/`; these avoid Node 20 loader deadlocks and Node 24 recursive test discovery.
 - Safe Bash is a command-policy filter, not an operating-system sandbox.
 - `scripts/codexpro-entry.mjs` is the supported public CLI entry; direct `scripts/codexpro.mjs` launch is unsupported.
 - The public CLI defaults to the personal ChatGPT query-token flow when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; `CODEXPRO_ALLOW_QUERY_TOKEN=0` is only for compatible non-ChatGPT Bearer clients.
 - Server-side Bearer support must not be documented as manual static-Bearer support in ChatGPT Web. OAuth 2.1 remains reserved for Phase 8 and requires its dedicated identity, migration, rollback, and security gates.
 - Policy Kernel uses an immutable compiled snapshot and pure deterministic evaluator. Tool Surface, Policy, Approval, and Sandbox remain separate; grants cannot exceed hard policy, identity scopes, Permission Profile, allowed roots, or demonstrated capabilities.
-- `CODEXPRO_POLICY_ENGINE=legacy` remains the migration default; `shadow` is observational and `enforce` is fail-closed. V1/V2 never create pending approvals. Eligible explicit V3 `enforce` profiles use versioned composite scopes so `process:manage` cannot start code and unresolved execution facts fail before approval.
+- `CODEXPRO_POLICY_ENGINE=legacy` remains the migration default; `shadow` is observational and `enforce` is fail-closed. V1/V2 never create approvals; V3 composite scopes keep `process:manage` from starting code.
 - Public `workspace_id` values are random session-scoped handles. Core lookup requires an explicit ID; omitted-ID compatibility exists only at the named session-local resolver.
 - Keep `scripts/smoke.mjs` and `scripts/http-smoke.mjs` protected and unchanged. Compatibility loaders use exact fail-closed in-memory substitutions.
 - `CODEXPRO_FILE_TRANSACTIONS=legacy` remains the compatibility default. Selecting `atomic` routes supported workspace writers through the transaction runtime with no direct-write fallback; writable atomic V1 requires terminal persistent audit.
 - Phase 3 state stays outside workspaces and Git; its participant recovery, V1/V2 readers, stable file identity, move undo, hard-link fail-closed behavior, and recovery freeze remain Phase 4 compatibility gates.
 - Phase 4 V3 is exact 39: V2 minus `bash`, plus eight typed execution/process tools and `open_full_access_workspace`; V1/V2 wire and pending-approval behavior remain frozen.
-- Phase 4 separates `confirmed_roots` brokered access, ambient current-user `full_access`, and reserved unavailable `workspace`. Full access is labeled **Full access (ask first)**, is intended only for trusted repositories, and has no filesystem/credential/registry/network/broker-escape isolation; local decision records are not secure human-presence proof after unrestricted same-user code runs.
+- Phase 4 separates brokered `confirmed_roots`, ambient **Full access (ask first)**, and unavailable `workspace`. Full access is trusted-code authority, not filesystem, credential, registry, network, or broker isolation.
 - V3 confirmed-root files require hard-link count 1 and never mutate `allowedRoots`. Generic V3 mutation records remain schema 1/contract 3; move records remain schema 2/contract 3; same-binary V2 rollback retains both readers.
 - V3 lifecycle uses strict `AuditEventV3` inside the existing MAC-chained envelope. V2 audit wire stays exact and filters V3 before V2 paging; V3 has a separate V2/V3 projection and cursor, while V2-compatible authorization/execution evidence remains queryable after rollback.
-- Phase 5 V4 is opt-in exact 51 and keeps V1=28/V2=31/V3=39 exact. Safe Git writes use raw blobs, private indexes, quarantined object-only merge, complete mutation tokens, R3 for ref/history mutation, and journaled object/file/index/ref/audit participants; managed task worktrees never widen `allowedRoots` or imply isolation, and typed remote/credential/force operations remain absent.
+- Phase 5 V4 is opt-in exact 51 and preserves V1=28/V2=31/V3=39. It binds fixed Git identity, typed reads, Gate R, expected-old local mutations, repeated scans, bounded restore/private stash, disjoint managed roots, persistent owner-bound task records, quarantined candidates, clean target CAS, and reviewed clean removal. Gate X exposes exactly four typed local operations, never caller-selected Git commands or remote/credential/force/config mutation; its child remains ambient current-user `full_access`, and both approval and result state that filesystem, credential, registry, network, and broker isolation are absent.
 - Phase 4 authority config defaults to `configured_roots`, execution `off`, and dependencies `off`; nondefault values are V3-only. Windows effective-environment identity is case-insensitive and digest-bound. Per-server capability evidence changes revoke dependent state in order, block new requests during replacement, and change the live policy revision.
 - Gate S remains a truthful blocked diagnostic for the former AppContainer/LPAC design. Its exact denial rules are preserved only to prevent future overclaiming; it is no longer a current Phase 4 publication dependency. `workspace` stays unavailable with no `full_access` fallback.
 - With `inheritEnv=false`, Windows Bash preserves or derives only bounded user/configuration paths required for normal CLI and keyring discovery. Do not copy `GH_TOKEN` or arbitrary API variables into the child; `CODEXPRO_INHERIT_ENV=1` is explicit full-environment opt-in for trusted repositories only.
 - Mutation inventory binds each direct primitive to path, syscall, semantic digest, and reviewed purpose; atomic production paths cannot fall back to legacy writers.
-- CI debugging binds the exact HEAD SHA, uses bounded Windows `gh` environment, emits compact summaries, and stores evidence only below ignored `.ai-bridge/`. Manifest-bound `scripts/windows-*.cs|ps1|json` assets are pinned to LF by `.gitattributes`; exact raw-byte hashes remain fail-closed. Windows host compilation uses `path.win32` semantics on every controller platform. POSIX command lookup uses fixed `/bin/sh -c` scripts with candidate commands passed only as quoted positional data; never use `shell: true` with argv.
-- Complete Regression is the authoritative `all` domain from `scripts/test-domains.mjs`; Ubuntu keeps runtime-default concurrency and Windows uses concurrency 1 so native host/control tests do not cold-start concurrently. Ordinary local Regression and Smoke run through detached runner schema 2. Gate O binds PID creation time, 256-bit nonce, command identities, stable run-directory identity, and independently capped stdout/stderr tails; exact stop revalidates ownership before `taskkill`, and its destructive oracle remains control-domain only.
-- Gate N uses the source-shipped PowerShell/C# host with exact `CXP4` framing, creation-time Job/handle-list ownership, fixed clean Windows environment, executable identity, bounded output, native deadlines, and an isolated Job-owned ConPTY worker. Capability is `job_object_members_only`; WMI broker escape resistance remains `none`. The manifest-bound Node probe requires ready/input/ETX markers plus timeout, Job, handle, image, output, and close evidence; success accepts only exit 0 or exact Windows `STATUS_CONTROL_C_EXIT`, with reviewed startup/request windows capped at 60 seconds.
+- CI evidence is exact-HEAD-bound, compact, and stored only below ignored `.ai-bridge/`. Manifest assets stay LF-pinned; Windows paths use `path.win32`; POSIX lookup passes candidates only as quoted positional data and never uses `shell: true` with argv.
+- `scripts/test-domains.mjs` is authoritative: isolated complete regression uses `all`, connector-backed local work uses `ordinary`, and Windows control runs serialize. Long runs use the identity-bound detached runner; destructive stop oracles remain control-domain only.
+- Gate N uses the manifest-bound PowerShell/C# `CXP4` host with creation-time Job/handle-list ownership, clean environment, exact image identity, bounded output and deadlines. Capability remains `job_object_members_only`; broker escape resistance remains `none`; ConPTY success accepts exit 0 or exact `STATUS_CONTROL_C_EXIT` only with all required evidence.
 - `SystemDrive`, `SystemRoot`, `WINDIR`, `ProgramData`, `ComSpec`, minimal `PATH=System32;Windows`, and `PATHEXT` are fixed system values in clean native child environments; caller values cannot override them.
 - The master implementation plan is the sequencing authority. Complete isolated regression uses `node scripts/test-domains.mjs run --domain all`; connector-backed local regression uses `--domain ordinary`. There is no `npm test` script.
 
@@ -55,11 +55,13 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 - Closed Phase 3 runtime and documentation heads passed exact-head runs `29441752493` and `29443158835` across Ubuntu/Windows Node 20/24 Build, complete Regression, all protected Smoke sections, and Package.
 - STEP-307 through STEP-336 retain post-Phase 3 hardening, reduced Phase 4 design/local evidence, and the blocked sandbox diagnostic; exact commands remain in the linked archives.
-- STEP-323 retains the adversarially repaired Phase 5 design/TDD plan; runtime remains blocked on complete Phase 4 closure.
-- STEP-337 through STEP-339 record the first three exact-head portability/scheduling repairs: LF-stable manifests, Windows path semantics, Node 24 fixture isolation, safe POSIX lookup, authoritative all-domain CI routing, Windows serialization, and exact startup cleanup.
-- STEP-340 published head `05f5d87`; exact-head run `29594381790` passed policy and Ubuntu Node 20/24 but failed Windows Node 20/24 on ConPTY probe determinism plus native startup/request timing.
-- STEP-341 published head `3128959`; exact-head run `29601639970` passed policy and Ubuntu Node 20/24, while both Windows jobs failed only because the fully acknowledged ETX probe exited with exact `0xC000013A` instead of 0.
-- STEP-342 records the exact-status repair. Focused native/manifest/package tests passed 17/17; managed ordinary run `2026-07-17T18-09-38-162Z-phase4ci-step342-ordinary-final-a85aed67` passed 886/887 with one established skip, exit 0, zero stderr, and no truncation. Build, policy, diff, and the 395-file package dry-run passed.
+- STEP-323 retains the adversarially repaired Phase 5 design/TDD plan; STEP-344 records the initial Gate G0 implementation, and STEP-345 records its adversarial hardening and final capability evidence.
+- STEP-337 through STEP-342 retain the Phase 4 portability, Windows scheduling, ConPTY, and exact-head repairs. Closure head `d19e65b` passed run `29603060944` across policy and Ubuntu/Windows Node 20/24.
+- STEP-345 Gate G0 implementation revision `80456ec9` and capability revision `7e9f95bf` passed final managed ordinary run `2026-07-17T21-03-15-107Z-phase5a0-adversarial-final-746beff5`: Node 20/24 each 896 tests, 895 pass, 0 fail, one established skip; exit 0, stderr 0, and no truncation.
+- STEP-347 Gate C4 final managed ordinary run `2026-07-18T06-51-25-686Z-phase5a1-c4-final-4-96ce13f0` passed Node 20.20.2 and Node 24.15.0: each 913 tests, 912 pass, 0 fail, one established skip; exit 0, stderr 0, and no truncation.
+- STEP-349 Task 5A2 final managed ordinary run `2026-07-18T12-41-24-298Z-phase5a2-ordinary-final-2-ddcc623b` passed Node 20.20.2 and Node 24.15.0: each 944 tests, 943 pass, 0 fail, one established skip; exit 0, stderr 0, and no truncation. The preceding six-failure candidate was repaired and is not completion evidence.
+- STEP-351 Gate R final managed ordinary run `2026-07-18T15-29-43-345Z-phase5a3-final3-535183ed` passed Node 20.20.2 and Node 24.15.0: each 969 tests, 968 pass, 0 fail, one established skip; exit 0, stderr 0, and no truncation. Earlier runs exposed and repaired a Node 20 tsx loader alias deadlock and Git-directory leakage into the Phase 3 transaction module.
+- STEP-357 Phase 5 final ordinary run `2026-07-18T22-25-18-928Z-phase5c-ordinary-final-7783f2dd` passed both pinned majors: each 1,015 tests, 1,014 pass, 0 fail, one established skip. Windows control and protected Smoke also passed both/complete domains; build, policy, diff, focused 30/30, and 509-entry package dry-run passed.
 
 ## Known limitations
 
@@ -69,7 +71,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - External processes remain outside CodexPro's workspace lock. Open-handle identity checks reduce path-replacement TOCTOU but cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary readers, or absolute power-loss durability when directory sync is unsupported.
 - Environment narrowing is defense in depth, not credential isolation; same-user child processes may access account-readable files and system keyrings.
 - Safe Bash timeout does not reliably terminate every Windows descendant process.
-- Confirmed-root modules still rely on an injected identity oracle. One-shot/persistent `full_access`, including ConPTY, are ambient-authority features, not isolation; only owned Job members are lifetime-controlled. Task 4B0 does not activate sandbox behavior: the current host allows outbound UDP across all tested address classes, exposes service-manager and unauthorized COM surfaces, lacks exact policy denial on several network paths, reports LPAC backend-incompatible, and was probed from an elevated host process.
+- Confirmed-root modules retain an injected identity oracle. `full_access` and ConPTY are ambient-authority features; only owned Job members are lifecycle-controlled. Task 4B0 remains blocked evidence and activates no sandbox behavior.
 - Protected main/HTTP Smoke compatibility depends on exact source strings; drift fails closed and requires a same-change compatibility update.
 - V2 remains explicit rather than default. Rolling configuration back to V1 hides V2 tools but must retain V2 readers and recovery.
 - Atomic `apply_patch` is bounded UTF-8 create/replace/delete only and fails closed for binary, symlink, rename/copy, and mode changes.
@@ -78,17 +80,19 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the single STEP-342 exact Ctrl+C-status repair and require exact-head Ubuntu/Windows Node 20/24 CI for that exact SHA.
-2. Keep run evidence below ignored `.ai-bridge/`; do not create an evidence-only follow-up commit.
-3. Begin Phase 5 Task 5A0/Gate G0 only after terminal success; Task 4B1–4B6 and `workspace` remain deferred.
+1. Publish the complete Phase 5 closure candidate once and require closure-SHA exact-head success before Phase 6.
+2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
+3. Do not publish a task-level Phase 5 slice or create an evidence-only follow-up commit.
 
 ## Recent summaries
 
-- **STEP-342 - Accept exact Ctrl+C termination evidence:** run `29601639970` proved all required ConPTY facts but returned Windows `0xC000013A`; only exit 0 or that exact status is now accepted alongside every mandatory marker.
-- **STEP-341 - Make ConPTY probing deterministic:** published `3128959` replaced shell parsing with a manifest-bound Node child, safe failure evidence, and reviewed 60-second windows.
-- **STEP-339 - Align exact-head regression domains:** run `29590793061` exposed a wrong Ubuntu doctor assertion plus Windows control contention; CI now uses the authoritative complete domain, serializes Windows, and cleans failed startup exactly.
-- **STEP-338 - Repair remaining Ubuntu regressions:** run `29589048926` exposed unsafe POSIX shell lookup and a POSIX fixture for a Windows-host contract; lookup now uses positional `/bin/sh` and the fixture is Windows-semantic.
-- **STEP-336 - Pass 4C1 and neat-freak:** complete Node 20/24 ordinary/control, Smoke, package, policy, inventory, link, secret, scope, and diff gates passed before publication.
+- **STEP-357 - Complete Phase 5 local closure:** final Node 20/24 ordinary, Windows control, protected Smoke, build, policy, diff, focused Gate X, and 509-entry package dry-run passed; one publication and exact-head CI remain.
+- **STEP-356 - Gate X adversarial closure:** rejected unknown typed operations and missing private object/index state, made approval cards disclose ambient full access with no isolation, reconciled public/security/design docs, and passed focused plus managed Windows control gates.
+- **STEP-355 - Reconcile Phase 5B knowledge:** neat-freak aligned rules, plan, memory, package/mutation/domain inventories, limits, and the Phase 5C handoff.
+- **STEP-354 - Complete Phase 5B:** added managed task roots/records/handles, raw tree materialization, fast-forward and quarantined divergent candidates, clean target CAS, reviewed removal, and default-off integration approval.
+- **STEP-350 - Reconcile Task 5A2 knowledge:** audited current-state handoffs, archive history, package boundaries, workspace changes, and memory size; no runtime or public-doc drift was found.
+- **STEP-349 - Complete typed V4 Git reads:** machine-format status/diff/log/branch providers, repository identity/revalidation, secret-safe projections, opaque state tokens, and final Node 20/24 ordinary regression passed.
+- **STEP-348 - Reconcile Gate C4 knowledge:** compacted `AGENTS.md` below its soft size ceiling, audited plans/archive pointers/package boundaries/handoff text, and kept public docs unchanged because all V4 handlers remained inactive at that checkpoint.
 
 ## Archives
 
@@ -112,7 +116,9 @@ The user authorized continuous recommended-option implementation through Phase 8
 - [Post-Phase 3 operational hardening — STEP-307 through STEP-308](docs/memory/archive/post-phase-3-operational-hardening.md)
 - [Closed Phase 4 Volume 1 — STEP-309 through STEP-318](docs/memory/archive/phase-4.md)
 - [Closed Phase 4 Volume 2 — STEP-319 through STEP-325](docs/memory/archive/phase-4-part-2.md)
-- [Active Phase 4 Volume 3 — STEP-326 onward; exact Ctrl+C-status repair complete locally at STEP-342](docs/memory/archive/phase-4-part-3.md)
+- [Closed Phase 4 Volume 3 — STEP-326 through STEP-343](docs/memory/archive/phase-4-part-3.md)
+- [Phase 5 Volume 1 — STEP-344 through STEP-355](docs/memory/archive/phase-5.md)
+- [Active Phase 5 Volume 2 — STEP-356 onward](docs/memory/archive/phase-5-part-2.md)
 
 ## Memory maintenance protocol
 

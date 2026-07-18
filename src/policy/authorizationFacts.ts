@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { canonicalJson } from "../audit/canonicalJson.js";
 import type { RiskClass } from "./types.js";
 
 export type ApprovableRiskClass = Exclude<RiskClass, "R0" | "R4">;
@@ -49,6 +50,14 @@ function requireSafeText(name: string, value: string, maximum = 240): string {
     throw new Error(`${name} is not a bounded one-line value.`);
   }
   return value;
+}
+
+function requireStrictSafeText(name: string, value: string, maximum = 240): string {
+  const safe = requireSafeText(name, value, maximum);
+  if (/[\u0080-\u009f\u202a-\u202e\u2066-\u2069]/u.test(safe)) {
+    throw new Error(`${name} contains disallowed V4 control text.`);
+  }
+  return safe;
 }
 
 function requireFingerprint(name: string, value: string): string {
@@ -124,6 +133,122 @@ export function authorizationFactsMatch(left: AuthorizationFactsV3, right: Autho
   return left.bindingFingerprint === right.bindingFingerprint;
 }
 
+export interface AuthorizationFactsV4Input {
+  serverId: string;
+  ownerId: string;
+  credentialRef: string | null;
+  credentialRevision: string;
+  transportKind: string;
+  transportSessionId: string;
+  repositoryId: string;
+  worktreeId: string | null;
+  policyRevision: string;
+  configurationRevision: string;
+  capabilityRevision: string;
+  pathPolicyRevision: string;
+  secretPolicyRevision: string;
+  toolContractVersion: "4";
+  toolName: string;
+  canonicalAction: string;
+  operation: string;
+  resourceFingerprint: string;
+  inputDigest: string;
+  semanticFactsDigest: string;
+  riskClass: ApprovableRiskClass;
+  issuedAt: string;
+  expiresAt: string;
+}
+
+export interface AuthorizationFactsV4 extends AuthorizationFactsV4Input {
+  schemaVersion: 4;
+  contractVersion: 4;
+  subjectFingerprint: string;
+  contextFingerprint: string;
+  bindingFingerprint: string;
+}
+
+export function createAuthorizationFactsV4(input: AuthorizationFactsV4Input): AuthorizationFactsV4 {
+  if (input.toolContractVersion !== "4") throw new Error("V4 authorization facts require contract 4.");
+  if (!/^repo_[a-f0-9]{32}$/.test(input.repositoryId)) throw new Error("repositoryId is invalid.");
+  if (input.worktreeId !== null && !/^task_[a-f0-9]{32}$/.test(input.worktreeId)) throw new Error("worktreeId is invalid.");
+  if (!["R1", "R2", "R3"].includes(input.riskClass)) throw new Error("riskClass is invalid for V4 authorization facts.");
+  const issuedAtMs = Date.parse(input.issuedAt);
+  const expiresAtMs = Date.parse(input.expiresAt);
+  if (!Number.isFinite(issuedAtMs) || !Number.isFinite(expiresAtMs) || issuedAtMs > expiresAtMs) {
+    throw new Error("V4 authorization fact timestamps are invalid.");
+  }
+  const normalized: AuthorizationFactsV4Input = {
+    serverId: requireSafeId("serverId", input.serverId)!,
+    ownerId: requireSafeId("ownerId", input.ownerId)!,
+    credentialRef: requireSafeId("credentialRef", input.credentialRef),
+    credentialRevision: requireSafeId("credentialRevision", input.credentialRevision)!,
+    transportKind: requireSafeId("transportKind", input.transportKind)!,
+    transportSessionId: requireSafeId("transportSessionId", input.transportSessionId)!,
+    repositoryId: input.repositoryId,
+    worktreeId: input.worktreeId,
+    policyRevision: requireSafeId("policyRevision", input.policyRevision)!,
+    configurationRevision: requireSafeId("configurationRevision", input.configurationRevision)!,
+    capabilityRevision: requireSafeId("capabilityRevision", input.capabilityRevision)!,
+    pathPolicyRevision: requireSafeId("pathPolicyRevision", input.pathPolicyRevision)!,
+    secretPolicyRevision: requireSafeId("secretPolicyRevision", input.secretPolicyRevision)!,
+    toolContractVersion: "4",
+    toolName: requireStrictSafeText("toolName", input.toolName, 160),
+    canonicalAction: requireStrictSafeText("canonicalAction", input.canonicalAction),
+    operation: requireStrictSafeText("operation", input.operation, 160),
+    resourceFingerprint: requireFingerprint("resourceFingerprint", input.resourceFingerprint),
+    inputDigest: requireFingerprint("inputDigest", input.inputDigest),
+    semanticFactsDigest: requireFingerprint("semanticFactsDigest", input.semanticFactsDigest),
+    riskClass: input.riskClass,
+    issuedAt: new Date(issuedAtMs).toISOString(),
+    expiresAt: new Date(expiresAtMs).toISOString()
+  };
+  const subject = {
+    ownerId: normalized.ownerId,
+    credentialRef: normalized.credentialRef,
+    credentialRevision: normalized.credentialRevision,
+    transportKind: normalized.transportKind,
+    transportSessionId: normalized.transportSessionId
+  };
+  const context = {
+    serverId: normalized.serverId,
+    repositoryId: normalized.repositoryId,
+    worktreeId: normalized.worktreeId,
+    policyRevision: normalized.policyRevision,
+    configurationRevision: normalized.configurationRevision,
+    capabilityRevision: normalized.capabilityRevision,
+    pathPolicyRevision: normalized.pathPolicyRevision,
+    secretPolicyRevision: normalized.secretPolicyRevision,
+    toolContractVersion: normalized.toolContractVersion,
+    canonicalAction: normalized.canonicalAction,
+    operation: normalized.operation,
+    resourceFingerprint: normalized.resourceFingerprint,
+    inputDigest: normalized.inputDigest,
+    semanticFactsDigest: normalized.semanticFactsDigest,
+    riskClass: normalized.riskClass,
+    issuedAt: normalized.issuedAt,
+    expiresAt: normalized.expiresAt
+  };
+  return Object.freeze({
+    schemaVersion: 4,
+    contractVersion: 4,
+    ...normalized,
+    subjectFingerprint: digest(subject),
+    contextFingerprint: digest(context),
+    bindingFingerprint: digest({ subject, context })
+  });
+}
+
+export function authorizationFactsMatchV4(left: AuthorizationFactsV4, right: AuthorizationFactsV4): boolean {
+  return left.bindingFingerprint === right.bindingFingerprint;
+}
+
 export function semanticDigest(value: unknown): string {
   return `sha256:${digest(value)}`;
+}
+
+export function semanticDigestV4(value: unknown): string {
+  return `sha256:${createHash("sha256")
+    .update("authorization-semantic-v4\0", "utf8")
+    .update(canonicalJson(value), "utf8")
+    .digest("hex")}`;
 }

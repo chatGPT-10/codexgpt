@@ -1,9 +1,9 @@
 # Phase 5 Local Git Writes and Task Worktrees TDD Plan
 
-**Status:** adversarially reviewed mandatory TDD plan; implementation not started; blocked by Gate 4P
+**Status:** adversarially reviewed mandatory TDD plan; Phase 5A and 5B are locally complete; Phase 5C adversarial closure is next
 **Date:** 2026-07-16
 **Exact design:** `docs/superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md`
-**Entry gate:** the complete Phase 4 closure SHA has passed exact-head Ubuntu/Windows Node 20/24 CI; no Phase 5 runtime file is changed before that evidence exists
+**Entry gate:** satisfied by closure head `d19e65ba75938c35afa472d23d91d1724fe7fabf` and exact-head run `29603060944`; Gate G0 now proves the private Git execution capsule without adding a public tool or config
 
 ## 1. Deliverable
 
@@ -124,6 +124,8 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 
 **Verify:** focused active and managed Node 20/24 ordinary tests, Windows control oracle, build, syntax, package, mutation inventory, domain classification, policy, and diff check.
 
+**Local completion evidence:** adversarially hardened capability revision `7e9f95bf7188bdd6035970eb38c5e3dfa5840996e7838273dc2757aa9b5d94f2` binds implementation revision `80456ec9c7e35f37bc618cbecc498d364268c473fa8ce700069cd894366aec25`, exact Git `2.55.0.windows.2`, and CXP4 host-manifest revision `8530a5c6d4c768d5e854719db2c4b447753a1a2a1d7e9b74b5b3218e79154e5b`. Final managed run `2026-07-17T21-03-15-107Z-phase5a0-adversarial-final-746beff5` passed Node 20/24 with 896 tests, 895 pass, 0 fail, and one established skip per major; stderr was empty and no log was truncated. Gate G0 remains private and package-excluded.
+
 ### Task 5A1 — Gate C4: freeze exact Tool Contract V4
 
 **Goal:** add V4=51 without changing published V1/V2/V3 wire behavior or persisted readers.
@@ -174,6 +176,8 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 
 **Verify:** exact contract suites, all V1/V2/V3 contract regressions, supertool/profile/connection-test tests, build, package, policy, and diff check.
 
+**Local completion evidence:** exact V4=51 contract, profile projection, strict input/output schemas, V4 `git_status`/`git_diff`/audit/supertool projections, fail-closed disabled handler slots, V4-to-persisted-V3 transaction mapping, domain-separated audit cursors, and same-binary rollback readers are frozen. Managed Node 20.20.2 and Node 24.15.0 focused compatibility matrices each passed 45/45. Final ordinary run `2026-07-18T06-51-25-686Z-phase5a1-c4-final-4-96ce13f0` passed on both majors with 913 tests, 912 pass, 0 fail, and one established skip per major; stderr was empty and neither log was truncated. No V4 Git handler is active yet, and no staging, commit, push, or publication occurred.
+
 ### Task 5A2 — Migrate Git reads to typed, bounded, secret-safe providers
 
 **Goal:** replace human-output parsing and direct PATH `spawnSync` for the V4 path while preserving older wire projections.
@@ -223,6 +227,8 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - Mark the result `execution_isolation: none` and `repository_integrations: disabled`.
 
 **Verify:** new focused suites, all existing Git/show-changes/context/export contracts, build, managed Node 20/24 ordinary run, policy/package/static/secret/diff checks.
+
+**Local completion evidence:** V4 `git_status`, `git_diff`, `git_log`, and `git_branch` now use typed machine-format readers behind branded Gate-G0 capability evidence. Repository admission/revalidation, process-local read coordination, bounded `cat-file` batches, secret/blocked omission, opaque branch/repository IDs, complete-state tokens, and V4-only legacy projections are active; V1/V2/V3 providers and wire remain exact. The first complete ordinary candidate run `2026-07-18T12-19-14-420Z-phase5a2-ordinary-final-62b46a7f` exposed six adversarial failures and is retained only as repaired evidence. Final run `2026-07-18T12-41-24-298Z-phase5a2-ordinary-final-2-ddcc623b` passed Node 20.20.2 and Node 24.15.0 with 944 tests, 943 pass, 0 fail, and one established skip per major; stderr was empty and no output was truncated. No Git mutation handler, remote, credential, force, staging, commit, push, or publication occurred.
 
 ### Task 5A3 — Gate R: repository locks, operation journal, AuditEventV4, and recovery
 
@@ -280,6 +286,8 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - Add disabled V4 policy definitions first; handler activation remains blocked.
 
 **Verify:** focused store/recovery/audit/policy tests including injected failures, adjacent Phase 3/4 recovery/audit suites, build, managed matrix, policy/package/mutation/secret/diff checks.
+
+**Local completion evidence:** Gate R now owns exact repository→lexical-worktree→Phase-3-file lock ordering and reverse release, exact process ownership, authenticated/encrypted repository and operation records, stable opaque repository identity, journaled immutable object promotion, strict operation transitions, V4 authorization/terminal/lifecycle audit, exact V2/V3/V4 query compatibility, startup reconciliation, and persistent repository freeze when any participant, lock, durable effect, or terminal audit cannot be proven. The first final matrix attempt was stopped after a Node 20 `tsx` `.ts`/`.js` alias loader deadlock in `approval-multi-server.test.mjs`; a single package-excluded integration barrel fixed that root cause. The next complete run exposed Git-specific state-directory names inside the Phase 3 transaction module; moving that layout into `src/git/durableState.ts` restored the architecture boundary without weakening the test. Final run `2026-07-18T15-29-43-345Z-phase5a3-final3-535183ed` passed Node 20.20.2 and Node 24.15.0 with 969 tests, 968 pass, 0 fail, and one established skip per major; exit was 0, stderr was empty, and logs were untruncated. All V4 mutation handlers remain disabled; no repository ref, index, worktree, remote, credential, stage, commit, push, or publication action occurred.
 
 ### Task 5A4 — Gate I: local branch, stage, and commit
 
@@ -562,6 +570,8 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 **Implementation:**
 
 - Reuse Phase 4 full-access host/approval/result metadata; do not create an intermediate pseudo-sandbox.
+- The completed Gate X executor accepts exactly four discriminated requests: private-index stage, shadow-Git-dir commit, quarantined object-only merge, and private-destination checkout. Unknown operations and missing private state fail closed; callers provide no command/subcommand/argv, remote, credential, force, or config-mutation input.
+- Each run requires explicit `approved_full_access`, exact integration discovery/revalidation, an exact fresh R3 grant, and approval/result text that states ambient current-user authority with no filesystem, credential, registry, network, or broker isolation.
 - If this task cannot meet Gate X, keep integrations unsupported and close Phase 5 only if the user explicitly accepts that reduced compatibility. Do not silently run them.
 
 **Verify:** focused integration/approval/process tests, Phase 4 full-access contracts, Git mutations/worktrees, managed matrix, build, package/policy/mutation/secret/diff checks.

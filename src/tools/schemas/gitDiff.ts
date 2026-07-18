@@ -1,5 +1,15 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import {
+  defineGitV4Tool,
+  gitV4FileChangeSchema,
+  gitV4OptionalPathsSchema,
+  gitV4RepositoryIdSchema,
+  gitV4SafeMultilineTextSchema,
+  gitV4StateTokenSchema,
+  gitV4TaskWorktreeIdSchema,
+  gitV4WorkspaceIdSchema
+} from "./gitV4Common.js";
 
 export const GIT_DIFF_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not available. Open the workspace before retrying.",
@@ -208,3 +218,57 @@ export function createGitDiffFailure(
     meta: createToolMeta(durationMs)
   });
 }
+
+export const gitDiffComparisonV4Schema = z.enum([
+  "worktree_to_index",
+  "index_to_head",
+  "head_to_base"
+]);
+
+export const gitDiffInputV4Schema = z.object({
+  workspace_id: gitV4WorkspaceIdSchema,
+  comparison: gitDiffComparisonV4Schema,
+  paths: gitV4OptionalPathsSchema,
+  include_patch: z.boolean().optional(),
+  task_worktree_id: gitV4TaskWorktreeIdSchema.optional()
+}).strict().superRefine((value, context) => {
+  if ((value.comparison === "head_to_base") !== (value.task_worktree_id !== undefined)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["task_worktree_id"],
+      message: "head_to_base requires exactly one owned task_worktree_id."
+    });
+  }
+});
+
+export const gitDiffDataV4Schema = z.object({
+  repository_id: gitV4RepositoryIdSchema,
+  comparison: gitDiffComparisonV4Schema,
+  changes: z.array(gitV4FileChangeSchema).max(4096),
+  additions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+  binary_count: z.number().int().nonnegative(),
+  patch: gitV4SafeMultilineTextSchema(2_000_000, true),
+  patch_included: z.boolean(),
+  truncated: z.boolean(),
+  omitted_blocked_count: z.number().int().nonnegative(),
+  omitted_secret_count: z.number().int().nonnegative(),
+  state_token: gitV4StateTokenSchema.nullable()
+}).strict().superRefine((value, context) => {
+  if (!value.patch_included && value.patch !== "") {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["patch"], message: "Omitted patches must be empty." });
+  }
+  if ((value.truncated || value.omitted_blocked_count > 0 || value.omitted_secret_count > 0) && value.state_token !== null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["state_token"], message: "Incomplete diffs cannot carry a mutation token." });
+  }
+  if (new Set(value.changes.map((entry) => entry.path)).size !== value.changes.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["changes"], message: "Changed paths must be unique." });
+  }
+});
+
+const gitDiffV4Tool = defineGitV4Tool("git_diff", "Git Diff", gitDiffDataV4Schema);
+export const gitDiffOutputShapeV4 = gitDiffV4Tool.outputShape;
+export const gitDiffOutputSchemaV4 = gitDiffV4Tool.outputSchema;
+export const createGitDiffSuccessV4 = gitDiffV4Tool.success;
+export const createGitDiffFailureV4 = gitDiffV4Tool.failure;
+export const createGitDiffUnavailableV4 = gitDiffV4Tool.unavailable;

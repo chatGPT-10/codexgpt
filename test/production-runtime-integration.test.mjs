@@ -186,6 +186,26 @@ async function connect(server, action) {
   }
 }
 
+test("Gate R production wiring fails closed outside contract 4 or before startup recovery", () => fixture(async ({ workspaceRoot, stateHome }) => {
+  const config = configFor(workspaceRoot, stateHome, {
+    toolContractVersion: "1",
+    fileTransactions: "atomic",
+    auditMode: "required"
+  });
+  assert.throws(
+    () => createProductionCodexProServer(config, productionOptions(stateHome, {
+      gitGateRRuntimeV4: { isReady: () => true }
+    })),
+    /Gate R requires contract 4/
+  );
+  assert.throws(
+    () => createProductionCodexProServer(config, productionOptions(stateHome, {
+      gitGateRRuntimeV4: { isReady: () => false }
+    })),
+    /Gate R requires contract 4/
+  );
+}));
+
 test("legacy production construction creates no Phase 3 state or runtime", () => fixture(async ({ workspaceRoot, stateHome }) => {
   const config = configFor(workspaceRoot, stateHome, {
     fileTransactions: "legacy",
@@ -205,7 +225,8 @@ test("legacy production construction creates no Phase 3 state or runtime", () =>
     mutationRuntime: null,
     auditRuntime: null,
     localApprovalServerId: null,
-    processHostConfigured: false
+    processHostConfigured: false,
+    gitGateRReady: false
   });
   await server.close();
   await assert.rejects(() => fs.stat(path.join(stateHome, "state", "v1")), { code: "ENOENT" });

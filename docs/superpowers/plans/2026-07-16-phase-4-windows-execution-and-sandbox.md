@@ -1,10 +1,10 @@
 # Phase 4 Windows Execution and Trusted-Workspace TDD Plan
 
-**Status:** reduced-scope Tasks 4C0 and 4C1 complete locally; Phase 4 is ready for the single 4C2 publication and exact-head CI; strong workspace sandbox work is deferred
+**Status:** reduced-scope Phase 4 is published and exact-head closed; strong workspace sandbox work is deferred
 **Date:** 2026-07-16
 **Scope decision:** 2026-07-17 — close Phase 4 around Phase 4A trusted-code execution; retain 4B0 evidence without activating or claiming an OS sandbox
 **Exact design:** `docs/superpowers/specs/2026-07-16-phase-4-windows-execution-and-sandbox-design.md`
-**Current checkpoint:** Tasks 4A0a through 4A10, diagnostic 4B0, documentation reconciliation 4C0, and the complete local gate 4C1 are complete; Task 4C2 is next, while 4B1–4B6 and `workspace` remain deferred
+**Current checkpoint:** Tasks 4A0a through 4A10, diagnostic 4B0, 4C0, 4C1, and publication Task 4C2 are complete; closure head `d19e65b` passed exact-head run `29603060944`; 4B1–4B6 and `workspace` remain deferred
 
 ## 1. Deliverable
 
@@ -634,7 +634,7 @@ Failure is supported, but it stops the dependent work. No fallback weakens the c
 
 ### Task 4A10 — Close Phase 4A integration
 
-**Status:** complete locally and unpublished.
+**Status:** complete and published as part of the closed reduced Phase 4 boundary.
 
 **Goal:** prove no direct, supertool, compatibility, approval, or lifecycle bypass remains.
 
@@ -805,4 +805,4 @@ Optional backend absence is a supported skip. Windows PowerShell fallback, local
 
 ## 9. Current implementation checkpoint
 
-Tasks 4A0a through 4A10, diagnostic 4B0, 4C0, and 4C1 are complete locally and unpublished. Exact V3=39 trusted-code execution retains its R3, manifest, lifecycle, output, audit, and compatibility guarantees; `workspace` and Tasks 4B1–4B6 remain deferred, and 4B0 stays blocked diagnostic evidence. The complete local gate passed managed Node 20/24 ordinary and control domains, both eight-part Smoke suites, package, policy, inventory, documentation, link, secret, and diff checks. Task 4C2 is the only remaining Phase 4 action: one scoped publication followed by exact-head Ubuntu/Windows Node 20/24 CI. Phase 5 remains blocked until that exact-head closure succeeds.
+Tasks 4A0a through 4A10, diagnostic 4B0, 4C0, 4C1, and publication Task 4C2 are complete. Exact V3=39 trusted-code execution retains its R3, manifest, lifecycle, output, audit, and compatibility guarantees; `workspace` and Tasks 4B1–4B6 remain deferred, and 4B0 stays blocked diagnostic evidence. Closure head `d19e65ba75938c35afa472d23d91d1724fe7fabf` passed exact-head run `29603060944` across classification, repository policy, and Ubuntu/Windows Node 20/24. Phase 5 Tasks 5A0 / Gate G0 through 5A3 / Gate R are locally complete; Task 5A4 / Gate I is next.

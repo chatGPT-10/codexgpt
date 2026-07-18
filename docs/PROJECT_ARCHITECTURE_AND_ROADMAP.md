@@ -467,7 +467,7 @@ Historical outline only. The current Phase 4 contract and sequence are supersede
 
 ### Phase 5 — Git and task worktrees
 
-Historical outline only. The exact Phase 5 boundary and TDD sequence are superseded by the adversarially reviewed 2026-07-16 [design](superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md). Runtime implementation has not started and remains blocked on complete Phase 4 exact-head closure.
+Historical outline only. The exact Phase 5 boundary and TDD sequence are superseded by the adversarially reviewed 2026-07-16 [design](superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md). Phase 4 exact-head closure is satisfied; Tasks 5A0 / Gate G0 through 5A3 / Gate R are locally complete, and Task 5A4 / Gate I is next.
 
 - typed Git results;
 - branch, stage, commit, restore, and stash;

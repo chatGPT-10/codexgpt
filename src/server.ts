@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   assertFileTransactionConfiguration,
   assertToolContractConfiguration,
+  persistedMutationContractVersion,
   type CodexProConfig
 } from "./config.js";
 import {
@@ -32,9 +33,12 @@ import {
 } from "./tools/phase3dServer.js";
 import {
   contractIncludesV2,
+  contractIncludesV3,
   v2ToolsForProjection,
   v3ToolsForProjection,
-  type CanonicalToolV3Addition
+  v4ToolsForProjection,
+  type CanonicalToolV3Addition,
+  type CanonicalToolV4Addition
 } from "./tools/contracts/index.js";
 import {
   createOpenFullAccessWorkspaceFailure,
@@ -63,7 +67,13 @@ import {
   writeProcessInputOutputShape,
   type ExecutionToolName
 } from "./tools/schemas/execution.js";
-import { WorkspaceManager, PathGuard, CodexProError, type Workspace } from "./guard.js";
+import {
+  WorkspaceManager,
+  PathGuard,
+  CodexProError,
+  type Workspace,
+  type WorkspaceManagerOptions
+} from "./guard.js";
 import {
   repoTree,
   readTextFile,
@@ -80,7 +90,17 @@ import {
 } from "./fsOps.js";
 import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
 import { probeBashAvailability, runBash, type BashResult } from "./bashOps.js";
-import { gitDiff, gitDiffStatus, gitLog, gitStatus } from "./gitOps.js";
+import {
+  gitDiff,
+  gitDiffStatus,
+  gitLog,
+  gitStatus,
+  projectGitDiffStatusV4ToLegacy,
+  projectGitDiffV4ToLegacy,
+  projectGitLogV4ToLegacy,
+  projectGitStatusV4ToLegacy
+} from "./gitOps.js";
+import type { GitReadServiceV4 } from "./git/readService.js";
 import {
   readAiBridgeContext,
   readHandoffContext,
@@ -190,18 +210,120 @@ import {
   GIT_STATUS_ERROR_MESSAGES,
   createGitStatusFailure,
   createGitStatusSuccess,
+  createGitStatusFailureV4,
+  createGitStatusSuccessV4,
+  createGitStatusUnavailableV4,
   gitStatusDataSchema,
+  gitStatusInputV4Schema,
   gitStatusOutputShape,
+  gitStatusOutputShapeV4,
   type GitStatusFailureInput
 } from "./tools/schemas/gitStatus.js";
 import {
   GIT_DIFF_ERROR_MESSAGES,
   createGitDiffFailure,
   createGitDiffSuccess,
+  createGitDiffFailureV4,
+  createGitDiffSuccessV4,
+  createGitDiffUnavailableV4,
   gitDiffDataSchema,
+  gitDiffInputV4Schema,
   gitDiffOutputShape,
+  gitDiffOutputShapeV4,
   type GitDiffFailureInput
 } from "./tools/schemas/gitDiff.js";
+import {
+  createGitLogFailureV4,
+  createGitLogSuccessV4,
+  createGitLogUnavailableV4,
+  gitLogInputV4Schema,
+  gitLogOutputShapeV4
+} from "./tools/schemas/gitLog.js";
+import {
+  createGitBranchFailureV4,
+  createGitBranchSuccessV4,
+  createGitBranchUnavailableV4,
+  gitBranchInputV4Schema,
+  gitBranchOutputShapeV4
+} from "./tools/schemas/gitBranch.js";
+import {
+  createGitCreateBranchFailureV4,
+  createGitCreateBranchSuccessV4,
+  createGitCreateBranchUnavailableV4,
+  gitCreateBranchDataV4Schema,
+  gitCreateBranchInputV4Schema,
+  gitCreateBranchOutputShapeV4
+} from "./tools/schemas/gitCreateBranch.js";
+import {
+  createGitStageFailureV4,
+  createGitStageSuccessV4,
+  createGitStageUnavailableV4,
+  gitStageDataV4Schema,
+  gitStageInputV4Schema,
+  gitStageOutputShapeV4
+} from "./tools/schemas/gitStage.js";
+import {
+  createGitCommitFailureV4,
+  createGitCommitSuccessV4,
+  createGitCommitUnavailableV4,
+  gitCommitDataV4Schema,
+  gitCommitInputV4Schema,
+  gitCommitOutputShapeV4
+} from "./tools/schemas/gitCommit.js";
+import {
+  createGitRestoreFailureV4,
+  createGitRestoreSuccessV4,
+  createGitRestoreUnavailableV4,
+  gitRestoreInputV4Schema,
+  gitRestoreOutputShapeV4
+} from "./tools/schemas/gitRestore.js";
+import {
+  createGitStashFailureV4,
+  createGitStashSuccessV4,
+  createGitStashUnavailableV4,
+  gitStashInputV4Schema,
+  gitStashOutputShapeV4
+} from "./tools/schemas/gitStash.js";
+import {
+  createTaskWorktreeFailureV4,
+  createTaskWorktreeSuccessV4,
+  createTaskWorktreeInputV4Schema,
+  createTaskWorktreeOutputShapeV4,
+  createTaskWorktreeUnavailableV4
+} from "./tools/schemas/createTaskWorktree.js";
+import {
+  createListTaskWorktreesFailureV4,
+  createListTaskWorktreesSuccessV4,
+  createListTaskWorktreesUnavailableV4,
+  listTaskWorktreesInputV4Schema,
+  listTaskWorktreesOutputShapeV4
+} from "./tools/schemas/listTaskWorktrees.js";
+import {
+  createGetTaskWorktreeFailureV4,
+  createGetTaskWorktreeSuccessV4,
+  createGetTaskWorktreeUnavailableV4,
+  getTaskWorktreeInputV4Schema,
+  getTaskWorktreeOutputShapeV4
+} from "./tools/schemas/getTaskWorktree.js";
+import {
+  createMergeTaskWorktreeFailureV4,
+  createMergeTaskWorktreeSuccessV4,
+  createMergeTaskWorktreeUnavailableV4,
+  mergeTaskWorktreeInputV4Schema,
+  mergeTaskWorktreeOutputShapeV4
+} from "./tools/schemas/mergeTaskWorktree.js";
+import {
+  createRemoveTaskWorktreeFailureV4,
+  createRemoveTaskWorktreeSuccessV4,
+  createRemoveTaskWorktreeUnavailableV4,
+  removeTaskWorktreeInputV4Schema,
+  removeTaskWorktreeOutputShapeV4
+} from "./tools/schemas/removeTaskWorktree.js";
+import {
+  createQueryAuditEventsUnavailableV4,
+  queryAuditEventsInputSchemaV4,
+  queryAuditEventsOutputShapeV4
+} from "./tools/schemas/queryAuditEvents.js";
 import {
   SHOW_CHANGES_ANALYSIS_WARNING,
   SHOW_CHANGES_ERROR_MESSAGES,
@@ -3755,6 +3877,10 @@ function errorResult(error: unknown): any {
 }
 
 function validateToolArgs(name: string, options: Record<string, unknown>, args: unknown): any {
+  const exactSchema = options.__codexproStrictInputSchema;
+  if (exactSchema && typeof (exactSchema as { parse?: unknown }).parse === "function") {
+    return (exactSchema as z.ZodTypeAny).parse(args ?? {});
+  }
   const strictV3Schema = V3_INPUT_SCHEMAS[name];
   if (strictV3Schema) return strictV3Schema.parse(args ?? {});
   const inputSchema = options.inputSchema;
@@ -4189,6 +4315,51 @@ export interface CodexProServerDependencies extends Phase3DServerDependencies {
   persistentAuditRuntime?: Required<Pick<PolicyRuntime, "persistAuthorization" | "persistExecution">>;
   localApprovalRuntimeV3?: import("./control/runtime.js").LocalApprovalRuntimeV3;
   v3ToolHandlers?: Partial<Record<CanonicalToolV3Addition, CodexToolHandler>>;
+  v4ContractCapabilities?: Readonly<{
+    nativeHostIdentityAvailable: boolean;
+    localApprovalAvailable: boolean;
+    gitCapabilityAvailable: boolean;
+    contractV4MigrationAvailable: boolean;
+  }>;
+  gitReadServiceV4?: Pick<GitReadServiceV4, "status" | "diff" | "log" | "branches" | "currentBranchName">;
+  gitMutationServiceV4?: {
+    describe?(toolName: string, args: Record<string, unknown>): import("./policy/integration.js").ResourceResolutionResult;
+    createBranch(input: {
+      workspace: Workspace;
+      guard: PathGuard;
+      stateToken: string;
+      name: string;
+      base: { kind: "current_head" } | { kind: "branch"; branch_id: string };
+      authorization?: import("./audit/types.js").AuthorizationAuditEventV4 | null;
+    }): Promise<z.infer<typeof gitCreateBranchDataV4Schema>>;
+    stage(input: {
+      workspace: Workspace;
+      guard: PathGuard;
+      stateToken: string;
+      paths: readonly string[];
+      integrationReviewToken?: string;
+      authorization?: import("./audit/types.js").AuthorizationAuditEventV4 | null;
+    }): Promise<z.infer<typeof gitStageDataV4Schema>>;
+    commit(input: {
+      workspace: Workspace;
+      guard: PathGuard;
+      indexToken: string;
+      message: string;
+      integrationReviewToken?: string;
+      authorization?: import("./audit/types.js").AuthorizationAuditEventV4 | null;
+    }): Promise<z.infer<typeof gitCommitDataV4Schema>>;
+    restore?(input: Record<string, unknown>): Promise<unknown>;
+    stash?(input: Record<string, unknown>): Promise<unknown> | unknown;
+  };
+  taskWorktreeServiceV4?: {
+    describe(toolName: string, args: Record<string, unknown>): import("./policy/integration.js").ResourceResolutionResult;
+    create(input: Record<string, unknown>): Promise<unknown>;
+    list(input: Record<string, unknown>): Promise<unknown>;
+    get(input: Record<string, unknown>): Promise<unknown>;
+    merge(input: Record<string, unknown>): Promise<unknown>;
+    remove(input: Record<string, unknown>): Promise<unknown>;
+  };
+  taskWorktreeAuthorityV4?: WorkspaceManagerOptions["taskWorktrees"];
   rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
   windowsProcessHostRuntimeV3?: import("./process/windowsHostClient.js").WindowsProcessHostRuntime;
 }
@@ -4402,6 +4573,11 @@ const V3_ADDITION_TOOLS = new Set<string>(v3ToolsForProjection({
   mode: "full",
   connectionTest: false
 }));
+const V4_ADDITION_TOOLS = new Set<string>(v4ToolsForProjection({
+  version: 4,
+  mode: "full",
+  connectionTest: false
+}));
 
 function codexSessionToolNames(config: CodexProConfig): string[] {
   if (config.codexSessions === "off") return [];
@@ -4417,7 +4593,7 @@ function toolNamesForMode(config: CodexProConfig): string[] {
       : config.toolMode === "minimal"
         ? [...MINIMAL_TOOL_NAMES]
         : [...STANDARD_TOOL_NAMES];
-  if (config.toolContractVersion === 3 || config.bashMode === "off") {
+  if (contractIncludesV3(config.toolContractVersion) || config.bashMode === "off") {
     const bashIndex = names.indexOf("bash");
     if (bashIndex !== -1) names.splice(bashIndex, 1);
   }
@@ -4440,6 +4616,13 @@ function toolNamesForMode(config: CodexProConfig): string[] {
     if (!names.includes(name)) names.push(name);
   }
   for (const name of v3ToolsForProjection({
+    version: config.toolContractVersion,
+    mode: config.toolMode,
+    connectionTest: config.connectionTest
+  })) {
+    if (!names.includes(name)) names.push(name);
+  }
+  for (const name of v4ToolsForProjection({
     version: config.toolContractVersion,
     mode: config.toolMode,
     connectionTest: config.connectionTest
@@ -4482,10 +4665,17 @@ function shouldRegisterTool(config: CodexProConfig, name: string): boolean {
       connectionTest: config.connectionTest
     }) as readonly string[]).includes(name);
   }
+  if (V4_ADDITION_TOOLS.has(name)) {
+    return (v4ToolsForProjection({
+      version: config.toolContractVersion,
+      mode: config.toolMode,
+      connectionTest: config.connectionTest
+    }) as readonly string[]).includes(name);
+  }
   if (name === "undo_change_set") {
     return contractIncludesV2(config.toolContractVersion) && config.toolMode !== "minimal";
   }
-  if (name === "bash" && (config.toolContractVersion === 3 || config.bashMode === "off")) return false;
+  if (name === "bash" && (contractIncludesV3(config.toolContractVersion) || config.bashMode === "off")) return false;
   if ((name === "write" || name === "edit" || name === "apply_patch") && config.writeMode !== "workspace") return false;
   if (name === "codex_sessions") return config.codexSessions !== "off";
   if (name === "read_codex_session") return config.codexSessions === "read";
@@ -4505,10 +4695,11 @@ function registerCodexTool(
 ): void {
   if (!shouldRegisterTool(config, name)) return;
   const validatedHandler: CodexToolHandler = (args) => handler(validateToolArgs(name, options, args));
+  const { __codexproStrictInputSchema: _strictInputSchema, ...descriptorOptions } = options;
   const mutationAwareHandler = registerToolCompat(
     server,
     name,
-    descriptorOptionsForConfig(config, options),
+    descriptorOptionsForConfig(config, descriptorOptions),
     validatedHandler
   );
   rememberRegisteredTool(server, name);
@@ -4654,7 +4845,7 @@ function registerV3ContractTools(
   server: McpServer,
   dependencies: CodexProServerDependencies
 ): void {
-  if (config.toolContractVersion !== 3) return;
+  if (!contractIncludesV3(config.toolContractVersion)) return;
   for (const definition of V3_CONTRACT_TOOL_DEFINITIONS) {
     const rootAdmissionHandler = definition.name === "open_full_access_workspace" && dependencies.rootAdmissionRuntimeV3
       ? async (args: Record<string, unknown>) => {
@@ -4701,6 +4892,577 @@ function registerV3ContractTools(
   }
 }
 
+interface V4ContractToolDefinition {
+  name: CanonicalToolV4Addition;
+  title: string;
+  description: string;
+  inputSchema: z.ZodTypeAny;
+  outputSchema: Record<string, z.ZodTypeAny>;
+  annotations: Record<string, unknown>;
+  unavailable(durationMs?: number): Record<string, unknown>;
+}
+
+const V4_READ_ANNOTATIONS = Object.freeze({
+  readOnlyHint: true,
+  openWorldHint: false,
+  destructiveHint: false,
+  idempotentHint: true
+});
+const V4_NONDESTRUCTIVE_MUTATION_ANNOTATIONS = Object.freeze({
+  readOnlyHint: false,
+  openWorldHint: false,
+  destructiveHint: false,
+  idempotentHint: false
+});
+const V4_MUTATION_ANNOTATIONS = Object.freeze({
+  readOnlyHint: false,
+  openWorldHint: false,
+  destructiveHint: true,
+  idempotentHint: false
+});
+
+const V4_CONTRACT_TOOL_DEFINITIONS: readonly V4ContractToolDefinition[] = Object.freeze([
+  {
+    name: "git_log",
+    title: "Git Log",
+    description: "Read bounded local commit history without accepting arbitrary revisions, flags, remotes, config, or environment overrides.",
+    inputSchema: gitLogInputV4Schema,
+    outputSchema: gitLogOutputShapeV4,
+    annotations: V4_READ_ANNOTATIONS,
+    unavailable: createGitLogUnavailableV4
+  },
+  {
+    name: "git_branch",
+    title: "Git Branch",
+    description: "List bounded local branch identities and checked-out ownership without exposing remote operations.",
+    inputSchema: gitBranchInputV4Schema,
+    outputSchema: gitBranchOutputShapeV4,
+    annotations: V4_READ_ANNOTATIONS,
+    unavailable: createGitBranchUnavailableV4
+  },
+  {
+    name: "git_create_branch",
+    title: "Git Create Branch",
+    description: "Create one validated local codex/* branch from an opaque bound base selection.",
+    inputSchema: gitCreateBranchInputV4Schema,
+    outputSchema: gitCreateBranchOutputShapeV4,
+    annotations: V4_MUTATION_ANNOTATIONS,
+    unavailable: createGitCreateBranchUnavailableV4
+  },
+  {
+    name: "git_stage",
+    title: "Git Stage",
+    description: "Stage an explicit bounded path set through a private index; no add-all or free-form flags exist.",
+    inputSchema: gitStageInputV4Schema,
+    outputSchema: gitStageOutputShapeV4,
+    annotations: V4_NONDESTRUCTIVE_MUTATION_ANNOTATIONS,
+    unavailable: createGitStageUnavailableV4
+  },
+  {
+    name: "git_commit",
+    title: "Git Commit",
+    description: "Create one local commit from an exact private-index token with hooks and signing disabled.",
+    inputSchema: gitCommitInputV4Schema,
+    outputSchema: gitCommitOutputShapeV4,
+    annotations: V4_MUTATION_ANNOTATIONS,
+    unavailable: createGitCommitUnavailableV4
+  },
+  {
+    name: "git_restore",
+    title: "Git Restore",
+    description: "Prepare or execute one path-scoped restore against a bound state; no arbitrary source or force option exists.",
+    inputSchema: gitRestoreInputV4Schema,
+    outputSchema: gitRestoreOutputShapeV4,
+    annotations: V4_MUTATION_ANNOTATIONS,
+    unavailable: createGitRestoreUnavailableV4
+  },
+  {
+    name: "git_stash",
+    title: "Git Stash",
+    description: "Manage owner-bound private stash records through explicit list and prepare/execute actions.",
+    inputSchema: gitStashInputV4Schema,
+    outputSchema: gitStashOutputShapeV4,
+    annotations: V4_MUTATION_ANNOTATIONS,
+    unavailable: createGitStashUnavailableV4
+  },
+  {
+    name: "create_task_worktree",
+    title: "Create Task Worktree",
+    description: "Create one managed task worktree under the configured root without changing allowedRoots.",
+    inputSchema: createTaskWorktreeInputV4Schema,
+    outputSchema: createTaskWorktreeOutputShapeV4,
+    annotations: V4_MUTATION_ANNOTATIONS,
+    unavailable: createTaskWorktreeUnavailableV4
+  },
+  {
+    name: "list_task_worktrees",
+    title: "List Task Worktrees",
+    description: "List only current-owner managed tasks for one selected repository.",
+    inputSchema: listTaskWorktreesInputV4Schema,
+    outputSchema: listTaskWorktreesOutputShapeV4,
+    annotations: V4_READ_ANNOTATIONS,
+    unavailable: createListTaskWorktreesUnavailableV4
+  },
+  {
+    name: "get_task_worktree",
+    title: "Get Task Worktree",
+    description: "Revalidate one owner-bound task and issue a current session-local task workspace handle.",
+    inputSchema: getTaskWorktreeInputV4Schema,
+    outputSchema: getTaskWorktreeOutputShapeV4,
+    annotations: V4_NONDESTRUCTIVE_MUTATION_ANNOTATIONS,
+    unavailable: createGetTaskWorktreeUnavailableV4
+  },
+  {
+    name: "merge_task_worktree",
+    title: "Merge Task Worktree",
+    description: "Prepare or execute one immutable owner-bound merge plan against its bound target branch.",
+    inputSchema: mergeTaskWorktreeInputV4Schema,
+    outputSchema: mergeTaskWorktreeOutputShapeV4,
+    annotations: V4_MUTATION_ANNOTATIONS,
+    unavailable: createMergeTaskWorktreeUnavailableV4
+  },
+  {
+    name: "remove_task_worktree",
+    title: "Remove Task Worktree",
+    description: "Prepare or remove one proved-clean managed worktree while retaining its branch and commits.",
+    inputSchema: removeTaskWorktreeInputV4Schema,
+    outputSchema: removeTaskWorktreeOutputShapeV4,
+    annotations: V4_MUTATION_ANNOTATIONS,
+    unavailable: createRemoveTaskWorktreeUnavailableV4
+  }
+]);
+
+type GitV4ReadFailure = Parameters<typeof createGitStatusFailureV4>[0];
+
+function classifyGitV4ReadFailure(error: unknown): GitV4ReadFailure {
+  const code = error instanceof Error ? error.message : "INTERNAL_ERROR";
+  const known = new Set<GitV4ReadFailure["code"]>([
+    "GIT_CAPABILITY_UNAVAILABLE",
+    "GIT_EXECUTABLE_CHANGED",
+    "GIT_NOT_REPOSITORY",
+    "GIT_REPOSITORY_UNSAFE",
+    "GIT_METADATA_OUTSIDE_AUTHORITY",
+    "GIT_UNSUPPORTED_REPOSITORY_FORMAT",
+    "GIT_OBJECT_MISSING",
+    "GIT_SCAN_LIMIT",
+    "GIT_STATE_INCOMPLETE",
+    "GIT_STATE_TOKEN_INVALID",
+    "GIT_STATE_CHANGED",
+    "GIT_REF_CHANGED",
+    "GIT_INDEX_CHANGED",
+    "GIT_UNMERGED",
+    "GIT_IDENTITY_REQUIRED",
+    "GIT_NORMALIZATION_REQUIRED",
+    "GIT_PATH_BLOCKED",
+    "GIT_SECRET_BLOCKED",
+    "GIT_INTEGRATION_REQUIRED",
+    "GIT_SPARSE_CHECKOUT_UNSUPPORTED",
+    "GIT_SPLIT_INDEX_UNSUPPORTED",
+    "GIT_RECOVERY_REQUIRED",
+    "TASK_WORKTREE_NOT_FOUND",
+    "TASK_WORKTREE_DIRTY",
+    "TASK_WORKTREE_IN_USE",
+    "TASK_WORKTREE_UNSAFE_ENTRY",
+    "TASK_WORKTREE_PATH_TOO_LONG",
+    "MERGE_CONFLICT",
+    "MERGE_PLAN_INVALID",
+    "MERGE_PLAN_STALE",
+    "MERGE_CHECKS_REQUIRED"
+  ]);
+  const normalized = known.has(code as GitV4ReadFailure["code"])
+    ? code as GitV4ReadFailure["code"]
+    : "INTERNAL_ERROR";
+  const messages: Partial<Record<GitV4ReadFailure["code"], string>> = {
+    GIT_CAPABILITY_UNAVAILABLE: "The verified local Git read capability is unavailable.",
+    GIT_EXECUTABLE_CHANGED: "The verified Git executable changed and must be reprobed.",
+    GIT_NOT_REPOSITORY: "The selected workspace is not an admitted Git repository.",
+    GIT_REPOSITORY_UNSAFE: "The repository identity or metadata is unsafe for typed Git reads.",
+    GIT_METADATA_OUTSIDE_AUTHORITY: "Git metadata is outside the admitted workspace authority.",
+    GIT_UNSUPPORTED_REPOSITORY_FORMAT: "The repository uses an unsupported Git storage or object format.",
+    GIT_OBJECT_MISSING: "A required local Git object is missing or invalid.",
+    GIT_SCAN_LIMIT: "The Git read exceeded a configured bounded scan limit.",
+    GIT_STATE_INCOMPLETE: "The repository state could not be read completely.",
+    GIT_STATE_TOKEN_INVALID: "The Git state token is invalid, expired, or context-bound elsewhere.",
+    GIT_STATE_CHANGED: "The repository state changed during the read.",
+    GIT_REF_CHANGED: "The selected branch identity is stale or unavailable.",
+    GIT_INDEX_CHANGED: "The repository index changed and the operation was not applied.",
+    GIT_UNMERGED: "The repository contains unresolved index entries.",
+    GIT_IDENTITY_REQUIRED: "A safe repository-local Git identity is required.",
+    GIT_NORMALIZATION_REQUIRED: "The selected paths require Git normalization that safe raw staging cannot apply.",
+    GIT_PATH_BLOCKED: "A requested path is blocked by workspace safety rules.",
+    GIT_SECRET_BLOCKED: "Secret policy blocked the requested Git content.",
+    GIT_INTEGRATION_REQUIRED: "Repository integrations require a separately approved execution path.",
+    GIT_SPARSE_CHECKOUT_UNSUPPORTED: "Sparse checkout is readable but cannot produce complete mutation state.",
+    GIT_SPLIT_INDEX_UNSUPPORTED: "Split index is readable but cannot produce complete mutation state.",
+    GIT_RECOVERY_REQUIRED: "The repository is frozen until the recorded Git operation is recovered.",
+    TASK_WORKTREE_NOT_FOUND: "The requested owned task worktree is not available.",
+    INTERNAL_ERROR: "The typed Git read failed without exposing private diagnostics."
+  };
+  const nextAction = normalized === "GIT_SCAN_LIMIT"
+    ? "reduce_scope"
+    : normalized === "GIT_REF_CHANGED" || normalized === "GIT_INDEX_CHANGED" || normalized === "GIT_STATE_CHANGED" || normalized === "GIT_STATE_TOKEN_INVALID"
+      ? "refresh_status"
+      : normalized === "GIT_CAPABILITY_UNAVAILABLE" || normalized === "GIT_EXECUTABLE_CHANGED"
+        ? "upgrade_git_capability"
+        : normalized === "GIT_INTEGRATION_REQUIRED" || normalized === "GIT_NORMALIZATION_REQUIRED"
+          ? "use_approved_integrations"
+          : normalized === "GIT_RECOVERY_REQUIRED"
+            ? "run_manual_git_recovery"
+          : normalized === "INTERNAL_ERROR"
+            ? "retry"
+            : "none";
+  return {
+    code: normalized,
+    message: messages[normalized] ?? messages.INTERNAL_ERROR!,
+    retryable: normalized === "GIT_STATE_CHANGED" || normalized === "GIT_REF_CHANGED" || normalized === "INTERNAL_ERROR",
+    nextAction
+  };
+}
+
+function registerV4ContractTools(
+  config: CodexProConfig,
+  server: McpServer,
+  dependencies: CodexProServerDependencies,
+  workspaces: WorkspaceManager,
+  guard: PathGuard
+): void {
+  if (config.toolContractVersion !== 4) return;
+  for (const definition of V4_CONTRACT_TOOL_DEFINITIONS) {
+    let handler: CodexToolHandler = () => {
+      const structured = definition.unavailable();
+      return {
+        ...textResult(
+          "This Contract V4 handler is reserved but remains disabled until its implementation gate passes.",
+          structured
+        ),
+        isError: true
+      };
+    };
+    if (definition.name === "git_log" && dependencies.gitReadServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = await dependencies.gitReadServiceV4!.log({
+            workspace,
+            guard,
+            branchId: typeof args.branch_id === "string" ? args.branch_id : undefined,
+            limit: typeof args.limit === "number" ? args.limit : undefined
+          });
+          return textResult("Typed Git log read completed.", createGitLogSuccessV4(data, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return {
+            ...textResult(failure.message, createGitLogFailureV4(failure, Date.now() - startedAt)),
+            isError: true
+          };
+        }
+      };
+    } else if (definition.name === "git_branch" && dependencies.gitReadServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = await dependencies.gitReadServiceV4!.branches({ workspace, guard });
+          return textResult("Typed Git branch read completed.", createGitBranchSuccessV4(data, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return {
+            ...textResult(failure.message, createGitBranchFailureV4(failure, Date.now() - startedAt)),
+            isError: true
+          };
+        }
+      };
+    } else if (definition.name === "git_create_branch" && dependencies.gitMutationServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = await dependencies.gitMutationServiceV4!.createBranch({
+            workspace,
+            guard,
+            stateToken: String(args.state_token),
+            name: String(args.name),
+            base: args.base as { kind: "current_head" } | { kind: "branch"; branch_id: string },
+            authorization: authorizedGitEventV4(args)
+          });
+          return textResult("Local branch created.", createGitCreateBranchSuccessV4(data, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createGitCreateBranchFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "git_stage" && dependencies.gitMutationServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = await dependencies.gitMutationServiceV4!.stage({
+            workspace,
+            guard,
+            stateToken: String(args.state_token),
+            paths: (args.paths as string[]).map(String),
+            integrationReviewToken: typeof args.integration_review_token === "string"
+              ? args.integration_review_token
+              : undefined,
+            authorization: authorizedGitEventV4(args)
+          });
+          return textResult("Exact paths staged.", createGitStageSuccessV4(data, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createGitStageFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "git_commit" && dependencies.gitMutationServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = await dependencies.gitMutationServiceV4!.commit({
+            workspace,
+            guard,
+            indexToken: String(args.index_token),
+            message: String(args.message),
+            integrationReviewToken: typeof args.integration_review_token === "string"
+              ? args.integration_review_token
+              : undefined,
+            authorization: authorizedGitEventV4(args)
+          });
+          return textResult("Local commit created.", createGitCommitSuccessV4(data, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createGitCommitFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "git_restore" && dependencies.gitMutationServiceV4?.restore) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = args.action === "prepare"
+            ? await dependencies.gitMutationServiceV4!.restore!({
+                action: "prepare",
+                workspace,
+                guard,
+                stateToken: String(args.state_token),
+                mode: args.mode,
+                paths: args.paths
+              })
+            : await dependencies.gitMutationServiceV4!.restore!({
+                action: "execute",
+                workspace,
+                guard,
+                reviewToken: String(args.review_token),
+                authorization: authorizedGitEventV4(args)
+              });
+          return textResult("Bounded Git restore completed.", createGitRestoreSuccessV4(data as never, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createGitRestoreFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "git_stash" && dependencies.gitMutationServiceV4?.stash) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const common = { workspace, guard };
+          let data: unknown;
+          switch (args.action) {
+            case "list": data = await dependencies.gitMutationServiceV4!.stash!({ action: "list", workspace }); break;
+            case "prepare_create": data = await dependencies.gitMutationServiceV4!.stash!({ ...common, action: "prepare_create", stateToken: String(args.state_token), paths: args.paths }); break;
+            case "execute_create": data = await dependencies.gitMutationServiceV4!.stash!({ ...common, action: "execute_create", reviewToken: String(args.review_token), authorization: authorizedGitEventV4(args) }); break;
+            case "prepare_apply": data = await dependencies.gitMutationServiceV4!.stash!({ ...common, action: "prepare_apply", stashId: String(args.stash_id), stateToken: String(args.state_token) }); break;
+            case "execute_apply": data = await dependencies.gitMutationServiceV4!.stash!({ ...common, action: "execute_apply", reviewToken: String(args.review_token), authorization: authorizedGitEventV4(args) }); break;
+            case "prepare_forget": data = await dependencies.gitMutationServiceV4!.stash!({ action: "prepare_forget", workspace, stashId: String(args.stash_id) }); break;
+            case "execute_forget": data = await dependencies.gitMutationServiceV4!.stash!({ action: "execute_forget", workspace, reviewToken: String(args.review_token), authorization: authorizedGitEventV4(args) }); break;
+            default: throw new Error("GIT_STATE_TOKEN_INVALID");
+          }
+          return textResult("Private Git stash action completed.", createGitStashSuccessV4(data as never, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createGitStashFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "create_task_worktree" && dependencies.taskWorktreeServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = args.action === "prepare"
+            ? await dependencies.taskWorktreeServiceV4!.create({
+                action: "prepare",
+                workspace,
+                guard,
+                stateToken: String(args.state_token),
+                taskName: String(args.task_name),
+                branchName: typeof args.branch_name === "string" ? args.branch_name : undefined
+              })
+            : await dependencies.taskWorktreeServiceV4!.create({
+                action: "execute",
+                workspace,
+                guard,
+                reviewToken: String(args.review_token),
+                authorization: authorizedGitEventV4(args)
+              });
+          return textResult("Managed task worktree created.", createTaskWorktreeSuccessV4(data as never, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createTaskWorktreeFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "list_task_worktrees" && dependencies.taskWorktreeServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = await dependencies.taskWorktreeServiceV4!.list({ workspace });
+          return textResult("Managed task worktrees listed.", createListTaskWorktreesSuccessV4(data as never, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createListTaskWorktreesFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "get_task_worktree" && dependencies.taskWorktreeServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const data = await dependencies.taskWorktreeServiceV4!.get({
+            taskWorktreeId: String(args.task_worktree_id)
+          });
+          return textResult("Managed task worktree opened.", createGetTaskWorktreeSuccessV4(data as never, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createGetTaskWorktreeFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "merge_task_worktree" && dependencies.taskWorktreeServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = args.action === "prepare"
+            ? await dependencies.taskWorktreeServiceV4!.merge({
+                action: "prepare",
+                workspace,
+                guard,
+                taskWorktreeId: String(args.task_worktree_id),
+                message: typeof args.message === "string" ? args.message : undefined,
+                integrationReviewToken: typeof args.integration_review_token === "string"
+                  ? args.integration_review_token
+                  : undefined,
+                authorization: authorizedGitEventV4(args)
+              })
+            : args.action === "finalize"
+              ? await dependencies.taskWorktreeServiceV4!.merge({
+                  action: "finalize",
+                  workspace,
+                  guard,
+                  taskWorktreeId: String(args.task_worktree_id),
+                  reviewToken: String(args.review_token),
+                  integrationReviewToken: typeof args.integration_review_token === "string"
+                    ? args.integration_review_token
+                    : undefined,
+                  authorization: authorizedGitEventV4(args)
+                })
+            : await dependencies.taskWorktreeServiceV4!.merge({
+                action: "execute",
+                workspace,
+                guard,
+                taskWorktreeId: String(args.task_worktree_id),
+                mergePlanId: String(args.merge_plan_id),
+                verificationReceipts: Array.isArray(args.verification_receipts)
+                  ? args.verification_receipts.map(String)
+                  : [],
+                skipChecks: args.skip_checks === true,
+                integrationReviewToken: typeof args.integration_review_token === "string"
+                  ? args.integration_review_token
+                  : undefined,
+                authorization: authorizedGitEventV4(args)
+              });
+          return textResult("Task merge action completed.", createMergeTaskWorktreeSuccessV4(data as never, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createMergeTaskWorktreeFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    } else if (definition.name === "remove_task_worktree" && dependencies.taskWorktreeServiceV4) {
+      handler = async (args) => {
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = args.action === "prepare"
+            ? await dependencies.taskWorktreeServiceV4!.remove({
+                action: "prepare",
+                workspace,
+                taskWorktreeId: String(args.task_worktree_id)
+              })
+            : await dependencies.taskWorktreeServiceV4!.remove({
+                action: "execute",
+                workspace,
+                taskWorktreeId: String(args.task_worktree_id),
+                reviewToken: String(args.review_token),
+                authorization: authorizedGitEventV4(args)
+              });
+          return textResult("Task worktree removal action completed.", createRemoveTaskWorktreeSuccessV4(data as never, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return { ...textResult(failure.message, createRemoveTaskWorktreeFailureV4(failure, Date.now() - startedAt)), isError: true };
+        }
+      };
+    }
+    registerCodexTool(
+      config,
+      server,
+      definition.name,
+      {
+        title: definition.title,
+        description: definition.description,
+        inputSchema: definition.inputSchema,
+        __codexproStrictInputSchema: definition.inputSchema,
+        outputSchema: definition.outputSchema,
+        annotations: definition.annotations,
+        _meta: {
+          ...toolCardMeta(),
+          "codexpro/preserveStructuredContent": true,
+          "openai/toolInvocation/invoking": `${definition.title}...`,
+          "openai/toolInvocation/invoked": `${definition.title} complete`
+        }
+      },
+      handler
+    );
+  }
+
+  if (config.toolMode === "full" && !config.connectionTest) {
+    registerCodexTool(
+      config,
+      server,
+      "query_audit_events",
+      {
+        title: "Query Audit Events",
+        description: "Query the domain-separated Contract V4 audit projection with bounded filters and cursors.",
+        inputSchema: queryAuditEventsInputSchemaV4,
+        __codexproStrictInputSchema: queryAuditEventsInputSchemaV4,
+        outputSchema: queryAuditEventsOutputShapeV4,
+        annotations: V4_READ_ANNOTATIONS,
+        _meta: {
+          ...toolCardMeta(),
+          "codexpro/preserveStructuredContent": true,
+          "openai/toolInvocation/invoking": "Querying Contract V4 audit events...",
+          "openai/toolInvocation/invoked": "Contract V4 audit query complete"
+        }
+      },
+      () => {
+        const structured = createQueryAuditEventsUnavailableV4();
+        return {
+          ...textResult("Contract V4 audit persistence is not active until Gate A passes.", structured),
+          isError: true
+        };
+      }
+    );
+  }
+}
+
 function serverInstructions(config: CodexProConfig): string {
   const editInstruction =
     config.connectionTest
@@ -4711,8 +5473,8 @@ function serverInstructions(config: CodexProConfig): string {
         ? "4. Source writes are disabled and generic write/edit/apply_patch tools are unavailable. Use handoff_to_agent/handoff_to_codex for plans."
         : "4. Write/edit/apply_patch tools are disabled. Do not attempt direct file writes; use handoff or context export workflows instead.";
   const bashInstruction =
-    config.toolContractVersion === 3
-      ? "5. Contract V3 does not expose the legacy bash tool. Use structured run_command only when the selected execution profile permits it."
+    contractIncludesV3(config.toolContractVersion)
+      ? `5. Contract V${config.toolContractVersion} does not expose the legacy bash tool. Use structured run_command only when the selected execution profile permits it.`
       : config.bashMode === "off"
       ? "5. Bash is disabled and the bash tool is unavailable. Do not attempt shell commands."
       : "5. Use bash only for meaningful verification commands such as npm test, npm run build, lint, typecheck, or an existing project script.";
@@ -5162,6 +5924,7 @@ function buildServerConfigData(
 
 import { upgradeCodexProSupertool } from "./codexproSupertool.js";
 import {
+  authorizedGitEventV4,
   installPolicyKernel,
   type PolicyRuntime,
   type PolicyRuntimeDiagnostics,
@@ -5170,6 +5933,7 @@ import {
 import { baselineNodeCapabilityReport } from "./policy/enforcement.js";
 import { HARD_POLICY_REVISION } from "./policy/hardPolicy.js";
 import type { PolicySessionContextSource } from "./policy/identity.js";
+import { describeGitResource } from "./policy/resources.js";
 import { createDefaultPolicyRuntime } from "./policy/runtime.js";
 import type { AuditEventV1 } from "./policy/types.js";
 import {
@@ -5208,7 +5972,11 @@ export function createCodexProServer(
       dependencies.undoChangeSetService &&
       dependencies.persistentAuditRuntime
     ),
-    contractV3MigrationAvailable: true
+    contractV3MigrationAvailable: true,
+    nativeHostIdentityAvailable: dependencies.v4ContractCapabilities?.nativeHostIdentityAvailable,
+    localApprovalAvailable: dependencies.v4ContractCapabilities?.localApprovalAvailable,
+    gitCapabilityAvailable: dependencies.v4ContractCapabilities?.gitCapabilityAvailable,
+    contractV4MigrationAvailable: dependencies.v4ContractCapabilities?.contractV4MigrationAvailable
   });
   const transactionRecoveryCoordinator = config.fileTransactions === "atomic"
     ? dependencies.transactionRecoveryCoordinator ?? createDefaultTransactionRecoveryCoordinator(config)
@@ -5227,11 +5995,12 @@ export function createCodexProServer(
     beforeWorkspaceUse: transactionRecoveryCoordinator
       ? (canonicalRoot) => transactionRecoveryCoordinator.ensureWorkspaceReady(canonicalRoot)
       : undefined,
-    confirmedRoots: dependencies.rootAdmissionRuntimeV3
+    confirmedRoots: dependencies.rootAdmissionRuntimeV3,
+    taskWorktrees: dependencies.taskWorktreeAuthorityV4
   });
   const guard = new PathGuard(config);
   const policyEngineMode = config.policyEngineMode ?? "legacy";
-  const toolResourceResolver: ToolResourceResolver | undefined = dependencies.undoChangeSetService || dependencies.toolResourceResolver || dependencies.rootAdmissionRuntimeV3
+  const toolResourceResolver: ToolResourceResolver | undefined = dependencies.undoChangeSetService || dependencies.toolResourceResolver || dependencies.gitMutationServiceV4 || dependencies.taskWorktreeServiceV4 || dependencies.rootAdmissionRuntimeV3
     ? {
         describe(toolName, args) {
           if (toolName === "undo_change_set") {
@@ -5255,6 +6024,47 @@ export function createCodexProServer(
           if (toolName === "open_full_access_workspace") {
             if (!dependencies.rootAdmissionRuntimeV3) throw new Error("Confirmed-root resource resolver is unavailable.");
             return dependencies.rootAdmissionRuntimeV3.describe(toolName, args);
+          }
+          if (toolName === "git_create_branch" || toolName === "git_stage" || toolName === "git_commit") {
+            if (!dependencies.gitMutationServiceV4 || typeof dependencies.gitMutationServiceV4.describe !== "function") {
+              throw new Error("Contract V4 Git mutation resource resolver is unavailable.");
+            }
+            return dependencies.gitMutationServiceV4.describe(toolName, args);
+          }
+          if (toolName === "git_stash" && args.action === "list") {
+            const workspace = workspaces.getWorkspace(String(args.workspace_id));
+            return {
+              resource: describeGitResource({
+                workspaceId: workspace.id,
+                operation: "read",
+                repositoryKey: createHash("sha256").update(workspace.root, "utf8").digest("hex"),
+                relativePaths: [],
+                refs: [],
+                remoteName: null,
+                remoteHost: null
+              }),
+              requiredCapabilities: [{ name: "filesystemReadBoundary", minimum: "brokered" }],
+              requiredScopes: ["git:read"],
+              riskClass: "R0"
+            };
+          }
+          if (toolName === "git_restore" || toolName === "git_stash") {
+            if (!dependencies.gitMutationServiceV4 || typeof dependencies.gitMutationServiceV4.describe !== "function") {
+              throw new Error("Contract V4 Git mutation resource resolver is unavailable.");
+            }
+            return dependencies.gitMutationServiceV4.describe(toolName, args);
+          }
+          if ([
+            "create_task_worktree",
+            "list_task_worktrees",
+            "get_task_worktree",
+            "merge_task_worktree",
+            "remove_task_worktree"
+          ].includes(toolName)) {
+            if (!dependencies.taskWorktreeServiceV4) {
+              throw new Error("Contract V4 task worktree resource resolver is unavailable.");
+            }
+            return dependencies.taskWorktreeServiceV4.describe(toolName, args);
           }
           if (!dependencies.toolResourceResolver) {
             throw new Error("Policy resource resolver does not support this tool.");
@@ -5348,12 +6158,40 @@ export function createCodexProServer(
         context.workspace,
         context.patch
       ));
+  type GitReadServiceDependencyV4 = NonNullable<CodexProServerDependencies["gitReadServiceV4"]>;
+  const typedGitReadService = (activeConfig: CodexProConfig): GitReadServiceDependencyV4 | null => {
+    if (activeConfig.toolContractVersion !== 4) return null;
+    if (!dependencies.gitReadServiceV4) throw new CodexProError("GIT_V4_HANDLER_UNAVAILABLE");
+    return dependencies.gitReadServiceV4;
+  };
+  const projectTypedGitStatus = (
+    service: GitReadServiceDependencyV4,
+    data: Parameters<typeof projectGitStatusV4ToLegacy>[0],
+    options: Parameters<typeof projectGitStatusV4ToLegacy>[1] = {}
+  ): string => projectGitStatusV4ToLegacy(data, {
+    ...options,
+    currentBranchName: service.currentBranchName(data)
+  });
+  const workspaceSummaryGitProviders = (
+    activeConfig: CodexProConfig,
+    workspace: Workspace,
+    activeGuard: PathGuard,
+    logLimit: number
+  ) => {
+    const service = typedGitReadService(activeConfig);
+    if (!service) return {};
+    return {
+      gitStatusProvider: () => service.status({ workspace, guard: activeGuard }).then((data) => projectTypedGitStatus(service, data)),
+      gitLogProvider: () => service.log({ workspace, guard: activeGuard, limit: logLimit }).then(projectGitLogV4ToLegacy)
+    };
+  };
   const openCurrentWorkspaceSummaryProvider =
     dependencies.openCurrentWorkspaceSummaryProvider ??
     ((context: OpenCurrentWorkspaceSummaryProviderContext) =>
       workspaceSummary(context.config, context.guard, context.workspace, {
         ...context.options,
-        bootstrapContext: false
+        bootstrapContext: false,
+        ...workspaceSummaryGitProviders(context.config, context.workspace, context.guard, 5)
       }));
   const openWorkspaceProvider =
     dependencies.openWorkspaceProvider ??
@@ -5363,7 +6201,8 @@ export function createCodexProServer(
     ((context: OpenWorkspaceSummaryProviderContext) =>
       workspaceSummary(context.config, context.guard, context.workspace, {
         ...context.options,
-        bootstrapContext: false
+        bootstrapContext: false,
+        ...workspaceSummaryGitProviders(context.config, context.workspace, context.guard, 5)
       }));
   const workspaceSnapshotSummaryProvider =
     dependencies.workspaceSnapshotSummaryProvider ??
@@ -5372,7 +6211,10 @@ export function createCodexProServer(
         context.config,
         context.guard,
         context.workspace,
-        context.options
+        {
+          ...context.options,
+          ...workspaceSummaryGitProviders(context.config, context.workspace, context.guard, 5)
+        }
       ));
   const workspaceSnapshotAiContextProvider =
     dependencies.workspaceSnapshotAiContextProvider ??
@@ -5440,25 +6282,48 @@ export function createCodexProServer(
       ));
   const codexContextProvider =
     dependencies.codexContextProvider ??
-    ((context: CodexContextProviderContext) =>
-      readCodexContext(context.config, context.guard, context.workspace, {
+    ((context: CodexContextProviderContext) => {
+      const service = typedGitReadService(context.config);
+      return readCodexContext(context.config, context.guard, context.workspace, {
         targetPath: context.targetPath,
         targetKind: context.targetKind,
         includeAiBridge: context.includeAiBridge,
         includeGit: context.includeGitStatus,
         includeDiff: context.includeGitDiff,
-        maxAgentBytes: context.maxAgentBytes
-      }));
+        maxAgentBytes: context.maxAgentBytes,
+        ...(service ? {
+          gitStatusProvider: () => service.status({ workspace: context.workspace, guard: context.guard }).then((data) => projectTypedGitStatus(service, data)),
+          gitDiffProvider: () => service.diff({
+            workspace: context.workspace,
+            guard: context.guard,
+            comparison: "worktree_to_index",
+            includePatch: true
+          }).then(projectGitDiffV4ToLegacy)
+        } : {})
+      });
+    });
   const exportProContextProvider =
     dependencies.exportProContextProvider ??
     (async (context: ExportProContextProviderContext) => {
+      const service = typedGitReadService(context.config);
+      const gitProviders = service ? {
+        status: () => service.status({ workspace: context.workspace, guard: context.guard }).then((data) => projectTypedGitStatus(service, data)),
+        log: () => service.log({ workspace: context.workspace, guard: context.guard, limit: 8 }).then(projectGitLogV4ToLegacy),
+        diff: () => service.diff({
+          workspace: context.workspace,
+          guard: context.guard,
+          comparison: "worktree_to_index",
+          includePatch: true
+        }).then(projectGitDiffV4ToLegacy)
+      } : {};
       if (config.fileTransactions !== "atomic") {
         return exportPreparedProContext(
           context.config,
           context.guard,
           context.workspace,
           context.request,
-          context.output
+          context.output,
+          gitProviders
         );
       }
       const runtime = dependencies.workspaceMutationRuntime;
@@ -5468,7 +6333,8 @@ export function createCodexProServer(
         context.guard,
         context.workspace,
         context.request,
-        context.output
+        context.output,
+        gitProviders
       );
       return attachPreparedBatchMutation({
         runtime,
@@ -5479,7 +6345,7 @@ export function createCodexProServer(
           requestId: null,
           ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
           policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
-          contractVersion: config.toolContractVersion,
+          contractVersion: persistedMutationContractVersion(config.toolContractVersion),
           retentionMs: config.changeSetRetention.activeRetentionMs
         },
         result: mutation.result
@@ -5501,7 +6367,7 @@ export function createCodexProServer(
           requestId: null,
           ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
           policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
-          contractVersion: config.toolContractVersion,
+          contractVersion: persistedMutationContractVersion(config.toolContractVersion),
           retentionMs: config.changeSetRetention.activeRetentionMs
         },
         result: mutation.result
@@ -5524,7 +6390,7 @@ export function createCodexProServer(
           requestId: null,
           ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
           policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
-          contractVersion: config.toolContractVersion,
+          contractVersion: persistedMutationContractVersion(config.toolContractVersion),
           retentionMs: config.changeSetRetention.activeRetentionMs
         },
         result: mutation.result
@@ -5555,43 +6421,79 @@ export function createCodexProServer(
       ));
   const gitStatusResultProvider =
     dependencies.gitStatusResultProvider ??
-    ((context: GitStatusProviderContext) =>
-      gitStatus(
-        context.config,
-        context.workspace,
-        context.guard,
-        context.path
-      ));
+    ((context: GitStatusProviderContext) => {
+      const service = typedGitReadService(context.config);
+      return service
+        ? service.status({
+            workspace: context.workspace,
+            guard: context.guard,
+            paths: context.path ? [context.path] : undefined
+          }).then((data) => projectTypedGitStatus(service, data))
+        : gitStatus(
+            context.config,
+            context.workspace,
+            context.guard,
+            context.path
+          );
+    });
   const gitDiffResultProvider =
     dependencies.gitDiffResultProvider ??
-    ((context: GitDiffProviderContext) =>
-      gitDiff(
-        context.config,
-        context.guard,
-        context.workspace,
-        context.path,
-        context.staged
-      ));
+    ((context: GitDiffProviderContext) => {
+      const service = typedGitReadService(context.config);
+      return service
+        ? service.diff({
+            workspace: context.workspace,
+            guard: context.guard,
+            comparison: context.staged ? "index_to_head" : "worktree_to_index",
+            paths: context.path ? [context.path] : undefined,
+            includePatch: true
+          }).then(projectGitDiffV4ToLegacy)
+        : gitDiff(
+            context.config,
+            context.guard,
+            context.workspace,
+            context.path,
+            context.staged
+          );
+    });
   const showChangesStatusProvider =
     dependencies.showChangesStatusProvider ??
-    ((context: ShowChangesGitProviderContext) =>
-      gitDiffStatus(
-        context.config,
-        context.guard,
-        context.workspace,
-        context.path,
-        context.staged
-      ));
+    ((context: ShowChangesGitProviderContext) => {
+      const service = typedGitReadService(context.config);
+      return service
+        ? service.status({
+            workspace: context.workspace,
+            guard: context.guard,
+            paths: context.path ? [context.path] : undefined
+          }).then((data) => projectTypedGitStatus(service, data, { staged: context.staged, includeBranch: false }))
+        : gitDiffStatus(
+            context.config,
+            context.guard,
+            context.workspace,
+            context.path,
+            context.staged
+          );
+    });
   const showChangesDiffProvider =
     dependencies.showChangesDiffProvider ??
-    ((context: ShowChangesGitProviderContext) =>
-      gitDiff(
-        context.config,
-        context.guard,
-        context.workspace,
-        context.path,
-        context.staged
-      ));
+    ((context: ShowChangesGitProviderContext) => {
+      const service = typedGitReadService(context.config);
+      return service
+        ? service.diff({
+            workspace: context.workspace,
+            guard: context.guard,
+            comparison: context.staged ? "index_to_head" : "worktree_to_index",
+            paths: context.path ? [context.path] : undefined,
+            includePatch: true
+          }).then(projectGitDiffV4ToLegacy)
+        : gitDiff(
+            context.config,
+            context.guard,
+            context.workspace,
+            context.path,
+            context.staged
+          );
+    });
   const showChangesAnalysisProvider =
     dependencies.showChangesAnalysisProvider ??
     ((context: ShowChangesAnalysisProviderContext) =>
@@ -5627,6 +6529,7 @@ export function createCodexProServer(
     registeredToolNamesByServer.get(server as object)?.push(name);
   });
   registerV3ContractTools(config, server, dependencies);
+  registerV4ContractTools(config, server, dependencies, workspaces, guard);
   registerToolCardResource(server, config);
 
   registerCodexTool(
@@ -5833,7 +6736,7 @@ export function createCodexProServer(
                   requestId: null,
                   ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
                   policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
-                  contractVersion: config.toolContractVersion,
+                  contractVersion: persistedMutationContractVersion(config.toolContractVersion),
                   retentionMs: config.changeSetRetention.activeRetentionMs,
                   retainChangeSet: false
                 },
@@ -7072,7 +7975,7 @@ export function createCodexProServer(
             requestId: null,
             ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
             policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
-            contractVersion: config.toolContractVersion,
+            contractVersion: persistedMutationContractVersion(config.toolContractVersion),
             retentionMs: config.changeSetRetention.activeRetentionMs
           },
           result: response,
@@ -7239,7 +8142,7 @@ export function createCodexProServer(
             requestId: null,
             ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
             policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
-            contractVersion: config.toolContractVersion,
+            contractVersion: persistedMutationContractVersion(config.toolContractVersion),
             retentionMs: config.changeSetRetention.activeRetentionMs
           },
           result: response,
@@ -7433,7 +8336,7 @@ export function createCodexProServer(
             requestId: null,
             ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
             policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
-            contractVersion: config.toolContractVersion,
+            contractVersion: persistedMutationContractVersion(config.toolContractVersion),
             retentionMs: config.changeSetRetention.activeRetentionMs
           },
           result: response,
@@ -7610,12 +8513,17 @@ export function createCodexProServer(
     "git_status",
     {
       title: "Git Status",
-      description: "Show git branch and changed files for the workspace.",
-      inputSchema: {
-        workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        path: z.string().optional().describe("Optional file path relative to workspace root.")
-      },
-      outputSchema: gitStatusOutputShape,
+      description: config.toolContractVersion === 4
+        ? "Read a bounded typed Git state projection and mint a mutation token only for complete state."
+        : "Show git branch and changed files for the workspace.",
+      inputSchema: config.toolContractVersion === 4
+        ? gitStatusInputV4Schema
+        : {
+            workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
+            path: z.string().optional().describe("Optional file path relative to workspace root.")
+          },
+      __codexproStrictInputSchema: config.toolContractVersion === 4 ? gitStatusInputV4Schema : undefined,
+      outputSchema: config.toolContractVersion === 4 ? gitStatusOutputShapeV4 : gitStatusOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -7624,6 +8532,31 @@ export function createCodexProServer(
       }
     },
     async (args) => {
+      if (config.toolContractVersion === 4) {
+        if (!dependencies.gitReadServiceV4) {
+          const structured = createGitStatusUnavailableV4();
+          return {
+            ...textResult("Contract V4 Git status requires the verified typed Git read service.", structured),
+            isError: true
+          };
+        }
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = await dependencies.gitReadServiceV4.status({
+            workspace,
+            guard,
+            paths: Array.isArray(args.paths) ? args.paths.map(String) : undefined
+          });
+          return textResult("Typed Git status read completed.", createGitStatusSuccessV4(data, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return {
+            ...textResult(failure.message, createGitStatusFailureV4(failure, Date.now() - startedAt)),
+            isError: true
+          };
+        }
+      }
       try {
         const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const scopedPath = typeof args.path === "string" ? args.path : undefined;
@@ -7689,14 +8622,19 @@ export function createCodexProServer(
     "git_diff",
     {
       title: "Git Diff",
-      description: "Show current unstaged or staged git diff, optionally scoped to a file.",
-      inputSchema: {
-        workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        path: z.string().optional().describe("Optional file path relative to workspace root."),
-        staged: z.boolean().optional().describe("Show staged diff. Default: false."),
-        include_diff: z.boolean().optional().describe("Include the raw unified diff in the response. Default: true. Set false for stats-only checks.")
-      },
-      outputSchema: gitDiffOutputShape,
+      description: config.toolContractVersion === 4
+        ? "Read a bounded typed Git comparison without accepting arbitrary revisions or flags."
+        : "Show current unstaged or staged git diff, optionally scoped to a file.",
+      inputSchema: config.toolContractVersion === 4
+        ? gitDiffInputV4Schema
+        : {
+            workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
+            path: z.string().optional().describe("Optional file path relative to workspace root."),
+            staged: z.boolean().optional().describe("Show staged diff. Default: false."),
+            include_diff: z.boolean().optional().describe("Include the raw unified diff in the response. Default: true. Set false for stats-only checks.")
+          },
+      __codexproStrictInputSchema: config.toolContractVersion === 4 ? gitDiffInputV4Schema : undefined,
+      outputSchema: config.toolContractVersion === 4 ? gitDiffOutputShapeV4 : gitDiffOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -7705,6 +8643,34 @@ export function createCodexProServer(
       }
     },
     async (args) => {
+      if (config.toolContractVersion === 4) {
+        if (!dependencies.gitReadServiceV4) {
+          const structured = createGitDiffUnavailableV4();
+          return {
+            ...textResult("Contract V4 Git diff requires the verified typed Git read service.", structured),
+            isError: true
+          };
+        }
+        const startedAt = Date.now();
+        try {
+          const workspace = workspaces.resolveWorkspace(String(args.workspace_id));
+          const data = await dependencies.gitReadServiceV4.diff({
+            workspace,
+            guard,
+            comparison: args.comparison as "worktree_to_index" | "index_to_head" | "head_to_base",
+            paths: Array.isArray(args.paths) ? args.paths.map(String) : undefined,
+            includePatch: typeof args.include_patch === "boolean" ? args.include_patch : undefined,
+            taskWorktreeId: typeof args.task_worktree_id === "string" ? args.task_worktree_id : undefined
+          });
+          return textResult("Typed Git diff read completed.", createGitDiffSuccessV4(data, Date.now() - startedAt));
+        } catch (error) {
+          const failure = classifyGitV4ReadFailure(error);
+          return {
+            ...textResult(failure.message, createGitDiffFailureV4(failure, Date.now() - startedAt)),
+            isError: true
+          };
+        }
+      }
       try {
         const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const staged = parseBool(args.staged, false);
@@ -9130,7 +10096,7 @@ export function createCodexProServer(
     }
   );
 
-  const undoContractVersion = config.toolContractVersion;
+  const undoContractVersion = persistedMutationContractVersion(config.toolContractVersion);
   if (contractIncludesV2(undoContractVersion)) {
     registerCodexTool(
       config,

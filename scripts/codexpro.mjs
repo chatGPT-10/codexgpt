@@ -3064,7 +3064,7 @@ async function runDoctor(argv) {
   const nativeManifest = path.join(projectRoot, 'scripts', 'windows-process-host-manifest.json');
   const nativeBackendCandidate = process.platform === 'win32' && fs.existsSync(nativeManifest);
   const v3ApprovalConfiguration =
-    contractVersion === '3' &&
+    (contractVersion === '3' || contractVersion === '4') &&
     policyMode === 'enforce' &&
     auditMode === 'required';
   record(

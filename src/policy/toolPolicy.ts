@@ -1,8 +1,10 @@
 import { CANONICAL_CODEXPRO_CHILD_TOOLS, type CanonicalCodexProChildTool } from "../tools/schemas/codexpro.js";
+import { gitV4PolicyDefinition, type GitV4PolicyDefinition } from "../git/resources.js";
 import {
-  CONTRACT_V3_ADDITIONS
+  CONTRACT_V3_ADDITIONS,
+  CONTRACT_V4_ADDITIONS
 } from "../tools/contracts/index.js";
-import type { PolicyScope, PolicyScopeV3, RiskClass } from "./types.js";
+import type { GitOperationV4, PolicyScope, PolicyScopeV3, RiskClass } from "./types.js";
 export type { PolicyScopeV3 } from "./types.js";
 
 export interface RequiredScopesInputV3 {
@@ -89,8 +91,15 @@ export const TOOL_POLICY_DEFINITIONS: Readonly<Record<CanonicalCodexProChildTool
 
 const canonicalSet = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS);
 const v3AdditionSet = new Set<string>(CONTRACT_V3_ADDITIONS);
+const v4AdditionSet = new Set<string>(CONTRACT_V4_ADDITIONS);
 
 export const DISABLED_V3_TOOL_POLICY: ToolPolicyDefinition = Object.freeze({
+  riskClass: "R4",
+  requiredScope: null,
+  resourceMode: "disabled"
+});
+
+export const DISABLED_V4_TOOL_POLICY: ToolPolicyDefinition = Object.freeze({
   riskClass: "R4",
   requiredScope: null,
   resourceMode: "disabled"
@@ -108,11 +117,35 @@ const V3_TOOL_POLICY_DEFINITIONS: Readonly<Record<string, ToolPolicyDefinition>>
   list_processes: Object.freeze({ riskClass: "R0", requiredScope: "process:manage", resourceMode: "resolved" })
 });
 
+const V4_TOOL_POLICY_DEFINITIONS: Readonly<Record<string, ToolPolicyDefinition>> = Object.freeze({
+  git_log: Object.freeze({ riskClass: "R0", requiredScope: "git:read", resourceMode: "git_read" }),
+  git_branch: Object.freeze({ riskClass: "R0", requiredScope: "git:read", resourceMode: "git_read" }),
+  git_create_branch: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  git_stage: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  git_commit: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  git_restore: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  git_stash: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  create_task_worktree: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  list_task_worktrees: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  get_task_worktree: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  merge_task_worktree: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" }),
+  remove_task_worktree: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" })
+});
+
+export function gateRPolicyDefinition(
+  toolName: string,
+  operation?: GitOperationV4
+): GitV4PolicyDefinition {
+  if (!v4AdditionSet.has(toolName)) throw new Error("Tool is outside the closed V4 Gate R policy set.");
+  return gitV4PolicyDefinition(toolName, operation);
+}
+
 export function toolPolicyDefinition(toolName: string): ToolPolicyDefinition {
   if (toolName === "undo_change_set") return UNDO_CHANGE_SET_TOOL_POLICY_V2;
   if (toolName === "move_paths") return MOVE_PATHS_TOOL_POLICY_V2;
   if (toolName === "query_audit_events") return AUDIT_QUERY_TOOL_POLICY_V2;
   if (v3AdditionSet.has(toolName)) return V3_TOOL_POLICY_DEFINITIONS[toolName];
+  if (v4AdditionSet.has(toolName)) return V4_TOOL_POLICY_DEFINITIONS[toolName] ?? DISABLED_V4_TOOL_POLICY;
   if (!canonicalSet.has(toolName)) throw new Error("Registered tool is outside the closed Policy Kernel tool set.");
   return TOOL_POLICY_DEFINITIONS[toolName as CanonicalCodexProChildTool];
 }

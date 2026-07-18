@@ -112,6 +112,33 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "writeFile:45f0808a2445"
     ])
   }),
+  "scripts/git-capability-spike.mjs": Object.freeze({
+    purpose: "Private Gate G0 temporary repository, malicious-integration canaries, private indexes, object quarantine, and exact cleanup under one random OS temp root.",
+    occurrences: Object.freeze([
+      "writeFile:ca092bc9340f",
+      "writeFile:1cf5facaddd3",
+      "writeFile:4185a7c4a5cb",
+      "appendFile:346c224fa126",
+      "mkdir:aec3915a5312",
+      "writeFile:0cba90440f49",
+      "writeFile:9cf14fd86f45",
+      "writeFile:34c66b35c442",
+      "mkdtemp:a1eeece921f2",
+      "mkdir:ab9edf876b0b",
+      "mkdir:c038cf0ea56c",
+      "mkdir:4cc9191135ad",
+      "mkdir:68900dc7fdc7",
+      "writeFile:01562529b54e",
+      "writeFile:d76594222fc3",
+      "writeFile:4bbfd06a2eca",
+      "writeFile:d013e5522911",
+      "writeFile:bb67b8871bb0",
+      "writeFile:664dccea5e60",
+      "mkdir:68352e4e3341",
+      "rm:dd5cf263e3d9",
+      "rm:a4b278427e32"
+    ])
+  }),
   "scripts/windows-process-host-spike.mjs": Object.freeze({
     purpose: "Isolated native-host temporary bootstrap cleanup plus atomic ignored Gate N capability evidence under .ai-bridge/phase-4.",
     occurrences: Object.freeze([
@@ -129,6 +156,134 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "mkdtemp:170e5c4d3d8f",
       "mkdir:2ac12b7246b3",
       "rm:e98c88543b7d"
+    ])
+  }),
+  "scripts/worktree-delete-control.mjs": Object.freeze({
+    purpose: "Gate W0 isolated OS-temporary junction deletion oracle with an external positive canary and verified exact temporary-root cleanup.",
+    occurrences: Object.freeze([
+      "mkdtemp:cbbc0cbe6301",
+      "mkdir:69fd927f80a8",
+      "mkdir:9ae71d40146f",
+      "mkdir:b70b77ed957e",
+      "writeFile:737c437c03a1",
+      "symlink:23d8dd10495a",
+      "rm:ee1ee5dcfd73"
+    ])
+  }),
+  "src/git/execution.ts": Object.freeze({
+    purpose: "Per-service private Git execution home/temp creation and exact cleanup outside authorized workspaces; no repository path is mutated.",
+    occurrences: Object.freeze([
+      "mkdtemp:e4ce5853355a",
+      "mkdtemp:08421c876512",
+      "mkdir:2396c719b6c5",
+      "rm:87e7619dd1f8",
+      "rm:9b9eb33b42cf",
+      "rm:215633a2342e"
+    ])
+  }),
+  "src/git/commitService.ts": Object.freeze({
+    purpose: "Gate X creates an exact private shadow Git directory, private index, and object quarantine for one approved commit; no live repository path is written by these primitives.",
+    occurrences: Object.freeze([
+      "mkdir:3363dd16a7b7",
+      "mkdir:26ca7694018a",
+      "writeFile:5b18b2aac5bd",
+      "writeFile:42032cc04e14",
+      "writeFile:4ac2f4b2aa28",
+      "writeFile:52aa4ecfef41"
+    ])
+  }),
+  "src/git/indexService.ts": Object.freeze({
+    purpose: "Gate I private-index construction, expected-old live-index replacement, and exact rollback within an admitted repository.",
+    occurrences: Object.freeze([
+      "writeFile:9679ddcda8ca",
+      "mkdir:26ca7694018a"
+    ])
+  }),
+  "src/git/locks.ts": Object.freeze({
+    purpose: "Gate R authenticated repository/worktree lock ownership records, exact owned release, and application-state lock directories outside authorized workspaces; foreign or stale locks are never deleted automatically.",
+    occurrences: Object.freeze([
+      "open:0198186cfe98",
+      "writeFile:185398d589c1",
+      "rename:52c6593c907e",
+      "rm:6cfb11b35faa",
+      "mkdir:1d50900e7cac",
+      "mkdir:0f766e0e5452",
+      "rmdir:450993335dd4"
+    ])
+  }),
+  "src/git/objectQuarantine.ts": Object.freeze({
+    purpose: "Gate R bounded immutable loose-object promotion from private quarantine into admitted repository object storage using create-exclusive writes, content-address verification, and exact failed-create cleanup.",
+    occurrences: Object.freeze([
+      "mkdir:692c5f0d3994",
+      "open:c850a2d74a0a",
+      "writeFile:52c6d02cba34",
+      "unlink:cd9cf88c25ef"
+    ])
+  }),
+  "src/git/privateIndex.ts": Object.freeze({
+    purpose: "Gate D private-index construction, expected-old live-index replacement, and exact rollback within an admitted repository.",
+    occurrences: Object.freeze([
+      "copyFile:68844944f1d6",
+      "writeFile:0020f6e96946",
+      "rename:b0fdf0e343d5",
+      "rename:b28e252523c3",
+      "rm:9448c15ee551",
+      "rm:f0be0a5b75e3",
+      "rename:9f5b4ffb7646"
+    ])
+  }),
+  "src/git/restoreService.ts": Object.freeze({
+    purpose: "Gate D reviewed index or bounded worktree restore with retained byte-for-byte rollback material.",
+    occurrences: Object.freeze([
+      "copyFile:68844944f1d6"
+    ])
+  }),
+  "src/git/stashService.ts": Object.freeze({
+    purpose: "Gate D owner-bound private-stash create/apply rollback and exact selected worktree restoration.",
+    occurrences: Object.freeze([
+      "writeFile:6f7480e916e4",
+      "writeFile:9b7206be7921",
+      "writeFile:fe6dc4d51676"
+    ])
+  }),
+  "src/worktrees/materializer.ts": Object.freeze({
+    purpose: "Gate W0 no-clobber raw-blob task-tree staging, exact final installation, and exact failed-staging cleanup inside the managed root.",
+    occurrences: Object.freeze([
+      "mkdir:bb68b125d743",
+      "mkdir:903e851d419d",
+      "mkdir:fdbd33e2aa9b",
+      "writeFile:77487e0d3b1e",
+      "rename:2b159fdbe944",
+      "rmdir:b0b7f640c507",
+      "rename:31702d793b40",
+      "rm:29442a0697ae"
+    ])
+  }),
+  "src/worktrees/mergeExecute.ts": Object.freeze({
+    purpose: "Gate M reviewed target file/index/ref transaction and byte-for-byte rollback within the admitted primary worktree.",
+    occurrences: Object.freeze([
+      "mkdir:b66a34afafb5",
+      "writeFile:d36318b3591d",
+      "writeFile:9b7206be7921"
+    ])
+  }),
+  "src/worktrees/remove.ts": Object.freeze({
+    purpose: "Gate W removes the exact revalidated task .git marker before separate identity-bound tree and administration removal.",
+    occurrences: Object.freeze([
+      "unlink:90758e5df514"
+    ])
+  }),
+  "src/worktrees/remover.ts": Object.freeze({
+    purpose: "Gate W0 handle-safe exact owned-tree removal after complete non-reparse, single-link, non-nested-repository inventory.",
+    occurrences: Object.freeze([
+      "unlink:842a64fcb00a",
+      "rmdir:450993335dd4"
+    ])
+  }),
+  "src/worktrees/root.ts": Object.freeze({
+    purpose: "Gate W0 startup-only creation of the configured disjoint managed task-worktree root.",
+    occurrences: Object.freeze([
+      "mkdir:178ce18dfee2"
     ])
   }),
   "src/process/windowsHostClient.ts": Object.freeze({

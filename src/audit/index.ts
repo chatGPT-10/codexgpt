@@ -3,6 +3,7 @@ export {
   canonicalJson,
   deriveAuditCursorKey,
   deriveAuditQueryV3CursorKey,
+  deriveAuditQueryV4CursorKey,
   deriveAuditRecordKey,
   workspaceAuditRef
 } from "./canonicalJson.js";
@@ -12,6 +13,7 @@ export {
   auditEnvelopeV1Schema,
   auditEventV2Schema,
   auditEventV3Schema,
+  auditEventV4Schema,
   auditIndexV1Schema,
   auditRetentionStateV1Schema,
   auditSegmentMetadataV1Schema,
@@ -20,6 +22,9 @@ export {
   queryAuditEventsResultV2Schema,
   queryAuditEventsInputV3Schema,
   queryAuditEventsResultV3Schema,
+  queryAuditEventsInputV4Schema,
+  queryAuditEventsResultV4Schema,
+  auditEventProjectionV4Schema,
   authorizationAuditEventV2Schema,
   executionAuditEventV2Schema,
   recoveryAuditEventV2Schema
@@ -35,16 +40,22 @@ export { AuditWriterLock, AuditWriterLockHandle } from "./lock.js";
 export {
   auditQueryFilterDigest,
   auditQueryFilterDigestV3,
+  auditQueryFilterDigestV4,
   createAuditQueryHandler,
   createAuditQueryHandlerV3,
+  createAuditQueryHandlerV4,
   createDirectAuditQueryAdapterV2,
   createSupertoolAuditQueryAdapterV2,
   createDirectAuditQueryAdapterV3,
   createSupertoolAuditQueryAdapterV3,
+  createDirectAuditQueryAdapterV4,
+  createSupertoolAuditQueryAdapterV4,
   queryAuditEventsV2,
   queryAuditEventsV3,
+  queryAuditEventsV4,
   type AuditQueryHandlerV2,
-  type AuditQueryHandlerV3
+  type AuditQueryHandlerV3,
+  type AuditQueryHandlerV4
 } from "./queryTool.js";
 export { PersistentAuditRuntimeV2, type PersistentAuditRuntimeOptions } from "./runtime.js";
 export {
@@ -52,6 +63,14 @@ export {
   createApprovalLifecycleSinkV3,
   type AuditLifecycleAppenderV3
 } from "./lifecycleV3.js";
+export {
+  createAuditLifecycleSinkV4,
+  createGitLifecycleAuditEventV4,
+  createRecoveryAuditEventV4,
+  createTerminalAuditEventV4,
+  type AuditLifecycleAppenderV4,
+  type GitLifecycleAuditEventV4Input
+} from "./lifecycleV4.js";
 export { PersistentAuditStore, type PersistentAuditStoreOptions } from "./store.js";
 export {
   attachExecutionAuditFacts,
@@ -72,6 +91,8 @@ export {
   type AuditErrorCode,
   type AuditEventV2,
   type AuditEventV3,
+  type AuditEventV4,
+  type AuditEventProjectionV4,
   type AuditIndexV1,
   type AuditMutationKind,
   type AuditRetentionStateV1,
@@ -84,6 +105,8 @@ export {
   type QueryAuditEventsResultV2,
   type QueryAuditEventsInputV3,
   type QueryAuditEventsResultV3,
+  type QueryAuditEventsInputV4,
+  type QueryAuditEventsResultV4,
   type RecoveryAuditAction,
   type RecoveryAuditEventV2
 } from "./types.js";

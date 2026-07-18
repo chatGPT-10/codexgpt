@@ -5,22 +5,28 @@ import {
   CANONICAL_CODEXPRO_CHILD_TOOLS,
   CANONICAL_CODEXPRO_CHILD_TOOLS_V2,
   CANONICAL_CODEXPRO_CHILD_TOOLS_V3,
+  CANONICAL_CODEXPRO_CHILD_TOOLS_V4,
   CODEXPRO_ERROR_MESSAGES,
   codexproOutputShape,
   codexproOutputShapeV2,
   codexproOutputShapeV3,
+  codexproOutputShapeV4,
   createCodexProFailure,
   createCodexProFailureV2,
   createCodexProFailureV3,
+  createCodexProFailureV4,
   createCodexProListActionsSuccess,
   createCodexProListActionsSuccessV2,
   createCodexProListActionsSuccessV3,
+  createCodexProListActionsSuccessV4,
   resolveCodexProAction,
   resolveCodexProActionV2,
   resolveCodexProActionV3,
+  resolveCodexProActionV4,
   wrapCodexProChildResult,
   wrapCodexProChildResultV2,
-  wrapCodexProChildResultV3
+  wrapCodexProChildResultV3,
+  wrapCodexProChildResultV4
 } from "./tools/schemas/codexpro.js";
 
 interface ToolCallResult {
@@ -76,6 +82,7 @@ interface SupertoolContract {
 const canonicalToolsV1 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS);
 const canonicalToolsV2 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V2);
 const canonicalToolsV3 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V3);
+const canonicalToolsV4 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V4);
 const v2OnlyTools = new Set<string>(
   CANONICAL_CODEXPRO_CHILD_TOOLS_V2.filter((name) => !canonicalToolsV1.has(name))
 );
@@ -88,6 +95,7 @@ const codexproInputSchema = z.object({
 const codexproAdvertisedOutputSchema = z.object(codexproOutputShape).strict();
 const codexproAdvertisedOutputSchemaV2 = z.object(codexproOutputShapeV2).strict();
 const codexproAdvertisedOutputSchemaV3 = z.object(codexproOutputShapeV3).strict();
+const codexproAdvertisedOutputSchemaV4 = z.object(codexproOutputShapeV4).strict();
 
 function elapsedMs(startedAt: number): number {
   return Math.max(0, Date.now() - startedAt);
@@ -98,6 +106,16 @@ function contractFor(
   requestedVersion?: ToolContractVersion
 ): SupertoolContract {
   const inferredV2 = Object.keys(tools).some((name) => v2OnlyTools.has(name));
+  if (requestedVersion === 4) {
+    return {
+      canonicalTools: canonicalToolsV4,
+      outputSchema: codexproAdvertisedOutputSchemaV4,
+      createFailure: createCodexProFailureV4 as unknown as FailureFactory,
+      createList: createCodexProListActionsSuccessV4 as unknown as ListFactory,
+      resolve: resolveCodexProActionV4 as ResolveFactory,
+      wrap: wrapCodexProChildResultV4 as unknown as WrapFactory
+    };
+  }
   if (requestedVersion === 3) {
     return {
       canonicalTools: canonicalToolsV3,

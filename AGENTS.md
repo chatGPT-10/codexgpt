@@ -114,11 +114,9 @@ Memory rules:
 
 ### 5.5 External references
 
-- DevSpace is the primary workflow reference.
-- Serena is an optional semantic-provider reference.
-- Desktop Commander is a process-management reference.
-- External designs must not bypass workspace, permission, path, authentication, or edit-policy boundaries.
-- Before copying external source, verify license and attribution requirements. Prefer design-level reimplementation.
+- DevSpace is primary; Serena and Desktop Commander are optional semantic/process references.
+- External designs must preserve workspace, permission, path, authentication, and edit-policy boundaries.
+- Verify license and attribution before copying external source; prefer design-level reimplementation.
 
 ### 5.6 Workspace lifecycle
 
@@ -155,8 +153,8 @@ The following rules are mandatory and are enforced by `npm run policy:check` plu
 
 ### 5.10 Phase 5 design boundary
 
-- Follow the paired Phase 5 [spec](docs/superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md); runtime waits for Phase 4 exact-head closure. V4 is opt-in exact 51 and preserves V1/V2/V3.
-- Safe Git writes require exact executable identity, private indexes, quarantined object-only merge, complete mutation tokens, R3 ref/history approval, and journaled participants. Managed task worktrees are owner-bound artifacts outside repositories; neither mechanism is a sandbox, widens `allowedRoots`, deletes branches/history, or enables typed remote/credential/force operations.
+- Follow the paired Phase 5 [spec](docs/superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md). V4 is opt-in exact 51 and preserves V1/V2/V3; Phase 5 closes only after the complete local gates and its closure SHA pass exact-head CI.
+- Safe Git writes require exact executable identity, private indexes, quarantined object-only merge, complete mutation tokens, R3 ref/history approval, and journaled participants. Gate X permits only private stage, shadow commit, quarantined object merge, and private checkout after exact integration binding and R3 approval; it accepts no caller-selected Git command and remains ambient `full_access` with no filesystem, credential, registry, network, or broker isolation. Managed task worktrees are owner-bound artifacts outside repositories; neither mechanism is a sandbox, widens `allowedRoots`, deletes branches/history, or enables typed remote/credential/force/config operations.
 
 ## 6. Documentation map
 
@@ -199,6 +197,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phases 1–3 are published and closed. Reduced Phase 4 Tasks 4A0a–4A10, diagnostic 4B0, 4C0, and 4C1 are locally complete; 4B0 remains blocked/non-production and `workspace`/4B1–4B6 stay deferred. Preserve the managed Node toolchains. Current evidence and next action are in `Memory.md`.
+Phases 1–4 are closed. Phase 4's 4B0 stays blocked/non-production; `workspace` and Tasks 4B1–4B6 stay deferred. Preserve managed Node toolchains; use `Memory.md` for evidence and next action.
 
-Implementation is authorized through Phase 8 using recommended options, scoped staging, English commits, and one push after each verified phase. Task 4C2 publication and exact-head CI are next; Phase 5 waits for that closure SHA. Fix required gates rather than bypassing them; do not weaken the deferred sandbox claim. Destructive user data/history changes, production deployment, credential disclosure, and silent scope expansion remain excluded.
+Implementation through Phase 8 is authorized using recommended defaults, scoped staging, English commits, and one push per phase. Complete Phase 5 local closure, publish it once, and require terminal exact-head success before Phase 6. Do not bypass gates or weaken the deferred sandbox claim. Excluded: destructive data/history changes, production deployment, credential disclosure, and silent scope expansion.

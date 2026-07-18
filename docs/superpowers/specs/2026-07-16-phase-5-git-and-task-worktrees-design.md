@@ -1,6 +1,6 @@
 # Phase 5 Local Git Writes and Task Worktrees Design
 
-**Status:** adversarially reviewed exact design; implementation not started; blocked by Gate 4P
+**Status:** adversarially reviewed exact design; Tasks 5A0 / Gate G0 through 5A3 / Gate R are locally complete; Task 5A4 / Gate I is next
 **Date:** 2026-07-16
 **Scope:** local Git inspection and mutation plus managed task-worktree lifecycle
 **Compatibility baseline:** closed Phase 3, completed and exact Phase 4 publication, Tool Contracts V1=28/V2=31/V3=39, Policy Kernel `enforce`, durable audit, atomic filesystem/state primitives, stable request identity, native Windows execution, and local R3 approval
@@ -230,8 +230,9 @@ An optional `integrations=approved_full_access` path may be implemented only aft
 - requires V4, `gitMode=local`, explicit profile permission, and a fresh local R3 grant;
 - previews every discovered executable integration path plus bounded digest/identity facts without claiming transitive completeness;
 - binds Git/repository/ref/index/worktree/integration/policy/capability facts to the grant;
-- executes through Phase 4 ambient `full_access` and reports no filesystem, credential, registry, network, or broker-escape isolation;
-- never enables remote subcommands or credential mutation through the typed builder.
+- permits exactly four typed executor requests: private-index stage, shadow-Git-dir commit, quarantined object-only merge, and private-destination checkout;
+- exposes no caller-selected command, subcommand, argument vector, remote action, credential action, force option, or config mutation;
+- executes through Phase 4 ambient `full_access`, while both approval and result report no filesystem, credential, registry, network, or broker-escape isolation.
 
 A hook digest is drift evidence, not proof that sourced scripts or transitive tools are safe.
 
@@ -666,4 +667,4 @@ The mandatory TDD order is defined in:
 
 `docs/superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md`
 
-No Phase 5 runtime implementation begins from this document alone. The implementation starts only after Phase 4 exact-head closure and then follows the plan's gate order.
+Phase 4 closure head `d19e65ba75938c35afa472d23d91d1724fe7fabf` passed exact-head run `29603060944`, satisfying Gate 4P. Task 5A0 / Gate G0 is locally complete after adversarial hardening: capability revision `7e9f95bf7188bdd6035970eb38c5e3dfa5840996e7838273dc2757aa9b5d94f2` binds the exact implementation, Git executable, and CXP4 host manifest; final managed Node 20/24 run `2026-07-17T21-03-15-107Z-phase5a0-adversarial-final-746beff5` passed. Task 5A1 / Gate C4 is also locally complete: final managed run `2026-07-18T06-51-25-686Z-phase5a1-c4-final-4-96ce13f0` passed Node 20.20.2 and Node 24.15.0 with 913 tests, 912 pass, 0 fail, and one established skip per major. Task 5A2 activates only the typed V4 read path: final managed run `2026-07-18T12-41-24-298Z-phase5a2-ordinary-final-2-ddcc623b` passed both managed Node majors with 944 tests, 943 pass, 0 fail, and one established skip per major. Task 5A3 / Gate R now supplies the durable repository/worktree/file lock order, authenticated encrypted journals, immutable object promotion, strict V4 audit and startup recovery/freeze boundary required before mutation; final managed run `2026-07-18T15-29-43-345Z-phase5a3-final3-535183ed` passed both managed majors with 969 tests, 968 pass, 0 fail, and one established skip per major. V1/V2/V3 remain exact, every V4 mutation handler remains disabled, and Task 5A4 / Gate I is next.

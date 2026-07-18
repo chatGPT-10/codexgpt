@@ -27,6 +27,8 @@ import {
   createProductionCodexProServer,
   disposeProductionCodexProServer
 } from "./productionRuntime.js";
+import { createProductionGitBootstrapV4 } from "./git/productionBootstrap.js";
+import { resolveTransactionStateRoot } from "./transactions/stateRoot.js";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -1765,6 +1767,7 @@ async function main(): Promise<void> {
 
         const policyEngineMode = config.policyEngineMode ?? "legacy";
         const needsSessionContext =
+          config.toolContractVersion === 4 ||
           policyEngineMode !== "legacy" ||
           (config.fileTransactions === "atomic" && config.writeMode !== "off");
         const authenticationMode = (res.locals.codexproAuthenticationMode ?? "loopback_none") as AcceptedHttpAuthenticationMode;
@@ -1777,7 +1780,18 @@ async function main(): Promise<void> {
               scopes: policyIdentityScopes(config)
             })
           : undefined;
-        sessionServer = createProductionCodexProServer(config, { policySessionContextSource });
+        const gitBootstrapV4 = await createProductionGitBootstrapV4(config, {
+          stateRoot: resolveTransactionStateRoot()
+        });
+        try {
+          sessionServer = createProductionCodexProServer(config, {
+            policySessionContextSource,
+            gitBootstrapV4: gitBootstrapV4 ?? undefined
+          });
+        } catch (error) {
+          await gitBootstrapV4?.dispose();
+          throw error;
+        }
         await connectProductionCodexProServer(sessionServer, transport);
       } else {
         sendSessionError(res, sessionId);

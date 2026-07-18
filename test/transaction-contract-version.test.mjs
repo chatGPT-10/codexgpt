@@ -52,11 +52,11 @@ test("tool contract version defaults to 1 and rejects unknown values", () => {
   assert.equal(config({}, ["--bash", "off", "--tool-contract-version", "2"]).toolContractVersion, 2);
   assert.throws(
     () => config({ CODEXPRO_TOOL_CONTRACT_VERSION: "v2" }),
-    /CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, or 3/
+    /CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4/
   );
   assert.throws(
     () => config({}, ["--bash", "off", "--tool-contract-version"]),
-    /--tool-contract-version requires a value of 1, 2, or 3/
+    /--tool-contract-version requires a value of 1, 2, 3, or 4/
   );
 });
 

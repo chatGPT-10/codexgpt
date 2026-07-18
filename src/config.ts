@@ -11,10 +11,23 @@ export type CodexSessionsMode = "off" | "metadata" | "read";
 export type WriteMode = "off" | "handoff" | "workspace";
 export type ToolMode = "minimal" | "standard" | "full";
 export type FileTransactionMode = "legacy" | "atomic";
-export type ToolContractVersion = 1 | 2 | 3;
+export type ToolContractVersion = 1 | 2 | 3 | 4;
+export type PersistedMutationContractVersion = 1 | 2 | 3;
+
+export function persistedMutationContractVersion(
+  version: ToolContractVersion
+): PersistedMutationContractVersion {
+  return version === 4 ? 3 : version;
+}
+
+export function persistedV2ContractVersion(version: 2 | 3 | 4): 2 | 3 {
+  return version === 2 ? 2 : 3;
+}
 export type LocalFileAccessMode = "configured_roots" | "confirmed_roots";
 export type ExecutionProfile = "off" | "full_access" | "workspace";
 export type ExecutionDependencies = "off" | "node_modules";
+export type GitMode = "read" | "local";
+export type GitIntegrationsMode = "off" | "approved_full_access";
 
 export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
 export type AuditMode = "auto" | "off" | "best_effort" | "required";
@@ -54,6 +67,12 @@ export interface CodexProConfig {
   localFileAccess: LocalFileAccessMode;
   executionProfile: ExecutionProfile;
   executionDependencies: ExecutionDependencies;
+  gitMode: GitMode;
+  gitIntegrations: GitIntegrationsMode;
+  taskWorktreeRoot: string;
+  taskWorktreeMaxCount: number;
+  taskWorktreeMaxFiles: number;
+  taskWorktreeMaxBytes: number;
   inheritEnv: boolean;
   maxReadBytes: number;
   maxWriteBytes: number;
@@ -249,7 +268,8 @@ function toolContractVersionFrom(value: string | undefined): ToolContractVersion
   if (!normalized || normalized === "1") return 1;
   if (normalized === "2") return 2;
   if (normalized === "3") return 3;
-  throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, or 3.");
+  if (normalized === "4") return 4;
+  throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4.");
 }
 
 export interface FileTransactionCapabilities {
@@ -274,6 +294,18 @@ export function assertFileTransactionConfiguration(
 function toolModeFrom(value: string | undefined): ToolMode {
   if (value === "minimal" || value === "standard" || value === "full") return value;
   return "standard";
+}
+
+function gitModeFrom(value: string | undefined): GitMode {
+  if (!value) return "read";
+  if (value === "read" || value === "local") return value;
+  throw new Error(`Invalid Git mode: ${value}`);
+}
+
+function gitIntegrationsFrom(value: string | undefined): GitIntegrationsMode {
+  if (!value) return "off";
+  if (value === "off" || value === "approved_full_access") return value;
+  throw new Error(`Invalid Git integrations mode: ${value}`);
 }
 
 function policyEngineModeFrom(value: string | undefined): PolicyEngineMode {
@@ -311,6 +343,10 @@ export interface ToolContractCapabilities {
   stableSessionAvailable?: boolean;
   atomicStateReadersAvailable?: boolean;
   contractV3MigrationAvailable?: boolean;
+  nativeHostIdentityAvailable?: boolean;
+  localApprovalAvailable?: boolean;
+  gitCapabilityAvailable?: boolean;
+  contractV4MigrationAvailable?: boolean;
 }
 
 export function assertToolContractConfiguration(
@@ -321,7 +357,11 @@ export function assertToolContractConfiguration(
   // Existing programmatic callers may omit the new field for one migration
   // cycle. Missing remains contract V1, matching loadConfig's default.
   if (config.toolContractVersion === undefined || config.toolContractVersion === 1) return;
-  if (config.toolContractVersion !== 2 && config.toolContractVersion !== 3) {
+  if (
+    config.toolContractVersion !== 2 &&
+    config.toolContractVersion !== 3 &&
+    config.toolContractVersion !== 4
+  ) {
     throw new Error("Unsupported tool contract version.");
   }
   const contractLabel = `Contract V${config.toolContractVersion}`;
@@ -340,8 +380,11 @@ export function assertToolContractConfiguration(
   if (!capabilities.stateRootAvailable) {
     throw new Error(`${contractLabel} requires an available Phase 3 state root.`);
   }
-  const exposesV3Actions = config.connectionTest !== true && config.toolMode !== "minimal";
-  if (config.toolContractVersion === 3 && exposesV3Actions) {
+  const exposesInheritedV3Actions =
+    (config.toolContractVersion === 3 || config.toolContractVersion === 4) &&
+    config.connectionTest !== true &&
+    config.toolMode !== "minimal";
+  if (exposesInheritedV3Actions) {
     if (config.policyEngineMode !== "enforce") {
       throw new Error("Contract V3 requires Policy Kernel enforce mode.");
     }
@@ -356,6 +399,24 @@ export function assertToolContractConfiguration(
     }
     if (!capabilities.contractV3MigrationAvailable) {
       throw new Error("Contract V3 migration gate is not complete.");
+    }
+  }
+  const exposesV4Actions =
+    config.toolContractVersion === 4 &&
+    config.connectionTest !== true &&
+    config.toolMode !== "minimal";
+  if (exposesV4Actions) {
+    if (!capabilities.nativeHostIdentityAvailable) {
+      throw new Error("Contract V4 requires verified native host identity.");
+    }
+    if (!capabilities.localApprovalAvailable) {
+      throw new Error("Contract V4 requires the local approval runtime.");
+    }
+    if (!capabilities.gitCapabilityAvailable) {
+      throw new Error("Contract V4 requires successful Git capability evidence.");
+    }
+    if (!capabilities.contractV4MigrationAvailable) {
+      throw new Error("Contract V4 migration gate is not complete.");
     }
   }
 }
@@ -549,7 +610,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     ? args["file-transactions"]
     : undefined;
   if (args["tool-contract-version"] === true) {
-    throw new Error("--tool-contract-version requires a value of 1, 2, or 3.");
+    throw new Error("--tool-contract-version requires a value of 1, 2, 3, or 4.");
   }
   const toolContractVersionArg = typeof args["tool-contract-version"] === "string"
     ? args["tool-contract-version"]
@@ -666,6 +727,20 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     localFileAccess: localFileAccessFrom(process.env.CODEXPRO_LOCAL_FILE_ACCESS),
     executionProfile: executionProfileFrom(process.env.CODEXPRO_EXECUTION_PROFILE),
     executionDependencies: executionDependenciesFrom(process.env.CODEXPRO_EXECUTION_DEPENDENCIES),
+    gitMode: gitModeFrom(process.env.CODEXPRO_GIT_MODE),
+    gitIntegrations: gitIntegrationsFrom(process.env.CODEXPRO_GIT_INTEGRATIONS),
+    taskWorktreeRoot: path.resolve(
+      process.env.CODEXPRO_TASK_WORKTREE_ROOT ??
+      path.join(process.env.LOCALAPPDATA ?? os.homedir(), "CodexPro", "worktrees")
+    ),
+    taskWorktreeMaxCount: numberFrom(process.env.CODEXPRO_TASK_WORKTREE_MAX_COUNT, 32, 1, 128),
+    taskWorktreeMaxFiles: numberFrom(process.env.CODEXPRO_TASK_WORKTREE_MAX_FILES, 100_000, 1, 1_000_000),
+    taskWorktreeMaxBytes: numberFrom(
+      process.env.CODEXPRO_TASK_WORKTREE_MAX_BYTES,
+      2 * 1024 * 1024 * 1024,
+      1024 * 1024,
+      16 * 1024 * 1024 * 1024
+    ),
     inheritEnv: process.env.CODEXPRO_INHERIT_ENV === "1",
     maxReadBytes: numberFrom(process.env.CODEXPRO_MAX_READ_BYTES, 250_000, 4_000, 2_000_000),
     maxWriteBytes: numberFrom(process.env.CODEXPRO_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),
@@ -715,6 +790,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
   };
   if (
     config.toolContractVersion !== 3 &&
+    config.toolContractVersion !== 4 &&
     (
       config.localFileAccess !== "configured_roots" ||
       config.executionProfile !== "off" ||
@@ -722,6 +798,18 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     )
   ) {
     throw new Error("Contract V3 is required for confirmed roots, execution profiles, or execution dependency views.");
+  }
+  if (
+    config.toolContractVersion !== 4 &&
+    (config.gitMode !== "read" || config.gitIntegrations !== "off")
+  ) {
+    throw new Error("Contract V4 is required for local Git mutations or repository integrations.");
+  }
+  if (config.gitIntegrations === "approved_full_access" && config.gitMode !== "local") {
+    throw new Error("Approved Git integrations require local Git mutation mode.");
+  }
+  if (config.gitIntegrations === "approved_full_access" && config.executionProfile !== "full_access") {
+    throw new Error("Approved Git integrations require the explicit full_access execution profile.");
   }
   assertAuditConfiguration(config, { durableStoreAvailable: true });
   return config;

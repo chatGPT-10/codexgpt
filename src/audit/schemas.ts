@@ -5,6 +5,7 @@ import type {
   AuditEnvelopeV1,
   AuditEventV2,
   AuditEventV3,
+  AuditEventV4,
   AuditIndexV1,
   AuditRetentionStateV1,
   AuditSegmentMetadataV1,
@@ -256,7 +257,137 @@ export const auditEventV3Schema: z.ZodType<AuditEventV3> = z.discriminatedUnion(
   rawSnapshotLifecycleAuditEventV3Schema
 ]);
 
-export const persistedAuditEventSchema = z.union([auditEventV2Schema, auditEventV3Schema]);
+const strictV4OneLineSchema = safeOneLineSchema.refine(
+  (value) => !Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return (
+      (codePoint >= 0x80 && codePoint <= 0x9f) ||
+      (codePoint >= 0x202a && codePoint <= 0x202e) ||
+      (codePoint >= 0x2066 && codePoint <= 0x2069)
+    );
+  }),
+  "V4 audit strings must exclude C1 and bidirectional control characters."
+);
+
+const repositoryIdV4Schema = z.string().regex(/^repo_[a-f0-9]{32}$/);
+const taskWorktreeIdV4Schema = z.string().regex(/^task_[a-f0-9]{32}$/);
+const operationIdV4Schema = z.string().regex(/^gop_[a-f0-9]{32}$/);
+const commonNativeV4Shape = {
+  schemaVersion: z.literal(4),
+  contractVersion: z.literal(4),
+  eventId: eventIdSchema,
+  timestamp: timestampSchema,
+  requestId: nullableSafeIdSchema,
+  authorizationEventId: eventIdSchema.nullable(),
+  decisionId: nullableSafeIdSchema,
+  toolName: strictV4OneLineSchema.nullable(),
+  canonicalAction: strictV4OneLineSchema,
+  workspaceId: nullableSafeIdSchema,
+  policyRevision: nullableSafeIdSchema,
+  subjectFingerprint: sha256Schema,
+  contextFingerprint: sha256Schema,
+  resultCode: strictV4OneLineSchema.nullable(),
+  counts: boundedByteCountsSchema,
+  repositoryId: repositoryIdV4Schema.nullable(),
+  taskWorktreeId: taskWorktreeIdV4Schema.nullable(),
+  operationId: operationIdV4Schema.nullable()
+};
+
+const rawAuthorizationAuditEventV4Schema = z.object({
+  ...commonNativeV4Shape,
+  eventType: z.literal("authorization"),
+  requestId: safeIdSchema,
+  authorizationEventId: z.null(),
+  decisionId: safeIdSchema,
+  toolName: strictV4OneLineSchema,
+  policyRevision: safeIdSchema,
+  repositoryId: repositoryIdV4Schema,
+  operationId: z.null(),
+  outcome: z.enum(["allow", "deny", "approval_required", "enforcement_unavailable"]),
+  riskClass: z.enum(["R0", "R1", "R2", "R3", "R4"]),
+  resourceFingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  approvalId: z.string().regex(/^approval_[a-f0-9]{32}$/).nullable(),
+  grantId: safeIdSchema.nullable()
+}).strict();
+
+const rawTerminalAuditEventV4Schema = z.object({
+  ...commonNativeV4Shape,
+  eventType: z.literal("terminal"),
+  requestId: safeIdSchema,
+  authorizationEventId: eventIdSchema,
+  decisionId: safeIdSchema,
+  toolName: strictV4OneLineSchema,
+  policyRevision: safeIdSchema,
+  repositoryId: repositoryIdV4Schema,
+  operationId: operationIdV4Schema,
+  status: z.enum(["not_executed", "succeeded", "failed", "rolled_back", "recovery_required"]),
+  durableEffectObserved: z.boolean(),
+  recoveryRequired: z.boolean()
+}).strict().superRefine((value, context) => {
+  if ((value.status === "recovery_required") !== value.recoveryRequired) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["recoveryRequired"], message: "V4 recovery terminal state is inconsistent." });
+  }
+  if (value.status === "not_executed" && value.durableEffectObserved) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["durableEffectObserved"], message: "A non-executed operation cannot observe a durable effect." });
+  }
+});
+
+const rawGitOperationAuditEventV4Schema = z.object({
+  ...commonNativeV4Shape,
+  eventType: z.literal("git_operation"),
+  repositoryId: repositoryIdV4Schema,
+  operationId: operationIdV4Schema,
+  transition: z.enum([
+    "prepared", "started", "object_promoted", "index_installed", "ref_updated",
+    "files_applied", "effect_observed", "committed", "rolled_back", "recovery_required"
+  ])
+}).strict();
+
+const rawTaskWorktreeAuditEventV4Schema = z.object({
+  ...commonNativeV4Shape,
+  eventType: z.literal("task_worktree"),
+  repositoryId: repositoryIdV4Schema,
+  taskWorktreeId: taskWorktreeIdV4Schema,
+  operationId: operationIdV4Schema,
+  transition: z.enum(["created", "registered", "merge_prepared", "merged", "removed", "recovery_required"])
+}).strict();
+
+const rawMergePlanAuditEventV4Schema = z.object({
+  ...commonNativeV4Shape,
+  eventType: z.literal("merge_plan"),
+  repositoryId: repositoryIdV4Schema,
+  operationId: operationIdV4Schema,
+  planId: safeIdSchema,
+  transition: z.enum(["prepared", "validated", "executed", "expired", "rejected", "recovery_required"])
+}).strict();
+
+const rawVerificationAuditEventV4Schema = z.object({
+  ...commonNativeV4Shape,
+  eventType: z.literal("verification"),
+  repositoryId: repositoryIdV4Schema,
+  verificationType: z.enum(["repository", "state_token", "lock_owner", "object_promotion", "terminal_audit"]),
+  status: z.enum(["passed", "failed", "unknown"])
+}).strict();
+
+const rawRecoveryAuditEventV4Schema = z.object({
+  ...commonNativeV4Shape,
+  eventType: z.literal("recovery"),
+  repositoryId: repositoryIdV4Schema,
+  operationId: operationIdV4Schema,
+  recoveryAction: z.enum(["committed", "rolled_back", "repository_frozen", "orphan_objects_retained"])
+}).strict();
+
+export const auditEventV4Schema: z.ZodType<AuditEventV4> = z.union([
+  rawAuthorizationAuditEventV4Schema,
+  rawTerminalAuditEventV4Schema,
+  rawGitOperationAuditEventV4Schema,
+  rawTaskWorktreeAuditEventV4Schema,
+  rawMergePlanAuditEventV4Schema,
+  rawVerificationAuditEventV4Schema,
+  rawRecoveryAuditEventV4Schema
+]);
+
+export const persistedAuditEventSchema = z.union([auditEventV2Schema, auditEventV3Schema, auditEventV4Schema]);
 
 const segmentIdSchema = z.string().regex(/^audit-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}$/);
 
@@ -385,9 +516,132 @@ export const queryAuditEventsResultV3Schema: z.ZodType<QueryAuditEventsResultV3>
   schemaVersion: z.literal(3),
   records: z.array(z.object({
     sequence: z.number().int().positive().safe(),
-    event: persistedAuditEventSchema
+    event: z.union([auditEventV2Schema, auditEventV3Schema])
   }).strict()).max(100),
   nextCursor: z.string().min(16).max(2048).regex(/^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/).nullable(),
+  filterDigest: sha256Schema,
+  startTime: timestampSchema,
+  endTime: timestampSchema,
+  limit: z.number().int().min(1).max(100),
+  integrityState: z.enum(["healthy", "degraded", "integrity_failed"])
+}).strict();
+
+const nativeAuditEventTypeV4Schema = z.enum([
+  "authorization",
+  "terminal",
+  "git_operation",
+  "task_worktree",
+  "merge_plan",
+  "verification",
+  "recovery"
+]);
+
+const auditEventTypeV4Schema = z.enum([
+  "authorization",
+  "execution",
+  "recovery",
+  "administrative",
+  "approval_lifecycle",
+  "root_lease_lifecycle",
+  "process_lifecycle",
+  "snapshot_lifecycle",
+  "terminal",
+  "git_operation",
+  "task_worktree",
+  "merge_plan",
+  "verification"
+]);
+
+const safeOneLineV4Schema = safeOneLineSchema.refine(
+  (value) => !Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return (
+      (codePoint >= 0x80 && codePoint <= 0x9f) ||
+      (codePoint >= 0x202a && codePoint <= 0x202e) ||
+      (codePoint >= 0x2066 && codePoint <= 0x2069)
+    );
+  }),
+  "V4 audit strings must also exclude C1 and bidirectional control characters."
+);
+
+const auditCursorV4Schema = z.string()
+  .min(16)
+  .max(2048)
+  .regex(/^v4:[A-Za-z0-9_-]+\.[a-f0-9]{64}$/);
+
+export const queryAuditEventsInputV4Schema = z.object({
+  startTime: timestampSchema.optional(),
+  endTime: timestampSchema.optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  cursor: auditCursorV4Schema.optional(),
+  eventTypes: z.array(auditEventTypeV4Schema)
+    .min(1).max(13).refine(uniqueValues, "V4 audit event types must be unique.").optional(),
+  toolNames: z.array(safeOneLineV4Schema)
+    .min(1).max(32).refine(uniqueValues, "Audit tool names must be unique.").optional(),
+  requestIds: z.array(safeIdSchema)
+    .min(1).max(32).refine(uniqueValues, "Audit request IDs must be unique.").optional(),
+  repositoryIds: z.array(z.string().regex(/^repo_[a-f0-9]{32}$/))
+    .min(1).max(32).refine(uniqueValues, "Repository IDs must be unique.").optional(),
+  taskWorktreeIds: z.array(z.string().regex(/^task_[a-f0-9]{32}$/))
+    .min(1).max(32).refine(uniqueValues, "Task worktree IDs must be unique.").optional(),
+  resultCodes: z.array(safeOneLineV4Schema)
+    .min(1).max(32).refine(uniqueValues, "Result codes must be unique.").optional()
+}).strict();
+
+export const auditEventProjectionV4Schema = z.object({
+  schemaVersion: z.literal(4),
+  sourceSchemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+  sourceContractVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).nullable(),
+  eventId: eventIdSchema,
+  timestamp: timestampSchema,
+  eventType: auditEventTypeV4Schema,
+  requestId: nullableSafeIdSchema,
+  toolName: safeOneLineV4Schema.nullable(),
+  canonicalAction: safeOneLineV4Schema,
+  repositoryId: z.string().regex(/^repo_[a-f0-9]{32}$/).nullable(),
+  taskWorktreeId: z.string().regex(/^task_[a-f0-9]{32}$/).nullable(),
+  subjectFingerprint: sha256Schema.nullable(),
+  contextFingerprint: sha256Schema.nullable(),
+  resultCode: safeOneLineV4Schema.nullable(),
+  counts: boundedByteCountsSchema
+}).strict().superRefine((value, context) => {
+  const v2Types = new Set(["authorization", "execution", "recovery", "administrative"]);
+  const v3Types = new Set(["approval_lifecycle", "root_lease_lifecycle", "process_lifecycle", "snapshot_lifecycle"]);
+  const nativeV4 = nativeAuditEventTypeV4Schema.safeParse(value.eventType).success;
+  if (value.sourceSchemaVersion === 2) {
+    if (value.sourceContractVersion !== null || !v2Types.has(value.eventType)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceSchemaVersion"], message: "V2 source events require a legacy V2 event type and no invented contract version." });
+    }
+    if (value.subjectFingerprint !== null || value.contextFingerprint !== null) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["subjectFingerprint"], message: "V2 source events do not expose V3 or V4 fingerprints." });
+    }
+  } else if (value.sourceSchemaVersion === 3) {
+    if (value.sourceContractVersion !== 3 || !v3Types.has(value.eventType)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceSchemaVersion"], message: "V3 source events require contract 3 and a V3 lifecycle event type." });
+    }
+    if (value.subjectFingerprint === null || value.contextFingerprint === null) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["subjectFingerprint"], message: "V3 source events retain both authenticated fingerprints." });
+    }
+  } else {
+    if (value.sourceContractVersion !== 4 || !nativeV4) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceSchemaVersion"], message: "V4 source events require contract 4 and a native V4 event type." });
+    }
+    if (value.subjectFingerprint === null || value.contextFingerprint === null) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["subjectFingerprint"], message: "V4 source events retain both authenticated fingerprints." });
+    }
+  }
+  if (value.sourceSchemaVersion !== 4 && (value.repositoryId !== null || value.taskWorktreeId !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["repositoryId"], message: "Legacy events cannot gain V4 repository or task identity facts." });
+  }
+});
+
+export const queryAuditEventsResultV4Schema = z.object({
+  schemaVersion: z.literal(4),
+  records: z.array(z.object({
+    sequence: z.number().int().positive().safe(),
+    event: auditEventProjectionV4Schema
+  }).strict()).max(100),
+  nextCursor: auditCursorV4Schema.nullable(),
   filterDigest: sha256Schema,
   startTime: timestampSchema,
   endTime: timestampSchema,

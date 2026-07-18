@@ -2,13 +2,13 @@
 
 > 版本：2.2
 > 生效日期：2026-07-13
-> 最近核对：2026-07-17
+> 最近核对：2026-07-19
 > 状态：当前权威实施路线
 > 工作区：`D:\Dev\codexpro`
 > 基线版本：`codexpro@0.28.6`
-> 当前阶段：Phase 1–3 已关闭；reduced Phase 4 的 4A、诊断性 4B0、文档对账 4C0 与完整本地门 4C1 均已完成、未发布；强 sandbox 工作延期；Phase 5 exact design/TDD plan 已审查但 runtime 未开始
+> 当前阶段：Phase 1–4 已关闭；reduced Phase 4 以 trusted-code execution 收口，诊断性 4B0 保持 blocked，`workspace` 与 Task 4B1–4B6 延期；Phase 5 本地闭环完成，等待一次性发布与 closure-SHA exact-head CI
 >
-> 下一门禁：执行 Task 4C2，一次性发布 reduced Phase 4 并要求 exact-head Ubuntu/Windows Node 20/24 CI；`workspace` 与 Task 4B1–4B6 保持延期，Phase 5 runtime 仅等待 Phase 4 closure SHA 通过
+> 下一门禁：Phase 5 closure SHA 的 terminal exact-head CI；成功前不得进入 Phase 6，也不得跳过配对设计、TDD、审计或阶段发布门
 >
 > 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 
@@ -102,8 +102,8 @@ mcp.<user-domain>
 | Phase 2A | 正式关闭 | 12 个 TDD 任务与 84 个步骤完成；实现 `e6798b6` 与 Linux 路径测试修复 `dea25ec` 通过 exact-head run `29326459987` 的 Ubuntu/Windows Node 20/24 四矩阵 |
 | Phase 2B | 正式关闭 | 工作区生命周期实现与替换 CI 已通过 Ubuntu/Windows Node 20/24 四矩阵 |
 | Phase 3 | 正式关闭 | runtime head `2df4a1f` 与 documentation closure head `3a04064` 均通过 Ubuntu/Windows Node 20/24 Build、Regression、完整 Smoke 与 Package |
-| Phase 4 | reduced scope 的 4A、诊断性 4B0、4C0、4C1 本地完成，待 4C2 发布 | trusted-code full access/ConPTY、文档、Node 20/24 ordinary/control、双 Smoke、package/policy/inventory 门均通过；4B0 保留 blocked 诊断，`workspace` 与 Task 4B1–4B6 延期 |
-| Phase 5–8 | 已批准、尚未开始 | 采用各设计门的推荐选项连续实施；完整 Phase 边界统一发布并通过精确头 CI 后才进入下一 Phase |
+| Phase 4 | 正式关闭 | closure head `d19e65b` 通过 exact-head run `29603060944` 的 repository policy 与 Ubuntu/Windows Node 20/24 完整矩阵；4B0 保留 blocked 诊断，`workspace` 与 Task 4B1–4B6 延期 |
+| Phase 5–8 | 已批准；Phase 5 closure candidate | Phase 5A/5B、Gate X 对抗修复、文档对齐、Node 20/24 ordinary、Windows control、Smoke、package 与静态门已通过；单次发布和 closure SHA exact-head success 后才进入 Phase 6 |
 | Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
 Phase 0.5 已验证的外部入口事实：公开 `https://codexpro.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexPro，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
@@ -938,7 +938,7 @@ Task 4B1–4B6 的 snapshot、two-stage prepared execution、production AppConta
 
 ### 13.1 权威设计与入口门
 
-Phase 5 的权威边界是配对的 [exact design](superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) 与 [mandatory TDD plan](superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md)。两者已经完成第一性原理设计和对抗性修复，但 runtime 尚未开始。只有完整 Phase 4 closure SHA 通过 exact-head Ubuntu/Windows Node 20/24 CI 后，才可从 Task 5A0 / Gate G0 开始；不得提前修改 Phase 5 runtime。
+Phase 5 的权威边界是配对的 [exact design](superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) 与 [mandatory TDD plan](superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md)。两者已经完成第一性原理设计和对抗性修复，Phase 4 closure head `d19e65ba75938c35afa472d23d91d1724fe7fabf` 也已通过 exact-head run `29603060944`。Phase 5A 已完成 exact capsule、V4=51、typed reads 与 local Git mutations；Phase 5B 已完成 owner-bound managed task worktrees、raw materialization、immutable merge plans、target CAS、clean removal 与 opt-in Gate X。Gate X 只允许 private-index stage、shadow-directory commit、quarantined object-only merge 和 private-destination checkout；调用方不能选择 Git command/argv、remote、credential、force 或 config mutation，其 ambient `full_access` 与无隔离事实同时进入批准卡和结果。Phase 5C 已完成针对未知 operation、缺失 private object/index state 和批准披露的 fail-closed 修复，并通过最终本地验收；剩余门是单次发布与 closure SHA exact-head CI。
 
 ### 13.2 精确架构
 
@@ -1403,4 +1403,4 @@ Phase 1 Slice 28 codexpro
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1、Policy Kernel、Phase 2A、Phase 2B 与完整 Phase 3 已正式关闭。Runtime exact-head run `29441752493` 与 documentation-closure exact-head run `29443158835` 均在 Ubuntu/Windows Node 20/24 完成 Build、完整 Regression、全部 protected Smoke 与 Package。Reduced Phase 4 的完整 4A、诊断性 4B0、4C0 与 4C1 已在本地关闭但未发布；one-shot、persistent `full_access` 与 interactive ConPTY 的 exact R3、backend-drift、ambient-authority、owner-bound lifecycle、bounded output、local emergency control、单一生产路径和 exact V1/V2 compatibility 门保持不变。4B0 的真实 Gate S 结果仍为 `blocked`，仅作为防止未来过度宣称的诊断证据；Task 4B1–4B6、sandbox authority 与 `workspace` profile 延期且不可用。4C1 的 managed Node 20/24 ordinary 各通过 880/881（一个既有平台 skip），control 各通过 100/100，双版本八段 Smoke、focused 115/115、build、package dry-run、policy、native/mutation inventory、links、secret 分类与 diff 检查均通过。下一步仅为 Task 4C2：一次性发布并要求 exact-head CI；成功后才允许进入 Phase 5 Task 5A0/Gate G0。Phase 9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。
+Phase 1、Policy Kernel、Phase 2A、Phase 2B、完整 Phase 3 与 reduced Phase 4 已正式关闭。Phase 4 closure head `d19e65ba75938c35afa472d23d91d1724fe7fabf` 通过 exact-head run `29603060944`：classification、repository policy、Ubuntu Node 20/24 与 Windows Node 20/24 均为 terminal success，且 verifier 报告 `repositoryWriteRequired: false`。Published scope 保留 one-shot/persistent trusted-code `full_access`、interactive ConPTY、exact R3、backend-drift、ambient-authority、owner-bound lifecycle、bounded output、local emergency control、单一生产路径和 exact V1/V2 compatibility；4B0 的真实 Gate S 结果仍为 `blocked`，Task 4B1–4B6、sandbox authority 与 `workspace` profile 延期且不可用。Phase 5 实现、Gate X 对抗修复、文档对齐、managed Node 20/24 ordinary、Windows control、protected Smoke、package 与静态门已完成；只允许一次 Phase 5 发布，并须等待 closure SHA 的 terminal exact-head success 才可进入 Phase 6。Phase 9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。

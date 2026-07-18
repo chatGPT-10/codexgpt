@@ -1266,3 +1266,60 @@ Complete locally after STEP-341 exact-head run `29601639970` reached terminal fa
 **Next step**
 
 Stage and publish the exact STEP-342 scope, then bind a new CI run to its full SHA. Phase 4 closes only on terminal success across repository policy and Ubuntu/Windows Node 20/24 Build, complete all-domain Regression, protected Smoke, and Package. Keep run evidence below ignored `.ai-bridge/` and do not create an evidence-only follow-up commit.
+
+## STEP-343 — Close reduced Phase 4 and reconcile the Phase 5 handoff
+
+**Status**
+
+Reduced Phase 4 is formally closed. This is the final entry in Phase 4 Volume 3; future between-phase maintenance belongs in `docs/memory/archive/interphase-maintenance.md`, and `docs/memory/archive/phase-5.md` begins only when Task 5A0 actually starts.
+
+**Goal**
+
+Record the exact terminal CI evidence, remove stale Task 4C2/open-repair language from active rules and plans, close the Phase 4 archive, and make Phase 5 Task 5A0 / Gate G0 the single next action without creating an evidence-only repository commit.
+
+**Files changed**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/superpowers/specs/2026-07-16-phase-4-windows-execution-and-sandbox-design.md`
+- `docs/superpowers/plans/2026-07-16-phase-4-windows-execution-and-sandbox.md`
+- `docs/superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md`
+- `docs/superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md`
+- `docs/memory/archive/phase-4-part-3.md`
+
+**Closure evidence**
+
+- Closure commit: `d19e65ba75938c35afa472d23d91d1724fe7fabf` (`fix: accept Windows Ctrl+C probe exit`).
+- Exact-head CI run: `29603060944`.
+- `node scripts/exact-head-ci.mjs verify --head d19e65ba75938c35afa472d23d91d1724fe7fabf --run 29603060944` returned `status: completed`, `conclusion: success`, and `repositoryWriteRequired: false`.
+- Classification, repository policy, Ubuntu Node 20, Ubuntu Node 24, Windows Node 20, and Windows Node 24 all reached terminal success.
+- Local `HEAD`, `origin/main`, and the verified CI head are the same exact 40-character SHA; the worktree was clean before this documentation reconciliation.
+
+**Implementation summary**
+
+- Replaced stale “Task 4C2 next” and “Phase 5 blocked” statements with the exact closed Phase 4 state and Task 5A0 / Gate G0 handoff.
+- Marked Phase 4 Volume 3 closed and retained diagnostic 4B0 as blocked/non-production; `workspace` and Tasks 4B1–4B6 remain deferred with no fallback.
+- Marked Phase 5 Gate 4P satisfied while preserving the rule that no Phase 5 runtime work has started and the mandatory TDD gate order remains authoritative.
+- Kept detailed run history in this archive and a concise current-state index in `Memory.md`; no history narrative was added to `AGENTS.md` beyond the active execution boundary.
+
+**Decisions made**
+
+- Exact-head success closes Phase 4; no further Phase 4 runtime or evidence-only commit is required.
+- The next implementation action is exactly Phase 5 Task 5A0 / Gate G0.
+- Blocked 4B0 evidence is not reinterpreted as sandbox success, and Phase 5 inherits only the truthful Phase 4 trusted-code execution boundary.
+- This neat-freak reconciliation remains uncommitted so it can be included with the next meaningful repository change rather than violating the no evidence-only follow-up rule.
+
+**Risks or limitations**
+
+- The documentation changes are intentionally not a new Phase 4 closure SHA; the authoritative runtime closure remains `d19e65b` and run `29603060944`.
+- Phase 5 must not create `docs/memory/archive/phase-5.md` or modify runtime files before Task 5A0 begins.
+
+**Rollback method**
+
+- Revert only the STEP-343 documentation reconciliation if its status wording is found inaccurate; do not revert the closed Phase 4 runtime commits or CI evidence.
+- Preserve the append-only STEP-343 record by adding a correction entry rather than rewriting archived history after publication.
+
+**Next step**
+
+Begin Phase 5 Task 5A0 / Gate G0 from the paired exact design and mandatory TDD plan. Keep `workspace` and Tasks 4B1–4B6 deferred, retain managed Node 20/24 toolchains, and do not stage or publish until the next authorized complete phase boundary.

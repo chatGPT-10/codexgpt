@@ -1,12 +1,18 @@
-import type { CodexProConfig, ToolContractVersion } from "../config.js";
+import {
+  persistedV2ContractVersion,
+  type CodexProConfig,
+  type ToolContractVersion
+} from "../config.js";
 import { contractIncludesV2 } from "./contracts/catalog.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import {
   AuditError,
   auditQueryFilterDigest,
   auditQueryFilterDigestV3,
+  auditQueryFilterDigestV4,
   queryAuditEventsInputV2Schema,
   queryAuditEventsInputV3Schema,
+  queryAuditEventsInputV4Schema,
   queryAuditEventsV2,
   queryAuditEventsV3,
   type AuditQueryHandlerV2,
@@ -169,9 +175,11 @@ export function createPhase3DResourceResolver(
   return {
     describe(toolName, args) {
       if (toolName === "query_audit_events") {
-        const filterDigest = toolContractVersion === 3
-          ? auditQueryFilterDigestV3(queryAuditEventsInputV3Schema.parse(args))
-          : auditQueryFilterDigest(queryAuditEventsInputV2Schema.parse(args));
+        const filterDigest = toolContractVersion === 4
+          ? auditQueryFilterDigestV4(queryAuditEventsInputV4Schema.parse(args))
+          : toolContractVersion === 3
+            ? auditQueryFilterDigestV3(queryAuditEventsInputV3Schema.parse(args))
+            : auditQueryFilterDigest(queryAuditEventsInputV2Schema.parse(args));
         return {
           resource: describeAuditResource({
             workspaceId: null,
@@ -231,6 +239,7 @@ export function createPhase3DServerIntegration(
     if (!contractIncludesV2(contractVersion) || config.connectionTest || config.toolMode === "minimal") {
       return;
     }
+    const persistedContractVersion = persistedV2ContractVersion(contractVersion);
 
     if (!dependencies.undoChangeSetService || !dependencies.movePathsService) {
       throw new Error("Contract V2 mutation services are unavailable.");
@@ -276,7 +285,7 @@ export function createPhase3DServerIntegration(
           policyRevision: input.policyRevision(),
           requestId: null,
           preview: parsed.data.preview ?? false,
-          contractVersion
+          contractVersion: persistedContractVersion
         });
         const structured = createUndoChangeSetSuccess({
           workspace_id: prepared.workspaceId,
@@ -351,11 +360,11 @@ export function createPhase3DServerIntegration(
         requestId: null,
         ownerBinding: ownerBinding(dependencies),
         policyRevision: input.policyRevision(),
-        contractVersion
+        contractVersion: persistedContractVersion
       });
     });
 
-    if (config.toolMode === "full") {
+    if (config.toolMode === "full" && contractVersion !== 4) {
       const v3 = contractVersion === 3;
       if (v3 ? !dependencies.auditQueryHandlerV3 : !dependencies.auditQueryHandler) {
         throw new Error(`Contract V${contractVersion} audit query service is unavailable.`);

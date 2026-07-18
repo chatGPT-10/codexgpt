@@ -229,8 +229,112 @@ export type AuditEventV3 =
   | ProcessLifecycleAuditEventV3
   | SnapshotLifecycleAuditEventV3;
 
-export type PersistedAuditEvent = AuditEventV2 | AuditEventV3;
+export type NativeAuditEventTypeV4 =
+  | "authorization"
+  | "terminal"
+  | "git_operation"
+  | "task_worktree"
+  | "merge_plan"
+  | "verification"
+  | "recovery";
+
+export interface AuditEventCommonV4 {
+  schemaVersion: 4;
+  contractVersion: 4;
+  eventId: string;
+  eventType: NativeAuditEventTypeV4;
+  timestamp: string;
+  requestId: string | null;
+  authorizationEventId: string | null;
+  decisionId: string | null;
+  toolName: string | null;
+  canonicalAction: string;
+  workspaceId: string | null;
+  policyRevision: string | null;
+  subjectFingerprint: string;
+  contextFingerprint: string;
+  resultCode: string | null;
+  counts: Record<string, number>;
+  repositoryId: string | null;
+  taskWorktreeId: string | null;
+  operationId: string | null;
+}
+
+export interface AuthorizationAuditEventV4 extends AuditEventCommonV4 {
+  eventType: "authorization";
+  authorizationEventId: null;
+  outcome: "allow" | "deny" | "approval_required" | "enforcement_unavailable";
+  riskClass: RiskClass;
+  resourceFingerprint: string;
+  approvalId: string | null;
+  grantId: string | null;
+}
+
+export interface TerminalAuditEventV4 extends AuditEventCommonV4 {
+  eventType: "terminal";
+  authorizationEventId: string;
+  operationId: string;
+  status: ExecutionAuditStatus;
+  durableEffectObserved: boolean;
+  recoveryRequired: boolean;
+}
+
+export type GitOperationTransitionV4 =
+  | "prepared"
+  | "started"
+  | "object_promoted"
+  | "index_installed"
+  | "ref_updated"
+  | "files_applied"
+  | "effect_observed"
+  | "committed"
+  | "rolled_back"
+  | "recovery_required";
+
+export interface GitOperationAuditEventV4 extends AuditEventCommonV4 {
+  eventType: "git_operation";
+  operationId: string;
+  transition: GitOperationTransitionV4;
+}
+
+export interface TaskWorktreeAuditEventV4 extends AuditEventCommonV4 {
+  eventType: "task_worktree";
+  taskWorktreeId: string;
+  operationId: string;
+  transition: "created" | "registered" | "merge_prepared" | "merged" | "removed" | "recovery_required";
+}
+
+export interface MergePlanAuditEventV4 extends AuditEventCommonV4 {
+  eventType: "merge_plan";
+  operationId: string;
+  planId: string;
+  transition: "prepared" | "validated" | "executed" | "expired" | "rejected" | "recovery_required";
+}
+
+export interface VerificationAuditEventV4 extends AuditEventCommonV4 {
+  eventType: "verification";
+  verificationType: "repository" | "state_token" | "lock_owner" | "object_promotion" | "terminal_audit";
+  status: "passed" | "failed" | "unknown";
+}
+
+export interface RecoveryAuditEventV4 extends AuditEventCommonV4 {
+  eventType: "recovery";
+  operationId: string;
+  recoveryAction: "committed" | "rolled_back" | "repository_frozen" | "orphan_objects_retained";
+}
+
+export type AuditEventV4 =
+  | AuthorizationAuditEventV4
+  | TerminalAuditEventV4
+  | GitOperationAuditEventV4
+  | TaskWorktreeAuditEventV4
+  | MergePlanAuditEventV4
+  | VerificationAuditEventV4
+  | RecoveryAuditEventV4;
+
+export type PersistedAuditEvent = AuditEventV2 | AuditEventV3 | AuditEventV4;
 export type AuditEventTypeV3 = AuditEventType | AuditEventV3["eventType"];
+export type AuditEventTypeV4 = AuditEventTypeV3 | NativeAuditEventTypeV4;
 
 export interface AuditEnvelopeV1 {
   storeVersion: 1;
@@ -332,12 +436,54 @@ export interface QueryAuditEventsInputV3 {
 
 export interface AuditQueryRecordV3 {
   sequence: number;
-  event: PersistedAuditEvent;
+  event: AuditEventV2 | AuditEventV3;
 }
 
 export interface QueryAuditEventsResultV3 {
   schemaVersion: 3;
   records: AuditQueryRecordV3[];
+  nextCursor: string | null;
+  filterDigest: string;
+  startTime: string;
+  endTime: string;
+  limit: number;
+  integrityState: "healthy" | "degraded" | "integrity_failed";
+}
+
+export interface QueryAuditEventsInputV4 {
+  startTime?: string;
+  endTime?: string;
+  limit?: number;
+  cursor?: string;
+  eventTypes?: AuditEventTypeV4[];
+  toolNames?: string[];
+  requestIds?: string[];
+  repositoryIds?: string[];
+  taskWorktreeIds?: string[];
+  resultCodes?: string[];
+}
+
+export interface AuditEventProjectionV4 {
+  schemaVersion: 4;
+  sourceSchemaVersion: 2 | 3 | 4;
+  sourceContractVersion: 1 | 2 | 3 | 4 | null;
+  eventId: string;
+  timestamp: string;
+  eventType: AuditEventTypeV4;
+  requestId: string | null;
+  toolName: string | null;
+  canonicalAction: string;
+  repositoryId: string | null;
+  taskWorktreeId: string | null;
+  subjectFingerprint: string | null;
+  contextFingerprint: string | null;
+  resultCode: string | null;
+  counts: Record<string, number>;
+}
+
+export interface QueryAuditEventsResultV4 {
+  schemaVersion: 4;
+  records: Array<{ sequence: number; event: AuditEventProjectionV4 }>;
   nextCursor: string | null;
   filterDigest: string;
   startTime: string;

@@ -66,6 +66,10 @@ export function deriveAuditQueryV3CursorKey(masterKey: Buffer): Buffer {
   return deriveTransactionSubkey(masterKey, "audit-query-v3");
 }
 
+export function deriveAuditQueryV4CursorKey(masterKey: Buffer): Buffer {
+  return deriveTransactionSubkey(masterKey, "audit-query-v4");
+}
+
 export function workspaceAuditRef(
   canonicalRoot: string,
   masterKey: Buffer,

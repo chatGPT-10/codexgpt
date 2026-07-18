@@ -18,22 +18,26 @@ import {
   canonicalJson,
   deriveAuditCursorKey,
   deriveAuditQueryV3CursorKey,
+  deriveAuditQueryV4CursorKey,
   deriveAuditRecordKey
 } from "./canonicalJson.js";
 import { AuditWriterLock } from "./lock.js";
-import { auditQueryFilterDigest, auditQueryFilterDigestV3 } from "./queryTool.js";
+import { auditQueryFilterDigest, auditQueryFilterDigestV3, auditQueryFilterDigestV4 } from "./queryTool.js";
 import {
   auditEnvelopeV1Schema,
   auditIndexV1Schema,
   persistedAuditEventSchema,
   queryAuditEventsInputV2Schema,
-  queryAuditEventsInputV3Schema
+  queryAuditEventsInputV3Schema,
+  queryAuditEventsInputV4Schema
 } from "./schemas.js";
 import {
   AuditError,
   type AdministrativeAuditEventV2,
   type AuditEnvelopeV1,
   type AuditEventV2,
+  type AuditEventV3,
+  type AuditEventProjectionV4,
   type AuditIndexV1,
   type PersistedAuditEvent,
   type AuditSegmentMetadataV1,
@@ -42,6 +46,8 @@ import {
   type QueryAuditEventsResultV2,
   type QueryAuditEventsInputV3,
   type QueryAuditEventsResultV3,
+  type QueryAuditEventsInputV4,
+  type QueryAuditEventsResultV4,
   type RecoveryAuditEventV2
 } from "./types.js";
 
@@ -147,6 +153,7 @@ export class PersistentAuditStore {
   private readonly recordKey: Buffer;
   private readonly cursorKey: Buffer;
   private readonly cursorKeyV3: Buffer;
+  private readonly cursorKeyV4: Buffer;
   private readonly indexStore: AtomicJsonFileStore<AuditIndexV1>;
   private readonly writerLock: AuditWriterLock;
   private readonly now: () => number;
@@ -183,6 +190,7 @@ export class PersistentAuditStore {
       this.recordKey = deriveAuditRecordKey(masterKey);
       this.cursorKey = deriveAuditCursorKey(masterKey);
       this.cursorKeyV3 = deriveAuditQueryV3CursorKey(masterKey);
+      this.cursorKeyV4 = deriveAuditQueryV4CursorKey(masterKey);
     } finally {
       masterKey.fill(0);
     }
@@ -203,6 +211,7 @@ export class PersistentAuditStore {
     this.recordKey.fill(0);
     this.cursorKey.fill(0);
     this.cursorKeyV3.fill(0);
+    this.cursorKeyV4.fill(0);
   }
 
   private randomHex(bytes: number): string {
@@ -648,14 +657,53 @@ export class PersistentAuditStore {
           if (canonicalJson(identicalEvent.event) === canonicalJson(parsedEvent)) return identicalEvent;
           throw new AuditError("AUDIT_INTEGRITY_FAILURE", "Audit event identity was reused with conflicting facts.");
         }
-        if (parsedEvent.eventType === "execution") {
+        if (parsedEvent.schemaVersion === 2 && parsedEvent.eventType === "execution") {
           const existingTerminal = scan.envelopes.find((envelope) => (
+            envelope.event.schemaVersion === 2 &&
             envelope.event.eventType === "execution" &&
             envelope.event.authorizationEventId === parsedEvent.authorizationEventId
           ));
           if (existingTerminal) {
             if (canonicalJson(existingTerminal.event) === canonicalJson(parsedEvent)) return existingTerminal;
             throw new AuditError("AUDIT_INTEGRITY_FAILURE", "Authorization already has a conflicting terminal audit event.");
+          }
+        }
+        if (parsedEvent.schemaVersion === 4 && parsedEvent.eventType === "terminal") {
+          const authorizationEnvelope = scan.envelopes.find((envelope) => (
+            envelope.event.schemaVersion === 4 &&
+            envelope.event.eventType === "authorization" &&
+            envelope.event.eventId === parsedEvent.authorizationEventId
+          ));
+          if (!authorizationEnvelope || authorizationEnvelope.event.schemaVersion !== 4 || authorizationEnvelope.event.eventType !== "authorization") {
+            throw new AuditError("AUDIT_INTEGRITY_FAILURE", "V4 terminal audit references missing authorization evidence.");
+          }
+          const authorization = authorizationEnvelope.event;
+          if (
+            authorization.requestId !== parsedEvent.requestId ||
+            authorization.decisionId !== parsedEvent.decisionId ||
+            authorization.toolName !== parsedEvent.toolName ||
+            authorization.canonicalAction !== parsedEvent.canonicalAction ||
+            authorization.workspaceId !== parsedEvent.workspaceId ||
+            authorization.policyRevision !== parsedEvent.policyRevision ||
+            authorization.subjectFingerprint !== parsedEvent.subjectFingerprint ||
+            authorization.contextFingerprint !== parsedEvent.contextFingerprint ||
+            authorization.repositoryId !== parsedEvent.repositoryId ||
+            authorization.taskWorktreeId !== parsedEvent.taskWorktreeId ||
+            (parsedEvent.status !== "not_executed" && authorization.outcome !== "allow")
+          ) {
+            throw new AuditError("AUDIT_INTEGRITY_FAILURE", "V4 terminal audit does not match its authorization evidence.");
+          }
+          const existingTerminal = scan.envelopes.find((envelope) => (
+            envelope.event.schemaVersion === 4 &&
+            envelope.event.eventType === "terminal" &&
+            (
+              envelope.event.authorizationEventId === parsedEvent.authorizationEventId ||
+              envelope.event.operationId === parsedEvent.operationId
+            )
+          ));
+          if (existingTerminal) {
+            if (canonicalJson(existingTerminal.event) === canonicalJson(parsedEvent)) return existingTerminal;
+            throw new AuditError("AUDIT_INTEGRITY_FAILURE", "V4 authorization or operation already has conflicting terminal audit evidence.");
           }
         }
         const date = this.timestamp().slice(0, 10);
@@ -877,6 +925,123 @@ export class PersistentAuditStore {
     }
   }
 
+  private encodeCursorV4(filterDigest: string, lastSequence: number): string {
+    const payload = {
+      projectionVersion: 4,
+      filterDigest,
+      lastSequence,
+      expiresAt: new Date(this.now() + 15 * 60 * 1000).toISOString()
+    };
+    const encoded = Buffer.from(canonicalJson(payload), "utf8").toString("base64url");
+    const mac = createHmac("sha256", this.cursorKeyV4)
+      .update("audit-query-v4-cursor\0", "utf8")
+      .update(encoded, "utf8")
+      .digest("hex");
+    return `v4:${encoded}.${mac}`;
+  }
+
+  private decodeCursorV4(cursor: string, filterDigest: string): number {
+    try {
+      if (!cursor.startsWith("v4:")) throw new Error("invalid version");
+      const [encoded, suppliedMac, extra] = cursor.slice(3).split(".");
+      if (!encoded || !suppliedMac || extra !== undefined || !/^[a-f0-9]{64}$/.test(suppliedMac)) {
+        throw new Error("invalid shape");
+      }
+      const expectedMac = createHmac("sha256", this.cursorKeyV4)
+        .update("audit-query-v4-cursor\0", "utf8")
+        .update(encoded, "utf8")
+        .digest("hex");
+      const supplied = Buffer.from(suppliedMac, "hex");
+      const expected = Buffer.from(expectedMac, "hex");
+      if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new Error("invalid mac");
+      const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as Record<string, unknown>;
+      if (
+        payload.projectionVersion !== 4 ||
+        payload.filterDigest !== filterDigest ||
+        !Number.isSafeInteger(payload.lastSequence) ||
+        Number(payload.lastSequence) < 1 ||
+        typeof payload.expiresAt !== "string" ||
+        !Number.isFinite(Date.parse(payload.expiresAt)) ||
+        Date.parse(payload.expiresAt) < this.now() ||
+        Object.keys(payload).sort().join(",") !== "expiresAt,filterDigest,lastSequence,projectionVersion"
+      ) throw new Error("invalid payload");
+      return Number(payload.lastSequence);
+    } catch {
+      throw new AuditError("AUDIT_CURSOR_INVALID", "V4 audit query cursor is invalid or expired.");
+    }
+  }
+
+  private projectEventV4(event: PersistedAuditEvent): AuditEventProjectionV4 {
+    if (event.schemaVersion === 4) {
+      return {
+        schemaVersion: 4,
+        sourceSchemaVersion: 4,
+        sourceContractVersion: 4,
+        eventId: event.eventId,
+        timestamp: event.timestamp,
+        eventType: event.eventType,
+        requestId: event.requestId,
+        toolName: event.toolName,
+        canonicalAction: event.canonicalAction,
+        repositoryId: event.repositoryId,
+        taskWorktreeId: event.taskWorktreeId,
+        subjectFingerprint: event.subjectFingerprint,
+        contextFingerprint: event.contextFingerprint,
+        resultCode: event.resultCode,
+        counts: event.counts
+      };
+    }
+    if (event.schemaVersion === 3) {
+      return {
+        schemaVersion: 4,
+        sourceSchemaVersion: 3,
+        sourceContractVersion: 3,
+        eventId: event.eventId,
+        timestamp: event.timestamp,
+        eventType: event.eventType,
+        requestId: event.requestId,
+        toolName: event.toolName,
+        canonicalAction: event.canonicalAction,
+        repositoryId: null,
+        taskWorktreeId: null,
+        subjectFingerprint: event.subjectFingerprint,
+        contextFingerprint: event.contextFingerprint,
+        resultCode: event.resultCode,
+        counts: event.counts
+      };
+    }
+    let resultCode: string | null = null;
+    let counts: Record<string, number> = {};
+    if (event.eventType === "authorization") resultCode = event.reasonCode;
+    else if (event.eventType === "execution") {
+      resultCode = event.resultCode;
+      counts = event.boundedByteCounts;
+    } else if (event.eventType === "recovery") {
+      resultCode = event.resultCode;
+      counts = { operationCount: event.operationCount };
+    } else {
+      resultCode = event.resultCode;
+      counts = event.resultCount === null ? {} : { resultCount: event.resultCount };
+    }
+    return {
+      schemaVersion: 4,
+      sourceSchemaVersion: 2,
+      sourceContractVersion: null,
+      eventId: event.eventId,
+      timestamp: event.timestamp,
+      eventType: event.eventType,
+      requestId: event.requestId,
+      toolName: event.toolName,
+      canonicalAction: event.canonicalAction,
+      repositoryId: null,
+      taskWorktreeId: null,
+      subjectFingerprint: null,
+      contextFingerprint: null,
+      resultCode,
+      counts
+    };
+  }
+
   async probeIntegrity(): Promise<void> {
     await this.withWriterLock(() => {
       try {
@@ -1015,6 +1180,9 @@ export class PersistentAuditStore {
       try {
         const { index, scan } = this.loadVerifiedState(true);
         const matched = scan.envelopes
+          .filter((envelope): envelope is AuditEnvelopeV1 & { event: AuditEventV2 | AuditEventV3 } =>
+            envelope.event.schemaVersion === 2 || envelope.event.schemaVersion === 3
+          )
           .filter((envelope) => {
             const event = envelope.event;
             const timestamp = Date.parse(event.timestamp);
@@ -1048,6 +1216,115 @@ export class PersistentAuditStore {
           limit,
           integrityState: index.state
         };
+      } catch (error) {
+        if (error instanceof AuditError && (
+          error.code === "AUDIT_INTEGRITY_FAILURE" || error.code === "AUDIT_RECORD_INVALID"
+        )) {
+          this.markIntegrityFailure();
+          throw new AuditError("AUDIT_INTEGRITY_FAILURE", "Audit evidence failed integrity verification.");
+        }
+        throw error;
+      }
+    });
+  }
+
+  async queryV4(input: QueryAuditEventsInputV4): Promise<QueryAuditEventsResultV4> {
+    const parsedResult = queryAuditEventsInputV4Schema.safeParse(input);
+    if (!parsedResult.success) {
+      throw new AuditError(
+        input && typeof input === "object" && "cursor" in input
+          ? "AUDIT_CURSOR_INVALID"
+          : "AUDIT_RANGE_INVALID",
+        "V4 audit query input is invalid."
+      );
+    }
+    const parsed = parsedResult.data;
+    const limit = parsed.limit ?? 50;
+    const endMs = parsed.endTime === undefined ? this.now() : Date.parse(parsed.endTime);
+    const startMs = parsed.startTime === undefined
+      ? endMs - 24 * 60 * 60 * 1000
+      : Date.parse(parsed.startTime);
+    if (
+      !Number.isFinite(startMs) ||
+      !Number.isFinite(endMs) ||
+      startMs > endMs ||
+      endMs - startMs > 7 * 24 * 60 * 60 * 1000
+    ) {
+      throw new AuditError("AUDIT_RANGE_INVALID", "V4 audit query range is invalid or exceeds seven days.");
+    }
+    const filterDigest = auditQueryFilterDigestV4({ ...parsed, limit });
+    const beforeSequence = parsed.cursor === undefined
+      ? Number.POSITIVE_INFINITY
+      : this.decodeCursorV4(parsed.cursor, filterDigest);
+    const eventTypes = parsed.eventTypes ? new Set(parsed.eventTypes) : null;
+    const toolNames = parsed.toolNames ? new Set(parsed.toolNames) : null;
+    const requestIds = parsed.requestIds ? new Set(parsed.requestIds) : null;
+    const repositoryIds = parsed.repositoryIds ? new Set(parsed.repositoryIds) : null;
+    const taskWorktreeIds = parsed.taskWorktreeIds ? new Set(parsed.taskWorktreeIds) : null;
+    const resultCodes = parsed.resultCodes ? new Set(parsed.resultCodes) : null;
+
+    return this.withWriterLock(() => {
+      try {
+        const { index, scan } = this.loadVerifiedState(true);
+        const matched = scan.envelopes
+          .filter((envelope) => {
+            const projected = this.projectEventV4(envelope.event);
+            const timestamp = Date.parse(projected.timestamp);
+            if (envelope.sequence >= beforeSequence || timestamp < startMs || timestamp > endMs) return false;
+            if (eventTypes && !eventTypes.has(projected.eventType)) return false;
+            if (toolNames && (projected.toolName === null || !toolNames.has(projected.toolName))) return false;
+            if (requestIds && (projected.requestId === null || !requestIds.has(projected.requestId))) return false;
+            if (repositoryIds && (projected.repositoryId === null || !repositoryIds.has(projected.repositoryId))) return false;
+            if (taskWorktreeIds && (projected.taskWorktreeId === null || !taskWorktreeIds.has(projected.taskWorktreeId))) return false;
+            if (resultCodes && (projected.resultCode === null || !resultCodes.has(projected.resultCode))) return false;
+            return true;
+          })
+          .sort((left, right) => right.sequence - left.sequence);
+        const page = matched.slice(0, limit);
+        const nextCursor = matched.length > limit && page.length > 0
+          ? this.encodeCursorV4(filterDigest, page.at(-1)!.sequence)
+          : null;
+        return {
+          schemaVersion: 4,
+          records: page.map((envelope) => ({
+            sequence: envelope.sequence,
+            event: this.projectEventV4(envelope.event)
+          })),
+          nextCursor,
+          filterDigest,
+          startTime: new Date(startMs).toISOString(),
+          endTime: new Date(endMs).toISOString(),
+          limit,
+          integrityState: index.state
+        };
+      } catch (error) {
+        if (error instanceof AuditError && (
+          error.code === "AUDIT_INTEGRITY_FAILURE" || error.code === "AUDIT_RECORD_INVALID"
+        )) {
+          this.markIntegrityFailure();
+          throw new AuditError("AUDIT_INTEGRITY_FAILURE", "Audit evidence failed integrity verification.");
+        }
+        throw error;
+      }
+    });
+  }
+
+  async findTerminalEventV4(operationId: string): Promise<string | null> {
+    if (!/^gop_[a-f0-9]{32}$/u.test(operationId)) {
+      throw new AuditError("AUDIT_RANGE_INVALID", "V4 operation identity is invalid.");
+    }
+    return this.withWriterLock(() => {
+      try {
+        const { scan } = this.loadVerifiedState(true);
+        const matches = scan.envelopes.filter((envelope) =>
+          envelope.event.schemaVersion === 4 &&
+          envelope.event.eventType === "terminal" &&
+          envelope.event.operationId === operationId
+        );
+        if (matches.length > 1) {
+          throw new AuditError("AUDIT_INTEGRITY_FAILURE", "V4 operation has conflicting terminal evidence.");
+        }
+        return matches[0]?.event.eventId ?? null;
       } catch (error) {
         if (error instanceof AuditError && (
           error.code === "AUDIT_INTEGRITY_FAILURE" || error.code === "AUDIT_RECORD_INVALID"

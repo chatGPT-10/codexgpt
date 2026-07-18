@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { CodexProConfig } from "../config.js";
+import { persistedMutationContractVersion, type CodexProConfig } from "../config.js";
 import { PersistentAuditStore, workspaceAuditRef } from "../audit/index.js";
 import {
   authorizationAuditEventV2Schema,
@@ -114,7 +114,7 @@ export class LocalMutationService {
           requestId: options.requestId ?? null,
           ownerBinding: ownerBinding(workspace),
           policyRevision: "policy_local_cli_v1",
-          contractVersion: this.config.toolContractVersion,
+          contractVersion: persistedMutationContractVersion(this.config.toolContractVersion),
           retentionMs: this.config.changeSetRetention.activeRetentionMs,
           retainChangeSet: options.retainChangeSet
         },

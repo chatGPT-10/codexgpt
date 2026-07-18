@@ -67,6 +67,17 @@ motion support. Animate transform and opacity only.
 - Say what CodexPro does, then say what it does not do.
 - Keep `configured_roots`, `confirmed_roots`, trusted-code `full_access`, and
   unavailable `workspace` visually and verbally distinct.
+- Keep typed local Git, managed task worktrees, and unrestricted processes
+  visually distinct. A Git capsule is not a sandbox, and a task worktree is
+  workflow isolation rather than process or credential isolation. Gate X must
+  be described as four fixed typed operations only: private-index stage,
+  shadow-directory commit, quarantined object-only merge, and private checkout;
+  it never accepts caller-selected Git commands or remote/credential/force/config
+  mutation and still runs with ambient current-user full access and no isolation.
+- Describe task removal as checkout/registration removal with branch, commit,
+  private-stash, and audit retention. Never label it branch deletion.
+- Separate merge review/candidate checks from live-target execution and show
+  the second approval/CAS boundary.
 - Label ambient execution **Full access (ask first)** and state that it has no
   filesystem, credential, registry, broker, device, or network isolation.
 - Describe Job Objects as member lifetime control and ConPTY as terminal I/O;

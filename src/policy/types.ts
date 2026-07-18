@@ -23,8 +23,18 @@ export const POLICY_SCOPES_V3 = [
   "process:persistent"
 ] as const;
 
+export const POLICY_SCOPES_V4 = [
+  ...POLICY_SCOPES_V3,
+  "git:index:write",
+  "git:refs:write",
+  "git:commit",
+  "git:merge",
+  "worktree:manage"
+] as const;
+
 export type PolicyScope = typeof POLICY_SCOPES[number];
 export type PolicyScopeV3 = typeof POLICY_SCOPES_V3[number];
+export type PolicyScopeV4 = typeof POLICY_SCOPES_V4[number];
 export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
 export type PolicyOutcome = "allow" | "deny" | "approval_required" | "enforcement_unavailable";
 export type PolicyReasonCode =
@@ -278,6 +288,46 @@ export interface GitResourceV1 {
   resourceFingerprint: string;
 }
 
+export type GitOperationV4 =
+  | "read"
+  | "create_branch"
+  | "stage"
+  | "commit"
+  | "restore_review"
+  | "restore_execute"
+  | "stash_list"
+  | "stash_create"
+  | "stash_apply_review"
+  | "stash_apply_execute"
+  | "stash_forget_review"
+  | "stash_forget_execute"
+  | "task_create_review"
+  | "task_create"
+  | "task_list"
+  | "task_get"
+  | "task_merge_prepare_review"
+  | "task_merge_prepare_finalize"
+  | "task_merge_execute"
+  | "task_remove";
+
+export interface GitResourceV4 {
+  schemaVersion: 4;
+  kind: "git_v4";
+  operation: GitOperationV4;
+  repositoryId: string;
+  worktreeId: string | null;
+  branchId: string | null;
+  pathDigests: string[];
+  refDigests: string[];
+  objectIds: string[];
+  affectedPathCount: number;
+  affectedByteCount: number;
+  stateTokenFingerprint: string | null;
+  integrationMode: "off" | "approved_full_access";
+  executionIsolation: "none";
+  resourceFingerprint: string;
+}
+
 export interface ShellResourceV1 {
   schemaVersion: 1;
   kind: "shell";
@@ -345,6 +395,8 @@ export type ResourceDescriptorV1 =
   | ProcessResourceV1
   | NetworkResourceV1
   | AuditResourceV1;
+
+export type ResourceDescriptorV4 = ResourceDescriptorV1 | GitResourceV4;
 
 export type CapabilityLevel =
   | "none"

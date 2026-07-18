@@ -8,6 +8,14 @@ const CODEXPRO_TOKEN_FIELD_PATTERN = /(["']?codexpro_token["']?\s*:\s*)(?:"[^"\r
 const SECRET_ASSIGNMENT_PATTERN = /\b[A-Za-z0-9_]{0,64}(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY)[A-Za-z0-9_]{0,64}\s*=\s*(?:"[^"\r\n]{12,512}"|'[^'\r\n]{12,512}'|`[^`\r\n]{12,512}`|[A-Za-z0-9_./+=-]{20,512})/gi;
 const SECRET_FIELD_PATTERN = /(["']?[A-Za-z0-9_]{0,64}(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY)[A-Za-z0-9_]{0,64}["']?\s*:\s*)(?:"[^"\r\n]{12,512}"|'[^'\r\n]{12,512}'|`[^`\r\n]{12,512}`|[A-Za-z0-9_./+=-]{20,512})/gi;
 const SECRET_PATTERNS = [OPENAI_SECRET_PATTERN, COMMON_TOKEN_PATTERN, BEARER_TOKEN_PATTERN, CLI_TOKEN_PATTERN, QUERY_TOKEN_PATTERN, CODEXPRO_TOKEN_ASSIGNMENT_PATTERN, CODEXPRO_TOKEN_FIELD_PATTERN, SECRET_ASSIGNMENT_PATTERN, SECRET_FIELD_PATTERN];
+const GIT_PATCH_FORBIDDEN_CONTROL_PATTERN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
+
+export interface SanitizedGitPatch {
+  text: string;
+  truncated: boolean;
+  secretRedacted: boolean;
+  unsafeControlsNeutralized: boolean;
+}
 
 export { OUTPUT_REDACTION_CAPABILITY, StreamingRedactor } from "./process/streamingRedactor.js";
 
@@ -73,4 +81,29 @@ function redactSecretAssignment(value: string): string {
   const index = value.indexOf("=");
   if (index < 0) return "[REDACTED_SECRET]";
   return `${value.slice(0, index).trimEnd()}= [REDACTED_SECRET]`;
+}
+
+function truncateUtf8(value: string, maxBytes: number): { text: string; truncated: boolean } {
+  const encoded = Buffer.from(value, "utf8");
+  if (encoded.length <= maxBytes) return { text: value, truncated: false };
+  let end = Math.max(0, maxBytes);
+  while (end > 0 && (encoded[end] & 0xc0) === 0x80) end -= 1;
+  return { text: encoded.subarray(0, end).toString("utf8"), truncated: true };
+}
+
+export function sanitizeGitPatchText(text: string, maxBytes: number): SanitizedGitPatch {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) throw new Error("GIT_SCAN_LIMIT");
+  const normalized = text.replace(/\r\n?/g, "\n");
+  const unsafeControlsNeutralized = GIT_PATCH_FORBIDDEN_CONTROL_PATTERN.test(normalized);
+  GIT_PATCH_FORBIDDEN_CONTROL_PATTERN.lastIndex = 0;
+  const neutralized = normalized.replace(GIT_PATCH_FORBIDDEN_CONTROL_PATTERN, "�");
+  const redacted = redactSensitiveText(neutralized);
+  const secretRedacted = redacted !== neutralized;
+  const bounded = truncateUtf8(redacted, maxBytes);
+  return {
+    text: bounded.text,
+    truncated: bounded.truncated,
+    secretRedacted,
+    unsafeControlsNeutralized
+  };
 }

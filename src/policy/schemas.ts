@@ -1,11 +1,15 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
+import { canonicalJson } from "../audit/canonicalJson.js";
 import {
   POLICY_SCOPES,
   POLICY_SCOPES_V3,
+  POLICY_SCOPES_V4,
   type AuditEventV1,
   type CompiledPermissionProfileV1,
   type CompiledPermissionProfileV3,
   type CompiledPolicySnapshotV1,
+  type GitResourceV4,
   type PermissionProfileDocumentV1,
   type PermissionProfileDocumentV3,
   type PolicyDecisionV1,
@@ -14,6 +18,7 @@ import {
   type RequestIdentityV1,
   type RequestIdentityV3,
   type ResourceDescriptorV1,
+  type ResourceDescriptorV4,
   type SandboxCapabilityReportV1,
   type SessionGrantV1
 } from "./types.js";
@@ -387,6 +392,68 @@ export const gitResourceV1Schema = z.object({
   remoteHost: z.string().min(1).max(253).nullable()
 }).strict();
 
+function sortedUniqueStrings(values: readonly string[]): boolean {
+  return values.every((value, index) => index === 0 || values[index - 1]! < value);
+}
+
+export function computeGitResourceV4Fingerprint(
+  value: Omit<GitResourceV4, "resourceFingerprint">
+): string {
+  return `sha256:${createHash("sha256")
+    .update("git-resource-v4\0", "utf8")
+    .update(canonicalJson(value), "utf8")
+    .digest("hex")}`;
+}
+
+export const gitResourceV4Schema: z.ZodType<GitResourceV4> = z.object({
+  schemaVersion: z.literal(4),
+  kind: z.literal("git_v4"),
+  operation: z.enum([
+    "read",
+    "create_branch",
+    "stage",
+    "commit",
+    "restore_review",
+    "restore_execute",
+    "stash_list",
+    "stash_create",
+    "stash_apply_review",
+    "stash_apply_execute",
+    "stash_forget_review",
+    "stash_forget_execute",
+    "task_create_review",
+    "task_create",
+    "task_list",
+    "task_get",
+    "task_merge_prepare_review",
+    "task_merge_prepare_finalize",
+    "task_merge_execute",
+    "task_remove"
+  ]),
+  repositoryId: z.string().regex(/^repo_[a-f0-9]{32}$/),
+  worktreeId: z.string().regex(/^task_[a-f0-9]{32}$/).nullable(),
+  branchId: z.string().regex(/^branch_[a-f0-9]{32}$/).nullable(),
+  pathDigests: z.array(bareSha256Schema).max(256).refine(sortedUniqueStrings),
+  refDigests: z.array(bareSha256Schema).max(128).refine(sortedUniqueStrings),
+  objectIds: z.array(z.string().regex(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/)).max(512)
+    .refine(sortedUniqueStrings),
+  affectedPathCount: z.number().int().nonnegative().safe(),
+  affectedByteCount: z.number().int().nonnegative().safe(),
+  stateTokenFingerprint: bareSha256Schema.nullable(),
+  integrationMode: z.enum(["off", "approved_full_access"]),
+  executionIsolation: z.literal("none"),
+  resourceFingerprint: sha256Schema
+}).strict().superRefine((value, context) => {
+  const { resourceFingerprint, ...semantic } = value;
+  if (resourceFingerprint !== computeGitResourceV4Fingerprint(semantic)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["resourceFingerprint"],
+      message: "V4 Git resource fingerprint does not match its semantic fields."
+    });
+  }
+});
+
 export const shellResourceV1Schema = z.object({
   ...resourceBase,
   kind: z.literal("shell"),
@@ -441,6 +508,11 @@ export const resourceDescriptorV1Schema: z.ZodType<ResourceDescriptorV1> = z.dis
   processResourceV1Schema,
   networkResourceV1Schema,
   auditResourceV1Schema
+]);
+
+export const resourceDescriptorV4Schema: z.ZodType<ResourceDescriptorV4> = z.union([
+  resourceDescriptorV1Schema,
+  gitResourceV4Schema
 ]);
 
 const platformSchema = z.enum(["aix", "android", "darwin", "freebsd", "haiku", "linux", "openbsd", "sunos", "win32", "cygwin", "netbsd"]);

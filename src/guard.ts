@@ -12,7 +12,7 @@ export interface Workspace {
   id: string;
   root: string;
   openedAt: string;
-  accessClass?: "confirmed_root";
+  accessClass?: "confirmed_root" | "task_worktree";
   access?: "read_only" | "read_write";
   leaseId?: string;
   idleExpiresAt?: string;
@@ -164,6 +164,11 @@ export interface WorkspaceManagerOptions {
     listWorkspaces(): Workspace[];
     closeWorkspace(id: string): ClosedWorkspace | null;
   };
+  taskWorktrees?: {
+    getWorkspace(id: string): Workspace;
+    listWorkspaces(): Workspace[];
+    closeWorkspace(id: string): ClosedWorkspace | null;
+  };
 }
 
 export interface ClosedWorkspace {
@@ -185,6 +190,7 @@ export class WorkspaceManager {
   private readonly ttlMs: number;
   private readonly maxTombstones: number;
   private readonly confirmedRoots?: WorkspaceManagerOptions["confirmedRoots"];
+  private readonly taskWorktrees?: WorkspaceManagerOptions["taskWorktrees"];
 
   constructor(
     private readonly config: CodexProConfig,
@@ -203,6 +209,7 @@ export class WorkspaceManager {
     );
     this.maxTombstones = Math.max(16, Math.min(4096, options.maxTombstones ?? 256));
     this.confirmedRoots = options.confirmedRoots;
+    this.taskWorktrees = options.taskWorktrees;
   }
 
   defaultWorkspace(): Workspace {
@@ -273,6 +280,12 @@ export class WorkspaceManager {
       } catch {
         // Preserve the same opaque not-found result for stale or foreign handles.
       }
+      try {
+        const task = this.taskWorktrees?.getWorkspace(id);
+        if (task) return { ...task };
+      } catch {
+        // Preserve the same opaque not-found result for stale or foreign handles.
+      }
     }
     if (!record || !this.recordMatchesCurrentBinding(record)) {
       if (record) this.revokeRecord(record, "policy_revision_changed");
@@ -299,6 +312,12 @@ export class WorkspaceManager {
       } catch {
         // Preserve the same opaque not-found result for stale or foreign handles.
       }
+      try {
+        const closed = this.taskWorktrees?.closeWorkspace(id);
+        if (closed) return closed;
+      } catch {
+        // Preserve the same opaque not-found result for stale or foreign handles.
+      }
     }
     if (!record || !this.recordMatchesCurrentBinding(record)) {
       if (record) this.revokeRecord(record, "policy_revision_changed");
@@ -316,7 +335,9 @@ export class WorkspaceManager {
       .map((record) => ({ ...record.workspace }));
     let confirmed: Workspace[] = [];
     try { confirmed = this.confirmedRoots?.listWorkspaces().map((workspace) => ({ ...workspace })) ?? []; } catch { }
-    return [...configured, ...confirmed];
+    let tasks: Workspace[] = [];
+    try { tasks = this.taskWorktrees?.listWorkspaces().map((workspace) => ({ ...workspace })) ?? []; } catch { }
+    return [...configured, ...confirmed, ...tasks];
   }
 
   revokeAll(reason: WorkspaceRevocationReason = "transport_closed"): void {
@@ -327,6 +348,11 @@ export class WorkspaceManager {
     try {
       for (const workspace of this.confirmedRoots?.listWorkspaces() ?? []) {
         this.confirmedRoots?.closeWorkspace(workspace.id);
+      }
+    } catch { }
+    try {
+      for (const workspace of this.taskWorktrees?.listWorkspaces() ?? []) {
+        this.taskWorktrees?.closeWorkspace(workspace.id);
       }
     } catch { }
   }

@@ -234,7 +234,16 @@ export async function workspaceSummary(
   config: CodexProConfig,
   guard: PathGuard,
   workspace: Workspace,
-  options: { includeTree?: boolean; maxDepth?: number; maxEntries?: number; bootstrapContext?: boolean; includeSkills?: boolean; includeGlobalSkills?: boolean } = {}
+  options: {
+    includeTree?: boolean;
+    maxDepth?: number;
+    maxEntries?: number;
+    bootstrapContext?: boolean;
+    includeSkills?: boolean;
+    includeGlobalSkills?: boolean;
+    gitStatusProvider?: () => string | Promise<string>;
+    gitLogProvider?: () => string | Promise<string>;
+  } = {}
 ): Promise<WorkspaceSummary> {
   if (options.bootstrapContext) {
     await ensureAiBridge(config, guard, workspace);
@@ -261,8 +270,12 @@ export async function workspaceSummary(
     treeText = tree.text;
   }
 
-  const status = gitStatus(config, workspace);
-  const log = gitLog(config, workspace, 5);
+  const status = options.gitStatusProvider
+    ? await options.gitStatusProvider()
+    : gitStatus(config, workspace);
+  const log = options.gitLogProvider
+    ? await options.gitLogProvider()
+    : gitLog(config, workspace, 5);
   const skillText = options.includeSkills
     ? `Skills: ${counts.total} total (${counts.workspace ?? 0} workspace, ${counts.user ?? 0} user, ${counts.plugin ?? 0} plugin, ${counts.other ?? 0} other).`
     : "Skills: skipped. Pass include_skills=true if skill discovery is needed.";
@@ -833,6 +846,8 @@ export async function readCodexContext(
     includeDiff?: boolean;
     maxAgentBytes?: number;
     targetKind?: CodexContextTargetKind;
+    gitStatusProvider?: () => string | Promise<string>;
+    gitDiffProvider?: () => string | Promise<string>;
   } = {}
 ): Promise<CodexContext> {
   const target = options.targetKind
@@ -873,8 +888,16 @@ export async function readCodexContext(
             }))
           };
         })();
-  const status = options.includeGit === false ? undefined : gitStatus(config, workspace);
-  const diff = options.includeDiff ? gitDiff(config, guard, workspace) : undefined;
+  const status = options.includeGit === false
+    ? undefined
+    : options.gitStatusProvider
+      ? await options.gitStatusProvider()
+      : gitStatus(config, workspace);
+  const diff = options.includeDiff
+    ? options.gitDiffProvider
+      ? await options.gitDiffProvider()
+      : gitDiff(config, guard, workspace)
+    : undefined;
 
   const text = [
     "# Codex Context",

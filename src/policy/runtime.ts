@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { resolveAuditRequirement, type CodexProConfig } from "../config.js";
-import { CONTRACT_V3_ADDITIONS } from "../tools/contracts/index.js";
-import { authorizationAuditEventV2Schema } from "../audit/schemas.js";
+import { CONTRACT_V3_ADDITIONS, CONTRACT_V4_ADDITIONS, contractIncludesV3 } from "../tools/contracts/index.js";
+import { authorizationAuditEventV2Schema, auditEventV4Schema } from "../audit/schemas.js";
+import type { AuthorizationAuditEventV4 } from "../audit/types.js";
 import type { LocalApprovalRuntimeV3 } from "../control/runtime.js";
 import type { RootAdmissionRuntimeV3 } from "../access/rootAdmission.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import { SessionGrantStore } from "./approval.js";
-import { createAuthorizationFactsV3, semanticDigest } from "./authorizationFacts.js";
+import { createAuthorizationFactsV3, createAuthorizationFactsV4, semanticDigest } from "./authorizationFacts.js";
 import { createAuditEvent } from "./audit.js";
 import { compileCompatibilityProfile } from "./compat.js";
 import { createRequestContext } from "./context.js";
@@ -36,15 +37,17 @@ import {
   fingerprintResource
 } from "./resources.js";
 import { policyDecisionV1Schema } from "./schemas.js";
-import { requiredScopesForTool, toolPolicyDefinition, type PolicyScopeV3 } from "./toolPolicy.js";
+import { requiredScopesForTool, toolPolicyDefinition } from "./toolPolicy.js";
 import type {
   AuditEventV1,
   CompiledPermissionProfileV1,
   PolicyDecisionProvenanceV1,
   PolicyDecisionV1,
   PolicyScope,
+  PolicyScopeV4,
   RequiredCapabilityV1,
   ResourceDescriptorV1,
+  ResourceDescriptorV4,
   RiskClass
 } from "./types.js";
 
@@ -74,7 +77,7 @@ function compiledProfile(config: CodexProConfig): {
 } {
   let graph: LoadedPermissionProfileGraph;
   if (config.permissionProfileId) {
-    if (config.toolContractVersion === 3) {
+    if (contractIncludesV3(config.toolContractVersion)) {
       const graphV3 = loadPermissionProfileGraphV3(config.permissionProfileId);
       const compiledV3 = compilePermissionProfileV3(graphV3, process.platform);
       const { fullAccess: _fullAccess, schemaVersion: _schemaVersion, ...base } = compiledV3;
@@ -99,7 +102,7 @@ function inputDigest(args: Record<string, unknown>): string {
   return `sha256:${createHash("sha256").update(JSON.stringify(args), "utf8").digest("hex")}`;
 }
 
-function operationForApproval(resource: ResourceDescriptorV1): string {
+function operationForApproval(resource: ResourceDescriptorV4): string {
   return `${resource.kind}.${resource.operation}`;
 }
 
@@ -170,11 +173,11 @@ function toolMayMutate(toolName: string, config: CodexProConfig): boolean {
 }
 
 interface DescribedPolicyResource {
-  resource: ResourceDescriptorV1;
+  resource: ResourceDescriptorV4;
   requiredCapabilities: RequiredCapabilityV1[];
   riskClass: RiskClass;
   requiredScope: PolicyScope | null;
-  requiredScopes: readonly PolicyScopeV3[];
+  requiredScopes: readonly PolicyScopeV4[];
   semanticFactsDigest: string | null;
 }
 
@@ -192,7 +195,7 @@ function describeResource(
     const described = resourceResolver.describe(toolName, args);
     const v3Addition = (CONTRACT_V3_ADDITIONS as readonly string[]).includes(toolName);
     const requiredScopes = described.requiredScopes
-      ? [...described.requiredScopes] as PolicyScopeV3[]
+      ? [...described.requiredScopes] as PolicyScopeV4[]
       : v3Addition
         ? [...requiredScopesForTool(toolName, {
             contractVersion: 3,
@@ -296,8 +299,8 @@ function describeResource(
 
 function contextDecision(input: {
   contextPolicyRevision: string;
-  resource: ResourceDescriptorV1;
-  requiredScopes: readonly PolicyScopeV3[];
+  resource: ResourceDescriptorV4;
+  requiredScopes: readonly PolicyScopeV4[];
   scopes: readonly string[];
   riskClass: RiskClass;
   granted?: { grantId: string; approvalId: string };
@@ -425,7 +428,8 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
     currentEvidenceRevision()
   );
   const grants = input.localApprovalRuntimeV3?.grants ?? input.grants ?? new SessionGrantStore();
-  const contractV3 = Number(input.config.toolContractVersion) === 3;
+  const contractV3 = Number(input.config.toolContractVersion) === 3 ||
+    Number(input.config.toolContractVersion) === 4;
 
   return {
     mode: input.config.policyEngineMode ?? "legacy",
@@ -468,7 +472,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         input.resourceResolver
       );
       const now = new Date().toISOString();
-      const workspaceId = described.resource.workspaceId ?? null;
+      const workspaceId = "workspaceId" in described.resource ? described.resource.workspaceId ?? null : null;
       const context = createRequestContext(input.sessionSource, {
         requestId: `request_${randomUUID().replaceAll("-", "")}`,
         workspaceId,
@@ -478,9 +482,12 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         sessionGrantRevision: grants.revision(),
         receivedAt: now
       });
-      const effectiveScopes: PolicyScopeV3[] = [...context.identity.scopes];
+      const effectiveScopes: PolicyScopeV4[] = [...context.identity.scopes];
       if (contractV3 && input.config.executionProfile !== "off") effectiveScopes.push("process:manage", "shell:execute", "process:persistent");
       if (contractV3 && input.config.executionProfile === "full_access") effectiveScopes.push("host:full-access", "workspace:full-access", "network:connect");
+      if (Number(input.config.toolContractVersion) === 4 && input.config.gitMode === "local") {
+        effectiveScopes.push("git:index:write", "git:refs:write", "git:commit", "git:merge", "worktree:manage");
+      }
 
       const digest = inputDigest(args);
       const matchInput = {
@@ -496,10 +503,12 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         ? await input.localApprovalRuntimeV3.reserveMatching(matchInput)
         : null;
       const v3Addition = contractV3 && (CONTRACT_V3_ADDITIONS as readonly string[]).includes(toolName);
-      let decision = toolPolicyDefinition(toolName).resourceMode === "context_only" || v3Addition
+      const v4Addition = Number(input.config.toolContractVersion) === 4 &&
+        (CONTRACT_V4_ADDITIONS as readonly string[]).includes(toolName);
+      let decision = toolPolicyDefinition(toolName).resourceMode === "context_only" || v3Addition || v4Addition
         ? contextDecision({
             contextPolicyRevision: policyRevision,
-            resource: described.resource,
+            resource: described.resource as ResourceDescriptorV1,
             requiredScopes: described.requiredScopes,
             scopes: effectiveScopes,
             riskClass: described.riskClass,
@@ -509,7 +518,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
             context,
             activePolicyRevision: policyRevision,
             profile: compiled.profile,
-            resource: described.resource,
+            resource: described.resource as ResourceDescriptorV1,
             riskClass: described.riskClass,
             grants: reserved ? [reserved.reservation.grant] : contractV3 ? [] : grants.snapshot(),
             requiredCapabilities: described.requiredCapabilities,
@@ -536,7 +545,13 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
           inputDigest: digest,
           args
         });
-        const executionDisplay = described.resource as unknown as { kind?: string; backendId?: unknown; argumentCount?: unknown; accessMode?: unknown };
+        const executionDisplay = described.resource as unknown as {
+          kind?: string;
+          backendId?: unknown;
+          argumentCount?: unknown;
+          accessMode?: unknown;
+          integrationMode?: unknown;
+        };
         const facts = createAuthorizationFactsV3({
           serverId: input.localApprovalRuntimeV3.serverId,
           credentialRef: context.identity.credentialRef,
@@ -572,11 +587,14 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
               : approvalArgumentCount(args),
             logicalScope: context.workspaceId ?? "server",
             identityLabel: context.identity.subject ?? context.identity.kind,
-            authoritySummary: executionDisplay.kind === "execution" && executionDisplay.accessMode === "full_access"
-              ? "full_access: current-user unrestricted filesystem, credentials, registry, and network; no sandbox; host writeback possible; job-object members only; broker escape resistance none"
-              : described.riskClass === "R3"
-                ? "ambient or destructive authority; local decision required"
-              : "bounded local authority; local decision required",
+            authoritySummary: executionDisplay.kind === "git_v4" &&
+              executionDisplay.integrationMode === "approved_full_access"
+              ? "approved Git integration: ambient current-user full_access; no filesystem, credential, registry, network, or broker isolation; typed operation only"
+              : executionDisplay.kind === "execution" && executionDisplay.accessMode === "full_access"
+                ? "full_access: current-user unrestricted filesystem, credentials, registry, and network; no sandbox; host writeback possible; job-object members only; broker escape resistance none"
+                : described.riskClass === "R3"
+                  ? "ambient or destructive authority; local decision required"
+                  : "bounded local authority; local decision required",
             digestPrefix: semanticFacts.replace(/^sha256:/, "").slice(0, 16),
             revealArguments: approvalRevealArguments(args)
           },
@@ -608,6 +626,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
       }
 
       const grantId = decision.provenance.find((item) => item.grantId)?.grantId ?? null;
+      const approvalId = decision.provenance.find((item) => item.approvalId)?.approvalId ?? null;
       const approvalState: AuditEventV1["approvalState"] = decision.outcome === "approval_required"
         ? "required"
         : grantId
@@ -615,12 +634,12 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
           : decision.outcome === "allow"
             ? "not_required"
             : "denied";
-      const auditEvent = createAuditEvent({
+      const auditEvent = v4Addition ? null : createAuditEvent({
         eventId: `event_${randomUUID().replaceAll("-", "")}`,
         timestamp: new Date().toISOString(),
         context,
         decision,
-        resource: described.resource,
+        resource: described.resource as ResourceDescriptorV1,
         toolName,
         canonicalAction: toolName,
         capabilities,
@@ -636,7 +655,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         auditMode: input.config.auditMode ?? "auto",
         policyEngineMode: input.config.policyEngineMode ?? "legacy"
       }, described.riskClass, mutating);
-      const auditContext = requirement === "disabled" || !input.persistentAudit
+      const auditContext = !auditEvent || requirement === "disabled" || !input.persistentAudit
         ? undefined
         : {
             authorizationEvent: authorizationAuditEventV2Schema.parse({
@@ -668,11 +687,81 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
             riskClass: described.riskClass,
             mutating
           };
+      let v4Authorization: PolicyAuthorizationResult["v4Authorization"];
+      if (
+        v4Addition &&
+        described.resource.kind === "git_v4" &&
+        (["R1", "R2", "R3"] as const).includes(described.riskClass as "R1" | "R2" | "R3")
+      ) {
+        const expiresAt = new Date(Date.parse(now) + 5 * 60_000).toISOString();
+        const ownerSeed = `${context.identity.kind}\0${context.identity.subject ?? ""}\0${context.identity.credentialRef ?? ""}`;
+        const facts = createAuthorizationFactsV4({
+          serverId: input.localApprovalRuntimeV3?.serverId ?? "server-v4",
+          ownerId: `owner_${createHash("sha256").update(ownerSeed).digest("hex").slice(0, 32)}`,
+          credentialRef: context.identity.credentialRef,
+          credentialRevision: context.identity.credentialRef
+            ? semanticDigest({ credentialRef: context.identity.credentialRef })
+            : "credential-none",
+          transportKind: context.transportKind,
+          transportSessionId: context.transportSessionId,
+          repositoryId: described.resource.repositoryId,
+          worktreeId: described.resource.worktreeId,
+          policyRevision,
+          configurationRevision: semanticDigest({
+            gitMode: input.config.gitMode,
+            gitIntegrations: input.config.gitIntegrations,
+            contract: input.config.toolContractVersion
+          }),
+          capabilityRevision: currentEvidenceRevision(),
+          pathPolicyRevision: semanticDigest({ blockedGlobs: input.config.blockedGlobs }),
+          secretPolicyRevision: HARD_POLICY_REVISION,
+          toolContractVersion: "4",
+          toolName,
+          canonicalAction: described.resource.operation,
+          operation: described.resource.operation,
+          resourceFingerprint: described.resource.resourceFingerprint,
+          inputDigest: digest,
+          semanticFactsDigest: described.semanticFactsDigest ?? semanticDigest(described.resource),
+          riskClass: described.riskClass as "R1" | "R2" | "R3",
+          issuedAt: now,
+          expiresAt
+        });
+        v4Authorization = auditEventV4Schema.parse({
+          schemaVersion: 4,
+          contractVersion: 4,
+          eventId: `event_${randomUUID().replaceAll("-", "")}`,
+          eventType: "authorization",
+          timestamp: now,
+          requestId: context.requestId,
+          authorizationEventId: null,
+          decisionId: decision.decisionId,
+          toolName,
+          canonicalAction: described.resource.operation,
+          workspaceId,
+          policyRevision,
+          subjectFingerprint: facts.subjectFingerprint,
+          contextFingerprint: facts.contextFingerprint,
+          resultCode: decision.reasonCode,
+          counts: {
+            affectedPathCount: described.resource.affectedPathCount,
+            affectedByteCount: described.resource.affectedByteCount
+          },
+          repositoryId: described.resource.repositoryId,
+          taskWorktreeId: described.resource.worktreeId,
+          operationId: null,
+          outcome: decision.outcome,
+          riskClass: described.riskClass,
+          resourceFingerprint: described.resource.resourceFingerprint,
+          approvalId,
+          grantId
+        }) as AuthorizationAuditEventV4;
+      }
       return {
         decision,
         auditEvent,
         auditContext,
         localApproval,
+        v4Authorization,
         reservation: reserved && decision.outcome === "allow"
           ? {
               schemaVersion: 3,

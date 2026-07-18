@@ -3,6 +3,7 @@ import type { CodexProConfig } from "./config.js";
 import type { Workspace } from "./guard.js";
 import { CodexProError, PathGuard } from "./guard.js";
 import { redactSensitiveText } from "./redact.js";
+import type { GitDiffDataV4, GitLogDataV4, GitStatusDataV4 } from "./git/readService.js";
 
 function runGit(workspace: Workspace, args: string[], maxOutputBytes: number): string {
   const result = spawnSync("git", args, {
@@ -80,6 +81,76 @@ export function gitDiffStatus(config: CodexProConfig, guard: PathGuard, workspac
 export function gitLog(config: CodexProConfig, workspace: Workspace, maxCount = 8): string {
   const count = Math.max(1, Math.min(Math.floor(maxCount), 30));
   return runGit(workspace, ["log", `--max-count=${count}`, "--oneline", "--decorate"], config.maxOutputBytes);
+}
+
+function shortStatusCode(value: string): string {
+  switch (value) {
+    case "unmodified": return " ";
+    case "added": return "A";
+    case "modified": return "M";
+    case "deleted": return "D";
+    case "renamed": return "R";
+    case "copied": return "C";
+    case "type_changed": return "T";
+    case "unmerged": return "U";
+    default: return "?";
+  }
+}
+
+export function projectGitStatusV4ToLegacy(
+  data: GitStatusDataV4,
+  options: { staged?: boolean; includeBranch?: boolean; currentBranchName?: string | null } = {}
+): string {
+  const lines: string[] = [];
+  if (options.includeBranch !== false) {
+    if (data.head.kind === "detached") lines.push(`## HEAD (detached at ${data.head.oid.slice(0, 12)})`);
+    else if (data.head.kind === "unborn") lines.push(`## No commits yet on ${options.currentBranchName ?? "[branch omitted]"}`);
+    else lines.push(`## ${options.currentBranchName ?? "[branch omitted]"}`);
+  }
+  for (const entry of data.entries) {
+    if (options.staged && entry.index === "unmodified") continue;
+    if (!options.staged && entry.index === "unmodified" && entry.worktree === "unmodified") continue;
+    if (!options.staged && entry.worktree === "untracked") {
+      lines.push(`?? ${entry.path}`);
+      continue;
+    }
+    const renderedPath = entry.old_path ? `${entry.old_path} -> ${entry.path}` : entry.path;
+    const index = shortStatusCode(entry.index);
+    const worktree = options.staged ? " " : shortStatusCode(entry.worktree);
+    lines.push(`${index}${worktree} ${renderedPath}`);
+  }
+  return lines.length > 0 ? lines.join("\n") : "(no output)";
+}
+
+export function projectGitDiffStatusV4ToLegacy(data: GitDiffDataV4): string {
+  const code = (change: GitDiffDataV4["changes"][number]["change"]): string => {
+    switch (change) {
+      case "added": return "A";
+      case "modified": return "M";
+      case "deleted": return "D";
+      case "renamed": return "R";
+      case "copied": return "C";
+      case "type_changed": return "T";
+      case "unmerged": return "U";
+    }
+  };
+  const lines = data.changes.map((entry) =>
+    entry.old_path ? `${code(entry.change)}\t${entry.old_path}\t${entry.path}` : `${code(entry.change)}\t${entry.path}`
+  );
+  return lines.length > 0 ? lines.join("\n") : "(no output)";
+}
+
+export function projectGitDiffV4ToLegacy(data: GitDiffDataV4): string {
+  return data.patch_included && data.patch.trim() ? data.patch : "(no output)";
+}
+
+export function projectGitLogV4ToLegacy(data: GitLogDataV4): string {
+  const lines = data.commits.map((commit) => {
+    const subject = commit.subject ?? "[subject omitted]";
+    return `${commit.oid.slice(0, 12)} ${subject}`;
+  });
+  if (data.truncated) lines.push("...[history truncated]");
+  return lines.length > 0 ? lines.join("\n") : "(no output)";
 }
 
 export function assertGitCleanEnoughForWrite(_workspace: Workspace): void {
