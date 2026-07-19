@@ -56,7 +56,12 @@ export async function withGitMutationRepository(callback, options = {}) {
         return fs.mkdtemp(path.join(privateRoot, `${prefix}-`));
       },
       async removePrivateDirectory(directory) {
-        await fs.rm(directory, { recursive: true, force: true });
+        await fs.rm(directory, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 100
+        });
       },
       async run(repository, args, options = {}) {
         calls.push([...args]);
@@ -209,8 +214,8 @@ export async function withGitMutationRepository(callback, options = {}) {
       registry.dispose();
     }
   } finally {
-    await fs.rm(root, { recursive: true, force: true });
-    await fs.rm(privateRoot, { recursive: true, force: true });
-    await fs.rm(stateRoot, { recursive: true, force: true });
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(privateRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(stateRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 }

@@ -14,11 +14,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 3 runtime and closure heads passed exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package; exact SHAs and run IDs remain in the Phase 3 archive.
 - Reduced Phase 4 is formally closed at head `d19e65ba75938c35afa472d23d91d1724fe7fabf`. Exact-head run `29603060944` completed successfully across repository policy and Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package.
 - Phase 4 retains truthful trusted-code `full_access`; diagnostic 4B0 remains blocked/non-production, while `workspace` and Tasks 4B1–4B6 remain deferred with no fallback.
-- Phase 5 remains open but its final local closure tree is green. Commit `e54d55d53f76e6632cec7455ec1c0e23f96f96c9` / run `29694450602` still failed the Ubuntu Gate X integration; diagnostic commit `1c6c415c58cf663443240417b2a59198b991659a` / run `29694656908` exposed `git status` status 128 with `error: bad tree object HEAD`. STEP-361 repairs the missing private-index tree-object closure; one final commit, push, and terminal exact-head run remain before Phase 6.
+- Phase 5 remains open. Closure commit `515a7002d6a149358ddb5cbc0af30796e45bf0c5` fixed the private-index object closure, but exact-head run `29696675119` failed only Windows Node 20 when recursive fixture cleanup hit transient `EPERM` on an executable. STEP-362 adds bounded cleanup retries; one replacement commit, push, and terminal exact-head run remain before Phase 6.
 
 ## Approved execution boundary
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and one push after each verified phase. Publish the bounded Gate X complete-object-closure repair once and require terminal exact-head success before Phase 6. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
+The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and one push after each verified phase. Publish the bounded STEP-362 fixture-cleanup replacement once and require terminal exact-head success before Phase 6. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
 
 ## Active decisions and constraints
 
@@ -47,6 +47,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Mutation inventory binds each direct primitive to path, syscall, semantic digest, and reviewed purpose; atomic production paths cannot fall back to legacy writers.
 - CI evidence is exact-HEAD-bound, compact, and stored only below ignored `.ai-bridge/`. Manifest assets stay LF-pinned; Windows paths use `path.win32`; POSIX lookup passes candidates only as quoted positional data and never uses `shell: true` with argv.
 - `scripts/test-domains.mjs` is authoritative: isolated complete regression uses `all`, connector-backed local work uses `ordinary`, and Windows control runs serialize. Long runs use the identity-bound detached runner; destructive stop oracles remain control-domain only.
+- Verification is impact-scoped, not ritualized: during repair loops run the failing reproducer, new regression, and directly affected gates; rerun complete local ordinary/control/Smoke only when the change invalidates that evidence or touches shared runtime/security boundaries. Documentation or evidence-only edits do not invalidate unrelated runtime results. Every final runtime-relevant pushed SHA still requires terminal exact-head CI.
 - Gate N uses the manifest-bound PowerShell/C# `CXP4` host with creation-time Job/handle-list ownership, clean environment, exact image identity, bounded output and deadlines. Capability remains `job_object_members_only`; broker escape resistance remains `none`; ConPTY success accepts exit 0 or exact `STATUS_CONTROL_C_EXIT` only with all required evidence.
 - `SystemDrive`, `SystemRoot`, `WINDIR`, `ProgramData`, `ComSpec`, minimal `PATH=System32;Windows`, and `PATHEXT` are fixed system values in clean native child environments; caller values cannot override them.
 - The master implementation plan is the sequencing authority. Complete isolated regression uses `node scripts/test-domains.mjs run --domain all`; connector-backed local regression uses `--domain ordinary`. There is no `npm test` script.
@@ -78,17 +79,17 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the STEP-361 complete-object-closure repair and require its exact 40-character SHA to pass repository policy plus Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package before Phase 6.
+1. Publish the STEP-362 bounded Windows fixture-cleanup repair and require its exact 40-character SHA to pass repository policy plus Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package before Phase 6.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
 3. Do not publish a task-level Phase 5 slice or create an evidence-only follow-up commit.
 
 ## Recent summaries
 
+- **STEP-362 - Bound transient Windows fixture cleanup:** diagnose exact-head Windows Node 20 `EPERM`, add recursive cleanup retries, validate the affected Gate X test across Node 20/24 plus repeated Node 20 stress, and adopt impact-scoped verification as the standing rule.
 - **STEP-361 - Promote the complete Gate X object closure:** diagnose the private-index cache-tree failure, promote every verified loose object before index installation, prove the new tree is live, and pass fresh local closure gates.
 - **STEP-360 - Repair failed Phase 5 exact-head closure:** restore authoritative Ubuntu `all`, isolate safe fixture hooks, make Windows-backend tests platform-neutral, make POSIX rollback failures deterministic, and close the runner terminal-publication race.
 - **STEP-359 - Re-establish clean Phase 5 closure:** complete final adversarial hardening, discard overlapping-run evidence, and pass fresh isolated ordinary/control/Smoke plus static and package gates; the subsequent exact-head attempt failed.
 - **STEP-358 - Repair Ubuntu closure portability:** replace empty filter overrides with inert non-required passthrough and restrict hard-link rejection to files.
-- **STEP-357 - Complete the first Phase 5 local closure:** pass the first full local matrix before exact-head Ubuntu exposed additional portability defects.
 
 ## Archives
 

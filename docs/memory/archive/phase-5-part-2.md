@@ -252,3 +252,49 @@ That sequence left the private index's cache-tree OID referring to a tree object
 - Existing same-user authority limitations remain. Gate X, clean filters, signing helpers, and `full_access` are not filesystem, credential, registry, network, or broker isolation. Managed worktrees remain workflow isolation, not a sandbox. Tasks 4B1–4B6 and `workspace` remain deferred.
 - Rollback is one revert of the pending STEP-361 closure commit. Rollback must not delete tasks, branches, commits, private stashes, candidates, audit, recovery data, or managed Node toolchains.
 - The final closure SHA does not exist until the exact scope is committed. After one push, bind only that complete 40-character SHA to CI and require terminal success for Classify changes, Repository policy, Ubuntu Node 20/24, and Windows Node 20/24, with Build, authoritative complete Regression, protected Smoke, and Package in every runtime job. Do not create a later memory/evidence-only commit.
+
+## STEP-362 — Bound transient Windows fixture cleanup and adopt impact-scoped verification
+
+**Date:** 2026-07-19
+**Status:** local repair complete; replacement commit, push, and terminal exact-head success pending
+**Next:** commit the exact STEP-362 scope, push `main`, and require the replacement 40-character SHA to pass complete exact-head CI before Phase 6
+
+### Goal and changed files
+
+Repair the only failure in closure commit `515a7002d6a149358ddb5cbc0af30796e45bf0c5` without rerunning unrelated local closure suites. Persist a verification rule that distinguishes fast repair-loop evidence from one-time final-candidate closure evidence.
+
+Changed files: `fixtures/git-v4-test-helper.mjs`, `Memory.md`, and this append-only archive.
+
+### Exact-head failure and root cause
+
+- Exact-head run `29696675119` completed with failure. Classify changes, Repository policy, Ubuntu Node 20, Ubuntu Node 24, and Windows Node 24 all completed successfully. Windows Node 20 Build passed, then Regression failed; its Smoke and Package steps were skipped by the failed job.
+- The first error was Windows Node 20 test `Gate X bounds aggregate filter expansion before any live merge write`: recursive fixture cleanup raised `EPERM` while `lstat` examined `integration-0.exe` below the service-owned temporary integration bundle.
+- The test assertions and Gate X production behavior had completed. The failure was in best-effort removal of ephemeral fixture roots after executable use, where Windows virus scanners and process teardown can retain a short-lived handle. The existing one-shot recursive `fs.rm` treated that transient environmental race as a product failure.
+
+### Implementation
+
+- Added Node's bounded recursive-removal retry controls to the Git V4 fixture's private directory cleanup and final repository/private/state root cleanup: `maxRetries: 5` and `retryDelay: 100` milliseconds.
+- The repair changes only test cleanup behavior. It does not retry production Git mutations, approval effects, ref updates, object promotion, or user-data deletion.
+- Retry scope remains finite and narrow. A persistent lock still fails after the bounded retry window and remains visible to CI.
+
+### Impact-scoped verification rule
+
+- Repair loops run the failing reproducer, the new regression when applicable, and directly affected build/policy/static gates. They do not mechanically rerun ordinary, control, protected Smoke, and packaging after every edit.
+- Complete local candidate closure is rerun only when the repair invalidates existing evidence or changes shared runtime, security, workflow, package, configuration, source, or test-runner semantics with a broad blast radius.
+- Documentation or evidence-only edits do not invalidate unrelated runtime evidence. A final runtime-relevant pushed SHA still requires the complete exact-head CI matrix because clean checkout, Ubuntu/Windows, Node 20/24, workflow permissions, and packaging are CI-owned evidence.
+- For this fixture-only cleanup change, prior STEP-361 ordinary/control/Smoke evidence remains valid. Repeating those suites locally would not add coverage proportional to their cost; the exact-head replacement run remains authoritative for the complete matrix.
+
+### Targeted verification
+
+- `npm run build` passed before the focused matrix.
+- `node scripts/toolchain-manager.mjs matrix --major all -- node --test --test-concurrency=1 test/git-integrations-worktree.test.mjs` passed 4/4 on Node 20.20.2 and 4/4 on Node 24.15.0.
+- Three additional independent Node 20.20.2 runs of the same affected file passed 4/4 each, for 12/12 stress assertions after the initial Node 20 pass.
+- A concurrent Node 20.20.2 run of every direct consumer of `git-v4-test-helper.mjs`, including all task-worktree helper consumers, reported 79 tests, 78 pass, zero failures, and one established platform skip.
+- Final repository policy and diff gates passed on the complete STEP-362 working tree before staging.
+
+### Adversarial review, risks, rollback, and next
+
+- Review checked that retries are confined to recursive fixture cleanup, remain bounded, do not hide assertion failures, and cannot authorize or repeat a production side effect. No production file or runtime path is changed.
+- A persistent executable handle still causes failure after at most five retries with 100-millisecond linear delay; the change reduces transient Windows noise without converting deterministic cleanup defects into success.
+- Rollback is one revert of the pending STEP-362 commit. It changes no user repository, branch, task worktree, audit, recovery, credential, or managed toolchain state.
+- Stage only the three changed files, create one concise English commit, push once, and bind only the replacement full SHA to exact-head CI. Do not create a later evidence-only commit.
