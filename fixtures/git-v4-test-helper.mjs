@@ -38,6 +38,8 @@ export async function withGitMutationRepository(callback, options = {}) {
   const privateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-v4-private-"));
   const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-v4-state-"));
   try {
+    const safeHooksRoot = path.join(privateRoot, "safe-hooks");
+    await fs.mkdir(safeHooksRoot);
     runGit(root, ["init", "--initial-branch=main", ...(options.objectFormat ? [`--object-format=${options.objectFormat}`] : [])]);
     runGit(root, ["config", "user.name", "CodexPro Test"]);
     runGit(root, ["config", "user.email", "codexpro@example.invalid"]);
@@ -84,7 +86,10 @@ export async function withGitMutationRepository(callback, options = {}) {
             ...(options.identity.systemCommitterDate ? { GIT_COMMITTER_DATE: options.identity.systemCommitterDate } : {})
           } : {})
         };
-        const config = (options.configOverrides ?? []).flatMap((entry) => ["-c", entry]);
+        const config = [
+          `core.hooksPath=${safeHooksRoot}`,
+          ...(options.configOverrides ?? [])
+        ].flatMap((entry) => ["-c", entry]);
         const result = spawnSync("git", [...prefix, ...config, ...args], {
           cwd: repository?.worktreeRoot ?? root,
           input: options.stdin,

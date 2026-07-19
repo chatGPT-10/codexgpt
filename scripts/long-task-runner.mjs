@@ -247,6 +247,19 @@ async function readRunFiles(directory) {
   return { metadata, result, stopped, evidence };
 }
 
+async function waitForTerminalPublication(directory, deadlineMs = 1_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    const [result, stopped] = await Promise.all([
+      readJson(path.join(directory, "result.json")),
+      readJson(path.join(directory, "stopped.json"))
+    ]);
+    if (result || stopped) return { result, stopped };
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  return { result: undefined, stopped: undefined };
+}
+
 async function runState(directory) {
   const files = await readRunFiles(directory);
   if (!files) return undefined;
@@ -264,17 +277,20 @@ async function runState(directory) {
     if (identity.owned) {
       status = "running";
     } else {
-      const [lateResult, lateStopped] = await Promise.all([
-        readJson(path.join(directory, "result.json")),
-        readJson(path.join(directory, "stopped.json"))
-      ]);
-      if (lateStopped) {
+      const exactEvidence = workerEvidenceMatches(metadata, evidence);
+      const terminal = exactEvidence
+        ? await waitForTerminalPublication(directory)
+        : {
+            result: await readJson(path.join(directory, "result.json")),
+            stopped: await readJson(path.join(directory, "stopped.json"))
+          };
+      if (terminal.stopped) {
         status = "stopped";
-        return { ...metadata, status, identity: { owned: false, reason: "stop_recorded" }, result: lateResult ?? null, stopped: lateStopped };
+        return { ...metadata, status, identity: { owned: false, reason: "stop_recorded" }, result: terminal.result ?? null, stopped: terminal.stopped };
       }
-      if (lateResult) {
+      if (terminal.result) {
         status = "completed";
-        return { ...metadata, status, identity: { owned: false, reason: "result_recorded" }, result: lateResult, stopped: null };
+        return { ...metadata, status, identity: { owned: false, reason: "result_recorded" }, result: terminal.result, stopped: null };
       }
       status = "stale";
     }

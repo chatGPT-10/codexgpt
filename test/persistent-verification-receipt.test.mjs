@@ -12,6 +12,8 @@ import {
   startProcessInputV4Schema
 } from "../dist/tools/schemas/execution.js";
 
+const syntheticWindowsExecutable = "C:\\CodexPro\\node.exe";
+
 const fullAccessProfile = Object.freeze({
   ambientFilesystem: true,
   ambientCredentials: true,
@@ -40,7 +42,7 @@ async function waitForReceipt(manager, processId) {
 }
 
 function runtimeFor(fixture) {
-  const executable = process.execPath;
+  const executable = syntheticWindowsExecutable;
   const runtime = new RunCommandRuntimeV3({
     config: {
       executionProfile: "full_access",
@@ -83,7 +85,7 @@ async function preparedCandidate(fixture) {
 
 function verificationArgs(prepared) {
   return {
-    command: { kind: "argv", executable: process.execPath, args: ["--version"] },
+    command: { kind: "argv", executable: syntheticWindowsExecutable, args: ["--version"] },
     cwd: { kind: "workspace" },
     mode: "full_access",
     terminal: "pipes",

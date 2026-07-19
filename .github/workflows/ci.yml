@@ -84,7 +84,7 @@ jobs:
         run: npm run build
 
       - name: Regression Tests
-        run: node scripts/run-and-summarize.mjs --label regression-ubuntu-node-${{ matrix.node-version }} -- node scripts/test-domains.mjs run --domain ordinary
+        run: node scripts/run-and-summarize.mjs --label regression-ubuntu-node-${{ matrix.node-version }} -- node scripts/test-domains.mjs run --domain all
 
       - name: Smoke Test
         run: node scripts/run-and-summarize.mjs --label smoke-ubuntu-node-${{ matrix.node-version }} -- npm run smoke

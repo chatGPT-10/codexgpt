@@ -6,6 +6,8 @@ import { installPolicyKernel } from "../dist/policy/integration.js";
 import { RunCommandRuntimeV3 } from "../dist/process/runCommand.js";
 import { runCommandInputV4Schema } from "../dist/tools/schemas/execution.js";
 
+const syntheticWindowsExecutable = "C:\\CodexPro\\node.exe";
+
 const fullAccessProfile = Object.freeze({
   ambientFilesystem: true,
   ambientCredentials: true,
@@ -29,7 +31,7 @@ test("an audited V4 command on the exact candidate issues a one-use receipt acce
       taskWorktreeId: created.task.task_worktree_id,
       authorization: fixture.authorization
     });
-    const executable = process.execPath;
+    const executable = syntheticWindowsExecutable;
     const runtime = new RunCommandRuntimeV3({
       config: {
         executionProfile: "full_access",
@@ -155,7 +157,7 @@ test("an audited V4 command on the exact candidate issues a one-use receipt acce
 
 test("candidate verification failure publishes no unreachable terminal record", async () => {
   const processId = `process_${"d".repeat(32)}`;
-  const executable = process.execPath;
+  const executable = syntheticWindowsExecutable;
   const runtime = new RunCommandRuntimeV3({
     config: {
       executionProfile: "full_access",

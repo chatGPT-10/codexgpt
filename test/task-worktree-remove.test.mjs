@@ -351,10 +351,12 @@ test("failed second quarantine plus failed rollback enters durable recovery", as
     beforeAdminQuarantine: async ({ worktreeQuarantine, adminQuarantine }) => {
       injected = true;
       await fs.mkdir(adminQuarantine);
+      await fs.writeFile(path.join(adminQuarantine, "rollback-blocker.txt"), "block\n");
       const suffix = worktreeQuarantine.indexOf(".task_");
       if (suffix < 1) throw new Error("INJECT_QUARANTINE_NOT_FOUND");
       const original = worktreeQuarantine.slice(0, suffix);
       await fs.mkdir(original);
+      await fs.writeFile(path.join(original, "rollback-blocker.txt"), "block\n");
     }
   });
 });
@@ -437,6 +439,7 @@ test("post-review quarantine drift plus failed rollback enters durable recovery"
       quarantinedLateFile = path.join(worktreeQuarantine, "late-unreviewed.txt");
       await fs.writeFile(quarantinedLateFile, "preserve\n");
       await fs.mkdir(originalWorktree);
+      await fs.writeFile(path.join(originalWorktree, "rollback-blocker.txt"), "block\n");
     }
   });
 });

@@ -14,7 +14,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 3 runtime and closure heads passed exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package; exact SHAs and run IDs remain in the Phase 3 archive.
 - Reduced Phase 4 is formally closed at head `d19e65ba75938c35afa472d23d91d1724fe7fabf`. Exact-head run `29603060944` completed successfully across repository policy and Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package.
 - Phase 4 retains truthful trusted-code `full_access`; diagnostic 4B0 remains blocked/non-production, while `workspace` and Tasks 4B1–4B6 remain deferred with no fallback.
-- Phase 5 replacement closure candidate is locally green after the Ubuntu portability repair and final adversarial hardening. Fresh isolated Node 20/24 ordinary, Windows control, protected Smoke, build, policy, diff, package, inventory, and secret gates all pass; a replacement closure SHA and terminal exact-head success remain before Phase 6.
+- Phase 5 remains open. Head `cc0ed18c6ee547d09eee4dcad10fd61918a2f9ab` and exact-head run `29690457396` failed because Ubuntu regression was incorrectly narrowed from authoritative `all` to `ordinary`, while cross-platform fixture, synthetic Windows backend, POSIX rename-failure injection, and detached-runner terminal-publication assumptions remained unfixed. STEP-360 repairs these causes and is locally green; one replacement closure SHA and terminal exact-head success remain before Phase 6.
 
 ## Approved execution boundary
 
@@ -61,6 +61,7 @@ The user authorized continuous recommended-option implementation through Phase 8
 - STEP-357 Phase 5 final ordinary run `2026-07-18T22-25-18-928Z-phase5c-ordinary-final-7783f2dd` passed both pinned majors: each 1,015 tests, 1,014 pass, 0 fail, one established skip. Windows control and protected Smoke also passed both/complete domains; build, policy, diff, focused 30/30, and 509-entry package dry-run passed.
 - STEP-358 exact-head run `29664071044` for `d414531` exposed Ubuntu-only empty-filter and POSIX directory-link-count assumptions. Fixed with a non-required inert filter sentinel and file-only hard-link rejection; focused portability tests pass 11/11.
 - STEP-359 re-established clean local closure after final adversarial hardening. Ordinary run `2026-07-19T13-04-21-322Z-phase5-clean-ordinary-matrix-87b14466` passed Node 20/24 at 1,083 tests, 1,081 pass, zero fail, two skips each; control run `2026-07-19T13-24-53-997Z-phase5-clean-control-matrix-df959fc3` passed 113/113 on each major; Smoke run `2026-07-19T13-32-27-618Z-phase5-clean-smoke-matrix-2e837136` passed all eight sections on both majors. Build, policy, diff, 520-entry package dry-run, focused static 44/44, and safe changed-file secret scan also pass.
+- STEP-360 repaired the failed `cc0ed18` closure without reducing CI coverage. Fresh ordinary run `2026-07-19T15-28-34-729Z-phase5-closure-ordinary-a9c82872` passed both pinned majors at 1,083 tests, 1,081 pass, zero fail, two skips each; control run `2026-07-19T15-50-53-099Z-phase5-closure-control-a95d827c` passed 113/113 on each major; Smoke run `2026-07-19T15-59-05-136Z-phase5-closure-smoke-84c49ddf` passed all eight sections on both majors. Focused regression passed 31/31, runner-log bounds passed ten repeated probes, static inventory passed 18/18, and build, policy, diff, and 520-entry package dry-run passed.
 
 ## Known limitations
 
@@ -79,17 +80,17 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the locally green replacement Phase 5 closure commit and require replacement-SHA exact-head success before Phase 6.
+1. Publish the STEP-360 replacement Phase 5 closure repair and require its exact 40-character SHA to pass repository policy plus Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package before Phase 6.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
 3. Do not publish a task-level Phase 5 slice or create an evidence-only follow-up commit.
 
 ## Recent summaries
 
-- **STEP-359 - Re-establish clean Phase 5 closure:** complete final adversarial hardening, discard overlapping-run evidence, and pass fresh isolated ordinary/control/Smoke plus static and package gates; replacement closure SHA pending.
+- **STEP-360 - Repair failed Phase 5 exact-head closure:** restore authoritative Ubuntu `all`, isolate safe fixture hooks, make Windows-backend tests platform-neutral, make POSIX rollback failures deterministic, and close the runner terminal-publication race; all fresh local gates pass.
+- **STEP-359 - Re-establish clean Phase 5 closure:** complete final adversarial hardening, discard overlapping-run evidence, and pass fresh isolated ordinary/control/Smoke plus static and package gates; the subsequent `cc0ed18` exact-head attempt failed.
 - **STEP-358 - Repair Ubuntu closure portability:** replace empty filter overrides with inert non-required passthrough and restrict hard-link rejection to files.
 - **STEP-357 - Complete the first Phase 5 local closure:** Node 20/24 ordinary, Windows control, protected Smoke, build, policy, diff, focused Gate X, and 509-entry package dry-run passed before the first exact-head portability failure.
 - **STEP-356 - Gate X adversarial closure:** rejected unknown typed operations and missing private object/index state, made approval cards disclose ambient full access with no isolation, reconciled public/security/design docs, and passed focused plus managed Windows control gates.
-- **STEP-355 - Reconcile Phase 5B knowledge:** neat-freak aligned rules, plan, memory, package/mutation/domain inventories, limits, and the Phase 5C handoff.
 
 ## Archives
 

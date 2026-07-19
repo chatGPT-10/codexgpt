@@ -153,3 +153,42 @@ Changed in this step: `src/worktrees/mergePrepare.ts`, `scripts/smoke-platform-c
 - The Git fixes narrow argument interpretation; they do not add remote, credential, force, config-mutation, or arbitrary-command capability. The Smoke fix changes only the test compatibility expectation and preserves native realpath production behavior.
 - Same-binary rollback remains `CODEXPRO_GIT_MODE=read`, `CODEXPRO_GIT_INTEGRATIONS=off`, or V3 projection as applicable. Rollback must not delete tasks, branches, commits, private stashes, candidates, audit, or recovery evidence.
 - Do not create an evidence-only follow-up commit after CI. The exact-head run belongs to the single replacement closure SHA.
+
+## STEP-360 — Repair the failed Phase 5 exact-head closure
+
+**Date:** 2026-07-19
+**Status:** local closure complete; replacement commit, push, and terminal exact-head success pending
+**Next:** publish this bounded repair once and require its exact 40-character SHA to pass the complete CI matrix before Phase 6
+
+The earlier duplicate `STEP-359` headings remain unchanged because this archive is append-only. Sequence resumes here at `STEP-360`.
+
+### Goal and changed files
+
+Repair the exact causes exposed by head `cc0ed18c6ee547d09eee4dcad10fd61918a2f9ab` and CI run `29690457396` without narrowing authoritative coverage or weakening the Phase 5 safe Git, process-identity, worktree-recovery, and no-sandbox boundaries.
+
+Changed files: `.github/workflows/ci.yml`, `fixtures/git-v4-test-helper.mjs`, `scripts/long-task-runner.mjs`, `test/persistent-verification-receipt.test.mjs`, `test/task-worktree-remove.test.mjs`, `test/verification-run-command-integration.test.mjs`, `Memory.md`, and this archive.
+
+### Root causes and implementation
+
+- Reverted the invalid `cc0ed18` workflow reduction. Ubuntu and Windows CI again run the authoritative `test-domains.mjs --domain all` suite through the bounded summary wrapper; the fail-closed workflow contract remains unchanged.
+- Repaired the Gate X fixture boundary. Safe fixture Git calls had inherited repository `core.hooksPath`, so a post-commit safe `git status` could execute `post-index-change` on Ubuntu. The fixture now supplies a private empty hooks directory for every safe call; reviewed Gate X execution still uses only the separately snapshotted approved hooks path.
+- Repaired platform-neutral verification tests. Pure logic tests had passed POSIX `process.execPath` into the Windows-host command compiler, which correctly rejected it as `BACKEND_STALE`. They now use one consistent synthetic Windows executable identity while retaining mocked host execution and exact resource binding.
+- Repaired POSIX removal fault injection. POSIX `rename` may replace an empty directory, unlike Windows. The rollback destinations are now deliberately non-empty, making second-quarantine and rollback failure deterministic on both platforms without changing production removal semantics.
+- Repaired the detached-runner terminal publication race. When exact worker metadata/evidence match but the process exits immediately before the atomic result or stop record becomes visible, status waits for a bounded one-second publication window. A record produces the correct terminal state; absence after the bound remains `stale`. Forged or mismatched evidence receives no grace.
+
+### Verification
+
+- Focused build and regression passed 31/31 across CI workflow, Gate X, verification receipts, worktree removal, and runner bounds. `runner-log-bounds.test.mjs` then passed ten consecutive independent probes.
+- Managed ordinary run `2026-07-19T15-28-34-729Z-phase5-closure-ordinary-a9c82872` completed with exit code 0, empty stderr, and 323,602 bytes of untruncated stdout. Node 20.20.2 and Node 24.15.0 each reported 1,083 tests, 1,081 pass, zero failures, and two established skips.
+- Managed Windows control run `2026-07-19T15-50-53-099Z-phase5-closure-control-a95d827c` completed with exit code 0, empty stderr, and 35,037 bytes of untruncated stdout. Each pinned major passed 113/113 with zero skips.
+- Managed protected Smoke run `2026-07-19T15-59-05-136Z-phase5-closure-smoke-84c49ddf` completed with exit code 0, empty stderr, and untruncated output. Both majors passed analysis, analysis CLI, main, HTTP, Pro CLI, doctor, settings, and execute/watch/loop handoff.
+- `npm run build --silent`, `npm run policy:check`, and `git diff --check` passed. Focused mutation/package/domain/operational inventory passed 18/18. `npm pack --dry-run --json` passed with 520 entries, package size 1,140,057 bytes, and unpacked size 6,290,883 bytes.
+- Independent reviewer automation was attempted after the usable result existed. The Windows connector returned 502 and local Codex review was blocked by revoked authentication before producing findings. Two separate manual adversarial passes then checked security/cross-platform semantics and CI/runner reliability. No additional P0 or P1 issue remained; production `NUL` hooks handling is confined to the verified Windows-only executor, while the cross-platform fixture now uses a private empty directory.
+
+### Decisions, risks, rollback, and next
+
+- Full `all` remains the isolated CI authority. `ordinary` is only the connector-safe local domain; it must never replace complete CI regression.
+- The one-second runner grace recognizes only an already authenticated worker whose terminal record is racing publication. It does not extend ownership, preserve a dead worker as running, or accept mismatched evidence.
+- Gate X and `full_access` remain ambient same-user authority with no filesystem, credential, registry, network, or broker isolation. Managed worktrees remain workflow isolation, not an OS sandbox. Tasks 4B1–4B6 and `workspace` remain deferred.
+- Rollback is one revert of the pending STEP-360 closure commit. Rollback must not delete tasks, branches, commits, private stashes, candidates, audit, recovery data, or the managed Node toolchains.
+- Stage only the exact changed scope, create one concise English commit, push `main` once, and bind the exact resulting SHA to CI. Do not create a later evidence-only commit solely to record a successful run.
