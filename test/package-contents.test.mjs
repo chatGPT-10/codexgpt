@@ -77,7 +77,8 @@ test("published package keeps website assets but excludes internal memory archiv
   }
   for (const requiredOwnedTempFile of [
     "scripts/owned-temp-root.mjs",
-    "scripts/run-smoke.mjs"
+    "scripts/run-smoke.mjs",
+    "scripts/run-with-cleanup.mjs"
   ]) {
     assert.ok(files.includes(requiredOwnedTempFile), `Published package must retain ${requiredOwnedTempFile}`);
   }

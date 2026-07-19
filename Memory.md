@@ -10,15 +10,13 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Workspace: `D:\Dev\codexpro`; branch: `main`; package: `codexpro@0.28.6`.
 - GitHub repository and `origin`: `chatGPT-10/codexgpt` over HTTPS.
 - Primary platform: native Windows; WSL remains optional.
-- Phase 0, Phase 0.5, Phase 1, the Policy Kernel Gate, Phase 2A, Phase 2B, and complete Phase 3 are closed. Exact historical commit/run evidence is retained in the linked archives.
-- Phase 3 runtime and closure heads passed exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package; exact SHAs and run IDs remain in the Phase 3 archive.
-- Reduced Phase 4 is formally closed at head `d19e65ba75938c35afa472d23d91d1724fe7fabf`. Exact-head run `29603060944` completed successfully across repository policy and Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package.
-- Phase 4 retains truthful trusted-code `full_access`; diagnostic 4B0 remains blocked/non-production, while `workspace` and Tasks 4B1–4B6 remain deferred with no fallback.
-- Phase 5 remains open. Closure commit `515a7002d6a149358ddb5cbc0af30796e45bf0c5` fixed the private-index object closure, but exact-head run `29696675119` failed only Windows Node 20 when recursive fixture cleanup hit transient `EPERM` on an executable. STEP-362 adds bounded cleanup retries; one replacement commit, push, and terminal exact-head run remain before Phase 6.
+- Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
+- Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
+- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-363 cleanup and STEP-364 documentation reconciliation are locally complete, unstaged, and uncommitted.
 
 ## Approved execution boundary
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and one push after each verified phase. Publish the bounded STEP-362 fixture-cleanup replacement once and require terminal exact-head success before Phase 6. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
+Implementation through Phase 8 remains authorized with recommended defaults. Keep the current interphase work unstaged and unpushed until the user explicitly requests publication; do not start Phase 6. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive data/history changes, production deployment, credential handling, and silent scope expansion remain excluded.
 
 ## Active decisions and constraints
 
@@ -40,27 +38,24 @@ The user authorized continuous recommended-option implementation through Phase 8
 - Phase 4 separates brokered `confirmed_roots`, ambient **Full access (ask first)**, and unavailable `workspace`. Full access is trusted-code authority, not filesystem, credential, registry, network, or broker isolation.
 - V3 confirmed-root files require hard-link count 1 and never mutate `allowedRoots`. Generic V3 mutation records remain schema 1/contract 3; move records remain schema 2/contract 3; same-binary V2 rollback retains both readers.
 - V3 lifecycle uses strict `AuditEventV3` inside the existing MAC-chained envelope. V2 audit wire stays exact and filters V3 before V2 paging; V3 has a separate V2/V3 projection and cursor, while V2-compatible authorization/execution evidence remains queryable after rollback.
-- Phase 5 V4 is opt-in exact 51 and preserves V1=28/V2=31/V3=39. It binds fixed Git identity, typed reads, Gate R, expected-old local mutations, repeated scans, bounded restore/private stash, disjoint managed roots, persistent owner-bound task records, quarantined candidates, clean target CAS, and reviewed clean removal. Gate X exposes exactly four typed local operations, never caller-selected Git commands or remote/credential/force/config mutation; its child remains ambient current-user `full_access`, and both approval and result state that filesystem, credential, registry, network, and broker isolation are absent. Approved stage must promote the complete verified loose-object set from its service-owned quarantine and prove the new tree in the live object database before installing the private index; promotion is bounded to 4,096 objects and 128 MiB compressed total.
-- Phase 4 authority config defaults to `configured_roots`, execution `off`, and dependencies `off`; nondefault values are V3-only. Windows effective-environment identity is case-insensitive and digest-bound. Per-server capability evidence changes revoke dependent state in order, block new requests during replacement, and change the live policy revision.
-- Gate S remains a truthful blocked diagnostic for the former AppContainer/LPAC design. Its exact denial rules are preserved only to prevent future overclaiming; it is no longer a current Phase 4 publication dependency. `workspace` stays unavailable with no `full_access` fallback.
+- Phase 5 V4 is opt-in exact 51 and preserves V1=28/V2=31/V3=39. Gate R binds expected-old mutations and durable approval; Gate X exposes only four typed local Git operations, with bounded verified object promotion before private-index installation. It accepts no caller-selected command or remote/credential/force/config mutation and remains ambient current-user `full_access`, not isolation.
+- Phase 4 authority defaults to configured roots with execution/dependencies off; nondefault values are V3-only and capability changes revoke dependent state. Gate S remains blocked diagnostic evidence, and `workspace` stays unavailable with no `full_access` fallback.
 - With `inheritEnv=false`, Windows Bash preserves or derives only bounded user/configuration paths required for normal CLI and keyring discovery. Do not copy `GH_TOKEN` or arbitrary API variables into the child; `CODEXPRO_INHERIT_ENV=1` is explicit full-environment opt-in for trusted repositories only.
 - Mutation inventory binds each direct primitive to path, syscall, semantic digest, and reviewed purpose; atomic production paths cannot fall back to legacy writers.
 - CI evidence is exact-HEAD-bound, compact, and stored only below ignored `.ai-bridge/`. Manifest assets stay LF-pinned; Windows paths use `path.win32`; POSIX lookup passes candidates only as quoted positional data and never uses `shell: true` with argv.
 - `scripts/test-domains.mjs` is authoritative: isolated complete regression uses `all`, connector-backed local work uses `ordinary`, and Windows control runs serialize. Long runs use the identity-bound detached runner; destructive stop oracles remain control-domain only.
 - Verification is impact-scoped, not ritualized: during repair loops run the failing reproducer, new regression, and directly affected gates; rerun complete local ordinary/control/Smoke only when the change invalidates that evidence or touches shared runtime/security boundaries. Documentation or evidence-only edits do not invalidate unrelated runtime results. Every final runtime-relevant pushed SHA still requires terminal exact-head CI.
+- Focused tests and local tasks use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>`. Supported launchers create sibling marked roots under one canonical TEMP base and clean them after completion. Detached evidence defaults to 20 terminal runs/14 days; `npm run task:cleanup` deletes only verified dead-owner roots and terminal evidence, fails nonzero when incomplete, and never removes unmarked or persistent project state.
 - Gate N uses the manifest-bound PowerShell/C# `CXP4` host with creation-time Job/handle-list ownership, clean environment, exact image identity, bounded output and deadlines. Capability remains `job_object_members_only`; broker escape resistance remains `none`; ConPTY success accepts exit 0 or exact `STATUS_CONTROL_C_EXIT` only with all required evidence.
 - `SystemDrive`, `SystemRoot`, `WINDIR`, `ProgramData`, `ComSpec`, minimal `PATH=System32;Windows`, and `PATHEXT` are fixed system values in clean native child environments; caller values cannot override them.
 - The master implementation plan is the sequencing authority. Complete isolated regression uses `node scripts/test-domains.mjs run --domain all`; connector-backed local regression uses `--domain ordinary`. There is no `npm test` script.
 
 ## Verification evidence
 
-- Closed Phase 3 runtime and documentation heads passed exact-head runs `29441752493` and `29443158835` across Ubuntu/Windows Node 20/24 Build, complete Regression, all protected Smoke sections, and Package.
-- STEP-307 through STEP-336 retain post-Phase 3 hardening, reduced Phase 4 design/local evidence, and the blocked sandbox diagnostic; exact commands remain in the linked archives.
-- STEP-323 retains the adversarially repaired Phase 5 design/TDD plan; STEP-344 records the initial Gate G0 implementation, and STEP-345 records its adversarial hardening and final capability evidence.
-- STEP-337 through STEP-342 retain the Phase 4 portability, Windows scheduling, ConPTY, and exact-head repairs. Closure head `d19e65b` passed run `29603060944` across policy and Ubuntu/Windows Node 20/24.
-- STEP-345 through STEP-351 retain the staged Gate G0, Contract V4, typed-read, and Gate R evidence. Their managed Node 20/24 ordinary suites advanced from 896 to 969 tests with zero final failures; exact revisions, run IDs, repaired candidates, and loader/architecture lessons remain in the Phase 5 archives.
-- STEP-357 through STEP-360 retain the initial local closure, Ubuntu portability repairs, clean local re-closure, and the failed `e54d55d` / `1c6c415` exact-head diagnostics; exact commands, SHAs, run IDs, and failure evidence remain in the Phase 5 archive.
-- STEP-361 proves the complete Gate X object closure. Focused Gate X/quarantine/stage/inventory passed 28/28; SHA-256/quarantine/unsupported-format passed 10/10; the authoritative inventory contains 187 test files and its partition gate passed 3/3. Ordinary run `2026-07-19T16-32-01-786Z-phase5-tree-closure-ordinary-f62b8663` passed each pinned major at 1,085 tests, 1,083 pass, zero failures, and two skips; control run `2026-07-19T16-49-25-336Z-phase5-tree-closure-control-4a81dab8` passed 113/113 on each major; Smoke run `2026-07-19T16-55-58-312Z-phase5-tree-closure-smoke-954de9da` passed all eight sections on both majors. Build, policy, diff, mutation inventory, added-line secret scan, and the 520-entry package dry-run passed.
+- Phase 3 closure heads passed exact-head runs `29441752493` and `29443158835`; reduced Phase 4 closed at `d19e65b` with run `29603060944`. Both covered policy plus Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package.
+- Phase 5 design, Gate G0/R/X implementation, portability repairs, failed closure diagnostics, and final local closure are retained in STEP-323 and STEP-344 through STEP-362. Closure head `9aa76b9` passed exact-head run `29698209894` across the complete matrix.
+- STEP-363 adversarial focused run `2026-07-19T19-49-04-795Z-interphase-cleanup-adversarial-focused-38f5ac3f` passed 61/61 on each managed Node major. Ordinary run `2026-07-19T19-18-17-116Z-interphase-cleanup-ordinary-final-2-d1a614a7` passed 1,096 tests per major with zero failures and two established skips.
+- STEP-363 cleanup removed 157 obsolete terminal runs with zero failures; the final explicit scan retained 20 runs and found zero owned-temp candidates, invalid paths, failed deletions, or interrupted claims. Build, policy, diff, mutation inventory, and the 521-entry package dry-run passed.
 
 ## Known limitations
 
@@ -79,22 +74,23 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the STEP-362 bounded Windows fixture-cleanup repair and require its exact 40-character SHA to pass repository policy plus Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package before Phase 6.
+1. Keep STEP-363 and STEP-364 unstaged and uncommitted until the user explicitly requests publication.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
-3. Do not publish a task-level Phase 5 slice or create an evidence-only follow-up commit.
+3. Do not enter Phase 6 or push the interphase runtime change without a new explicit action.
 
 ## Recent summaries
 
-- **STEP-362 - Bound transient Windows fixture cleanup:** diagnose exact-head Windows Node 20 `EPERM`, add recursive cleanup retries, validate the affected Gate X test across Node 20/24 plus repeated Node 20 stress, and adopt impact-scoped verification as the standing rule.
-- **STEP-361 - Promote the complete Gate X object closure:** diagnose the private-index cache-tree failure, promote every verified loose object before index installation, prove the new tree is live, and pass fresh local closure gates.
-- **STEP-360 - Repair failed Phase 5 exact-head closure:** restore authoritative Ubuntu `all`, isolate safe fixture hooks, make Windows-backend tests platform-neutral, make POSIX rollback failures deterministic, and close the runner terminal-publication race.
-- **STEP-359 - Re-establish clean Phase 5 closure:** complete final adversarial hardening, discard overlapping-run evidence, and pass fresh isolated ordinary/control/Smoke plus static and package gates; the subsequent exact-head attempt failed.
-- **STEP-358 - Repair Ubuntu closure portability:** replace empty filter overrides with inert non-required passthrough and restrict hard-link rejection to files.
+- **STEP-364 - Neat-freak reconciliation:** align rules, contributor/security guidance, Chinese developer docs, changelog, archive labels, and concise project memory with STEP-363.
+- **STEP-363 - Automatic owned temporary cleanup:** add cleanup-backed focused/task launchers, detached TEMP isolation, bounded terminal-run retention, legacy/claim recovery, and safe dead-owner cleanup.
+- **STEP-362 - Bound transient Windows fixture cleanup:** add finite `EPERM` retries and establish impact-scoped verification.
+- **STEP-361 - Promote the complete Gate X object closure:** promote every verified loose object before private-index installation and prove the live tree.
+- **STEP-360 - Repair failed Phase 5 exact-head closure:** restore authoritative `all`, repair portability, and close the runner publication race.
 
 ## Archives
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
 - [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
+- [Active interphase maintenance Part 2 — STEP-363 onward](docs/memory/archive/interphase-maintenance-part-2.md)
 - [Phase 1 Volume 1 — STEP-073 through STEP-139](docs/memory/archive/phase-1.md)
 - [Closed Phase 1 Volume 2 — STEP-140 through STEP-151](docs/memory/archive/phase-1-part-2.md)
 - [Closed Phase 1 Volume 3 — STEP-152 through STEP-165](docs/memory/archive/phase-1-part-3.md)
@@ -114,8 +110,8 @@ The user authorized continuous recommended-option implementation through Phase 8
 - [Closed Phase 4 Volume 1 — STEP-309 through STEP-318](docs/memory/archive/phase-4.md)
 - [Closed Phase 4 Volume 2 — STEP-319 through STEP-325](docs/memory/archive/phase-4-part-2.md)
 - [Closed Phase 4 Volume 3 — STEP-326 through STEP-343](docs/memory/archive/phase-4-part-3.md)
-- [Phase 5 Volume 1 — STEP-344 through STEP-355](docs/memory/archive/phase-5.md)
-- [Active Phase 5 Volume 2 — STEP-356 onward](docs/memory/archive/phase-5-part-2.md)
+- [Closed Phase 5 Volume 1 — STEP-344 through STEP-355](docs/memory/archive/phase-5.md)
+- [Closed Phase 5 Volume 2 — STEP-356 through STEP-362](docs/memory/archive/phase-5-part-2.md)
 
 ## Memory maintenance protocol
 

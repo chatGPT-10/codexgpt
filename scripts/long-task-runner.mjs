@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeJsonAtomicFile } from "./atomic-file.mjs";
+import { createOwnedTempEnvironment, sweepStaleOwnedTempRoots } from "./owned-temp-root.mjs";
 import { processCreationTime } from "./process-identity.mjs";
 
 export { processCreationTime } from "./process-identity.mjs";
@@ -13,6 +14,10 @@ export { processCreationTime } from "./process-identity.mjs";
 export const RUNNER_SCHEMA_VERSION = 2;
 export const DEFAULT_LOG_LIMIT_BYTES = 1024 * 1024;
 export const MAX_LOG_LIMIT_BYTES = 8 * 1024 * 1024;
+export const DEFAULT_RUN_RETENTION_COUNT = 20;
+export const DEFAULT_RUN_RETENTION_DAYS = 14;
+
+const RUN_PRUNE_CLAIM_PATTERN = /^\.codexpro-run-prune-[a-f0-9]{32}$/u;
 
 export function createDetachedRunnerEnvironment({ hostEnv = process.env, platform = process.platform } = {}) {
   const environment = { ...hostEnv };
@@ -30,10 +35,12 @@ export function createDetachedRunnerEnvironment({ hostEnv = process.env, platfor
 
 const argv = process.argv.slice(2);
 const action = argv[0] ?? "list";
+const commandSeparator = argv.indexOf("--");
+const optionArgv = commandSeparator === -1 ? argv : argv.slice(0, commandSeparator);
 
 function option(name, fallback) {
-  const index = argv.indexOf(name);
-  return index === -1 ? fallback : argv[index + 1];
+  const index = optionArgv.indexOf(name);
+  return index === -1 ? fallback : optionArgv[index + 1];
 }
 
 function fail(message, code = 1) {
@@ -63,10 +70,27 @@ function stateRoot() {
   return path.resolve(option("--root", path.join(".ai-bridge", "runs")));
 }
 
-function runDirectory(root, runId) {
-  const resolved = path.resolve(root, runId);
-  if (resolved === root || !resolved.startsWith(`${root}${path.sep}`)) fail("Invalid run id.", 2);
+function resolveRunDirectory(root, runId) {
+  const resolvedRoot = path.resolve(root);
+  if (
+    typeof runId !== "string" ||
+    runId.length < 1 ||
+    runId.length > 256 ||
+    path.basename(runId) !== runId ||
+    runId === "." ||
+    runId === ".."
+  ) throw new Error("Invalid run id.");
+  const resolved = path.resolve(resolvedRoot, runId);
+  if (!sameResolvedPath(path.dirname(resolved), resolvedRoot)) throw new Error("Invalid run id.");
   return resolved;
+}
+
+function runDirectory(root, runId) {
+  try {
+    return resolveRunDirectory(root, runId);
+  } catch {
+    fail("Invalid run id.", 2);
+  }
 }
 
 function digest(value) {
@@ -74,7 +98,14 @@ function digest(value) {
 }
 
 function commandDigest(command) {
-  return digest(JSON.stringify({ cwd: command.cwd, argv: command.argv }));
+  return digest(JSON.stringify({
+    cwd: command.cwd,
+    argv: command.argv,
+    tempRoot: command.tempRoot,
+    logLimitBytes: command.logLimitBytes,
+    retentionCount: command.retentionCount,
+    retentionDays: command.retentionDays
+  }));
 }
 
 function workerCommandDigest({ executable, script, directory }) {
@@ -238,12 +269,22 @@ async function verifyWorkerIdentity(metadata, evidence) {
 async function readRunFiles(directory) {
   const metadata = await readJson(path.join(directory, "metadata.json"));
   if (!metadata) return undefined;
+  const expectedRunId = path.basename(directory);
+  if (metadata.runId !== expectedRunId) {
+    throw new Error("Run metadata id does not match its containing directory.");
+  }
   await verifyDirectoryWithoutLinks(directory, metadata.directoryIdentity);
   const [result, stopped, evidence] = await Promise.all([
     readJson(path.join(directory, "result.json")),
     readJson(path.join(directory, "stopped.json")),
     readJson(path.join(directory, "worker-evidence.json"))
   ]);
+  if (result && result.runId !== expectedRunId) {
+    throw new Error("Run result id does not match its containing directory.");
+  }
+  if (stopped && stopped.runId !== expectedRunId) {
+    throw new Error("Run stop record id does not match its containing directory.");
+  }
   return { metadata, result, stopped, evidence };
 }
 
@@ -315,7 +356,7 @@ async function listStates(root) {
   }
   const states = [];
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+    if (!entry.isDirectory() || entry.isSymbolicLink() || RUN_PRUNE_CLAIM_PATTERN.test(entry.name)) continue;
     try {
       const state = await runState(path.join(root, entry.name));
       if (state) states.push(state);
@@ -324,6 +365,203 @@ async function listStates(root) {
     }
   }
   return states.sort((left, right) => String(right.startedAt ?? "").localeCompare(String(left.startedAt ?? "")));
+}
+
+function identityEquals(left, right) {
+  return Boolean(left && right && String(left.dev) === String(right.dev) && String(left.ino) === String(right.ino));
+}
+
+function sameResolvedPath(left, right) {
+  const a = path.resolve(left);
+  const b = path.resolve(right);
+  return process.platform === "win32"
+    ? a.toLocaleLowerCase("en-US") === b.toLocaleLowerCase("en-US")
+    : a === b;
+}
+
+function terminalTimestamp(state) {
+  const value = state.result?.completedAt ?? state.stopped?.stoppedAt ?? state.startedAt;
+  const parsed = Date.parse(value ?? "");
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function terminalRecordMatches(metadata, result, stopped) {
+  if (metadata?.schemaVersion === RUNNER_SCHEMA_VERSION) {
+    return Boolean(
+      (result?.schemaVersion === RUNNER_SCHEMA_VERSION && result.runId === metadata.runId) ||
+      (stopped?.schemaVersion === RUNNER_SCHEMA_VERSION && stopped.runId === metadata.runId)
+    );
+  }
+  if (metadata?.schemaVersion === 1) {
+    return Boolean(result?.runId === metadata.runId || stopped?.runId === metadata.runId);
+  }
+  return false;
+}
+
+async function recoverClaimedRunDirectories(root) {
+  const summary = { scanned: 0, removed: 0, failed: 0, errors: [], missing: false };
+  let entries;
+  let canonicalRoot;
+  try {
+    const rootLexical = await fsp.lstat(root, { bigint: true });
+    if (!rootLexical.isDirectory() || rootLexical.isSymbolicLink()) {
+      throw new Error("Runner state root is not a safe directory.");
+    }
+    canonicalRoot = await fsp.realpath(root);
+    entries = await fsp.readdir(root, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      summary.missing = true;
+      return summary;
+    }
+    throw error;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.isSymbolicLink() || !RUN_PRUNE_CLAIM_PATTERN.test(entry.name)) continue;
+    summary.scanned += 1;
+    try {
+      const claimed = path.join(root, entry.name);
+      const lexical = await fsp.lstat(claimed, { bigint: true });
+      if (!lexical.isDirectory() || lexical.isSymbolicLink()) throw new Error("Claimed run path is unsafe.");
+      const canonical = await fsp.realpath(claimed);
+      if (!sameResolvedPath(canonical, path.join(canonicalRoot, entry.name))) {
+        throw new Error("Claimed run path is not canonical.");
+      }
+      const [metadata, result, stopped] = await Promise.all([
+        readJson(path.join(claimed, "metadata.json")),
+        readJson(path.join(claimed, "result.json")),
+        readJson(path.join(claimed, "stopped.json"))
+      ]);
+      if (
+        !metadata ||
+        ![1, RUNNER_SCHEMA_VERSION].includes(metadata.schemaVersion) ||
+        typeof metadata.runId !== "string" ||
+        (metadata.schemaVersion === RUNNER_SCHEMA_VERSION &&
+          !identityEquals(statIdentity(lexical), metadata.directoryIdentity))
+      ) throw new Error("Claimed run metadata is invalid.");
+      let original;
+      try {
+        original = resolveRunDirectory(root, metadata.runId);
+      } catch {
+        throw new Error("Claimed run id is invalid.");
+      }
+      if (!terminalRecordMatches(metadata, result, stopped)) throw new Error("Claimed run is not terminal.");
+      await fsp.rm(claimed, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      summary.removed += 1;
+    } catch (error) {
+      summary.failed += 1;
+      if (summary.errors.length < 8) {
+        summary.errors.push({
+          claim: entry.name,
+          error: String(error?.code ?? error?.message ?? error).slice(0, 512)
+        });
+      }
+    }
+  }
+  return summary;
+}
+
+async function removeTerminalRun(root, state) {
+  if (state.status !== "completed" && state.status !== "stopped") {
+    throw new Error(`Refusing to prune non-terminal run ${state.runId}.`);
+  }
+  const directory = resolveRunDirectory(root, state.runId);
+  const lexical = await fsp.lstat(directory, { bigint: true });
+  const lexicalIdentity = statIdentity(lexical);
+  const expectedIdentity = state.schemaVersion === 1 ? lexicalIdentity : state.directoryIdentity;
+  if (
+    ![1, RUNNER_SCHEMA_VERSION].includes(state.schemaVersion) ||
+    !lexical.isDirectory() ||
+    lexical.isSymbolicLink() ||
+    !identityEquals(lexicalIdentity, expectedIdentity) ||
+    !terminalRecordMatches(state, state.result, state.stopped)
+  ) {
+    throw new Error(`Run directory identity or terminal evidence is invalid before pruning: ${state.runId}`);
+  }
+  const canonicalRoot = await fsp.realpath(root);
+  const canonical = await fsp.realpath(directory);
+  const expectedCanonical = path.join(canonicalRoot, path.basename(directory));
+  if (!sameResolvedPath(canonical, expectedCanonical)) throw new Error(`Run directory is not canonical: ${state.runId}`);
+  const stable = await fsp.lstat(directory, { bigint: true });
+  if (!identityEquals(statIdentity(stable), expectedIdentity)) {
+    throw new Error(`Run directory identity changed during pruning: ${state.runId}`);
+  }
+  const claimed = path.join(root, `.codexpro-run-prune-${randomBytes(16).toString("hex")}`);
+  await fsp.rename(directory, claimed);
+  const claimedLexical = await fsp.lstat(claimed, { bigint: true });
+  if (!claimedLexical.isDirectory() || claimedLexical.isSymbolicLink() || !identityEquals(statIdentity(claimedLexical), expectedIdentity)) {
+    throw new Error(`Claimed run directory identity changed: ${state.runId}`);
+  }
+  const claimedCanonical = await fsp.realpath(claimed);
+  const expectedClaimedCanonical = path.join(canonicalRoot, path.basename(claimed));
+  if (!sameResolvedPath(claimedCanonical, expectedClaimedCanonical)) {
+    throw new Error(`Claimed run directory is not canonical: ${state.runId}`);
+  }
+  try {
+    await fsp.rm(claimed, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch (error) {
+    try {
+      await fsp.rename(claimed, directory);
+    } catch {
+      // Preserve the claimed directory rather than deleting an identity-ambiguous replacement.
+    }
+    throw error;
+  }
+}
+
+async function pruneTerminalRuns(root, options = {}) {
+  const keepCount = positiveInteger(options.keepCount, DEFAULT_RUN_RETENTION_COUNT, 10_000);
+  const maxAgeDays = positiveInteger(options.maxAgeDays, DEFAULT_RUN_RETENTION_DAYS, 36_500);
+  const preserveRunId = options.preserveRunId;
+  const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+  const claimed = await recoverClaimedRunDirectories(root);
+  if (claimed.missing) {
+    return { scanned: 0, removed: 0, retained: 0, failed: 0, invalid: 0, keepCount, maxAgeDays, errors: [], claimed };
+  }
+  const states = await listStates(root);
+  const invalidStates = states.filter((state) => state.status === "stale" && typeof state.error === "string");
+  const terminal = states
+    .filter((state) => state.status === "completed" || state.status === "stopped")
+    .filter((state) => state.runId !== preserveRunId)
+    .sort((left, right) => terminalTimestamp(right) - terminalTimestamp(left));
+  const retainedAllowance = Math.max(0, keepCount - (preserveRunId ? 1 : 0));
+  const result = {
+    scanned: terminal.length,
+    removed: 0,
+    retained: 0,
+    failed: 0,
+    invalid: invalidStates.length,
+    keepCount,
+    maxAgeDays,
+    errors: invalidStates.slice(0, 8).map((state) => ({
+      runId: state.runId,
+      error: String(state.error).slice(0, 512)
+    })),
+    claimed
+  };
+  for (let index = 0; index < terminal.length; index += 1) {
+    const state = terminal[index];
+    const expiredByCount = index >= retainedAllowance;
+    const expiredByAge = terminalTimestamp(state) < cutoff;
+    if (!expiredByCount && !expiredByAge) {
+      result.retained += 1;
+      continue;
+    }
+    try {
+      await removeTerminalRun(root, state);
+      result.removed += 1;
+    } catch (error) {
+      result.failed += 1;
+      if (result.errors.length < 8) {
+        result.errors.push({
+          runId: state.runId,
+          error: String(error?.code ?? error?.message ?? error).slice(0, 512)
+        });
+      }
+    }
+  }
+  return result;
 }
 
 async function waitForWorkerEvidence(directory, expectedNonce, deadlineMs = 10_000) {
@@ -339,8 +577,21 @@ async function waitForWorkerEvidence(directory, expectedNonce, deadlineMs = 10_0
 async function worker() {
   const directory = path.resolve(option("--run-dir"));
   const command = await readJson(path.join(directory, "command.json"));
-  if (!command || command.schemaVersion !== RUNNER_SCHEMA_VERSION || !Array.isArray(command.argv) || command.argv.length === 0) {
-    fail("Worker command file is invalid.", 2);
+  if (
+    !command ||
+    command.schemaVersion !== RUNNER_SCHEMA_VERSION ||
+    !Array.isArray(command.argv) ||
+    command.argv.length === 0 ||
+    typeof command.cwd !== "string" ||
+    typeof command.tempRoot !== "string" ||
+    !Number.isSafeInteger(command.logLimitBytes) ||
+    !Number.isSafeInteger(command.retentionCount) ||
+    !Number.isSafeInteger(command.retentionDays) ||
+    typeof command.commandDigest !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(command.commandDigest) ||
+    command.commandDigest !== commandDigest(command)
+  ) {
+    fail("Worker command file or digest is invalid.", 2);
   }
   await verifyDirectoryWithoutLinks(directory, command.directoryIdentity);
   const workerCreationTime = await processCreationTime(process.pid);
@@ -361,36 +612,62 @@ async function worker() {
   const stdoutTail = new BoundedTail(command.logLimitBytes);
   const stderrTail = new BoundedTail(command.logLimitBytes);
   const startedAt = new Date().toISOString();
+  let taskTemp;
   let child;
   let spawnError;
+  let outcome;
+  let cleanupError;
   try {
-    child = spawn(command.argv[0], command.argv.slice(1), {
-      cwd: command.cwd,
-      env: createDetachedRunnerEnvironment(),
-      shell: false,
-      detached: false,
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"]
-    });
-    child.stdout.on("data", (chunk) => stdoutTail.push(chunk));
-    child.stderr.on("data", (chunk) => stderrTail.push(chunk));
-    await writeJsonAtomic(directory, "child.json", { schemaVersion: RUNNER_SCHEMA_VERSION, pid: child.pid, workerNonce: command.workerNonce });
-  } catch (error) {
-    spawnError = error;
+    try {
+      taskTemp = await createOwnedTempEnvironment("detached-task", {
+        baseRoot: command.tempRoot,
+        hostEnvironment: createDetachedRunnerEnvironment()
+      });
+      child = spawn(command.argv[0], command.argv.slice(1), {
+        cwd: command.cwd,
+        env: taskTemp.environment,
+        shell: false,
+        detached: false,
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+      child.stdout.on("data", (chunk) => stdoutTail.push(chunk));
+      child.stderr.on("data", (chunk) => stderrTail.push(chunk));
+      await writeJsonAtomic(directory, "child.json", { schemaVersion: RUNNER_SCHEMA_VERSION, pid: child.pid, workerNonce: command.workerNonce });
+    } catch (error) {
+      spawnError = error;
+    }
+
+    outcome = spawnError
+      ? { code: 127, signal: null, error: spawnError.stack ?? spawnError.message }
+      : await new Promise((resolve) => {
+        let settled = false;
+        const finish = (value) => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+        child.once("error", (error) => finish({ code: 127, signal: null, error: error.stack ?? error.message }));
+        child.once("close", (code, signal) => finish({ code: code ?? 1, signal, error: null }));
+      });
+  } finally {
+    if (taskTemp) {
+      try {
+        await taskTemp.cleanup();
+      } catch (error) {
+        cleanupError = error;
+      }
+    }
   }
 
-  const outcome = spawnError
-    ? { code: 127, signal: null, error: spawnError.stack ?? spawnError.message }
-    : await new Promise((resolve) => {
-      let settled = false;
-      const finish = (value) => {
-        if (settled) return;
-        settled = true;
-        resolve(value);
-      };
-      child.once("error", (error) => finish({ code: 127, signal: null, error: error.stack ?? error.message }));
-      child.once("close", (code, signal) => finish({ code: code ?? 1, signal, error: null }));
-    });
+  if (cleanupError) {
+    const detail = String(cleanupError?.code ?? cleanupError?.message ?? "unknown").slice(0, 512);
+    outcome = {
+      code: outcome?.code === 0 ? 1 : outcome?.code ?? 1,
+      signal: outcome?.signal ?? null,
+      error: [outcome?.error, `TASK_TEMP_CLEANUP_FAILED: ${detail}`].filter(Boolean).join("\n")
+    };
+  }
 
   await verifyDirectoryWithoutLinks(directory, command.directoryIdentity);
   const stdoutPath = path.join(directory, "stdout.log");
@@ -399,6 +676,24 @@ async function worker() {
     fsp.writeFile(stdoutPath, stdoutTail.bytes()),
     fsp.writeFile(stderrPath, stderrTail.bytes())
   ]);
+  let retention;
+  try {
+    retention = await pruneTerminalRuns(path.dirname(directory), {
+      keepCount: command.retentionCount,
+      maxAgeDays: command.retentionDays,
+      preserveRunId: command.runId
+    });
+  } catch (error) {
+    retention = {
+      scanned: 0,
+      removed: 0,
+      retained: 0,
+      failed: 1,
+      keepCount: command.retentionCount,
+      maxAgeDays: command.retentionDays,
+      error: String(error?.message ?? error).slice(0, 512)
+    };
+  }
   const result = {
     schemaVersion: RUNNER_SCHEMA_VERSION,
     runId: command.runId,
@@ -408,6 +703,10 @@ async function worker() {
     exitCode: outcome.code,
     signal: outcome.signal,
     error: outcome.error,
+    temporaryState: {
+      cleaned: cleanupError === undefined
+    },
+    retention,
     stdoutPath,
     stderrPath,
     stdout: stdoutTail.summary(),
@@ -423,7 +722,7 @@ async function main() {
   } else if (action === "start") {
     const separator = argv.indexOf("--");
     if (separator === -1 || separator === argv.length - 1) {
-      fail("Usage: node scripts/long-task-runner.mjs start --kind <kind> [--root <dir>] [--cwd <dir>] [--log-limit-bytes N] -- <command> [args...]", 2);
+      fail("Usage: node scripts/long-task-runner.mjs start --kind <kind> [--root <dir>] [--temp-root <dir>] [--cwd <dir>] [--log-limit-bytes N] [--retention-count N] [--retention-days N] -- <command> [args...]", 2);
     }
     const root = stateRoot();
     await ensureDirectoryWithoutLinks(root);
@@ -448,7 +747,10 @@ async function main() {
       workerNonce,
       commandDigest: "",
       directoryIdentity: checkedDirectory.identity,
-      logLimitBytes: positiveInteger(option("--log-limit-bytes"), DEFAULT_LOG_LIMIT_BYTES, MAX_LOG_LIMIT_BYTES)
+      tempRoot: path.resolve(option("--temp-root", os.tmpdir())),
+      logLimitBytes: positiveInteger(option("--log-limit-bytes"), DEFAULT_LOG_LIMIT_BYTES, MAX_LOG_LIMIT_BYTES),
+      retentionCount: positiveInteger(option("--retention-count"), DEFAULT_RUN_RETENTION_COUNT, 10_000),
+      retentionDays: positiveInteger(option("--retention-days"), DEFAULT_RUN_RETENTION_DAYS, 36_500)
     };
     command.commandDigest = commandDigest(command);
     await writeJsonAtomic(directory, "command.json", command);
@@ -483,6 +785,8 @@ async function main() {
       command: command.argv,
       cwd: command.cwd,
       logLimitBytes: command.logLimitBytes,
+      retentionCount: command.retentionCount,
+      retentionDays: command.retentionDays,
       host: os.hostname()
     };
     if (!workerEvidenceMatches(metadata, evidence)) fail("Worker evidence handshake did not match the exact command identity.");
@@ -558,8 +862,33 @@ async function main() {
       stoppedAt: new Date().toISOString()
     });
     console.log(JSON.stringify({ runId, status: "stop_requested" }, null, 2));
+  } else if (action === "clean") {
+    const root = stateRoot();
+    const tempRoot = path.resolve(option("--temp-root", os.tmpdir()));
+    const staleTemporaryState = await sweepStaleOwnedTempRoots({
+      baseRoot: tempRoot,
+      limit: positiveInteger(option("--sweep-limit"), 1024, 10_000)
+    });
+    const runEvidence = await pruneTerminalRuns(root, {
+      keepCount: positiveInteger(option("--retention-count"), DEFAULT_RUN_RETENTION_COUNT, 10_000),
+      maxAgeDays: positiveInteger(option("--retention-days"), DEFAULT_RUN_RETENTION_DAYS, 36_500)
+    });
+    console.log(JSON.stringify({
+      schemaVersion: 1,
+      tempRoot,
+      runRoot: root,
+      staleTemporaryState,
+      runEvidence
+    }, null, 2));
+    if (
+      staleTemporaryState.limited ||
+      staleTemporaryState.invalid > 0 ||
+      runEvidence.invalid > 0 ||
+      runEvidence.failed > 0 ||
+      runEvidence.claimed.failed > 0
+    ) process.exitCode = 1;
   } else {
-    fail("Usage: node scripts/long-task-runner.mjs <start|status|list|stop> ...", 2);
+    fail("Usage: node scripts/long-task-runner.mjs <start|status|list|stop|clean> ...", 2);
   }
 }
 

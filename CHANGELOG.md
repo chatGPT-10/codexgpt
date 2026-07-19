@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added cleanup-backed focused-test and local-task launchers, exact owned `TEMP`/`TMP`/`TMPDIR` isolation with stale-owner recovery, and bounded detached-run evidence retention. Cleanup removes only marker/identity-verified dead-owner roots and verified terminal evidence, and fails closed on malformed or incomplete state.
 - Implemented Phase 3D locally: explicit contract V2 now projects the exact 31-tool universe, registering `move_paths` and `undo_change_set` in standard/full mode and `query_audit_events` in full mode, with direct/supertool parity, strict schemas, policy resources, authenticated Manifest/Change Set V2 state, participant-aware V1/V2 recovery, same-volume no-clobber move execution, conflict-checked move undo, and V1 remaining the exact 28-tool default.
 - Hardened Phase 3D after adversarial review with syscall-boundary write-ahead recovery, stable parent/reparse-point revalidation, recoverable original-change-set reconciliation, service-level mutation quiesce/drain, deterministic child-process crash oracles, no-clobber external-writer handling, exact 64-item cycles, bounded Windows sharing retries, explicit EXDEV backend failures, and canonical-root multi-process locks.
 - Fixed Windows Node 20 move execution by transferring the verified file-object handle from the original source name to its authenticated stage hard link immediately after source-name removal, preserving continuous identity proof without treating Node 20 `EPERM` results as missing paths.

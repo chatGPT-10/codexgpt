@@ -49,6 +49,7 @@ Review changes against these failure modes before release:
 | The Contract V4 Git capsule is mistaken for a sandbox | The capsule fixes executable identity, environment, arguments, prompts, network/lazy fetch, and integrations, but still runs as the current user and reports `execution_isolation: none`. |
 | A task checkout is mistaken for process isolation | Managed worktrees separate workflow state only. They share repository metadata and provide no credential, registry, device, broker, or network isolation. |
 | A clean task removal is mistaken for branch deletion | Removal deletes only the revalidated owned checkout and registration. The generated branch, commits, private stashes, and audit are retained. |
+| Automatic temporary cleanup deletes unrelated system files | Cleanup requires the exact CodexPro prefix, ownership marker, canonical direct-child path, directory identity, and a dead owner. Unmarked or malformed state is preserved, and explicit cleanup returns nonzero when validation or deletion is incomplete. |
 | Merge preparation is mistaken for live-target execution | Preparation creates an immutable reviewed candidate; execution separately revalidates clean target state, normalization, OIDs, and CAS preconditions. |
 | Handoff mode still exposes generic writes | Handoff/pro modes do not advertise generic `write`/`edit`/`apply_patch`; bounded handoff tools write `.ai-bridge` files only. |
 | Local Codex history is treated as ChatGPT memory | Codex session access is opt-in metadata/read mode and never attaches to a live Codex app session. |

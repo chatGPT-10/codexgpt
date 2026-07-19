@@ -1,0 +1,535 @@
+import assert from "node:assert/strict";
+import { execFile, spawn, spawnSync } from "node:child_process";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const cleanupRunner = path.join(repositoryRoot, "scripts", "run-with-cleanup.mjs");
+const longRunner = path.join(repositoryRoot, "scripts", "long-task-runner.mjs");
+
+async function executeLongRunner(args, options = {}) {
+  return await execFileAsync(process.execPath, [longRunner, ...args], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    timeout: 20_000,
+    maxBuffer: 2 * 1024 * 1024,
+    ...options
+  });
+}
+
+async function waitForTerminal(root, runId, deadlineMs = 15_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    const state = JSON.parse((await executeLongRunner(["status", "--root", root, "--run", runId])).stdout);
+    if (state.status === "completed" || state.status === "stopped") return state;
+    assert.notEqual(state.status, "stale");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Run ${runId} did not become terminal.`);
+}
+
+async function waitForDirectoryCount(root, expected, deadlineMs = 5_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    const count = entries.filter((entry) => entry.isDirectory()).length;
+    if (count === expected) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.equal((await fs.readdir(root, { withFileTypes: true })).filter((entry) => entry.isDirectory()).length, expected);
+}
+
+async function createAbandonedOwnedRoot(baseRoot) {
+  const moduleUrl = pathToFileURL(path.join(repositoryRoot, "scripts", "owned-temp-root.mjs")).href;
+  const child = spawn(process.execPath, [
+    "--input-type=module",
+    "-e",
+    [
+      `const { createOwnedTempRoot } = await import(${JSON.stringify(moduleUrl)});`,
+      `const owned = await createOwnedTempRoot("abandoned", { baseRoot: ${JSON.stringify(baseRoot)}, sweep: false });`,
+      "console.log(owned.path);",
+      "setInterval(() => {}, 1000);"
+    ].join("")
+  ], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  const rootPath = await new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      const lineEnd = stdout.indexOf("\n");
+      if (lineEnd !== -1) resolve(stdout.slice(0, lineEnd).trim());
+    });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.once("error", reject);
+    child.once("exit", (code) => {
+      if (!stdout.includes("\n")) reject(new Error(`Owned-root child exited ${code}: ${stderr}`));
+    });
+  });
+  child.kill("SIGKILL");
+  await new Promise((resolve) => child.once("close", resolve));
+  return rootPath;
+}
+
+function tempProbeSource(exitCode = 0) {
+  return [
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    "const temp = process.env.TEMP || process.env.TMP || process.env.TMPDIR;",
+    "if (!temp) process.exit(91);",
+    "fs.mkdirSync(temp, { recursive: true });",
+    "fs.writeFileSync(path.join(temp, 'probe.txt'), 'temporary');",
+    "console.log(JSON.stringify({ temp, tmp: process.env.TMP, tmpdir: process.env.TMPDIR }));",
+    `process.exit(${exitCode});`
+  ].join("");
+}
+
+test("the generic cleanup runner removes its complete owned TEMP tree on success and failure", async () => {
+  const baseRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-run-"));
+  try {
+    for (const expectedExit of [0, 7]) {
+      const result = spawnSync(process.execPath, [
+        cleanupRunner,
+        "--base-root", baseRoot,
+        "--",
+        process.execPath,
+        "-e",
+        tempProbeSource(expectedExit),
+        "--",
+        "--purpose", "INVALID-CHILD-VALUE!"
+      ], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        windowsHide: true
+      });
+      assert.equal(result.status, expectedExit, result.stderr);
+      const probe = JSON.parse(result.stdout.trim());
+      assert.equal(probe.temp, probe.tmp);
+      assert.equal(probe.temp, probe.tmpdir);
+      await assert.rejects(() => fs.lstat(path.dirname(probe.temp)), { code: "ENOENT" });
+      assert.deepEqual(await fs.readdir(baseRoot), []);
+    }
+  } finally {
+    await fs.rm(baseRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("the generic cleanup runner removes owned TEMP after a termination signal", async () => {
+  const baseRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-signal-"));
+  try {
+    const source = [
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      "const temp = process.env.TEMP || process.env.TMP || process.env.TMPDIR;",
+      "fs.writeFileSync(path.join(temp, 'signal-probe.txt'), 'temporary');",
+      "console.log(JSON.stringify({ temp, pid: process.pid }));",
+      "setInterval(() => {}, 1000);"
+    ].join("");
+    const wrapper = spawn(process.execPath, [
+      cleanupRunner,
+      "--base-root", baseRoot,
+      "--",
+      process.execPath,
+      "-e",
+      source
+    ], {
+      cwd: repositoryRoot,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    const probe = await new Promise((resolve, reject) => {
+      let stdout = "";
+      let stderr = "";
+      wrapper.stdout.setEncoding("utf8");
+      wrapper.stderr.setEncoding("utf8");
+      wrapper.stdout.on("data", (chunk) => {
+        stdout += chunk;
+        const lineEnd = stdout.indexOf("\n");
+        if (lineEnd !== -1) resolve(JSON.parse(stdout.slice(0, lineEnd)));
+      });
+      wrapper.stderr.on("data", (chunk) => { stderr += chunk; });
+      wrapper.once("error", reject);
+      wrapper.once("exit", (code) => {
+        if (!stdout.includes("\n")) reject(new Error(`Cleanup wrapper exited ${code}: ${stderr}`));
+      });
+    });
+    wrapper.kill("SIGTERM");
+    const exit = await new Promise((resolve) => wrapper.once("close", (code, signal) => resolve({ code, signal })));
+    if (process.platform === "win32") {
+      assert.equal(exit.code, null);
+      try {
+        process.kill(probe.pid, "SIGKILL");
+      } catch {
+        // The child may already have exited with its force-terminated parent.
+      }
+      const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-signal-runs-"));
+      try {
+        const report = JSON.parse((await executeLongRunner([
+          "clean",
+          "--root", runRoot,
+          "--temp-root", baseRoot,
+          "--retention-count", "1",
+          "--retention-days", "1"
+        ])).stdout);
+        assert.equal(report.staleTemporaryState.removed, 1);
+      } finally {
+        await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      }
+    } else {
+      assert.equal(exit.code, 143);
+    }
+    await assert.rejects(() => fs.lstat(path.dirname(probe.temp)), { code: "ENOENT" });
+    assert.deepEqual(await fs.readdir(baseRoot), []);
+  } finally {
+    await fs.rm(baseRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("detached tasks use an owned TEMP tree and remove it before terminal completion", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-long-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-long-temp-"));
+  try {
+    const started = JSON.parse((await executeLongRunner([
+      "start",
+      "--root", runRoot,
+      "--temp-root", tempRoot,
+      "--kind", "owned-temp-probe",
+      "--",
+      process.execPath,
+      "-e",
+      tempProbeSource(0),
+      "--",
+      "--retention-count", "999"
+    ])).stdout);
+    const state = await waitForTerminal(runRoot, started.runId);
+    assert.equal(state.retentionCount, 20);
+    assert.equal(state.result.exitCode, 0);
+    const probe = JSON.parse((await fs.readFile(state.result.stdoutPath, "utf8")).trim());
+    assert.equal(probe.temp, probe.tmp);
+    assert.equal(probe.temp, probe.tmpdir);
+    await assert.rejects(() => fs.lstat(path.dirname(probe.temp)), { code: "ENOENT" });
+    assert.deepEqual(await fs.readdir(tempRoot), []);
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("terminal detached-run evidence is automatically pruned to the configured retention count", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-retention-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-retention-temp-"));
+  try {
+    let latestRunId;
+    for (let index = 0; index < 3; index += 1) {
+      const started = JSON.parse((await executeLongRunner([
+        "start",
+        "--root", runRoot,
+        "--temp-root", tempRoot,
+        "--retention-count", "1",
+        "--retention-days", "36500",
+        "--kind", `retention-${index}`,
+        "--",
+        process.execPath,
+        "-e",
+        `console.log(${JSON.stringify(`run-${index}`)})`
+      ])).stdout);
+      latestRunId = started.runId;
+      const state = await waitForTerminal(runRoot, started.runId);
+      assert.equal(state.result.exitCode, 0);
+      assert.equal(state.result.retention.failed, 0, JSON.stringify(state.result.retention));
+      await waitForDirectoryCount(runRoot, 1);
+    }
+
+    const states = JSON.parse((await executeLongRunner(["list", "--root", runRoot])).stdout);
+    assert.equal(states.length, 1);
+    assert.equal(states[0].runId, latestRunId);
+    assert.equal(states[0].status, "completed");
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("cleanup prunes terminal legacy run evidence only after direct-child and terminal validation", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-legacy-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-legacy-temp-"));
+  try {
+    const runId = "2020-01-01T00-00-00-000Z-legacy-cleanup-aaaaaaaa";
+    const directory = path.join(runRoot, runId);
+    await fs.mkdir(directory);
+    const stdoutPath = path.join(directory, "stdout.log");
+    const stderrPath = path.join(directory, "stderr.log");
+    await fs.writeFile(stdoutPath, "legacy\n", "utf8");
+    await fs.writeFile(stderrPath, "", "utf8");
+    await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      runId,
+      kind: "legacy-cleanup",
+      workerPid: 999999,
+      startedAt: "2020-01-01T00:00:00.000Z",
+      directory,
+      command: [process.execPath, "-e", "console.log('legacy')"],
+      cwd: repositoryRoot
+    })}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "result.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      runId,
+      kind: "legacy-cleanup",
+      startedAt: "2020-01-01T00:00:00.000Z",
+      completedAt: "2020-01-01T00:00:01.000Z",
+      exitCode: 0,
+      signal: null,
+      error: null,
+      stdoutPath,
+      stderrPath
+    })}\n`, "utf8");
+
+    const report = JSON.parse((await executeLongRunner([
+      "clean",
+      "--root", runRoot,
+      "--temp-root", tempRoot,
+      "--retention-count", "20",
+      "--retention-days", "1"
+    ])).stdout);
+
+    assert.equal(report.runEvidence.removed, 1);
+    assert.equal(report.runEvidence.failed, 0);
+    await assert.rejects(() => fs.lstat(directory), { code: "ENOENT" });
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("cleanup preserves malformed legacy metadata instead of exiting or escaping the run root", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-invalid-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-invalid-temp-"));
+  try {
+    const entryName = "2020-01-01T00-00-00-000Z-invalid-cleanup-bbbbbbbb";
+    const directory = path.join(runRoot, entryName);
+    await fs.mkdir(directory);
+    await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      runId: "../outside",
+      kind: "invalid-cleanup",
+      workerPid: 999999,
+      startedAt: "2020-01-01T00:00:00.000Z",
+      directory,
+      command: [process.execPath],
+      cwd: repositoryRoot
+    })}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "result.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      runId: "../outside",
+      kind: "invalid-cleanup",
+      startedAt: "2020-01-01T00:00:00.000Z",
+      completedAt: "2020-01-01T00:00:01.000Z",
+      exitCode: 0
+    })}\n`, "utf8");
+
+    let report;
+    try {
+      await executeLongRunner([
+        "clean",
+        "--root", runRoot,
+        "--temp-root", tempRoot,
+        "--retention-count", "1",
+        "--retention-days", "1"
+      ]);
+      assert.fail("Malformed run evidence must make explicit cleanup incomplete.");
+    } catch (error) {
+      assert.equal(error.code, 1);
+      report = JSON.parse(error.stdout);
+    }
+
+    assert.equal(report.runEvidence.removed, 0);
+    assert.equal(report.runEvidence.failed, 0);
+    assert.equal(report.runEvidence.invalid, 1);
+    assert.match(report.runEvidence.errors[0].error, /does not match its containing directory/u);
+    assert.equal((await fs.lstat(directory)).isDirectory(), true);
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("cleanup binds terminal metadata to its containing run directory", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-bound-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-bound-temp-"));
+  try {
+    const victimRunId = "2021-01-01T00-00-00-000Z-victim-cleanup-cccccccc";
+    const attackerEntry = "2020-01-01T00-00-00-000Z-attacker-cleanup-dddddddd";
+    const victimDirectory = path.join(runRoot, victimRunId);
+    const attackerDirectory = path.join(runRoot, attackerEntry);
+    await fs.mkdir(victimDirectory);
+    await fs.mkdir(attackerDirectory);
+
+    const writeLegacyTerminal = async (directory, runId, startedAt) => {
+      await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify({
+        schemaVersion: 1,
+        runId,
+        kind: "directory-binding",
+        workerPid: 999999,
+        startedAt,
+        directory,
+        command: [process.execPath],
+        cwd: repositoryRoot
+      })}\n`, "utf8");
+      await fs.writeFile(path.join(directory, "result.json"), `${JSON.stringify({
+        schemaVersion: 1,
+        runId,
+        kind: "directory-binding",
+        startedAt,
+        completedAt: startedAt,
+        exitCode: 0
+      })}\n`, "utf8");
+    };
+
+    await writeLegacyTerminal(victimDirectory, victimRunId, "2021-01-01T00:00:00.000Z");
+    await writeLegacyTerminal(attackerDirectory, victimRunId, "2020-01-01T00:00:00.000Z");
+
+    let report;
+    try {
+      await executeLongRunner([
+        "clean",
+        "--root", runRoot,
+        "--temp-root", tempRoot,
+        "--retention-count", "1",
+        "--retention-days", "36500"
+      ]);
+      assert.fail("Mismatched run metadata must make explicit cleanup incomplete.");
+    } catch (error) {
+      assert.equal(error.code, 1);
+      report = JSON.parse(error.stdout);
+    }
+
+    assert.equal(report.runEvidence.removed, 0);
+    assert.equal(report.runEvidence.retained, 1);
+    assert.equal(report.runEvidence.invalid, 1);
+    assert.equal((await fs.lstat(victimDirectory)).isDirectory(), true);
+    assert.equal((await fs.lstat(attackerDirectory)).isDirectory(), true);
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("the detached worker rejects a tampered command digest before spawning", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-digest-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-digest-temp-"));
+  try {
+    const runId = "digest-probe";
+    const directory = path.join(runRoot, runId);
+    await fs.mkdir(directory);
+    const stat = await fs.stat(directory, { bigint: true });
+    await fs.writeFile(path.join(directory, "command.json"), `${JSON.stringify({
+      schemaVersion: 2,
+      runId,
+      kind: "digest-probe",
+      cwd: repositoryRoot,
+      argv: [process.execPath, "-e", "console.log('must-not-run')"],
+      workerNonce: "a".repeat(64),
+      commandDigest: "b".repeat(64),
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) },
+      tempRoot,
+      logLimitBytes: 4096,
+      retentionCount: 20,
+      retentionDays: 14
+    })}\n`, "utf8");
+
+    await assert.rejects(
+      executeLongRunner(["__worker", "--run-dir", directory]),
+      (error) => error.code === 2 && /command file or digest is invalid/u.test(error.stderr)
+    );
+    await assert.rejects(() => fs.lstat(path.join(directory, "worker-evidence.json")), { code: "ENOENT" });
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("cleanup recovers a terminal run left in its verified prune claim after an interruption", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-claim-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-claim-temp-"));
+  try {
+    const started = JSON.parse((await executeLongRunner([
+      "start",
+      "--root", runRoot,
+      "--temp-root", tempRoot,
+      "--retention-count", "20",
+      "--retention-days", "36500",
+      "--kind", "claim-recovery",
+      "--",
+      process.execPath,
+      "-e",
+      "console.log('claim-recovery')"
+    ])).stdout);
+    const terminal = await waitForTerminal(runRoot, started.runId);
+    assert.equal(terminal.result.exitCode, 0);
+
+    const claimed = path.join(runRoot, `.codexpro-run-prune-${"a".repeat(32)}`);
+    await fs.rename(started.directory, claimed);
+    const report = JSON.parse((await executeLongRunner([
+      "clean",
+      "--root", runRoot,
+      "--temp-root", tempRoot,
+      "--retention-count", "20",
+      "--retention-days", "36500"
+    ])).stdout);
+
+    assert.equal(report.runEvidence.claimed.removed, 1);
+    assert.equal(report.runEvidence.claimed.failed, 0);
+    await assert.rejects(() => fs.lstat(claimed), { code: "ENOENT" });
+    assert.deepEqual(await fs.readdir(runRoot), []);
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("the cleanup command removes only exact stale CodexPro-owned roots from the selected TEMP base", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-command-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-command-temp-"));
+  try {
+    const abandoned = await createAbandonedOwnedRoot(tempRoot);
+    const foreign = path.join(tempRoot, "foreign-application-temp");
+    await fs.mkdir(foreign);
+    await fs.writeFile(path.join(foreign, "keep.txt"), "not CodexPro-owned", "utf8");
+
+    const report = JSON.parse((await executeLongRunner([
+      "clean",
+      "--root", runRoot,
+      "--temp-root", tempRoot,
+      "--retention-count", "1",
+      "--retention-days", "1"
+    ])).stdout);
+
+    assert.equal(report.staleTemporaryState.removed, 1);
+    assert.equal(report.staleTemporaryState.active, 0);
+    await assert.rejects(() => fs.lstat(abandoned), { code: "ENOENT" });
+    assert.equal(await fs.readFile(path.join(foreign, "keep.txt"), "utf8"), "not CodexPro-owned");
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("the repository exposes cleanup-backed focused-test and arbitrary-task commands", async () => {
+  const pkg = JSON.parse(await fs.readFile(path.join(repositoryRoot, "package.json"), "utf8"));
+  assert.equal(pkg.scripts["task:run"], "node scripts/run-with-cleanup.mjs");
+  assert.equal(
+    pkg.scripts["test:focused"],
+    "node scripts/run-with-cleanup.mjs --purpose focused-test -- node --test"
+  );
+});

@@ -530,7 +530,15 @@ export async function createOwnedTempRoot(purpose, options = {}) {
 }
 
 export async function createOwnedTempEnvironment(purpose, options = {}) {
-  const owned = await createOwnedTempRoot(purpose, options);
+  const hostEnvironment = options.hostEnvironment ?? process.env;
+  const inheritedBaseRoot = hostEnvironment.CODEXPRO_OWNED_TEMP_BASE;
+  const owned = await createOwnedTempRoot(purpose, {
+    ...options,
+    ...(options.baseRoot === undefined && inheritedBaseRoot
+      ? { baseRoot: inheritedBaseRoot }
+      : {})
+  });
+  const ownedBaseRoot = path.dirname(owned.path);
   const tempPath = path.join(owned.path, "child-temp");
   try {
     await fsp.mkdir(tempPath, { mode: 0o700 });
@@ -547,7 +555,8 @@ export async function createOwnedTempEnvironment(purpose, options = {}) {
     tempPath,
     marker: owned.marker,
     environment: Object.freeze({
-      ...(options.hostEnvironment ?? process.env),
+      ...hostEnvironment,
+      CODEXPRO_OWNED_TEMP_BASE: ownedBaseRoot,
       TEMP: tempPath,
       TMP: tempPath,
       TMPDIR: tempPath

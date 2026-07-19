@@ -578,6 +578,19 @@ q      停止 CodexPro
 - quick tunnel 每次重启 URL 会变。
 - 想每天同一个 URL，用 ngrok free dev domain 或 Cloudflare named tunnel。
 
+## 开发
+
+测试和本地任务应使用带清理生命周期的正式入口：
+
+```bash
+npm run test:focused -- test/example.test.mjs
+npm run task:run -- node scripts/example.mjs
+npm run task:runner -- start --kind example -- node scripts/example.mjs
+npm run task:cleanup
+```
+
+这些入口会把 `TEMP`、`TMP`、`TMPDIR` 定向到带所有权标记的 CodexPro 临时目录，并在任务成功、失败或可处理的中断后删除完整目录树。detached runner 默认保留按完成时间排序的前 20 个终态 run，并删除超过 14 天的终态证据；可用 `--retention-count` 和 `--retention-days` 调整。`task:cleanup` 只删除具有有效 marker、路径/身份校验通过且 owner 已失效的 `codexpro-owned-v1-*` 目录；校验或删除不完整时返回非零。它不会删除未标记的其他程序临时文件、托管 task worktree、candidate、recovery state、凭据或受管 Node toolchain。Windows 强制终止无法执行 JavaScript `finally`，这类残留由下一次正式任务或 `task:cleanup` 精确回收。
+
 ## 开源与贡献
 
 项目地址：[github.com/chatGPT-10/codexgpt](https://github.com/chatGPT-10/codexgpt)

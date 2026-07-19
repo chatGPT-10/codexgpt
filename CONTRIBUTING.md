@@ -10,6 +10,16 @@ npm run build
 npm run smoke
 ```
 
+Use the cleanup-backed entry points for focused tests and arbitrary local tasks:
+
+```bash
+npm run test:focused -- test/example.test.mjs
+npm run task:run -- node scripts/example.mjs
+npm run task:cleanup
+```
+
+These commands isolate temporary state in marked CodexPro-owned roots. Do not replace them with raw local `node --test` or ad hoc task commands when cleanup-backed execution is available.
+
 Run a local connector:
 
 ```bash
@@ -38,7 +48,8 @@ npm run connect -- --root /path/to/test/repo --bash safe --write handoff
 - Keep the change scoped.
 - Do not include local tunnel URLs, auth tokens, `.env` values, or private paths.
 - Run `npm run build`.
-- Run `npm run smoke`.
+- Run the narrowest affected tests through `npm run test:focused -- <files...>`.
+- Run `npm run smoke` when the change affects supported runtime behavior.
 - Update `README.md` or `CHANGELOG.md` when behavior changes.
 - Explain security impact for changes touching auth, file access, shell execution, or tunnels.
 

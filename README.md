@@ -372,6 +372,17 @@ npm run smoke
 npm run stress
 ```
 
+Supported test and task launchers isolate `TEMP` / `TMP` / `TMPDIR` inside a marked CodexPro-owned directory and remove that complete tree when the command finishes:
+
+```bash
+npm run test:focused -- test/example.test.mjs
+npm run task:run -- node scripts/example.mjs
+npm run task:runner -- start --kind example -- node scripts/example.mjs
+npm run task:cleanup
+```
+
+The detached runner automatically retains at most the newest 20 terminal runs and removes terminal evidence older than 14 days. Override those bounds with `--retention-count` and `--retention-days`. `task:cleanup` also sweeps dead-owner roots under the selected operating-system temporary directory and exits nonzero when validation or deletion is incomplete. It deletes only exact `codexpro-owned-v1-*` roots with a valid ownership marker; it does not delete unmarked temporary files, managed task worktrees, candidates, recovery state, credentials, or managed toolchains. A force-terminated Windows process cannot execute JavaScript cleanup, so the next supported task or `task:cleanup` performs the exact stale-owner recovery.
+
 Useful release checks:
 
 ```bash

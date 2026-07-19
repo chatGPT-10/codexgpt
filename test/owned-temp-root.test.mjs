@@ -298,6 +298,37 @@ test("owned child environments keep the ownership marker outside child TEMP", as
   });
 });
 
+test("nested owned child environments reuse one canonical base instead of nesting TEMP roots", async () => {
+  await withBase(async (base) => {
+    const outer = await createOwnedTempEnvironment("outer-env", {
+      baseRoot: base,
+      sweep: false
+    });
+    let inner;
+    try {
+      const originalBase = process.env.CODEXPRO_OWNED_TEMP_BASE;
+      process.env.CODEXPRO_OWNED_TEMP_BASE = outer.environment.CODEXPRO_OWNED_TEMP_BASE;
+      try {
+        inner = await createOwnedTempEnvironment("inner-env", {
+          hostEnvironment: outer.environment,
+          sweep: false
+        });
+      } finally {
+        if (originalBase === undefined) delete process.env.CODEXPRO_OWNED_TEMP_BASE;
+        else process.env.CODEXPRO_OWNED_TEMP_BASE = originalBase;
+      }
+      assert.equal(path.dirname(outer.rootPath), await fs.realpath(base));
+      assert.equal(path.dirname(inner.rootPath), await fs.realpath(base));
+      assert.equal(inner.rootPath.startsWith(`${outer.tempPath}${path.sep}`), false);
+      assert.equal(inner.environment.CODEXPRO_OWNED_TEMP_BASE, await fs.realpath(base));
+    } finally {
+      await inner?.cleanup();
+      await outer.cleanup();
+    }
+    assert.deepEqual(await fs.readdir(base), []);
+  });
+});
+
 test("official ordinary/control and smoke launchers use the shared child TEMP environment", async () => {
   const [domains, smoke, packageJson] = await Promise.all([
     fs.readFile("scripts/test-domains.mjs", "utf8"),

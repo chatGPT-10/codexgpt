@@ -111,11 +111,14 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     ])
   }),
   "scripts/long-task-runner.mjs": Object.freeze({
-    purpose: "Ignored .ai-bridge detached-run metadata, PID, result, and bounded log state.",
+    purpose: "Ignored .ai-bridge detached-run metadata, PID, result, bounded log state, and exact terminal-evidence retention cleanup.",
     occurrences: Object.freeze([
       "mkdir:6b206662cb80",
       "writeFile:c9aa6cdf9733",
-      "writeFile:45f0808a2445"
+      "writeFile:45f0808a2445",
+      "rm:4949e062379d",
+      "rename:9e49e08d9148",
+      "rename:94267e3ddce4"
     ])
   }),
   "scripts/owned-temp-root.mjs": Object.freeze({
