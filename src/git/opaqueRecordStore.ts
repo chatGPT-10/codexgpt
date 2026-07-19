@@ -23,24 +23,25 @@ interface OpaqueRecordV1 {
   recordMac: string;
 }
 
-const sealedSchema = z.object({
-  schemaVersion: z.literal(1),
-  iv: z.string().min(16).max(32),
-  ciphertext: z.string().min(4).max(400_000),
-  tag: z.string().min(20).max(32)
-}).strict();
-
-const recordSchema: z.ZodType<OpaqueRecordV1> = z.object({
-  schemaVersion: z.literal(1),
-  recordId: z.string().min(8).max(240).regex(/^[A-Za-z][A-Za-z0-9_-]+$/u),
-  kind: z.string().min(1).max(64).regex(/^[a-z][a-z0-9_]*$/u),
-  generation: z.number().int().positive().safe(),
-  state: z.enum(["active", "consumed", "revoked"]),
-  issuedAt: z.string().datetime({ offset: true }),
-  expiresAt: z.string().datetime({ offset: true }),
-  value: sealedSchema,
-  recordMac: z.string().regex(/^[a-f0-9]{64}$/u)
-}).strict();
+function opaqueRecordSchema(maxCiphertextCharacters: number): z.ZodType<OpaqueRecordV1> {
+  const sealedSchema = z.object({
+    schemaVersion: z.literal(1),
+    iv: z.string().min(16).max(32),
+    ciphertext: z.string().min(4).max(maxCiphertextCharacters),
+    tag: z.string().min(20).max(32)
+  }).strict();
+  return z.object({
+    schemaVersion: z.literal(1),
+    recordId: z.string().min(8).max(240).regex(/^[A-Za-z][A-Za-z0-9_-]+$/u),
+    kind: z.string().min(1).max(64).regex(/^[a-z][a-z0-9_]*$/u),
+    generation: z.number().int().positive().safe(),
+    state: z.enum(["active", "consumed", "revoked"]),
+    issuedAt: z.string().datetime({ offset: true }),
+    expiresAt: z.string().datetime({ offset: true }),
+    value: sealedSchema,
+    recordMac: z.string().regex(/^[a-f0-9]{64}$/u)
+  }).strict();
+}
 
 function withoutMac(record: OpaqueRecordV1): Omit<OpaqueRecordV1, "recordMac"> {
   const { recordMac: _ignored, ...rest } = record;
@@ -50,21 +51,38 @@ function withoutMac(record: OpaqueRecordV1): Omit<OpaqueRecordV1, "recordMac"> {
 export class DurableOpaqueRecordStoreV4 {
   readonly #directory: string;
   readonly #atomic: AtomicJsonFileStore<OpaqueRecordV1>;
+  readonly #recordSchema: z.ZodType<OpaqueRecordV1>;
   readonly #sealKey: Buffer;
   readonly #macKey: Buffer;
   readonly #now: () => number;
+  readonly #maxPlaintextBytes: number;
 
   constructor(options: {
     stateRoot: string;
     masterKey: Buffer;
     namespace: string;
     now?: () => number;
+    maxCiphertextCharacters?: number;
+    maxPlaintextBytes?: number;
   }) {
     if (!/^[a-z][a-z0-9-]{0,47}$/u.test(options.namespace)) {
       throw new Error("GIT_RECOVERY_REQUIRED");
     }
     this.#directory = path.join(path.resolve(options.stateRoot), "git", options.namespace);
-    this.#atomic = new AtomicJsonFileStore(options.stateRoot, recordSchema);
+    const maxCiphertextCharacters = options.maxCiphertextCharacters ?? 400_000;
+    this.#maxPlaintextBytes = options.maxPlaintextBytes ?? 262_144;
+    if (
+      !Number.isSafeInteger(maxCiphertextCharacters) ||
+      maxCiphertextCharacters < 400_000 ||
+      maxCiphertextCharacters > 64_000_000 ||
+      !Number.isSafeInteger(this.#maxPlaintextBytes) ||
+      this.#maxPlaintextBytes < 262_144 ||
+      this.#maxPlaintextBytes > 48_000_000
+    ) {
+      throw new Error("GIT_RECOVERY_REQUIRED");
+    }
+    this.#recordSchema = opaqueRecordSchema(maxCiphertextCharacters);
+    this.#atomic = new AtomicJsonFileStore(options.stateRoot, this.#recordSchema);
     this.#sealKey = deriveGateRSubkey(options.masterKey, `${options.namespace}-sealed`);
     this.#macKey = deriveGateRSubkey(options.masterKey, `${options.namespace}-mac`);
     this.#now = options.now ?? Date.now;
@@ -94,10 +112,11 @@ export class DurableOpaqueRecordStoreV4 {
         this.#sealKey,
         `opaque-v4:${input.kind}:${input.recordId}`,
         input.value,
-        randomBytes
+        randomBytes,
+        this.#maxPlaintextBytes
       )
     };
-    this.#atomic.write(file, recordSchema.parse({
+    this.#atomic.write(file, this.#recordSchema.parse({
       ...base,
       recordMac: createHmac("sha256", this.#macKey)
         .update(canonicalGateRJson(base))
@@ -116,7 +135,8 @@ export class DurableOpaqueRecordStoreV4 {
     return openGitState(
       this.#sealKey,
       `opaque-v4:${kind}:${recordId}`,
-      record.value
+      record.value,
+      this.#maxPlaintextBytes
     ) as T;
   }
 
@@ -124,6 +144,30 @@ export class DurableOpaqueRecordStoreV4 {
     const value = this.get<T>(recordId, kind);
     this.#transition(recordId, "consumed");
     return value;
+  }
+
+  replace<T>(recordId: string, kind: string, value: T): void {
+    const current = this.#read(recordId);
+    if (current.kind !== kind || current.state !== "active") {
+      throw new Error("GIT_STATE_TOKEN_INVALID");
+    }
+    const base = {
+      ...withoutMac(current),
+      generation: current.generation + 1,
+      value: sealGitState(
+        this.#sealKey,
+        `opaque-v4:${kind}:${recordId}`,
+        value,
+        randomBytes,
+        this.#maxPlaintextBytes
+      )
+    };
+    this.#atomic.write(this.#path(recordId), this.#recordSchema.parse({
+      ...base,
+      recordMac: createHmac("sha256", this.#macKey)
+        .update(canonicalGateRJson(base))
+        .digest("hex")
+    }));
   }
 
   revoke(recordId: string): void {
@@ -156,7 +200,8 @@ export class DurableOpaqueRecordStoreV4 {
           value: openGitState(
             this.#sealKey,
             `opaque-v4:${kind}:${record.recordId}`,
-            record.value
+            record.value,
+            this.#maxPlaintextBytes
           ) as T
         });
       }
@@ -176,7 +221,7 @@ export class DurableOpaqueRecordStoreV4 {
       generation: current.generation + 1,
       state
     };
-    this.#atomic.write(this.#path(recordId), recordSchema.parse({
+    this.#atomic.write(this.#path(recordId), this.#recordSchema.parse({
       ...base,
       recordMac: createHmac("sha256", this.#macKey)
         .update(canonicalGateRJson(base))

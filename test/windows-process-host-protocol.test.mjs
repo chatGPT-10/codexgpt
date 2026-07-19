@@ -47,6 +47,16 @@ test("CXP4 protocol authority freezes the exact 64-byte frame layout and limits"
   assert.equal(authority.headerLength, 64);
   assert.equal(authority.tagLength, 16);
   assert.equal(authority.maxFramePayloadBytes, 65536);
+  assert.deepEqual(authority.streaming, {
+    version: 1,
+    maxInputBytes: 131072,
+    maxOutputBytesPerStream: 16777216,
+    maxOneShotTimeoutMs: 120000,
+    maxArgumentItems: 512,
+    maxArgumentUtf8Bytes: 65536,
+    creditUnit: "exact_frame_bytes",
+    cancellationAck: "after_owned_job_revocation"
+  });
   assert.deepEqual(authority.kinds, {
     HELLO: 1,
     HELLO_ACK: 2,

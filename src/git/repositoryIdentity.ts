@@ -26,6 +26,7 @@ export interface GitRepositoryIdentity extends GitRepositoryExecutionIdentity {
   sparseCheckout: boolean;
   splitIndex: boolean;
   mutableIdentities: Readonly<Record<string, StablePathIdentity | null>>;
+  managedTaskWorktree?: true;
 }
 
 function gitError(code: string): Error {
@@ -245,21 +246,24 @@ async function recursiveMutableInventory(
 async function mutableIdentityInventory(
   worktreeRoot: string,
   gitDir: string,
-  refStorage: "files" | "reftable"
+  commonDir: string,
+  refStorage: "files" | "reftable",
+  gitEntryPath?: string
 ): Promise<Readonly<Record<string, StablePathIdentity | null>>> {
   const entries = await Promise.all([
     stableIdentity(worktreeRoot, { required: true }),
     stableIdentity(gitDir, { required: true }),
     stableIdentity(path.join(gitDir, "HEAD"), { required: true, mutableFile: true }),
-    stableIdentity(path.join(gitDir, "config"), { required: true, mutableFile: true }),
+    stableIdentity(path.join(commonDir, "config"), { required: true, mutableFile: true }),
     stableIdentity(path.join(gitDir, "index"), { mutableFile: true }),
-    stableIdentity(path.join(gitDir, "packed-refs"), { mutableFile: true })
+    stableIdentity(path.join(commonDir, "packed-refs"), { mutableFile: true }),
+    gitEntryPath ? stableIdentity(gitEntryPath, { required: true, mutableFile: true }) : null
   ]);
-  const refs = await recursiveMutableInventory(path.join(gitDir, "refs"), "ref:");
-  const objectInfo = await recursiveMutableInventory(path.join(gitDir, "objects", "info"), "object-info:");
-  const objectPacks = await recursiveMutableInventory(path.join(gitDir, "objects", "pack"), "object-pack:");
+  const refs = await recursiveMutableInventory(path.join(commonDir, "refs"), "ref:");
+  const objectInfo = await recursiveMutableInventory(path.join(commonDir, "objects", "info"), "object-info:");
+  const objectPacks = await recursiveMutableInventory(path.join(commonDir, "objects", "pack"), "object-pack:");
   const reftable = refStorage === "reftable"
-    ? await recursiveMutableInventory(path.join(gitDir, "reftable"), "reftable:")
+    ? await recursiveMutableInventory(path.join(commonDir, "reftable"), "reftable:")
     : {};
   return Object.freeze({
     worktreeRoot: entries[0],
@@ -268,6 +272,7 @@ async function mutableIdentityInventory(
     config: entries[3],
     index: entries[4],
     packedRefs: entries[5],
+    ...(gitEntryPath ? { gitEntry: entries[6] } : {}),
     ...refs,
     ...objectInfo,
     ...objectPacks,
@@ -439,7 +444,7 @@ export async function admitGitRepository(input: {
     Boolean(await stableIdentity(path.join(gitDir, "info", "sparse-checkout")));
   const sharedIndexEntries = (await fsp.readdir(gitDir).catch(() => [] as string[])).filter((name) => /^sharedindex\.[a-f0-9]+$/.test(name));
   const splitIndex = sharedIndexEntries.length > 0;
-  const mutableIdentities = await mutableIdentityInventory(worktreeRoot, gitDir, refStorage);
+  const mutableIdentities = await mutableIdentityInventory(worktreeRoot, gitDir, commonDir, refStorage);
   const stableFingerprint = stableIdentityFingerprint({
     worktreeRoot: rootIdentity,
     gitDir: gitEntryIdentity,
@@ -475,6 +480,111 @@ export async function admitGitRepository(input: {
   });
 }
 
+export async function admitManagedTaskGitRepository(input: {
+  workspaceRoot: string;
+  expectedAdminDir: string;
+  expectedRepositoryId: string;
+  executor: GitCommandExecutor;
+}): Promise<GitRepositoryIdentity> {
+  let worktreeRoot: string;
+  try {
+    worktreeRoot = await fsp.realpath(path.resolve(input.workspaceRoot));
+  } catch {
+    throw gitError("GIT_NOT_REPOSITORY");
+  }
+  const rootIdentity = await stableIdentity(worktreeRoot, { required: true });
+  if (rootIdentity?.kind !== "directory") throw gitError("GIT_NOT_REPOSITORY");
+  const gitEntry = path.join(worktreeRoot, ".git");
+  const gitEntryIdentity = await stableIdentity(gitEntry, { required: true }).catch(() => {
+    throw gitError("GIT_NOT_REPOSITORY");
+  });
+  if (gitEntryIdentity?.kind !== "file") throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  const marker = await readBoundedUtf8File(gitEntry, 4096);
+  const markerMatch = /^gitdir: (.+)\r?\n?$/u.exec(marker);
+  if (!markerMatch || markerMatch[1].includes("\0")) throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  const gitDir = await fsp.realpath(path.resolve(worktreeRoot, markerMatch[1])).catch(() => {
+    throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  });
+  const expectedAdminDir = await fsp.realpath(path.resolve(input.expectedAdminDir)).catch(() => {
+    throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  });
+  if (!samePath(gitDir, expectedAdminDir)) throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  const gitDirIdentity = await stableIdentity(gitDir, { required: true });
+  if (gitDirIdentity?.kind !== "directory") throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  const commonMarker = await readBoundedUtf8File(path.join(gitDir, "commondir"), 4096);
+  if (!commonMarker.trim() || commonMarker.includes("\0")) throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  const commonDir = await fsp.realpath(path.resolve(gitDir, commonMarker.trim())).catch(() => {
+    throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  });
+  const worktreesRoot = path.join(commonDir, "worktrees");
+  if (!isInside(gitDir, worktreesRoot) || samePath(gitDir, worktreesRoot)) {
+    throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  }
+
+  const configPath = path.join(commonDir, "config");
+  const configText = await readBoundedUtf8File(configPath, 1_048_576);
+  const config = parseLocalConfig(configText);
+  if (config.has("core.worktree")) throw gitError("GIT_METADATA_OUTSIDE_AUTHORITY");
+  if (config.has("extensions.partialclone")) throw gitError("GIT_UNSUPPORTED_REPOSITORY_FORMAT");
+  if ([...config.entries()].some(([key, values]) => key.endsWith(".promisor") && values.some((value) => value.toLocaleLowerCase("en-US") === "true"))) {
+    throw gitError("GIT_UNSUPPORTED_REPOSITORY_FORMAT");
+  }
+  const configuredRefStorage = config.get("extensions.refstorage")?.at(-1)?.toLocaleLowerCase("en-US");
+  const refStorage: "files" | "reftable" = configuredRefStorage === undefined || configuredRefStorage === "files"
+    ? "files"
+    : configuredRefStorage === "reftable"
+      ? "reftable"
+      : (() => { throw gitError("GIT_UNSUPPORTED_REPOSITORY_FORMAT"); })();
+  if (await directoryHasEntries(path.join(commonDir, "refs", "replace"))) throw gitError("GIT_REPOSITORY_UNSAFE");
+  if (refStorage === "files" && await packedRefsContainReplacement(commonDir)) throw gitError("GIT_REPOSITORY_UNSAFE");
+  if (await hasPromisorPack(commonDir)) throw gitError("GIT_UNSUPPORTED_REPOSITORY_FORMAT");
+  if (await stableIdentity(path.join(commonDir, "objects", "info", "alternates"))) throw gitError("GIT_REPOSITORY_UNSAFE");
+  if (await stableIdentity(path.join(commonDir, "objects", "info", "http-alternates"))) throw gitError("GIT_REPOSITORY_UNSAFE");
+
+  const provisional: GitRepositoryExecutionIdentity = { worktreeRoot, gitDir, commonDir, objectFormat: "sha1" };
+  const objectFormat = await readObjectFormat(input.executor, provisional);
+  if (await hasReplacementRefs(input.executor, { ...provisional, objectFormat })) throw gitError("GIT_REPOSITORY_UNSAFE");
+  const sparseCheckout = config.get("core.sparsecheckout")?.at(-1)?.toLocaleLowerCase("en-US") === "true" ||
+    Boolean(await stableIdentity(path.join(gitDir, "info", "sparse-checkout")));
+  const sharedIndexEntries = (await fsp.readdir(gitDir).catch(() => [] as string[])).filter((name) => /^sharedindex\.[a-f0-9]+$/u.test(name));
+  const splitIndex = sharedIndexEntries.length > 0;
+  const mutableIdentities = await mutableIdentityInventory(worktreeRoot, gitDir, commonDir, refStorage, gitEntry);
+  const stableFingerprint = stableIdentityFingerprint({
+    worktreeRoot: rootIdentity,
+    gitDir: gitDirIdentity,
+    commonDir,
+    objectFormat,
+    refStorage,
+    capabilityRevision: input.executor.capabilityRevision
+  });
+  const fingerprint = repositoryFingerprint({
+    worktreeRoot,
+    gitDir,
+    commonDir,
+    objectFormat,
+    refStorage,
+    capabilityRevision: input.executor.capabilityRevision,
+    mutableIdentities
+  });
+  return Object.freeze({
+    repositoryId: input.expectedRepositoryId,
+    worktreeRoot,
+    gitDir,
+    commonDir,
+    objectFormat,
+    refStorage,
+    capabilityRevision: input.executor.capabilityRevision,
+    stableIdentityFingerprint: stableFingerprint,
+    repositoryFingerprint: fingerprint,
+    executionIsolation: "none",
+    repositoryIntegrations: "disabled",
+    sparseCheckout,
+    splitIndex,
+    mutableIdentities,
+    managedTaskWorktree: true
+  });
+}
+
 export async function revalidateGitRepository(identity: GitRepositoryIdentity): Promise<void> {
   const currentRoot = await fsp.realpath(identity.worktreeRoot).catch(() => {
     throw gitError("GIT_REPOSITORY_UNSAFE");
@@ -482,10 +592,42 @@ export async function revalidateGitRepository(identity: GitRepositoryIdentity): 
   const currentGitDir = await fsp.realpath(identity.gitDir).catch(() => {
     throw gitError("GIT_REPOSITORY_UNSAFE");
   });
-  if (!samePath(currentRoot, identity.worktreeRoot) || !samePath(currentGitDir, identity.gitDir) || !isInside(currentGitDir, currentRoot)) {
+  const currentCommonDir = await fsp.realpath(identity.commonDir).catch(() => {
+    throw gitError("GIT_REPOSITORY_UNSAFE");
+  });
+  if (!samePath(currentRoot, identity.worktreeRoot) || !samePath(currentGitDir, identity.gitDir) || !samePath(currentCommonDir, identity.commonDir)) {
     throw gitError("GIT_REPOSITORY_UNSAFE");
   }
-  const current = await mutableIdentityInventory(identity.worktreeRoot, identity.gitDir, identity.refStorage);
+  const gitEntry = path.join(identity.worktreeRoot, ".git");
+  if (identity.managedTaskWorktree) {
+    const marker = await readBoundedUtf8File(gitEntry, 4096).catch(() => {
+      throw gitError("GIT_REPOSITORY_UNSAFE");
+    });
+    const match = /^gitdir: (.+)\r?\n?$/u.exec(marker);
+    const markerGitDir = match
+      ? await fsp.realpath(path.resolve(identity.worktreeRoot, match[1])).catch(() => null)
+      : null;
+    const commonMarker = await readBoundedUtf8File(path.join(identity.gitDir, "commondir"), 4096).catch(() => "");
+    const markerCommonDir = commonMarker.trim()
+      ? await fsp.realpath(path.resolve(identity.gitDir, commonMarker.trim())).catch(() => null)
+      : null;
+    if (
+      !markerGitDir ||
+      !markerCommonDir ||
+      !samePath(markerGitDir, identity.gitDir) ||
+      !samePath(markerCommonDir, identity.commonDir) ||
+      !isInside(identity.gitDir, path.join(identity.commonDir, "worktrees"))
+    ) throw gitError("GIT_REPOSITORY_UNSAFE");
+  } else if (!isInside(currentGitDir, currentRoot) || !samePath(currentGitDir, currentCommonDir)) {
+    throw gitError("GIT_REPOSITORY_UNSAFE");
+  }
+  const current = await mutableIdentityInventory(
+    identity.worktreeRoot,
+    identity.gitDir,
+    identity.commonDir,
+    identity.refStorage,
+    identity.managedTaskWorktree ? gitEntry : undefined
+  );
   const expectedKeys = Object.keys(identity.mutableIdentities).sort();
   const currentKeys = Object.keys(current).sort();
   if (expectedKeys.length !== currentKeys.length || expectedKeys.some((key, index) => key !== currentKeys[index])) {

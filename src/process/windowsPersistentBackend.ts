@@ -20,7 +20,7 @@ export class WindowsPersistentProcessBackendV3 implements PersistentProcessBacke
   }
 
   async start(input: Parameters<PersistentProcessBackendV3["start"]>[0]): Promise<PersistentProcessHandleV3> {
-    const prepared = this.#execution.preparePersistent(input.rawArgs);
+    const prepared = input.prepared ?? this.#execution.preparePersistent(input.rawArgs);
     if (input.terminal === "conpty") return await this.#startConPty(input, prepared);
     const client = await this.#host.get();
     const response = await client.request("start_persistent", {

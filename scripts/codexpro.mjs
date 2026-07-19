@@ -9,6 +9,7 @@ import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { boundedTextArtifact, trimUtf8Bytes } from './output-bounds.mjs';
+import { createOwnedTempRootSync } from './owned-temp-root.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNTRACKED_FILE_HASH_BYTES = 64 * 1024;
@@ -890,7 +891,8 @@ async function installCloudflaredLocal() {
   const asset = cloudflaredReleaseAsset();
   const installPath = localCloudflaredPath();
   const binDir = path.dirname(installPath);
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codexpro-cloudflared-'));
+  const ownedTemp = createOwnedTempRootSync('cloudflared-local');
+  const tmpRoot = ownedTemp.path;
   const url = `https://github.com/cloudflare/cloudflared/releases/latest/download/${asset.file}`;
 
   fs.mkdirSync(binDir, { recursive: true, mode: 0o700 });
@@ -925,7 +927,7 @@ async function installCloudflaredLocal() {
     console.error('[codexpro] cloudflared installed successfully.');
     return installPath;
   } finally {
-    fs.rmSync(tmpRoot, { recursive: true, force: true });
+    ownedTemp.cleanupSync();
   }
 }
 
@@ -1229,14 +1231,15 @@ function requestQuickTunnelViaCurl(proxyUrl) {
 }
 
 function writeQuickTunnelCredentials(tunnel) {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codexpro-cloudflare-quick-'));
+  const ownedTemp = createOwnedTempRootSync('quick-tunnel');
+  const tmpRoot = ownedTemp.path;
   const credentialsPath = path.join(tmpRoot, 'credentials.json');
   fs.writeFileSync(credentialsPath, JSON.stringify({
     AccountTag: tunnel.accountTag,
     TunnelSecret: tunnel.secret,
     TunnelID: tunnel.id
   }, null, 2), { mode: 0o600 });
-  return { tmpRoot, credentialsPath };
+  return { credentialsPath, cleanup: () => ownedTemp.cleanupSync() };
 }
 
 function killProcess(child) {
@@ -4340,8 +4343,7 @@ async function main() {
     let publicBase = '';
     if (proxyUrl) {
       const quickTunnel = requestQuickTunnelViaCurl(proxyUrl);
-      const { tmpRoot, credentialsPath } = writeQuickTunnelCredentials(quickTunnel);
-      const removeCredentials = () => fs.rmSync(tmpRoot, { recursive: true, force: true });
+      const { credentialsPath, cleanup: removeCredentials } = writeQuickTunnelCredentials(quickTunnel);
       cleanupTunnelCredentials = removeCredentials;
       try {
         cloudflared = spawnLogged('cloudflared', cloudflaredPath, ['tunnel', '--url', localBase, '--credentials-file', credentialsPath, 'run', quickTunnel.id], { cwd: root, env: process.env, verbose: verboseLogs });

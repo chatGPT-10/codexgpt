@@ -126,6 +126,15 @@ async function importMigratedSmokeSource() {
   );
   source = replaceExactCount(
     source,
+    "const expectedDefaultCodexDir = path.join(os.homedir(), '.codex');",
+    [
+      "const lexicalDefaultCodexDir = path.resolve(os.homedir(), '.codex');",
+      "const expectedDefaultCodexDir = await fs.realpath(lexicalDefaultCodexDir).catch(() => lexicalDefaultCodexDir);"
+    ].join('\n'),
+    1
+  );
+  source = replaceExactCount(
+    source,
     "JSON.stringify(metadataSessions.structuredContent).includes('Large tail summary')",
     "JSON.stringify(metadataSessions.structuredContent.data?.sessions ?? []).includes('Large tail summary')",
     1

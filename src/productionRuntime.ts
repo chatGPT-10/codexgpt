@@ -38,6 +38,7 @@ import type { PolicySessionContextSource } from "./policy/identity.js";
 import {
   AtomicTransactionEngine,
   ProcessInstanceRegistry,
+  WorkspaceMutationLock,
   createDefaultTransactionRecoveryCoordinator,
   createDurableParticipantRecoveryAdapter,
   deriveTransactionSubkey,
@@ -68,6 +69,7 @@ import { GitCommitServiceV4 } from "./git/commitService.js";
 import { GitReviewTokenServiceV4 } from "./git/reviewToken.js";
 import { GitIntegrationGateV4 } from "./git/integrations.js";
 import { GitRestoreServiceV4 } from "./git/restoreService.js";
+import { GitRepositoryAdmissionV4 } from "./git/admission.js";
 import { GitStashServiceV4 } from "./git/stashService.js";
 import { GitFileTransactionV4 } from "./git/fileTransaction.js";
 import { GitMutationServiceV4 } from "./git/mutationService.js";
@@ -87,6 +89,7 @@ import { TaskWorktreeMergeExecuteV4 } from "./worktrees/mergeExecute.js";
 import { TaskWorktreeRemoveV4 } from "./worktrees/remove.js";
 import { TaskWorktreeRecoveryV4 } from "./worktrees/recovery.js";
 import { VerificationReceiptServiceV4 } from "./worktrees/verificationReceipts.js";
+import { CandidateVerificationWorkspaceV4 } from "./worktrees/candidateWorkspace.js";
 
 const ATOMIC_MUTATION_TOOL_NAMES = new Set([
   "apply_patch",
@@ -323,6 +326,7 @@ function composeRuntime(
   let automaticGitGateR: ConcreteGitGateRRuntimeV4 | null = null;
   let automaticGitStash: GitStashServiceV4 | null = null;
   let automaticVerificationReceipts: VerificationReceiptServiceV4 | null = null;
+  let automaticCandidateWorkspaces: CandidateVerificationWorkspaceV4 | null = null;
   let atomicEngine: AtomicTransactionEngine | null = null;
 
   try {
@@ -430,12 +434,16 @@ function composeRuntime(
         processManager = new ProcessManagerV3({
           contextFingerprint: executionContextFingerprint,
           startResourceResolver: runCommandRuntime,
+          executionRuntime: runCommandRuntime,
           backend: new WindowsPersistentProcessBackendV3({
             hostRuntime: windowsProcessHostRuntime,
             executionRuntime: runCommandRuntime
           }),
           audit: new ProcessAuditCoordinatorV3({
-            sink: (event) => auditStore!.append(event).then(() => {}),
+            sink: async (event) => {
+              await auditStore!.append(event);
+              return { eventId: event.eventId, timestamp: event.timestamp };
+            },
             context: () => ({
               credentialRef: options.policySessionContextSource!.identity.credentialRef,
               transportSessionId: options.policySessionContextSource!.transportSessionId(),
@@ -520,12 +528,17 @@ function composeRuntime(
             enabled: config.gitIntegrations === "approved_full_access"
           })
         : undefined;
+      const gitAdmission = new GitRepositoryAdmissionV4({
+        executor: bootstrap.executor,
+        registry: automaticGitRegistry
+      });
       const readService = new ConcreteGitReadServiceV4({
         executor: bootstrap.executor,
         registry: automaticGitRegistry,
         stateTokens: automaticGitStateTokens,
         contextFingerprint,
-        integrationGate
+        integrationGate,
+        admission: gitAdmission
       });
       dependencies.gitReadServiceV4 = readService;
       dependencies.v4ContractCapabilities = {
@@ -540,6 +553,7 @@ function composeRuntime(
         automaticGitRepositoryStore = new GitRepositoryStore({ stateRoot, masterKey });
         automaticGitOperationStore = new GitOperationStore({ stateRoot, masterKey });
         const gitLocks = new GitLockManager({ stateRoot, registry });
+        const mergeLifecycleLock = new WorkspaceMutationLock(stateRoot, registry);
         const gitRecovery = new GitRecoveryCoordinator({
           operationStore: automaticGitOperationStore,
           repositoryStore: automaticGitRepositoryStore,
@@ -596,7 +610,8 @@ function composeRuntime(
           registry: automaticGitRegistry,
           stateTokens: automaticGitStateTokens,
           readService,
-          contextFingerprint
+          contextFingerprint,
+          admission: gitAdmission
         });
         automaticGitIndexTokens = new GitIndexTokenServiceV4({
           key: deriveTransactionSubkey(masterKey, "git-v4-index-token"),
@@ -618,7 +633,11 @@ function composeRuntime(
           automaticGitReviews,
           gitFileTransactions,
           Date.now,
-          { stateRoot, masterKey }
+          {
+            stateRoot,
+            masterKey,
+            ownerFingerprint: () => ownerFingerprint
+          }
         );
         automaticGitStash = stash;
         const journal = new GitMutationJournalV4(
@@ -655,18 +674,34 @@ function composeRuntime(
           manager,
           ownerFingerprint: owner
         });
-        automaticGitPlans = new MergePlanStoreV4({ stateRoot, masterKey });
+        gitAdmission.setManagedTaskResolver((workspace) => authority.admitGitWorkspace(workspace));
+        automaticGitPlans = new MergePlanStoreV4({
+          stateRoot,
+          masterKey,
+          lifecycleLock: mergeLifecycleLock
+        });
         automaticVerificationReceipts = new VerificationReceiptServiceV4(
           deriveTransactionSubkey(masterKey, "git-v4-verification-receipt"),
           Date.now,
           { stateRoot, masterKey }
         );
+        automaticCandidateWorkspaces = new CandidateVerificationWorkspaceV4({
+          manager,
+          guard,
+          ownerFingerprint: owner,
+          contextFingerprint: () => contextFingerprint,
+          verificationReceipts: automaticVerificationReceipts,
+          stateRoot,
+          masterKey
+        });
+        runCommandRuntime?.setCandidateVerificationWorkspace(automaticCandidateWorkspaces);
         const mergePrepare = new TaskWorktreeMergePrepareV4({
           manager,
           plans: automaticGitPlans,
           reviews: automaticGitReviews,
           ownerFingerprint: owner,
-          integrationGate
+          integrationGate,
+          candidateWorkspaces: automaticCandidateWorkspaces
         });
         const mergeExecute = new TaskWorktreeMergeExecuteV4({
           manager,
@@ -674,13 +709,20 @@ function composeRuntime(
           ownerFingerprint: owner,
           verificationReceipts: automaticVerificationReceipts,
           fileTransactions: gitFileTransactions,
-          integrationGate
+          integrationGate,
+          candidateWorkspaces: automaticCandidateWorkspaces
         });
         const remove = new TaskWorktreeRemoveV4({
           manager,
           authority,
           reviews: automaticGitReviews,
-          ownerFingerprint: owner
+          ownerFingerprint: owner,
+          hasActiveProcesses: processManager
+            ? (root) => processManager!.hasActiveProcessInRoot(root)
+            : undefined,
+          drainActiveProcesses: processManager
+            ? (root) => processManager!.drainActiveProcessesInRoot(root)
+            : undefined
         });
         const taskService = new TaskWorktreeServiceV4({
           manager,
@@ -694,9 +736,54 @@ function composeRuntime(
         dependencies.gitMutationServiceV4 = mutationService;
         dependencies.taskWorktreeServiceV4 = taskService;
         dependencies.taskWorktreeAuthorityV4 = authority;
-        automaticGitStartup = automaticGitStartup.then(() => gateR.startupRecovery()).then(() => {
+        const mergeRecovery = new TaskWorktreeRecoveryV4({
+          manager,
+          plans: automaticGitPlans,
+          candidateWorkspaces: automaticCandidateWorkspaces,
+          verificationReceipts: automaticVerificationReceipts,
+          ownerFingerprint: owner,
+          async recordRecovery(plan, outcome) {
+            const operationDigest = semanticDigest({
+              kind: "task_worktree_merge_recovery",
+              mergePlanId: plan.mergePlanId
+            }).replace(/^sha256:/u, "");
+            await auditStore!.append(createRecoveryAuditEventV4({
+              timestamp: new Date().toISOString(),
+              requestId: null,
+              authorizationEventId: null,
+              decisionId: null,
+              toolName: "merge_task_worktree",
+              canonicalAction: "task_merge_recovery",
+              workspaceId: null,
+              policyRevision: plan.policyRevision,
+              subjectFingerprint: plan.ownerFingerprint,
+              contextFingerprint: plan.contextFingerprint,
+              resultCode: outcome === "cleanup_completed"
+                ? "MERGE_CLEANUP_COMPLETED"
+                : outcome === "rolled_back"
+                  ? "MERGE_ROLLED_BACK"
+                  : "GIT_RECOVERY_REQUIRED",
+              counts: {
+                affectedPathCount: plan.affectedPathCount,
+                affectedByteCount: plan.affectedByteCount
+              },
+              repositoryId: plan.repositoryId,
+              taskWorktreeId: plan.taskWorktreeId,
+              operationId: `gop_${operationDigest.slice(0, 32)}`,
+              recoveryAction: outcome === "cleanup_completed"
+                ? "committed"
+                : outcome === "rolled_back"
+                  ? "rolled_back"
+                  : "repository_frozen"
+            }));
+          }
+        });
+        automaticGitStartup = automaticGitStartup.then(() => gateR.startupRecovery()).then(async () => {
           if (!gateR.isReady()) throw new Error("GIT_RECOVERY_REQUIRED");
-          new TaskWorktreeRecoveryV4(taskStore).recover(ownerFingerprint);
+          const recovered = await mergeRecovery.recover();
+          if (recovered.some((result) => result.outcome === "recovery_required")) {
+            throw new Error("GIT_RECOVERY_REQUIRED");
+          }
         });
       }
     }
@@ -772,12 +859,15 @@ function composeRuntime(
         await options.rootAdmissionRuntimeV3?.close();
         await localApprovalRuntimeV3?.close();
         runCommandRuntime?.close();
-        await windowsProcessHostRuntime?.close();
+        await Promise.all([
+          windowsProcessHostRuntime?.close()
+        ]);
         await options.gitBootstrapV4?.dispose();
       } catch (error) {
         failure = error;
       } finally {
         automaticGitPlans?.dispose();
+        automaticCandidateWorkspaces?.dispose();
         automaticVerificationReceipts?.dispose();
         automaticGitStash?.dispose();
         automaticGitReviews?.dispose();
@@ -802,6 +892,7 @@ function composeRuntime(
       lifecycle,
       async startup() {
         await automaticGitStartup;
+        await automaticCandidateWorkspaces?.cleanupExpiredReviewedCandidates();
       },
       dispose() {
         if (disposePromise) return disposePromise;
@@ -828,6 +919,7 @@ function composeRuntime(
     void windowsProcessHostRuntime?.close();
     void options.gitBootstrapV4?.dispose();
     automaticGitPlans?.dispose();
+    automaticCandidateWorkspaces?.dispose();
     automaticVerificationReceipts?.dispose();
     automaticGitStash?.dispose();
     automaticGitReviews?.dispose();

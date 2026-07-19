@@ -8,11 +8,15 @@ import type { MergePlanStoreV4 } from "./mergePlanStore.js";
 import { buildTaskTreeManifest } from "./treeManifest.js";
 import { assertRawGitNormalizationV4 } from "../git/normalization.js";
 import { gitIndexIdentityV4, replaceLiveIndexV4 } from "../git/privateIndex.js";
-import type { VerificationReceiptServiceV4 } from "./verificationReceipts.js";
+import type {
+  VerificationReceiptReservationV4,
+  VerificationReceiptServiceV4
+} from "./verificationReceipts.js";
 import type { GitFileMutationV4, GitFileTransactionV4 } from "../git/fileTransaction.js";
 import type { GitIntegrationGateV4 } from "../git/integrations.js";
 import { neutralizedFilterConfig } from "../git/readService.js";
 import { hasSecretValue } from "../redact.js";
+import type { CandidateVerificationWorkspaceV4 } from "./candidateWorkspace.js";
 
 interface UndoEntry {
   path: string;
@@ -37,6 +41,7 @@ export class TaskWorktreeMergeExecuteV4 {
     verificationReceipts: VerificationReceiptServiceV4;
     fileTransactions: GitFileTransactionV4;
     integrationGate?: GitIntegrationGateV4;
+    candidateWorkspaces: CandidateVerificationWorkspaceV4;
   }) {}
 
   describePlan(id: string, ownerFingerprint: string) {
@@ -54,19 +59,18 @@ export class TaskWorktreeMergeExecuteV4 {
     authorization?: AuthorizationAuditEventV4 | null;
   }) {
     const owner = this.options.ownerFingerprint();
-    const plan = this.options.plans.get(input.mergePlanId, owner);
+    const planReservation = this.options.plans.reserve(input.mergePlanId, owner);
+    const plan = planReservation.plan;
+    let receiptReservation: VerificationReceiptReservationV4 | null = null;
+    let completed = false;
+    let effectObserved = false;
+    try {
     if (plan.taskWorktreeId !== input.taskWorktreeId) {
       throw new Error("MERGE_PLAN_INVALID");
     }
     const receipts = input.verificationReceipts ?? [];
+    if (input.skipChecks === true && receipts.length !== 0) throw new Error("MERGE_CHECKS_REQUIRED");
     if (receipts.length === 0 && input.skipChecks !== true) throw new Error("MERGE_CHECKS_REQUIRED");
-    for (const receipt of receipts) {
-      this.options.verificationReceipts.verify(receipt, {
-        taskWorktreeId: plan.taskWorktreeId,
-        candidateOid: plan.candidateOid,
-        ownerFingerprint: owner
-      });
-    }
     const task = await this.options.manager.revalidate(input.taskWorktreeId, owner);
     const repository = await this.options.manager.primaryRepository(input.workspace);
     const executor = this.options.manager.options.context.options.executor;
@@ -78,6 +82,45 @@ export class TaskWorktreeMergeExecuteV4 {
       integrationReview?.workspaceId !== input.workspace.id ||
       integrationReview.repositoryId !== repository.repositoryId
     )) throw new Error("GIT_INTEGRATION_REQUIRED");
+    if (
+      (plan.repositoryIntegrations === "approved_full_access") !== Boolean(integrationReview)
+    ) throw new Error("GIT_INTEGRATION_REQUIRED");
+    if (
+      task.record.generation !== plan.taskGeneration ||
+      repository.stableIdentityFingerprint !== plan.repositoryIdentityFingerprint ||
+      repository.capabilityRevision !== plan.capabilityRevision ||
+      sha256Git(this.options.manager.options.context.options.contextFingerprint) !== plan.contextFingerprint ||
+      (plan.policyRevision !== null && input.authorization?.policyRevision !== plan.policyRevision) ||
+      (integrationReview?.identitiesDigest ?? null) !== plan.integrationIdentitiesDigest ||
+      (integrationReview?.configDigest ?? null) !== plan.integrationConfigDigest ||
+      (integrationReview?.semanticStateDigest ?? null) !== plan.integrationSemanticStateDigest
+    ) throw new Error("GIT_STATE_CHANGED");
+    const candidateBinding = this.options.candidateWorkspaces.describeExecution({
+      mergePlanId: plan.mergePlanId,
+      integrationWorkspaceId: plan.integrationWorkspaceId,
+      category: plan.requiredCheckCategories[0]
+    });
+    await this.options.candidateWorkspaces.beginExecution(candidateBinding);
+    if (input.skipChecks !== true) {
+      receiptReservation = this.options.verificationReceipts.reserveForMerge({
+        tokens: receipts,
+        requiredCategories: plan.requiredCheckCategories,
+        expected: {
+          mergePlanId: plan.mergePlanId,
+          repositoryId: plan.repositoryId,
+          repositoryIdentityFingerprint: plan.repositoryIdentityFingerprint,
+          taskWorktreeId: plan.taskWorktreeId,
+          taskGeneration: plan.taskGeneration,
+          candidateOid: plan.candidateOid,
+          candidateTreeOid: plan.candidateTreeOid,
+          integrationWorkspaceId: plan.integrationWorkspaceId,
+          ownerFingerprint: owner,
+          contextFingerprint: plan.contextFingerprint,
+          capabilityRevision: plan.capabilityRevision,
+          ...(plan.policyRevision ? { policyRevision: plan.policyRevision } : {})
+        }
+      });
+    }
     const currentRefResult = await executor.run(repository, [
       "symbolic-ref", "-q", "HEAD"
     ], { stdoutLimitBytes: 512 });
@@ -120,7 +163,7 @@ export class TaskWorktreeMergeExecuteV4 {
         first.digest !== second.digest ||
         refBetween !== plan.targetOid
       ) throw new Error("GIT_STATE_CHANGED");
-      return this.options.manager.options.journal.run({
+      const result = await this.options.manager.options.journal.run({
         authorization: input.authorization,
         repository,
         toolName: "merge_task_worktree",
@@ -140,17 +183,10 @@ export class TaskWorktreeMergeExecuteV4 {
             "update-ref", "--no-deref", plan.targetRef, plan.candidateOid, plan.targetOid
           ]);
           if (ref.status !== 0) throw new Error("GIT_REF_CHANGED");
-          this.options.plans.consume(plan.mergePlanId, owner);
           this.options.manager.options.store.update(task.record.taskWorktreeId, {
             state: "ready",
             headOid: plan.taskOid
           });
-          if (plan.candidateRef) {
-            const deleted = await executor.run(repository, [
-              "update-ref", "--no-deref", "-d", plan.candidateRef, plan.candidateOid
-            ]);
-            if (deleted.status !== 0) throw new Error("GIT_RECOVERY_REQUIRED");
-          }
           return {
             action: "execute" as const,
             repository_id: repository.repositoryId,
@@ -161,10 +197,22 @@ export class TaskWorktreeMergeExecuteV4 {
             integrated: true as const,
             task_retained: true as const,
             execution_isolation: "none" as const,
-            repository_integrations: "disabled" as const
+            repository_integrations: plan.repositoryIntegrations
           };
         }
       });
+      effectObserved = true;
+      this.options.plans.transition(
+        plan.mergePlanId,
+        owner,
+        "prepared",
+        "effect_observed"
+      );
+      await this.#completePlan({ plan, repository, executor });
+      receiptReservation?.consume();
+      planReservation.consume();
+      completed = true;
+      return result;
     }
     const dirty = await executor.run(repository, [
       "status", "--porcelain=v2", "-z", "--untracked-files=all", "--ignored=matching"
@@ -201,15 +249,12 @@ export class TaskWorktreeMergeExecuteV4 {
     const liveIndexIdentity = await gitIndexIdentityV4(liveIndex);
     const liveIndexContent = await fsp.readFile(liveIndex);
     const undo: UndoEntry[] = [];
-    let rollbackBytes = liveIndexContent.length;
     for (const relativePath of paths) {
       const absolute = path.join(input.workspace.root, ...relativePath.split("/"));
       const old = await fsp.readFile(absolute).catch((error: NodeJS.ErrnoException) => {
         if (error.code === "ENOENT") return null;
         throw error;
       });
-      rollbackBytes += old?.length ?? 0;
-      if (rollbackBytes > 220 * 1024) throw new Error("GIT_SCAN_LIMIT");
       undo.push({
         path: relativePath,
         existed: old !== null,
@@ -217,7 +262,7 @@ export class TaskWorktreeMergeExecuteV4 {
         digest: sha256Git(old ?? Buffer.alloc(0))
       });
     }
-    return this.options.manager.options.journal.run({
+    const result = await this.options.manager.options.journal.run({
       authorization: input.authorization,
       repository,
       toolName: "merge_task_worktree",
@@ -230,14 +275,14 @@ export class TaskWorktreeMergeExecuteV4 {
         targetRef: plan.targetRef,
         targetOid: plan.targetOid,
         candidateOid: plan.candidateOid,
-        pathDigests: paths.map(sha256Git),
-        rollbackBytes,
-        indexUndo: liveIndexContent.toString("base64"),
-        fileUndo: undo.map((entry) => ({
-          path: entry.path,
+        pathSetDigest: sha256Git(JSON.stringify(paths.map(sha256Git))),
+        indexIdentity: liveIndexIdentity,
+        indexContentDigest: sha256Git(liveIndexContent),
+        fileUndoDigest: sha256Git(JSON.stringify(undo.map((entry) => ({
+          pathDigest: sha256Git(entry.path),
           existed: entry.existed,
-          content: entry.content.toString("base64")
-        }))
+          contentDigest: entry.digest
+        }))))
       },
       effect: async () => {
         const privateRoot = await executor.createPrivateDirectory?.("git-merge-execute");
@@ -247,11 +292,18 @@ export class TaskWorktreeMergeExecuteV4 {
         let refUpdated = false;
         let indexUpdated = false;
         let integrationsExecuted = false;
+        let hydratedTotalBytes = 0;
         try {
           await fsp.writeFile(privateIndex, liveIndexContent);
           await runGitRequired(executor, repository, ["read-tree", plan.candidateOid], {
             privateIndexPath: privateIndex
           });
+          const preparedIndexDigest = sha256Git(await fsp.readFile(privateIndex));
+          const preparedTreeOid = (await runGitRequired(executor, repository, ["write-tree"], {
+            privateIndexPath: privateIndex,
+            stdoutLimitBytes: 256
+          })).stdout.toString("ascii").trim();
+          if (preparedTreeOid !== candidateManifest.treeOid) throw new Error("GIT_INDEX_CHANGED");
           const hydratedPaths = paths.filter((relativePath) => {
             const entry = after.get(relativePath);
             return entry?.kind === "blob";
@@ -279,6 +331,9 @@ export class TaskWorktreeMergeExecuteV4 {
               hydrated.result.stdoutTruncated ||
               hydrated.result.stderrTruncated
             ) throw new Error("GIT_COMMAND_FAILED");
+            if (sha256Git(await fsp.readFile(privateIndex)) !== preparedIndexDigest) {
+              throw new Error("GIT_INDEX_CHANGED");
+            }
             integrationsExecuted = true;
           }
           const operations: GitFileMutationV4[] = [];
@@ -296,11 +351,17 @@ export class TaskWorktreeMergeExecuteV4 {
                 ? await this.#readHydratedFile(
                     path.join(hydratedRoot, ...relativePath.split("/")),
                     hydratedRoot,
-                    this.options.manager.options.maxBytes
+                    this.options.manager.options.maxBytes - hydratedTotalBytes
                   )
                 : (await runGitRequired(executor, repository, ["cat-file", "blob", entry.oid], {
                     stdoutLimitBytes: entry.size + 1
                   })).stdout;
+              if (integrationsExecuted) {
+                hydratedTotalBytes += bytes.length;
+                if (hydratedTotalBytes > this.options.manager.options.maxBytes) {
+                  throw new Error("GIT_SCAN_LIMIT");
+                }
+              }
               if (hasSecretValue(bytes.toString("latin1"))) throw new Error("GIT_SECRET_BLOCKED");
               const old = undo.find((item) => item.path === relativePath)!;
               operations.push(old.existed
@@ -333,13 +394,6 @@ export class TaskWorktreeMergeExecuteV4 {
                   state: "ready",
                   headOid: plan.taskOid
                 });
-                if (plan.candidateRef) {
-                  const deleted = await executor.run(repository, [
-                    "update-ref", "--no-deref", "-d", plan.candidateRef, plan.candidateOid
-                  ]);
-                  if (deleted.status !== 0) throw new Error("GIT_RECOVERY_REQUIRED");
-                }
-                this.options.plans.consume(plan.mergePlanId, owner);
               } catch (error) {
                 if (refUpdated) {
                   await executor.run(repository, [
@@ -374,9 +428,7 @@ export class TaskWorktreeMergeExecuteV4 {
             integrated: true as const,
             task_retained: true as const,
             execution_isolation: "none" as const,
-            repository_integrations: integrationsExecuted
-              ? "approved_full_access" as const
-              : "disabled" as const
+            repository_integrations: plan.repositoryIntegrations
           };
         } catch (error) {
           throw error;
@@ -385,9 +437,85 @@ export class TaskWorktreeMergeExecuteV4 {
         }
       }
     });
+    effectObserved = true;
+    this.options.plans.transition(
+      plan.mergePlanId,
+      owner,
+      "prepared",
+      "effect_observed"
+    );
+    await this.#completePlan({ plan, repository, executor });
+    receiptReservation?.consume();
+    planReservation.consume();
+    completed = true;
+    return result;
+    } catch (error) {
+      if (effectObserved) {
+        try {
+          const currentPlan = this.options.plans.getForRecovery(plan.mergePlanId, owner);
+          if (currentPlan.lifecycleState === "prepared") {
+            this.options.plans.transition(
+              plan.mergePlanId,
+              owner,
+              "prepared",
+              "recovery_required"
+            );
+          } else if (currentPlan.lifecycleState === "effect_observed") {
+            this.options.plans.transition(
+              plan.mergePlanId,
+              owner,
+              "effect_observed",
+              "recovery_required"
+            );
+          }
+        } catch { }
+        try {
+          const currentTask = this.options.manager.options.store.read(plan.taskWorktreeId);
+          if (currentTask.record.state !== "recovery_required") {
+            this.options.manager.options.store.update(plan.taskWorktreeId, {
+              state: "recovery_required",
+              headOid: plan.taskOid
+            });
+          }
+        } catch { }
+      }
+      throw error;
+    } finally {
+      if (!completed) {
+        receiptReservation?.release();
+        planReservation.release();
+      }
+    }
+  }
+
+  async #completePlan(input: {
+    plan: ReturnType<MergePlanStoreV4["get"]>;
+    repository: Awaited<ReturnType<TaskWorktreeManagerV4["primaryRepository"]>>;
+    executor: TaskWorktreeManagerV4["options"]["context"]["options"]["executor"];
+  }): Promise<void> {
+    if (input.plan.candidateRef) {
+      const deleted = await input.executor.run(input.repository, [
+        "update-ref", "--no-deref", "-d", input.plan.candidateRef, input.plan.candidateOid
+      ]);
+      if (deleted.status !== 0) {
+        const probe = await input.executor.run(input.repository, [
+          "show-ref", "--verify", "--quiet", input.plan.candidateRef
+        ]);
+        if (
+          probe.status !== 1 ||
+          probe.timedOut ||
+          probe.stdoutTruncated ||
+          probe.stderrTruncated
+        ) throw new Error("GIT_RECOVERY_REQUIRED");
+      }
+    }
+    await this.options.candidateWorkspaces.cleanup(input.plan.integrationWorkspaceId).catch(() => {
+      throw new Error("GIT_RECOVERY_REQUIRED");
+    });
   }
 
   async #readHydratedFile(file: string, root: string, maximumTotal: number): Promise<Buffer> {
+    if (!Number.isSafeInteger(maximumTotal) || maximumTotal < 0) throw new Error("GIT_SCAN_LIMIT");
     const lexical = await fsp.lstat(file, { bigint: true }).catch(() => {
       throw new Error("GIT_STATE_CHANGED");
     });

@@ -55,11 +55,15 @@ import {
   listProcessesOutputShape,
   readProcessOutputInputV1Schema,
   readProcessOutputOutputShape,
+  readProcessOutputOutputShapeV4,
   resizeProcessTerminalInputV1Schema,
   resizeProcessTerminalOutputShape,
   runCommandInputV1Schema,
+  runCommandInputV4Schema,
   runCommandOutputShape,
+  runCommandOutputShapeV4,
   startProcessInputV1Schema,
+  startProcessInputV4Schema,
   startProcessOutputShape,
   terminateProcessInputV1Schema,
   terminateProcessOutputShape,
@@ -4846,7 +4850,29 @@ function registerV3ContractTools(
   dependencies: CodexProServerDependencies
 ): void {
   if (!contractIncludesV3(config.toolContractVersion)) return;
-  for (const definition of V3_CONTRACT_TOOL_DEFINITIONS) {
+  for (const inheritedDefinition of V3_CONTRACT_TOOL_DEFINITIONS) {
+    const definition = config.toolContractVersion !== 4
+      ? inheritedDefinition
+      : inheritedDefinition.name === "run_command"
+        ? {
+            ...inheritedDefinition,
+            description: "Run one structured command, optionally as an exact-candidate verification, and return bounded retained output.",
+            inputSchema: runCommandInputV4Schema,
+            outputSchema: runCommandOutputShapeV4
+          }
+        : inheritedDefinition.name === "start_process"
+          ? {
+              ...inheritedDefinition,
+              description: "Start one bounded persistent process, optionally bound to an exact candidate verification workspace.",
+              inputSchema: startProcessInputV4Schema
+            }
+          : inheritedDefinition.name === "read_process_output"
+            ? {
+                ...inheritedDefinition,
+                description: "Read bounded process output and V4 terminal verification evidence owned by this context.",
+                outputSchema: readProcessOutputOutputShapeV4
+              }
+            : inheritedDefinition;
     const rootAdmissionHandler = definition.name === "open_full_access_workspace" && dependencies.rootAdmissionRuntimeV3
       ? async (args: Record<string, unknown>) => {
           const startedAt = Date.now();
@@ -4878,6 +4904,7 @@ function registerV3ContractTools(
         title: definition.title,
         description: definition.description,
         inputSchema: definition.inputSchema.shape,
+        __codexproStrictInputSchema: definition.inputSchema,
         outputSchema: definition.outputSchema,
         annotations: definition.annotations,
         _meta: {

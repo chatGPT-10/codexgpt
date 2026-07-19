@@ -159,7 +159,6 @@ function parseCommitObject(
 }
 
 async function createShadowGitDirectory(input: {
-  repository: Awaited<ReturnType<typeof admitGitRepository>>;
   privateRoot: string;
   headOid: string;
   indexBytes: Buffer;
@@ -181,8 +180,6 @@ async function createShadowGitDirectory(input: {
     mode: 0o600
   });
   await fsp.writeFile(shadowRefFile, `${input.headOid}\n`, { flag: "wx", mode: 0o600 });
-  const config = await readStableFile(path.join(input.repository.commonDir, "config"), 1024 * 1024);
-  await fsp.writeFile(path.join(shadowGitDir, "config"), config, { flag: "wx", mode: 0o600 });
   return { shadowGitDir, privateIndex, quarantineRoot, shadowRefFile };
 }
 
@@ -221,11 +218,7 @@ export class GitCommitServiceV4 {
       token.workspaceId !== input.workspace.id ||
       token.capabilityRevision !== this.context.options.executor.capabilityRevision
     ) throw gitMutationError("GIT_STATE_TOKEN_INVALID");
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.context.options.executor,
-      registry: this.context.options.registry
-    });
+    const repository = await this.context.admitWorkspace(input.workspace);
     if (
       repository.repositoryId !== token.repositoryId ||
       repository.repositoryFingerprint !== token.repositoryFingerprint
@@ -341,11 +334,7 @@ export class GitCommitServiceV4 {
       reviewed.repositoryId !== token.repositoryId ||
       token.capabilityRevision !== this.context.options.executor.capabilityRevision
     ) throw gitMutationError("GIT_STATE_TOKEN_INVALID");
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.context.options.executor,
-      registry: this.context.options.registry
-    });
+    const repository = await this.context.admitWorkspace(input.workspace);
     if (
       repository.repositoryId !== token.repositoryId ||
       repository.repositoryFingerprint !== token.repositoryFingerprint
@@ -379,7 +368,6 @@ export class GitCommitServiceV4 {
     if (!privateRoot) throw gitMutationError("GIT_CAPABILITY_UNAVAILABLE");
     try {
       const shadow = await createShadowGitDirectory({
-        repository,
         privateRoot,
         headOid,
         indexBytes
@@ -397,8 +385,7 @@ export class GitCommitServiceV4 {
           message: Buffer.from(`${input.message}\n`, "utf8"),
           privateIndexPath: shadow.privateIndex,
           objectDirectoryPath: shadow.quarantineRoot,
-          shadowGitDir: shadow.shadowGitDir,
-          hooksPath: reviewed.hooksPath
+          shadowGitDir: shadow.shadowGitDir
         }
       });
       if (

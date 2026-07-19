@@ -79,10 +79,28 @@ const executionBaseInputShape = {
 
 export const runCommandInputV1Schema = z.object(executionBaseInputShape).strict();
 
+export const candidateVerificationInputV4Schema = z.object({
+  merge_plan_id: z.string().regex(/^merge_[a-f0-9]{32}$/u),
+  integration_workspace_id: z.string().regex(/^ws_[a-f0-9]{32}$/u),
+  category: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/u)
+}).strict();
+
+export const runCommandInputV4Schema = z.object({
+  ...executionBaseInputShape,
+  verification: candidateVerificationInputV4Schema.optional()
+}).strict();
+
 export const startProcessInputV1Schema = z.object({
   ...executionBaseInputShape,
   terminal: z.enum(["pipes", "conpty"]).optional(),
   lifetime_ms: z.number().int().min(1).max(2 * 60 * 60_000).optional()
+}).strict();
+
+export const startProcessInputV4Schema = z.object({
+  ...executionBaseInputShape,
+  terminal: z.enum(["pipes", "conpty"]).optional(),
+  lifetime_ms: z.number().int().min(1).max(2 * 60 * 60_000).optional(),
+  verification: candidateVerificationInputV4Schema.optional()
 }).strict();
 
 export const readProcessOutputInputV1Schema = z.object({
@@ -191,6 +209,10 @@ export const runCommandDataV1Schema = z.object({
   ended_at: z.string().datetime({ offset: true })
 }).strict();
 
+export const runCommandDataV4Schema = runCommandDataV1Schema.extend({
+  verification_receipt: z.string().regex(/^verify_[A-Za-z0-9_-]+$/u).nullable()
+}).strict();
+
 export const startProcessDataV1Schema = z.object({
   process_id: processIdV1Schema,
   status: z.enum(["running", "exited", "failed"]),
@@ -207,6 +229,11 @@ const processStateDataV1Schema = z.object({
 
 export const readProcessOutputDataV1Schema = processStateDataV1Schema.extend({
   output: outputPageV1Schema
+}).strict();
+
+export const readProcessOutputDataV4Schema = readProcessOutputDataV1Schema.extend({
+  exit_code: z.number().int().nullable(),
+  verification_receipt: z.string().regex(/^verify_[A-Za-z0-9_-]+$/u).nullable()
 }).strict();
 
 export const listProcessesDataV1Schema = z.object({
@@ -305,8 +332,10 @@ function outputSchema(shape: ReturnType<typeof executionOutputShape>) {
 }
 
 export const runCommandOutputShape = executionOutputShape("run_command", runCommandDataV1Schema);
+export const runCommandOutputShapeV4 = executionOutputShape("run_command", runCommandDataV4Schema);
 export const startProcessOutputShape = executionOutputShape("start_process", startProcessDataV1Schema);
 export const readProcessOutputOutputShape = executionOutputShape("read_process_output", readProcessOutputDataV1Schema);
+export const readProcessOutputOutputShapeV4 = executionOutputShape("read_process_output", readProcessOutputDataV4Schema);
 export const writeProcessInputOutputShape = executionOutputShape("write_process_input", processStateDataV1Schema);
 export const interruptProcessOutputShape = executionOutputShape("interrupt_process", processStateDataV1Schema);
 export const terminateProcessOutputShape = executionOutputShape("terminate_process", processStateDataV1Schema);
@@ -314,8 +343,10 @@ export const resizeProcessTerminalOutputShape = executionOutputShape("resize_pro
 export const listProcessesOutputShape = executionOutputShape("list_processes", listProcessesDataV1Schema);
 
 export const runCommandOutputSchema = outputSchema(runCommandOutputShape);
+export const runCommandOutputSchemaV4 = outputSchema(runCommandOutputShapeV4);
 export const startProcessOutputSchema = outputSchema(startProcessOutputShape);
 export const readProcessOutputOutputSchema = outputSchema(readProcessOutputOutputShape);
+export const readProcessOutputOutputSchemaV4 = outputSchema(readProcessOutputOutputShapeV4);
 export const writeProcessInputOutputSchema = outputSchema(writeProcessInputOutputShape);
 export const interruptProcessOutputSchema = outputSchema(interruptProcessOutputShape);
 export const terminateProcessOutputSchema = outputSchema(terminateProcessOutputShape);
@@ -331,6 +362,12 @@ export const EXECUTION_OUTPUT_SCHEMAS = Object.freeze({
   terminate_process: terminateProcessOutputSchema,
   resize_process_terminal: resizeProcessTerminalOutputSchema,
   list_processes: listProcessesOutputSchema
+});
+
+export const EXECUTION_OUTPUT_SCHEMAS_V4 = Object.freeze({
+  ...EXECUTION_OUTPUT_SCHEMAS,
+  run_command: runCommandOutputSchemaV4,
+  read_process_output: readProcessOutputOutputSchemaV4
 });
 
 export function createExecutionFailure(

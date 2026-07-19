@@ -133,6 +133,20 @@ function approvalRevealArguments(args: Record<string, unknown>): string[] {
   return [];
 }
 
+function describedApprovalRevealArguments(
+  described: { approvalRevealArguments?: readonly string[] },
+  args: Record<string, unknown>
+): string[] {
+  if (!described.approvalRevealArguments) return approvalRevealArguments(args);
+  if (
+    described.approvalRevealArguments.length > 32 ||
+    described.approvalRevealArguments.some((value) =>
+      typeof value !== "string" || value.length < 1 || value.length > 4096 || /[\u0000\r\n]/u.test(value)
+    )
+  ) throw new Error("Approval display arguments are invalid.");
+  return [...described.approvalRevealArguments];
+}
+
 function decisionWithApprovalId(decision: PolicyDecisionV1, approvalId: string): PolicyDecisionV1 {
   return policyDecisionV1Schema.parse({
     ...decision,
@@ -179,6 +193,7 @@ interface DescribedPolicyResource {
   requiredScope: PolicyScope | null;
   requiredScopes: readonly PolicyScopeV4[];
   semanticFactsDigest: string | null;
+  approvalRevealArguments?: readonly string[];
 }
 
 function describeResource(
@@ -213,7 +228,8 @@ function describeResource(
       riskClass: described.riskClass ?? definition.riskClass,
       requiredScope: definition.requiredScope,
       requiredScopes,
-      semanticFactsDigest: described.semanticFactsDigest ?? null
+      semanticFactsDigest: described.semanticFactsDigest ?? null,
+      approvalRevealArguments: described.approvalRevealArguments
     };
   }
   const workspace = workspaceFor(definition.resourceMode, args, workspaces);
@@ -582,9 +598,11 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
               ? executionDisplay.backendId
               : capabilities.backendId,
             actionKind: operationForApproval(described.resource),
-            argumentCount: executionDisplay.kind === "execution" && typeof executionDisplay.argumentCount === "number"
-              ? executionDisplay.argumentCount
-              : approvalArgumentCount(args),
+            argumentCount: described.approvalRevealArguments
+              ? described.approvalRevealArguments.length
+              : executionDisplay.kind === "execution" && typeof executionDisplay.argumentCount === "number"
+                ? executionDisplay.argumentCount
+                : approvalArgumentCount(args),
             logicalScope: context.workspaceId ?? "server",
             identityLabel: context.identity.subject ?? context.identity.kind,
             authoritySummary: executionDisplay.kind === "git_v4" &&
@@ -596,7 +614,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
                   ? "ambient or destructive authority; local decision required"
                   : "bounded local authority; local decision required",
             digestPrefix: semanticFacts.replace(/^sha256:/, "").slice(0, 16),
-            revealArguments: approvalRevealArguments(args)
+            revealArguments: describedApprovalRevealArguments(described, args)
           },
           createdAt: now
         });
@@ -778,9 +796,9 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
       if (!input.persistentAudit) throw new Error("Persistent audit runtime is unavailable.");
       await input.persistentAudit.persistAuthorization(context);
     },
-    async persistExecution(context, execution): Promise<void> {
+    async persistExecution(context, execution) {
       if (!input.persistentAudit) throw new Error("Persistent audit runtime is unavailable.");
-      await input.persistentAudit.persistExecution(context, execution);
+      return input.persistentAudit.persistExecution(context, execution);
     }
   };
 }

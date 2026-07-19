@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { GitIndexServiceV4 } from "../dist/git/indexService.js";
@@ -96,6 +97,62 @@ test("V4 restore rejects a post-review hardlink without changing the outside fil
     } finally {
       reviews.dispose();
       await fs.rm(outside, { force: true });
+    }
+  });
+});
+
+test("V4 durable restore supports a configured-size 300 KiB tracked file across restart", async () => {
+  await withGitMutationRepository(async (fixture) => {
+    const durableRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-restore-large-"));
+    const masterKey = Buffer.alloc(32, 61);
+    const reviewKey = Buffer.alloc(32, 62);
+    try {
+      const indexed = Buffer.alloc(300 * 1024, 65);
+      const changed = Buffer.alloc(300 * 1024, 66);
+      await fs.writeFile(path.join(fixture.root, "tracked.txt"), indexed);
+      runGit(fixture.root, ["add", "tracked.txt"]);
+      runGit(fixture.root, ["commit", "-m", "large tracked file"]);
+      await fs.writeFile(path.join(fixture.root, "tracked.txt"), changed);
+      const status = await fixture.readService.status({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        paths: ["tracked.txt"]
+      });
+      const reviews = new GitReviewTokenServiceV4({
+        key: reviewKey,
+        stateRoot: durableRoot,
+        masterKey
+      });
+      const service = new GitRestoreServiceV4(fixture.mutationContext, reviews, fixture.fileTransactions);
+      const review = await service.prepare({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        stateToken: status.state_token,
+        mode: "worktree_from_index",
+        paths: ["tracked.txt"]
+      });
+      reviews.dispose();
+      const restartedReviews = new GitReviewTokenServiceV4({
+        key: reviewKey,
+        stateRoot: durableRoot,
+        masterKey
+      });
+      const restartedService = new GitRestoreServiceV4(
+        fixture.mutationContext,
+        restartedReviews,
+        fixture.fileTransactions
+      );
+      await restartedService.execute({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        reviewToken: review.review_token
+      });
+      assert.deepEqual(await fs.readFile(path.join(fixture.root, "tracked.txt")), indexed);
+      restartedReviews.dispose();
+    } finally {
+      masterKey.fill(0);
+      reviewKey.fill(0);
+      await fs.rm(durableRoot, { recursive: true, force: true });
     }
   });
 });

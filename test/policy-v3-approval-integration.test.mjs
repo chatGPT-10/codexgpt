@@ -219,6 +219,51 @@ test("V3 default policy runtime issues durable pending state and atomically rese
   assert.equal(executionApproval.summary.backend, "fake");
   assert.match(executionApproval.summary.authoritySummary, /current-user unrestricted filesystem, credentials, registry, and network/);
   assert.deepEqual(executionApproval.summary.revealArguments, ["C:\\bound\\tool.exe", "one", "two words"]);
+
+  const gitRevealArguments = [
+    "filter: C:\\reviewed\\filter.exe",
+    "hook: C:\\reviewed\\pre-commit.cmd"
+  ];
+  const gitDisplayRuntime = createDefaultPolicyRuntime({
+    config: executionConfig,
+    workspaces,
+    guard,
+    sessionSource,
+    persistentAudit,
+    localApprovalRuntimeV3: approvalRuntime,
+    resourceResolver: {
+      describe: () => ({
+        resource: {
+          schemaVersion: 4,
+          kind: "git_v4",
+          operation: "stage",
+          repositoryId: `repo_${"1".repeat(32)}`,
+          worktreeId: null,
+          branchId: null,
+          pathDigests: [],
+          refDigests: [],
+          objectIds: [],
+          affectedPathCount: 1,
+          affectedByteCount: 0,
+          stateTokenFingerprint: "2".repeat(64),
+          integrationMode: "approved_full_access",
+          executionIsolation: "none",
+          resourceFingerprint: `sha256:${"c".repeat(64)}`
+        },
+        semanticFactsDigest: `sha256:${"d".repeat(64)}`,
+        riskClass: "R3",
+        requiredScopes: ["shell:execute", "host:full-access"],
+        approvalRevealArguments: gitRevealArguments
+      })
+    }
+  });
+  const gitDisplayFirst = await gitDisplayRuntime.authorize("run_command", { integration_review_token: "opaque" });
+  assert.equal(gitDisplayFirst.decision.outcome, "approval_required");
+  const gitDisplayApproval = approvalRuntime.approvals.get(gitDisplayFirst.localApproval.approvalId);
+  assert.match(gitDisplayApproval.summary.authoritySummary, /approved Git integration.*no filesystem, credential, registry, network, or broker isolation/i);
+  assert.equal(gitDisplayApproval.summary.argumentCount, gitRevealArguments.length);
+  assert.deepEqual(gitDisplayApproval.summary.revealArguments, gitRevealArguments);
+
   await approvalRuntime.server.handle({ schemaVersion: 3, contractVersion: 3, operation: "approvals.approve", serverId: approvalRuntime.serverId, approvalId: executionFirst.localApproval.approvalId });
   const executionRetries = await Promise.all(Array.from({ length: 24 }, () => executionRuntime.authorize("run_command", executionArgs)));
   const executionWinners = executionRetries.filter((result) => result.decision.outcome === "allow" && result.reservation);

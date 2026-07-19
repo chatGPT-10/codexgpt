@@ -10,13 +10,24 @@ export interface ProcessAuditContextV3 {
   contextFingerprint: string;
 }
 
+export interface PersistedProcessLifecycleAuditV3 {
+  eventId: string;
+  timestamp: string;
+}
+
 export class ProcessAuditCoordinatorV3 {
-  readonly #sink: (event: ProcessLifecycleAuditEventV3) => void | Promise<void>;
+  readonly #sink: (event: ProcessLifecycleAuditEventV3) =>
+    | void
+    | PersistedProcessLifecycleAuditV3
+    | Promise<void | PersistedProcessLifecycleAuditV3>;
   readonly #context: () => ProcessAuditContextV3;
   readonly #now: () => number;
 
   constructor(options: {
-    sink?: (event: ProcessLifecycleAuditEventV3) => void | Promise<void>;
+    sink?: (event: ProcessLifecycleAuditEventV3) =>
+      | void
+      | PersistedProcessLifecycleAuditV3
+      | Promise<void | PersistedProcessLifecycleAuditV3>;
     context?: () => ProcessAuditContextV3;
     now?: () => number;
   } = {}) {
@@ -36,7 +47,7 @@ export class ProcessAuditCoordinatorV3 {
     generation: number,
     transition: ProcessLifecycleAuditEventV3["transition"],
     reason: string
-  ): Promise<void> {
+  ): Promise<PersistedProcessLifecycleAuditV3 | null> {
     const context = this.#context();
     const event = auditEventV3Schema.parse({
       schemaVersion: 3,
@@ -62,6 +73,12 @@ export class ProcessAuditCoordinatorV3 {
       processId,
       processGeneration: generation
     }) as ProcessLifecycleAuditEventV3;
-    await this.#sink(event);
+    const persisted = await this.#sink(event);
+    if (
+      !persisted ||
+      persisted.eventId !== event.eventId ||
+      persisted.timestamp !== event.timestamp
+    ) return null;
+    return Object.freeze({ eventId: event.eventId, timestamp: event.timestamp });
   }
 }

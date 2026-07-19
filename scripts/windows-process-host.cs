@@ -25,6 +25,11 @@ namespace CodexPro.Phase4
         private const int TagLength = 16;
         private const int MaxPayload = 65536;
         private const int MaxHelloPayload = 4096;
+        private const int MaxFramedInputBytes = 131072;
+        private const int MaxFramedOutputBytes = 16777216;
+        private const int MaxArguments = 512;
+        private const int MaxArgumentTotalBytes = 65536;
+        private const int MaxOneShotTimeoutMs = 120000;
         private const ushort Hello = 0x01;
         private const ushort HelloAck = 0x02;
         private const ushort RequestJson = 0x10;
@@ -131,6 +136,7 @@ namespace CodexPro.Phase4
             public byte[] RequestId;
             public ulong ProcessGeneration;
             public byte[] Payload;
+            public int FrameBytes;
         }
 
         private sealed class BoundedReadResult
@@ -154,8 +160,8 @@ namespace CodexPro.Phase4
             public uint VolumeSerial;
             public ulong FileIndex;
             public uint NumberOfLinks;
-            public string StdoutBase64;
-            public string StderrBase64;
+            public byte[] Stdout;
+            public byte[] Stderr;
             public long StdoutTotalBytes;
             public long StderrTotalBytes;
             public long StdoutDroppedBytes;
@@ -163,6 +169,12 @@ namespace CodexPro.Phase4
             public bool StdoutTruncated;
             public bool StderrTruncated;
             public long ElapsedMilliseconds;
+        }
+
+        private sealed class FramedRunOutcome
+        {
+            public ProcessRunResult Run;
+            public string ErrorCode;
         }
 
         private sealed class PersistentProcessState
@@ -222,10 +234,28 @@ namespace CodexPro.Phase4
                     }
                     if (frame.Kind != RequestJson) throw new InvalidDataException("DIRECTION_INVALID_FRAME");
                     Dictionary<string, object> request = ParseStrictObject(frame.Payload);
-                    RequireExactKeys(request, new string[] { "schemaVersion", "operation", "input" });
+                    bool framed = request.ContainsKey("stream");
+                    RequireExactKeys(request, framed
+                        ? new string[] { "schemaVersion", "operation", "input", "stream" }
+                        : new string[] { "schemaVersion", "operation", "input" });
                     if (ToInt(request["schemaVersion"], "schemaVersion") != 1) throw new InvalidDataException("REQUEST_VERSION_MISMATCH");
                     string operation = RequireBoundedString(request["operation"], "operation", 1, 80);
                     Dictionary<string, object> requestInput = AsObject(request["input"], "input");
+                    if (framed)
+                    {
+                        HandleFramedRequest(
+                            input,
+                            output,
+                            nodeToHostKey,
+                            hostToNodeKey,
+                            ref incomingSequence,
+                            ref outgoingSequence,
+                            frame,
+                            operation,
+                            requestInput,
+                            AsObject(request["stream"], "stream"));
+                        continue;
+                    }
                     Dictionary<string, object> result;
                     try
                     {
@@ -249,6 +279,328 @@ namespace CodexPro.Phase4
                 }
                 catch { }
             }
+        }
+
+        private static void HandleFramedRequest(
+            Stream input,
+            Stream output,
+            byte[] nodeToHostKey,
+            byte[] hostToNodeKey,
+            ref uint incomingSequence,
+            ref uint outgoingSequence,
+            Frame requestFrame,
+            string operation,
+            Dictionary<string, object> requestInput,
+            Dictionary<string, object> stream)
+        {
+            RequireExactKeys(stream, new string[] { "version", "inputBytes", "output" });
+            if (ToInt(stream["version"], "version") != 1) throw new InvalidDataException("STREAM_VERSION_MISMATCH");
+            int inputLength = ToBoundedInt(stream["inputBytes"], "inputBytes", 0, MaxFramedInputBytes);
+            if (RequireBoundedString(stream["output"], "output", 6, 6) != "frames") throw new InvalidDataException("STREAM_OUTPUT_INVALID");
+            WriteCredit(output, hostToNodeKey, ref outgoingSequence, requestFrame.RequestId, requestFrame.FrameBytes);
+            byte[] streamedInput = ReadFramedInput(
+                input,
+                output,
+                nodeToHostKey,
+                hostToNodeKey,
+                ref incomingSequence,
+                ref outgoingSequence,
+                requestFrame.RequestId,
+                inputLength);
+            using (ManualResetEvent cancel = new ManualResetEvent(false))
+            {
+                Task<FramedRunOutcome> work = Task.Run(() =>
+                {
+                    try
+                    {
+                        return new FramedRunOutcome { Run = RunFramedOperation(operation, requestInput, streamedInput, cancel) };
+                    }
+                    catch (Exception error)
+                    {
+                        return new FramedRunOutcome { ErrorCode = SafeErrorCode(error) };
+                    }
+                });
+                Task<Frame> controlRead = StartFrameRead(input, nodeToHostKey, incomingSequence);
+                bool canceled = false;
+                while (!work.Wait(10))
+                {
+                    if (!controlRead.IsCompleted) continue;
+                    Frame control = CompleteControlRead(controlRead, ref incomingSequence);
+                    if (HandleInterleavedRequest(control, output, hostToNodeKey, ref outgoingSequence, requestFrame.RequestId))
+                    {
+                        controlRead = StartFrameRead(input, nodeToHostKey, incomingSequence);
+                        continue;
+                    }
+                    ValidateCorrelatedControl(control, requestFrame.RequestId);
+                    if (control.Kind != Cancel) throw new InvalidDataException("DIRECTION_INVALID_FRAME");
+                    cancel.Set();
+                    canceled = true;
+                    break;
+                }
+                if (!canceled && controlRead.IsCompleted)
+                {
+                    Frame control = CompleteControlRead(controlRead, ref incomingSequence);
+                    while (HandleInterleavedRequest(control, output, hostToNodeKey, ref outgoingSequence, requestFrame.RequestId))
+                    {
+                        controlRead = StartFrameRead(input, nodeToHostKey, incomingSequence);
+                        if (!controlRead.IsCompleted)
+                        {
+                            control = null;
+                            break;
+                        }
+                        control = CompleteControlRead(controlRead, ref incomingSequence);
+                    }
+                    if (control != null)
+                    {
+                        ValidateCorrelatedControl(control, requestFrame.RequestId);
+                        if (control.Kind == Cancel)
+                        {
+                            cancel.Set();
+                            canceled = true;
+                        }
+                        else throw new InvalidDataException("DIRECTION_INVALID_FRAME");
+                    }
+                }
+                if (canceled)
+                {
+                    if (!work.Wait(10000)) throw new InvalidDataException("REQUEST_CANCEL_FAILED");
+                    Dictionary<string, object> canceledResult = ErrorResult("REQUEST_CANCELLED");
+                    canceledResult["streamTransport"] = "framed_v1";
+                    WriteJsonFrame(output, hostToNodeKey, ref outgoingSequence, ResponseJson, requestFrame.RequestId, 0, canceledResult);
+                    return;
+                }
+                FramedRunOutcome outcome = work.Result;
+                byte[] stdout = outcome.Run == null ? new byte[0] : outcome.Run.Stdout;
+                byte[] stderr = outcome.Run == null ? new byte[0] : outcome.Run.Stderr;
+                if (!WriteFramedOutput(
+                    input,
+                    output,
+                    nodeToHostKey,
+                    hostToNodeKey,
+                    ref incomingSequence,
+                    ref outgoingSequence,
+                    requestFrame.RequestId,
+                    stdout,
+                    stderr,
+                    cancel,
+                    ref controlRead))
+                {
+                    Dictionary<string, object> canceledResult = ErrorResult("REQUEST_CANCELLED");
+                    canceledResult["streamTransport"] = "framed_v1";
+                    WriteJsonFrame(output, hostToNodeKey, ref outgoingSequence, ResponseJson, requestFrame.RequestId, 0, canceledResult);
+                    return;
+                }
+                Dictionary<string, object> result = outcome.Run == null
+                    ? ErrorResult(outcome.ErrorCode ?? "HOST_REQUEST_FAILED")
+                    : RunResult(outcome.Run, false);
+                result["streamTransport"] = "framed_v1";
+                if (outcome.Run == null)
+                {
+                    result["stdoutTotalBytes"] = 0L;
+                    result["stderrTotalBytes"] = 0L;
+                    result["stdoutDroppedBytes"] = 0L;
+                    result["stderrDroppedBytes"] = 0L;
+                    result["stdoutTruncated"] = false;
+                    result["stderrTruncated"] = false;
+                }
+                WriteJsonFrame(output, hostToNodeKey, ref outgoingSequence, ResponseJson, requestFrame.RequestId, 0, result);
+            }
+        }
+
+        private static byte[] ReadFramedInput(
+            Stream input,
+            Stream output,
+            byte[] nodeToHostKey,
+            byte[] hostToNodeKey,
+            ref uint incomingSequence,
+            ref uint outgoingSequence,
+            byte[] requestId,
+            int expectedLength)
+        {
+            using (MemoryStream collected = new MemoryStream(expectedLength))
+            {
+                bool eof = false;
+                while (!eof)
+                {
+                    Frame frame = ReadFrame(input, nodeToHostKey, incomingSequence);
+                    if (frame == null) throw new EndOfStreamException("TRUNCATED_INPUT");
+                    IncrementSequence(ref incomingSequence);
+                    if (frame.Kind != Input || frame.ProcessGeneration != 0 || !RequestIdsEqual(frame.RequestId, requestId)) {
+                        throw new InvalidDataException("DIRECTION_INVALID_FRAME");
+                    }
+                    if (collected.Length + frame.Payload.Length > expectedLength) throw new InvalidDataException("INPUT_LENGTH_MISMATCH");
+                    if (frame.Payload.Length > 0) collected.Write(frame.Payload, 0, frame.Payload.Length);
+                    eof = (frame.Flags & FlagEof) != 0;
+                    if (eof && collected.Length != expectedLength) throw new InvalidDataException("INPUT_LENGTH_MISMATCH");
+                    WriteCredit(output, hostToNodeKey, ref outgoingSequence, requestId, frame.FrameBytes);
+                }
+                return collected.ToArray();
+            }
+        }
+
+        private static ProcessRunResult RunFramedOperation(
+            string operation,
+            Dictionary<string, object> input,
+            byte[] streamedInput,
+            EventWaitHandle cancel)
+        {
+            if (operation == "run")
+            {
+                RequireExactKeys(input, new string[] { "executable", "arguments", "cwd", "environment", "timeoutMs", "stdoutLimitBytes", "stderrLimitBytes" });
+                return RunOwnedProcess(
+                    RequireAbsoluteFile(input["executable"]),
+                    AsStringArray(input["arguments"], "arguments", MaxArguments, 8192),
+                    RequireAbsoluteDirectory(input["cwd"]),
+                    AsEnvironment(input["environment"]),
+                    streamedInput,
+                    ToBoundedInt(input["timeoutMs"], "timeoutMs", 1, MaxOneShotTimeoutMs),
+                    ToBoundedInt(input["stdoutLimitBytes"], "stdoutLimitBytes", 1, MaxFramedOutputBytes),
+                    ToBoundedInt(input["stderrLimitBytes"], "stderrLimitBytes", 1, MaxFramedOutputBytes),
+                    cancel);
+            }
+            if (operation == "run_powershell")
+            {
+                RequireExactKeys(input, new string[] { "executable", "cwd", "environment", "timeoutMs", "stdoutLimitBytes", "stderrLimitBytes" });
+                string script;
+                try { script = new UTF8Encoding(false, true).GetString(streamedInput); }
+                catch { throw new InvalidDataException("INVALID_SCRIPT_UTF8"); }
+                string encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(PowerShellBootstrap()));
+                return RunOwnedProcess(
+                    RequireAbsoluteFile(input["executable"]),
+                    new string[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded },
+                    RequireAbsoluteDirectory(input["cwd"]),
+                    AsEnvironment(input["environment"]),
+                    Encoding.UTF8.GetBytes(script),
+                    ToBoundedInt(input["timeoutMs"], "timeoutMs", 1, MaxOneShotTimeoutMs),
+                    ToBoundedInt(input["stdoutLimitBytes"], "stdoutLimitBytes", 1, MaxFramedOutputBytes),
+                    ToBoundedInt(input["stderrLimitBytes"], "stderrLimitBytes", 1, MaxFramedOutputBytes),
+                    cancel);
+            }
+            throw new InvalidDataException("STREAM_OPERATION_UNSUPPORTED");
+        }
+
+        private static bool WriteFramedOutput(
+            Stream input,
+            Stream output,
+            byte[] nodeToHostKey,
+            byte[] hostToNodeKey,
+            ref uint incomingSequence,
+            ref uint outgoingSequence,
+            byte[] requestId,
+            byte[] stdout,
+            byte[] stderr,
+            EventWaitHandle cancel,
+            ref Task<Frame> controlRead)
+        {
+            int remainingFrames = OutputFrameCount(stdout) + OutputFrameCount(stderr);
+            byte[][] streams = new byte[][] { stdout, stderr };
+            for (int streamIndex = 0; streamIndex < streams.Length; streamIndex++)
+            {
+                byte[] bytes = streams[streamIndex] ?? new byte[0];
+                int offset = 0;
+                bool sent = false;
+                while (!sent || offset < bytes.Length)
+                {
+                    int count = Math.Min(MaxPayload, bytes.Length - offset);
+                    byte[] payload = new byte[count];
+                    if (count > 0) Buffer.BlockCopy(bytes, offset, payload, 0, count);
+                    offset += count;
+                    sent = true;
+                    bool eof = offset == bytes.Length;
+                    ushort flags = (ushort)(streamIndex == 1 ? FlagStderr : 0);
+                    if (eof) flags = (ushort)(flags | FlagEof);
+                    WriteFrame(output, hostToNodeKey, outgoingSequence, Output, flags, requestId, 0, payload);
+                    IncrementSequence(ref outgoingSequence);
+                    remainingFrames--;
+                    Frame control = CompleteControlRead(controlRead, ref incomingSequence);
+                    while (HandleInterleavedRequest(control, output, hostToNodeKey, ref outgoingSequence, requestId))
+                    {
+                        controlRead = StartFrameRead(input, nodeToHostKey, incomingSequence);
+                        control = CompleteControlRead(controlRead, ref incomingSequence);
+                    }
+                    ValidateCorrelatedControl(control, requestId);
+                    if (control.Kind == Cancel)
+                    {
+                        cancel.Set();
+                        return false;
+                    }
+                    if (control.Kind != Credit || ReadCredit(control.Payload) != HeaderLength + payload.Length) {
+                        throw new InvalidDataException("INVALID_CREDIT");
+                    }
+                    if (remainingFrames > 0) controlRead = StartFrameRead(input, nodeToHostKey, incomingSequence);
+                }
+            }
+            return true;
+        }
+
+        private static int OutputFrameCount(byte[] bytes)
+        {
+            return bytes == null || bytes.Length == 0 ? 1 : (bytes.Length + MaxPayload - 1) / MaxPayload;
+        }
+
+        private static Task<Frame> StartFrameRead(Stream input, byte[] key, uint expectedSequence)
+        {
+            return Task.Run(() => ReadFrame(input, key, expectedSequence));
+        }
+
+        private static Frame CompleteControlRead(Task<Frame> read, ref uint incomingSequence)
+        {
+            Frame frame = read.Result;
+            if (frame == null) throw new EndOfStreamException("TRUNCATED_CONTROL");
+            IncrementSequence(ref incomingSequence);
+            return frame;
+        }
+
+        private static void ValidateCorrelatedControl(Frame frame, byte[] requestId)
+        {
+            if (frame.ProcessGeneration != 0 || !RequestIdsEqual(frame.RequestId, requestId)) throw new InvalidDataException("CONTROL_CORRELATION_INVALID");
+        }
+
+        private static bool HandleInterleavedRequest(
+            Frame frame,
+            Stream output,
+            byte[] hostToNodeKey,
+            ref uint outgoingSequence,
+            byte[] activeRequestId)
+        {
+            if (frame.Kind != RequestJson || RequestIdsEqual(frame.RequestId, activeRequestId)) return false;
+            Dictionary<string, object> request = ParseStrictObject(frame.Payload);
+            RequireExactKeys(request, new string[] { "schemaVersion", "operation", "input" });
+            if (ToInt(request["schemaVersion"], "schemaVersion") != 1) throw new InvalidDataException("REQUEST_VERSION_MISMATCH");
+            string operation = RequireBoundedString(request["operation"], "operation", 1, 80);
+            Dictionary<string, object> requestInput = AsObject(request["input"], "input");
+            Dictionary<string, object> result;
+            try { result = Dispatch(operation, requestInput); }
+            catch (Exception error) { result = ErrorResult(SafeErrorCode(error)); }
+            WriteJsonFrame(output, hostToNodeKey, ref outgoingSequence, ResponseJson, frame.RequestId, 0, result);
+            return true;
+        }
+
+        private static bool RequestIdsEqual(byte[] left, byte[] right)
+        {
+            return left != null && right != null && left.Length == 16 && right.Length == 16 && FixedEquals(left, 0, right, 0, 16);
+        }
+
+        private static void WriteCredit(Stream output, byte[] key, ref uint sequence, byte[] requestId, int bytes)
+        {
+            if (bytes < 1) throw new InvalidDataException("INVALID_CREDIT");
+            byte[] payload = BitConverter.GetBytes((ulong)bytes);
+            WriteFrame(output, key, sequence, Credit, 0, requestId, 0, payload);
+            IncrementSequence(ref sequence);
+        }
+
+        private static long ReadCredit(byte[] payload)
+        {
+            if (payload == null || payload.Length != 8) throw new InvalidDataException("INVALID_CREDIT_LENGTH");
+            ulong value = BitConverter.ToUInt64(payload, 0);
+            if (value == 0 || value > Int64.MaxValue) throw new InvalidDataException("INVALID_CREDIT");
+            return (long)value;
+        }
+
+        private static void IncrementSequence(ref uint sequence)
+        {
+            sequence++;
+            if (sequence == 0) throw new InvalidDataException("SEQUENCE_EXHAUSTED");
         }
 
         private static Dictionary<string, object> Dispatch(string operation, Dictionary<string, object> input)
@@ -288,6 +640,11 @@ namespace CodexPro.Phase4
         private static Dictionary<string, object> RunOperation(Dictionary<string, object> input, bool powerShell)
         {
             ProcessRunResult run = powerShell ? RunPowerShell(input) : RunExecutable(input);
+            return RunResult(run, true);
+        }
+
+        private static Dictionary<string, object> RunResult(ProcessRunResult run, bool includeBase64)
+        {
             Dictionary<string, object> result = new Dictionary<string, object>();
             result["schemaVersion"] = 1;
             result["ok"] = run.Ok;
@@ -301,8 +658,11 @@ namespace CodexPro.Phase4
             result["volumeSerial"] = (long)run.VolumeSerial;
             result["fileIndex"] = run.FileIndex.ToString();
             result["numberOfLinks"] = (long)run.NumberOfLinks;
-            result["stdoutBase64"] = run.StdoutBase64;
-            result["stderrBase64"] = run.StderrBase64;
+            if (includeBase64)
+            {
+                result["stdoutBase64"] = Convert.ToBase64String(run.Stdout ?? new byte[0]);
+                result["stderrBase64"] = Convert.ToBase64String(run.Stderr ?? new byte[0]);
+            }
             result["stdoutTotalBytes"] = run.StdoutTotalBytes;
             result["stderrTotalBytes"] = run.StderrTotalBytes;
             result["stdoutDroppedBytes"] = run.StdoutDroppedBytes;
@@ -329,7 +689,7 @@ namespace CodexPro.Phase4
                 RequireAbsoluteDirectory(input["cwd"]),
                 AsEnvironment(input["environment"]),
                 Encoding.UTF8.GetBytes(script),
-                ToBoundedInt(input["timeoutMs"], "timeoutMs", 1, 120000),
+                ToBoundedInt(input["timeoutMs"], "timeoutMs", 1, MaxOneShotTimeoutMs),
                 ToBoundedInt(input["stdoutLimitBytes"], "stdoutLimitBytes", 1, 1048576),
                 ToBoundedInt(input["stderrLimitBytes"], "stderrLimitBytes", 1, 1048576));
         }
@@ -540,7 +900,7 @@ namespace CodexPro.Phase4
         {
             RequireExactKeys(input, new string[] { "executable", "arguments", "cwd", "environment", "stdinBase64", "timeoutMs", "stdoutLimitBytes", "stderrLimitBytes" });
             string executable = RequireAbsoluteFile(input["executable"]);
-            string[] arguments = AsStringArray(input["arguments"], "arguments", 128, 8192);
+            string[] arguments = AsStringArray(input["arguments"], "arguments", MaxArguments, 8192);
             byte[] stdin;
             try { stdin = Convert.FromBase64String(RequireBoundedString(input["stdinBase64"], "stdinBase64", 0, 131072)); }
             catch { throw new InvalidDataException("INVALID_STDIN_BASE64"); }
@@ -550,7 +910,7 @@ namespace CodexPro.Phase4
                 RequireAbsoluteDirectory(input["cwd"]),
                 AsEnvironment(input["environment"]),
                 stdin,
-                ToBoundedInt(input["timeoutMs"], "timeoutMs", 1, 120000),
+                ToBoundedInt(input["timeoutMs"], "timeoutMs", 1, MaxOneShotTimeoutMs),
                 ToBoundedInt(input["stdoutLimitBytes"], "stdoutLimitBytes", 1, 1048576),
                 ToBoundedInt(input["stderrLimitBytes"], "stderrLimitBytes", 1, 1048576));
         }
@@ -590,7 +950,7 @@ namespace CodexPro.Phase4
                 return fatalClose;
             }
             Dictionary<string, object> result;
-            try { result = ParseStrictObject(Convert.FromBase64String(worker.StdoutBase64)); }
+            try { result = ParseStrictObject(worker.Stdout ?? new byte[0]); }
             catch
             {
                 Dictionary<string, object> invalid = ErrorResult("CONPTY_WORKER_INVALID_RESPONSE");
@@ -1143,6 +1503,11 @@ namespace CodexPro.Phase4
 
         private static ProcessRunResult RunOwnedProcess(string executable, string[] arguments, string cwd, SortedDictionary<string, string> environment, byte[] stdinBytes, int timeoutMs, int stdoutLimit, int stderrLimit)
         {
+            return RunOwnedProcess(executable, arguments, cwd, environment, stdinBytes, timeoutMs, stdoutLimit, stderrLimit, null);
+        }
+
+        private static ProcessRunResult RunOwnedProcess(string executable, string[] arguments, string cwd, SortedDictionary<string, string> environment, byte[] stdinBytes, int timeoutMs, int stdoutLimit, int stderrLimit, EventWaitHandle cancel)
+        {
             Stopwatch timer = Stopwatch.StartNew();
             IntPtr executableHandle = IntPtr.Zero;
             IntPtr job = IntPtr.Zero;
@@ -1261,25 +1626,41 @@ namespace CodexPro.Phase4
                     stdinStream.Flush();
                 }
 
-                uint wait = WaitForSingleObject(processInfo.hProcess, (uint)timeoutMs);
-                bool timedOut = wait == WaitTimeout;
-                if (timedOut)
+                bool timedOut = false;
+                bool canceled = false;
+                while (true)
+                {
+                    if (cancel != null && cancel.WaitOne(0))
+                    {
+                        canceled = true;
+                        break;
+                    }
+                    long remaining = timeoutMs - timer.ElapsedMilliseconds;
+                    if (remaining <= 0)
+                    {
+                        timedOut = true;
+                        break;
+                    }
+                    uint wait = WaitForSingleObject(processInfo.hProcess, (uint)Math.Min(remaining, 25));
+                    if (wait == WaitObject0) break;
+                    if (wait != WaitTimeout) ThrowLastWin32("PROCESS_WAIT_FAILED");
+                }
+                if (timedOut || canceled)
                 {
                     HostLifetime.ReleaseJob(jobRegistration, ref job);
                     WaitForSingleObject(processInfo.hProcess, 10000);
                 }
-                else if (wait != WaitObject0) ThrowLastWin32("PROCESS_WAIT_FAILED");
                 uint exitCode;
                 if (!GetExitCodeProcess(processInfo.hProcess, out exitCode)) ThrowLastWin32("EXIT_CODE_FAILED");
-                if (!timedOut) HostLifetime.ReleaseJob(jobRegistration, ref job);
+                if (!timedOut && !canceled) HostLifetime.ReleaseJob(jobRegistration, ref job);
                 Task.WaitAll(new Task[] { stdoutTask, stderrTask }, 10000);
                 BoundedReadResult stdout = stdoutTask.Result;
                 BoundedReadResult stderr = stderrTask.Result;
                 timer.Stop();
                 return new ProcessRunResult
                 {
-                    Ok = !timedOut && exitCode == 0,
-                    Code = timedOut ? "PROCESS_TIMED_OUT" : "PROCESS_EXITED",
+                    Ok = !timedOut && !canceled && exitCode == 0,
+                    Code = canceled ? "REQUEST_CANCELLED" : timedOut ? "PROCESS_TIMED_OUT" : "PROCESS_EXITED",
                     ExitCode = exitCode,
                     TimedOut = timedOut,
                     ProcessId = processInfo.dwProcessId,
@@ -1289,8 +1670,8 @@ namespace CodexPro.Phase4
                     VolumeSerial = fileInfo.dwVolumeSerialNumber,
                     FileIndex = ((ulong)fileInfo.nFileIndexHigh << 32) | fileInfo.nFileIndexLow,
                     NumberOfLinks = fileInfo.nNumberOfLinks,
-                    StdoutBase64 = Convert.ToBase64String(stdout.Bytes),
-                    StderrBase64 = Convert.ToBase64String(stderr.Bytes),
+                    Stdout = stdout.Bytes,
+                    Stderr = stderr.Bytes,
                     StdoutTotalBytes = stdout.TotalBytes,
                     StderrTotalBytes = stderr.TotalBytes,
                     StdoutDroppedBytes = stdout.DroppedBytes,
@@ -1462,7 +1843,8 @@ namespace CodexPro.Phase4
                 Sequence = sequence,
                 RequestId = requestId,
                 ProcessGeneration = BitConverter.ToUInt64(header, 32),
-                Payload = payload
+                Payload = payload,
+                FrameBytes = HeaderLength + payload.Length
             };
         }
 
@@ -1634,7 +2016,13 @@ namespace CodexPro.Phase4
             IList array = value as IList;
             if (array == null || array.Count > maxItems) throw new InvalidDataException("INVALID_" + name.ToUpperInvariant());
             string[] result = new string[array.Count];
-            for (int index = 0; index < array.Count; index++) result[index] = RequireBoundedString(array[index], name, 0, maxStringLength);
+            int totalBytes = 0;
+            for (int index = 0; index < array.Count; index++)
+            {
+                result[index] = RequireBoundedString(array[index], name, 0, maxStringLength);
+                totalBytes = checked(totalBytes + Encoding.UTF8.GetByteCount(result[index]));
+                if (totalBytes > MaxArgumentTotalBytes) throw new InvalidDataException("INVALID_" + name.ToUpperInvariant());
+            }
             return result;
         }
 

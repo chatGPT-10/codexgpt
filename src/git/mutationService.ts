@@ -10,9 +10,10 @@ import type { GitCommitServiceV4 } from "./commitService.js";
 import type { GitRestoreServiceV4 } from "./restoreService.js";
 import type { GitStashServiceV4 } from "./stashService.js";
 import type { GitMutationJournalV4 } from "./mutationJournal.js";
-import { admitGitRepository } from "./repositoryIdentity.js";
 import type { GitIntegrationGateV4 } from "./integrations.js";
 import type { PolicyScopeV4 } from "../policy/types.js";
+import path from "node:path";
+import { gitIndexIdentityV4 } from "./privateIndex.js";
 
 function stringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -49,6 +50,9 @@ export class GitMutationServiceV4 {
     authorization?: AuthorizationAuditEventV4 | null;
     integrationReviewToken?: string;
   }) {
+    if (this.services.integrationGate?.enabled && !input.integrationReviewToken) {
+      throw new Error("GIT_INTEGRATION_REQUIRED");
+    }
     if (input.integrationReviewToken) {
       const described = this.describe("git_stage", {
         state_token: input.stateToken,
@@ -78,6 +82,9 @@ export class GitMutationServiceV4 {
     authorization?: AuthorizationAuditEventV4 | null;
     integrationReviewToken?: string;
   }) {
+    if (this.services.integrationGate?.enabled && !input.integrationReviewToken) {
+      throw new Error("GIT_INTEGRATION_REQUIRED");
+    }
     if (input.integrationReviewToken) {
       const described = this.describe("git_commit", {
         index_token: input.indexToken,
@@ -165,19 +172,13 @@ export class GitMutationServiceV4 {
   ): Promise<T> {
     const journal = this.services.journal;
     if (!journal) return effect();
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.services.branch.context.options.executor,
-      registry: this.services.branch.context.options.registry
-    });
+    const repository = await this.services.branch.context.admitWorkspace(input.workspace);
     const recoveryState: Record<string, unknown> = {
       publicRepositoryId: repository.repositoryId,
       workspaceId: input.workspace.id
     };
     if (operation.toolName === "git_stage") {
-      const index = await fsp.readFile(path.join(repository.gitDir, "index"));
-      if (index.length > 220 * 1024) throw new Error("GIT_SCAN_LIMIT");
-      recoveryState.indexUndo = index.toString("base64");
+      recoveryState.indexIdentity = await gitIndexIdentityV4(path.join(repository.gitDir, "index"));
     } else if (operation.toolName === "git_commit") {
       const currentRef = await this.services.branch.context.options.executor.run(repository, [
         "symbolic-ref", "-q", "HEAD"
@@ -191,20 +192,26 @@ export class GitMutationServiceV4 {
     }
     const reviewToken = (input as { reviewToken?: string }).reviewToken;
     if (reviewToken && operation.toolName === "git_restore" && this.services.restore) {
-      recoveryState.review = this.services.restore.reviews.inspect<Record<string, unknown>>(
+      const review = this.services.restore.reviews.inspect<Record<string, unknown>>(
         reviewToken,
         "restore"
       );
+      recoveryState.reviewKind = "restore";
+      recoveryState.reviewTokenDigest = sha256Git(reviewToken);
+      recoveryState.reviewFactsDigest = sha256Git(JSON.stringify(review));
     } else if (reviewToken && operation.toolName === "git_stash" && this.services.stash) {
       const kind = operation.canonicalAction === "stash_create"
         ? "stash_create"
         : operation.canonicalAction === "stash_apply_execute"
           ? "stash_apply"
           : "stash_forget";
-      recoveryState.review = this.services.stash.reviews.inspect<Record<string, unknown>>(
+      const review = this.services.stash.reviews.inspect<Record<string, unknown>>(
         reviewToken,
         kind
       );
+      recoveryState.reviewKind = kind;
+      recoveryState.reviewTokenDigest = sha256Git(reviewToken);
+      recoveryState.reviewFactsDigest = sha256Git(JSON.stringify(review));
     }
     return journal.run({
       authorization: input.authorization,
@@ -231,7 +238,7 @@ export class GitMutationServiceV4 {
     let refDigests: string[] = [];
     let stateTokenFingerprint: string | null = null;
     let integrationMode: "off" | "approved_full_access" = "off";
-    let integrationDigest: string | null = null;
+    let approvalRevealArguments: string[] | undefined;
     if (toolName === "git_create_branch") {
       operation = "create_branch";
       const facts = this.services.branch["context"].options.stateTokens.inspect(String(args.state_token));
@@ -256,7 +263,7 @@ export class GitMutationServiceV4 {
           throw new Error("GIT_STATE_TOKEN_INVALID");
         }
         integrationMode = "approved_full_access";
-        integrationDigest = review.identitiesDigest;
+        approvalRevealArguments = gate.approvalPreview(integrationToken);
         refDigests = [review.identitiesDigest, sha256Git(integrationToken)].sort();
       }
       stateTokenFingerprint = sha256Git(JSON.stringify({
@@ -279,6 +286,7 @@ export class GitMutationServiceV4 {
           throw new Error("GIT_STATE_TOKEN_INVALID");
         }
         integrationMode = "approved_full_access";
+        approvalRevealArguments = gate.approvalPreview(integrationToken);
         refDigests = [
           ...refDigests,
           review.identitiesDigest,
@@ -374,9 +382,8 @@ export class GitMutationServiceV4 {
       ],
       requiredScopes,
       semanticFactsDigest: semanticDigestV4(resource),
-      riskClass: integrationMode === "approved_full_access" ? "R3" : policy.riskClass
+      riskClass: integrationMode === "approved_full_access" ? "R3" : policy.riskClass,
+      approvalRevealArguments
     };
   }
 }
-import fsp from "node:fs/promises";
-import path from "node:path";

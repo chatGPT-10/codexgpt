@@ -22,6 +22,8 @@ export class GitReviewTokenServiceV4 {
     ttlMs?: number;
     stateRoot?: string;
     masterKey?: Buffer;
+    maxCiphertextCharacters?: number;
+    maxPlaintextBytes?: number;
   }) {
     if (!Buffer.isBuffer(options.key) || options.key.length < 32) throw gitMutationError("GIT_STATE_TOKEN_INVALID");
     this.#key = Buffer.from(options.key);
@@ -32,7 +34,9 @@ export class GitReviewTokenServiceV4 {
           stateRoot: options.stateRoot,
           masterKey: options.masterKey,
           namespace: "review-records",
-          now: this.#now
+          now: this.#now,
+          maxCiphertextCharacters: options.maxCiphertextCharacters ?? 64_000_000,
+          maxPlaintextBytes: options.maxPlaintextBytes ?? 48_000_000
         })
       : null;
   }

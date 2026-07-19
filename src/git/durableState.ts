@@ -94,11 +94,20 @@ export function sealGitState(
   key: Buffer,
   aad: string,
   value: unknown,
-  randomBytes: (size: number) => Buffer
+  randomBytes: (size: number) => Buffer,
+  maxPlaintextBytes = 262_144
 ): SealedGitStateV1 {
-  if (!Buffer.isBuffer(key) || key.length !== 32 || !aad || aad.length > 1024) throw gateRError();
+  if (
+    !Buffer.isBuffer(key) ||
+    key.length !== 32 ||
+    !aad ||
+    aad.length > 1024 ||
+    !Number.isSafeInteger(maxPlaintextBytes) ||
+    maxPlaintextBytes < 262_144 ||
+    maxPlaintextBytes > 48_000_000
+  ) throw gateRError();
   const plaintext = Buffer.from(canonicalGateRJson(value), "utf8");
-  if (plaintext.length > 262_144) {
+  if (plaintext.length > maxPlaintextBytes) {
     plaintext.fill(0);
     throw gateRError();
   }
@@ -126,19 +135,29 @@ export function sealGitState(
   }
 }
 
-export function openGitState<T>(key: Buffer, aad: string, sealed: SealedGitStateV1): T {
+export function openGitState<T>(
+  key: Buffer,
+  aad: string,
+  sealed: SealedGitStateV1,
+  maxPlaintextBytes = 262_144
+): T {
   try {
+    if (
+      !Number.isSafeInteger(maxPlaintextBytes) ||
+      maxPlaintextBytes < 262_144 ||
+      maxPlaintextBytes > 48_000_000
+    ) throw new Error("size");
     if (sealed.schemaVersion !== 1) throw new Error("version");
     const iv = Buffer.from(sealed.iv, "base64");
     const ciphertext = Buffer.from(sealed.ciphertext, "base64");
     const tag = Buffer.from(sealed.tag, "base64");
-    if (iv.length !== 12 || tag.length !== 16 || ciphertext.length > 262_144) throw new Error("shape");
+    if (iv.length !== 12 || tag.length !== 16 || ciphertext.length > maxPlaintextBytes) throw new Error("shape");
     const decipher = createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAAD(Buffer.from(aad, "utf8"));
     decipher.setAuthTag(tag);
     const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     try {
-      if (plaintext.length > 262_144) throw new Error("size");
+      if (plaintext.length > maxPlaintextBytes) throw new Error("size");
       return JSON.parse(plaintext.toString("utf8")) as T;
     } finally {
       plaintext.fill(0);

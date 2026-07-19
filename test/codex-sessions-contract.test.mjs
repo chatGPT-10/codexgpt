@@ -771,6 +771,18 @@ test("codex_sessions protected-Smoke consumers migrate only through exact in-mem
   const protectedHttp = await fs.readFile(new URL("../scripts/http-smoke.mjs", import.meta.url), "utf8");
   const compat = await fs.readFile(new URL("../scripts/smoke-platform-compat.mjs", import.meta.url), "utf8");
 
+  const defaultCodexDirSource = "const expectedDefaultCodexDir = path.join(os.homedir(), '.codex');";
+  assert.equal(countOccurrences(protectedMain, defaultCodexDirSource), 1);
+  assert.equal(countOccurrences(compat, defaultCodexDirSource), 1);
+  assert.match(
+    compat,
+    /const lexicalDefaultCodexDir = path\.resolve\(os\.homedir\(\), '\.codex'\);/
+  );
+  assert.match(
+    compat,
+    /await fs\.realpath\(lexicalDefaultCodexDir\)\.catch\(\(\) => lexicalDefaultCodexDir\)/
+  );
+
   const replacements = [
     [
       "metadataSessions.structuredContent.total_found",

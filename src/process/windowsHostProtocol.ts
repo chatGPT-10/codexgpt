@@ -20,6 +20,16 @@ export interface ProcessHostProtocolAuthorityV1 {
   maxHostToNodeQueuedBytesPerHost: number;
   maxNodeToHostQueuedBytesPerProcess: number;
   maxNodeToHostQueuedBytesPerHost: number;
+  streaming: Readonly<{
+    version: 1;
+    maxInputBytes: number;
+    maxOutputBytesPerStream: number;
+    maxOneShotTimeoutMs: number;
+    maxArgumentItems: number;
+    maxArgumentUtf8Bytes: number;
+    creditUnit: "exact_frame_bytes";
+    cancellationAck: "after_owned_job_revocation";
+  }>;
   kinds: Readonly<Record<string, number>>;
   flags: Readonly<Record<string, number>>;
   rules: Readonly<Record<string, number>>;
@@ -36,6 +46,23 @@ const ALLOWED_KINDS = new Set(Object.values(PROCESS_HOST_PROTOCOL.kinds));
 
 export function processHostError(code: string, message = code): Error & { code: string } {
   return Object.assign(new Error(message), { code });
+}
+
+export function encodeProcessHostCredit(bytes: number): Buffer {
+  if (!Number.isSafeInteger(bytes) || bytes < 1) throw processHostError("INVALID_CREDIT");
+  const payload = Buffer.alloc(PROCESS_HOST_PROTOCOL.rules.creditPayloadBytes);
+  payload.writeBigUInt64LE(BigInt(bytes));
+  return payload;
+}
+
+export function decodeProcessHostCredit(payload: Buffer | Uint8Array): number {
+  const bytes = Buffer.from(payload);
+  if (bytes.length !== PROCESS_HOST_PROTOCOL.rules.creditPayloadBytes) {
+    throw processHostError("INVALID_CREDIT_LENGTH");
+  }
+  const value = bytes.readBigUInt64LE();
+  if (value < 1n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw processHostError("INVALID_CREDIT");
+  return Number(value);
 }
 
 function allowedFlags(kind: number): number {

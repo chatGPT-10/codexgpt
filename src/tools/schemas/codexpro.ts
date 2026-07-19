@@ -53,7 +53,7 @@ import {
   queryAuditEventsOutputSchemaV4 as queryAuditEventsToolOutputSchemaV4
 } from "./queryAuditEvents.js";
 import { openFullAccessWorkspaceOutputSchema } from "./openFullAccessWorkspace.js";
-import { EXECUTION_OUTPUT_SCHEMAS } from "./execution.js";
+import { EXECUTION_OUTPUT_SCHEMAS, EXECUTION_OUTPUT_SCHEMAS_V4 } from "./execution.js";
 import { gitLogOutputSchemaV4 } from "./gitLog.js";
 import { gitBranchOutputSchemaV4 } from "./gitBranch.js";
 import { gitCreateBranchOutputSchemaV4 } from "./gitCreateBranch.js";
@@ -905,6 +905,8 @@ const canonicalToolSetV4 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V4);
 
 const childOutputSchemasV4 = Object.freeze({
   ...childOutputSchemasV3,
+  run_command: EXECUTION_OUTPUT_SCHEMAS_V4.run_command,
+  read_process_output: EXECUTION_OUTPUT_SCHEMAS_V4.read_process_output,
   git_status: gitStatusOutputSchemaV4,
   git_diff: gitDiffOutputSchemaV4,
   query_audit_events: queryAuditEventsToolOutputSchemaV4,

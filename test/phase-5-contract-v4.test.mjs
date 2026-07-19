@@ -301,6 +301,7 @@ test("V4 output schemas bind omission, review, and merge-plan facts exactly", ()
     history_scan_complete: true,
     checks_complete: false,
     integration_workspace_id: null,
+    required_check_categories: [],
     execution_isolation: "none",
     repository_integrations: "disabled",
     expires_at: null

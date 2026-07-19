@@ -6,7 +6,7 @@ import type { GitReviewTokenServiceV4 } from "../git/reviewToken.js";
 import { runGitRequired, sha256Git } from "../git/mutationContext.js";
 import type { TaskWorktreeManagerV4 } from "./manager.js";
 import type { TaskWorktreeWorkspaceAuthorityV4 } from "./workspaceAuthority.js";
-import { removeManagedTaskTree } from "./remover.js";
+import { removeManagedTaskTree, validateManagedTaskTree } from "./remover.js";
 
 interface RemoveReviewV4 {
   taskWorktreeId: string;
@@ -17,6 +17,66 @@ interface RemoveReviewV4 {
   worktreePath: string;
   adminDir: string;
   markerDigest: string;
+  worktreeInventoryDigest: string;
+  worktreeEntryCount: number;
+  adminInventoryDigest: string;
+  adminEntryCount: number;
+}
+
+function taskWorktreeInUseError(error: unknown): Error {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  if (code === "EBUSY" || code === "EPERM" || code === "EACCES") {
+    return new Error("TASK_WORKTREE_IN_USE", { cause: error });
+  }
+  return error instanceof Error ? error : new Error("TASK_WORKTREE_IN_USE", { cause: error });
+}
+
+export function taskRemovalQuarantinePaths(input: {
+  managedRoot: string;
+  taskWorktreeId: string;
+  generation: number;
+  worktreePath: string;
+  adminDir: string;
+}): { worktreeQuarantine: string; adminQuarantine: string; adminParent: string } {
+  const suffix = `.${input.taskWorktreeId}.codexpro-removing`;
+  const adminParent = path.dirname(input.adminDir);
+  return {
+    worktreeQuarantine: path.join(input.managedRoot, `${path.basename(input.worktreePath)}${suffix}`),
+    adminQuarantine: path.join(adminParent, `${path.basename(input.adminDir)}${suffix}`),
+    adminParent
+  };
+}
+
+async function removalInventories(input: {
+  managedRoot: TaskWorktreeManagerV4["options"]["root"];
+  worktreePath: string;
+  adminDir: string;
+}) {
+  const adminParent = path.dirname(input.adminDir);
+  if (await fsp.realpath(adminParent) !== adminParent) throw new Error("TASK_WORKTREE_REMOVE_UNSAFE");
+  const worktree = await validateManagedTaskTree({
+    root: input.managedRoot,
+    target: input.worktreePath,
+    allowGitMarker: true
+  });
+  const admin = await validateManagedTaskTree({
+    root: {
+      root: adminParent,
+      volume: path.parse(adminParent).root.toLocaleLowerCase("en-US"),
+      identity: "admin-parent"
+    },
+    target: input.adminDir
+  });
+  return { worktree, admin };
+}
+
+function removalReviewFacts(review: RemoveReviewV4) {
+  return {
+    worktreeInventoryDigest: review.worktreeInventoryDigest,
+    worktreeEntryCount: review.worktreeEntryCount,
+    adminInventoryDigest: review.adminInventoryDigest,
+    adminEntryCount: review.adminEntryCount
+  };
 }
 
 export class TaskWorktreeRemoveV4 {
@@ -25,6 +85,9 @@ export class TaskWorktreeRemoveV4 {
     authority: TaskWorktreeWorkspaceAuthorityV4;
     reviews: GitReviewTokenServiceV4;
     ownerFingerprint: () => string;
+    hasActiveProcesses?: (root: string) => boolean | Promise<boolean>;
+    drainActiveProcesses?: (root: string) => void | Promise<void>;
+    beforeAdminQuarantine?: (paths: { worktreeQuarantine: string; adminQuarantine: string }) => void | Promise<void>;
   }) {}
 
   async prepare(input: { workspace: Workspace; taskWorktreeId: string }) {
@@ -32,6 +95,9 @@ export class TaskWorktreeRemoveV4 {
     const task = await this.options.manager.revalidate(input.taskWorktreeId, owner);
     if (!task.privateState.adminDir || task.record.state !== "ready") {
       throw new Error("TASK_WORKTREE_DIRTY");
+    }
+    if (await this.options.hasActiveProcesses?.(task.privateState.worktreePath)) {
+      throw new Error("TASK_WORKTREE_IN_USE");
     }
     const repository = await this.options.manager.primaryRepository(input.workspace);
     const taskRepository = {
@@ -51,6 +117,11 @@ export class TaskWorktreeRemoveV4 {
     )).stdout.toString("ascii").trim();
     if (headOid !== task.record.headOid) throw new Error("GIT_STATE_CHANGED");
     const marker = await fsp.readFile(path.join(task.privateState.worktreePath, ".git"));
+    const inventories = await removalInventories({
+      managedRoot: this.options.manager.options.root,
+      worktreePath: task.privateState.worktreePath,
+      adminDir: task.privateState.adminDir
+    });
     const reviewToken = this.options.reviews.mint<RemoveReviewV4>("task_remove", {
       taskWorktreeId: task.record.taskWorktreeId,
       ownerFingerprint: owner,
@@ -59,7 +130,11 @@ export class TaskWorktreeRemoveV4 {
       headOid,
       worktreePath: task.privateState.worktreePath,
       adminDir: task.privateState.adminDir,
-      markerDigest: sha256Git(marker)
+      markerDigest: sha256Git(marker),
+      worktreeInventoryDigest: inventories.worktree.identityDigest,
+      worktreeEntryCount: inventories.worktree.entryCount,
+      adminInventoryDigest: inventories.admin.identityDigest,
+      adminEntryCount: inventories.admin.entryCount
     });
     return {
       action: "prepare" as const,
@@ -126,30 +201,135 @@ export class TaskWorktreeRemoveV4 {
           { stdoutLimitBytes: 256 }
         )).stdout.toString("ascii").trim();
         const currentMarker = await fsp.readFile(markerPath);
+        const inventories = await removalInventories({
+          managedRoot: this.options.manager.options.root,
+          worktreePath: review.worktreePath,
+          adminDir: review.adminDir
+        });
         if (
           status.status !== 0 ||
           status.stdout.length !== 0 ||
           currentHead !== review.headOid ||
-          sha256Git(currentMarker) !== review.markerDigest
+          sha256Git(currentMarker) !== review.markerDigest ||
+          inventories.worktree.identityDigest !== review.worktreeInventoryDigest ||
+          inventories.worktree.entryCount !== review.worktreeEntryCount ||
+          inventories.admin.identityDigest !== review.adminInventoryDigest ||
+          inventories.admin.entryCount !== review.adminEntryCount
         ) throw new Error("TASK_WORKTREE_DIRTY");
+        await this.options.drainActiveProcesses?.(review.worktreePath);
+        if (await this.options.hasActiveProcesses?.(review.worktreePath)) {
+          throw new Error("TASK_WORKTREE_IN_USE");
+        }
       },
       effect: async () => {
+        const { worktreeQuarantine, adminQuarantine, adminParent } = taskRemovalQuarantinePaths({
+          managedRoot: this.options.manager.options.root.root,
+          taskWorktreeId: review.taskWorktreeId,
+          generation: review.generation,
+          worktreePath: review.worktreePath,
+          adminDir: review.adminDir
+        });
+        if (await fsp.realpath(adminParent) !== adminParent) throw new Error("GIT_RECOVERY_REQUIRED");
+        try {
+          await fsp.rename(review.worktreePath, worktreeQuarantine);
+        } catch (error) {
+          throw taskWorktreeInUseError(error);
+        }
+        await this.options.beforeAdminQuarantine?.({ worktreeQuarantine, adminQuarantine });
+        try {
+          await fsp.rename(review.adminDir, adminQuarantine);
+        } catch (error) {
+          const restored = await fsp.rename(worktreeQuarantine, review.worktreePath)
+            .then(() => true, () => false);
+          if (!restored) {
+            const current = this.options.manager.options.store.read(review.taskWorktreeId);
+            this.options.manager.options.store.update(review.taskWorktreeId, {
+              state: "recovery_required",
+              privateState: { ...current.privateState, removalReview: removalReviewFacts(review) }
+            });
+            throw new Error("GIT_RECOVERY_REQUIRED", { cause: error });
+          }
+          throw taskWorktreeInUseError(error);
+        }
+        try {
+          const worktreeInventory = await validateManagedTaskTree({
+            root: this.options.manager.options.root,
+            target: worktreeQuarantine,
+            allowGitMarker: true
+          });
+          const adminInventory = await validateManagedTaskTree({
+            root: {
+              root: adminParent,
+              volume: path.parse(adminParent).root.toLocaleLowerCase("en-US"),
+              identity: "admin-parent"
+            },
+            target: adminQuarantine
+          });
+          if (
+            worktreeInventory.identityDigest !== review.worktreeInventoryDigest ||
+            worktreeInventory.entryCount !== review.worktreeEntryCount ||
+            adminInventory.identityDigest !== review.adminInventoryDigest ||
+            adminInventory.entryCount !== review.adminEntryCount
+          ) throw new Error("GIT_STATE_CHANGED");
+        } catch (error) {
+          const rollbackFailures: unknown[] = [];
+          await fsp.rename(adminQuarantine, review.adminDir).catch((rollbackError) => {
+            rollbackFailures.push(rollbackError);
+          });
+          await fsp.rename(worktreeQuarantine, review.worktreePath).catch((rollbackError) => {
+            rollbackFailures.push(rollbackError);
+          });
+          if (rollbackFailures.length > 0) {
+            const current = this.options.manager.options.store.read(review.taskWorktreeId);
+            this.options.manager.options.store.update(review.taskWorktreeId, {
+              state: "recovery_required",
+              privateState: { ...current.privateState, removalReview: removalReviewFacts(review) }
+            });
+            throw new Error("GIT_RECOVERY_REQUIRED", { cause: error });
+          }
+          throw error;
+        }
+        try {
+          const current = this.options.manager.options.store.read(review.taskWorktreeId);
+          this.options.manager.options.store.update(review.taskWorktreeId, {
+            state: "recovery_required",
+            privateState: { ...current.privateState, removalReview: removalReviewFacts(review) }
+          });
+        } catch (error) {
+          const rollbackFailures: unknown[] = [];
+          await fsp.rename(adminQuarantine, review.adminDir).catch((rollbackError) => {
+            rollbackFailures.push(rollbackError);
+          });
+          await fsp.rename(worktreeQuarantine, review.worktreePath).catch((rollbackError) => {
+            rollbackFailures.push(rollbackError);
+          });
+          if (rollbackFailures.length > 0) throw new Error("GIT_RECOVERY_REQUIRED", { cause: error });
+          throw error;
+        }
+        try {
+          await removeManagedTaskTree({
+            root: this.options.manager.options.root,
+            target: worktreeQuarantine,
+            allowGitMarker: true
+          });
+          await removeManagedTaskTree({
+            root: {
+              root: adminParent,
+              volume: path.parse(adminParent).root.toLocaleLowerCase("en-US"),
+              identity: "admin-parent"
+            },
+            target: adminQuarantine
+          });
+        } catch (error) {
+          this.options.manager.options.store.update(review.taskWorktreeId, { state: "recovery_required" });
+          throw new Error("GIT_RECOVERY_REQUIRED", { cause: error });
+        }
+        try {
+          this.options.manager.options.store.update(review.taskWorktreeId, { state: "removed" });
+        } catch (error) {
+          throw new Error("GIT_RECOVERY_REQUIRED", { cause: error });
+        }
         this.options.authority.revokeTask(review.taskWorktreeId);
-        await fsp.unlink(markerPath);
-        await removeManagedTaskTree({
-          root: this.options.manager.options.root,
-          target: review.worktreePath
-        });
-        const adminParent = await fsp.realpath(path.dirname(review.adminDir));
-        await removeManagedTaskTree({
-          root: {
-            root: adminParent,
-            volume: path.parse(adminParent).root.toLocaleLowerCase("en-US"),
-            identity: "admin-parent"
-          },
-          target: review.adminDir
-        });
-        this.options.manager.options.store.update(review.taskWorktreeId, { state: "removed" });
         this.options.reviews.consume<RemoveReviewV4>(input.reviewToken, "task_remove");
         return {
           action: "execute" as const,

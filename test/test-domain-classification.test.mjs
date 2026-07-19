@@ -22,6 +22,7 @@ const expectedControl = [
   "process-local-control-cli.test.mjs",
   "run-command-windows-control.test.mjs",
   "runner-stop-identity-windows-control.test.mjs",
+  "task-worktree-windows-locks.test.mjs",
   "wait-for-handoff-contract.test.mjs",
   "windows-process-host-control.test.mjs",
   "windows-process-host-integration-windows-control.test.mjs",

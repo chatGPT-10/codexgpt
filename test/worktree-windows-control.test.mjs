@@ -4,7 +4,7 @@ import test from "node:test";
 
 test("managed remover rejects a junction escape and preserves the external canary", {
   skip: process.platform !== "win32" ? "Windows junction control only" : false
-}, () => {
+}, (t) => {
   const result = spawnSync(process.execPath, ["scripts/worktree-delete-control.mjs"], {
     cwd: process.cwd(),
     encoding: "utf8",
@@ -12,7 +12,10 @@ test("managed remover rejects a junction escape and preserves the external canar
   });
   assert.equal(result.status, 0, result.stderr);
   const evidence = JSON.parse(result.stdout.trim());
-  if (!evidence.supported) return;
+  if (!evidence.supported) {
+    t.skip(`junction creation unavailable: ${evidence.unsupportedReason ?? "unknown"}`);
+    return;
+  }
   assert.equal(evidence.unsafeRemovalRejected, true);
   assert.equal(evidence.outsideCanarySurvived, true);
 });

@@ -56,6 +56,9 @@ const preparationDataSchema = z.object({
   history_scan_complete: z.literal(true),
   checks_complete: z.boolean(),
   integration_workspace_id: gitV4WorkspaceIdSchema.nullable(),
+  required_check_categories: z.array(
+    z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/u)
+  ).max(8),
   execution_isolation: z.literal("none"),
   repository_integrations: z.enum(["disabled", "approved_full_access"]),
   expires_at: gitV4TimestampSchema.nullable()
@@ -84,6 +87,15 @@ const preparationDataSchema = z.object({
   }
   if (conflicted && value.checks_complete) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["checks_complete"], message: "Conflicted preparation cannot have complete checks." });
+  }
+  if (
+    (value.merge_plan_id === null) !== (value.required_check_categories.length === 0) ||
+    (value.merge_plan_id === null) !== (value.integration_workspace_id === null)
+  ) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["integration_workspace_id"], message: "Executable plans require one exact verification workspace and check categories." });
+  }
+  if (new Set(value.required_check_categories).size !== value.required_check_categories.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["required_check_categories"], message: "Required check categories must be unique." });
   }
   if (!conflicted && value.status !== "approval_required" && ((value.status === "checks_required") !== !value.checks_complete)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["checks_complete"], message: "checks_required must exactly represent incomplete required checks." });

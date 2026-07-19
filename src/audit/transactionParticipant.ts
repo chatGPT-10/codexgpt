@@ -37,7 +37,11 @@ export function attachExecutionAuditFacts<T extends object>(
 export function executionAuditFacts(value: unknown): ExecutionAuditFacts | null {
   if (!value || typeof value !== "object") return null;
   const facts = (value as Record<symbol, unknown>)[EXECUTION_AUDIT_FACTS];
-  return facts && typeof facts === "object" ? facts as ExecutionAuditFacts : null;
+  if (facts && typeof facts === "object") return facts as ExecutionAuditFacts;
+  const structured = (value as { structuredContent?: unknown }).structuredContent;
+  if (!structured || typeof structured !== "object") return null;
+  const nested = (structured as Record<symbol, unknown>)[EXECUTION_AUDIT_FACTS];
+  return nested && typeof nested === "object" ? nested as ExecutionAuditFacts : null;
 }
 
 export interface TransactionAuditRuntime {

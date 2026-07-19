@@ -12,6 +12,11 @@ export interface PersistentAuditRuntimeOptions {
   eventId?: () => string;
 }
 
+export interface PersistedExecutionAuditEvidenceV2 {
+  eventId: string;
+  timestamp: string;
+}
+
 export class PersistentAuditRuntimeV2 {
   private readonly now: () => number;
   private readonly eventId: () => string;
@@ -31,7 +36,7 @@ export class PersistentAuditRuntimeV2 {
   async persistExecution(
     context: AuditAuthorizationContextV2,
     input: AuditExecutionInputV2
-  ): Promise<void> {
+  ): Promise<PersistedExecutionAuditEvidenceV2> {
     const authorization = context.authorizationEvent;
     const event: ExecutionAuditEventV2 = executionAuditEventV2Schema.parse({
       schemaVersion: 2,
@@ -60,5 +65,6 @@ export class PersistentAuditRuntimeV2 {
       recoveryRequired: input.recoveryRequired
     });
     await this.store.append(event);
+    return { eventId: event.eventId, timestamp: event.timestamp };
   }
 }

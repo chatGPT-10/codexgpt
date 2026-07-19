@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fsp from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
+import { createOwnedTempRoot, type OwnedTempRoot } from "../../scripts/owned-temp-root.mjs";
 import type { WindowsProcessHostRuntime } from "../process/windowsHostClient.js";
 import {
   createGitCapabilityEvidence,
@@ -57,7 +57,7 @@ export interface GitCommandExecutor {
   ): Promise<GitExecutionResult>;
   runApprovedIntegration?(
     repository: GitRepositoryExecutionIdentity,
-    request: GitApprovedIntegrationRequest
+    request: GitMaterializedIntegrationRequest
   ): Promise<GitExecutionResult>;
 }
 
@@ -74,7 +74,6 @@ export type GitApprovedIntegrationRequest =
       privateIndexPath: string;
       objectDirectoryPath: string;
       shadowGitDir: string;
-      hooksPath: string;
     }
   | { operation: "merge_tree"; targetOid: string; taskOid: string; objectDirectoryPath: string }
   | {
@@ -83,6 +82,14 @@ export type GitApprovedIntegrationRequest =
       destinationPrefix: string;
       paths: readonly string[];
     };
+
+interface GitMaterializedIntegrationFacts {
+  integrationGitDir: string;
+  integrationConfigOverrides: readonly string[];
+  hooksPath: string;
+}
+
+type GitMaterializedIntegrationRequest = GitApprovedIntegrationRequest & GitMaterializedIntegrationFacts;
 
 const FIXED_CONFIG = Object.freeze([
   "advice.detachedHead=false",
@@ -126,9 +133,9 @@ const MAX_ARGUMENTS = 384;
 const MAX_ARGUMENT_BYTES = 8192;
 const MAX_ARGUMENT_TOTAL_BYTES = 65_536;
 const MAX_STDIN_BYTES = 131_072;
-const MAX_OUTPUT_BYTES = 1_048_576;
+const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const IMPLEMENTATION_REVISION = createHash("sha256").update(JSON.stringify({
-  schemaVersion: 1,
+  schemaVersion: 3,
   fixedConfig: FIXED_CONFIG,
   approvedIntegrationFixedConfig: APPROVED_INTEGRATION_FIXED_CONFIG,
   approvedIntegrationOperations: ["stage-private", "commit-shadow", "merge-tree-quarantine", "checkout-private"],
@@ -140,7 +147,9 @@ const IMPLEMENTATION_REVISION = createHash("sha256").update(JSON.stringify({
     outputBytes: MAX_OUTPUT_BYTES
   },
   executionIsolation: "none",
-  repositoryIntegrations: ["disabled", "approved_full_access"]
+  repositoryIntegrations: ["disabled", "approved_full_access"],
+  temporaryState: "owned-marker-v1",
+  hostTransport: "cxp4-framed-v1"
 })).digest("hex");
 
 function gitError(code: string): Error {
@@ -259,6 +268,7 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
   readonly #hostRuntime: WindowsProcessHostRuntime;
   readonly #home: string;
   readonly #tempRoot: string;
+  readonly #ownedTemp: OwnedTempRoot;
   #disposed = false;
 
   private constructor(input: {
@@ -266,12 +276,14 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
     hostRuntime: WindowsProcessHostRuntime;
     home: string;
     tempRoot: string;
+    ownedTemp: OwnedTempRoot;
     capability: GitCapabilityEvidence;
   }) {
     this.#binding = input.binding;
     this.#hostRuntime = input.hostRuntime;
     this.#home = input.home;
     this.#tempRoot = input.tempRoot;
+    this.#ownedTemp = input.ownedTemp;
     this.capability = input.capability;
     this.capabilityRevision = input.capability.capabilityRevision;
   }
@@ -287,7 +299,8 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
       platform: "win32",
       programFiles: options.programFiles
     });
-    const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-git-exec-"));
+    const ownedTemp = await createOwnedTempRoot("git-exec");
+    const tempRoot = ownedTemp.path;
     const home = path.join(tempRoot, "home");
     await fsp.mkdir(path.join(home, "xdg"), { recursive: true });
     try {
@@ -311,9 +324,9 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
         hostManifestRevision: hostManifestRevision(client.manifest),
         implementationRevision: IMPLEMENTATION_REVISION
       });
-      return new WindowsHostGitExecutor({ binding, hostRuntime: options.hostRuntime, home, tempRoot, capability });
+      return new WindowsHostGitExecutor({ binding, hostRuntime: options.hostRuntime, home, tempRoot, ownedTemp, capability });
     } catch (error) {
-      await fsp.rm(tempRoot, { recursive: true, force: true }).catch(() => {});
+      await ownedTemp.cleanup().catch(() => {});
       throw error;
     }
   }
@@ -378,7 +391,7 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
 
   async runApprovedIntegration(
     repository: GitRepositoryExecutionIdentity,
-    request: GitApprovedIntegrationRequest
+    request: GitMaterializedIntegrationRequest
   ): Promise<GitExecutionResult> {
     if (this.#disposed) throw gitError("GIT_CAPABILITY_UNAVAILABLE");
     await verifyGitExecutableBinding(this.#binding, "win32");
@@ -386,8 +399,10 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
     let stdin: Buffer = Buffer.alloc(0);
     let privateIndexPath: string | undefined;
     let objectDirectoryPath: string | undefined;
-    let shadowGitDir: string | undefined;
-    let hooksPath: string | undefined;
+    const integrationGitDir = safePrivatePath(request.integrationGitDir, this.#tempRoot);
+    const hooksPath = safePrivatePath(request.hooksPath, this.#tempRoot);
+    const integrationConfigOverrides = validateConfigOverrides(request.integrationConfigOverrides);
+    if (!integrationGitDir || !hooksPath) throw gitError("GIT_REPOSITORY_UNSAFE");
     if (request.operation === "stage") {
       if (request.paths.length < 1 || request.paths.length > 256) throw gitError("GIT_SCAN_LIMIT");
       if (request.paths.some((item) =>
@@ -409,15 +424,13 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
       stdin = request.message;
       privateIndexPath = safePrivatePath(request.privateIndexPath, this.#tempRoot);
       objectDirectoryPath = safePrivatePath(request.objectDirectoryPath, this.#tempRoot);
-      shadowGitDir = safePrivatePath(request.shadowGitDir, this.#tempRoot);
+      const shadowGitDir = safePrivatePath(request.shadowGitDir, this.#tempRoot);
       if (
         !privateIndexPath ||
         !objectDirectoryPath ||
         !shadowGitDir ||
-        !path.isAbsolute(request.hooksPath) ||
-        request.hooksPath.includes("\0")
+        shadowGitDir !== integrationGitDir
       ) throw gitError("GIT_REPOSITORY_UNSAFE");
-      hooksPath = path.resolve(request.hooksPath);
     } else if (request.operation === "merge_tree") {
       if (
         !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(request.targetOid) ||
@@ -446,13 +459,15 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
       throw gitError("GIT_CAPABILITY_UNAVAILABLE");
     }
     const repositoryArgs = [
-      `--git-dir=${shadowGitDir ?? repository.gitDir}`,
+      `--git-dir=${integrationGitDir}`,
       `--work-tree=${repository.worktreeRoot}`,
       "--literal-pathspecs"
     ];
-    const approvedConfig = hooksPath
-      ? [...APPROVED_INTEGRATION_FIXED_CONFIG, `core.hooksPath=${hooksPath}`]
-      : APPROVED_INTEGRATION_FIXED_CONFIG;
+    const approvedConfig = [
+      ...APPROVED_INTEGRATION_FIXED_CONFIG,
+      ...integrationConfigOverrides,
+      `core.hooksPath=${hooksPath}`
+    ];
     const arguments_ = [
       ...repositoryArgs,
       ...approvedConfig.flatMap((entry) => ["-c", entry]),
@@ -471,14 +486,14 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
         ...(privateIndexPath ? { GIT_INDEX_FILE: privateIndexPath } : {}),
         ...(objectDirectoryPath ? {
           GIT_OBJECT_DIRECTORY: objectDirectoryPath,
-          GIT_ALTERNATE_OBJECT_DIRECTORIES: path.join(repository.commonDir, "objects")
-        } : {})
+        } : {}),
+        GIT_ALTERNATE_OBJECT_DIRECTORIES: path.join(repository.commonDir, "objects")
       },
       stdinBase64: stdin.toString("base64"),
-      timeoutMs: 10 * 60_000,
+      timeoutMs: 120_000,
       stdoutLimitBytes: MAX_OUTPUT_BYTES,
       stderrLimitBytes: MAX_OUTPUT_BYTES
-    }, { timeoutMs: 10 * 60_000 + 10_000 });
+    }, { timeoutMs: 130_000 });
     return {
       status: typeof body.exitCode === "number" ? body.exitCode : 1,
       stdout: Buffer.from(typeof body.stdoutBase64 === "string" ? body.stdoutBase64 : "", "base64"),
@@ -504,6 +519,6 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
   async dispose(): Promise<void> {
     if (this.#disposed) return;
     this.#disposed = true;
-    await fsp.rm(this.#tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await this.#ownedTemp.cleanup();
   }
 }

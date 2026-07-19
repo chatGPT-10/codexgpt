@@ -113,6 +113,18 @@ export interface DescribeExecutionResourceV3Input {
   evidenceRevision: string;
   identityRevision: string;
   transportRevision: string;
+  verification?: {
+    mergePlanId: string;
+    integrationWorkspaceId: string;
+    category: string;
+    taskWorktreeId: string;
+    taskGeneration: number;
+    repositoryId: string;
+    candidateOid: string;
+    candidateTreeOid: string;
+    manifestDigest: string;
+    rootIdentity: string;
+  };
 }
 
 export function describeExecutionResourceV3(input: DescribeExecutionResourceV3Input) {
@@ -120,6 +132,23 @@ export function describeExecutionResourceV3(input: DescribeExecutionResourceV3In
   if (!Number.isInteger(input.deadlineMs) || input.deadlineMs < 1) throw new Error("Execution deadline is invalid.");
   if (!Number.isInteger(input.lifetimeMs) || input.lifetimeMs < 1) throw new Error("Execution lifetime is invalid.");
   const command = commandFacts(input.command);
+  const verification = input.verification
+    ? {
+        mergePlanId: requireSafeId("mergePlanId", input.verification.mergePlanId),
+        integrationWorkspaceId: requireSafeId("integrationWorkspaceId", input.verification.integrationWorkspaceId),
+        category: requireSafeId("verificationCategory", input.verification.category),
+        taskWorktreeId: requireSafeId("taskWorktreeId", input.verification.taskWorktreeId),
+        taskGeneration: input.verification.taskGeneration,
+        repositoryId: requireSafeId("repositoryId", input.verification.repositoryId),
+        candidateOid: input.verification.candidateOid,
+        candidateTreeOid: input.verification.candidateTreeOid,
+        manifestDigest: requireDigest("manifestDigest", input.verification.manifestDigest),
+        rootIdentity: requireDigest("rootIdentity", input.verification.rootIdentity)
+      }
+    : null;
+  if (verification && (!Number.isSafeInteger(verification.taskGeneration) || verification.taskGeneration < 1)) {
+    throw new Error("Verification task generation is invalid.");
+  }
   const semanticFacts = {
     schemaVersion: 3,
     domain: "codexpro.execution.authorization",
@@ -143,7 +172,8 @@ export function describeExecutionResourceV3(input: DescribeExecutionResourceV3In
     policyRevision: requireSafeId("policyRevision", input.policyRevision),
     evidenceRevision: requireSafeId("evidenceRevision", input.evidenceRevision),
     identityRevision: requireSafeId("identityRevision", input.identityRevision),
-    transportRevision: requireSafeId("transportRevision", input.transportRevision)
+    transportRevision: requireSafeId("transportRevision", input.transportRevision),
+    ...(verification ? { verification } : {})
   } as const;
   const semanticFactsDigest = semanticDigest(semanticFacts);
   return Object.freeze({
@@ -173,6 +203,7 @@ export function describeExecutionResourceV3(input: DescribeExecutionResourceV3In
     evidenceRevision: semanticFacts.evidenceRevision,
     identityRevision: semanticFacts.identityRevision,
     transportRevision: semanticFacts.transportRevision,
+    ...(verification ? { verification } : {}),
     semanticFactsDigest,
     resourceFingerprint: semanticDigest({ domain: "codexpro.execution.resource", semanticFactsDigest })
   });

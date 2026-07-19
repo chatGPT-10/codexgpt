@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { ClosedWorkspace, Workspace } from "../guard.js";
 import type { TaskWorktreeManagerV4 } from "./manager.js";
+import { admitManagedTaskGitRepository, type GitRepositoryIdentity } from "../git/repositoryIdentity.js";
 
 interface IssuedTaskWorkspace {
   workspace: Workspace;
@@ -33,6 +34,29 @@ export class TaskWorktreeWorkspaceAuthorityV4 {
     const record = this.#records.get(id);
     if (!record) throw new Error("TASK_WORKTREE_NOT_FOUND");
     return { ...record.workspace };
+  }
+
+  async admitGitWorkspace(workspace: Workspace): Promise<GitRepositoryIdentity> {
+    const record = this.#records.get(workspace.id);
+    if (
+      !record ||
+      record.workspace.root !== workspace.root ||
+      workspace.accessClass !== "task_worktree" ||
+      record.workspace.accessClass !== "task_worktree"
+    ) throw new Error("TASK_WORKTREE_NOT_FOUND");
+    const task = await this.options.manager.revalidate(
+      record.taskWorktreeId,
+      this.options.ownerFingerprint()
+    );
+    if (!task.privateState.adminDir || task.privateState.worktreePath !== workspace.root) {
+      throw new Error("TASK_WORKTREE_NOT_FOUND");
+    }
+    return admitManagedTaskGitRepository({
+      workspaceRoot: workspace.root,
+      expectedAdminDir: task.privateState.adminDir,
+      expectedRepositoryId: task.record.repositoryId,
+      executor: this.options.manager.options.context.options.executor
+    });
   }
 
   listWorkspaces(): Workspace[] {

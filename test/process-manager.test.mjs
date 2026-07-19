@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
@@ -68,6 +71,127 @@ test("expiry during start and started-audit failure both terminate the exact ret
   }
 });
 
+test("local termination waits for an in-flight start handle to be exactly terminated", async () => {
+  let resolveStart;
+  let terminateCalls = 0;
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "owner-start-race",
+    backend: { start: () => new Promise((resolve) => { resolveStart = resolve; }) }
+  });
+  const starting = manager.start({
+    command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] },
+    cwd: { kind: "absolute_local", path: process.cwd() },
+    mode: "full_access"
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  const processId = manager.localControl().list()[0].processId;
+  let returned = false;
+  const terminating = manager.localControl().terminate(processId).then((value) => {
+    returned = true;
+    return value;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(returned, false);
+  resolveStart({
+    write: async () => {},
+    interrupt: async () => "unsupported",
+    terminate: async () => { terminateCalls += 1; },
+    resize: async () => {}
+  });
+  assert.equal(await terminating, true);
+  await assert.rejects(starting, /PROCESS_EXPIRED_DURING_START/);
+  assert.equal(terminateCalls, 1);
+  await manager.close();
+});
+
+test("root drain terminates only exact-owned processes in the root or descendants", async () => {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-process-root-"));
+  const root = path.join(base, "task");
+  const descendant = path.join(root, "nested");
+  const sibling = path.join(base, "sibling");
+  await Promise.all([fs.mkdir(descendant, { recursive: true }), fs.mkdir(sibling)]);
+  const terminated = [];
+  const executionRuntime = {
+    toolContractVersion: 4,
+    preparePersistent: (args) => ({ cwd: args.cwd.path, verificationBinding: null, resource: {} }),
+    beginPersistentVerification: async () => null,
+    completePersistentVerification: async () => null,
+    issuePersistentVerificationReceipt: () => { throw new Error("unexpected"); }
+  };
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "owner-root-drain",
+    executionRuntime,
+    backend: { start: async (input) => ({
+      write: async () => {},
+      interrupt: async () => "unsupported",
+      terminate: async () => { terminated.push(input.prepared.cwd); },
+      resize: async () => {}
+    }) }
+  });
+  try {
+    for (const cwd of [root, descendant, sibling]) {
+      await manager.start({
+        command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] },
+        cwd: { kind: "absolute_local", path: cwd },
+        mode: "full_access"
+      });
+    }
+    assert.equal(manager.hasActiveProcessInRoot(root), true);
+    await manager.drainActiveProcessesInRoot(root);
+    assert.deepEqual(new Set(terminated), new Set([root, descendant]));
+    assert.equal(manager.hasActiveProcessInRoot(root), false);
+    assert.equal(manager.list().data.processes.filter((item) => item.status === "running").length, 1);
+  } finally {
+    await manager.close();
+    await fs.rm(base, { recursive: true, force: true });
+  }
+});
+
+test("root drain waits for an expiry termination already pending on start", async () => {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-process-expiry-drain-"));
+  let resolveStart;
+  let terminateCalls = 0;
+  const executionRuntime = {
+    toolContractVersion: 4,
+    preparePersistent: (args) => ({ cwd: args.cwd.path, verificationBinding: null, resource: {} }),
+    beginPersistentVerification: async () => null,
+    completePersistentVerification: async () => null,
+    issuePersistentVerificationReceipt: () => { throw new Error("unexpected"); }
+  };
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "owner-expiry-drain",
+    executionRuntime,
+    backend: { start: () => new Promise((resolve) => { resolveStart = resolve; }) }
+  });
+  try {
+    const starting = manager.start({
+      command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] },
+      cwd: { kind: "absolute_local", path: base },
+      mode: "full_access",
+      lifetime_ms: 1
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(manager.hasActiveProcessInRoot(base), true);
+    let drained = false;
+    const drain = manager.drainActiveProcessesInRoot(base).then(() => { drained = true; });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(drained, false);
+    resolveStart({
+      write: async () => {},
+      interrupt: async () => "unsupported",
+      terminate: async () => { terminateCalls += 1; },
+      resize: async () => {}
+    });
+    await drain;
+    await assert.rejects(starting, /PROCESS_EXPIRED_DURING_START/);
+    assert.equal(terminateCalls, 1);
+    assert.equal(manager.hasActiveProcessInRoot(base), false);
+  } finally {
+    await manager.close();
+    await fs.rm(base, { recursive: true, force: true });
+  }
+});
+
 test("local emergency termination is not blocked by an unavailable lifecycle audit sink", async () => {
   let context = "remote-session-a"; let terminateCalls = 0;
   const audit = new ProcessAuditCoordinatorV3({ sink: async (event) => { if (event.transition !== "started") throw new Error("audit unavailable"); } });
@@ -77,6 +201,35 @@ test("local emergency termination is not blocked by an unavailable lifecycle aud
   assert.equal(manager.localControl().list().length, 1, "local control is server-owned, not transport-session-owned");
   assert.equal(await manager.localControl().terminate(started.data.process_id), true);
   assert.equal(terminateCalls, 1);
+  await manager.close();
+});
+
+test("local emergency control never reports success when handle termination fails", async () => {
+  const events = [];
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "owner-local-terminate-failure",
+    audit: new ProcessAuditCoordinatorV3({ sink: (event) => events.push(event) }),
+    backend: { start: async () => ({
+      write: async () => {},
+      interrupt: async () => "unsupported",
+      terminate: async () => { throw new Error("kill failed"); },
+      resize: async () => {}
+    }) }
+  });
+  const started = await manager.start({
+    command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] },
+    cwd: { kind: "absolute_local", path: process.cwd() },
+    mode: "full_access"
+  });
+  await assert.rejects(
+    manager.localControl().terminate(started.data.process_id),
+    /kill failed/
+  );
+  assert.equal(manager.read(started.data.process_id).data.status, "failed");
+  assert.deepEqual(
+    events.map((event) => event.transition),
+    ["started", "host_crashed", "cleanup_completed"]
+  );
   await manager.close();
 });
 

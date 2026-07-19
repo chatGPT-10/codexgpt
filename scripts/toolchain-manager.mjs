@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeJsonAtomicFile } from "./atomic-file.mjs";
+import { createOwnedTempRoot } from "./owned-temp-root.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const spec = JSON.parse(await fsp.readFile(path.join(scriptDir, "toolchains.json"), "utf8"));
@@ -121,10 +122,7 @@ async function readManifest(root) {
 }
 
 async function writeManifest(root, manifest) {
-  const target = path.join(root, "manifest.json");
-  const temporary = `${target}.${process.pid}.tmp`;
-  await fsp.writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-  await fsp.rename(temporary, target);
+  await writeJsonAtomicFile(path.join(root, "manifest.json"), manifest);
 }
 
 async function installMajor(root, major) {
@@ -136,7 +134,8 @@ async function installMajor(root, major) {
   }
 
   await fsp.mkdir(root, { recursive: true });
-  const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), `codexpro-node-${major}-`));
+  const ownedTemp = await createOwnedTempRoot(`node-${major}`);
+  const tempRoot = ownedTemp.path;
   const archivePath = path.join(tempRoot, entry.archive);
   const shasumsUrl = `${spec.distribution}/v${entry.version}/${entry.shasums}`;
   const archiveUrl = `${spec.distribution}/v${entry.version}/${entry.archive}`;
@@ -179,7 +178,7 @@ async function installMajor(root, major) {
     await writeManifest(root, manifest);
     return { major, status: "installed", version: extractedVersion, directory, archiveSha256 };
   } finally {
-    await fsp.rm(tempRoot, { recursive: true, force: true });
+    await ownedTemp.cleanup();
   }
 }
 

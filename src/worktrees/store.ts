@@ -20,6 +20,12 @@ export interface TaskWorktreePrivateStateV1 {
   adminDir: string | null;
   branchRef: string;
   targetRef: string;
+  removalReview?: {
+    worktreeInventoryDigest: string;
+    worktreeEntryCount: number;
+    adminInventoryDigest: string;
+    adminEntryCount: number;
+  };
 }
 
 export interface TaskWorktreeRecordV1 {
@@ -147,7 +153,15 @@ export class TaskWorktreeStoreV1 {
       value.repositoryId !== record.repositoryId ||
       !path.isAbsolute(value.worktreePath) ||
       !value.branchRef.startsWith("refs/heads/codex/") ||
-      !value.targetRef.startsWith("refs/heads/")
+      !value.targetRef.startsWith("refs/heads/") ||
+      (value.removalReview !== undefined && (
+        !/^[a-f0-9]{64}$/u.test(value.removalReview.worktreeInventoryDigest) ||
+        !Number.isInteger(value.removalReview.worktreeEntryCount) ||
+        value.removalReview.worktreeEntryCount < 1 ||
+        !/^[a-f0-9]{64}$/u.test(value.removalReview.adminInventoryDigest) ||
+        !Number.isInteger(value.removalReview.adminEntryCount) ||
+        value.removalReview.adminEntryCount < 1
+      ))
     ) throw new Error("TASK_WORKTREE_NOT_FOUND");
     return { record, privateState: value };
   }

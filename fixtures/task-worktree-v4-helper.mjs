@@ -12,10 +12,13 @@ import { TaskWorktreeMergePrepareV4 } from "../dist/worktrees/mergePrepare.js";
 import { TaskWorktreeMergeExecuteV4 } from "../dist/worktrees/mergeExecute.js";
 import { TaskWorktreeRemoveV4 } from "../dist/worktrees/remove.js";
 import { VerificationReceiptServiceV4 } from "../dist/worktrees/verificationReceipts.js";
+import { GitIntegrationGateV4 } from "../dist/git/integrations.js";
+import { GitReadServiceV4 } from "../dist/git/readService.js";
+import { CandidateVerificationWorkspaceV4 } from "../dist/worktrees/candidateWorkspace.js";
 import { withGitMutationRepository } from "./git-v4-test-helper.mjs";
 import { runGit } from "./git-v4-test-helper.mjs";
 
-export async function withTaskWorktreeFixture(callback) {
+export async function withTaskWorktreeFixture(callback, options = {}) {
   await withGitMutationRepository(async (git) => {
     const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-task-v4-"));
     const managedPath = path.join(base, "managed");
@@ -41,6 +44,18 @@ export async function withTaskWorktreeFixture(callback) {
       }
     };
     const reviews = new GitReviewTokenServiceV4({ key: Buffer.alloc(32, 72) });
+    const integrationGate = options.integrations === true
+      ? new GitIntegrationGateV4({ executor: git.executor, reviews, enabled: true })
+      : undefined;
+    const integrationReadService = integrationGate
+      ? new GitReadServiceV4({
+          executor: git.executor,
+          registry: git.registry,
+          stateTokens: git.stateTokens,
+          contextFingerprint: "context-v4-mutation",
+          integrationGate
+        })
+      : undefined;
     const manager = new TaskWorktreeManagerV4({
       context: git.mutationContext,
       journal,
@@ -49,32 +64,83 @@ export async function withTaskWorktreeFixture(callback) {
       store,
       maxTasks: 8,
       maxFiles: 10_000,
-      maxBytes: 64 * 1024 * 1024
+      maxBytes: options.maxBytes ?? 64 * 1024 * 1024
     });
     const authority = new TaskWorktreeWorkspaceAuthorityV4({
       manager,
       ownerFingerprint: () => ownerFingerprint
     });
-    const plans = new MergePlanStoreV4();
-    const verificationReceipts = new VerificationReceiptServiceV4(Buffer.alloc(32, 73));
+    const now = options.now ?? Date.now;
+    const lifecycleState = options.durableLifecycle
+      ? { stateRoot, masterKey: Buffer.alloc(32, 74) }
+      : {};
+    const basePlans = new MergePlanStoreV4({ now, ...lifecycleState });
+    const plans = options.failPlanCreate
+      ? new Proxy(basePlans, {
+          get(target, property) {
+            if (property === "create") return () => { throw new Error("TEST_PLAN_CREATE_FAILED"); };
+            const value = Reflect.get(target, property, target);
+            return typeof value === "function" ? value.bind(target) : value;
+          }
+        })
+      : basePlans;
+    const verificationReceipts = new VerificationReceiptServiceV4(
+      Buffer.alloc(32, 73),
+      now,
+      lifecycleState
+    );
+    const baseCandidateWorkspaces = new CandidateVerificationWorkspaceV4({
+      manager,
+      guard: git.guard,
+      ownerFingerprint: () => ownerFingerprint,
+      contextFingerprint: () => "context-v4-mutation",
+      verificationReceipts,
+      now,
+      ...lifecycleState
+    });
+    let candidateCleanupFailures = options.candidateCleanupFailures ?? 0;
+    const candidateWorkspaces = candidateCleanupFailures > 0
+      ? new Proxy(baseCandidateWorkspaces, {
+          get(target, property) {
+            if (property === "cleanup") {
+              return async (...args) => {
+                if (candidateCleanupFailures > 0) {
+                  candidateCleanupFailures -= 1;
+                  throw new Error("TEST_CANDIDATE_CLEANUP_FAILED");
+                }
+                return target.cleanup(...args);
+              };
+            }
+            const value = Reflect.get(target, property, target);
+            return typeof value === "function" ? value.bind(target) : value;
+          }
+        })
+      : baseCandidateWorkspaces;
     const mergePrepare = new TaskWorktreeMergePrepareV4({
       manager,
       plans,
       reviews,
-      ownerFingerprint: () => ownerFingerprint
+      ownerFingerprint: () => ownerFingerprint,
+      integrationGate,
+      candidateWorkspaces
     });
     const mergeExecute = new TaskWorktreeMergeExecuteV4({
       manager,
       plans,
       ownerFingerprint: () => ownerFingerprint,
       verificationReceipts,
-      fileTransactions: git.fileTransactions
+      fileTransactions: git.fileTransactions,
+      integrationGate,
+      candidateWorkspaces
     });
     const remove = new TaskWorktreeRemoveV4({
       manager,
       authority,
       reviews,
-      ownerFingerprint: () => ownerFingerprint
+      ownerFingerprint: () => ownerFingerprint,
+      ...(options.hasActiveProcesses ? { hasActiveProcesses: options.hasActiveProcesses } : {}),
+      ...(options.drainActiveProcesses ? { drainActiveProcesses: options.drainActiveProcesses } : {}),
+      ...(options.beforeAdminQuarantine ? { beforeAdminQuarantine: options.beforeAdminQuarantine } : {})
     });
     const service = new TaskWorktreeServiceV4({
       manager,
@@ -82,7 +148,8 @@ export async function withTaskWorktreeFixture(callback) {
       ownerFingerprint: () => ownerFingerprint,
       mergePrepare,
       mergeExecute,
-      remove
+      remove,
+      integrationGate
     });
     try {
       await callback({
@@ -95,17 +162,24 @@ export async function withTaskWorktreeFixture(callback) {
         manager,
         authority,
         reviews,
+        integrationGate,
+        integrationReadService,
         plans,
+        basePlans,
         verificationReceipts,
+        candidateWorkspaces,
+        baseCandidateWorkspaces,
         service,
         authorization: { outcome: "allow" }
       });
     } finally {
       reviews.dispose();
+      basePlans.dispose();
       verificationReceipts.dispose();
+      baseCandidateWorkspaces.dispose();
       await fs.rm(base, { recursive: true, force: true });
     }
-  });
+  }, { objectFormat: options.objectFormat });
 }
 
 export async function createChangedTask(fixture) {

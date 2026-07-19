@@ -8,6 +8,7 @@ const base = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-worktree-delete-
 const managed = path.join(base, "managed");
 const outside = path.join(base, "outside");
 let supported = true;
+let unsupportedReason = null;
 try {
   await fsp.mkdir(managed, { recursive: true });
   const canonicalManaged = await fsp.realpath(managed);
@@ -17,8 +18,11 @@ try {
   await fsp.writeFile(path.join(outside, "canary.txt"), "outside-survives\n");
   try {
     await fsp.symlink(outside, path.join(target, "escape"), process.platform === "win32" ? "junction" : "dir");
-  } catch {
+  } catch (error) {
     supported = false;
+    unsupportedReason = error && typeof error === "object" && "code" in error
+      ? String(error.code)
+      : "junction_creation_failed";
   }
   if (supported) {
     await removeManagedTaskTree({
@@ -42,6 +46,7 @@ try {
     schemaVersion: 1,
     platform: process.platform,
     supported,
+    unsupportedReason,
     unsafeRemovalRejected: supported,
     outsideCanarySurvived: true
   }));

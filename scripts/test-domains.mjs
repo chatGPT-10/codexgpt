@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createOwnedTempEnvironment } from "./owned-temp-root.mjs";
 
 export const CONTROL_DOMAIN_TESTS = Object.freeze([
   "conpty-close-order-windows-control.test.mjs",
@@ -21,6 +22,7 @@ export const CONTROL_DOMAIN_TESTS = Object.freeze([
   "persistent-process-production-windows-control.test.mjs",
   "process-local-control-cli.test.mjs",
   "windows-process-host-control.test.mjs",
+  "task-worktree-windows-locks.test.mjs",
   "worktree-windows-control.test.mjs"
 ]);
 
@@ -100,20 +102,31 @@ if (action === "list") {
     authority: domain === "ordinary" ? "local-non-control-domain" : "isolated-control-domain"
   }));
 
-  const child = spawn(process.execPath, nodeArgs, {
-    cwd: repositoryRoot,
-    env: process.env,
-    shell: false,
-    windowsHide: true,
-    stdio: "inherit"
-  });
-  const exitCode = await new Promise((resolve) => {
-    child.once("error", (error) => {
-      console.error(error.stack ?? error.message);
-      resolve(127);
+  const suiteTemp = await createOwnedTempEnvironment(`tests-${domain}`);
+  let exitCode = 1;
+  try {
+    const child = spawn(process.execPath, nodeArgs, {
+      cwd: repositoryRoot,
+      env: suiteTemp.environment,
+      shell: false,
+      windowsHide: true,
+      stdio: "inherit"
     });
-    child.once("close", (code) => resolve(code ?? 1));
-  });
+    exitCode = await new Promise((resolve) => {
+      child.once("error", (error) => {
+        console.error(error.stack ?? error.message);
+        resolve(127);
+      });
+      child.once("close", (code) => resolve(code ?? 1));
+    });
+  } finally {
+    try {
+      await suiteTemp.cleanup();
+    } catch (error) {
+      console.error(`Owned test temporary state could not be removed: ${error?.code ?? error?.message ?? "unknown"}`);
+      if (exitCode === 0) exitCode = 1;
+    }
+  }
   process.exitCode = exitCode;
 } else {
   fail("Usage: node scripts/test-domains.mjs <list|run> [--domain ordinary|control|all] [--test-concurrency N]", 2);

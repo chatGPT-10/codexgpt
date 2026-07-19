@@ -137,11 +137,7 @@ export class GitRestoreServiceV4 {
   }) {
     const review = this.reviews.inspect<RestoreReviewV4>(input.reviewToken, "restore");
     if (review.workspaceId !== input.workspace.id) throw gitMutationError("GIT_STATE_TOKEN_INVALID");
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.context.options.executor,
-      registry: this.context.options.registry
-    });
+    const repository = await this.context.admitWorkspace(input.workspace);
     if (
       repository.repositoryId !== review.repositoryId ||
       await asciiOid(this.context, repository, ["rev-parse", "--verify", "HEAD"]) !== review.headOid ||

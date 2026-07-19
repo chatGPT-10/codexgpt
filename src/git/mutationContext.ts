@@ -8,6 +8,7 @@ import {
   type RepositoryIdentityRegistry
 } from "./repositoryIdentity.js";
 import type { GitReadServiceV4 } from "./readService.js";
+import type { GitRepositoryAdmissionV4 } from "./admission.js";
 import type { GitStateTokenFacts, GitStateTokenService } from "./stateToken.js";
 
 export function gitMutationError(code: string): Error {
@@ -64,6 +65,7 @@ export class GitMutationContextV4 {
     stateTokens: GitStateTokenService;
     readService: Pick<GitReadServiceV4, "status">;
     contextFingerprint: string;
+    admission?: GitRepositoryAdmissionV4;
   }) {
     if (options.registry.contextFingerprint() !== options.contextFingerprint) {
       throw gitMutationError("GIT_REPOSITORY_UNSAFE");
@@ -76,6 +78,16 @@ export class GitMutationContextV4 {
 
   branchId(repositoryId: string, ref: string): string {
     return this.options.registry.branchId(repositoryId, ref);
+  }
+
+  async admitWorkspace(workspace: Workspace): Promise<GitRepositoryIdentity> {
+    return this.options.admission
+      ? this.options.admission.admit(workspace)
+      : admitGitRepository({
+          workspaceRoot: workspace.root,
+          executor: this.options.executor,
+          registry: this.options.registry
+        });
   }
 
   async verifyState(input: {
@@ -102,11 +114,7 @@ export class GitMutationContextV4 {
     const current = this.options.stateTokens.inspect(refreshed.state_token);
     this.options.stateTokens.revoke(refreshed.state_token);
     if (!sameState(supplied, current)) throw gitMutationError("GIT_STATE_CHANGED");
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.options.executor,
-      registry: this.options.registry
-    });
+    const repository = await this.admitWorkspace(input.workspace);
     if (
       repository.repositoryId !== supplied.repositoryId ||
       repository.repositoryFingerprint !== supplied.repositoryFingerprint

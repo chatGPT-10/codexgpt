@@ -28,6 +28,7 @@ import {
 } from "./parsers.js";
 import type { GitStateTokenFacts, GitStateTokenService } from "./stateToken.js";
 import type { GitIntegrationGateV4 } from "./integrations.js";
+import type { GitRepositoryAdmissionV4 } from "./admission.js";
 
 export type GitStatusDataV4 = z.infer<typeof gitStatusDataV4Schema>;
 export type GitDiffDataV4 = z.infer<typeof gitDiffDataV4Schema>;
@@ -270,8 +271,8 @@ export async function neutralizedFilterConfig(
   if (names.size > 32) throw gitError("GIT_SCAN_LIMIT");
   return [...names].sort().flatMap((name) => [
     `filter.${name}.process=`,
-    `filter.${name}.clean=`,
-    `filter.${name}.smudge=`,
+    `filter.${name}.clean=! :`,
+    `filter.${name}.smudge=! :`,
     `filter.${name}.required=false`
   ]);
 }
@@ -344,9 +345,9 @@ async function attributeInventory(repository: GitRepositoryIdentity): Promise<At
       }
     }
   }
-  await inspect(path.join(repository.gitDir, "info", "attributes"), ".git/info/attributes", true);
+  await inspect(path.join(repository.commonDir, "info", "attributes"), ".git/info/attributes", true);
   try {
-    const configContent = await readBoundedFile(path.join(repository.gitDir, "config"), MAX_ATTRIBUTE_BYTES);
+    const configContent = await readBoundedFile(path.join(repository.commonDir, "config"), MAX_ATTRIBUTE_BYTES);
     const config = outputText(configContent, MAX_ATTRIBUTE_BYTES);
     records.push({ path: ".git/config", digest: sha256(configContent) });
     if (/^\s*\[(?:filter|diff|merge)(?:\s|\])/im.test(config) || /^\s*attributesfile\s*=/im.test(config)) {
@@ -548,6 +549,7 @@ export class GitReadServiceV4 {
   readonly #contextFingerprint: string;
   readonly #coordinator: GitReadCoordinator;
   readonly #integrationGate: GitIntegrationGateV4 | null;
+  readonly #admission: GitRepositoryAdmissionV4 | null;
 
   constructor(options: {
     executor: GitCommandExecutor;
@@ -556,6 +558,7 @@ export class GitReadServiceV4 {
     contextFingerprint: string;
     coordinator?: GitReadCoordinator;
     integrationGate?: GitIntegrationGateV4;
+    admission?: GitRepositoryAdmissionV4;
   }) {
     if (options.registry.contextFingerprint() !== options.contextFingerprint) throw gitError("GIT_REPOSITORY_UNSAFE");
     this.capabilityRevision = options.executor.capabilityRevision;
@@ -565,6 +568,7 @@ export class GitReadServiceV4 {
     this.#contextFingerprint = options.contextFingerprint;
     this.#coordinator = options.coordinator ?? new ProcessLocalGitReadCoordinator();
     this.#integrationGate = options.integrationGate ?? null;
+    this.#admission = options.admission ?? null;
   }
 
   currentBranchName(data: GitStatusDataV4): string | null {
@@ -579,7 +583,9 @@ export class GitReadServiceV4 {
     guard: PathGuard;
     paths?: readonly string[];
   }): Promise<StatusSnapshot> {
-    const repository = await admitGitRepository({ workspaceRoot: input.workspace.root, executor: this.#executor, registry: this.#registry });
+    const repository = this.#admission
+      ? await this.#admission.admit(input.workspace)
+      : await admitGitRepository({ workspaceRoot: input.workspace.root, executor: this.#executor, registry: this.#registry });
     const paths = literalPaths(input.workspace, input.guard, input.paths);
     const configOverrides = await neutralizedFilterConfig(this.#executor, repository);
     const args = ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--ignored=matching"];

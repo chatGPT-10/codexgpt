@@ -1,13 +1,15 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fsp from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createOwnedTempRoot, type OwnedTempRoot } from "../../scripts/owned-temp-root.mjs";
 import type { WindowsHostManifestV1 } from "./types.js";
 import {
   PROCESS_HOST_PROTOCOL,
   ProcessHostFrameParser,
+  decodeProcessHostCredit,
+  encodeProcessHostCredit,
   encodeProcessHostFrame,
   parseStrictJsonObject,
   processHostError,
@@ -118,6 +120,69 @@ function waitForExit(child: ChildProcessWithoutNullStreams): Promise<{ code: num
 interface PendingRequest {
   resolve(value: { frame: ProcessHostFrameV1; body: Record<string, unknown> }): void;
   reject(error: unknown): void;
+  framed: boolean;
+  stdoutLimitBytes: number;
+  stderrLimitBytes: number;
+  stdout: Buffer[];
+  stderr: Buffer[];
+  stdoutBytes: number;
+  stderrBytes: number;
+  stdoutEof: boolean;
+  stderrEof: boolean;
+  outputStarted: boolean;
+  cancelRequested: boolean;
+  cancelSent: boolean;
+  timeout?: NodeJS.Timeout;
+  cancelGrace?: NodeJS.Timeout;
+}
+
+const FRAMED_INPUT_LIMIT_BYTES = PROCESS_HOST_PROTOCOL.streaming.maxInputBytes;
+const FRAMED_OUTPUT_LIMIT_BYTES = PROCESS_HOST_PROTOCOL.streaming.maxOutputBytesPerStream;
+const CANCEL_GRACE_MS = 10_000;
+
+function strictBase64(value: unknown): Buffer {
+  if (typeof value !== "string" || value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+    throw processHostError("HOST_REQUEST_INVALID");
+  }
+  return Buffer.from(value, "base64");
+}
+
+function boundedOutputLimit(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > FRAMED_OUTPUT_LIMIT_BYTES) {
+    throw processHostError("HOST_REQUEST_INVALID");
+  }
+  return value as number;
+}
+
+function requiredByteCount(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) throw processHostError("HOST_PROTOCOL_ERROR");
+  return value as number;
+}
+
+function prepareFramedRequest(operation: string, input: Record<string, unknown>): {
+  input: Record<string, unknown>;
+  bytes: Buffer;
+  stdoutLimitBytes: number;
+  stderrLimitBytes: number;
+} | null {
+  if (operation !== "run" && operation !== "run_powershell") return null;
+  const prepared = { ...input };
+  let bytes: Buffer;
+  if (operation === "run") {
+    bytes = strictBase64(prepared.stdinBase64);
+    delete prepared.stdinBase64;
+  } else {
+    if (typeof prepared.script !== "string" || prepared.script.includes("\0")) throw processHostError("HOST_REQUEST_INVALID");
+    bytes = Buffer.from(prepared.script, "utf8");
+    delete prepared.script;
+  }
+  if (bytes.length > FRAMED_INPUT_LIMIT_BYTES) throw processHostError("HOST_REQUEST_INVALID");
+  return {
+    input: prepared,
+    bytes,
+    stdoutLimitBytes: boundedOutputLimit(prepared.stdoutLimitBytes),
+    stderrLimitBytes: boundedOutputLimit(prepared.stderrLimitBytes)
+  };
 }
 
 export class WindowsProcessHostClient {
@@ -131,16 +196,22 @@ export class WindowsProcessHostClient {
   readonly #pending = new Map<string, PendingRequest>();
   readonly #exit: Promise<{ code: number; signal: NodeJS.Signals | null }>;
   readonly #tempRoot: string;
+  readonly #ownedTemp: OwnedTempRoot;
   #sendSequence = 1;
+  #nodeToHostCredit = PROCESS_HOST_PROTOCOL.maxNodeToHostQueuedBytesPerHost;
+  #queuedRequests = 0;
+  #framedTail: Promise<void> = Promise.resolve();
   #stderr = Buffer.alloc(0);
   #fatal: Error | null = null;
   #closePromise: Promise<void> | null = null;
+  #closing = false;
 
   private constructor(input: {
     child: ChildProcessWithoutNullStreams;
     nodeToHostKey: Buffer;
     hostToNodeKey: Buffer;
     tempRoot: string;
+    ownedTemp: OwnedTempRoot;
     manifest: WindowsHostManifestV1;
   }) {
     this.hostId = `host_${randomBytes(16).toString("hex")}`;
@@ -150,6 +221,7 @@ export class WindowsProcessHostClient {
     this.#nodeToHostKey = input.nodeToHostKey;
     this.#hostToNodeKey = input.hostToNodeKey;
     this.#tempRoot = input.tempRoot;
+    this.#ownedTemp = input.ownedTemp;
     this.#parser = new ProcessHostFrameParser({ key: input.hostToNodeKey, direction: "host-to-node" });
     this.#exit = waitForExit(input.child);
     input.child.stdout.on("data", (chunk: Buffer) => this.#onData(chunk));
@@ -167,7 +239,8 @@ export class WindowsProcessHostClient {
   static async start(options: { scriptsRoot?: string; platform?: NodeJS.Platform; startupTimeoutMs?: number } = {}): Promise<WindowsProcessHostClient> {
     if ((options.platform ?? process.platform) !== "win32") throw processHostError("HOST_UNAVAILABLE");
     const verified = await loadAndVerifyWindowsHostManifest({ scriptsRoot: options.scriptsRoot });
-    const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-phase4-host-"));
+    const ownedTemp = await createOwnedTempRoot("process-host");
+    const tempRoot = ownedTemp.path;
     const nodeToHostKey = randomBytes(32);
     const hostToNodeKey = randomBytes(32);
     const nonce = randomBytes(32).toString("hex");
@@ -179,7 +252,7 @@ export class WindowsProcessHostClient {
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"]
     });
-    const client = new WindowsProcessHostClient({ child, nodeToHostKey, hostToNodeKey, tempRoot, manifest: verified.manifest });
+    const client = new WindowsProcessHostClient({ child, nodeToHostKey, hostToNodeKey, tempRoot, ownedTemp, manifest: verified.manifest });
     try {
       child.stdin.write(Buffer.concat([nodeToHostKey, hostToNodeKey]));
       const hello = await client.#requestFrame(PROCESS_HOST_PROTOCOL.kinds.HELLO, { schemaVersion: 1, protocolVersion: 1, nonce }, options.startupTimeoutMs ?? DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS);
@@ -199,7 +272,11 @@ export class WindowsProcessHostClient {
   #fail(error: unknown): void {
     const failure = error instanceof Error ? error : processHostError("HOST_PROTOCOL_ERROR");
     this.#fatal = failure;
-    for (const pending of this.#pending.values()) pending.reject(failure);
+    for (const pending of this.#pending.values()) {
+      if (pending.timeout) clearTimeout(pending.timeout);
+      if (pending.cancelGrace) clearTimeout(pending.cancelGrace);
+      pending.reject(failure);
+    }
     this.#pending.clear();
   }
 
@@ -234,10 +311,60 @@ export class WindowsProcessHostClient {
         this.#child.kill();
         continue;
       }
+      if (frame.kind === PROCESS_HOST_PROTOCOL.kinds.CREDIT) {
+        try {
+          const pending = this.#pending.get(frame.requestId);
+          if (!pending?.framed || frame.processGeneration !== 0n) {
+            throw processHostError("CONTROL_CORRELATION_INVALID");
+          }
+          const credit = decodeProcessHostCredit(frame.payload);
+          if (this.#nodeToHostCredit + credit > PROCESS_HOST_PROTOCOL.maxNodeToHostQueuedBytesPerHost) {
+            throw processHostError("CREDIT_OVERFLOW");
+          }
+          this.#nodeToHostCredit += credit;
+        } catch (error) {
+          this.#fail(error);
+          this.#child.kill();
+        }
+        continue;
+      }
       const pending = this.#pending.get(frame.requestId);
       if (!pending) {
         this.#fail(processHostError("UNKNOWN_RESPONSE_REQUEST"));
         this.#child.kill();
+        continue;
+      }
+      if (frame.kind === PROCESS_HOST_PROTOCOL.kinds.OUTPUT) {
+        try {
+          if (!pending.framed || frame.processGeneration !== 0n) throw processHostError("DIRECTION_INVALID");
+          pending.outputStarted = true;
+          const stderr = (frame.flags & PROCESS_HOST_PROTOCOL.flags.STDERR) !== 0;
+          const eof = (frame.flags & PROCESS_HOST_PROTOCOL.flags.EOF) !== 0;
+          const chunks = stderr ? pending.stderr : pending.stdout;
+          const alreadyEof = stderr ? pending.stderrEof : pending.stdoutEof;
+          const nextBytes = (stderr ? pending.stderrBytes : pending.stdoutBytes) + frame.payload.length;
+          const limit = stderr ? pending.stderrLimitBytes : pending.stdoutLimitBytes;
+          if (alreadyEof || nextBytes > limit) throw processHostError("HOST_OUTPUT_LIMIT_EXCEEDED");
+          if (frame.payload.length) chunks.push(Buffer.from(frame.payload));
+          if (stderr) {
+            pending.stderrBytes = nextBytes;
+            pending.stderrEof = eof;
+          } else {
+            pending.stdoutBytes = nextBytes;
+            pending.stdoutEof = eof;
+          }
+          if (!pending.cancelSent) {
+            this.#sendPayloadFrame(
+              PROCESS_HOST_PROTOCOL.kinds.CREDIT,
+              encodeProcessHostCredit(frame.frameBytes),
+              frame.requestId,
+              frame.processGeneration
+            );
+          }
+        } catch (error) {
+          this.#fail(error);
+          this.#child.kill();
+        }
         continue;
       }
       if (frame.kind !== PROCESS_HOST_PROTOCOL.kinds.HELLO_ACK && frame.kind !== PROCESS_HOST_PROTOCOL.kinds.RESPONSE_JSON) {
@@ -246,44 +373,224 @@ export class WindowsProcessHostClient {
         continue;
       }
       this.#pending.delete(frame.requestId);
-      try { pending.resolve({ frame, body: parseStrictJsonObject(frame.payload) }); } catch (error) { pending.reject(error); }
+      if (pending.timeout) clearTimeout(pending.timeout);
+      if (pending.cancelGrace) clearTimeout(pending.cancelGrace);
+      try {
+        const parsed = parseStrictJsonObject(frame.payload);
+        if (pending.cancelRequested) {
+          pending.reject(processHostError("HOST_REQUEST_TIMEOUT"));
+          continue;
+        }
+        if (pending.framed) {
+          if (
+            frame.processGeneration !== 0n ||
+            parsed.streamTransport !== "framed_v1" ||
+            !pending.stdoutEof ||
+            !pending.stderrEof
+          ) throw processHostError("HOST_PROTOCOL_ERROR");
+          const stdout = Buffer.concat(pending.stdout, pending.stdoutBytes);
+          const stderr = Buffer.concat(pending.stderr, pending.stderrBytes);
+          const stdoutTotal = requiredByteCount(parsed.stdoutTotalBytes);
+          const stderrTotal = requiredByteCount(parsed.stderrTotalBytes);
+          const stdoutDropped = requiredByteCount(parsed.stdoutDroppedBytes);
+          const stderrDropped = requiredByteCount(parsed.stderrDroppedBytes);
+          if (
+            stdoutTotal - stdoutDropped !== stdout.length ||
+            stderrTotal - stderrDropped !== stderr.length ||
+            typeof parsed.stdoutTruncated !== "boolean" ||
+            typeof parsed.stderrTruncated !== "boolean" ||
+            parsed.stdoutTruncated !== (stdoutDropped > 0) ||
+            parsed.stderrTruncated !== (stderrDropped > 0)
+          ) throw processHostError("HOST_PROTOCOL_ERROR");
+          parsed.stdoutBase64 = stdout.toString("base64");
+          parsed.stderrBase64 = stderr.toString("base64");
+        }
+        pending.resolve({ frame, body: parsed });
+      } catch (error) {
+        pending.reject(error);
+      }
     }
   }
 
-  #sendFrame(kind: number, body: unknown, requestId: string): void {
+  #sendPayloadFrame(
+    kind: number,
+    payload: Buffer,
+    requestId: string,
+    processGeneration: bigint = 0n,
+    flags = 0
+  ): void {
     if (this.#fatal) throw this.#fatal;
     if (this.#sendSequence > 0xffffffff) throw processHostError("SEQUENCE_EXHAUSTED");
-    const payload = Buffer.from(JSON.stringify(body), "utf8");
-    const frame = encodeProcessHostFrame({ kind, sequence: this.#sendSequence++, requestId, payload, key: this.#nodeToHostKey });
+    const frame = encodeProcessHostFrame({
+      kind,
+      flags,
+      sequence: this.#sendSequence++,
+      requestId,
+      processGeneration,
+      payload,
+      key: this.#nodeToHostKey
+    });
     if (this.#child.stdin.writableLength + frame.length > PROCESS_HOST_PROTOCOL.maxNodeToHostQueuedBytesPerHost) throw processHostError("HOST_BACKPRESSURE");
     this.#child.stdin.write(frame);
   }
 
-  #requestFrame(kind: number, body: unknown, timeoutMs: number): Promise<{ frame: ProcessHostFrameV1; body: Record<string, unknown> }> {
+  #sendFrame(kind: number, body: unknown, requestId: string): void {
+    this.#sendPayloadFrame(kind, Buffer.from(JSON.stringify(body), "utf8"), requestId);
+  }
+
+  #sendFramedRequest(body: unknown, input: Buffer, requestId: string): void {
+    if (this.#fatal) throw this.#fatal;
+    const payloads: Array<{ kind: number; flags: number; payload: Buffer }> = [{
+      kind: PROCESS_HOST_PROTOCOL.kinds.REQUEST_JSON,
+      flags: 0,
+      payload: Buffer.from(JSON.stringify(body), "utf8")
+    }];
+    if (input.length === 0) {
+      payloads.push({ kind: PROCESS_HOST_PROTOCOL.kinds.INPUT, flags: PROCESS_HOST_PROTOCOL.flags.EOF, payload: Buffer.alloc(0) });
+    } else {
+      for (let offset = 0; offset < input.length; offset += PROCESS_HOST_PROTOCOL.maxFramePayloadBytes) {
+        const end = Math.min(input.length, offset + PROCESS_HOST_PROTOCOL.maxFramePayloadBytes);
+        payloads.push({
+          kind: PROCESS_HOST_PROTOCOL.kinds.INPUT,
+          flags: end === input.length ? PROCESS_HOST_PROTOCOL.flags.EOF : 0,
+          payload: input.subarray(offset, end)
+        });
+      }
+    }
+    const total = payloads.reduce((sum, entry) => sum + PROCESS_HOST_PROTOCOL.headerLength + entry.payload.length, 0);
+    if (
+      total > PROCESS_HOST_PROTOCOL.maxNodeToHostQueuedBytesPerProcess ||
+      total > this.#nodeToHostCredit ||
+      this.#child.stdin.writableLength + total > PROCESS_HOST_PROTOCOL.maxNodeToHostQueuedBytesPerHost
+    ) throw processHostError("HOST_BACKPRESSURE");
+    if (this.#sendSequence + payloads.length - 1 > 0xffffffff) throw processHostError("SEQUENCE_EXHAUSTED");
+    let sequence = this.#sendSequence;
+    const frames = payloads.map((entry) => encodeProcessHostFrame({
+      kind: entry.kind,
+      flags: entry.flags,
+      sequence: sequence++,
+      requestId,
+      payload: entry.payload,
+      key: this.#nodeToHostKey
+    }));
+    this.#sendSequence = sequence;
+    this.#nodeToHostCredit -= total;
+    for (const frame of frames) this.#child.stdin.write(frame);
+  }
+
+  #requestFrame(
+    kind: number,
+    body: unknown,
+    timeoutMs: number,
+    framed?: { input: Buffer; stdoutLimitBytes: number; stderrLimitBytes: number }
+  ): Promise<{ frame: ProcessHostFrameV1; body: Record<string, unknown> }> {
     if (this.#pending.size >= PROCESS_HOST_PROTOCOL.maxInflightPerHost) return Promise.reject(processHostError("HOST_BACKPRESSURE"));
     const requestId = randomUUID().replaceAll("-", "");
     const promise = new Promise<{ frame: ProcessHostFrameV1; body: Record<string, unknown> }>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.#pending.delete(requestId);
-        reject(processHostError("HOST_REQUEST_TIMEOUT"));
+      const pending: PendingRequest = {
+        resolve,
+        reject,
+        framed: Boolean(framed),
+        stdoutLimitBytes: framed?.stdoutLimitBytes ?? 0,
+        stderrLimitBytes: framed?.stderrLimitBytes ?? 0,
+        stdout: [],
+        stderr: [],
+        stdoutBytes: 0,
+        stderrBytes: 0,
+        stdoutEof: false,
+        stderrEof: false,
+        outputStarted: false,
+        cancelRequested: false,
+        cancelSent: false
+      };
+      pending.timeout = setTimeout(() => {
+        if (!framed) {
+          this.#pending.delete(requestId);
+          const failure = processHostError("HOST_REQUEST_TIMEOUT");
+          this.#child.kill();
+          void this.#exit.then(() => reject(failure));
+          return;
+        }
+        pending.cancelRequested = true;
+        if (!pending.outputStarted) {
+          try {
+            this.#sendPayloadFrame(PROCESS_HOST_PROTOCOL.kinds.CANCEL, Buffer.alloc(0), requestId);
+            pending.cancelSent = true;
+          } catch {
+            this.#pending.delete(requestId);
+            const failure = processHostError("HOST_REQUEST_TIMEOUT");
+            this.#child.kill();
+            void this.#exit.then(() => reject(failure));
+            return;
+          }
+        }
+        pending.cancelGrace = setTimeout(() => {
+          this.#pending.delete(requestId);
+          const failure = processHostError("HOST_REQUEST_TIMEOUT");
+          this.#child.kill();
+          void this.#exit.then(() => reject(failure));
+        }, CANCEL_GRACE_MS);
+        pending.cancelGrace.unref?.();
       }, timeoutMs);
-      timer.unref?.();
-      this.#pending.set(requestId, { resolve: (value) => { clearTimeout(timer); resolve(value); }, reject: (error) => { clearTimeout(timer); reject(error); } });
+      pending.timeout.unref?.();
+      this.#pending.set(requestId, pending);
     });
-    try { this.#sendFrame(kind, body, requestId); } catch (error) {
-      this.#pending.get(requestId)?.reject(error);
+    try {
+      if (framed) {
+        try { this.#sendFramedRequest(body, framed.input, requestId); }
+        finally { framed.input.fill(0); }
+      } else this.#sendFrame(kind, body, requestId);
+    } catch (error) {
+      const pending = this.#pending.get(requestId);
+      if (pending?.timeout) clearTimeout(pending.timeout);
+      if (pending?.cancelGrace) clearTimeout(pending.cancelGrace);
       this.#pending.delete(requestId);
+      if (framed && pending) {
+        this.#child.kill();
+        void this.#exit.then(() => pending.reject(error));
+      } else pending?.reject(error);
     }
     return promise;
   }
 
   request(operation: string, input: Record<string, unknown>, options: { timeoutMs?: number } = {}): Promise<{ frame: ProcessHostFrameV1; body: Record<string, unknown> }> {
     if (!/^[a-z][a-z0-9_]{0,63}$/.test(operation)) return Promise.reject(processHostError("HOST_REQUEST_INVALID"));
-    return this.#requestFrame(PROCESS_HOST_PROTOCOL.kinds.REQUEST_JSON, { schemaVersion: 1, operation, input }, options.timeoutMs ?? 30_000);
+    if (this.#closing || this.#fatal) return Promise.reject(this.#fatal ?? processHostError("HOST_CLOSED"));
+    if (this.#queuedRequests >= PROCESS_HOST_PROTOCOL.maxInflightPerHost) return Promise.reject(processHostError("HOST_BACKPRESSURE"));
+    let framed: ReturnType<typeof prepareFramedRequest>;
+    try { framed = prepareFramedRequest(operation, input); } catch (error) { return Promise.reject(error); }
+    const body = framed
+      ? {
+          schemaVersion: 1,
+          operation,
+          input: framed.input,
+          stream: { version: PROCESS_HOST_PROTOCOL.streaming.version, inputBytes: framed.bytes.length, output: "frames" }
+        }
+      : { schemaVersion: 1, operation, input };
+    this.#queuedRequests += 1;
+    const run = () => {
+      if (this.#closing || this.#fatal) {
+        return Promise.reject(this.#fatal ?? processHostError("HOST_CLOSED"));
+      }
+      return this.#requestFrame(
+        PROCESS_HOST_PROTOCOL.kinds.REQUEST_JSON,
+        body,
+        options.timeoutMs ?? 30_000,
+        framed ? {
+          input: framed.bytes,
+          stdoutLimitBytes: framed.stdoutLimitBytes,
+          stderrLimitBytes: framed.stderrLimitBytes
+        } : undefined
+      );
+    };
+    const result = framed ? this.#framedTail.then(run, run) : run();
+    if (framed) this.#framedTail = result.then(() => undefined, () => undefined);
+    return result.finally(() => { this.#queuedRequests -= 1; });
   }
 
   close(): Promise<void> {
     if (this.#closePromise) return this.#closePromise;
+    this.#closing = true;
     this.#closePromise = (async () => {
       this.#child.stdin.end();
       const exited = await Promise.race([
@@ -296,7 +603,7 @@ export class WindowsProcessHostClient {
       }
       this.#nodeToHostKey.fill(0);
       this.#hostToNodeKey.fill(0);
-      await fsp.rm(this.#tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      await this.#ownedTemp.cleanup();
     })();
     return this.#closePromise;
   }

@@ -75,6 +75,12 @@ test("published package keeps website assets but excludes internal memory archiv
   ]) {
     assert.ok(files.includes(requiredNativeHostFile), `Published package must retain ${requiredNativeHostFile}`);
   }
+  for (const requiredOwnedTempFile of [
+    "scripts/owned-temp-root.mjs",
+    "scripts/run-smoke.mjs"
+  ]) {
+    assert.ok(files.includes(requiredOwnedTempFile), `Published package must retain ${requiredOwnedTempFile}`);
+  }
   for (const internalSpikeFile of [
     "scripts/git-capability-spike.mjs",
     "scripts/worktree-delete-control.mjs",

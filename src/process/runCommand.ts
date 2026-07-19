@@ -8,7 +8,26 @@ import { semanticDigest } from "../policy/authorizationFacts.js";
 import { describeExecutionResourceV3, describeProcessActionResourceV3, resolveEffectiveEnvironmentV3 } from "../policy/executionResources.js";
 import { assertFullAccessProfileEligibleV3, type FullAccessProfileV3 } from "../policy/fullAccessResources.js";
 import { createToolMeta } from "../tools/schemas/common.js";
-import { readProcessOutputOutputSchema, runCommandInputV1Schema, runCommandOutputSchema, startProcessInputV1Schema } from "../tools/schemas/execution.js";
+import {
+  readProcessOutputOutputSchema,
+  readProcessOutputOutputSchemaV4,
+  runCommandInputV1Schema,
+  runCommandInputV4Schema,
+  runCommandOutputSchema,
+  runCommandOutputSchemaV4,
+  startProcessInputV1Schema,
+  startProcessInputV4Schema
+} from "../tools/schemas/execution.js";
+import { attachExecutionAuditFacts } from "../audit/transactionParticipant.js";
+import type {
+  CandidateCleanEvidenceV4,
+  CandidateExecutionBindingV4,
+  CandidateVerificationWorkspaceV4
+} from "../worktrees/candidateWorkspace.js";
+import {
+  attachPendingVerificationReceipt,
+  type PersistedTerminalAuditEvidenceV4
+} from "../worktrees/verificationTerminal.js";
 import { compileCommandForWindowsHost } from "./commandCompiler.js";
 import { OutputCursorCodec } from "./outputCursor.js";
 import { OutputQuotaManager } from "./outputQuota.js";
@@ -30,12 +49,25 @@ interface TerminalRecord {
   contextFingerprint: string;
   ring: OutputRing;
   status: "exited" | "failed" | "terminated";
+  exitCode: number | null;
+  verificationReceipt: string | null;
   expiresAt: number;
   release(): void;
 }
 
+export interface PersistentVerificationResourceFactsV4 {
+  commandDigest: string;
+  resourceFingerprint: string;
+  backendId: string | null;
+  backendVersion: string | null;
+  executableIdentity: string;
+  effectiveEnvironmentDigest: string;
+  absoluteCwdIdentity: string;
+  policyRevision: string | null;
+}
+
 export interface RunCommandRuntimeV3Options {
-  config: Pick<CodexProConfig, "executionProfile" | "defaultRoot">;
+  config: Pick<CodexProConfig, "executionProfile" | "defaultRoot" | "toolContractVersion">;
   fullAccessProfile: FullAccessProfileV3;
   hostRuntime: Pick<WindowsProcessHostRuntime, "get">;
   contextFingerprint: () => string;
@@ -43,6 +75,7 @@ export interface RunCommandRuntimeV3Options {
   evidenceRevision: () => string;
   backendResolver?: (command: CommandSpecV1) => WindowsExecutableBindingV1;
   cwdIdentity?: (cwd: string) => string;
+  processId?: () => string;
   now?: () => number;
   cursorKey?: Buffer;
 }
@@ -91,6 +124,7 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
   readonly #quota = new OutputQuotaManager();
   readonly #records = new Map<string, TerminalRecord>();
   readonly #now: () => number;
+  #candidateWorkspaces: CandidateVerificationWorkspaceV4 | null = null;
 
   constructor(options: RunCommandRuntimeV3Options) {
     if (options.config.executionProfile !== "full_access") throw new Error("EXECUTION_PROFILE_DISABLED");
@@ -100,13 +134,90 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
     this.#cursor = new OutputCursorCodec({ key: options.cursorKey ?? randomBytes(32), now: this.#now });
   }
 
+  setCandidateVerificationWorkspace(runtime: CandidateVerificationWorkspaceV4): void {
+    if (this.#candidateWorkspaces) throw new Error("MERGE_CHECKS_REQUIRED");
+    this.#candidateWorkspaces = runtime;
+  }
+
+  get toolContractVersion(): 3 | 4 {
+    return this.#options.config.toolContractVersion === 4 ? 4 : 3;
+  }
+
+  async beginPersistentVerification(
+    binding: CandidateExecutionBindingV4 | null
+  ): Promise<CandidateCleanEvidenceV4 | null> {
+    if (!binding) return null;
+    if (!this.#candidateWorkspaces) throw new Error("MERGE_CHECKS_REQUIRED");
+    return this.#candidateWorkspaces.beginExecution(binding);
+  }
+
+  async completePersistentVerification(
+    binding: CandidateExecutionBindingV4,
+    before: CandidateCleanEvidenceV4
+  ): Promise<CandidateCleanEvidenceV4> {
+    if (!this.#candidateWorkspaces) throw new Error("MERGE_CHECKS_REQUIRED");
+    return this.#candidateWorkspaces.completeExecution(binding, before);
+  }
+
+  issuePersistentVerificationReceipt(
+    binding: CandidateExecutionBindingV4,
+    clean: CandidateCleanEvidenceV4,
+    resource: PersistentVerificationResourceFactsV4,
+    audit: PersistedTerminalAuditEvidenceV4,
+    exitCode: number
+  ): string {
+    if (
+      !this.#candidateWorkspaces ||
+      exitCode !== 0 ||
+      !resource.backendId ||
+      !resource.backendVersion ||
+      !resource.policyRevision
+    ) throw new Error("MERGE_CHECKS_REQUIRED");
+    return this.#candidateWorkspaces.issueReceipt(binding, clean, {
+      commandDigest: resource.commandDigest,
+      commandResourceFingerprint: resource.resourceFingerprint,
+      backendId: resource.backendId,
+      backendVersion: resource.backendVersion,
+      executableIdentity: resource.executableIdentity,
+      effectiveEnvironmentDigest: resource.effectiveEnvironmentDigest,
+      cwdIdentity: resource.absoluteCwdIdentity,
+      policyRevision: resource.policyRevision,
+      terminalAuditEventId: audit.eventId,
+      exitCode
+    });
+  }
+
   #resolve(args: Record<string, unknown>, operation: "run_command" | "start_process" = "run_command") {
-    const persistentInput = operation === "start_process" ? startProcessInputV1Schema.parse(args) : null;
-    const input = persistentInput ?? runCommandInputV1Schema.parse(args);
+    const persistentInput = operation === "start_process"
+      ? (this.toolContractVersion === 4
+          ? startProcessInputV4Schema.parse(args)
+          : startProcessInputV1Schema.parse(args))
+      : null;
+    const input = persistentInput ?? (this.#options.config.toolContractVersion === 4
+      ? runCommandInputV4Schema.parse(args)
+      : runCommandInputV1Schema.parse(args));
     if (input.mode !== "full_access") throw new Error("PROCESS_SANDBOX_UNAVAILABLE");
     const command = input.command as CommandSpecV1;
     const backend = (this.#options.backendResolver ?? defaultBackend)(command);
-    const cwd = input.cwd.kind === "absolute_local" ? path.resolve(input.cwd.path) : path.resolve(this.#options.config.defaultRoot, input.cwd.path ?? ".");
+    const verificationRequest = ("verification" in input ? input.verification : undefined) as
+      | { merge_plan_id: string; integration_workspace_id: string; category: string }
+      | undefined;
+    if (
+      verificationRequest &&
+      (input.mode !== "full_access" || input.cwd.kind !== "workspace" || input.cwd.path !== undefined)
+    ) throw new Error("MERGE_CHECKS_REQUIRED");
+    const verificationBinding: CandidateExecutionBindingV4 | null = verificationRequest
+      ? this.#candidateWorkspaces?.describeExecution({
+          mergePlanId: verificationRequest.merge_plan_id,
+          integrationWorkspaceId: verificationRequest.integration_workspace_id,
+          category: verificationRequest.category
+        }) ?? (() => { throw new Error("MERGE_CHECKS_REQUIRED"); })()
+      : null;
+    const cwd = verificationBinding
+      ? verificationBinding.cwd
+      : input.cwd.kind === "absolute_local"
+        ? path.resolve(input.cwd.path)
+        : path.resolve(this.#options.config.defaultRoot, input.cwd.path ?? ".");
     const effective = resolveEffectiveEnvironmentV3({ base: {}, overrides: input.environment ?? {}, platform: "win32" });
     const deadlineMs = input.timeout_ms ?? 30_000;
     const cwdIdentity = this.#options.cwdIdentity?.(cwd) ?? semanticDigest({ cwd: fs.realpathSync.native(cwd) });
@@ -119,8 +230,23 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
       workspaceId: null, leaseId: null, snapshotId: null, contractVersion: 3,
       policyRevision: this.#options.policyRevision(), evidenceRevision: this.#options.evidenceRevision(),
       identityRevision: this.#options.contextFingerprint(), transportRevision: this.#options.contextFingerprint()
+      ,
+      ...(verificationBinding ? {
+        verification: {
+          mergePlanId: verificationBinding.record.mergePlanId,
+          integrationWorkspaceId: verificationBinding.record.integrationWorkspaceId,
+          category: verificationBinding.request.category,
+          taskWorktreeId: verificationBinding.record.taskWorktreeId,
+          taskGeneration: verificationBinding.record.taskGeneration,
+          repositoryId: verificationBinding.record.repositoryId,
+          candidateOid: verificationBinding.record.candidateOid,
+          candidateTreeOid: verificationBinding.record.candidateTreeOid,
+          manifestDigest: `sha256:${verificationBinding.record.manifestDigest}`,
+          rootIdentity: `sha256:${verificationBinding.record.rootIdentity}`
+        }
+      } : {})
     });
-    return { input, command, backend, cwd, effective, deadlineMs, lifetimeMs, terminal, resource };
+    return { input, command, backend, cwd, effective, deadlineMs, lifetimeMs, terminal, resource, verificationBinding };
   }
 
   describe(toolName: string, args: Record<string, unknown>): ResourceResolutionResult {
@@ -143,13 +269,16 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
     const resolved = this.#resolve(args);
     const authorized = authorizedResourceFingerprint(args);
     if (authorized && authorized !== resolved.resource.resourceFingerprint) throw new Error("BACKEND_STALE");
-    const processId = `process_${randomUUID().replaceAll("-", "")}`;
+    const processId = this.#options.processId?.() ?? `process_${randomUUID().replaceAll("-", "")}`;
     const reservation = this.#quota.reserveProcess(this.#options.contextFingerprint(), processId);
     const ring = new OutputRing();
     const stdoutRedactor = new StreamingRedactor();
     const stderrRedactor = new StreamingRedactor();
     let body: Record<string, unknown>;
     try {
+      const verificationBefore = resolved.verificationBinding
+        ? await this.#candidateWorkspaces!.beginExecution(resolved.verificationBinding)
+        : null;
       const compiled = compileCommandForWindowsHost({ command: resolved.command, backend: resolved.backend, cwd: resolved.cwd, environment: Object.fromEntries(resolved.effective.entries), deadlineMs: resolved.deadlineMs });
       const client = await this.#options.hostRuntime.get();
       ({ body } = await client.request(compiled.request.operation, compiled.request.input, { timeoutMs: resolved.deadlineMs + 10_000 }));
@@ -165,13 +294,67 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
       const timedOut = body.timedOut === true;
       const exitCode = typeof body.exitCode === "number" ? body.exitCode : null;
       const status = timedOut ? "terminated" : body.ok === false && exitCode === null ? "failed" : "exited";
-      const record: TerminalRecord = { processId, generation: 0, contextFingerprint: this.#options.contextFingerprint(), ring, status, expiresAt: this.#now() + TERMINAL_TTL_MS, release: reservation.release };
-      this.#records.set(processId, record);
+      const record: TerminalRecord = {
+        processId,
+        generation: 0,
+        contextFingerprint: this.#options.contextFingerprint(),
+        ring,
+        status,
+        exitCode,
+        verificationReceipt: null,
+        expiresAt: this.#now() + TERMINAL_TTL_MS,
+        release: reservation.release
+      };
       const output = this.#page(record, { sequence: 0, offset: 0 }, FIRST_PAGE_BYTES);
       const data = { process_id: processId, status, exit_code: exitCode, termination_reason: timedOut ? "timeout" : null,
         backend: { backend_id: resolved.backend.backendId, command_kind: resolved.command.kind, executable_identity: resolved.backend.sha256, terminal: "none" }, authority: FULL_ACCESS_PROCESS_AUTHORITY_V3, output,
-        started_at: new Date(started).toISOString(), ended_at: new Date(this.#now()).toISOString() };
-      return runCommandOutputSchema.parse({ codexpro_tool: "run_command", codexpro_title: "Run Command", ok: true, data, error: null, meta: createToolMeta(this.#now() - started, [FULL_ACCESS_PROCESS_WARNING_V3]) }) as Record<string, unknown>;
+        started_at: new Date(started).toISOString(), ended_at: new Date(this.#now()).toISOString(),
+        ...(this.#options.config.toolContractVersion === 4 ? { verification_receipt: null } : {}) };
+      const schema = this.#options.config.toolContractVersion === 4
+        ? runCommandOutputSchemaV4
+        : runCommandOutputSchema;
+      const structured = schema.parse({ codexpro_tool: "run_command", codexpro_title: "Run Command", ok: true, data, error: null, meta: createToolMeta(this.#now() - started, [FULL_ACCESS_PROCESS_WARNING_V3]) }) as Record<string, unknown>;
+      attachExecutionAuditFacts(structured, {
+        resultCode: status === "exited" && exitCode === 0 ? "OK" : "COMMAND_FAILED",
+        exitCode,
+        boundedByteCounts: { returnedBytes: output.returned_bytes },
+        changeSetId: null,
+        operationCount: 1,
+        mutationKinds: [],
+        pendingMutationCommit: null
+      });
+      if (resolved.verificationBinding && verificationBefore && status === "exited" && exitCode === 0) {
+        const verificationAfter = await this.#candidateWorkspaces!.completeExecution(
+          resolved.verificationBinding,
+          verificationBefore
+        );
+        attachPendingVerificationReceipt(structured, {
+          finalize: (audit) => this.#candidateWorkspaces!.issueReceipt(
+            resolved.verificationBinding!,
+            verificationAfter,
+            {
+              commandDigest: resolved.resource.commandDigest,
+              commandResourceFingerprint: resolved.resource.resourceFingerprint,
+              backendId: resolved.resource.backendId!,
+              backendVersion: resolved.resource.backendVersion!,
+              executableIdentity: resolved.resource.executableIdentity,
+              effectiveEnvironmentDigest: resolved.resource.effectiveEnvironmentDigest,
+              cwdIdentity: resolved.resource.absoluteCwdIdentity,
+              policyRevision: resolved.resource.policyRevision!,
+              terminalAuditEventId: audit.eventId,
+              exitCode
+            }
+          ),
+          attach: (receipt) => {
+            const projected = structured.data as Record<string, unknown> | undefined;
+            if (!projected) throw new Error("MERGE_CHECKS_REQUIRED");
+            projected.verification_receipt = receipt;
+            record.verificationReceipt = receipt;
+          }
+        });
+      }
+      this.#records.set(processId, record);
+      return structured;
     } catch (error) {
       reservation.release();
       throw error;
@@ -193,7 +376,21 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
     if (!record || record.contextFingerprint !== this.#options.contextFingerprint()) throw new Error("PROCESS_NOT_FOUND");
     const state = typeof args.cursor === "string" ? this.#cursor.decode(args.cursor, { processId, generation: record.generation, contextFingerprint: record.contextFingerprint }) : { sequence: 0, offset: 0 };
     const output = this.#page(record, state, typeof args.max_bytes === "number" ? args.max_bytes : FIRST_PAGE_BYTES);
-    return readProcessOutputOutputSchema.parse({ codexpro_tool: "read_process_output", codexpro_title: "Read Process Output", ok: true, data: { process_id: processId, status: record.status, output }, error: null, meta: createToolMeta() }) as Record<string, unknown>;
+    const data = {
+      process_id: processId,
+      status: record.status,
+      output,
+      ...(this.toolContractVersion === 4
+        ? {
+            exit_code: record.exitCode,
+            verification_receipt: record.verificationReceipt
+          }
+        : {})
+    };
+    const schema = this.toolContractVersion === 4
+      ? readProcessOutputOutputSchemaV4
+      : readProcessOutputOutputSchema;
+    return schema.parse({ codexpro_tool: "read_process_output", codexpro_title: "Read Process Output", ok: true, data, error: null, meta: createToolMeta() }) as Record<string, unknown>;
   }
 
   #page(record: TerminalRecord, cursor: { sequence: number; offset: number }, maxBytes: number) {

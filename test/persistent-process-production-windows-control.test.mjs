@@ -14,6 +14,29 @@ import { connectProductionCodexProServer, createProductionCodexProServer, dispos
 import { resolveTransactionStateRoot } from "../dist/transactions/stateRoot.js";
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
+async function waitForFile(file) {
+  try {
+    await fs.access(file);
+    return;
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  const watcher = fs.watch(path.dirname(file));
+  try {
+    for await (const event of watcher) {
+      if (String(event.filename ?? "") !== path.basename(file)) continue;
+      try {
+        await fs.access(file);
+        return;
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+    }
+  } finally {
+    await watcher.return?.();
+  }
+}
+
 test("production V3 persistent process requires exact approval and remains locally terminable", { skip: process.platform !== "win32" }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-production-process-"));
   const home = path.join(root, "home");
@@ -50,8 +73,36 @@ test("production V3 persistent process requires exact approval and remains local
     assert.equal(started.structuredContent.ok, true);
     const processId = started.structuredContent.data.process_id;
     assert.match(processId, /^process_[a-f0-9]{32}$/);
-    const local = await approval.server.handle({ schemaVersion: 3, contractVersion: 3, operation: "processes.terminate", serverId: approval.serverId, processId });
+    const readyFile = path.join(root, "one-shot-ready.txt");
+    const runArgs = {
+      command: {
+        kind: "argv",
+        executable: process.execPath,
+        args: [
+          "-e",
+          `import('node:fs').then(fs=>{fs.writeFileSync(${JSON.stringify(readyFile)},'ready');setTimeout(()=>{},2500)})`
+        ]
+      },
+      cwd: { kind: "absolute_local", path: workspace },
+      mode: "full_access",
+      timeout_ms: 10_000
+    };
+    const runFirst = await client.callTool({ name: "run_command", arguments: runArgs });
+    const runApprovalId = runFirst.content.map((item) => item.type === "text" ? item.text : "").join("\n").match(/Approval ID: (approval_[a-f0-9]{32})/)?.[1];
+    assert.ok(runApprovalId);
+    await approval.server.handle({ schemaVersion: 3, contractVersion: 3, operation: "approvals.approve", serverId: approval.serverId, approvalId: runApprovalId });
+    const slowRun = client.callTool({ name: "run_command", arguments: runArgs });
+    await waitForFile(readyFile);
+    const localRequest = approval.server.handle({ schemaVersion: 3, contractVersion: 3, operation: "processes.terminate", serverId: approval.serverId, processId });
+    const firstCompleted = await Promise.race([
+      localRequest.then(() => "local_terminate"),
+      slowRun.then(() => "one_shot_run", () => "one_shot_run")
+    ]);
+    assert.equal(firstCompleted, "local_terminate", "one-shot execution must not block persistent process control");
+    const local = await localRequest;
     assert.equal(local.code, "PROCESS_TERMINATED");
+    const runCompleted = await slowRun;
+    assert.equal(runCompleted.structuredContent.ok, true);
     const restartFirst = await client.callTool({ name: "start_process", arguments: { ...args, command: { ...args.command, args: ["-e", "setInterval(()=>{},1000)", "second"] } } });
     const restartApprovalId = restartFirst.content.map((item) => item.type === "text" ? item.text : "").join("\n").match(/Approval ID: (approval_[a-f0-9]{32})/)?.[1];
     assert.ok(restartApprovalId);

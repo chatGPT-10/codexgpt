@@ -21,7 +21,8 @@ interface StashEntryV4 {
 interface PrivateStashV4 {
   stashId: string;
   repositoryId: string;
-  workspaceId: string;
+  repositoryIdentityFingerprint: string;
+  ownerFingerprint: string;
   taskWorktreeId: null;
   baseOid: string;
   ref: string;
@@ -135,28 +136,30 @@ export class GitStashServiceV4 {
     readonly reviews: GitReviewTokenServiceV4,
     readonly fileTransactions: GitFileTransactionV4,
     private readonly now: () => number = Date.now,
-    options: { stateRoot?: string; masterKey?: Buffer } = {}
+    private readonly options: {
+      stateRoot?: string;
+      masterKey?: Buffer;
+      ownerFingerprint?: () => string;
+    } = {}
   ) {
     this.#durable = options.stateRoot && options.masterKey
       ? new DurableOpaqueRecordStoreV4({
           stateRoot: options.stateRoot,
           masterKey: options.masterKey,
           namespace: "private-stashes",
-          now
+          now,
+          maxCiphertextCharacters: 64_000_000,
+          maxPlaintextBytes: 48_000_000
         })
       : null;
   }
 
   async list(input: { workspace: Workspace }) {
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.context.options.executor,
-      registry: this.context.options.registry
-    });
+    const repository = await this.context.admitWorkspace(input.workspace);
     const stashes = this.#allStashes()
       .filter((stash) =>
-        stash.workspaceId === input.workspace.id &&
-        stash.repositoryId === repository.repositoryId
+        stash.ownerFingerprint === this.#ownerFingerprint() &&
+        stash.repositoryIdentityFingerprint === repository.stableIdentityFingerprint
       )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map((stash) => ({
@@ -180,7 +183,6 @@ export class GitStashServiceV4 {
     stateToken: string;
     paths: readonly string[];
   }) {
-    if (this.#retainedStashCount() >= 64) throw gitMutationError("GIT_SCAN_LIMIT");
     const verified = await this.context.verifyState({
       workspace: input.workspace,
       guard: input.guard,
@@ -188,6 +190,12 @@ export class GitStashServiceV4 {
       paths: input.paths
     });
     const repository = verified.repository;
+    if (
+      this.#retainedStashCount(
+        this.#ownerFingerprint(),
+        repository.stableIdentityFingerprint
+      ) >= 64
+    ) throw gitMutationError("GIT_SCAN_LIMIT");
     const baseOid = await ascii(this.context, repository, ["rev-parse", "--verify", "HEAD"]);
     const entries: StashEntryV4[] = [];
     let byteCount = 0;
@@ -232,11 +240,7 @@ export class GitStashServiceV4 {
   async executeCreate(input: { workspace: Workspace; guard: PathGuard; reviewToken: string }) {
     const review = this.reviews.inspect<CreateReviewV4>(input.reviewToken, "stash_create");
     if (review.workspaceId !== input.workspace.id) throw gitMutationError("GIT_STATE_TOKEN_INVALID");
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.context.options.executor,
-      registry: this.context.options.registry
-    });
+    const repository = await this.context.admitWorkspace(input.workspace);
     if (
       repository.repositoryId !== review.repositoryId ||
       repository.repositoryFingerprint !== review.repositoryFingerprint ||
@@ -245,6 +249,7 @@ export class GitStashServiceV4 {
     await this.#revalidateEntries(input.workspace, repository, review.entries);
     const privateRoot = await this.context.options.executor.createPrivateDirectory?.("git-stash-create");
     if (!privateRoot) throw gitMutationError("GIT_CAPABILITY_UNAVAILABLE");
+    try {
     const stashIndex = path.join(privateRoot, "stash-index");
     const resetIndex = path.join(privateRoot, "reset-index");
     const liveIndex = path.join(repository.gitDir, "index");
@@ -316,7 +321,8 @@ export class GitStashServiceV4 {
     const stash: PrivateStashV4 = {
       stashId,
       repositoryId: repository.repositoryId,
-      workspaceId: input.workspace.id,
+      repositoryIdentityFingerprint: repository.stableIdentityFingerprint,
+      ownerFingerprint: this.#ownerFingerprint(),
       taskWorktreeId: null,
       baseOid: review.baseOid,
       ref,
@@ -354,7 +360,6 @@ export class GitStashServiceV4 {
         return null;
       }
     });
-    await this.context.options.executor.removePrivateDirectory?.(privateRoot).catch(() => {});
     this.reviews.consume<CreateReviewV4>(input.reviewToken, "stash_create");
     return {
       action: "execute_create" as const,
@@ -363,6 +368,9 @@ export class GitStashServiceV4 {
       state_token: await this.context.refreshState({ workspace: input.workspace, guard: input.guard }),
       retained: true as const
     };
+    } finally {
+      await this.context.options.executor.removePrivateDirectory?.(privateRoot).catch(() => {});
+    }
   }
 
   async prepareApply(input: {
@@ -371,7 +379,8 @@ export class GitStashServiceV4 {
     stashId: string;
     stateToken: string;
   }) {
-    const stash = this.#ownedStash(input.workspace, input.stashId);
+    const owned = await this.#ownedStash(input.workspace, input.stashId);
+    const stash = owned.stash;
     const verified = await this.context.verifyState({
       workspace: input.workspace,
       guard: input.guard,
@@ -379,7 +388,7 @@ export class GitStashServiceV4 {
       paths: stash.entries.map((entry) => entry.path)
     });
     if (
-      verified.repository.repositoryId !== stash.repositoryId ||
+      verified.repository.stableIdentityFingerprint !== stash.repositoryIdentityFingerprint ||
       await ascii(this.context, verified.repository, ["rev-parse", "--verify", "HEAD"]) !== stash.baseOid
     ) throw gitMutationError("GIT_STATE_CHANGED");
     const currentEntries: StashEntryV4[] = [];
@@ -416,7 +425,7 @@ export class GitStashServiceV4 {
     }
     const reviewToken = this.reviews.mint<ApplyReviewV4>("stash_apply", {
       workspaceId: input.workspace.id,
-      repositoryId: stash.repositoryId,
+      repositoryId: verified.repository.repositoryId,
       repositoryFingerprint: verified.repository.repositoryFingerprint,
       stashId: stash.stashId,
       baseOid: stash.baseOid,
@@ -425,7 +434,7 @@ export class GitStashServiceV4 {
     });
     return {
       action: "prepare_apply" as const,
-      repository_id: stash.repositoryId,
+      repository_id: verified.repository.repositoryId,
       review_token: reviewToken,
       stash_id: stash.stashId,
       path_count: stash.entries.length,
@@ -438,12 +447,9 @@ export class GitStashServiceV4 {
 
   async executeApply(input: { workspace: Workspace; guard: PathGuard; reviewToken: string }) {
     const review = this.reviews.inspect<ApplyReviewV4>(input.reviewToken, "stash_apply");
-    const stash = this.#ownedStash(input.workspace, review.stashId);
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.context.options.executor,
-      registry: this.context.options.registry
-    });
+    const owned = await this.#ownedStash(input.workspace, review.stashId);
+    const stash = owned.stash;
+    const repository = owned.repository;
     if (
       repository.repositoryId !== review.repositoryId ||
       repository.repositoryFingerprint !== review.repositoryFingerprint ||
@@ -452,6 +458,7 @@ export class GitStashServiceV4 {
     await this.#revalidateEntries(input.workspace, repository, review.entries);
     const privateRoot = await this.context.options.executor.createPrivateDirectory?.("git-stash-apply");
     if (!privateRoot) throw gitMutationError("GIT_CAPABILITY_UNAVAILABLE");
+    try {
     const liveIndex = path.join(repository.gitDir, "index");
     const liveIndexContent = await fsp.readFile(liveIndex);
     const liveIndexIdentity = await gitIndexIdentityV4(liveIndex);
@@ -489,28 +496,32 @@ export class GitStashServiceV4 {
         return null;
       }
     });
-    await this.context.options.executor.removePrivateDirectory?.(privateRoot).catch(() => {});
     this.reviews.consume<ApplyReviewV4>(input.reviewToken, "stash_apply");
     return {
       action: "execute_apply" as const,
-      repository_id: stash.repositoryId,
+      repository_id: repository.repositoryId,
       stash_id: stash.stashId,
       state_token: await this.context.refreshState({ workspace: input.workspace, guard: input.guard }),
       retained: true as const
     };
+    } finally {
+      await this.context.options.executor.removePrivateDirectory?.(privateRoot).catch(() => {});
+    }
   }
 
-  prepareForget(input: { workspace: Workspace; stashId: string }) {
-    const stash = this.#ownedStash(input.workspace, input.stashId);
+  async prepareForget(input: { workspace: Workspace; stashId: string }) {
+    const owned = await this.#ownedStash(input.workspace, input.stashId);
+    const stash = owned.stash;
+    const repository = owned.repository;
     const reviewToken = this.reviews.mint<ForgetReviewV4>("stash_forget", {
       workspaceId: input.workspace.id,
-      repositoryId: stash.repositoryId,
+      repositoryId: repository.repositoryId,
       stashId: stash.stashId,
       expectedOid: stash.refOid
     });
     return {
       action: "prepare_forget" as const,
-      repository_id: stash.repositoryId,
+      repository_id: repository.repositoryId,
       review_token: reviewToken,
       stash_id: stash.stashId,
       expected_oid: stash.refOid,
@@ -522,41 +533,50 @@ export class GitStashServiceV4 {
     };
   }
 
-  describeStash(workspaceId: string, stashId: string): { repositoryId: string; refOid: string } {
+  describeStash(_workspaceId: string, stashId: string): { repositoryId: string; refOid: string } {
     const stash = this.#getStash(stashId);
-    if (!stash || stash.workspaceId !== workspaceId) throw gitMutationError("TASK_WORKTREE_NOT_FOUND");
+    if (!stash || stash.ownerFingerprint !== this.#ownerFingerprint()) {
+      throw gitMutationError("TASK_WORKTREE_NOT_FOUND");
+    }
     return { repositoryId: stash.repositoryId, refOid: stash.refOid };
   }
 
   async executeForget(input: { workspace: Workspace; reviewToken: string }) {
     const review = this.reviews.inspect<ForgetReviewV4>(input.reviewToken, "stash_forget");
-    const stash = this.#ownedStash(input.workspace, review.stashId);
+    const owned = await this.#ownedStash(input.workspace, review.stashId);
+    const stash = owned.stash;
+    const repository = owned.repository;
     if (stash.refOid !== review.expectedOid) throw gitMutationError("GIT_REF_CHANGED");
-    const repository = await admitGitRepository({
-      workspaceRoot: input.workspace.root,
-      executor: this.context.options.executor,
-      registry: this.context.options.registry
-    });
+    if (repository.repositoryId !== review.repositoryId) throw gitMutationError("GIT_STATE_CHANGED");
     const result = await this.context.options.executor.run(repository, [
       "update-ref", "--no-deref", "-d", stash.ref, stash.refOid
     ]);
     if (result.status !== 0) throw gitMutationError("GIT_REF_CHANGED");
-    if (this.#durable) this.#durable.consume<PrivateStashV4>(stash.stashId, "private_stash");
+    if (this.#durable) this.#durable.revoke(stash.stashId);
     else this.#stashes.delete(stash.stashId);
     this.reviews.consume<ForgetReviewV4>(input.reviewToken, "stash_forget");
     return {
       action: "execute_forget" as const,
-      repository_id: stash.repositoryId,
+      repository_id: repository.repositoryId,
       stash_id: stash.stashId,
       retained: false as const,
       gc_executed: false as const
     };
   }
 
-  #ownedStash(workspace: Workspace, stashId: string): PrivateStashV4 {
+  async #ownedStash(workspace: Workspace, stashId: string): Promise<{
+    stash: PrivateStashV4;
+    repository: Awaited<ReturnType<GitMutationContextV4["admitWorkspace"]>>;
+  }> {
     const stash = this.#getStash(stashId);
-    if (!stash || stash.workspaceId !== workspace.id) throw gitMutationError("TASK_WORKTREE_NOT_FOUND");
-    return stash;
+    if (!stash || stash.ownerFingerprint !== this.#ownerFingerprint()) {
+      throw gitMutationError("TASK_WORKTREE_NOT_FOUND");
+    }
+    const repository = await this.context.admitWorkspace(workspace);
+    if (stash.repositoryIdentityFingerprint !== repository.stableIdentityFingerprint) {
+      throw gitMutationError("TASK_WORKTREE_NOT_FOUND");
+    }
+    return { stash, repository };
   }
 
   async #revalidateEntries(
@@ -585,9 +605,10 @@ export class GitStashServiceV4 {
 
   #getStash(stashId: string): PrivateStashV4 | undefined {
     try {
-      return this.#durable
-        ? this.#durable.get<PrivateStashV4>(stashId, "private_stash")
-        : this.#stashes.get(stashId);
+      if (!this.#durable) return this.#stashes.get(stashId);
+      return this.#durable.list<PrivateStashV4>("private_stash", {
+        includeExpired: true
+      }).find((entry) => entry.recordId === stashId)?.value;
     } catch (error) {
       if ((error as Error).message === "GIT_RECOVERY_REQUIRED") throw error;
       return undefined;
@@ -609,14 +630,22 @@ export class GitStashServiceV4 {
 
   #allStashes(): PrivateStashV4[] {
     return this.#durable
-      ? this.#durable.list<PrivateStashV4>("private_stash").map((entry) => entry.value)
+      ? this.#durable.list<PrivateStashV4>("private_stash", { includeExpired: true })
+          .map((entry) => entry.value)
       : [...this.#stashes.values()];
   }
 
-  #retainedStashCount(): number {
-    return this.#durable
-      ? this.#durable.list<PrivateStashV4>("private_stash", { includeExpired: true }).length
-      : this.#stashes.size;
+  #retainedStashCount(ownerFingerprint: string, repositoryIdentityFingerprint: string): number {
+    return this.#allStashes().filter((stash) =>
+      stash.ownerFingerprint === ownerFingerprint &&
+      stash.repositoryIdentityFingerprint === repositoryIdentityFingerprint
+    ).length;
+  }
+
+  #ownerFingerprint(): string {
+    const value = this.options.ownerFingerprint?.() ?? sha256Git("git-stash-default-owner-v1");
+    if (!/^[a-f0-9]{64}$/u.test(value)) throw gitMutationError("GIT_STATE_TOKEN_INVALID");
+    return value;
   }
 
   dispose(): void {

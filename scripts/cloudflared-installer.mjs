@@ -9,6 +9,7 @@ import {
   cloudflaredAsset,
   cloudflaredReleaseUrl
 } from "./cloudflared-release.mjs";
+import { createOwnedTempRootSync } from "./owned-temp-root.mjs";
 
 const MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024;
 
@@ -163,7 +164,8 @@ export async function installVerifiedCloudflared({ ensureOnly = false } = {}) {
   }
 
   const asset = cloudflaredAsset();
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-cloudflared-verified-"));
+  const ownedTemp = createOwnedTempRootSync("cloudflared-install");
+  const tempRoot = ownedTemp.path;
   try {
     const downloaded = await downloadVerifiedAsset(asset, tempRoot);
     const executable = extractExecutable(asset, downloaded, tempRoot);
@@ -172,7 +174,7 @@ export async function installVerifiedCloudflared({ ensureOnly = false } = {}) {
     console.error(`[codexpro] Path: ${destination}`);
     return destination;
   } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+    ownedTemp.cleanupSync();
   }
 }
 

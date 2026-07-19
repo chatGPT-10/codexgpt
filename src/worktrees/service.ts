@@ -138,6 +138,13 @@ export class TaskWorktreeServiceV4 {
         authorization?: AuthorizationAuditEventV4 | null;
       }
   ) {
+    if (
+      this.options.integrationGate?.enabled &&
+      !input.integrationReviewToken &&
+      input.action !== "finalize"
+    ) {
+      throw new Error("GIT_INTEGRATION_REQUIRED");
+    }
     if (input.integrationReviewToken) {
       const args: Record<string, unknown> = {
         action: input.action,
@@ -200,6 +207,7 @@ export class TaskWorktreeServiceV4 {
     let affectedPathCount = 0;
     let affectedByteCount = 0;
     let integrationMode: "off" | "approved_full_access" = "off";
+    let approvalRevealArguments: string[] | undefined;
     if (toolName === "create_task_worktree") {
       if (args.action === "prepare") {
         operation = "task_create_review";
@@ -244,7 +252,7 @@ export class TaskWorktreeServiceV4 {
         if (args.action === "execute" && this.options.mergeExecute) {
           const plan = this.options.mergeExecute.describePlan(String(args.merge_plan_id), owner);
           refDigests = [sha256Git(plan.targetRef), sha256Git(plan.taskRef)];
-          objectIds = [plan.targetOid, plan.taskOid, plan.candidateOid];
+          objectIds = [...new Set([plan.targetOid, plan.taskOid, plan.candidateOid])];
           pathDigests = [plan.scanDigest];
           affectedPathCount = plan.affectedPathCount;
           affectedByteCount = plan.affectedByteCount;
@@ -258,6 +266,7 @@ export class TaskWorktreeServiceV4 {
             review.workspaceId !== String(args.workspace_id)
           ) throw new Error("GIT_STATE_TOKEN_INVALID");
           integrationMode = "approved_full_access";
+          approvalRevealArguments = gate.approvalPreview(args.integration_review_token);
           refDigests = [
             ...refDigests,
             review.identitiesDigest,
@@ -304,7 +313,8 @@ export class TaskWorktreeServiceV4 {
       ],
       requiredScopes,
       semanticFactsDigest: semanticDigestV4(resource),
-      riskClass: integrationMode === "approved_full_access" ? "R3" : policy.riskClass
+      riskClass: integrationMode === "approved_full_access" ? "R3" : policy.riskClass,
+      approvalRevealArguments
     };
   }
 }

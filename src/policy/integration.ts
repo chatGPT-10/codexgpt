@@ -6,6 +6,8 @@ import {
 } from "../audit/transactionParticipant.js";
 import { type AuditMutationKind, type AuthorizationAuditEventV2, type ExecutionAuditStatus } from "../audit/types.js";
 import type { AuthorizationAuditEventV4 } from "../audit/types.js";
+import type { PersistedExecutionAuditEvidenceV2 } from "../audit/runtime.js";
+import { pendingVerificationReceipt } from "../worktrees/verificationTerminal.js";
 import { TransactionError } from "../transactions/types.js";
 import { pendingWorkspaceMutation } from "../mutations/index.js";
 import { toolPolicyDefinition } from "./toolPolicy.js";
@@ -78,6 +80,7 @@ export interface ResourceResolutionResult {
   requiredScopes?: readonly string[];
   semanticFactsDigest?: string;
   riskClass?: "R0" | "R1" | "R2" | "R3" | "R4";
+  approvalRevealArguments?: readonly string[];
 }
 
 export interface ToolResourceResolver {
@@ -103,7 +106,10 @@ export interface PolicyRuntime {
   authorize(toolName: string, args: Record<string, unknown>, extra?: unknown): PolicyAuthorizationResult | Promise<PolicyAuthorizationResult>;
   audit(event: AuditEventV1): void | Promise<void>;
   persistAuthorization?(context: AuditAuthorizationContextV2): void | Promise<void>;
-  persistExecution?(context: AuditAuthorizationContextV2, execution: AuditExecutionInputV2): void | Promise<void>;
+  persistExecution?(context: AuditAuthorizationContextV2, execution: AuditExecutionInputV2):
+    | PersistedExecutionAuditEvidenceV2
+    | void
+    | Promise<PersistedExecutionAuditEvidenceV2 | void>;
 }
 
 const POLICY_FAILURE = Symbol("codexpro.policy.failure");
@@ -327,17 +333,29 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
             if (workspaceMutation) {
               result = await workspaceMutation.commit({
                 result,
-                persistAudit: () => runtime.persistExecution!(auditContext, execution)
+                persistAudit: async () => {
+                  await runtime.persistExecution!(auditContext, execution);
+                }
               });
             } else if (facts?.pendingMutationCommit && auditContext.requirement === "required") {
               await commitTransactionWithAudit({
                 pending: facts.pendingMutationCommit,
-                runtime: { persistExecution: runtime.persistExecution.bind(runtime) },
+                runtime: {
+                  persistExecution: async (context, input) => {
+                    await runtime.persistExecution!(context, input);
+                  }
+                },
                 context: auditContext,
                 execution
               });
             } else {
-              await runtime.persistExecution(auditContext, execution);
+              const auditEvidence = await runtime.persistExecution(auditContext, execution);
+              const pendingVerification = pendingVerificationReceipt(result);
+              if (pendingVerification) {
+                if (!auditEvidence) return unavailableFailure();
+                const receipt = pendingVerification.finalize(auditEvidence);
+                pendingVerification.attach(receipt);
+              }
             }
           } catch (error) {
             let projectedFailure: ToolCallResult | null = null;

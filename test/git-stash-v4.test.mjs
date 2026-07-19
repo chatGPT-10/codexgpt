@@ -4,6 +4,8 @@ import path from "node:path";
 import os from "node:os";
 import test from "node:test";
 import { GitIndexServiceV4 } from "../dist/git/indexService.js";
+import { GitMutationContextV4 } from "../dist/git/mutationContext.js";
+import { RepositoryIdentityRegistry } from "../dist/git/repositoryIdentity.js";
 import { GitReviewTokenServiceV4 } from "../dist/git/reviewToken.js";
 import { GitStashServiceV4 } from "../dist/git/stashService.js";
 import { withGitMutationRepository, runGit } from "../fixtures/git-v4-test-helper.mjs";
@@ -87,7 +89,7 @@ test("V4 private stash forget deletes one expected app ref without GC", async ()
       const created = await service.executeCreate({
         workspace: fixture.workspace, guard: fixture.guard, reviewToken: prepared.review_token
       });
-      const forget = service.prepareForget({ workspace: fixture.workspace, stashId: created.stash_id });
+      const forget = await service.prepareForget({ workspace: fixture.workspace, stashId: created.stash_id });
       const result = await service.executeForget({ workspace: fixture.workspace, reviewToken: forget.review_token });
       assert.equal(result.retained, false);
       assert.equal(result.gc_executed, false);
@@ -206,7 +208,118 @@ test("V4 private stash registry survives same-binary restart without exposing pr
         reviewsA,
         fixture.fileTransactions,
         Date.now,
-        { stateRoot, masterKey }
+        {
+          stateRoot,
+          masterKey,
+          ownerFingerprint: () => "d".repeat(64)
+        }
+      );
+      const reviewed = await serviceA.prepareCreate({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        stateToken: status.state_token,
+        paths: ["tracked.txt"]
+      });
+      const created = await serviceA.executeCreate({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        reviewToken: reviewed.review_token
+      });
+      serviceA.dispose();
+      reviewsA.dispose();
+
+      const reviewsB = new GitReviewTokenServiceV4({
+        key: Buffer.from(reviewKey),
+        stateRoot,
+        masterKey
+      });
+      const restartedRegistry = new RepositoryIdentityRegistry({
+        contextFingerprint: "stash-restart-context"
+      });
+      const restartedContext = new GitMutationContextV4({
+        executor: fixture.executor,
+        registry: restartedRegistry,
+        stateTokens: fixture.stateTokens,
+        readService: fixture.readService,
+        contextFingerprint: "stash-restart-context"
+      });
+      const serviceB = new GitStashServiceV4(
+        restartedContext,
+        reviewsB,
+        fixture.fileTransactions,
+        Date.now,
+        {
+          stateRoot,
+          masterKey,
+          ownerFingerprint: () => "d".repeat(64)
+        }
+      );
+      const rotatedWorkspace = {
+        ...fixture.workspace,
+        id: "ws_rotated_after_restart"
+      };
+      const listed = await serviceB.list({ workspace: rotatedWorkspace });
+      assert.deepEqual(listed.stashes.map((entry) => entry.stash_id), [created.stash_id]);
+      assert.notEqual(listed.repository_id, created.repository_id);
+      assert.equal(JSON.stringify(listed).includes(stateRoot), false);
+      serviceB.dispose();
+      const foreignReviews = new GitReviewTokenServiceV4({
+        key: Buffer.from(reviewKey),
+        stateRoot,
+        masterKey
+      });
+      const foreignService = new GitStashServiceV4(
+        restartedContext,
+        foreignReviews,
+        fixture.fileTransactions,
+        Date.now,
+        {
+          stateRoot,
+          masterKey,
+          ownerFingerprint: () => "f".repeat(64)
+        }
+      );
+      assert.deepEqual((await foreignService.list({ workspace: rotatedWorkspace })).stashes, []);
+      foreignService.dispose();
+      foreignReviews.dispose();
+      restartedRegistry.dispose();
+      reviewsB.dispose();
+    } finally {
+      masterKey.fill(0);
+      reviewKey.fill(0);
+      await fs.rm(stateRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+test("V4 private stash remains actionable beyond the opaque-record TTL horizon", async () => {
+  await withGitMutationRepository(async (fixture) => {
+    const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-stash-age-"));
+    const masterKey = Buffer.alloc(32, 68);
+    const reviewKey = Buffer.alloc(32, 69);
+    const initialNow = Date.now();
+    await fs.writeFile(path.join(fixture.root, "tracked.txt"), "aged-stash\n");
+    const status = await fixture.readService.status({
+      workspace: fixture.workspace,
+      guard: fixture.guard,
+      paths: ["tracked.txt"]
+    });
+    try {
+      const reviewsA = new GitReviewTokenServiceV4({
+        key: Buffer.from(reviewKey),
+        stateRoot,
+        masterKey
+      });
+      const serviceA = new GitStashServiceV4(
+        fixture.mutationContext,
+        reviewsA,
+        fixture.fileTransactions,
+        () => initialNow,
+        {
+          stateRoot,
+          masterKey,
+          ownerFingerprint: () => "e".repeat(64)
+        }
       );
       const reviewed = await serviceA.prepareCreate({
         workspace: fixture.workspace,
@@ -231,18 +344,119 @@ test("V4 private stash registry survives same-binary restart without exposing pr
         fixture.mutationContext,
         reviewsB,
         fixture.fileTransactions,
-        Date.now,
-        { stateRoot, masterKey }
+        () => initialNow + 366 * 24 * 60 * 60_000,
+        {
+          stateRoot,
+          masterKey,
+          ownerFingerprint: () => "e".repeat(64)
+        }
       );
-      const listed = await serviceB.list({ workspace: fixture.workspace });
+      const rotatedWorkspace = { ...fixture.workspace, id: "ws_rotated_after_one_year" };
+      const listed = await serviceB.list({ workspace: rotatedWorkspace });
       assert.deepEqual(listed.stashes.map((entry) => entry.stash_id), [created.stash_id]);
-      assert.equal(JSON.stringify(listed).includes(stateRoot), false);
+      const forget = await serviceB.prepareForget({
+        workspace: rotatedWorkspace,
+        stashId: created.stash_id
+      });
+      const forgotten = await serviceB.executeForget({
+        workspace: rotatedWorkspace,
+        reviewToken: forget.review_token
+      });
+      assert.equal(forgotten.retained, false);
       serviceB.dispose();
       reviewsB.dispose();
     } finally {
       masterKey.fill(0);
       reviewKey.fill(0);
       await fs.rm(stateRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+test("V4 private stash removes private indexes after create and apply failures", async () => {
+  await withGitMutationRepository(async (fixture) => {
+    const reviews = new GitReviewTokenServiceV4({ key: Buffer.alloc(32, 70) });
+    const service = new GitStashServiceV4(fixture.mutationContext, reviews, fixture.fileTransactions);
+    const originalCreatePrivateDirectory = fixture.executor.createPrivateDirectory.bind(fixture.executor);
+    const originalRun = fixture.executor.run.bind(fixture.executor);
+    try {
+      await fs.writeFile(path.join(fixture.root, "tracked.txt"), "cleanup-create\n");
+      let status = await fixture.readService.status({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        paths: ["tracked.txt"]
+      });
+      const failedCreateReview = await service.prepareCreate({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        stateToken: status.state_token,
+        paths: ["tracked.txt"]
+      });
+      let failedPrivateRoot;
+      fixture.executor.createPrivateDirectory = async (prefix) => {
+        failedPrivateRoot = await originalCreatePrivateDirectory(prefix);
+        return failedPrivateRoot;
+      };
+      fixture.executor.run = async (repository, args, options) => {
+        if (failedPrivateRoot && args[0] === "read-tree") throw new Error("INJECTED_STASH_CREATE_FAILURE");
+        return originalRun(repository, args, options);
+      };
+      await assert.rejects(() => service.executeCreate({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        reviewToken: failedCreateReview.review_token
+      }), /GIT_CAPABILITY_UNAVAILABLE/);
+      await assert.rejects(() => fs.lstat(failedPrivateRoot), { code: "ENOENT" });
+
+      fixture.executor.run = originalRun;
+      fixture.executor.createPrivateDirectory = originalCreatePrivateDirectory;
+      status = await fixture.readService.status({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        paths: ["tracked.txt"]
+      });
+      const createReview = await service.prepareCreate({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        stateToken: status.state_token,
+        paths: ["tracked.txt"]
+      });
+      const created = await service.executeCreate({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        reviewToken: createReview.review_token
+      });
+      const cleanStatus = await fixture.readService.status({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        paths: ["tracked.txt"]
+      });
+      const applyReview = await service.prepareApply({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        stashId: created.stash_id,
+        stateToken: cleanStatus.state_token
+      });
+      let applyPrivateRoot;
+      fixture.executor.createPrivateDirectory = async (prefix) => {
+        applyPrivateRoot = await originalCreatePrivateDirectory(prefix);
+        return applyPrivateRoot;
+      };
+      fixture.executor.run = async (repository, args, options) => {
+        if (applyPrivateRoot && args[0] === "update-index") throw new Error("INJECTED_STASH_APPLY_FAILURE");
+        return originalRun(repository, args, options);
+      };
+      await assert.rejects(() => service.executeApply({
+        workspace: fixture.workspace,
+        guard: fixture.guard,
+        reviewToken: applyReview.review_token
+      }), /GIT_CAPABILITY_UNAVAILABLE/);
+      await assert.rejects(() => fs.lstat(applyPrivateRoot), { code: "ENOENT" });
+    } finally {
+      fixture.executor.run = originalRun;
+      fixture.executor.createPrivateDirectory = originalCreatePrivateDirectory;
+      service.dispose();
+      reviews.dispose();
     }
   });
 });

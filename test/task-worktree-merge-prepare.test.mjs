@@ -109,3 +109,97 @@ test("conflicted divergent merge promotes no candidate ref", async () => {
     assert.equal(refs.stdout.length, 0);
   });
 });
+
+test("denied divergent review removes its retained exact candidate", async () => {
+  await withTaskWorktreeFixture(async (fixture) => {
+    const created = await createChangedTask(fixture);
+    await fs.writeFile(path.join(fixture.workspace.root, "main-only.txt"), "main\n");
+    runGit(fixture.workspace.root, ["add", "main-only.txt"]);
+    runGit(fixture.workspace.root, ["commit", "-m", "main side"]);
+    const reviewed = await fixture.service.merge({
+      action: "prepare",
+      workspace: fixture.workspace,
+      guard: fixture.guard,
+      taskWorktreeId: created.task.task_worktree_id
+    });
+    const facts = fixture.reviews.inspect(reviewed.review_token, "task_merge_finalize");
+    const retainedRoot = path.join(fixture.root.root, facts.artifactId);
+    assert.equal((await fs.lstat(path.join(retainedRoot, "objects"))).isDirectory(), true);
+    fixture.reviews.revoke(reviewed.review_token);
+    await assert.rejects(() => fixture.service.merge({
+      action: "finalize",
+      workspace: fixture.workspace,
+      guard: fixture.guard,
+      taskWorktreeId: created.task.task_worktree_id,
+      reviewToken: reviewed.review_token,
+      authorization: fixture.authorization
+    }), /GIT_STATE_TOKEN_INVALID/);
+    await assert.rejects(() => fs.lstat(retainedRoot), { code: "ENOENT" });
+  });
+});
+
+test("expired divergent review artifacts are reclaimable without running the merge again", async () => {
+  let clock = Date.now();
+  await withTaskWorktreeFixture(async (fixture) => {
+    const created = await createChangedTask(fixture);
+    await fs.writeFile(path.join(fixture.workspace.root, "main-only.txt"), "main\n");
+    runGit(fixture.workspace.root, ["add", "main-only.txt"]);
+    runGit(fixture.workspace.root, ["commit", "-m", "main side"]);
+    const reviewed = await fixture.service.merge({
+      action: "prepare",
+      workspace: fixture.workspace,
+      guard: fixture.guard,
+      taskWorktreeId: created.task.task_worktree_id
+    });
+    const facts = fixture.reviews.inspect(reviewed.review_token, "task_merge_finalize");
+    const retainedRoot = path.join(fixture.root.root, facts.artifactId);
+    clock = Date.parse(reviewed.expires_at) + 1;
+    assert.equal(await fixture.candidateWorkspaces.cleanupExpiredReviewedCandidates(), 1);
+    await assert.rejects(() => fs.lstat(retainedRoot), { code: "ENOENT" });
+  }, { now: () => clock, durableLifecycle: true });
+});
+
+test("plan persistence failure leaves fast-forward and divergent repositories retryable", async () => {
+  await withTaskWorktreeFixture(async (fixture) => {
+    const created = await createChangedTask(fixture);
+    await assert.rejects(() => fixture.service.merge({
+      action: "prepare",
+      workspace: fixture.workspace,
+      guard: fixture.guard,
+      taskWorktreeId: created.task.task_worktree_id,
+      authorization: fixture.authorization
+    }), /TEST_PLAN_CREATE_FAILED/);
+    assert.equal(fixture.store.read(created.task.task_worktree_id).record.state, "ready");
+    const repository = await fixture.manager.primaryRepository(fixture.workspace);
+    const refs = await fixture.executor.run(repository, ["for-each-ref", "refs/codexpro/candidates/"]);
+    assert.equal(refs.stdout.length, 0);
+  }, { failPlanCreate: true });
+
+  await withTaskWorktreeFixture(async (fixture) => {
+    const created = await createChangedTask(fixture);
+    await fs.writeFile(path.join(fixture.workspace.root, "main-only.txt"), "main\n");
+    runGit(fixture.workspace.root, ["add", "main-only.txt"]);
+    runGit(fixture.workspace.root, ["commit", "-m", "main side"]);
+    const targetBefore = runGit(fixture.workspace.root, ["rev-parse", "HEAD"]).stdout.toString().trim();
+    const reviewed = await fixture.service.merge({
+      action: "prepare",
+      workspace: fixture.workspace,
+      guard: fixture.guard,
+      taskWorktreeId: created.task.task_worktree_id
+    });
+    assert.equal(reviewed.status, "approval_required");
+    await assert.rejects(() => fixture.service.merge({
+      action: "finalize",
+      workspace: fixture.workspace,
+      guard: fixture.guard,
+      taskWorktreeId: created.task.task_worktree_id,
+      reviewToken: reviewed.review_token,
+      authorization: fixture.authorization
+    }), /TEST_PLAN_CREATE_FAILED/);
+    assert.equal(fixture.store.read(created.task.task_worktree_id).record.state, "ready");
+    assert.equal(runGit(fixture.workspace.root, ["rev-parse", "HEAD"]).stdout.toString().trim(), targetBefore);
+    const repository = await fixture.manager.primaryRepository(fixture.workspace);
+    const refs = await fixture.executor.run(repository, ["for-each-ref", "refs/codexpro/candidates/"]);
+    assert.equal(refs.stdout.length, 0);
+  }, { failPlanCreate: true });
+});

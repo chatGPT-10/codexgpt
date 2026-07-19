@@ -39,3 +39,22 @@ test("repository integrations default off and cannot discover or spawn", async (
     reviews.dispose();
   }
 });
+
+test("Gate X rejects durable review facts minted by a different implementation revision", () => {
+  const reviews = new GitReviewTokenServiceV4({ key: Buffer.alloc(32, 18) });
+  const gate = new GitIntegrationGateV4({
+    executor: { capabilityRevision: "1".repeat(64) },
+    reviews,
+    enabled: true
+  });
+  try {
+    const token = reviews.mint("git_integration", {
+      implementationRevision: "obsolete",
+      workspaceId: "workspace_gate_x",
+      repositoryId: `repo_${"1".repeat(32)}`
+    });
+    assert.throws(() => gate.inspect(token), /GIT_STATE_TOKEN_INVALID/);
+  } finally {
+    reviews.dispose();
+  }
+});

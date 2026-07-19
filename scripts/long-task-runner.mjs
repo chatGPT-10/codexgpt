@@ -5,6 +5,10 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { writeJsonAtomicFile } from "./atomic-file.mjs";
+import { processCreationTime } from "./process-identity.mjs";
+
+export { processCreationTime } from "./process-identity.mjs";
 
 export const RUNNER_SCHEMA_VERSION = 2;
 export const DEFAULT_LOG_LIMIT_BYTES = 1024 * 1024;
@@ -87,10 +91,7 @@ async function readJson(file) {
 }
 
 async function writeJsonAtomic(directory, filename, value) {
-  const target = path.join(directory, filename);
-  const temporary = path.join(directory, `.${filename}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`);
-  await fsp.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-  await fsp.rename(temporary, target);
+  await writeJsonAtomicFile(path.join(directory, filename), value);
 }
 
 function statIdentity(stat) {
@@ -129,62 +130,6 @@ async function verifyDirectoryWithoutLinks(target, expectedIdentity) {
     throw new Error(`Runner state directory identity changed: ${target}`);
   }
   return checked;
-}
-
-function processAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error?.code === "EPERM";
-  }
-}
-
-function windowsProcessCreationTime(pid) {
-  const script = [
-    "$ErrorActionPreference='Stop'",
-    `$p=Get-Process -Id ${pid}`,
-    "$p.StartTime.ToUniversalTime().ToString('O')"
-  ].join(";");
-  const result = spawnSync("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], {
-    encoding: "utf8",
-    windowsHide: true,
-    timeout: 10_000
-  });
-  if (result.status !== 0) return undefined;
-  const value = String(result.stdout ?? "").trim();
-  return value || undefined;
-}
-
-async function linuxProcessCreationTime(pid) {
-  try {
-    const stat = await fsp.readFile(`/proc/${pid}/stat`, "utf8");
-    const closing = stat.lastIndexOf(")");
-    if (closing < 0) return undefined;
-    const fields = stat.slice(closing + 2).trim().split(/\s+/);
-    const startTicks = fields[19];
-    return startTicks ? `linux:${startTicks}` : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function unixProcessCreationTime(pid) {
-  const result = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], {
-    encoding: "utf8",
-    timeout: 5_000
-  });
-  if (result.status !== 0) return undefined;
-  const value = String(result.stdout ?? "").trim();
-  return value ? `ps:${value}` : undefined;
-}
-
-export async function processCreationTime(pid) {
-  if (!processAlive(pid)) return undefined;
-  if (process.platform === "win32") return windowsProcessCreationTime(pid);
-  if (process.platform === "linux") return await linuxProcessCreationTime(pid);
-  return unixProcessCreationTime(pid);
 }
 
 function boundedTaskkillError(result) {

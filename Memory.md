@@ -14,11 +14,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phase 3 runtime and closure heads passed exact-head Ubuntu/Windows Node 20/24 Build, Regression, complete Smoke, and Package; exact SHAs and run IDs remain in the Phase 3 archive.
 - Reduced Phase 4 is formally closed at head `d19e65ba75938c35afa472d23d91d1724fe7fabf`. Exact-head run `29603060944` completed successfully across repository policy and Ubuntu/Windows Node 20/24 Build, complete Regression, protected Smoke, and Package.
 - Phase 4 retains truthful trusted-code `full_access`; diagnostic 4B0 remains blocked/non-production, while `workspace` and Tasks 4B1–4B6 remain deferred with no fallback.
-- Phase 5 is locally complete and is the closure candidate. V4 provides typed local Git, owner-bound managed task worktrees, raw-blob materialization, immutable merge plans, checked-out target CAS, clean reviewed removal, and Gate X. Gate X accepts only private stage, shadow commit, quarantined object merge, and private checkout after exact identity binding and R3 approval; default integrations remain off. One publication and closure-SHA exact-head success remain before Phase 6.
+- Phase 5 replacement closure candidate is locally green after the Ubuntu portability repair and final adversarial hardening. Fresh isolated Node 20/24 ordinary, Windows control, protected Smoke, build, policy, diff, package, inventory, and secret gates all pass; a replacement closure SHA and terminal exact-head success remain before Phase 6.
 
 ## Approved execution boundary
 
-The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and one push after each verified phase. Complete the final Phase 5 gates, publish once, and require terminal exact-head success before Phase 6. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
+The user authorized continuous recommended-option implementation through Phase 8 and scoped staging, English commits, and one push after each verified phase. Publish the bounded replacement Phase 5 closure repair and require terminal exact-head success before Phase 6. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive user-data/history operations, production deployment, credential disclosure or migration, and silent specification expansion remain excluded.
 
 ## Active decisions and constraints
 
@@ -57,11 +57,10 @@ The user authorized continuous recommended-option implementation through Phase 8
 - STEP-307 through STEP-336 retain post-Phase 3 hardening, reduced Phase 4 design/local evidence, and the blocked sandbox diagnostic; exact commands remain in the linked archives.
 - STEP-323 retains the adversarially repaired Phase 5 design/TDD plan; STEP-344 records the initial Gate G0 implementation, and STEP-345 records its adversarial hardening and final capability evidence.
 - STEP-337 through STEP-342 retain the Phase 4 portability, Windows scheduling, ConPTY, and exact-head repairs. Closure head `d19e65b` passed run `29603060944` across policy and Ubuntu/Windows Node 20/24.
-- STEP-345 Gate G0 implementation revision `80456ec9` and capability revision `7e9f95bf` passed final managed ordinary run `2026-07-17T21-03-15-107Z-phase5a0-adversarial-final-746beff5`: Node 20/24 each 896 tests, 895 pass, 0 fail, one established skip; exit 0, stderr 0, and no truncation.
-- STEP-347 Gate C4 final managed ordinary run `2026-07-18T06-51-25-686Z-phase5a1-c4-final-4-96ce13f0` passed Node 20.20.2 and Node 24.15.0: each 913 tests, 912 pass, 0 fail, one established skip; exit 0, stderr 0, and no truncation.
-- STEP-349 Task 5A2 final managed ordinary run `2026-07-18T12-41-24-298Z-phase5a2-ordinary-final-2-ddcc623b` passed Node 20.20.2 and Node 24.15.0: each 944 tests, 943 pass, 0 fail, one established skip; exit 0, stderr 0, and no truncation. The preceding six-failure candidate was repaired and is not completion evidence.
-- STEP-351 Gate R final managed ordinary run `2026-07-18T15-29-43-345Z-phase5a3-final3-535183ed` passed Node 20.20.2 and Node 24.15.0: each 969 tests, 968 pass, 0 fail, one established skip; exit 0, stderr 0, and no truncation. Earlier runs exposed and repaired a Node 20 tsx loader alias deadlock and Git-directory leakage into the Phase 3 transaction module.
+- STEP-345 through STEP-351 retain the staged Gate G0, Contract V4, typed-read, and Gate R evidence. Their managed Node 20/24 ordinary suites advanced from 896 to 969 tests with zero final failures; exact revisions, run IDs, repaired candidates, and loader/architecture lessons remain in the Phase 5 archives.
 - STEP-357 Phase 5 final ordinary run `2026-07-18T22-25-18-928Z-phase5c-ordinary-final-7783f2dd` passed both pinned majors: each 1,015 tests, 1,014 pass, 0 fail, one established skip. Windows control and protected Smoke also passed both/complete domains; build, policy, diff, focused 30/30, and 509-entry package dry-run passed.
+- STEP-358 exact-head run `29664071044` for `d414531` exposed Ubuntu-only empty-filter and POSIX directory-link-count assumptions. Fixed with a non-required inert filter sentinel and file-only hard-link rejection; focused portability tests pass 11/11.
+- STEP-359 re-established clean local closure after final adversarial hardening. Ordinary run `2026-07-19T13-04-21-322Z-phase5-clean-ordinary-matrix-87b14466` passed Node 20/24 at 1,083 tests, 1,081 pass, zero fail, two skips each; control run `2026-07-19T13-24-53-997Z-phase5-clean-control-matrix-df959fc3` passed 113/113 on each major; Smoke run `2026-07-19T13-32-27-618Z-phase5-clean-smoke-matrix-2e837136` passed all eight sections on both majors. Build, policy, diff, 520-entry package dry-run, focused static 44/44, and safe changed-file secret scan also pass.
 
 ## Known limitations
 
@@ -80,19 +79,17 @@ The user authorized continuous recommended-option implementation through Phase 8
 
 ## Open items
 
-1. Publish the complete Phase 5 closure candidate once and require closure-SHA exact-head success before Phase 6.
+1. Publish the locally green replacement Phase 5 closure commit and require replacement-SHA exact-head success before Phase 6.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
 3. Do not publish a task-level Phase 5 slice or create an evidence-only follow-up commit.
 
 ## Recent summaries
 
-- **STEP-357 - Complete Phase 5 local closure:** final Node 20/24 ordinary, Windows control, protected Smoke, build, policy, diff, focused Gate X, and 509-entry package dry-run passed; one publication and exact-head CI remain.
+- **STEP-359 - Re-establish clean Phase 5 closure:** complete final adversarial hardening, discard overlapping-run evidence, and pass fresh isolated ordinary/control/Smoke plus static and package gates; replacement closure SHA pending.
+- **STEP-358 - Repair Ubuntu closure portability:** replace empty filter overrides with inert non-required passthrough and restrict hard-link rejection to files.
+- **STEP-357 - Complete the first Phase 5 local closure:** Node 20/24 ordinary, Windows control, protected Smoke, build, policy, diff, focused Gate X, and 509-entry package dry-run passed before the first exact-head portability failure.
 - **STEP-356 - Gate X adversarial closure:** rejected unknown typed operations and missing private object/index state, made approval cards disclose ambient full access with no isolation, reconciled public/security/design docs, and passed focused plus managed Windows control gates.
 - **STEP-355 - Reconcile Phase 5B knowledge:** neat-freak aligned rules, plan, memory, package/mutation/domain inventories, limits, and the Phase 5C handoff.
-- **STEP-354 - Complete Phase 5B:** added managed task roots/records/handles, raw tree materialization, fast-forward and quarantined divergent candidates, clean target CAS, reviewed removal, and default-off integration approval.
-- **STEP-350 - Reconcile Task 5A2 knowledge:** audited current-state handoffs, archive history, package boundaries, workspace changes, and memory size; no runtime or public-doc drift was found.
-- **STEP-349 - Complete typed V4 Git reads:** machine-format status/diff/log/branch providers, repository identity/revalidation, secret-safe projections, opaque state tokens, and final Node 20/24 ordinary regression passed.
-- **STEP-348 - Reconcile Gate C4 knowledge:** compacted `AGENTS.md` below its soft size ceiling, audited plans/archive pointers/package boundaries/handoff text, and kept public docs unchanged because all V4 handlers remained inactive at that checkpoint.
 
 ## Archives
 

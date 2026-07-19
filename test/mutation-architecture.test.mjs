@@ -89,6 +89,14 @@ const FILESYSTEM_MODULES = new Set(["fs", "fs/promises", "node:fs", "node:fs/pro
 // Legacy entries retain line/column for review history, but identity comparison uses syscall + semantic call digest only.
 // Keep empty until the RED inventory has exposed every current direct writer.
 const REVIEWED_ALLOWLIST = Object.freeze({
+  "scripts/atomic-file.mjs": Object.freeze({
+    purpose: "Atomic JSON replacement for exact CodexPro-owned runner evidence and managed toolchain manifests outside authorized workspaces.",
+    occurrences: Object.freeze([
+      "open:e54c87ef386f",
+      "writeFile:07f0c29a7b9b",
+      "unlink:fb0ff75e2d15"
+    ])
+  }),
   "scripts/ci-change-classifier.mjs": Object.freeze({
     purpose: "CI-only GitHub output emission for runtime-versus-documentation path classification.",
     occurrences: Object.freeze([
@@ -105,11 +113,25 @@ const REVIEWED_ALLOWLIST = Object.freeze({
   "scripts/long-task-runner.mjs": Object.freeze({
     purpose: "Ignored .ai-bridge detached-run metadata, PID, result, and bounded log state.",
     occurrences: Object.freeze([
-      "writeFile:beaaea3e80cd",
-      "rename:2b73a699394a",
       "mkdir:6b206662cb80",
       "writeFile:c9aa6cdf9733",
       "writeFile:45f0808a2445"
+    ])
+  }),
+  "scripts/owned-temp-root.mjs": Object.freeze({
+    purpose: "Strictly marked OS-temporary roots with exact owner identity, crash-recovery sweeping, normal-exit cleanup, and fail-closed preservation of unknown or changed paths.",
+    occurrences: Object.freeze([
+      "mkdtempSync:d94ca1cac534",
+      "writeFileSync:7b125ce07c25",
+      "mkdtemp:fdee6d9fc181",
+      "writeFile:4f50bbd23019",
+      "renameSync:7872c20d84c8",
+      "rmSync:c726834c86de",
+      "rename:1d5c6c7efcac",
+      "rm:a482ba2f1f57",
+      "rmdirSync:ab1995b10668",
+      "rmdir:d7d13df923bd",
+      "mkdir:0d84315a43a8"
     ])
   }),
   "scripts/git-capability-spike.mjs": Object.freeze({
@@ -171,14 +193,11 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     ])
   }),
   "src/git/execution.ts": Object.freeze({
-    purpose: "Per-service private Git execution home/temp creation and exact cleanup outside authorized workspaces; no repository path is mutated.",
+    purpose: "Per-operation private Git index/object directories inside the separately reviewed owned temporary root; no repository path is mutated by these calls.",
     occurrences: Object.freeze([
-      "mkdtemp:e4ce5853355a",
       "mkdtemp:08421c876512",
       "mkdir:2396c719b6c5",
-      "rm:87e7619dd1f8",
-      "rm:9b9eb33b42cf",
-      "rm:215633a2342e"
+      "rm:9b9eb33b42cf"
     ])
   }),
   "src/git/commitService.ts": Object.freeze({
@@ -188,8 +207,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "mkdir:26ca7694018a",
       "writeFile:5b18b2aac5bd",
       "writeFile:42032cc04e14",
-      "writeFile:4ac2f4b2aa28",
-      "writeFile:52aa4ecfef41"
+      "writeFile:4ac2f4b2aa28"
     ])
   }),
   "src/git/indexService.ts": Object.freeze({
@@ -197,6 +215,19 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     occurrences: Object.freeze([
       "writeFile:9679ddcda8ca",
       "mkdir:26ca7694018a"
+    ])
+  }),
+  "src/git/integrations.ts": Object.freeze({
+    purpose: "Gate X materializes one reviewed immutable integration bundle inside the exact private Git temporary root before approved full-access execution.",
+    occurrences: Object.freeze([
+      "mkdir:eb9e7477f47e",
+      "mkdir:2f32be8e04d9",
+      "mkdir:2efaa8e3a01f",
+      "mkdir:e0c81e0d846f",
+      "writeFile:581014c6bb91",
+      "writeFile:928b0f280982",
+      "writeFile:15159aacbf31",
+      "writeFile:605f975b9deb"
     ])
   }),
   "src/git/locks.ts": Object.freeze({
@@ -259,6 +290,12 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "rm:29442a0697ae"
     ])
   }),
+  "src/worktrees/candidateWorkspace.ts": Object.freeze({
+    purpose: "Gate M identity-bound creation of the exact candidate-only verification workspace inside the managed task root.",
+    occurrences: Object.freeze([
+      "mkdir:b052600cbaf6"
+    ])
+  }),
   "src/worktrees/mergeExecute.ts": Object.freeze({
     purpose: "Gate M reviewed target file/index/ref transaction and byte-for-byte rollback within the admitted primary worktree.",
     occurrences: Object.freeze([
@@ -267,10 +304,20 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "writeFile:9b7206be7921"
     ])
   }),
-  "src/worktrees/remove.ts": Object.freeze({
-    purpose: "Gate W removes the exact revalidated task .git marker before separate identity-bound tree and administration removal.",
+  "src/worktrees/recovery.ts": Object.freeze({
+    purpose: "Gate W restart recovery restores deterministic removal quarantines to their exact paths before retry or completes cleanup after a durable recovery-required transition.",
     occurrences: Object.freeze([
-      "unlink:90758e5df514"
+      "rename:6f773b915ce8",
+      "rename:f85ac440bd54"
+    ])
+  }),
+  "src/worktrees/remove.ts": Object.freeze({
+    purpose: "Gate W atomically quarantines fully inventoried task/admin trees, records a durable recovery transition, completes exact owned cleanup, and rolls back exact paths before any deletion on review or transition failure.",
+    occurrences: Object.freeze([
+      "rename:a68e816cddc3",
+      "rename:b423b56f3f60",
+      "rename:77e30bc566cb",
+      "rename:b4fc1082b132"
     ])
   }),
   "src/worktrees/remover.ts": Object.freeze({
@@ -286,13 +333,6 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "mkdir:178ce18dfee2"
     ])
   }),
-  "src/process/windowsHostClient.ts": Object.freeze({
-    purpose: "Per-production-runtime private native-host bootstrap directory creation and authenticated exact-session cleanup outside authorized workspaces.",
-    occurrences: Object.freeze([
-      "mkdtemp:87d4d233e205",
-      "rm:215633a2342e"
-    ])
-  }),
   "scripts/run-and-summarize.mjs": Object.freeze({
     purpose: "CI-local redacted logs, compact failure summaries, and GitHub step summary output.",
     occurrences: Object.freeze([
@@ -306,13 +346,9 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     purpose: "Verified official Node toolchain download, atomic installation, manifest recording, and temporary cleanup outside authorized workspaces.",
     occurrences: Object.freeze([
       "createWriteStream:0aef67d719ec",
-      "writeFile:2dc7c9e9d65e",
-      "rename:2b73a699394a",
       "mkdir:2ac12b7246b3",
-      "mkdtemp:a3f08d96eb94",
       "mkdir:22dca29f42dc",
-      "rename:1292735ff8ce",
-      "rm:87e7619dd1f8"
+      "rename:1292735ff8ce"
     ])
   }),
   "scripts/cloudflared-installer.mjs": Object.freeze({
@@ -330,9 +366,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "145:5:renameSync:a522aa5b3913",
       "146:5:rmSync:0e9fcffc4b03",
       "148:5:rmSync:d209a92b89ab",
-      "150:7:renameSync:662f5f5db2f5",
-      "166:20:mkdtempSync:770b4fe07a3d",
-      "175:5:rmSync:d06563ffae4a"
+      "150:7:renameSync:662f5f5db2f5"
     ])
   }),
   "scripts/codexpro.mjs": Object.freeze({
@@ -347,16 +381,12 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "708:5:chmodSync:aa6e7b8892f6",
       "717:39:rmSync:67965deb6791",
       "870:3:writeFileSync:f733857bff12",
-      "888:19:mkdtempSync:854634ec35e7",
       "891:3:mkdirSync:448e9c9ba966",
       "899:7:mkdirSync:f52bfc6a75f1",
       "911:7:copyFileSync:e37114b998cc",
       "915:7:copyFileSync:43e2f89e1c4b",
       "918:39:chmodSync:664326fc63fc",
-      "923:5:rmSync:c71c3c0ebfea",
-      "1227:19:mkdtempSync:9e1bf0ab89af",
-      "1229:3:writeFileSync:8d3a7e6f2eb6",
-      "4153:39:rmSync:c71c3c0ebfea"
+      "1229:3:writeFileSync:8d3a7e6f2eb6"
     ])
   }),
   "src/audit/lock.ts": Object.freeze({

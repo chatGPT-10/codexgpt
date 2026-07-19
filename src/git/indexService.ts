@@ -162,6 +162,54 @@ interface BoundIndexEntryV4 {
   path: string;
 }
 
+interface BoundHeadV4 {
+  ref: string | null;
+  oid: string;
+}
+
+async function boundHead(
+  context: GitMutationContextV4,
+  repository: GitRepositoryIdentity
+): Promise<BoundHeadV4> {
+  const symbolic = await context.options.executor.run(repository, [
+    "symbolic-ref", "-q", "HEAD"
+  ], { stdoutLimitBytes: 512 }).catch(() => {
+    throw gitMutationError("GIT_CAPABILITY_UNAVAILABLE");
+  });
+  if (symbolic.timedOut || symbolic.stdoutTruncated || symbolic.stderrTruncated) {
+    throw gitMutationError("GIT_SCAN_LIMIT");
+  }
+  if (symbolic.status !== 0 && symbolic.status !== 1) throw gitMutationError("GIT_REF_CHANGED");
+  let ref: string | null = null;
+  if (symbolic.status === 0) {
+    try {
+      ref = new TextDecoder("utf-8", { fatal: true }).decode(symbolic.stdout).trim();
+    } catch {
+      throw gitMutationError("GIT_REF_CHANGED");
+    }
+    if (!ref.startsWith("refs/heads/") || /[\u0000\r\n]/u.test(ref)) {
+      throw gitMutationError("GIT_REF_CHANGED");
+    }
+  } else if (symbolic.stdout.length !== 0) {
+    throw gitMutationError("GIT_REF_CHANGED");
+  }
+  const oid = (await runGitRequired(
+    context.options.executor,
+    repository,
+    ["rev-parse", "--verify", "HEAD"],
+    { stdoutLimitBytes: 256 }
+  )).stdout.toString("ascii").trim();
+  const width = repository.objectFormat === "sha1" ? 40 : 64;
+  if (!new RegExp(`^[a-f0-9]{${width}}$`, "u").test(oid)) throw gitMutationError("GIT_REF_CHANGED");
+  return { ref, oid };
+}
+
+function assertHeadStable(expected: BoundHeadV4, current: BoundHeadV4): void {
+  if (expected.ref !== current.ref || expected.oid !== current.oid) {
+    throw gitMutationError("GIT_REF_CHANGED");
+  }
+}
+
 async function indexEntries(
   context: GitMutationContextV4,
   repository: GitRepositoryIdentity,
@@ -297,12 +345,8 @@ export class GitIndexServiceV4 {
       ["write-tree"],
       { stdoutLimitBytes: 256 }
     )).stdout.toString("ascii").trim();
-    const headOid = (await runGitRequired(
-      this.context.options.executor,
-      repository,
-      ["rev-parse", "--verify", "HEAD"],
-      { stdoutLimitBytes: 256 }
-    )).stdout.toString("ascii").trim();
+    const initialHead = await boundHead(this.context, repository);
+    const headOid = initialHead.oid;
     const privateRoot = await this.context.options.executor.createPrivateDirectory?.("git-index");
     if (!privateRoot) throw gitMutationError("GIT_CAPABILITY_UNAVAILABLE");
     const privateIndex = path.join(privateRoot, "index");
@@ -342,6 +386,7 @@ export class GitIndexServiceV4 {
       )).stdout.toString("ascii").trim();
       if (newTree === oldTree) throw gitMutationError("GIT_STATE_CHANGED");
       await this.hooks.beforeIndexInstall?.();
+      assertHeadStable(initialHead, await boundHead(this.context, repository));
       const currentIndex = await fileDigest(liveIndex);
       if (currentIndex.identity !== initialIndex.identity) throw gitMutationError("GIT_INDEX_CHANGED");
       await replaceLiveIndexV4({
@@ -357,11 +402,7 @@ export class GitIndexServiceV4 {
         additions: null,
         deletions: null
       }));
-      const refreshedRepository = await admitGitRepository({
-        workspaceRoot: input.workspace.root,
-        executor: this.context.options.executor,
-        registry: this.context.options.registry
-      });
+      const refreshedRepository = await this.context.admitWorkspace(input.workspace);
       const indexToken = this.indexTokens.mint({
         repositoryId: refreshedRepository.repositoryId,
         workspaceId: input.workspace.id,
@@ -434,12 +475,8 @@ export class GitIndexServiceV4 {
       ["write-tree"],
       { stdoutLimitBytes: 256 }
     )).stdout.toString("ascii").trim();
-    const headOid = (await runGitRequired(
-      this.context.options.executor,
-      repository,
-      ["rev-parse", "--verify", "HEAD"],
-      { stdoutLimitBytes: 256 }
-    )).stdout.toString("ascii").trim();
+    const initialHead = await boundHead(this.context, repository);
+    const headOid = initialHead.oid;
     const privateRoot = await this.context.options.executor.createPrivateDirectory?.("git-integration-stage");
     if (!privateRoot) throw gitMutationError("GIT_CAPABILITY_UNAVAILABLE");
     const privateIndex = path.join(privateRoot, "index");
@@ -498,6 +535,7 @@ export class GitIndexServiceV4 {
         entry.identity !== stagedPaths[index]?.identity ||
         entry.exists !== stagedPaths[index]?.exists
       )) throw gitMutationError("GIT_STATE_CHANGED");
+      assertHeadStable(initialHead, await boundHead(this.context, repository));
       if (objectIds.length > 0) {
         await new GitObjectQuarantine({ journal: () => undefined }).promote({
           repository,
@@ -506,6 +544,7 @@ export class GitIndexServiceV4 {
         });
       }
       await this.hooks.beforeIndexInstall?.();
+      assertHeadStable(initialHead, await boundHead(this.context, repository));
       if ((await fileDigest(liveIndex)).identity !== initialIndex.identity) {
         throw gitMutationError("GIT_INDEX_CHANGED");
       }
@@ -514,11 +553,7 @@ export class GitIndexServiceV4 {
         preparedIndex: privateIndex,
         expectedIdentity: initialIndex.identity
       });
-      const refreshedRepository = await admitGitRepository({
-        workspaceRoot: input.workspace.root,
-        executor: this.context.options.executor,
-        registry: this.context.options.registry
-      });
+      const refreshedRepository = await this.context.admitWorkspace(input.workspace);
       const indexToken = this.indexTokens.mint({
         repositoryId: refreshedRepository.repositoryId,
         workspaceId: input.workspace.id,

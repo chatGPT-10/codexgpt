@@ -33,12 +33,12 @@ export function runGit(root, args, input, options = {}) {
   return result;
 }
 
-export async function withGitMutationRepository(callback) {
+export async function withGitMutationRepository(callback, options = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-v4-mutation-"));
   const privateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-v4-private-"));
   const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-v4-state-"));
   try {
-    runGit(root, ["init", "--initial-branch=main"]);
+    runGit(root, ["init", "--initial-branch=main", ...(options.objectFormat ? [`--object-format=${options.objectFormat}`] : [])]);
     runGit(root, ["config", "user.name", "CodexPro Test"]);
     runGit(root, ["config", "user.email", "codexpro@example.invalid"]);
     await fs.writeFile(path.join(root, "tracked.txt"), "alpha\n", "utf8");
@@ -108,7 +108,11 @@ export async function withGitMutationRepository(callback) {
         }));
         let args;
         let input;
-        let gitDir = repository.gitDir;
+        const gitDir = request.integrationGitDir;
+        const integrationConfig = [
+          ...(request.integrationConfigOverrides ?? []),
+          `core.hooksPath=${request.hooksPath}`
+        ].flatMap((entry) => ["-c", entry]);
         const env = {
           ...process.env,
           NO_COLOR: "1",
@@ -120,27 +124,27 @@ export async function withGitMutationRepository(callback) {
           GIT_OPTIONAL_LOCKS: "0"
         };
         if (request.operation === "stage") {
-          args = ["--literal-pathspecs", "add", "--pathspec-from-file=-", "--pathspec-file-nul"];
+          args = ["--literal-pathspecs", ...integrationConfig, "add", "--pathspec-from-file=-", "--pathspec-file-nul"];
           input = Buffer.from(`${request.paths.join("\0")}\0`, "utf8");
           env.GIT_INDEX_FILE = request.privateIndexPath;
           env.GIT_OBJECT_DIRECTORY = request.objectDirectoryPath;
           env.GIT_ALTERNATE_OBJECT_DIRECTORIES = path.join(repository.commonDir, "objects");
         } else if (request.operation === "commit") {
-          args = ["--literal-pathspecs", "-c", `core.hooksPath=${request.hooksPath}`, "commit", "--file=-"];
+          args = ["--literal-pathspecs", ...integrationConfig, "commit", "--file=-"];
           input = request.message;
-          gitDir = request.shadowGitDir;
           env.GIT_INDEX_FILE = request.privateIndexPath;
           env.GIT_OBJECT_DIRECTORY = request.objectDirectoryPath;
           env.GIT_ALTERNATE_OBJECT_DIRECTORIES = path.join(repository.commonDir, "objects");
         } else if (request.operation === "merge_tree") {
-          args = ["--literal-pathspecs", "merge-tree", "--write-tree", "-z", request.targetOid, request.taskOid];
+          args = ["--literal-pathspecs", ...integrationConfig, "merge-tree", "--write-tree", "-z", request.targetOid, request.taskOid];
           env.GIT_OBJECT_DIRECTORY = request.objectDirectoryPath;
           env.GIT_ALTERNATE_OBJECT_DIRECTORIES = path.join(repository.commonDir, "objects");
         } else {
-          args = ["--literal-pathspecs", "checkout-index", "--force", "-z", "--stdin", `--prefix=${request.destinationPrefix}${path.sep}`];
+          args = ["--literal-pathspecs", ...integrationConfig, "checkout-index", "--force", "-z", "--stdin", `--prefix=${request.destinationPrefix}${path.sep}`];
           input = Buffer.from(`${request.paths.join("\0")}\0`, "utf8");
           env.GIT_INDEX_FILE = request.privateIndexPath;
         }
+        env.GIT_ALTERNATE_OBJECT_DIRECTORIES = path.join(repository.commonDir, "objects");
         const result = spawnSync("git", [`--git-dir=${gitDir}`, `--work-tree=${repository.worktreeRoot}`, ...args], {
           cwd: repository.worktreeRoot,
           input,
