@@ -21,7 +21,7 @@ export interface GitObjectPromotionResult {
   status: "promoted" | "already_present";
 }
 
-const MAX_OBJECTS = 256;
+const MAX_OBJECTS = 4096;
 const MAX_COMPRESSED_OBJECT_BYTES = 64 * 1024 * 1024;
 const MAX_INFLATED_OBJECT_BYTES = 128 * 1024 * 1024;
 const MAX_TOTAL_COMPRESSED_BYTES = 128 * 1024 * 1024;
@@ -136,6 +136,31 @@ async function destinationExists(file: string): Promise<boolean> {
   }
 }
 
+async function inventoryLooseObjects(root: string, format: GitObjectFormat): Promise<string[]> {
+  const resolvedRoot = path.resolve(root);
+  await assertRealDirectory(resolvedRoot);
+  const prefixes = await fsp.readdir(resolvedRoot, { withFileTypes: true }).catch(() => {
+    throw gateRError();
+  });
+  if (prefixes.length > 256) throw gateRError();
+  const suffixPattern = format === "sha1" ? /^[a-f0-9]{38}$/u : /^[a-f0-9]{62}$/u;
+  const objects: string[] = [];
+  for (const prefix of prefixes.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (!/^[a-f0-9]{2}$/u.test(prefix.name) || !prefix.isDirectory() || prefix.isSymbolicLink()) throw gateRError();
+    const directory = path.join(resolvedRoot, prefix.name);
+    await assertRealDirectory(directory);
+    const entries = await fsp.readdir(directory, { withFileTypes: true }).catch(() => {
+      throw gateRError();
+    });
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      if (!suffixPattern.test(entry.name) || !entry.isFile() || entry.isSymbolicLink()) throw gateRError();
+      objects.push(`${prefix.name}${entry.name}`);
+      if (objects.length > MAX_OBJECTS) throw gateRError();
+    }
+  }
+  return objects;
+}
+
 export class GitObjectQuarantine {
   readonly #journal: (event: GitObjectPromotionEvent) => void | Promise<void>;
 
@@ -143,6 +168,18 @@ export class GitObjectQuarantine {
     journal: (event: GitObjectPromotionEvent) => void | Promise<void>;
   }) {
     this.#journal = options.journal;
+  }
+
+  async promoteAll(input: {
+    repository: { commonDir: string; objectFormat: GitObjectFormat };
+    quarantineRoot: string;
+  }): Promise<GitObjectPromotionResult[]> {
+    const objects = await inventoryLooseObjects(input.quarantineRoot, input.repository.objectFormat);
+    if (objects.length === 0) return [];
+    return this.promote({
+      ...input,
+      objects: objects.map((oid) => ({ oid }))
+    });
   }
 
   async promote(input: {

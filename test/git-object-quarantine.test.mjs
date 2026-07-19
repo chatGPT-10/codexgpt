@@ -54,6 +54,34 @@ test("object promotion journals each immutable object and is idempotent", async 
   });
 });
 
+test("complete quarantine promotion discovers and verifies every loose object", async () => {
+  await withRoots(async ({ quarantineRoot, commonDir }) => {
+    const first = await looseObject(quarantineRoot, "first\n");
+    const second = await looseObject(quarantineRoot, "second\n");
+    const promoted = await new GitObjectQuarantine({ journal: async () => {} }).promoteAll({
+      repository: { commonDir, objectFormat: "sha1" },
+      quarantineRoot
+    });
+    assert.deepEqual(promoted.map((entry) => entry.oid).sort(), [first, second].sort());
+    for (const oid of [first, second]) {
+      assert.equal((await fs.stat(path.join(commonDir, "objects", oid.slice(0, 2), oid.slice(2)))).isFile(), true);
+    }
+  });
+});
+
+test("complete quarantine promotion rejects unexpected object-store layout", async () => {
+  await withRoots(async ({ quarantineRoot, commonDir }) => {
+    await fs.mkdir(path.join(quarantineRoot, "pack"), { recursive: true });
+    await assert.rejects(
+      new GitObjectQuarantine({ journal: async () => {} }).promoteAll({
+        repository: { commonDir, objectFormat: "sha1" },
+        quarantineRoot
+      }),
+      /GIT_RECOVERY_REQUIRED/
+    );
+  });
+});
+
 test("object promotion never overwrites a mismatched existing destination", async () => {
   await withRoots(async ({ quarantineRoot, commonDir }) => {
     const oid = await looseObject(quarantineRoot, "expected\n");

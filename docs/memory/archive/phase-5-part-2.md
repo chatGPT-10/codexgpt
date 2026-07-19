@@ -192,3 +192,63 @@ Changed files: `.github/workflows/ci.yml`, `fixtures/git-v4-test-helper.mjs`, `s
 - Gate X and `full_access` remain ambient same-user authority with no filesystem, credential, registry, network, or broker isolation. Managed worktrees remain workflow isolation, not an OS sandbox. Tasks 4B1–4B6 and `workspace` remain deferred.
 - Rollback is one revert of the pending STEP-360 closure commit. Rollback must not delete tasks, branches, commits, private stashes, candidates, audit, recovery data, or the managed Node toolchains.
 - Stage only the exact changed scope, create one concise English commit, push `main` once, and bind the exact resulting SHA to CI. Do not create a later evidence-only commit solely to record a successful run.
+
+## STEP-361 — Promote the complete Gate X object closure
+
+**Date:** 2026-07-19
+**Status:** local closure complete; final commit, push, and terminal exact-head success pending
+**Next:** stage the exact STEP-361 scope, commit once, push `main`, and require the resulting 40-character SHA to pass the complete exact-head CI matrix before Phase 6
+
+### Goal and changed files
+
+Close the remaining Gate X integrity defect exposed only by authoritative Ubuntu Node 20/24 CI. The approved stage boundary must not install a private index, mint an index token, or allow a later shadow commit unless every new Git object referenced by that index is already present and valid in the live object database.
+
+Changed files in the final local closure tree: `src/git/objectQuarantine.ts`, `src/git/indexService.ts`, `test/git-object-quarantine.test.mjs`, `test/git-integrations-full-access.test.mjs`, `Memory.md`, and this archive. The bounded diagnostic fixture is already published in `1c6c415c58cf663443240417b2a59198b991659a`; no new diagnostic surface is added by STEP-361.
+
+### Exact-head failures and bounded diagnosis
+
+- Commit `e54d55d53f76e6632cec7455ec1c0e23f96f96c9` (`fix: close Phase 5 cross-platform gates`) restored authoritative Ubuntu `all` coverage and repaired the first cross-platform defects. Exact-head run `29694450602` completed with failure because Ubuntu Node 20 and Node 24 still failed the same Gate X integration test. The public failure remained collapsed to `GIT_CAPABILITY_UNAVAILABLE`, so the underlying Git error was not yet observable.
+- Commit `1c6c415c58cf663443240417b2a59198b991659a` (`test: expose bounded Git failure context`) added failure-only fixture diagnostics containing the final safe Git argv, exit status, and at most 512 bytes of stderr. It records no environment, token, credential, or file content. Exact-head run `29694656908` completed with failure and exposed, on both Ubuntu majors, safe `git status --porcelain=v2 -z --branch --untracked-files=all --ignored=matching`, status 128, and `error: bad tree object HEAD`.
+
+### Root cause
+
+The defect was not a hook problem. Approved Gate X staging uses a private index plus a service-owned quarantine object directory so reviewed clean filters and `write-tree` cannot mutate the live object database directly. A clean filter can create a new blob, and `write-tree` can create new tree objects while also caching the resulting tree OID in the private index. The previous implementation scanned and promoted only selected blob OIDs. It then installed the private index and deleted the quarantine.
+
+That sequence left the private index's cache-tree OID referring to a tree object that no longer existed. A later shadow commit could reference the missing tree; after the reviewed ref update, the live `HEAD` named a commit whose tree could not be read. The next safe status refresh therefore failed with `bad tree object HEAD`. Windows local runs did not reliably expose the defect because object reuse and cache-tree behavior differed; Ubuntu Node 20/24 reproduced it deterministically.
+
+### Implementation
+
+- Added `GitObjectQuarantine.promoteAll()`. It enumerates only the service-owned quarantine root and accepts only the canonical loose-object layout: a two-character lower-case hexadecimal directory and a 38-character SHA-1 or 62-character SHA-256 lower-case hexadecimal suffix.
+- Enumeration fails closed on unexpected root entries such as `pack`, `info`, files, symlinks, junction-like non-directories, malformed names, or nested layout. Prefix fan-out is bounded to 256 directories and object fan-out to 4,096 objects.
+- Every enumerated object is passed through the existing immutable promotion path. That path revalidates lexical containment, direct directory layout, directory and file type, symlink rejection, hard-link count 1, per-object compressed size, total compressed size, bounded inflation, Git object type/header, declared payload length, and SHA-1/SHA-256 content hash. Individual compressed objects remain bounded to 64 MiB, inflated objects to 128 MiB, and the promoted compressed total to 128 MiB.
+- Approved stage still completes selected-path, blob-secret, index, tree, workspace-path, and HEAD checks first. It then promotes the complete verified quarantine loose-object set and executes `git cat-file -e <newTreeOid>^{tree}` against the live object database.
+- Only after that live-tree proof succeeds does the code enter the existing final hook/state/index revalidation, atomically install the prepared private index, and mint the index token. Object promotion alone grants no ref, commit, or caller-selected command authority.
+- The repair does not add remote, credential, force, config mutation, or arbitrary Git command support. Gate X still exposes only private-index stage, shadow-Git-dir commit, object-only merge, and private-destination checkout; the child remains ambient same-user `full_access` with `execution_isolation: none`.
+
+### TDD and adversarial review
+
+- Added the regression assertion `approved stage must promote the complete new tree before deleting quarantine`. Before the implementation change, the assertion observed status 128 for `cat-file -e <newTreeOid>^{tree}`; after the repair it passes.
+- Added direct quarantine tests proving complete discovery/promotion of multiple loose objects and fail-closed rejection of an unexpected object-store directory.
+- Security review checked path containment, canonical layout, symlink/junction escape, mutable hard links, object-count and byte fan-out, SHA-1/SHA-256 verification, quarantine-bound enumeration, index-install ordering, and the distinction between immutable object availability and ref authority.
+- An extra valid but unreferenced loose object can at most become a bounded unreachable immutable object; it receives no commit or ref authority. Objects outside the service-owned quarantine are never inventoried or promoted.
+- External reviewer automation did not produce findings: the Windows CodexPro connector returned 502, the local Codex CLI refresh token was revoked, and the Ubuntu connector exposed no executable reviewer action. Two independent manual adversarial passes reviewed security/cross-platform semantics and closure/CI ordering. No new P0 or P1 issue was found; this record does not claim an external agent passed.
+
+### Final local verification
+
+- Focused Gate X/quarantine/stage/mutation inventory command passed 26/26: `node --test test/git-object-quarantine.test.mjs test/git-integrations-full-access.test.mjs test/git-stage-v4.test.mjs test/mutation-architecture.test.mjs`. Package inventory passed 2/2 with `node --test test/package-contents.test.mjs`, for a combined focused result of 28/28.
+- SHA-256/quarantine/unsupported-format command passed 10/10: `node --test test/git-sha256-v4.test.mjs test/git-object-quarantine.test.mjs test/git-unsupported-formats-v4.test.mjs`.
+- The authoritative `all` inventory contains 187 test files. `node --test test/test-domain-classification.test.mjs` passed 3/3 and proved the discovered inventory is exactly partitioned into ordinary and frozen control domains. `node --test test/mutation-architecture.test.mjs` passed 5/5.
+- Managed ordinary run `2026-07-19T16-32-01-786Z-phase5-tree-closure-ordinary-f62b8663` completed with exit code 0, empty stderr, 324,027 bytes of untruncated stdout, and no dropped bytes. Node 20.20.2 and Node 24.15.0 each reported 1,085 tests, 1,083 pass, zero failures, and two established skips.
+- Managed Windows control run `2026-07-19T16-49-25-336Z-phase5-tree-closure-control-4a81dab8` completed with exit code 0, empty stderr, 35,011 bytes of untruncated stdout, and no dropped bytes. Each pinned major passed 113/113 with zero failures and zero skips.
+- Managed protected Smoke run `2026-07-19T16-55-58-312Z-phase5-tree-closure-smoke-954de9da` completed with exit code 0, empty stderr, and 606 bytes of untruncated stdout. Both majors passed analysis, analysis CLI, main Smoke, HTTP, Pro CLI, doctor, settings, and execute/watch/loop handoff.
+- `npm run build` passed. `npm run policy:check` reported `Repository operational policy: PASS`. `git diff --check` exited successfully with only the configured LF-to-CRLF worktree warnings. `npm pack --dry-run --json` passed with 520 entries.
+- The added-line secret-shape scan found zero new matches. A full-current-file scan identified two established secret-shaped fixtures/patterns in `src/git/indexService.ts` and `test/git-integrations-full-access.test.mjs`; the same files were already flagged at `HEAD`, so STEP-361 introduced no secret-shaped value. `.ai-bridge/runs` remains ignored by `.gitignore` and no run evidence is in the intended commit scope.
+
+### Decisions, risks, rollback, and next
+
+- Stage-time object closure is a prerequisite for index installation, not a post-commit repair. Deferring promotion until commit would preserve a bad index token and violate fail-closed ordering.
+- Promotion is deliberately limited to verified loose objects created under the service-owned quarantine. Supporting packfiles or arbitrary object-directory shapes would add unnecessary parser and authority surface and is rejected.
+- The 4,096-object and 128 MiB compressed-total bounds prevent unbounded fan-out. Repositories whose reviewed stage exceeds these limits fail closed and require a narrower operation; no silent fallback exists.
+- Existing same-user authority limitations remain. Gate X, clean filters, signing helpers, and `full_access` are not filesystem, credential, registry, network, or broker isolation. Managed worktrees remain workflow isolation, not a sandbox. Tasks 4B1–4B6 and `workspace` remain deferred.
+- Rollback is one revert of the pending STEP-361 closure commit. Rollback must not delete tasks, branches, commits, private stashes, candidates, audit, recovery data, or managed Node toolchains.
+- The final closure SHA does not exist until the exact scope is committed. After one push, bind only that complete 40-character SHA to CI and require terminal success for Classify changes, Repository policy, Ubuntu Node 20/24, and Windows Node 20/24, with Build, authoritative complete Regression, protected Smoke, and Package in every runtime job. Do not create a later memory/evidence-only commit.

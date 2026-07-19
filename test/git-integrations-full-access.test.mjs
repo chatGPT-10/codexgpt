@@ -186,6 +186,13 @@ test("Gate X stages through a private index, runs reviewed filters, and commits 
       });
       assert.equal(staged.normalization, "approved_full_access");
       assert.equal(staged.execution_isolation, "none");
+      const liveTree = runGit(
+        fixture.root,
+        ["cat-file", "-e", `${staged.new_index_tree_oid}^{tree}`],
+        undefined,
+        { allowFailure: true }
+      );
+      assert.equal(liveTree.status, 0, "approved stage must promote the complete new tree before deleting quarantine");
       const stageMarkers = (await fs.readFile(marker, "utf8")).trim().split(/\r?\n/u);
       assert.ok(stageMarkers.length >= 1);
       assert.deepEqual(new Set(stageMarkers), new Set(["filter"]));

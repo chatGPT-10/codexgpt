@@ -515,7 +515,7 @@ export class GitIndexServiceV4 {
         quarantineRoot
       );
       assertUnselectedIndexStable(beforeEntries, afterEntries, selected);
-      const objectIds = await scanApprovedIndexBlobs(
+      await scanApprovedIndexBlobs(
         this.context,
         repository,
         afterEntries,
@@ -536,13 +536,16 @@ export class GitIndexServiceV4 {
         entry.exists !== stagedPaths[index]?.exists
       )) throw gitMutationError("GIT_STATE_CHANGED");
       assertHeadStable(initialHead, await boundHead(this.context, repository));
-      if (objectIds.length > 0) {
-        await new GitObjectQuarantine({ journal: () => undefined }).promote({
-          repository,
-          quarantineRoot,
-          objects: objectIds.map((oid) => ({ oid }))
-        });
-      }
+      await new GitObjectQuarantine({ journal: () => undefined }).promoteAll({
+        repository,
+        quarantineRoot
+      });
+      await runGitRequired(
+        this.context.options.executor,
+        repository,
+        ["cat-file", "-e", `${newTree}^{tree}`],
+        { stdoutLimitBytes: 256 }
+      );
       await this.hooks.beforeIndexInstall?.();
       assertHeadStable(initialHead, await boundHead(this.context, repository));
       if ((await fileDigest(liveIndex)).identity !== initialIndex.identity) {
