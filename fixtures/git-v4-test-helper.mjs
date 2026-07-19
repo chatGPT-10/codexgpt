@@ -48,6 +48,7 @@ export async function withGitMutationRepository(callback, options = {}) {
     runGit(root, ["add", "tracked.txt", "delete.txt"]);
     runGit(root, ["commit", "-m", "initial"]);
     const calls = [];
+    const executionResults = [];
     const approvedCalls = [];
     const executor = {
       capabilityRevision: "9".repeat(64),
@@ -96,6 +97,11 @@ export async function withGitMutationRepository(callback, options = {}) {
           encoding: null,
           maxBuffer: options.stdoutLimitBytes ?? 32 * 1024 * 1024,
           env
+        });
+        executionResults.push({
+          args: [...args],
+          status: result.status ?? 1,
+          stderr: (result.stderr ?? Buffer.alloc(0)).toString("utf8").replace(/\s+/gu, " ").trim().slice(0, 512)
         });
         return {
           status: result.status ?? 1,
@@ -195,7 +201,7 @@ export async function withGitMutationRepository(callback, options = {}) {
     );
     const fileTransactions = new GitFileTransactionV4(transactionEngine);
     try {
-      await callback({ root: workspace.root, executor, calls, approvedCalls, registry, stateTokens, readService, mutationContext, indexTokens, workspace, guard, fileTransactions });
+      await callback({ root: workspace.root, executor, calls, executionResults, approvedCalls, registry, stateTokens, readService, mutationContext, indexTokens, workspace, guard, fileTransactions });
     } finally {
       processRegistry.dispose();
       indexTokens.dispose();

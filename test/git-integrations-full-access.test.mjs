@@ -200,19 +200,25 @@ test("Gate X stages through a private index, runs reviewed filters, and commits 
         guard: fixture.guard
       });
       const beforeHead = runGit(fixture.root, ["rev-parse", "HEAD"]).stdout.toString("ascii").trim();
-      const committed = await commit.commitApproved({
-        workspace: fixture.workspace,
-        guard: fixture.guard,
-        indexToken: staged.index_token,
-        message: "approved integration commit",
-        integrationReviewToken: commitStatus.integration_review_token,
-        authorization: authorization({
-          toolName: "git_commit",
-          canonicalAction: "commit",
-          workspaceId: fixture.workspace.id,
-          repositoryId: commitStatus.repository_id
-        })
-      });
+      let committed;
+      try {
+        committed = await commit.commitApproved({
+          workspace: fixture.workspace,
+          guard: fixture.guard,
+          indexToken: staged.index_token,
+          message: "approved integration commit",
+          integrationReviewToken: commitStatus.integration_review_token,
+          authorization: authorization({
+            toolName: "git_commit",
+            canonicalAction: "commit",
+            workspaceId: fixture.workspace.id,
+            repositoryId: commitStatus.repository_id
+          })
+        });
+      } catch (error) {
+        const lastGit = fixture.executionResults.at(-1) ?? null;
+        throw new Error(`${error?.message ?? error}; last_safe_git=${JSON.stringify(lastGit)}`);
+      }
       assert.equal(committed.repository_integrations, "approved_full_access");
       assert.equal(committed.hooks_executed, true);
       assert.equal(committed.signature, "none");
