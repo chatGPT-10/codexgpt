@@ -6,7 +6,7 @@
 
 **Architecture:** Add one exact schema module and one injectable provider boundary around the existing `writeTextFile` implementation. The direct handler validates provider output, classifies failures into fixed public errors, and returns nested structured data. A dedicated Tool Card renderer consumes the new nested contract without changing adjacent write tools.
 
-**Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexPro file/path/redaction services.
+**Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexGPT file/path/redaction services.
 
 ## Global Constraints
 
@@ -91,7 +91,7 @@ Add:
 
 ```ts
 export interface WriteProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path: string;

@@ -49,7 +49,7 @@ test("supported launch paths bootstrap V4 Git before connect and Gate X fails cl
   ]);
   for (const text of [stdio, http]) {
     assert.match(text, /createProductionGitBootstrapV4/u);
-    assert.match(text, /connectProductionCodexProServer/u);
+    assert.match(text, /connectProductionCodexGPTServer/u);
   }
   assert.match(runtime, /await productionRuntimes\.get\(server\)\?\.startup\(\)/u);
   assert.match(runtime, /Approved repository integrations require the automatic Git bootstrap and full_access host/u);

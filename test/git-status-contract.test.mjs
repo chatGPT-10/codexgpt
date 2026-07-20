@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   GIT_STATUS_ERROR_MESSAGES,
@@ -20,7 +20,7 @@ const {
 function changedGitStatusData() {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "workspace status",
     status: "## main...origin/main\n M src/server.ts\n?? new-file.txt",
     changed_files: ["M src/server.ts", "?? new-file.txt"],
@@ -31,7 +31,7 @@ function changedGitStatusData() {
 function cleanGitStatusData() {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "workspace status",
     status: "## main...origin/main",
     changed_files: [],
@@ -82,15 +82,15 @@ test("git_status success constructor produces the strict schema-v1 envelope", ()
     const parsed = gitStatusOutputSchema.parse(createGitStatusSuccess(expectedData, 7));
 
     assert.deepEqual(Object.keys(parsed).sort(), [
-      "codexpro_title",
-      "codexpro_tool",
+      "codexgpt_title",
+      "codexgpt_tool",
       "data",
       "error",
       "meta",
       "ok"
     ]);
-    assert.equal(parsed.codexpro_tool, "git_status");
-    assert.equal(parsed.codexpro_title, "Git Status");
+    assert.equal(parsed.codexgpt_tool, "git_status");
+    assert.equal(parsed.codexgpt_title, "Git Status");
     assert.equal(parsed.ok, true);
     assert.deepEqual(parsed.data, expectedData);
     assert.equal(parsed.error, null);
@@ -231,7 +231,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 
 async function withInMemoryClient(options, callback) {
   const root = options.root ?? process.cwd();
-  const server = createCodexProServer(
+  const server = createCodexGPTServer(
     createTestConfig(root, options.configOverrides ?? {}),
     options.dependencies ?? {}
   );
@@ -265,7 +265,7 @@ function runFixtureGit(root, args) {
 }
 
 async function withTempDirectory(callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-status-contract-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-status-contract-"));
   try {
     return await callback(await fs.realpath(root));
   } finally {
@@ -318,7 +318,7 @@ test("git_status advertises the exact output schema and returns a valid clean re
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
 
       const result = await client.callTool({ name: "git_status", arguments: {} });
@@ -521,7 +521,7 @@ test("git_status tool card reads direct success and failure only from nested dat
 
   assert.match(
     toolCardWidgetHtml,
-    /if \(data\?\.codexpro_tool === "git_status"\) \{\s*if \(data\?\.ok === false\) return data\?\.error\?\.code[\s\S]*?const statusData = data\?\.data \?\? \{\};/
+    /if \(data\?\.codexgpt_tool === "git_status"\) \{\s*if \(data\?\.ok === false\) return data\?\.error\?\.code[\s\S]*?const statusData = data\?\.data \?\? \{\};/
   );
 
   const rendererMatch = toolCardWidgetHtml.match(
@@ -547,19 +547,19 @@ test("git_status tool card reads direct success and failure only from nested dat
   assert.doesNotMatch(changesRenderer[0], /data\.changed_files/);
 });
 
-test("codexpro action git_status preserves wrapper metadata and nested child contract", async () => {
+test("codexgpt action git_status preserves wrapper metadata and nested child contract", async () => {
   await withTempGitRepository(async (root) => {
     await fs.appendFile(path.join(root, "demo.txt"), "beta\n", "utf8");
 
     await withInMemoryClient({ root }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: { action: "git_status", args: { path: "demo.txt" } }
       });
       const structured = result.structuredContent;
 
-      assert.equal(structured.codexpro_tool, "git_status");
-      assert.equal(structured.codexpro_super_action, "git_status");
+      assert.equal(structured.codexgpt_tool, "git_status");
+      assert.equal(structured.codexgpt_super_action, "git_status");
       assert.equal(structured.wrapped_tool, "git_status");
       assert.equal(structured.ok, true);
       assert.equal(structured.error, null);

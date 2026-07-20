@@ -12,7 +12,7 @@ import {
 } from "../dist/transactions/index.js";
 
 function withTempDirectory(action) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-transaction-installation-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-transaction-installation-"));
   try {
     return action(root);
   } finally {
@@ -27,7 +27,7 @@ test("transaction state root follows explicit and platform-specific resolution",
       env: { LOCALAPPDATA: "C:\\Users\\Noah\\AppData\\Local" },
       homeDir: "C:\\Users\\Noah"
     }),
-    path.win32.resolve("C:\\Users\\Noah\\AppData\\Local", "CodexPro", "state", "v1")
+    path.win32.resolve("C:\\Users\\Noah\\AppData\\Local", "CodexGPT", "state", "v1")
   );
   assert.equal(
     resolveTransactionStateRoot({
@@ -35,15 +35,15 @@ test("transaction state root follows explicit and platform-specific resolution",
       env: { XDG_STATE_HOME: "/tmp/state" },
       homeDir: "/home/noah"
     }),
-    path.posix.resolve("/tmp/state", "codexpro", "v1")
+    path.posix.resolve("/tmp/state", "codexgpt", "v1")
   );
   assert.equal(
     resolveTransactionStateRoot({
       platform: "win32",
-      env: { CODEXPRO_HOME: "~/codexpro-home" },
+      env: { CODEXGPT_HOME: "~/codexgpt-home" },
       homeDir: "C:\\Users\\Noah"
     }),
-    path.win32.resolve("C:\\Users\\Noah", "codexpro-home", "state", "v1")
+    path.win32.resolve("C:\\Users\\Noah", "codexgpt-home", "state", "v1")
   );
   assert.throws(
     () => resolveTransactionStateRoot({ platform: "win32", env: {}, homeDir: "C:\\Users\\Noah" }),

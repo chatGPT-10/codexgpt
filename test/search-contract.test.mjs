@@ -5,7 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   SEARCH_ANALYSIS_DISABLED_WARNING,
@@ -61,7 +61,7 @@ function createTestConfig(overrides = {}) {
 }
 
 async function withInMemoryClient(dependencies, callback, configOverrides = {}) {
-  const server = createCodexProServer(createTestConfig(configOverrides), dependencies);
+  const server = createCodexGPTServer(createTestConfig(configOverrides), dependencies);
   const client = new Client({ name: "search-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -130,7 +130,7 @@ function analysisResult(overrides = {}) {
 function sampleData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     matches: [{ path: "src/server.ts", line: 2345, text: "search" }],
     truncated: false,
     used: "node",
@@ -156,9 +156,9 @@ const failureCases = [
 
 test("search success constructor produces the strict schema-v1 envelope", () => {
   const parsed = searchOutputSchema.parse(createSearchSuccess(sampleData(), 7));
-  assert.deepEqual(Object.keys(parsed).sort(), ["codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"]);
-  assert.equal(parsed.codexpro_tool, "search");
-  assert.equal(parsed.codexpro_title, "Search Files");
+  assert.deepEqual(Object.keys(parsed).sort(), ["codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"]);
+  assert.equal(parsed.codexgpt_tool, "search");
+  assert.equal(parsed.codexgpt_title, "Search Files");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleData());
@@ -228,7 +228,7 @@ test("search advertises exact outputSchema and returns nested real lexical resul
     const listed = await client.listTools();
     const descriptor = listed.tools.find((tool) => tool.name === "search");
     assert.ok(descriptor?.outputSchema);
-    assert.deepEqual(new Set(descriptor.outputSchema.required), new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"]));
+    assert.deepEqual(new Set(descriptor.outputSchema.required), new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"]));
 
     const result = await client.callTool({ name: "search", arguments: { query: "registerCodexTool", path: "src/server.ts", max_results: 5 } });
     const parsed = parseSearchResult(result);
@@ -349,10 +349,10 @@ test("search maps unknown workspace to a stable failure", async () => {
 
 test("search supertool wrapper preserves nested child contract", async () => {
   await withInMemoryClient({ searchResultProvider: async () => lexicalResult() }, async (client) => {
-    const result = await client.callTool({ name: "codexpro", arguments: { action: "search", args: { query: "search" } } });
+    const result = await client.callTool({ name: "codexgpt", arguments: { action: "search", args: { query: "search" } } });
     const structured = result.structuredContent;
-    assert.equal(structured.codexpro_tool, "search");
-    assert.equal(structured.codexpro_super_action, "search");
+    assert.equal(structured.codexgpt_tool, "search");
+    assert.equal(structured.codexgpt_super_action, "search");
     assert.equal(structured.wrapped_tool, "search");
     assert.equal(structured.ok, true);
     assert.ok(structured.data.matches.length === 1);

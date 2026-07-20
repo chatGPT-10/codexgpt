@@ -35,7 +35,7 @@ test("credential references are stable locally and differ across installations",
 });
 
 test("identity key store creates exactly 32 bytes and reuses the existing installation key", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-identity-home-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-identity-home-"));
   try {
     const first = loadOrCreateIdentityKey({ home, randomBytes: () => Buffer.alloc(32, 7) });
     const second = loadOrCreateIdentityKey({ home, randomBytes: () => Buffer.alloc(32, 8) });
@@ -48,7 +48,7 @@ test("identity key store creates exactly 32 bytes and reuses the existing instal
 });
 
 test("identity key store rejects malformed existing key material", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-identity-home-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-identity-home-"));
   try {
     fs.mkdirSync(path.dirname(identityKeyPath(home)), { recursive: true });
     fs.writeFileSync(identityKeyPath(home), Buffer.alloc(31));

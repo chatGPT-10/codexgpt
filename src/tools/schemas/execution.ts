@@ -311,8 +311,8 @@ function executionOutputShape<Name extends ExecutionToolName, Data extends z.Zod
   data: Data
 ) {
   return {
-    codexpro_tool: z.literal(name),
-    codexpro_title: z.literal(EXECUTION_TITLES[name]),
+    codexgpt_tool: z.literal(name),
+    codexgpt_title: z.literal(EXECUTION_TITLES[name]),
     ok: z.boolean(),
     data: data.nullable(),
     error: executionErrorV1Schema.nullable(),
@@ -377,8 +377,8 @@ export function createExecutionFailure(
   durationMs = 0
 ): Record<string, unknown> {
   return EXECUTION_OUTPUT_SCHEMAS[toolName].parse({
-    codexpro_tool: toolName,
-    codexpro_title: EXECUTION_TITLES[toolName],
+    codexgpt_tool: toolName,
+    codexgpt_title: EXECUTION_TITLES[toolName],
     ok: false,
     data: null,
     error: {

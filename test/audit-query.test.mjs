@@ -9,13 +9,13 @@ import {
   createDirectAuditQueryAdapterV2,
   createSupertoolAuditQueryAdapterV2
 } from "../dist/audit/queryTool.js";
-import { CANONICAL_CODEXPRO_CHILD_TOOLS } from "../dist/tools/schemas/codexpro.js";
+import { CANONICAL_CODEXGPT_CHILD_TOOLS } from "../dist/tools/schemas/codexgpt.js";
 import { PersistentAuditStore } from "../dist/audit/store.js";
 import { queryAuditEventsInputV2Schema } from "../dist/audit/schemas.js";
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
 function root() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-audit-query-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-audit-query-"));
 }
 
 function hex32(text) {
@@ -219,8 +219,8 @@ test("dormant direct and supertool V2 adapters share one strict implementation w
   const input = { eventTypes: ["execution"], limit: 2 };
   assert.deepEqual(await direct(input), await supertool(input));
   assert.deepEqual(calls, [input, input]);
-  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.length, 28);
-  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.includes("query_audit_events"), false);
+  assert.equal(CANONICAL_CODEXGPT_CHILD_TOOLS.length, 28);
+  assert.equal(CANONICAL_CODEXGPT_CHILD_TOOLS.includes("query_audit_events"), false);
   await assert.rejects(() => direct({ regex: ".*" }), /invalid/i);
   await assert.rejects(() => supertool({ limit: 101 }), /invalid/i);
 });

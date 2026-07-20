@@ -18,7 +18,7 @@ async function looseObject(root, content, objectFormat = "sha1") {
 }
 
 async function withRoots(callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-quarantine-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-quarantine-"));
   const quarantineRoot = path.join(root, "quarantine");
   const commonDir = path.join(root, "repo.git");
   await fs.mkdir(path.join(commonDir, "objects"), { recursive: true });

@@ -45,7 +45,7 @@ import {
 import {
   undoChangeSetInputSchemaV2,
   undoChangeSetOutputSchemaV2
-} from "../dist/tools/schemas/codexpro.js";
+} from "../dist/tools/schemas/codexgpt.js";
 
 const OWNER_KEY = Buffer.alloc(32, 0x41);
 const OWNER = `owner_${"5".repeat(64)}`;
@@ -122,7 +122,7 @@ test("owner binding is keyed and prioritizes subject then credential then transp
 });
 
 async function fixture(action, options = {}) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-undo-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-undo-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");
@@ -690,8 +690,8 @@ test("dormant direct and supertool undo V2 adapters share one strict handler", a
   const shared = async (input) => {
     calls.push(input);
     return undoChangeSetOutputSchema.parse({
-      codexpro_tool: "undo_change_set",
-      codexpro_title: "Undo Change Set",
+      codexgpt_tool: "undo_change_set",
+      codexgpt_title: "Undo Change Set",
       ok: true,
       data: {
         workspace_id: input.workspace_id,

@@ -14,7 +14,7 @@ const { SessionGrantStore } = await tsImport("../src/policy/approval.ts", import
 const { PendingApprovalStore } = await tsImport("../src/policy/pendingApprovals.ts", import.meta.url);
 
 test("local CLI terminates an owned process when the remote approval path is unavailable", { skip: process.platform !== "win32" }, async () => {
-  const localAppData = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-process-cli-"));
+  const localAppData = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-process-cli-"));
   const serverId = localControlServerId();
   let running = true;
   const server = new LocalApprovalServer({
@@ -26,9 +26,9 @@ test("local CLI terminates an owned process when the remote approval path is una
       terminate: (processId) => processId === "process_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" && running ? (running = false, true) : false
     }
   });
-  const runtime = await WindowsLocalControlRuntime.start({ server, stateBaseRoot: path.join(localAppData, "CodexPro", "control") });
+  const runtime = await WindowsLocalControlRuntime.start({ server, stateBaseRoot: path.join(localAppData, "CodexGPT", "control") });
   try {
-    const result = await execFileAsync(process.execPath, [path.resolve("scripts", "codexpro-entry.mjs"), "processes", "terminate", "process_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--server", serverId], {
+    const result = await execFileAsync(process.execPath, [path.resolve("scripts", "codexgpt-entry.mjs"), "processes", "terminate", "process_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--server", serverId], {
       cwd: process.cwd(), env: { ...process.env, LOCALAPPDATA: localAppData }, encoding: "utf8", timeout: 20_000, windowsHide: true, maxBuffer: 64 * 1024
     });
     assert.match(result.stdout, /PROCESS_TERMINATED/);

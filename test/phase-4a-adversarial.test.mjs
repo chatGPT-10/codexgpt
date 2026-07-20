@@ -6,7 +6,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
 const {
-  createCodexProServer,
+  createCodexGPTServer,
   loadConfig,
   ProcessManagerV3
 } = await tsImport("../fixtures/ts-imports/phase-4a-integration-imports.ts", import.meta.url);
@@ -30,12 +30,12 @@ function withEnv(changes, action) {
 
 function config(toolMode = "standard", overrides = {}) {
   return withEnv({
-    CODEXPRO_TOOL_CONTRACT_VERSION: "3",
-    CODEXPRO_FILE_TRANSACTIONS: "atomic",
-    CODEXPRO_AUDIT_MODE: overrides.auditMode ?? "required",
-    CODEXPRO_POLICY_ENGINE: overrides.policyMode ?? "enforce",
-    CODEXPRO_TOOL_MODE: toolMode,
-    CODEXPRO_EXECUTION_PROFILE: "off"
+    CODEXGPT_TOOL_CONTRACT_VERSION: "3",
+    CODEXGPT_FILE_TRANSACTIONS: "atomic",
+    CODEXGPT_AUDIT_MODE: overrides.auditMode ?? "required",
+    CODEXGPT_POLICY_ENGINE: overrides.policyMode ?? "enforce",
+    CODEXGPT_TOOL_MODE: toolMode,
+    CODEXGPT_EXECUTION_PROFILE: "off"
   }, () => loadConfig(["--root", process.cwd(), "--bash", "off", "--write", "off"]));
 }
 
@@ -78,12 +78,12 @@ test("standard projection cannot reach hidden process mutations through a stale 
       }
     }
   };
-  const server = createCodexProServer(config("standard"), dependencies);
+  const server = createCodexGPTServer(config("standard"), dependencies);
   await withClient(server, async (client) => {
     const listed = await client.listTools();
     assert.equal(listed.tools.some((tool) => tool.name === "start_process"), false);
     const result = await client.callTool({
-      name: "codexpro",
+      name: "codexgpt",
       arguments: { action: "start_process", args: {} }
     });
     assert.equal(result.isError, true);
@@ -118,7 +118,7 @@ test("invalid V3 policy and audit modes fail before any execution handler can ru
     { policyMode: "enforce", auditMode: "best_effort" }
   ]) {
     assert.throws(
-      () => createCodexProServer(config("full", overrides), dependencies),
+      () => createCodexGPTServer(config("full", overrides), dependencies),
       /Policy Kernel enforce|required durable audit/i
     );
   }

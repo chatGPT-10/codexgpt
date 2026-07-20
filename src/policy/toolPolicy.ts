@@ -1,4 +1,4 @@
-import { CANONICAL_CODEXPRO_CHILD_TOOLS, type CanonicalCodexProChildTool } from "../tools/schemas/codexpro.js";
+import { CANONICAL_CODEXGPT_CHILD_TOOLS, type CanonicalCodexGPTChildTool } from "../tools/schemas/codexgpt.js";
 import { gitV4PolicyDefinition, type GitV4PolicyDefinition } from "../git/resources.js";
 import {
   CONTRACT_V3_ADDITIONS,
@@ -58,13 +58,13 @@ export interface ToolPolicyDefinition {
   resourceMode: ToolPolicyResourceMode;
 }
 
-export const TOOL_POLICY_DEFINITIONS: Readonly<Record<CanonicalCodexProChildTool, ToolPolicyDefinition>> = Object.freeze({
+export const TOOL_POLICY_DEFINITIONS: Readonly<Record<CanonicalCodexGPTChildTool, ToolPolicyDefinition>> = Object.freeze({
   apply_patch: Object.freeze({ riskClass: "R2", requiredScope: "filesystem:write", resourceMode: "workspace_write" }),
   bash: Object.freeze({ riskClass: "R3", requiredScope: "shell:execute", resourceMode: "shell" }),
   close_workspace: Object.freeze({ riskClass: "R1", requiredScope: "workspace:open", resourceMode: "context_only" }),
   codex_context: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "workspace_read" }),
-  codexpro_inventory: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "context_only" }),
-  codexpro_self_test: Object.freeze({ riskClass: "R0", requiredScope: null, resourceMode: "context_only" }),
+  codexgpt_inventory: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "context_only" }),
+  codexgpt_self_test: Object.freeze({ riskClass: "R0", requiredScope: null, resourceMode: "context_only" }),
   codex_sessions: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "context_only" }),
   edit: Object.freeze({ riskClass: "R2", requiredScope: "filesystem:write", resourceMode: "exact_write" }),
   export_pro_context: Object.freeze({ riskClass: "R2", requiredScope: "filesystem:write", resourceMode: "bridge_write" }),
@@ -89,7 +89,7 @@ export const TOOL_POLICY_DEFINITIONS: Readonly<Record<CanonicalCodexProChildTool
   write: Object.freeze({ riskClass: "R2", requiredScope: "filesystem:write", resourceMode: "exact_write" })
 });
 
-const canonicalSet = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS);
+const canonicalSet = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS);
 const v3AdditionSet = new Set<string>(CONTRACT_V3_ADDITIONS);
 const v4AdditionSet = new Set<string>(CONTRACT_V4_ADDITIONS);
 
@@ -147,7 +147,7 @@ export function toolPolicyDefinition(toolName: string): ToolPolicyDefinition {
   if (v3AdditionSet.has(toolName)) return V3_TOOL_POLICY_DEFINITIONS[toolName];
   if (v4AdditionSet.has(toolName)) return V4_TOOL_POLICY_DEFINITIONS[toolName] ?? DISABLED_V4_TOOL_POLICY;
   if (!canonicalSet.has(toolName)) throw new Error("Registered tool is outside the closed Policy Kernel tool set.");
-  return TOOL_POLICY_DEFINITIONS[toolName as CanonicalCodexProChildTool];
+  return TOOL_POLICY_DEFINITIONS[toolName as CanonicalCodexGPTChildTool];
 }
 
 export const UNDO_CHANGE_SET_TOOL_POLICY_V2 = Object.freeze({

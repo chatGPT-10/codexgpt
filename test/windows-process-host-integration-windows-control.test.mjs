@@ -110,7 +110,7 @@ windowsOnly("one host serializes framed runs while unrelated controls remain res
 });
 
 windowsOnly("production host cancels a timed-out request before its delayed effect", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-host-cancel-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-host-cancel-"));
   const marker = path.join(root, "late-effect.txt");
   const client = await WindowsProcessHostClient.start({ scriptsRoot: path.resolve("scripts") });
   t.after(async () => {
@@ -154,7 +154,7 @@ windowsOnly("production host accepts the 120 second deadline and 512 argument ce
 });
 
 windowsOnly("production host rejects deadline and argument ceilings before spawning", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-host-timeout-cap-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-host-timeout-cap-"));
   const marker = path.join(root, "spawned.txt");
   const client = await WindowsProcessHostClient.start({ scriptsRoot: path.resolve("scripts") });
   t.after(async () => {
@@ -215,7 +215,7 @@ windowsOnly("framed output remains bounded and the host is reusable after trunca
 });
 
 windowsOnly("closing the host prevents a queued request from executing", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-host-close-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-host-close-"));
   const marker = path.join(root, "queued-effect.txt");
   const client = await WindowsProcessHostClient.start({ scriptsRoot: path.resolve("scripts") });
   try {

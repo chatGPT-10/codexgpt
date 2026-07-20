@@ -18,7 +18,7 @@ function argumentValue(name) {
 }
 
 function canonicalRoot() {
-  const input = argumentValue("root") || process.env.CODEXPRO_ROOT || process.cwd();
+  const input = argumentValue("root") || process.env.CODEXGPT_ROOT || process.cwd();
   const resolved = path.resolve(input);
   try {
     return fs.realpathSync.native(resolved);
@@ -31,9 +31,9 @@ function savedProfileCheck() {
   if (args.includes("--no-profile")) return true;
 
   const root = canonicalRoot();
-  const home = process.env.CODEXPRO_HOME
-    ? path.resolve(process.env.CODEXPRO_HOME)
-    : path.join(os.homedir(), ".codexpro");
+  const home = process.env.CODEXGPT_HOME
+    ? path.resolve(process.env.CODEXGPT_HOME)
+    : path.join(os.homedir(), ".codexgpt");
   const profileId = createHash("sha256").update(root).digest("hex").slice(0, 24);
   const profilePath = path.join(home, "profiles", `${profileId}.json`);
   if (!fs.existsSync(profilePath)) return true;
@@ -64,9 +64,9 @@ function savedProfileBashMode() {
   if (args.includes("--no-profile")) return "";
 
   const root = canonicalRoot();
-  const home = process.env.CODEXPRO_HOME
-    ? path.resolve(process.env.CODEXPRO_HOME)
-    : path.join(os.homedir(), ".codexpro");
+  const home = process.env.CODEXGPT_HOME
+    ? path.resolve(process.env.CODEXGPT_HOME)
+    : path.join(os.homedir(), ".codexgpt");
   const profileId = createHash("sha256").update(root).digest("hex").slice(0, 24);
   const profilePath = path.join(home, "profiles", `${profileId}.json`);
   try {
@@ -81,7 +81,7 @@ function savedProfileBashMode() {
 
 function requestedBashMode() {
   if (args.includes("--no-bash")) return "off";
-  return argumentValue("bash") || process.env.CODEXPRO_BASH_MODE || savedProfileBashMode() || "safe";
+  return argumentValue("bash") || process.env.CODEXGPT_BASH_MODE || savedProfileBashMode() || "safe";
 }
 
 function commandPath(command) {
@@ -94,7 +94,7 @@ function commandPath(command) {
     const direct = spawnSync(command, ["--version"], { encoding: "utf8", windowsHide: true });
     return direct.status === 0 ? command : "";
   }
-  const result = spawnSync("/bin/sh", ["-c", "command -v \"$1\"", "codexpro-doctor", command], { encoding: "utf8" });
+  const result = spawnSync("/bin/sh", ["-c", "command -v \"$1\"", "codexgpt-doctor", command], { encoding: "utf8" });
   if (result.status !== 0) return "";
   return String(result.stdout ?? "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? "";
 }
@@ -106,7 +106,7 @@ function shellCheck() {
     return true;
   }
 
-  const command = process.env.CODEXPRO_DOCTOR_BASH_COMMAND || "bash";
+  const command = process.env.CODEXGPT_DOCTOR_BASH_COMMAND || "bash";
   const executable = commandPath(command);
   if (executable) {
     console.log(`OK   Bash executable    ${executable}`);
@@ -126,9 +126,9 @@ if (args.includes("--shell-check-only")) {
 } else {
   const profileValid = savedProfileCheck();
   const forwarded = args.filter((value) => value !== "--shell-check-only");
-  const result = spawnSync(process.execPath, [path.join(scriptDir, "codexpro.mjs"), "doctor", ...forwarded], {
+  const result = spawnSync(process.execPath, [path.join(scriptDir, "codexgpt.mjs"), "doctor", ...forwarded], {
     cwd: projectRoot,
-    env: { ...process.env, CODEXPRO_ROOT: canonicalRoot() },
+    env: { ...process.env, CODEXGPT_ROOT: canonicalRoot() },
     stdio: "inherit",
     windowsHide: true
   });

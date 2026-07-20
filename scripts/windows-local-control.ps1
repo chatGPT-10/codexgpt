@@ -32,4 +32,4 @@ foreach ($entry in [System.IO.Directory]::EnumerateDirectories($compileTempRoot)
     [System.IO.Directory]::Delete($fullEntry, $true)
 }
 
-[CodexPro.Phase4.LocalControlSpike]::Run()
+[CodexGPT.Phase4.LocalControlSpike]::Run()

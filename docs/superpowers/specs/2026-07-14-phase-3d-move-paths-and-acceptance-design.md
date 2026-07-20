@@ -34,7 +34,7 @@ Phase 3D adds `move_paths` as the first public batch file-organization tool buil
 - Required scope: `filesystem:write`.
 - Risk class: R2.
 - Maximum items: 64.
-- Direct tool and `codexpro` supertool use the same registered handler.
+- Direct tool and `codexgpt` supertool use the same registered handler.
 
 R2 is justified by the hard V1 limits: no overwrite, required source hashes, ordinary files only, one workspace/volume, bounded count, transaction rollback, persistent audit, and conflict-checked undo.
 
@@ -327,7 +327,7 @@ Contract V2 updates:
 
 - canonical tool set and exact count;
 - direct MCP registration;
-- `codexpro` action enum, input routing, and output union;
+- `codexgpt` action enum, input routing, and output union;
 - policy definition and batch resource resolver;
 - inventory and self-test expected tools;
 - Tool Card title, icon, success/failure renderer, and preview distinction;
@@ -428,6 +428,6 @@ The tracked implementation plan at `../plans/2026-07-15-phase-3d-move-paths-and-
 2. Move source proof is handle-based. Use a stable V2 file-object identity derived from device plus file index, stream hashes from an open handle, verify `lstat`/`fstat` agreement and stable version facts, retain the handle through stage-link creation and source unlink, and fail closed when stable identity is unavailable.
 3. The current Manifest V1 participant boundary must be repaired before V2 activation. Recovery reconciles durable audit and change-set participant effects: all present completes commit; none present rolls back; partial effects are compensated and correlated; unverifiable state freezes the workspace. Manifest V2 adds `commit_decided`; historical V1 derives the decision from probes without changing schema version 1.
 4. Move and move undo use authenticated Transaction Manifest V2 and Change Set Manifest V2. Existing create/replace/delete writers continue persisting V1. Change Set V2 authenticates created directories and pure moves contain no rollback content blob.
-5. The guarantee is CodexPro serialization, no-clobber mapping, complete bytes, process-crash recovery, and participant reconciliation. It is not serializable namespace visibility to arbitrary external readers, an OS-wide write lock, guaranteed progress under Windows sharing contention, or absolute sudden-power-loss durability where directory sync is unsupported.
+5. The guarantee is CodexGPT serialization, no-clobber mapping, complete bytes, process-crash recovery, and participant reconciliation. It is not serializable namespace visibility to arbitrary external readers, an OS-wide write lock, guaranteed progress under Windows sharing contention, or absolute sudden-power-loss durability where directory sync is unsupported.
 6. Cancellation, transport disconnect, workspace close, and graceful shutdown follow the durable transaction lifecycle defined in the tracked plan. Windows transient retries are bounded and state-aware; `EEXIST` is never retried as transient.
 7. V1 compatibility and V2 readiness are proven at the actual MCP wire boundary, not only from internal arrays. Native-Windows hard-link, stable identity, case-only spelling, junction/ADS, crash/reopen, and sharing tests are mandatory; Ubuntu case-sensitive behavior and deterministic `EXDEV` coverage are also mandatory.

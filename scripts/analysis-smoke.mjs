@@ -6,8 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const importBuilt = (relativePath) => import(pathToFileURL(path.join(projectRoot, 'dist', relativePath)).href);
-const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-analysis-'));
-const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-analysis-outside-'));
+const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-analysis-'));
+const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-analysis-outside-'));
 
 async function write(relativePath, content) {
   const target = path.join(tmp, relativePath);

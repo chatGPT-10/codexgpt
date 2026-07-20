@@ -7,7 +7,7 @@ import { AuditWriterLock } from "../dist/audit/lock.js";
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
 function stateRoot() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-audit-release-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-audit-release-"));
 }
 
 function errno(code) {

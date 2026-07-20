@@ -9,7 +9,7 @@ using System.Text;
 using System.Web.Script.Serialization;
 using Microsoft.Win32.SafeHandles;
 
-namespace CodexPro.Phase4.Tests
+namespace CodexGPT.Phase4.Tests
 {
     public static class LocalControlNegativeProbe
     {
@@ -395,7 +395,7 @@ namespace CodexPro.Phase4.Tests
             const string pipePrefix = "\\\\.\\pipe\\";
             if (!pipePath.StartsWith(pipePrefix, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("APPCONTAINER_PIPE_PATH_INVALID");
             string pipeName = pipePath.Substring(pipePrefix.Length).Replace("'", "''");
-            string profileName = "CodexPro.Phase4." + Guid.NewGuid().ToString("N");
+            string profileName = "CodexGPT.Phase4." + Guid.NewGuid().ToString("N");
             IntPtr appContainerSid = IntPtr.Zero;
             IntPtr attributeList = IntPtr.Zero;
             IntPtr capabilitiesBuffer = IntPtr.Zero;
@@ -405,7 +405,7 @@ namespace CodexPro.Phase4.Tests
             PROCESS_INFORMATION processInformation = new PROCESS_INFORMATION();
             try
             {
-                int createProfileResult = CreateAppContainerProfile(profileName, profileName, "CodexPro Phase 4 Gate A0 probe", IntPtr.Zero, 0, out appContainerSid);
+                int createProfileResult = CreateAppContainerProfile(profileName, profileName, "CodexGPT Phase 4 Gate A0 probe", IntPtr.Zero, 0, out appContainerSid);
                 result["createProfileHresult"] = createProfileResult;
                 if (createProfileResult < 0) throw new InvalidOperationException("CREATE_APPCONTAINER_PROFILE_FAILED_HRESULT_" + createProfileResult.ToString("X8"));
                 profileCreated = true;

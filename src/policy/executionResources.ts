@@ -151,7 +151,7 @@ export function describeExecutionResourceV3(input: DescribeExecutionResourceV3In
   }
   const semanticFacts = {
     schemaVersion: 3,
-    domain: "codexpro.execution.authorization",
+    domain: "codexgpt.execution.authorization",
     operation: input.operation,
     ...command,
     effectiveEnvironmentDigest: requireDigest("effectiveEnvironmentDigest", input.effectiveEnvironmentDigest),
@@ -205,7 +205,7 @@ export function describeExecutionResourceV3(input: DescribeExecutionResourceV3In
     transportRevision: semanticFacts.transportRevision,
     ...(verification ? { verification } : {}),
     semanticFactsDigest,
-    resourceFingerprint: semanticDigest({ domain: "codexpro.execution.resource", semanticFactsDigest })
+    resourceFingerprint: semanticDigest({ domain: "codexgpt.execution.resource", semanticFactsDigest })
   });
 }
 
@@ -251,7 +251,7 @@ export function describeProcessActionResourceV3(input: DescribeProcessActionReso
     : null;
   const semanticFactsDigest = semanticDigest({
     schemaVersion: 3,
-    domain: "codexpro.process.action",
+    domain: "codexgpt.process.action",
     operation: input.operation,
     processId: input.processId ?? null,
     generation: input.generation ?? null,
@@ -269,6 +269,6 @@ export function describeProcessActionResourceV3(input: DescribeProcessActionReso
     inputDigest,
     riskClass,
     semanticFactsDigest,
-    resourceFingerprint: semanticDigest({ domain: "codexpro.process.resource", semanticFactsDigest })
+    resourceFingerprint: semanticDigest({ domain: "codexgpt.process.resource", semanticFactsDigest })
   });
 }

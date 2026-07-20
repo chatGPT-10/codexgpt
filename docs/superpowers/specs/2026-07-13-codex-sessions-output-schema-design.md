@@ -153,8 +153,8 @@ No transcript message or summary participates in filtering.
 
 ```json
 {
-  "codexpro_tool": "codex_sessions",
-  "codexpro_title": "Codex Sessions",
+  "codexgpt_tool": "codex_sessions",
+  "codexgpt_title": "Codex Sessions",
   "ok": true,
   "data": {},
   "error": null,
@@ -193,7 +193,7 @@ No success field is duplicated at the top level.
       "session_id": "019cc369-bd7c-7891-b371-7b20b4fe0b18",
       "storage": "active",
       "title": "Fix the session index",
-      "project_dir": "D:\\Dev\\codexpro",
+      "project_dir": "D:\\Dev\\codexgpt",
       "created_at": 1783936800000,
       "last_active_at": 1783937100000,
       "source_path": "C:\\Users\\Noah\\.codex\\sessions\\2026\\07\\session.jsonl",
@@ -235,7 +235,7 @@ Each record contains exactly nine fields:
   "session_id": "019cc369-bd7c-7891-b371-7b20b4fe0b18",
   "storage": "active",
   "title": "Fix the session index",
-  "project_dir": "D:\\Dev\\codexpro",
+  "project_dir": "D:\\Dev\\codexgpt",
   "created_at": 1783936800000,
   "last_active_at": 1783937100000,
   "source_path": "C:\\Users\\Noah\\.codex\\sessions\\2026\\07\\session.jsonl",
@@ -278,7 +278,7 @@ Add:
 ```ts
 codexSessionsProvider?: (
   context: {
-    config: CodexProConfig;
+    config: CodexGPTConfig;
     options: { maxSessions: number; query?: string };
   }
 ) => CodexSessionListResult | Promise<CodexSessionListResult>;

@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
   "../src/tools/schemas/listWorkspaces.ts",
@@ -100,7 +100,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "list-workspaces-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -112,7 +112,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-list-workspaces-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-list-workspaces-contract-"));
   const root = await fs.realpath(created);
   try {
     return await callback(root, created);
@@ -167,15 +167,15 @@ test("list_workspaces schema exports exact constructors and accepts populated an
 
   const success = createListWorkspacesSuccess(sampleListData(), 7);
   assert.deepEqual(Object.keys(success).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(success.codexpro_tool, "list_workspaces");
-  assert.equal(success.codexpro_title, "List Workspaces");
+  assert.equal(success.codexgpt_tool, "list_workspaces");
+  assert.equal(success.codexgpt_title, "List Workspaces");
   assert.equal(success.ok, true);
   assert.equal(success.error, null);
   assert.deepEqual(Object.keys(success.data).sort(), ["count", "workspaces"]);
@@ -193,8 +193,8 @@ test("list_workspaces schema creates both exact stable failures", () => {
       9
     );
     assert.deepEqual(result, {
-      codexpro_tool: "list_workspaces",
-      codexpro_title: "List Workspaces",
+      codexgpt_tool: "list_workspaces",
+      codexgpt_title: "List Workspaces",
       ok: false,
       data: null,
       error: {
@@ -215,8 +215,8 @@ test("list_workspaces schema rejects flat, malformed, inconsistent, duplicate, a
   assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, workspaces: [] }));
   assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, count: 1 }));
   assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, extra: true }));
-  assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, codexpro_tool: "workspace_snapshot" }));
-  assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, codexpro_title: "Workspaces" }));
+  assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, codexgpt_tool: "workspace_snapshot" }));
+  assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, codexgpt_title: "Workspaces" }));
   assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, data: null }));
   assert.throws(() => listWorkspacesOutputSchema.parse({ ...success, error: failure.error }));
   assert.throws(() => listWorkspacesOutputSchema.parse({ ...failure, data: sampleListData() }));
@@ -318,7 +318,7 @@ test("list_workspaces remains full-mode only and advertises an exact no-input ou
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
     });
   });
@@ -464,7 +464,7 @@ test("list_workspaces rejects malformed provider output as INTERNAL_ERROR withou
 
 test("list_workspaces Tool Card is nested-first, handles failures, and retains flat fallback", () => {
   assert.match(toolCardWidgetHtml, /function listWorkspacesResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "list_workspaces"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "list_workspaces"/);
   assert.match(toolCardWidgetHtml, /data\?\.data &&/);
   assert.match(toolCardWidgetHtml, /return nested \? data\.data : \(data \?\? \{\}\)/);
   assert.match(toolCardWidgetHtml, /if \(data\?\.ok === false\) return data\?\.error\?\.code/);
@@ -476,13 +476,13 @@ test("list_workspaces Tool Card is nested-first, handles failures, and retains f
 test("list_workspaces supertool preserves the exact nested envelope", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {}, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "list_workspaces",
         args: {}
       });
-      assert.equal(result.structuredContent.codexpro_tool, "list_workspaces");
-      assert.equal(result.structuredContent.codexpro_title, "List Workspaces");
-      assert.equal(result.structuredContent.codexpro_super_action, "list_workspaces");
+      assert.equal(result.structuredContent.codexgpt_tool, "list_workspaces");
+      assert.equal(result.structuredContent.codexgpt_title, "List Workspaces");
+      assert.equal(result.structuredContent.codexgpt_super_action, "list_workspaces");
       assert.equal(result.structuredContent.wrapped_tool, "list_workspaces");
       assert.equal(result.structuredContent.ok, true);
       assert.deepEqual(result.structuredContent.data.workspaces, []);

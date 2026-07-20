@@ -29,7 +29,7 @@ function identity() {
 }
 
 async function withStores(callback) {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-recovery-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-recovery-"));
   const masterKey = Buffer.alloc(32, 6);
   const repositoryStore = new GitRepositoryStore({ stateRoot, masterKey });
   const operationStore = new GitOperationStore({ stateRoot, masterKey });
@@ -211,7 +211,7 @@ test("Gate R remains unavailable after restart when any repository is already fr
 });
 
 test("Gate R persists authorization before creating an operation and taking locks", async () => {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-gate-r-runtime-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-gate-r-runtime-"));
   const masterKey = Buffer.alloc(32, 9);
   const repositoryStore = new GitRepositoryStore({ stateRoot, masterKey, randomBytes: (size) => Buffer.alloc(size, 1) });
   const operationStore = new GitOperationStore({ stateRoot, masterKey, randomBytes: (size) => Buffer.alloc(size, 2) });

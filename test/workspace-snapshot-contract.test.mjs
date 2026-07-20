@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
   "../src/tools/schemas/workspaceSnapshot.ts",
@@ -128,7 +128,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "workspace-snapshot-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -140,7 +140,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-workspace-snapshot-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-workspace-snapshot-contract-"));
   const root = await fs.realpath(created);
   try {
     await fs.writeFile(path.join(root, "AGENTS.md"), "# Test instructions\n", "utf8");
@@ -249,15 +249,15 @@ test("workspace_snapshot success constructor produces the strict schema-v1 envel
     createWorkspaceSnapshotSuccess(sampleSnapshotData(), 7)
   );
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "workspace_snapshot");
-  assert.equal(parsed.codexpro_title, "Workspace Snapshot");
+  assert.equal(parsed.codexgpt_tool, "workspace_snapshot");
+  assert.equal(parsed.codexgpt_title, "Workspace Snapshot");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleSnapshotData());
@@ -308,7 +308,7 @@ test("workspace_snapshot schema rejects malformed, flat, inconsistent, and addit
   });
   assert.throws(() => workspaceSnapshotOutputSchema.parse({ ...success, workspace_id: "legacy" }));
   assert.throws(() => workspaceSnapshotOutputSchema.parse({ ...success, extra: true }));
-  assert.throws(() => workspaceSnapshotOutputSchema.parse({ ...success, codexpro_tool: "open_workspace" }));
+  assert.throws(() => workspaceSnapshotOutputSchema.parse({ ...success, codexgpt_tool: "open_workspace" }));
   assert.throws(() => workspaceSnapshotOutputSchema.parse({ ...success, data: null }));
   assert.throws(() => workspaceSnapshotOutputSchema.parse({ ...success, error: failure.error }));
   assert.throws(() => workspaceSnapshotOutputSchema.parse({ ...failure, data: sampleSnapshotData() }));
@@ -358,7 +358,7 @@ test("workspace_snapshot remains full-mode only and advertises an exact output s
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
     });
   });
@@ -588,7 +588,7 @@ test("workspace_snapshot Tool Card lists AI filenames without file contents", ()
   assert.match(toolCardWidgetHtml, /No readable AI handoff files/);
 });
 
-test("codexpro workspace_snapshot action and snapshot alias preserve strict envelopes", async () => {
+test("codexgpt workspace_snapshot action and snapshot alias preserve strict envelopes", async () => {
   await withTempWorkspace(async (root) => {
     const dependencies = {
       workspaceSnapshotSummaryProvider: async (context) => emptySummary(context),
@@ -596,11 +596,11 @@ test("codexpro workspace_snapshot action and snapshot alias preserve strict enve
     };
     await withConfigClient(createTestConfig(root), dependencies, async (client) => {
       for (const action of ["workspace_snapshot", "snapshot"]) {
-        const result = await client.callTool({ name: "codexpro", arguments: { action, args: {} } });
+        const result = await client.callTool({ name: "codexgpt", arguments: { action, args: {} } });
         const structured = result.structuredContent;
-        assert.equal(structured.codexpro_tool, "workspace_snapshot");
-        assert.equal(structured.codexpro_title, "Workspace Snapshot");
-        assert.equal(structured.codexpro_super_action, action);
+        assert.equal(structured.codexgpt_tool, "workspace_snapshot");
+        assert.equal(structured.codexgpt_title, "Workspace Snapshot");
+        assert.equal(structured.codexgpt_super_action, action);
         assert.equal(structured.wrapped_tool, "workspace_snapshot");
         assert.equal(structured.ok, true);
         assert.equal(structured.data.root, root);
@@ -614,7 +614,7 @@ test("codexpro workspace_snapshot action and snapshot alias preserve strict enve
       }
     }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: { action: "workspace_snapshot", args: {} }
       });
       assert.equal(result.isError, true);
@@ -630,13 +630,13 @@ test("Smoke compatibility migrates the protected snapshot tree consumer in memor
   assert.match(source, /expectedCount/);
   assert.match(source, /previousPathext/);
   assert.match(source, /process\.env\.PATHEXT/);
-  assert.match(source, /sourceURL=codexpro-smoke-compat\.mjs/);
+  assert.match(source, /sourceURL=codexgpt-smoke-compat\.mjs/);
   assert.match(source, /data:text\/javascript;base64/);
 });
 
 test("HTTP Smoke compatibility migrates the protected snapshot workspace-id consumer in memory", async () => {
   const source = await fs.readFile(new URL("../scripts/http-smoke-compat.mjs", import.meta.url), "utf8");
   assert.match(source, /snapshot\.structuredContent\.data\?\.workspace_id/);
-  assert.match(source, /sourceURL=codexpro-http-smoke-compat\.mjs/);
+  assert.match(source, /sourceURL=codexgpt-http-smoke-compat\.mjs/);
   assert.match(source, /data:text\/javascript;base64/);
 });

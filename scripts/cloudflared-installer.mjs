@@ -25,9 +25,9 @@ export function assertSha256(buffer, expected, label = "download") {
   return actual;
 }
 
-function codexProHome() {
-  const configured = process.env.CODEXPRO_HOME?.trim();
-  return configured ? path.resolve(configured) : path.join(os.homedir(), ".codexpro");
+function CodexGPTHome() {
+  const configured = process.env.CODEXGPT_HOME?.trim();
+  return configured ? path.resolve(configured) : path.join(os.homedir(), ".codexgpt");
 }
 
 function binaryName() {
@@ -35,7 +35,7 @@ function binaryName() {
 }
 
 function installPath() {
-  return path.join(codexProHome(), "bin", binaryName());
+  return path.join(CodexGPTHome(), "bin", binaryName());
 }
 
 function findFile(root, fileName) {
@@ -76,8 +76,8 @@ function verifiedInstalledVersion(binaryPath) {
 
 async function downloadVerifiedAsset(asset, tempRoot) {
   const url = cloudflaredReleaseUrl(asset);
-  console.error(`[codexpro] Downloading pinned cloudflared ${CLOUDFLARED_RELEASE.version}: ${asset.file}`);
-  const response = await fetch(url, { headers: { "user-agent": "codexpro-verified-installer" } });
+  console.error(`[codexgpt] Downloading pinned cloudflared ${CLOUDFLARED_RELEASE.version}: ${asset.file}`);
+  const response = await fetch(url, { headers: { "user-agent": "codexgpt-verified-installer" } });
   if (!response.ok) {
     throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
   }
@@ -100,7 +100,7 @@ async function downloadVerifiedAsset(asset, tempRoot) {
   const digest = assertSha256(buffer, asset.sha256, asset.file);
   const downloadedPath = path.join(tempRoot, asset.file);
   fs.writeFileSync(downloadedPath, buffer, { mode: 0o700 });
-  console.error(`[codexpro] Verified SHA-256: ${digest}`);
+  console.error(`[codexgpt] Verified SHA-256: ${digest}`);
   return downloadedPath;
 }
 
@@ -159,7 +159,7 @@ export async function installVerifiedCloudflared({ ensureOnly = false } = {}) {
   const destination = installPath();
   const installed = verifiedInstalledVersion(destination);
   if (installed && ensureOnly) {
-    console.error(`[codexpro] Verified cloudflared already installed: ${installed}`);
+    console.error(`[codexgpt] Verified cloudflared already installed: ${installed}`);
     return destination;
   }
 
@@ -170,8 +170,8 @@ export async function installVerifiedCloudflared({ ensureOnly = false } = {}) {
     const downloaded = await downloadVerifiedAsset(asset, tempRoot);
     const executable = extractExecutable(asset, downloaded, tempRoot);
     const versionOutput = replaceInstalledBinary(executable, destination);
-    console.error(`[codexpro] Installed verified cloudflared: ${versionOutput}`);
-    console.error(`[codexpro] Path: ${destination}`);
+    console.error(`[codexgpt] Installed verified cloudflared: ${versionOutput}`);
+    console.error(`[codexgpt] Path: ${destination}`);
     return destination;
   } finally {
     ownedTemp.cleanupSync();
@@ -184,7 +184,7 @@ async function main() {
     const destination = installPath();
     const installed = verifiedInstalledVersion(destination);
     if (!installed) {
-      console.error(`[codexpro] Pinned cloudflared ${CLOUDFLARED_RELEASE.version} is not installed at ${destination}.`);
+      console.error(`[codexgpt] Pinned cloudflared ${CLOUDFLARED_RELEASE.version} is not installed at ${destination}.`);
       process.exitCode = 1;
       return;
     }
@@ -205,7 +205,7 @@ async function main() {
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (isMain) {
   main().catch((error) => {
-    console.error(`[codexpro] ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`[codexgpt] ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   });
 }

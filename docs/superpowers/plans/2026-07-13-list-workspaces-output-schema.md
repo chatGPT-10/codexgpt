@@ -6,7 +6,7 @@
 
 **Architecture:** Add one tool-owned schema module and one injectable read-provider boundary around the existing `WorkspaceManager.listWorkspaces()` operation. Invoke the provider in its own failure stage, strictly validate each workspace record and list invariants, preserve provider order, derive `count`, construct the exact nested result, and keep the existing readable text. Update consumers to read nested results first while preserving historical flat Tool Card fallback.
 
-**Tech Stack:** TypeScript, Node.js 20/24, Zod 3, MCP SDK in-memory transport, `node:test`, existing CodexPro Tool Card, exact in-memory Smoke compatibility loaders, Git Bash verification backend on Windows.
+**Tech Stack:** TypeScript, Node.js 20/24, Zod 3, MCP SDK in-memory transport, `node:test`, existing CodexGPT Tool Card, exact in-memory Smoke compatibility loaders, Git Bash verification backend on Windows.
 
 ## Global Constraints
 
@@ -14,7 +14,7 @@
 - Follow `AGENTS.md` and the approved design at `docs/superpowers/specs/2026-07-13-list-workspaces-output-schema-design.md`.
 - Preserve item field names exactly as `id`, `root`, and `openedAt`.
 - Preserve empty-list success, provider insertion order, deterministic IDs, canonical roots, and shared process-local cross-session inventory.
-- Do not migrate `inspect_workspace`, `codexpro_inventory`, `load_skill`, `read_handoff`, `codex_context`, or Pro-context tools.
+- Do not migrate `inspect_workspace`, `codexgpt_inventory`, `load_skill`, `read_handoff`, `codex_context`, or Pro-context tools.
 - Do not begin Phase 2 workspace ownership, expiry, persistence, close, random-session-ID, or explicit-ID work.
 - Do not change tool-mode membership; `list_workspaces` remains full-mode only.
 - Do not add filesystem existence checks, sorting, deduplication by mutation, or automatic workspace opening.
@@ -60,7 +60,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
   "../src/tools/schemas/listWorkspaces.ts",
@@ -113,7 +113,7 @@ const failureCases = [
 Add pure schema tests that assert:
 
 1. The schema module and all required exports exist.
-2. Success has exactly the top-level keys `codexpro_title`, `codexpro_tool`, `data`, `error`, `meta`, `ok`.
+2. Success has exactly the top-level keys `codexgpt_title`, `codexgpt_tool`, `data`, `error`, `meta`, `ok`.
 3. Success data has exactly `count` and `workspaces`.
 4. Each workspace has exactly `id`, `openedAt`, and `root`.
 5. Tool identity is exactly `list_workspaces`; title is exactly `List Workspaces`.
@@ -148,7 +148,7 @@ const invalidOpenedAt = [
 
 - [x] **Step 1.2: Add in-memory test helpers and future handler cases**
 
-Use the same full `CodexProConfig` fixture shape as the adjacent workspace tests. The helper must set `toolMode: "full"`, disable authentication for in-memory tests, and keep paths in temporary allowed roots.
+Use the same full `CodexGPTConfig` fixture shape as the adjacent workspace tests. The helper must set `toolMode: "full"`, disable authentication for in-memory tests, and keep paths in temporary allowed roots.
 
 ```js
 function createTestConfig(root, overrides = {}) {
@@ -195,7 +195,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "list-workspaces-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -324,8 +324,8 @@ export const listWorkspacesErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const listWorkspacesOutputShape = {
-  codexpro_tool: z.literal("list_workspaces"),
-  codexpro_title: z.literal("List Workspaces"),
+  codexgpt_tool: z.literal("list_workspaces"),
+  codexgpt_title: z.literal("List Workspaces"),
   ok: z.boolean(),
   data: listWorkspacesDataSchema.nullable(),
   error: listWorkspacesErrorSchema.nullable(),
@@ -419,13 +419,13 @@ Do not reorganize unrelated imports or extract shared schema modules.
 
 - [x] **Step 2.2: Add the test-only provider dependency**
 
-In the existing `CodexProServerDependencies` interface, add exactly:
+In the existing `CodexGPTServerDependencies` interface, add exactly:
 
 ```ts
 listWorkspacesProvider?: () => Workspace[] | Promise<Workspace[]>;
 ```
 
-Near the other provider initialization in `createCodexProServer`, add:
+Near the other provider initialization in `createCodexGPTServer`, add:
 
 ```ts
 const listWorkspacesProvider =
@@ -526,7 +526,7 @@ async () => {
               `- ${workspace.id} — ${workspace.root} (opened ${workspace.openedAt})`
           )
           .join("\n")
-      : "No workspaces opened on this CodexPro server/config yet. Call open_workspace first.";
+      : "No workspaces opened on this CodexGPT server/config yet. Call open_workspace first.";
 
     return textResult(
       text,
@@ -620,7 +620,7 @@ Add a focused helper near the workspace-result normalizer:
 ```js
 function listWorkspacesResultData(data) {
   const nested =
-    data?.codexpro_tool === "list_workspaces" &&
+    data?.codexgpt_tool === "list_workspaces" &&
     data?.data &&
     typeof data.data === "object";
   return nested ? data.data : (data ?? {});
@@ -634,7 +634,7 @@ Do not broaden the existing open/snapshot normalizer or refactor unrelated Tool 
 Replace the flat-only branch with:
 
 ```js
-if (data?.codexpro_tool === "list_workspaces") {
+if (data?.codexgpt_tool === "list_workspaces") {
   if (data?.ok === false) return data?.error?.code || "Workspace list unavailable";
   const listed = listWorkspacesResultData(data);
   return (listed?.count ?? 0) + " open workspaces";
@@ -693,7 +693,7 @@ Where practical, use existing source-shape assertions rather than introducing a 
 Call:
 
 ```js
-const result = await callTool(client, "codexpro", {
+const result = await callTool(client, "codexgpt", {
   action: "list_workspaces",
   args: {}
 });
@@ -702,9 +702,9 @@ const result = await callTool(client, "codexpro", {
 Assert:
 
 ```js
-assert.equal(result.structuredContent.codexpro_tool, "list_workspaces");
-assert.equal(result.structuredContent.codexpro_title, "List Workspaces");
-assert.equal(result.structuredContent.codexpro_super_action, "list_workspaces");
+assert.equal(result.structuredContent.codexgpt_tool, "list_workspaces");
+assert.equal(result.structuredContent.codexgpt_title, "List Workspaces");
+assert.equal(result.structuredContent.codexgpt_super_action, "list_workspaces");
 assert.equal(result.structuredContent.wrapped_tool, "list_workspaces");
 assert.equal(result.structuredContent.ok, true);
 assert.deepEqual(result.structuredContent.data.workspaces, []);

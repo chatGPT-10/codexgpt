@@ -10,13 +10,13 @@
 
 Phase 4 contains three capabilities with deliberately different security meanings:
 
-1. **`confirmed_roots` — brokered cross-root file access.** A new V3-only tool can open a normal local directory outside configured `allowedRoots` after an exact local R3 confirmation. Existing file tools then operate through `WorkspaceManager`, `PathGuard`, atomic transactions, hard path rules, and audit. This is the recommended answer to “access files anywhere while still preserving CodexPro protections.”
+1. **`confirmed_roots` — brokered cross-root file access.** A new V3-only tool can open a normal local directory outside configured `allowedRoots` after an exact local R3 confirmation. Existing file tools then operate through `WorkspaceManager`, `PathGuard`, atomic transactions, hard path rules, and audit. This is the recommended answer to “access files anywhere while still preserving CodexGPT protections.”
 2. **`full_access` — current-user process execution.** An approved process runs with the ambient authority of the current Windows user. It is not limited to the project, has no filesystem/registry/credential/network isolation, and can bypass brokered blocked-path rules from inside its own code. This matches the underlying risk of a Codex-style unrestricted process and is only for code the user trusts.
 3. **`workspace` — reserved unavailable profile.** The former offline AppContainer/LPAC sandbox design is retained as optional future research, but it is not part of the current Phase 4 product scope because real Gate S evidence did not prove the required isolation. No production activation path is published.
 
 These are not aliases or fallback levels. `workspace` remains unavailable and never degrades to `full_access`; `confirmed_roots` never silently authorizes a current-user process; and local confirmation authorizes risk but does not create an operating-system boundary.
 
-OpenAI documents sandbox mode and approval policy as separate controls. Its standard “Full access” preset removes the sandbox and normally removes approval prompts. CodexPro deliberately exposes a different user-facing mode, **Full access (ask first)**. The V3 state machine requires a local decision record before every ambient-authority start or input action. That is a workflow confirmation, not a durable proof of human presence after unrestricted same-user code has already run.
+OpenAI documents sandbox mode and approval policy as separate controls. Its standard “Full access” preset removes the sandbox and normally removes approval prompts. CodexGPT deliberately exposes a different user-facing mode, **Full access (ask first)**. The V3 state machine requires a local decision record before every ambient-authority start or input action. That is a workflow confirmation, not a durable proof of human presence after unrestricted same-user code has already run.
 
 ## 2. First-principles derivation
 
@@ -24,7 +24,7 @@ OpenAI documents sandbox mode and approval policy as separate controls. Its stan
 
 ChatGPT must be able to run normal Windows development commands, manage interactive processes, and—when the user asks—work beyond configured project roots, without silently weakening the already published workspace, identity, approval, audit, rollback, and secret-handling contracts.
 
-Before any process starts or external root opens, CodexPro must establish:
+Before any process starts or external root opens, CodexGPT must establish:
 
 1. the exact canonical action and authorization-relevant input;
 2. the identity, transport session, workspace or root admission, policy revision, contract, and native capability evidence;
@@ -58,13 +58,13 @@ The protected adversary includes:
 - an authenticated remote MCP client attempting confused-deputy use;
 - stale, foreign, expired, replayed, reordered, or concurrently retried requests;
 - path, reparse-point, hard-link, executable-replacement, output-flood, protocol, and cleanup attacks;
-- a sandbox child attempting access to CodexPro approval/control/audit state.
+- a sandbox child attempting access to CodexGPT approval/control/audit state.
 
 The design does not claim isolation from:
 
 - code the user explicitly starts in `full_access`;
 - another already-running process with the same unrestricted Windows user token;
-- an administrator, kernel compromise, or compromised CodexPro package.
+- an administrator, kernel compromise, or compromised CodexGPT package.
 
 An approved `full_access` process may read, modify, delete, encode, or transmit anything the current Windows user can reach. Known-pattern output redaction is defense in depth, not DLP.
 
@@ -126,7 +126,7 @@ An approved `full_access` process may read, modify, delete, encode, or transmit 
 
 The `standard` profile is functional without `start_process`: every `run_command` creates a retained terminal record, returns its `process_id` plus the first output page, and allows later pagination through `read_process_output` for five minutes.
 
-`open_full_access_workspace` is full-profile only. Direct tools and `codexpro` child actions share the same canonical action, strict schema, handler instance, policy wrapper, and result projector. There is no alias or alternate execution path.
+`open_full_access_workspace` is full-profile only. Direct tools and `codexgpt` child actions share the same canonical action, strict schema, handler instance, policy wrapper, and result projector. There is no alias or alternate execution path.
 
 ### 4.3 Mandatory startup gate
 
@@ -146,7 +146,7 @@ Storage schema versions describe record shape, not public tool-contract capabili
 
 | Stored record | `schemaVersion` | Accepted `contractVersion` | V3 writers |
 | --- | --- | --- | --- |
-| `ChangeSetManifestV1` | `1` | `1`, `2`, or `3` | V3 `write`, `edit`, `apply_patch`, `export_pro_context`, `handoff_to_agent`, `handoff_to_codex`, `codexpro_self_test`, local batch mutations, and schema-1 undo records write `3` |
+| `ChangeSetManifestV1` | `1` | `1`, `2`, or `3` | V3 `write`, `edit`, `apply_patch`, `export_pro_context`, `handoff_to_agent`, `handoff_to_codex`, `codexgpt_self_test`, local batch mutations, and schema-1 undo records write `3` |
 | `MoveChangeSetManifestV2` | `2` | `2` or `3` | V3 `move_paths` and move-undo records write `3` |
 
 Every other schema/contract pair fails strict parsing. Every `attachPreparedFileMutation`, `attachPreparedPatchMutation`, and `attachPreparedBatchMutation` call site—including the local mutation service and self-test path—must accept/pass contract `3`. Every successful prepared batch mutation emits its schema-1 manifest. `retainChangeSet: false` does not suppress that record; it suppresses undo material and records `undoSupported: false` with `undoReason: "retention_disabled"`. `moves/service.ts`, `changesets/undo.ts`, and `changesets/moveUndo.ts` receive the caller contract instead of hard-coding `2`.
@@ -193,14 +193,14 @@ The approval/grant TTL is at most two minutes and exactly one use. The resulting
 
 Confirmed-root records use an access class and lease ID in their internal key. They never reuse an ordinary configured-root handle, append to `config.allowedRoots`, write a persistent allowed root, survive server restart, or cross identity/transport/policy boundaries.
 
-On lease expiry or revocation, CodexPro first quarantines process input and terminates any bound process, then revokes workspace/file-operation access and cleans state.
+On lease expiry or revocation, CodexGPT first quarantines process input and terminates any bound process, then revokes workspace/file-operation access and cleans state.
 
 ### 5.3 Brokered hard boundary
 
 Confirmed-root file operations remain brokered. They still reject:
 
 - device, `GLOBALROOT`, raw-volume, UNC, mapped-network, drive-relative, ADS, reserved-name, trailing-dot/space, and reparse escape paths;
-- CodexPro control, approval, identity, audit, transaction, and sandbox state;
+- CodexGPT control, approval, identity, audit, transaction, and sandbox state;
 - Codex credential/auth/config roots and Windows/browser credential stores;
 - current blocked secret/control globs such as `.env`, private keys, `.ssh`, `.git`, and reserved transaction artifacts.
 
@@ -229,10 +229,10 @@ type ExecutionCwdV1 =
 
 Rules:
 
-- No generic command string and no CodexPro tokenization.
+- No generic command string and no CodexGPT tokenization.
 - `argv` preserves exact argument boundaries and never joins them through a shell.
 - Relative executable paths containing separators are rejected.
-- `absolute_local` cwd is available only to `full_access`; declared input still rejects device, UNC, mapped-network, drive-relative, ADS, reserved-name, and trailing-dot/space syntax. This validates only CodexPro input and does not constrain what the child later opens.
+- `absolute_local` cwd is available only to `full_access`; declared input still rejects device, UNC, mapped-network, drive-relative, ADS, reserved-name, and trailing-dot/space syntax. This validates only CodexGPT input and does not constrain what the child later opens.
 - PowerShell one-shot, persistent non-interactive script, and interactive terminal are distinct schema branches. A one-shot script does not share its private script channel with later process input.
 - Input ceilings: 32 KiB script, 512 arguments, 8 KiB per argument, 64 KiB aggregate arguments, 64 explicit environment entries, and 16 KiB aggregate environment values.
 - Windows environment keys are canonicalized case-insensitively; duplicates fail.
@@ -275,7 +275,7 @@ Every result includes exact authority fields. `full_access` must report:
 }
 ```
 
-The fixed lifetime, timeout, terminate, lease-close, transport-close, and server-close guarantees apply only to processes that remain in CodexPro-owned Jobs. Full-access code can ask WMI, Task Scheduler, services, COM, or another same-user broker to create a process outside that Job; Phase 4A neither prevents nor promises to find or terminate such an escape. Cleanup may target only exact recorded objects and never performs a broad process kill. A requirement that no descendant can survive expiry is satisfiable only by the Gate-S sandbox, not by `full_access`.
+The fixed lifetime, timeout, terminate, lease-close, transport-close, and server-close guarantees apply only to processes that remain in CodexGPT-owned Jobs. Full-access code can ask WMI, Task Scheduler, services, COM, or another same-user broker to create a process outside that Job; Phase 4A neither prevents nor promises to find or terminate such an escape. Cleanup may target only exact recorded objects and never performs a broad process kill. A requirement that no descendant can survive expiry is satisfiable only by the Gate-S sandbox, not by `full_access`.
 
 The `workspace` sandbox must report filtered snapshot, no host writeback, protected-registry isolation at its proved level, isolated credentials/environment, and deny-all network.
 
@@ -374,7 +374,7 @@ An exact sandbox execution grant must bind the immutable final snapshot. Because
 1. the user approves **snapshot preparation**; this is not an execution grant;
 2. the builder creates and validates the snapshot, then shows digest, file/byte counts, exclusions, backend identity, and authority summary locally;
 3. the user gives a fresh final confirmation;
-4. CodexPro issues a two-minute, one-use grant bound to `snapshot_id` and authenticated manifest digest;
+4. CodexGPT issues a two-minute, one-use grant bound to `snapshot_id` and authenticated manifest digest;
 5. retry may use only that immutable prepared snapshot and may never rebuild behind the same grant.
 
 The approval summary for live `full_access` explicitly says transitive code and live dependencies are not frozen by the command digest.
@@ -383,12 +383,12 @@ The approval summary for live `full_access` explicitly says transitive code and 
 
 The local CLI provides:
 
-- `codexpro approvals list --server <server_id>`;
-- `codexpro approvals watch --server <server_id>`;
-- `codexpro approvals approve <approval_id> --server <server_id>`;
-- `codexpro approvals deny <approval_id> --server <server_id>`;
-- `codexpro processes list --server <server_id>`;
-- `codexpro processes terminate <process_id> --server <server_id>`.
+- `codexgpt approvals list --server <server_id>`;
+- `codexgpt approvals watch --server <server_id>`;
+- `codexgpt approvals approve <approval_id> --server <server_id>`;
+- `codexgpt approvals deny <approval_id> --server <server_id>`;
+- `codexgpt processes list --server <server_id>`;
+- `codexgpt processes terminate <process_id> --server <server_id>`.
 
 Emergency local termination needs no remote approval.
 
@@ -475,7 +475,7 @@ Switching the upgraded binary from V3 to V2 preserves chain verification and V2-
 
 ### 10.1 Gate prerequisites
 
-Before the native spike, CodexPro must first harden `long-task-runner` to bind worker PID, creation time, nonce, and command identity; reject PID reuse; and cap stdout/stderr logs. It must also extend static mutation review to C#/PowerShell native APIs and shipped scripts.
+Before the native spike, CodexGPT must first harden `long-task-runner` to bind worker PID, creation time, nonce, and command identity; reject PID reuse; and cap stdout/stderr logs. It must also extend static mutation review to C#/PowerShell native APIs and shipped scripts.
 
 The first host candidate is a fixed built-in Windows PowerShell invocation with:
 
@@ -592,7 +592,7 @@ Each snapshot/process owner gets a unique AppContainer/LPAC profile and SID. `ER
 
 After spawn, both host and child evidence verify AppContainer token, SID, capabilities, integrity/restricted groups, and Job membership. Profile deletion begins only after Job active-process count is zero. A cleanup timeout records authenticated cleanup-pending state for startup recovery.
 
-No live workspace, shared user runtime, CodexPro state, approval/control pipe, user profile, credential store, browser profile, unrelated process/token/section, raw device/volume, global object, mailslot, WMI/service/scheduler broker, or unauthorized COM surface may be reachable.
+No live workspace, shared user runtime, CodexGPT state, approval/control pipe, user profile, credential store, browser profile, unrelated process/token/section, raw device/volume, global object, mailslot, WMI/service/scheduler broker, or unauthorized COM surface may be reachable.
 
 The capability claim is `protected_registry_isolation`, not blanket registry isolation; allowed public system keys are explicitly inventoried.
 
@@ -608,7 +608,7 @@ The environment starts empty. Windows keys are canonicalized case-insensitively.
 - package registry/token controls;
 - proxy/resolver variables.
 
-System/runtime values and sandbox-private roots are constructed last and immutable. The execution grant binds the complete effective-environment digest. `CODEXPRO_INHERIT_ENV=1` cannot broaden a workspace sandbox.
+System/runtime values and sandbox-private roots are constructed last and immutable. The execution grant binds the complete effective-environment digest. `CODEXGPT_INHERIT_ENV=1` cannot broaden a workspace sandbox.
 
 ### 11.6 Offline network
 
@@ -636,10 +636,10 @@ Foreign, stale, expired, policy-stale, evidence-stale, transport-stale, and serv
 ## 13. Configuration and activation
 
 ```text
-CODEXPRO_TOOL_CONTRACT_VERSION=3
-CODEXPRO_LOCAL_FILE_ACCESS=configured_roots|confirmed_roots
-CODEXPRO_EXECUTION_PROFILE=off|full_access|workspace
-CODEXPRO_EXECUTION_DEPENDENCIES=off|node_modules
+CODEXGPT_TOOL_CONTRACT_VERSION=3
+CODEXGPT_LOCAL_FILE_ACCESS=configured_roots|confirmed_roots
+CODEXGPT_EXECUTION_PROFILE=off|full_access|workspace
+CODEXGPT_EXECUTION_DEPENDENCIES=off|node_modules
 ```
 
 Defaults remain the published contract, `configured_roots`, and execution `off`. V3 never becomes default.

@@ -105,7 +105,7 @@ test("local termination waits for an in-flight start handle to be exactly termin
 });
 
 test("root drain terminates only exact-owned processes in the root or descendants", async () => {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-process-root-"));
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-process-root-"));
   const root = path.join(base, "task");
   const descendant = path.join(root, "nested");
   const sibling = path.join(base, "sibling");
@@ -148,7 +148,7 @@ test("root drain terminates only exact-owned processes in the root or descendant
 });
 
 test("root drain waits for an expiry termination already pending on start", async () => {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-process-expiry-drain-"));
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-process-expiry-drain-"));
   let resolveStart;
   let terminateCalls = 0;
   const executionRuntime = {

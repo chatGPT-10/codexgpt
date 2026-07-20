@@ -6,11 +6,11 @@ import path from "node:path";
 import test from "node:test";
 import { probeAuditReadiness } from "../dist/audit/diagnostics.js";
 import { PersistentAuditStore } from "../dist/audit/store.js";
-import { CANONICAL_CODEXPRO_CHILD_TOOLS } from "../dist/tools/schemas/codexpro.js";
+import { CANONICAL_CODEXGPT_CHILD_TOOLS } from "../dist/tools/schemas/codexgpt.js";
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
 function tempRoot() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-audit-architecture-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-audit-architecture-"));
 }
 
 function hex32(text) {
@@ -68,8 +68,8 @@ test("audit implementation has no Git network shell database or background-worke
   ]) {
     assert.equal(forbidden.test(source), false, `forbidden audit dependency: ${forbidden}`);
   }
-  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.length, 28);
-  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.includes("query_audit_events"), false);
+  assert.equal(CANONICAL_CODEXGPT_CHILD_TOOLS.length, 28);
+  assert.equal(CANONICAL_CODEXGPT_CHILD_TOOLS.includes("query_audit_events"), false);
 });
 
 test("readiness probe verifies lock key tail and retention without changing audit evidence", async () => {
@@ -141,19 +141,19 @@ test("public audit documentation describes default V1 and explicit exact V2 acti
   const security = fs.readFileSync(path.resolve("SECURITY.md"), "utf8");
 
   for (const variable of [
-    "CODEXPRO_AUDIT_MODE",
-    "CODEXPRO_AUDIT_RETENTION_DAYS",
-    "CODEXPRO_AUDIT_RETENTION_BYTES"
+    "CODEXGPT_AUDIT_MODE",
+    "CODEXGPT_AUDIT_RETENTION_DAYS",
+    "CODEXGPT_AUDIT_RETENTION_BYTES"
   ]) {
     assert.match(configExample, new RegExp(`^${variable}=`, "m"));
     assert.match(readme, new RegExp(variable));
     assert.match(readmeZh, new RegExp(variable));
   }
   for (const variable of [
-    "CODEXPRO_TOOL_CONTRACT_VERSION",
-    "CODEXPRO_MOVE_MAX_FILE_BYTES",
-    "CODEXPRO_MOVE_MAX_TOTAL_BYTES",
-    "CODEXPRO_MOVE_HASH_CONCURRENCY"
+    "CODEXGPT_TOOL_CONTRACT_VERSION",
+    "CODEXGPT_MOVE_MAX_FILE_BYTES",
+    "CODEXGPT_MOVE_MAX_TOTAL_BYTES",
+    "CODEXGPT_MOVE_HASH_CONCURRENCY"
   ]) {
     assert.match(configExample, new RegExp(`^${variable}=`, "m"));
   }

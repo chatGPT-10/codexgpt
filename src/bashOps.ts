@@ -2,9 +2,9 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { createBoundedCliEnvironment } from "./cliEnvironment.js";
-import type { CodexProConfig } from "./config.js";
+import type { CodexGPTConfig } from "./config.js";
 import type { Workspace } from "./guard.js";
-import { CodexProError, PathGuard } from "./guard.js";
+import { CodexGPTError, PathGuard } from "./guard.js";
 import { redactSensitiveText } from "./redact.js";
 
 export interface BashResult {
@@ -129,9 +129,9 @@ function isAllowedPackageScript(command: string): boolean {
   return packageScriptPattern.test(command);
 }
 
-function assertSafeCommand(config: CodexProConfig, command: string): void {
+function assertSafeCommand(config: CodexGPTConfig, command: string): void {
   if (config.bashMode === "off") {
-    throw new CodexProError("bash tool is disabled. Start with CODEXPRO_BASH_MODE=safe or CODEXPRO_BASH_MODE=full to enable it.");
+    throw new CodexGPTError("bash tool is disabled. Start with CODEXGPT_BASH_MODE=safe or CODEXGPT_BASH_MODE=full to enable it.");
   }
   if (config.bashMode === "full") return;
 
@@ -139,43 +139,43 @@ function assertSafeCommand(config: CodexProConfig, command: string): void {
   const normalized = compact(command);
   for (const pattern of SAFE_BLOCKED_PATTERNS) {
     if (pattern.test(raw) || pattern.test(normalized)) {
-      throw new CodexProError(
-        `Command is blocked in CODEXPRO_BASH_MODE=safe: ${normalized}\n` +
-          "Use separate read/search/git tools, or restart with CODEXPRO_BASH_MODE=full only for trusted repos."
+      throw new CodexGPTError(
+        `Command is blocked in CODEXGPT_BASH_MODE=safe: ${normalized}\n` +
+          "Use separate read/search/git tools, or restart with CODEXGPT_BASH_MODE=full only for trusted repos."
       );
     }
   }
   if (!startsWithAllowedPrefix(normalized)) {
-    throw new CodexProError(
+    throw new CodexGPTError(
       `Command is not in the safe bash allowlist: ${normalized}\n` +
         "Allowed examples: ls, find, git status, git diff, npm test, npm run typecheck, npm run build:clients, pytest, go test, cargo test. Use read/search tools for file contents. " +
-        "Use CODEXPRO_BASH_MODE=full for trusted local automation."
+        "Use CODEXGPT_BASH_MODE=full for trusted local automation."
     );
   }
 }
 
-function assertBashSession(config: CodexProConfig, sessionId?: string): string | undefined {
+function assertBashSession(config: CodexGPTConfig, sessionId?: string): string | undefined {
   const requested = sessionId?.trim();
   if (!config.bashSessionId) {
     if (config.requireBashSession) {
-      throw new CodexProError("bash session guard is enabled but no server bash session id is configured.");
+      throw new CodexGPTError("bash session guard is enabled but no server bash session id is configured.");
     }
     return undefined;
   }
   if (!requested) {
     if (config.requireBashSession) {
-      throw new CodexProError(`bash session id is required. Retry with session_id="${config.bashSessionId}".`);
+      throw new CodexGPTError(`bash session id is required. Retry with session_id="${config.bashSessionId}".`);
     }
     return config.bashSessionId;
   }
   if (requested !== config.bashSessionId) {
-    throw new CodexProError(`bash session id mismatch. This CodexPro server accepts session_id="${config.bashSessionId}".`);
+    throw new CodexGPTError(`bash session id mismatch. This CodexGPT server accepts session_id="${config.bashSessionId}".`);
   }
   return config.bashSessionId;
 }
 
 function createLegacyBashEnvironment(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   hostEnv: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform
 ): NodeJS.ProcessEnv {
@@ -222,7 +222,7 @@ function createLegacyBashEnvironment(
 }
 
 export function createBashEnvironment(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   hostEnv: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform
 ): NodeJS.ProcessEnv {
@@ -261,8 +261,8 @@ export function probeBashAvailability(platform: NodeJS.Platform = process.platfo
   }
 
   const detail = platform === "win32"
-    ? "Bash is not available on PATH. Install Git Bash, or start CodexPro with Bash disabled until the native PowerShell backend is implemented."
-    : "Bash is not available on PATH. Install Bash, or start CodexPro with Bash disabled.";
+    ? "Bash is not available on PATH. Install Git Bash, or start CodexGPT with Bash disabled until the native PowerShell backend is implemented."
+    : "Bash is not available on PATH. Install Bash, or start CodexGPT with Bash disabled.";
   return { available: false, executable, detail };
 }
 
@@ -274,18 +274,18 @@ function trimOutput(value: string, maxBytes: number): { value: string; truncated
 }
 
 export async function runBash(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   command: string,
   options: { cwd?: string; timeoutMs?: number; sessionId?: string } = {}
 ): Promise<BashResult> {
-  if (!command?.trim()) throw new CodexProError("command is required.");
+  if (!command?.trim()) throw new CodexGPTError("command is required.");
   const bashSessionId = assertBashSession(config, options.sessionId);
   assertSafeCommand(config, command);
   const availability = probeBashAvailability();
   if (!availability.available) {
-    throw new CodexProError(`Bash backend is unavailable. ${availability.detail}`);
+    throw new CodexGPTError(`Bash backend is unavailable. ${availability.detail}`);
   }
   const cwdResolved = guard.resolve(workspace, options.cwd ?? ".");
   const cwd = cwdResolved.absPath;
@@ -324,7 +324,7 @@ export async function runBash(
     child.on("close", (exitCode, signal) => {
       clearTimeout(timer);
       if (killedByTimeout) {
-        stderr += `\n[codexpro] Command timed out after ${timeoutMs} ms.`;
+        stderr += `\n[codexgpt] Command timed out after ${timeoutMs} ms.`;
       }
       const out = trimOutput(redactSensitiveText(stdout), config.maxOutputBytes);
       const err = trimOutput(redactSensitiveText(stderr), config.maxOutputBytes);

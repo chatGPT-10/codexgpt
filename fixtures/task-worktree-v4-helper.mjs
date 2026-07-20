@@ -20,7 +20,7 @@ import { runGit } from "./git-v4-test-helper.mjs";
 
 export async function withTaskWorktreeFixture(callback, options = {}) {
   await withGitMutationRepository(async (git) => {
-    const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-task-v4-"));
+    const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-task-v4-"));
     const managedPath = path.join(base, "managed");
     const stateRoot = path.join(base, "state");
     await fs.mkdir(managedPath);

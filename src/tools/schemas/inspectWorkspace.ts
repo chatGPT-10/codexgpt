@@ -336,8 +336,8 @@ export const inspectWorkspaceErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const inspectWorkspaceOutputShape = {
-  codexpro_tool: z.literal("inspect_workspace"),
-  codexpro_title: z.literal("Inspect Workspace"),
+  codexgpt_tool: z.literal("inspect_workspace"),
+  codexgpt_title: z.literal("Inspect Workspace"),
   ok: z.boolean(),
   data: inspectWorkspaceDataSchema.nullable(),
   error: inspectWorkspaceErrorSchema.nullable(),
@@ -403,8 +403,8 @@ export function createInspectWorkspaceSuccess(
   durationMs = 0
 ): InspectWorkspaceStructuredResult {
   return inspectWorkspaceOutputSchema.parse({
-    codexpro_tool: "inspect_workspace",
-    codexpro_title: "Inspect Workspace",
+    codexgpt_tool: "inspect_workspace",
+    codexgpt_title: "Inspect Workspace",
     ok: true,
     data: inspectWorkspaceDataSchema.parse(data),
     error: null,
@@ -417,8 +417,8 @@ export function createInspectWorkspaceFailure(
   durationMs = 0
 ): InspectWorkspaceStructuredResult {
   return inspectWorkspaceOutputSchema.parse({
-    codexpro_tool: "inspect_workspace",
-    codexpro_title: "Inspect Workspace",
+    codexgpt_tool: "inspect_workspace",
+    codexgpt_title: "Inspect Workspace",
     ok: false,
     data: null,
     error: {

@@ -19,18 +19,18 @@ test("public repository metadata points to the current fork while Pages stays on
   const pkg = JSON.parse(fs.readFileSync(path.resolve("package.json"), "utf8"));
   assert.equal(pkg.repository.url, "git+https://github.com/chatGPT-10/codexgpt.git");
   assert.equal(pkg.bugs.url, "https://github.com/chatGPT-10/codexgpt/issues");
-  assert.equal(pkg.homepage, "https://rebel0789.github.io/codexpro/");
+  assert.equal(pkg.homepage, "https://rebel0789.github.io/codexgpt/");
 
   for (const relativePath of ["README.md", "README_ZH.md", "docs/index.html", "docs/zh.html", "src/http.ts"]) {
     const source = fs.readFileSync(path.resolve(relativePath), "utf8");
     assert.equal(
-      source.includes("https://github.com/rebel0789/codexpro"),
+      source.includes("https://github.com/rebel0789/codexgpt"),
       false,
       `${relativePath} still points repository links at the former upstream location`
     );
   }
-  assert.match(fs.readFileSync(path.resolve("README.md"), "utf8"), /https:\/\/rebel0789\.github\.io\/codexpro\//);
-  assert.match(fs.readFileSync(path.resolve("src\/http.ts"), "utf8"), /const docsUrl = "https:\/\/rebel0789\.github\.io\/codexpro\/";/);
+  assert.match(fs.readFileSync(path.resolve("README.md"), "utf8"), /https:\/\/rebel0789\.github\.io\/codexgpt\//);
+  assert.match(fs.readFileSync(path.resolve("src\/http.ts"), "utf8"), /const docsUrl = "https:\/\/rebel0789\.github\.io\/codexgpt\/";/);
 });
 
 test("published package keeps website assets but excludes internal memory archives", () => {

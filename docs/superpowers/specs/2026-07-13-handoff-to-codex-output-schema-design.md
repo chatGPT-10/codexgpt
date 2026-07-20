@@ -72,8 +72,8 @@ Every classified success and failure has exactly:
 
 ```ts
 interface HandoffToCodexOutput {
-  codexpro_tool: "handoff_to_codex";
-  codexpro_title: "Handoff To Codex";
+  codexgpt_tool: "handoff_to_codex";
+  codexgpt_title: "Handoff To Codex";
   ok: boolean;
   data: HandoffToCodexData | null;
   error: HandoffToCodexError | null;
@@ -200,7 +200,7 @@ Raw exceptions, stack traces, unsafe paths, plan content, secrets, and provider 
 
 Slice 24 reuses `prepareAgentHandoffRequest`, `preflightAgentHandoffOutput`, and `writePreparedAgentHandoff`. It removes the temporary flat `writeAgentHandoff` compatibility wrapper after no production consumer remains.
 
-The server adds independent `handoffToCodexProvider` and `handoffToCodexNow` dependencies. The default provider is still the shared durable writer, but independent seams prove that each direct tool validates its own call and cannot accidentally route through the other public handler.
+The server adds independent `handoffToCodexGPTvider` and `handoffToCodexNow` dependencies. The default provider is still the shared durable writer, but independent seams prove that each direct tool validates its own call and cannot accidentally route through the other public handler.
 
 The handler validates provider identity, fixed paths, append facts, plan/diff/event/prompt bytes and hashes, exact created/logged ordering, and every prepared fact. Before success it rereads the complete final plan under `maxWriteBytes` and exactly one event-sized tail from both logs.
 
@@ -208,7 +208,7 @@ The handler validates provider identity, fixed paths, append facts, plan/diff/ev
 
 MCP text remains bounded and Codex-specific: plan path/hash, append outcome, status/diff/log paths, diff stats, and the Codex prompt. It does not duplicate the complete plan. Diff preview is separately bounded.
 
-The handoff Tool Card becomes nested-first for both direct tools and removes the temporary flat Slice 23 fallback. It renders target, append outcome, hash/bytes, fixed paths, bounded prompt, and bounded diff. The direct result uses `codexpro/preserveStructuredContent:true`.
+The handoff Tool Card becomes nested-first for both direct tools and removes the temporary flat Slice 23 fallback. It renders target, append outcome, hash/bytes, fixed paths, bounded prompt, and bounded diff. The direct result uses `codexgpt/preserveStructuredContent:true`.
 
 ## 11. Compatibility and consumers
 
@@ -216,7 +216,7 @@ The handoff Tool Card becomes nested-first for both direct tools and removes the
 - Protected `scripts/http-smoke.mjs` remains unchanged; it checks advertisement only.
 - The Slice 23 focused compatibility test is migrated from proving a flat Codex result to proving the exact nested Slice 24 result.
 - Native Stress adds a full-mode `codex_handoff` supertool assertion without exposing Codex handoff in minimal/standard modes.
-- `codexpro` preserves the exact nested child envelope plus wrapper metadata.
+- `codexgpt` preserves the exact nested child envelope plus wrapper metadata.
 - Existing CLI `execute-handoff`, `watch-handoff`, and `loop-handoff` remain compatible through the same plan path and SHA-256 content.
 
 ## 12. Non-goals

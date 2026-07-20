@@ -183,7 +183,7 @@ export async function readLocalControlState(stateRoot, serverId) {
   if (state.schemaVersion !== 1 || state.serverId !== exactServerId) throw controlError("CONTROL_STATE_MISMATCH");
   if (!/^[0-9a-f]{64}$/i.test(state.nonce) || !/^[0-9a-f]{64}$/i.test(state.keyDigest)) throw controlError("CONTROL_STATE_INVALID");
   if (!Number.isSafeInteger(state.pid) || state.pid <= 0 || typeof state.processCreationTime !== "string") throw controlError("CONTROL_STATE_INVALID");
-  if (typeof state.pipePath !== "string" || state.pipePath !== `\\\\.\\pipe\\codexpro-control-${exactServerId}`) throw controlError("CONTROL_STATE_INVALID");
+  if (typeof state.pipePath !== "string" || state.pipePath !== `\\\\.\\pipe\\codexgpt-control-${exactServerId}`) throw controlError("CONTROL_STATE_INVALID");
   const liveCreationTime = await processCreationTime(state.pid);
   if (liveCreationTime !== state.processCreationTime) throw controlError("CONTROL_SERVER_STALE");
   return Object.freeze({ state, statePath, rootIdentity: identityOf(rootStat), fileIdentity: beforeIdentity });
@@ -330,7 +330,7 @@ export class WindowsLocalControlSpikeSession {
 
 export async function startWindowsLocalControlSpike({ platform = process.platform, stateRoot } = {}) {
   if (platform !== "win32") throw controlError("WINDOWS_LOCAL_CONTROL_UNAVAILABLE");
-  const root = stateRoot ?? await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-control-"));
+  const root = stateRoot ?? await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-control-"));
   await fsp.mkdir(root, { recursive: true });
   const serverId = randomBytes(16).toString("hex");
   const nonce = randomBytes(32).toString("hex");

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { CodexProConfig } from "./config.js";
+import type { CodexGPTConfig } from "./config.js";
 import type { Workspace } from "./guard.js";
 import { PathGuard } from "./guard.js";
 import { readTextFile, repoTree, ensureAiBridge } from "./fsOps.js";
@@ -197,7 +197,7 @@ async function findAgentsFilesInDir(workspace: Workspace, dir: string): Promise<
 }
 
 async function readAgentsChain(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   targetPath: string,
@@ -231,7 +231,7 @@ async function readAgentsChain(
 }
 
 export async function workspaceSummary(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   options: {
@@ -295,7 +295,7 @@ export async function workspaceSummary(
   };
 }
 
-export function readHandoffLimits(config: CodexProConfig): ReadHandoffLimits {
+export function readHandoffLimits(config: CodexGPTConfig): ReadHandoffLimits {
   const maxTotalBytes = Math.max(1, Math.min(Math.floor(config.maxOutputBytes), 240_000));
   const maxFileBytes = Math.max(
     1,
@@ -350,7 +350,7 @@ async function codexAgentCandidatesInDir(
 }
 
 async function readCodexAgentsChain(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   target: CodexContextTarget,
@@ -452,7 +452,7 @@ async function readCodexAgentsChain(
   };
 }
 
-export function waitForHandoffLimits(config: CodexProConfig): WaitForHandoffLimits {
+export function waitForHandoffLimits(config: CodexGPTConfig): WaitForHandoffLimits {
   return {
     maxStateBytes: Math.max(1, Math.min(Math.floor(config.maxReadBytes), 64_000)),
     maxArtifactBytes: Math.max(1, Math.min(Math.floor(config.maxReadBytes), 80_000)),
@@ -479,7 +479,7 @@ async function observedFileSize(absPath: string): Promise<number | null> {
 }
 
 export async function readHandoffRunState(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   maxStateBytes = waitForHandoffLimits(config).maxStateBytes
@@ -516,7 +516,7 @@ export async function readHandoffRunState(
 }
 
 export async function readWaitForHandoffArtifacts(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   requestedKinds: WaitForHandoffArtifactKind[],
@@ -623,7 +623,7 @@ export async function readWaitForHandoffArtifacts(
 }
 
 export async function readHandoffContext(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   limits: ReadHandoffLimits = readHandoffLimits(config)
@@ -757,7 +757,7 @@ export async function readHandoffContext(
 }
 
 export async function readAiBridgeContext(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   options: { createIfMissing?: boolean } = {}
@@ -836,7 +836,7 @@ export async function resolveCodexContextTarget(
 }
 
 export async function readCodexContext(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   options: {

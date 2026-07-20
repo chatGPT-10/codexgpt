@@ -9,7 +9,7 @@ import { PathGuard } from "../dist/guard.js";
 import { AtomicWorkspaceFs } from "../dist/transactions/index.js";
 
 async function withWorkspace(action) {
-  const temporaryRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-atomic-fs-"));
+  const temporaryRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-atomic-fs-"));
   const root = await fsp.realpath(temporaryRoot);
   const workspace = { id: "ws_fixture", root, openedAt: "2026-07-14T00:00:00.000Z" };
   const config = { blockedGlobs: ["**/blocked/**"], maxWriteBytes: 1024 * 1024 };
@@ -31,7 +31,7 @@ test("inspection hashes exact bytes and rejects unsafe target kinds", () => with
 
   await fsp.mkdir(path.join(root, "directory"));
   await assert.rejects(() => atomicFs.inspect("directory"));
-  await assert.rejects(() => atomicFs.inspect(".codexpro-txn-aaaaaaaaaaaaaaaa.stage"));
+  await assert.rejects(() => atomicFs.inspect(".codexgpt-txn-aaaaaaaaaaaaaaaa.stage"));
   await fsp.mkdir(path.join(root, "blocked"));
   await fsp.writeFile(path.join(root, "blocked", "x.txt"), "x");
   await assert.rejects(() => atomicFs.inspect("blocked/x.txt"));
@@ -47,7 +47,7 @@ test("inspection hashes exact bytes and rejects unsafe target kinds", () => with
 
 test("create staging is synced, verified, installed with no-clobber, and rolled back safely", () => withWorkspace(async ({ root, atomicFs }) => {
   const prepared = await atomicFs.stageCreate("op_create_a", "new.txt", Buffer.from("new\r\n", "utf8"));
-  assert.match(path.basename(prepared.stageAbsPath), /^\.codexpro-txn-[a-f0-9]{16}\.stage$/);
+  assert.match(path.basename(prepared.stageAbsPath), /^\.codexgpt-txn-[a-f0-9]{16}\.stage$/);
   assert.equal(await fsp.readFile(prepared.stageAbsPath, "utf8"), "new\r\n");
   const installed = await atomicFs.install(prepared);
   assert.equal(await fsp.readFile(path.join(root, "new.txt"), "utf8"), "new\r\n");

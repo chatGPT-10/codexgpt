@@ -10,7 +10,7 @@ import { LocalApprovalRuntimeV3 } from "../dist/control/runtime.js";
 import { PersistentAuditStore } from "../dist/audit/store.js";
 import { createStdioPolicySessionSource } from "../dist/policy/identity.js";
 import { policyIdentityScopes } from "../dist/policy/runtime.js";
-import { connectProductionCodexProServer, createProductionCodexProServer, disposeProductionCodexProServer } from "../dist/productionRuntime.js";
+import { connectProductionCodexGPTServer, createProductionCodexGPTServer, disposeProductionCodexGPTServer } from "../dist/productionRuntime.js";
 import { resolveTransactionStateRoot } from "../dist/transactions/stateRoot.js";
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
@@ -38,7 +38,7 @@ async function waitForFile(file) {
 }
 
 test("production V3 persistent process requires exact approval and remains locally terminable", { skip: process.platform !== "win32" }, async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-production-process-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-production-process-"));
   const home = path.join(root, "home");
   const workspace = path.join(root, "workspace");
   await fs.mkdir(path.join(home, "permissions"), { recursive: true });
@@ -47,20 +47,20 @@ test("production V3 persistent process requires exact approval and remains local
     schemaVersion: 3, id: "ambient", workspaceRoots: [workspace],
     fullAccess: { ambientFilesystem: true, ambientCredentials: true, ambientRegistry: true, unrestrictedNetwork: true, requireBlockedPathEnforcement: false, requireCredentialIsolation: false, requireRegistryIsolation: false, requireDeviceIsolation: false, requireNetworkEnforcement: false, requireSandbox: false }
   }));
-  const previous = Object.fromEntries(["CODEXPRO_HOME", "CODEXPRO_FILE_TRANSACTIONS", "CODEXPRO_AUDIT_MODE", "CODEXPRO_POLICY_ENGINE", "CODEXPRO_TOOL_CONTRACT_VERSION", "CODEXPRO_TOOL_MODE", "CODEXPRO_PERMISSION_PROFILE", "CODEXPRO_EXECUTION_PROFILE"].map((name) => [name, process.env[name]]));
-  Object.assign(process.env, { CODEXPRO_HOME: home, CODEXPRO_FILE_TRANSACTIONS: "atomic", CODEXPRO_AUDIT_MODE: "required", CODEXPRO_POLICY_ENGINE: "enforce", CODEXPRO_TOOL_CONTRACT_VERSION: "3", CODEXPRO_TOOL_MODE: "full", CODEXPRO_PERMISSION_PROFILE: "ambient", CODEXPRO_EXECUTION_PROFILE: "full_access" });
+  const previous = Object.fromEntries(["CODEXGPT_HOME", "CODEXGPT_FILE_TRANSACTIONS", "CODEXGPT_AUDIT_MODE", "CODEXGPT_POLICY_ENGINE", "CODEXGPT_TOOL_CONTRACT_VERSION", "CODEXGPT_TOOL_MODE", "CODEXGPT_PERMISSION_PROFILE", "CODEXGPT_EXECUTION_PROFILE"].map((name) => [name, process.env[name]]));
+  Object.assign(process.env, { CODEXGPT_HOME: home, CODEXGPT_FILE_TRANSACTIONS: "atomic", CODEXGPT_AUDIT_MODE: "required", CODEXGPT_POLICY_ENGINE: "enforce", CODEXGPT_TOOL_CONTRACT_VERSION: "3", CODEXGPT_TOOL_MODE: "full", CODEXGPT_PERMISSION_PROFILE: "ambient", CODEXGPT_EXECUTION_PROFILE: "full_access" });
   let registry; let auditStore; let approval; let server; let client;
   try {
     const config = loadConfig(["--root", workspace, "--allow-root", workspace, "--bash", "off", "--write", "workspace"]);
-    const stateRoot = resolveTransactionStateRoot({ env: { ...process.env, CODEXPRO_HOME: home } });
+    const stateRoot = resolveTransactionStateRoot({ env: { ...process.env, CODEXGPT_HOME: home } });
     registry = new ProcessInstanceRegistry(stateRoot);
     auditStore = PersistentAuditStore.open({ stateRoot, registry, retention: config.auditRetention });
     approval = await LocalApprovalRuntimeV3.start({ auditStore, stateBaseRoot: path.join(stateRoot, "control"), startNativeControl: false });
     const source = createStdioPolicySessionSource({ sessionId: "production-process-session", scopes: policyIdentityScopes(config) });
-    server = createProductionCodexProServer(config, { policySessionContextSource: source, localApprovalRuntimeV3: approval, stateRootOptions: { env: { ...process.env, CODEXPRO_HOME: home } } });
+    server = createProductionCodexGPTServer(config, { policySessionContextSource: source, localApprovalRuntimeV3: approval, stateRootOptions: { env: { ...process.env, CODEXGPT_HOME: home } } });
     const pair = InMemoryTransport.createLinkedPair();
     client = new Client({ name: "persistent-process-control", version: "1" });
-    await connectProductionCodexProServer(server, pair[1]);
+    await connectProductionCodexGPTServer(server, pair[1]);
     await client.connect(pair[0]);
     const args = { command: { kind: "argv", executable: process.execPath, args: ["-e", "setInterval(()=>{},1000)"] }, cwd: { kind: "absolute_local", path: workspace }, mode: "full_access", terminal: "pipes", lifetime_ms: 60_000 };
     const first = await client.callTool({ name: "start_process", arguments: args });
@@ -111,7 +111,7 @@ test("production V3 persistent process requires exact approval and remains local
     assert.equal(restartStarted.structuredContent.ok, true);
     await client.close();
     client = null;
-    await disposeProductionCodexProServer(server);
+    await disposeProductionCodexGPTServer(server);
     server = null;
     const afterClose = await approval.server.handle({ schemaVersion: 3, contractVersion: 3, operation: "processes.list", serverId: approval.serverId });
     assert.equal(afterClose.processes.length, 0, "restart restores no public process handle");
@@ -119,7 +119,7 @@ test("production V3 persistent process requires exact approval and remains local
     assert.equal(verified.some((entry) => entry.event.schemaVersion === 3 && entry.event.eventType === "process_lifecycle" && entry.event.transition === "user_terminated"), true);
   } finally {
     await client?.close().catch(() => {});
-    await disposeProductionCodexProServer(server).catch(() => {});
+    await disposeProductionCodexGPTServer(server).catch(() => {});
     await approval?.close().catch(() => {});
     auditStore?.dispose();
     registry?.dispose();

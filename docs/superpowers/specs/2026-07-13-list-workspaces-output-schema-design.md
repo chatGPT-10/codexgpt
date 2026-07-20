@@ -15,7 +15,7 @@ Migrate only the direct `list_workspaces` MCP tool to the established Phase 1 sc
 - one test-only workspace-list provider boundary;
 - focused contract tests;
 - nested Tool Card compatibility;
-- `codexpro` supertool compatibility;
+- `codexgpt` supertool compatibility;
 - exact fail-closed HTTP Smoke compatibility.
 
 This slice stabilizes the existing process-local workspace inventory. It does not redesign workspace identity, add ownership or expiry, add `close_workspace`, persist workspace sessions, require explicit workspace IDs, or begin Phase 2.
@@ -68,11 +68,11 @@ This would introduce shared workspace item types, random session IDs, ownership,
 
 **Rejected because:** it crosses into Phase 2, expands rollback scope, and changes semantics instead of first stabilizing the existing protocol.
 
-### Approach D — Combine `list_workspaces` with `codexpro_inventory`
+### Approach D — Combine `list_workspaces` with `codexgpt_inventory`
 
 Both are inventory-style tools.
 
-**Rejected because:** they inventory different domains. `list_workspaces` exposes process-local workspace state, while `codexpro_inventory` scans Skills and MCP configuration. Combining them violates the single-feature boundary.
+**Rejected because:** they inventory different domains. `list_workspaces` exposes process-local workspace state, while `codexgpt_inventory` scans Skills and MCP configuration. Combining them violates the single-feature boundary.
 
 ## 4. First-principles model
 
@@ -126,7 +126,7 @@ The migration preserves all of these semantics except the flat structured result
 - One injected `listWorkspacesProvider` boundary for tests.
 - Two stable non-retryable failures.
 - Nested Tool Card rendering plus historical flat fallback.
-- `codexpro` supertool direct-action compatibility.
+- `codexgpt` supertool direct-action compatibility.
 - Exact fail-closed in-memory migration of the protected HTTP Smoke consumer.
 - Focused, adjacent, complete, Build, Smoke, Stress, package, and diff verification.
 - Design, plan, CHANGELOG, AGENTS map, `Memory.md`, and active Phase 1 archive records.
@@ -134,7 +134,7 @@ The migration preserves all of these semantics except the flat structured result
 ### 6.2 Out of scope
 
 - `inspect_workspace`.
-- `codexpro_inventory`, `load_skill`, `read_handoff`, `codex_context`, or Pro-context tools.
+- `codexgpt_inventory`, `load_skill`, `read_handoff`, `codex_context`, or Pro-context tools.
 - `close_workspace`.
 - Workspace ownership, client isolation, expiry, persistence, or random session IDs.
 - Requiring explicit `workspace_id` in other tools.
@@ -155,8 +155,8 @@ The top-level result uses the established strict Phase 1 envelope:
 
 ```json
 {
-  "codexpro_tool": "list_workspaces",
-  "codexpro_title": "List Workspaces",
+  "codexgpt_tool": "list_workspaces",
+  "codexgpt_title": "List Workspaces",
   "ok": true,
   "data": {
     "workspaces": [],
@@ -311,7 +311,7 @@ The tool does not auto-open the default workspace. Empty-list success before any
 Preserve the current readable text:
 
 - non-empty list: one line per workspace using `id`, `root`, and `openedAt`;
-- empty list: `No workspaces opened on this CodexPro server/config yet. Call open_workspace first.`
+- empty list: `No workspaces opened on this CodexGPT server/config yet. Call open_workspace first.`
 
 Only structured output and failure handling become exact.
 
@@ -334,13 +334,13 @@ Requirements:
 - never read malformed failure data;
 - continue displaying IDs and roots for successful inventory entries.
 
-### 12.2 `codexpro` supertool
+### 12.2 `codexgpt` supertool
 
 A direct action call with `action: "list_workspaces"` must preserve:
 
-- `codexpro_tool: "list_workspaces"`;
-- `codexpro_title: "List Workspaces"`;
-- `codexpro_super_action: "list_workspaces"`;
+- `codexgpt_tool: "list_workspaces"`;
+- `codexgpt_title: "List Workspaces"`;
+- `codexgpt_super_action: "list_workspaces"`;
 - `wrapped_tool: "list_workspaces"`;
 - the exact nested `data`/`error`/`meta` envelope.
 

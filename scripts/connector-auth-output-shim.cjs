@@ -1,17 +1,17 @@
-const active = process.env.CODEXPRO_CONNECTOR_AUTH_OUTPUT_SHIM === '1';
-const previousNodeOptions = process.env.CODEXPRO_CONNECTOR_AUTH_PREVIOUS_NODE_OPTIONS;
+const active = process.env.CODEXGPT_CONNECTOR_AUTH_OUTPUT_SHIM === '1';
+const previousNodeOptions = process.env.CODEXGPT_CONNECTOR_AUTH_PREVIOUS_NODE_OPTIONS;
 
 if (previousNodeOptions) process.env.NODE_OPTIONS = previousNodeOptions;
 else delete process.env.NODE_OPTIONS;
-delete process.env.CODEXPRO_CONNECTOR_AUTH_OUTPUT_SHIM;
-delete process.env.CODEXPRO_CONNECTOR_AUTH_PREVIOUS_NODE_OPTIONS;
+delete process.env.CODEXGPT_CONNECTOR_AUTH_OUTPUT_SHIM;
+delete process.env.CODEXGPT_CONNECTOR_AUTH_PREVIOUS_NODE_OPTIONS;
 
 if (active) {
   const originalSet = URLSearchParams.prototype.set;
   let connectorToken = '';
 
   URLSearchParams.prototype.set = function set(name, value) {
-    if (String(name) === 'codexpro_token') {
+    if (String(name) === 'codexgpt_token') {
       connectorToken = String(value);
       return undefined;
     }
@@ -30,7 +30,7 @@ if (active) {
           '  2. Use the token-free Server URL above in a compatible MCP client and configure Authorization: Bearer with the token shown below.'
         )
         .replace(
-          '  POST /mcp -> 401 The full Server URL, including codexpro_token, was not used.',
+          '  POST /mcp -> 401 The full Server URL, including codexgpt_token, was not used.',
           '  POST /mcp -> 401 The Authorization: Bearer header was missing or invalid.'
         )
         .replace(

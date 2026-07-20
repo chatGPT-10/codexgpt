@@ -121,3 +121,43 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 - Rollback is a documentation-only revert of the files listed above. It must not alter temporary directories, run evidence, worktrees, credentials, audit state, managed toolchains, commits, or remote state.
 
 **Next step:** Keep STEP-363 and STEP-364 unstaged, uncommitted, and unpushed until the user explicitly requests publication. Do not start Phase 6 as part of documentation cleanup.
+
+
+## 2026-07-20 — STEP-365: Correct canonical project identity to CodexGPT
+
+**Status:** Implemented on the dedicated rename branch; pending pull-request exact-head CI.
+
+**Goal:** Correct the repository-wide canonical identity from the previous CodexPro naming to CodexGPT without silently rewriting append-only historical records.
+
+**Files changed:** All tracked active text surfaces containing the previous name, plus every active tracked filename containing it. Historical files below `docs/memory/archive/` remain byte-preserved except for this appended correction entry.
+
+**Implementation summary:**
+
+- Renamed the npm package, executable commands, environment-variable namespace, local state and temporary prefixes, MCP tool names, source modules, test files, documentation filenames, URLs, labels, and user-facing instructions to CodexGPT.
+- Renamed active tracked paths atomically with `git mv`, then updated all active textual references so imports, scripts, contracts, fixtures, and documentation remain aligned.
+- Added an active-tree residual-name gate and retained complete Ubuntu/Windows Node 20/24 pull-request CI as the publication gate.
+- This is an intentional breaking identity migration. Existing package names, commands, variables, profile/state directories, and cached MCP descriptors must be recreated or migrated under the CodexGPT namespace.
+
+**Verification:**
+
+- Generation automation passed UTF-8 residual scanning and TypeScript build before committing the branch change.
+- Pull-request CI must pass Repository policy and the Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix; diff integrity is repaired and rechecked on the materialized branch before merge.
+
+**Risks and limitations:**
+
+- The canonical rename intentionally breaks consumers that still invoke the previous npm package, binaries, environment variables, state paths, or MCP tool names.
+- The local checkout directory itself is outside repository version control and is not renamed by this GitHub change.
+- Historical archive entries retain the name that was accurate when those entries were written; this correction entry is the authoritative transition record.
+
+**Rollback:** Revert the STEP-365 commit. Do not partially restore mixed namespaces.
+
+**Next step:** Require the complete runtime matrix, repair only concrete rename regressions, and merge after exact-head success.
+
+
+**Adversarial verification addendum:**
+
+- The materialized branch exposed rename-induced integrity drift rather than runtime feature drift: three manifest-bound native-host file hashes, one semantic native-API inventory digest, and six exact mutation-review call digests changed because the canonical namespace changed inside reviewed source strings.
+- Updated only those derived authorities after inspecting each affected source operation. Repository policy then passed, and the focused naming/authentication/package/operational/native-host/mutation suite passed 63/63.
+- Active tracked paths and UTF-8 text outside append-only archives contain no residual previous project identifier. `git diff --check`, TypeScript build, isolated settings Smoke, and the 521-entry `codexgpt@0.28.6` package dry-run passed.
+- A combined local Smoke run passed analysis, analysis CLI, protected main, HTTP, Pro CLI, and doctor components before one settings runtime-status timeout. The isolated settings Smoke immediately passed; the complete exact-head CI matrix remains required to distinguish local timing noise from a portable defect.
+- The first final-head Ubuntu Node 24 regression exposed only frozen V1 descriptor/call hashes and protected Smoke source hashes that still represented the previous namespace. Updated those exact hashes from observed canonical CodexGPT descriptors, normalized server-config payloads, and LF-normalized protected sources; tool names, counts, envelopes, and runtime behavior remained unchanged.

@@ -17,7 +17,7 @@ function sha(value) {
 }
 
 async function withTempWorkspace(action) {
-  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-phase3d-move-")));
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-phase3d-move-")));
   const workspace = { id: "ws_phase3d", root, openedAt: new Date(0).toISOString() };
   try {
     return await action({ root, workspace });
@@ -28,7 +28,7 @@ async function withTempWorkspace(action) {
 
 function planner(overrides = {}) {
   return new MovePlanner({
-    blockedGlobs: [".git/**", ".codexpro-txn-**"],
+    blockedGlobs: [".git/**", ".codexgpt-txn-**"],
     moveMaxFileBytes: 64 * 1024 * 1024,
     moveMaxTotalBytes: 256 * 1024 * 1024,
     moveHashConcurrency: 4,
@@ -167,7 +167,7 @@ function manifestV2(overrides = {}) {
       sourceExistingParentIdentity: "parent_" + "4".repeat(24),
       destinationExistingParentRelativePath: ".",
       destinationExistingParentIdentity: "parent_" + "4".repeat(24),
-      stageRelativePath: ".codexpro-txn-1234567890abcdef.move",
+      stageRelativePath: ".codexgpt-txn-1234567890abcdef.move",
       objectIdentity: { device: "1", fileId: "2" },
       version: { sha256: "a".repeat(64), bytes: 1, mode: 420, atimeMs: 1, mtimeMs: 1, ctimeMs: 1 }
     }],
@@ -185,7 +185,7 @@ function manifestV2(overrides = {}) {
 }
 
 test("Manifest V2 is strict authenticated monotonic and coexists with V1 enumeration", () => {
-  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-phase3d-manifest-"));
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-phase3d-manifest-"));
   const key = Buffer.alloc(32, 7);
   const v2 = new TransactionManifestV2Store(stateRoot, key);
   try {

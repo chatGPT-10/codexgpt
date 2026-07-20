@@ -38,7 +38,7 @@ export function taskRemovalQuarantinePaths(input: {
   worktreePath: string;
   adminDir: string;
 }): { worktreeQuarantine: string; adminQuarantine: string; adminParent: string } {
-  const suffix = `.${input.taskWorktreeId}.codexpro-removing`;
+  const suffix = `.${input.taskWorktreeId}.codexgpt-removing`;
   const adminParent = path.dirname(input.adminDir);
   return {
     worktreeQuarantine: path.join(input.managedRoot, `${path.basename(input.worktreePath)}${suffix}`),

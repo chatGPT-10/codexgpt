@@ -362,7 +362,7 @@ export class TaskWorktreeMergePrepareV4 {
       }
     }
 
-    const message = finalize?.review.message ?? input.message ?? "Merge CodexPro task worktree";
+    const message = finalize?.review.message ?? input.message ?? "Merge CodexGPT task worktree";
     if (!message.trim() || hasSecretValue(message) || Buffer.byteLength(message, "utf8") > 16 * 1024) {
       throw new Error("GIT_SECRET_BLOCKED");
     }
@@ -563,7 +563,7 @@ export class TaskWorktreeMergePrepareV4 {
         });
       }
       const review = finalize.review;
-      const candidateRef = `refs/codexpro/candidates/${input.taskWorktreeId.slice(5)}-${sha256Git(finalize.reviewToken).slice(0, 16)}`;
+      const candidateRef = `refs/codexgpt/candidates/${input.taskWorktreeId.slice(5)}-${sha256Git(finalize.reviewToken).slice(0, 16)}`;
       const plan = this.options.plans.create({
         mergePlanId: this.options.plans.allocateId(),
         lifecycleState: "preparing",

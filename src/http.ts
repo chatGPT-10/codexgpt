@@ -7,7 +7,7 @@ import cors from "cors";
 import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { expandHome, loadConfig, type CodexProConfig } from "./config.js";
+import { expandHome, loadConfig, type CodexGPTConfig } from "./config.js";
 import { createHttpPolicySessionSource, loadOrCreateIdentityKey } from "./policy/identity.js";
 import { policyIdentityScopes } from "./policy/runtime.js";
 import { acceptedAuthenticationMode, type AcceptedHttpAuthenticationMode } from "./policy/transport.js";
@@ -23,9 +23,9 @@ import {
 } from "./profileStore.js";
 import { redactSensitiveText, redactStructured } from "./redact.js";
 import {
-  connectProductionCodexProServer,
-  createProductionCodexProServer,
-  disposeProductionCodexProServer
+  connectProductionCodexGPTServer,
+  createProductionCodexGPTServer,
+  disposeProductionCodexGPTServer
 } from "./productionRuntime.js";
 import { createProductionGitBootstrapV4 } from "./git/productionBootstrap.js";
 import { resolveTransactionStateRoot } from "./transactions/stateRoot.js";
@@ -129,10 +129,10 @@ function oneOf<T extends readonly string[]>(value: unknown, values: T, fallback:
 }
 
 function runtimeTunnelFallback(): TunnelMode {
-  if (process.env.CODEXPRO_TUNNEL && TUNNELS.includes(process.env.CODEXPRO_TUNNEL as TunnelMode)) {
-    return process.env.CODEXPRO_TUNNEL as TunnelMode;
+  if (process.env.CODEXGPT_TUNNEL && TUNNELS.includes(process.env.CODEXGPT_TUNNEL as TunnelMode)) {
+    return process.env.CODEXGPT_TUNNEL as TunnelMode;
   }
-  return process.env.CODEXPRO_TUNNEL_MODE === "0" ? "none" : "cloudflare";
+  return process.env.CODEXGPT_TUNNEL_MODE === "0" ? "none" : "cloudflare";
 }
 
 function normalizePublicHostname(value: string | undefined): string {
@@ -170,14 +170,14 @@ function normalizeProfilePath(root: string, value: string | undefined): string {
     : path.resolve(root, expanded);
 }
 
-function profileValues(config: CodexProConfig, profile = readWorkspaceProfile(config.defaultRoot)): ProfileFormValues {
+function profileValues(config: CodexGPTConfig, profile = readWorkspaceProfile(config.defaultRoot)): ProfileFormValues {
   const hostname =
     profile.hostname ??
-    process.env.CODEXPRO_PUBLIC_HOSTNAME ??
-    process.env.CODEXPRO_HOSTNAME ??
+    process.env.CODEXGPT_PUBLIC_HOSTNAME ??
+    process.env.CODEXGPT_HOSTNAME ??
     process.env.NGROK_DOMAIN ??
     "";
-  const mode = oneOf(profile.mode ?? process.env.CODEXPRO_MODE, MODES, "agent");
+  const mode = oneOf(profile.mode ?? process.env.CODEXGPT_MODE, MODES, "agent");
   const write = effectiveWriteMode(mode, oneOf(profile.write ?? config.writeMode, WRITE_MODES, config.writeMode));
   return {
     port: String(profile.port ?? config.port),
@@ -242,7 +242,7 @@ function serverUrlDisplay(endpoint: string | undefined, authEnabled: boolean): s
   const safeEndpoint = redactSensitiveText(endpoint);
   if (!authEnabled) return safeEndpoint;
   const glue = safeEndpoint.includes("?") ? "&" : "?";
-  return `${safeEndpoint}${glue}codexpro_token=<redacted>`;
+  return `${safeEndpoint}${glue}codexgpt_token=<redacted>`;
 }
 
 function currentTunnelMessage(tunnel: TunnelMode, endpoint: string): string {
@@ -254,13 +254,13 @@ function currentTunnelMessage(tunnel: TunnelMode, endpoint: string): string {
     return "Local-only endpoint for clients that can reach this machine.";
   }
   if (tunnel === "cloudflare") return "Cloudflare quick tunnels print a generated URL after the tunnel opens.";
-  if (tunnel === "ngrok") return "Enter your reserved ngrok domain, or set NGROK_DOMAIN before starting CodexPro.";
+  if (tunnel === "ngrok") return "Enter your reserved ngrok domain, or set NGROK_DOMAIN before starting CodexGPT.";
   if (tunnel === "cloudflare-named") return "Enter the Cloudflare hostname routed to your named tunnel.";
   if (tunnel === "tailscale") return "Enter the Tailscale Funnel hostname for this device, for example machine.tailnet.ts.net.";
   return "No public tunnel is saved; local MCP clients can use the local URL.";
 }
 
-function profileForm(config: CodexProConfig): string {
+function profileForm(config: CodexGPTConfig): string {
   const profile = readWorkspaceProfile(config.defaultRoot);
   const values = profileValues(config, profile);
   const runtime = readRuntimeConnection(config.defaultRoot);
@@ -273,8 +273,8 @@ function profileForm(config: CodexProConfig): string {
   const savedUrl = serverUrlDisplay(savedEndpoint, Boolean(config.authToken));
   const ngrokHostname = process.env.NGROK_DOMAIN ?? (values.tunnel === "ngrok" ? values.hostname : "");
   const cloudflareHostname =
-    process.env.CODEXPRO_PUBLIC_HOSTNAME ??
-    process.env.CODEXPRO_HOSTNAME ??
+    process.env.CODEXGPT_PUBLIC_HOSTNAME ??
+    process.env.CODEXGPT_HOSTNAME ??
     (values.tunnel === "cloudflare-named" ? values.hostname : "");
   const currentUrlBlock = runtimeUrl
     ? `<div class="current-url">
@@ -346,12 +346,12 @@ function profileForm(config: CodexProConfig): string {
           <button type="submit" class="primary">Save profile</button>
           <span class="mono">${escapeHtml(profilePath)}</span>
         </div>
-        <p class="note" data-profile-status>Tokens stay hidden. Restart CodexPro for saved profile changes to apply.</p>
+        <p class="note" data-profile-status>Tokens stay hidden. Restart CodexGPT for saved profile changes to apply.</p>
       </form>
     </section>`;
 }
 
-function buildProfilePayload(config: CodexProConfig, existing: WorkspaceProfile, input: AdminProfilePatch): WorkspaceProfile {
+function buildProfilePayload(config: CodexGPTConfig, existing: WorkspaceProfile, input: AdminProfilePatch): WorkspaceProfile {
   const current = profileValues(config, existing);
   const next: ProfileFormValues = {
     ...current,
@@ -404,7 +404,7 @@ function buildProfilePayload(config: CodexProConfig, existing: WorkspaceProfile,
   };
 }
 
-function profileResponse(config: CodexProConfig): Record<string, unknown> {
+function profileResponse(config: CodexGPTConfig): Record<string, unknown> {
   const profile = readWorkspaceProfile(config.defaultRoot);
   const runtime = readRuntimeConnection(config.defaultRoot);
   return redactStructured({
@@ -443,41 +443,41 @@ const LOCAL_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 6
   <rect x="8" y="8" width="48" height="48" rx="12" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".38"/>
   <path d="M38.4 40.3c-1.8 1.1-3.9 1.7-6.3 1.7-6.1 0-10.3-4.2-10.3-10s4.2-10 10.4-10c2.4 0 4.5.6 6.2 1.7l-2.1 4.1c-1.1-.7-2.3-1-3.8-1-2.9 0-4.9 2.1-4.9 5.2s2 5.2 4.9 5.2c1.5 0 2.8-.4 3.9-1.1l2 4.2Z" fill="#ffffff"/>
 </svg>`;
-const CODEXPRO_VERSION = "0.28.6";
+const CODEXGPT_VERSION = "0.28.6";
 
 function printHelp(): void {
-  console.log(`CodexPro MCP HTTP server
+  console.log(`CodexGPT MCP HTTP server
 
 Usage:
-  codexpro-mcp-http --root /path/to/repo --port 8787
-  codexpro-mcp-http --version
-  codexpro-mcp-http --help
+  codexgpt-mcp-http --root /path/to/repo --port 8787
+  codexgpt-mcp-http --version
+  codexgpt-mcp-http --help
 
-Set CODEXPRO_HTTP_TOKEN for public/tunnel use.
-For trusted local-only testing, set CODEXPRO_ALLOW_NO_HTTP_TOKEN=1.
-Most users should run: codexpro start`);
+Set CODEXGPT_HTTP_TOKEN for public/tunnel use.
+For trusted local-only testing, set CODEXGPT_ALLOW_NO_HTTP_TOKEN=1.
+Most users should run: codexgpt start`);
 }
 
-function onboardingPage(config: CodexProConfig): string {
+function onboardingPage(config: CodexGPTConfig): string {
   const localMcp = `http://${config.host}:${config.port}/mcp`;
-  const localMcpDisplay = config.authToken ? `${localMcp}?codexpro_token=<redacted>` : localMcp;
+  const localMcpDisplay = config.authToken ? `${localMcp}?codexgpt_token=<redacted>` : localMcp;
   const allowedRoots = config.allowedRoots.map((root) => `<li>${escapeHtml(root)}</li>`).join("");
   const authLabel = config.authToken ? "Token protected" : "Disabled";
   const writeTone = config.writeMode === "workspace" ? "agent" : config.writeMode;
   const rootArg = shellQuote(config.defaultRoot);
   const sessionArg = shellQuote(config.bashSessionId || "main");
   const githubUrl = "https://github.com/chatGPT-10/codexgpt";
-  const npmUrl = "https://www.npmjs.com/package/codexpro";
-  const docsUrl = "https://rebel0789.github.io/codexpro/";
+  const npmUrl = "https://www.npmjs.com/package/codexgpt";
+  const docsUrl = "https://rebel0789.github.io/codexgpt/";
   const chatgptUrl = "https://chatgpt.com/#settings/Connectors";
   const controls = [
-    copyCommand("Re-run setup wizard", "Use the CLI for broader profile edits that are intentionally not exposed here.", "codexpro setup"),
+    copyCommand("Re-run setup wizard", "Use the CLI for broader profile edits that are intentionally not exposed here.", "codexgpt setup"),
     copyCommand("Copy local MCP URL", "Useful for a local MCP client. ChatGPT usually needs the public tunnel URL copied by the terminal.", localMcp, localMcpDisplay, "local-mcp"),
-    copyCommand("Start without bash", "Restart with file tools but no ChatGPT-triggered bash tool.", `codexpro start --root ${rootArg} --no-bash`),
-    copyCommand("Require explicit bash target", "Restart so bash calls must include this matching session_id.", `codexpro start --root ${rootArg} --bash-session ${sessionArg} --require-bash-session`),
-    copyCommand("Show Codex session list", "Restart with read-only local Codex session metadata in full tool mode.", `codexpro start --root ${rootArg} --tool-mode full --codex-sessions metadata`),
-    copyCommand("Read Codex transcripts", "Restart with bounded local transcript reads from Codex JSONL history.", `codexpro start --root ${rootArg} --tool-mode full --codex-sessions read`),
-    copyCommand("Use full bash transcript", "Restart with the raw stdout/stderr transcript instead of compact tool cards.", `codexpro start --root ${rootArg} --bash-transcript full`)
+    copyCommand("Start without bash", "Restart with file tools but no ChatGPT-triggered bash tool.", `codexgpt start --root ${rootArg} --no-bash`),
+    copyCommand("Require explicit bash target", "Restart so bash calls must include this matching session_id.", `codexgpt start --root ${rootArg} --bash-session ${sessionArg} --require-bash-session`),
+    copyCommand("Show Codex session list", "Restart with read-only local Codex session metadata in full tool mode.", `codexgpt start --root ${rootArg} --tool-mode full --codex-sessions metadata`),
+    copyCommand("Read Codex transcripts", "Restart with bounded local transcript reads from Codex JSONL history.", `codexgpt start --root ${rootArg} --tool-mode full --codex-sessions read`),
+    copyCommand("Use full bash transcript", "Restart with the raw stdout/stderr transcript instead of compact tool cards.", `codexgpt start --root ${rootArg} --bash-transcript full`)
   ].join("");
   return `<!doctype html>
 <html lang="en">
@@ -485,7 +485,7 @@ function onboardingPage(config: CodexProConfig): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="/favicon.ico">
-  <title>CodexPro Local Control - ChatGPT Workspace Agent</title>
+  <title>CodexGPT Local Control - ChatGPT Workspace Agent</title>
   <style>
     /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 */
     /* Hallmark · macrostructure: Workbench · genre: modern-minimal · theme: CC Switch-inspired light manager · tone: technical admin · nav: section switcher · footer: Ft2 · contrast: pass (40-41) · mobile: pass (34, 49, 50-57) */
@@ -1246,10 +1246,10 @@ function onboardingPage(config: CodexProConfig): string {
         <span class="logo" aria-hidden="true"><img src="/favicon.ico" alt=""></span>
         <span>
           <span class="brand-kicker">Workspace control</span>
-          <span class="brand-title">CodexPro</span>
+          <span class="brand-title">CodexGPT</span>
         </span>
       </div>
-      <nav class="quick-links" aria-label="CodexPro resources">
+      <nav class="quick-links" aria-label="CodexGPT resources">
         <a class="action-link primary-link" href="${chatgptUrl}" target="_blank" rel="noreferrer">Open ChatGPT settings</a>
         <a class="resource-link" href="${githubUrl}" target="_blank" rel="noreferrer">Open GitHub</a>
         <a class="resource-link" href="${npmUrl}" target="_blank" rel="noreferrer">NPM</a>
@@ -1277,7 +1277,7 @@ function onboardingPage(config: CodexProConfig): string {
             <div class="guide-item"><span class="num">1</span><span><strong>Review the profile</strong><p>Choose the tunnel, port, mode, bash, write, tool, Codex session, and workspace defaults for the next launch.</p></span></div>
             <div class="guide-item"><span class="num">2</span><span><strong>Copy the Server URL</strong><p>Use the current public URL shown in the profile when available, or the one printed by the terminal after launch.</p></span></div>
             <div class="guide-item"><span class="num">3</span><span><strong>Create the ChatGPT app</strong><p>Choose Server URL, paste the copied URL, and use no extra authentication. The private token is already in the URL.</p></span></div>
-            <div class="guide-item"><span class="num">4</span><span><strong>Restart for policy changes</strong><p>Saved profile changes apply when CodexPro starts again. The live server does not mutate under an active ChatGPT session.</p></span></div>
+            <div class="guide-item"><span class="num">4</span><span><strong>Restart for policy changes</strong><p>Saved profile changes apply when CodexGPT starts again. The live server does not mutate under an active ChatGPT session.</p></span></div>
           </div>
         </section>
         <article class="run-card" id="status" aria-label="Current runtime">
@@ -1308,7 +1308,7 @@ function onboardingPage(config: CodexProConfig): string {
         <ol class="steps">
           <li><span class="num">1</span><span>Open ChatGPT settings and create an app connection.</span></li>
           <li><span class="num">2</span><span>Set Connection to <code>Server URL</code>.</span></li>
-          <li><span class="num">3</span><span>Paste the public CodexPro URL from the terminal.</span></li>
+          <li><span class="num">3</span><span>Paste the public CodexGPT URL from the terminal.</span></li>
           <li><span class="num">4</span><span>Use <code>No Authentication / None</code>; the private token is already in the copied URL.</span></li>
         </ol>
         <p class="note"><a class="action-link" href="${chatgptUrl}" target="_blank" rel="noreferrer">Open ChatGPT settings</a></p>
@@ -1337,7 +1337,7 @@ function onboardingPage(config: CodexProConfig): string {
     <details class="panel details-panel">
       <summary>Allowed roots</summary>
       <ul class="roots">${allowedRoots}</ul>
-      <p class="note">CodexPro rejects workspace access outside these roots.</p>
+      <p class="note">CodexGPT rejects workspace access outside these roots.</p>
     </details>
     <footer class="foot">Token-protected local control surface for this workspace. Public sharing still happens only through your chosen tunnel.</footer>
   </main>
@@ -1348,13 +1348,13 @@ function onboardingPage(config: CodexProConfig): string {
         if (button.getAttribute("data-copy-kind") === "local-mcp") {
           const base = button.getAttribute("data-copy-base") || value;
           const params = new URLSearchParams(window.location.search);
-          const token = params.get("codexpro_token") || params.get("token") || "";
-          value = token ? base + "?codexpro_token=" + encodeURIComponent(token) : base;
+          const token = params.get("codexgpt_token") || params.get("token") || "";
+          value = token ? base + "?codexgpt_token=" + encodeURIComponent(token) : base;
         } else if (button.getAttribute("data-copy-kind") === "server-url") {
           const base = button.getAttribute("data-copy-base") || value;
           const params = new URLSearchParams(window.location.search);
-          const token = params.get("codexpro_token") || params.get("token") || "";
-          value = token ? base + "?codexpro_token=" + encodeURIComponent(token) : base;
+          const token = params.get("codexgpt_token") || params.get("token") || "";
+          value = token ? base + "?codexgpt_token=" + encodeURIComponent(token) : base;
         }
         try {
           await navigator.clipboard.writeText(value);
@@ -1373,7 +1373,7 @@ function onboardingPage(config: CodexProConfig): string {
     function serverPreviewFor(hostname) {
       const clean = String(hostname || "").trim().replace(/^https?:\\/\\//, "").replace(/\\/mcp\\/?$/, "").replace(/\\/+$/, "");
       if (!clean) return "";
-      return "https://" + clean + "/mcp" + (tokenEnabled ? "?codexpro_token=<redacted>" : "");
+      return "https://" + clean + "/mcp" + (tokenEnabled ? "?codexgpt_token=<redacted>" : "");
     }
     function updateTunnelHelp() {
       if (!tunnelSelect || !hostnameInput || !hostnameHelp) return;
@@ -1445,7 +1445,7 @@ function onboardingPage(config: CodexProConfig): string {
           });
           const result = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(result.error?.message || "Save failed");
-          if (status) status.textContent = "Saved. Restart CodexPro for these profile settings to apply.";
+          if (status) status.textContent = "Saved. Restart CodexGPT for these profile settings to apply.";
         } catch (error) {
           if (status) status.textContent = error instanceof Error ? error.message : "Save failed";
         }
@@ -1459,7 +1459,7 @@ function onboardingPage(config: CodexProConfig): string {
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   if (argv.includes("--version") || argv.includes("-v") || argv[0] === "version") {
-    console.log(CODEXPRO_VERSION);
+    console.log(CODEXGPT_VERSION);
     return;
   }
   if (argv.includes("--help") || argv[0] === "help") {
@@ -1470,18 +1470,18 @@ async function main(): Promise<void> {
   const config = loadConfig();
   if (config.requireHttpToken && !config.authToken) {
     throw new Error(
-      "CODEXPRO_HTTP_TOKEN is required for this HTTP binding. " +
-        "Set CODEXPRO_HTTP_TOKEN, use `codexpro start` to generate one, " +
-        "or set CODEXPRO_ALLOW_NO_HTTP_TOKEN=1 only for a trusted local-only setup."
+      "CODEXGPT_HTTP_TOKEN is required for this HTTP binding. " +
+        "Set CODEXGPT_HTTP_TOKEN, use `codexgpt start` to generate one, " +
+        "or set CODEXGPT_ALLOW_NO_HTTP_TOKEN=1 only for a trusted local-only setup."
     );
   }
 
   if (config.allowQueryToken) {
-    console.error("[CodexPro] Warning: personal query-token compatibility is enabled. Treat the complete URL as a secret; it may leak through browser history, clipboard contents, screenshots, logs, and copied links.");
+    console.error("[CodexGPT] Warning: personal query-token compatibility is enabled. Treat the complete URL as a secret; it may leak through browser history, clipboard contents, screenshots, logs, and copied links.");
   }
 
   const app = express();
-  const logRequests = process.env.CODEXPRO_LOG_REQUESTS === "1";
+  const logRequests = process.env.CODEXGPT_LOG_REQUESTS === "1";
 
   function tokenMatches(value: unknown): boolean {
     if (!config.authToken || typeof value !== "string") return false;
@@ -1548,9 +1548,9 @@ async function main(): Promise<void> {
       return;
     }
     const started = Date.now();
-    console.error(`[CodexPro] ${req.method} ${req.path} received`);
+    console.error(`[CodexGPT] ${req.method} ${req.path} received`);
     res.on("finish", () => {
-      console.error(`[CodexPro] ${req.method} ${req.path} -> ${res.statusCode} ${Date.now() - started}ms`);
+      console.error(`[CodexGPT] ${req.method} ${req.path} -> ${res.statusCode} ${Date.now() - started}ms`);
     });
     next();
   });
@@ -1582,7 +1582,7 @@ async function main(): Promise<void> {
     if (!config.allowQueryToken && req.url.includes("?")) {
       const parsed = new URL(req.url, "http://localhost");
       const hasQueryCredential =
-        parsed.searchParams.has("codexpro_" + "token") || parsed.searchParams.has("token");
+        parsed.searchParams.has("codexgpt_" + "token") || parsed.searchParams.has("token");
       if (hasQueryCredential) {
         const bearer = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
         if (!tokenMatches(bearer)) {
@@ -1595,13 +1595,13 @@ async function main(): Promise<void> {
   });
   app.use((req, res, next) => {
     if (!config.authToken) {
-      res.locals.codexproAuthenticationMode = "loopback_none" satisfies AcceptedHttpAuthenticationMode;
+      res.locals.codexgptAuthenticationMode = "loopback_none" satisfies AcceptedHttpAuthenticationMode;
       next();
       return;
     }
     const bearer = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-    const queryToken = typeof req.query.codexpro_token === "string"
-      ? req.query.codexpro_token
+    const queryToken = typeof req.query.codexgpt_token === "string"
+      ? req.query.codexgpt_token
       : typeof req.query.token === "string"
         ? req.query.token
         : undefined;
@@ -1611,7 +1611,7 @@ async function main(): Promise<void> {
       res.status(401).send("Unauthorized");
       return;
     }
-    res.locals.codexproAuthenticationMode = acceptedAuthenticationMode({
+    res.locals.codexgptAuthenticationMode = acceptedAuthenticationMode({
       authConfigured: true,
       bearerMatched,
       queryMatched
@@ -1690,7 +1690,7 @@ async function main(): Promise<void> {
   app.get("/healthz", (_req, res) => {
     res.json({
       ok: true,
-      name: "CodexPro",
+      name: "CodexGPT",
       defaultRoot: config.defaultRoot,
       allowedRoots: config.allowedRoots,
       bashMode: config.bashMode,
@@ -1725,7 +1725,7 @@ async function main(): Promise<void> {
         ...profileResponse(config),
         saved: true,
         profile_path: profilePath,
-        message: "Saved. Restart CodexPro for these profile settings to apply."
+        message: "Saved. Restart CodexGPT for these profile settings to apply."
       });
     } catch (error) {
       jsonError(res, 400, "invalid_profile", error instanceof Error ? error.message : String(error));
@@ -1758,11 +1758,11 @@ async function main(): Promise<void> {
           }
         } as any);
 
-        let sessionServer: ReturnType<typeof createProductionCodexProServer> | undefined;
+        let sessionServer: ReturnType<typeof createProductionCodexGPTServer> | undefined;
         (transport as any).onclose = () => {
           const closedSessionId = (transport as any).sessionId;
           if (closedSessionId) transports.delete(closedSessionId);
-          if (sessionServer) disposeProductionCodexProServer(sessionServer);
+          if (sessionServer) disposeProductionCodexGPTServer(sessionServer);
         };
 
         const policyEngineMode = config.policyEngineMode ?? "legacy";
@@ -1770,7 +1770,7 @@ async function main(): Promise<void> {
           config.toolContractVersion === 4 ||
           policyEngineMode !== "legacy" ||
           (config.fileTransactions === "atomic" && config.writeMode !== "off");
-        const authenticationMode = (res.locals.codexproAuthenticationMode ?? "loopback_none") as AcceptedHttpAuthenticationMode;
+        const authenticationMode = (res.locals.codexgptAuthenticationMode ?? "loopback_none") as AcceptedHttpAuthenticationMode;
         const policySessionContextSource = needsSessionContext
           ? createHttpPolicySessionSource({
               authenticationMode,
@@ -1784,7 +1784,7 @@ async function main(): Promise<void> {
           stateRoot: resolveTransactionStateRoot()
         });
         try {
-          sessionServer = createProductionCodexProServer(config, {
+          sessionServer = createProductionCodexGPTServer(config, {
             policySessionContextSource,
             gitBootstrapV4: gitBootstrapV4 ?? undefined
           });
@@ -1792,7 +1792,7 @@ async function main(): Promise<void> {
           await gitBootstrapV4?.dispose();
           throw error;
         }
-        await connectProductionCodexProServer(sessionServer, transport);
+        await connectProductionCodexGPTServer(sessionServer, transport);
       } else {
         sendSessionError(res, sessionId);
         return;
@@ -1804,7 +1804,7 @@ async function main(): Promise<void> {
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",
-          error: { code: -32603, message: "Internal CodexPro MCP error. Check the local terminal for details." },
+          error: { code: -32603, message: "Internal CodexGPT MCP error. Check the local terminal for details." },
           id: null
         });
       }
@@ -1859,12 +1859,12 @@ async function main(): Promise<void> {
   });
 
   app.listen(config.port, config.host, () => {
-    console.error(`[CodexPro] HTTP MCP listening on http://${config.host}:${config.port}/mcp`);
-    console.error(`[CodexPro] defaultRoot=${config.defaultRoot}`);
-    console.error(`[CodexPro] allowedRoots=${config.allowedRoots.join(", ")}`);
-    console.error(`[CodexPro] bashMode=${config.bashMode}`);
-    console.error(`[CodexPro] writeMode=${config.writeMode}`);
-    console.error(`[CodexPro] widgetDomain=${config.widgetDomain}`);
+    console.error(`[CodexGPT] HTTP MCP listening on http://${config.host}:${config.port}/mcp`);
+    console.error(`[CodexGPT] defaultRoot=${config.defaultRoot}`);
+    console.error(`[CodexGPT] allowedRoots=${config.allowedRoots.join(", ")}`);
+    console.error(`[CodexGPT] bashMode=${config.bashMode}`);
+    console.error(`[CodexGPT] writeMode=${config.writeMode}`);
+    console.error(`[CodexGPT] widgetDomain=${config.widgetDomain}`);
   });
 }
 

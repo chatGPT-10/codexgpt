@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const sessionModule = await tsImport("../src/codexSessions.ts", import.meta.url);
 const schemaModule = await tsImport("../src/tools/schemas/codexSessions.ts", import.meta.url).catch(() => null);
@@ -120,7 +120,7 @@ async function withTempWorkspace(callback) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "codex-sessions-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -304,10 +304,10 @@ test("codex_sessions schema exports the exact envelope and eighteen-field succes
 
     const success = createCodexSessionsSuccess(sampleData(root), 7);
     assert.deepEqual(Object.keys(success).sort(), [
-      "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+      "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
     ]);
-    assert.equal(success.codexpro_tool, "codex_sessions");
-    assert.equal(success.codexpro_title, "Codex Sessions");
+    assert.equal(success.codexgpt_tool, "codex_sessions");
+    assert.equal(success.codexgpt_title, "Codex Sessions");
     assert.equal(success.ok, true);
     assert.equal(success.error, null);
     assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
@@ -420,7 +420,7 @@ test("codex_sessions visibility remains opt-in across tool modes and advertises 
         assert.equal(descriptor.inputSchema.properties.max_sessions.maximum, 200);
         assert.equal(descriptor.inputSchema.properties.query.maxLength, 500);
         assert.deepEqual(descriptor.outputSchema.required, [
-          "codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"
+          "codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"
         ]);
         const advertisedData = descriptor.outputSchema.properties.data.anyOf.find(
           (candidate) => candidate.type === "object"
@@ -757,7 +757,7 @@ test("codex_sessions Tool Card is nested-only and bounds visible session rows", 
     /function renderCodexSessions\(data\) \{[\s\S]*?\n  \}/
   )?.[0] ?? "";
   assert.match(toolCardWidgetHtml, /codex_sessions: "Codex sessions"/);
-  assert.match(helper, /data\?\.codexpro_tool === "codex_sessions"/);
+  assert.match(helper, /data\?\.codexgpt_tool === "codex_sessions"/);
   assert.match(helper, /return nested \? data\.data : \{\}/);
   assert.doesNotMatch(helper, /data \?\? \{\}/);
   assert.match(renderer, /sessions\.slice\(0, 12\)/);

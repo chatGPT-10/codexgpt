@@ -33,7 +33,7 @@ function alive(pid) {
 }
 
 test("detached runner stops only the exact recorded process tree and reports stopped state", { skip: process.platform !== "win32" }, async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-stop-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-stop-test-"));
   try {
     const started = await execute([
       "start",
@@ -60,7 +60,7 @@ test("detached runner stops only the exact recorded process tree and reports sto
 });
 
 test("stale creation-time ownership refuses taskkill and keeps the unrelated process alive", { skip: process.platform !== "win32" }, async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-stop-identity-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-stop-identity-"));
   const control = spawn(process.execPath, [longFixture, "30000"], {
     cwd: repositoryRoot,
     windowsHide: true,

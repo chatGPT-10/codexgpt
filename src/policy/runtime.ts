@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { resolveAuditRequirement, type CodexProConfig } from "../config.js";
+import { resolveAuditRequirement, type CodexGPTConfig } from "../config.js";
 import { CONTRACT_V3_ADDITIONS, CONTRACT_V4_ADDITIONS, contractIncludesV3 } from "../tools/contracts/index.js";
 import { authorizationAuditEventV2Schema, auditEventV4Schema } from "../audit/schemas.js";
 import type { AuthorizationAuditEventV4 } from "../audit/types.js";
@@ -51,7 +51,7 @@ import type {
   RiskClass
 } from "./types.js";
 
-export function policyIdentityScopes(config: CodexProConfig): PolicyScope[] {
+export function policyIdentityScopes(config: CodexGPTConfig): PolicyScope[] {
   const scopes: PolicyScope[] = [
     "workspace:open",
     "filesystem:read",
@@ -71,7 +71,7 @@ function sourceHash(id: string, value: unknown): { id: string; sha256: string } 
   };
 }
 
-function compiledProfile(config: CodexProConfig): {
+function compiledProfile(config: CodexGPTConfig): {
   profile: CompiledPermissionProfileV1;
   sourceHashes: Array<{ id: string; sha256: string }>;
 } {
@@ -179,7 +179,7 @@ function workspaceFor(
   return workspaceId ? workspaces.getWorkspace(workspaceId) : workspaces.resolveWorkspace();
 }
 
-function toolMayMutate(toolName: string, config: CodexProConfig): boolean {
+function toolMayMutate(toolName: string, config: CodexGPTConfig): boolean {
   if (toolName === "query_audit_events") return false;
   const mode = toolPolicyDefinition(toolName).resourceMode;
   if (mode === "shell") return config.bashMode === "full";
@@ -199,7 +199,7 @@ interface DescribedPolicyResource {
 function describeResource(
   toolName: string,
   args: Record<string, unknown>,
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   workspaces: WorkspaceManager,
   guard: PathGuard,
   resourceResolver?: ToolResourceResolver
@@ -390,7 +390,7 @@ export interface PolicyConfigurationInspection {
   missingCapabilities: string[];
 }
 
-export function inspectPolicyConfiguration(config: CodexProConfig): PolicyConfigurationInspection {
+export function inspectPolicyConfiguration(config: CodexGPTConfig): PolicyConfigurationInspection {
   const capabilities = baselineNodeCapabilityReport(process.platform);
   const compiled = compiledProfile(config);
   return {
@@ -416,7 +416,7 @@ export function inspectPolicyConfiguration(config: CodexProConfig): PolicyConfig
 }
 
 export interface CreateDefaultPolicyRuntimeInput {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   workspaces: WorkspaceManager;
   guard: PathGuard;
   sessionSource: PolicySessionContextSource;

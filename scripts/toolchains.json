@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "stableRoot": "%LOCALAPPDATA%\\CodexPro\\toolchains",
+  "stableRoot": "%LOCALAPPDATA%\\CodexGPT\\toolchains",
   "distribution": "https://nodejs.org/dist",
   "toolchains": {
     "20": {

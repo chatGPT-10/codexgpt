@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 import {
-  codexproInventorySkillSchema,
-  codexproInventorySkillSourceSchema,
-  type CodexProInventorySkill
-} from "./codexproInventory.js";
+  codexgptInventorySkillSchema,
+  codexgptInventorySkillSourceSchema,
+  type CodexGPTInventorySkill
+} from "./codexgptInventory.js";
 
 export const LOAD_SKILL_TRUNCATED_WARNING =
   "Skill instructions were truncated at the effective max_bytes limit." as const;
@@ -41,7 +41,7 @@ function hasSafeSelectorSegments(value: string): boolean {
 
 export function loadSkillSelectorPathSource(
   selector: string
-): z.infer<typeof codexproInventorySkillSourceSchema> | undefined {
+): z.infer<typeof codexgptInventorySkillSourceSchema> | undefined {
   if (selector.includes("\\") || !selector.endsWith("/SKILL.md")) return undefined;
 
   if (selector.startsWith("$WORKSPACE/")) {
@@ -61,7 +61,7 @@ export function loadSkillSelectorPathSource(
 
 export const loadSkillSelectorSchema = z.object({
   name: safeOneLineSchema,
-  source: codexproInventorySkillSourceSchema.nullable(),
+  source: codexgptInventorySkillSourceSchema.nullable(),
   path: z.string().min(1).max(1024).nullable()
 }).strict().superRefine((value, context) => {
   if (value.path === null) return;
@@ -90,7 +90,7 @@ export const loadSkillSelectorSchema = z.object({
 
 export type LoadSkillSelector = z.infer<typeof loadSkillSelectorSchema>;
 
-export const loadSkillSkillSchema = codexproInventorySkillSchema;
+export const loadSkillSkillSchema = codexgptInventorySkillSchema;
 
 export const loadSkillDataSchema = z.object({
   workspace_id: safeWorkspaceIdSchema,
@@ -346,8 +346,8 @@ export const loadSkillErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const loadSkillOutputShape = {
-  codexpro_tool: z.literal("load_skill"),
-  codexpro_title: z.literal("Load Skill"),
+  codexgpt_tool: z.literal("load_skill"),
+  codexgpt_title: z.literal("Load Skill"),
   ok: z.boolean(),
   data: loadSkillDataSchema.nullable(),
   error: loadSkillErrorSchema.nullable(),
@@ -446,14 +446,14 @@ export type LoadSkillFailureInput =
       code: "SKILL_AMBIGUOUS";
       details: {
         selector: LoadSkillSelector;
-        candidates: CodexProInventorySkill[];
+        candidates: CodexGPTInventorySkill[];
         candidates_truncated: boolean;
         resolution_truncated: boolean;
       };
     }
   | {
       code: "SKILL_BOUNDARY_VIOLATION" | "SKILL_READ_FAILED";
-      details: { skill: CodexProInventorySkill };
+      details: { skill: CodexGPTInventorySkill };
     }
   | { code: "INTERNAL_ERROR"; details: Record<string, never> };
 
@@ -463,8 +463,8 @@ export function createLoadSkillSuccess(
 ): LoadSkillStructuredResult {
   const parsedData = loadSkillDataSchema.parse(data);
   return loadSkillOutputSchema.parse({
-    codexpro_tool: "load_skill",
-    codexpro_title: "Load Skill",
+    codexgpt_tool: "load_skill",
+    codexgpt_title: "Load Skill",
     ok: true,
     data: parsedData,
     error: null,
@@ -477,8 +477,8 @@ export function createLoadSkillFailure(
   durationMs = 0
 ): LoadSkillStructuredResult {
   return loadSkillOutputSchema.parse({
-    codexpro_tool: "load_skill",
-    codexpro_title: "Load Skill",
+    codexgpt_tool: "load_skill",
+    codexgpt_title: "Load Skill",
     ok: false,
     data: null,
     error: {

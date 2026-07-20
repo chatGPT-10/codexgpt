@@ -33,7 +33,7 @@ function stableRoot() {
       ? path.win32.join(process.env.USERPROFILE, "AppData", "Local")
       : undefined;
   if (!localAppData) fail("LOCALAPPDATA or USERPROFILE is required to locate the stable toolchain root.");
-  return path.join(localAppData, "CodexPro", "toolchains");
+  return path.join(localAppData, "CodexGPT", "toolchains");
 }
 
 function requestedMajors() {

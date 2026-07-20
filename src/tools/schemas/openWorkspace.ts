@@ -111,8 +111,8 @@ export const openWorkspaceErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const openWorkspaceOutputShape = {
-  codexpro_tool: z.literal("open_workspace"),
-  codexpro_title: z.literal("Open Workspace"),
+  codexgpt_tool: z.literal("open_workspace"),
+  codexgpt_title: z.literal("Open Workspace"),
   ok: z.boolean(),
   data: openWorkspaceDataSchema.nullable(),
   error: openWorkspaceErrorSchema.nullable(),
@@ -174,8 +174,8 @@ export function createOpenWorkspaceSuccess(
   durationMs = 0
 ): OpenWorkspaceStructuredResult {
   return openWorkspaceOutputSchema.parse({
-    codexpro_tool: "open_workspace",
-    codexpro_title: "Open Workspace",
+    codexgpt_tool: "open_workspace",
+    codexgpt_title: "Open Workspace",
     ok: true,
     data: openWorkspaceDataSchema.parse(data),
     error: null,
@@ -188,8 +188,8 @@ export function createOpenWorkspaceFailure(
   durationMs = 0
 ): OpenWorkspaceStructuredResult {
   return openWorkspaceOutputSchema.parse({
-    codexpro_tool: "open_workspace",
-    codexpro_title: "Open Workspace",
+    codexgpt_tool: "open_workspace",
+    codexgpt_title: "Open Workspace",
     ok: false,
     data: null,
     error: {

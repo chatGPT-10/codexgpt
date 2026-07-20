@@ -11,7 +11,7 @@ import { TaskWorktreeStoreV1 } from "../dist/worktrees/store.js";
 import { TaskWorktreeManagerV4 } from "../dist/worktrees/manager.js";
 
 async function withRemovalTree(callback) {
-  const parent = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-remove-tree-"));
+  const parent = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-remove-tree-"));
   const rootPath = await fs.realpath(parent);
   const target = path.join(rootPath, "task_test");
   await fs.mkdir(path.join(target, "nested"), { recursive: true });
@@ -186,7 +186,7 @@ test("task removal rejects a tracked hardlink during review without quarantine r
     }), /TASK_WORKTREE_REMOVE_UNSAFE/);
     assert.equal((await fs.stat(item.privateState.worktreePath)).isDirectory(), true);
     assert.equal(fixture.store.read(taskId).record.state, "ready");
-    const residue = (await fs.readdir(fixture.root.root)).filter((name) => name.includes("codexpro-removing"));
+    const residue = (await fs.readdir(fixture.root.root)).filter((name) => name.includes("codexgpt-removing"));
     assert.deepEqual(residue, []);
   });
 });
@@ -386,7 +386,7 @@ test("post-review quarantine drift rolls both trees back without deleting the ne
     lateFile = path.join(item.privateState.worktreePath, "late-unreviewed.txt");
     assert.equal(await fs.readFile(lateFile, "utf8"), "preserve\n");
     assert.equal(fixture.store.read(taskId).record.state, "ready");
-    const residue = (await fs.readdir(fixture.root.root)).filter((name) => name.includes("codexpro-removing"));
+    const residue = (await fs.readdir(fixture.root.root)).filter((name) => name.includes("codexgpt-removing"));
     assert.deepEqual(residue, []);
   }, {
     beforeAdminQuarantine: async ({ worktreeQuarantine }) => {

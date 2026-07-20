@@ -43,7 +43,7 @@ function testExecutor() {
 }
 
 async function withRepository(callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-identity-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-identity-"));
   try {
     runGit(root, ["init"]);
     runGit(root, ["config", "user.email", "identity@example.invalid"]);
@@ -146,7 +146,7 @@ test("arbitrary linked worktrees remain outside primary-repository admission unt
 });
 
 test("bare repositories are not admitted as workspace repositories", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-bare-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-bare-"));
   try {
     runGit(root, ["init", "--bare"]);
     const registry = new RepositoryIdentityRegistry({ contextFingerprint: "context-bare" });

@@ -9,7 +9,7 @@ import {
 } from "../transactions/types.js";
 import { AuditError, type AuditMutationKind } from "./types.js";
 
-const EXECUTION_AUDIT_FACTS = Symbol("codexpro.execution.audit.facts");
+const EXECUTION_AUDIT_FACTS = Symbol("codexgpt.execution.audit.facts");
 
 export interface ExecutionAuditFacts {
   resultCode: string | null;

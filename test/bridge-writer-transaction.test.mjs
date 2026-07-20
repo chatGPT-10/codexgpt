@@ -25,7 +25,7 @@ import {
   prepareProContextRequest,
   preflightProContextOutput
 } from "../dist/proContext.js";
-import { prepareAtomicCodexProSelfTest } from "../dist/selfTestOps.js";
+import { prepareAtomicCodexGPTSelfTest } from "../dist/selfTestOps.js";
 import {
   AtomicTransactionEngine,
   installationMasterKey,
@@ -38,7 +38,7 @@ const NOW = Date.parse("2026-07-15T00:00:00.000Z");
 const OWNER = `owner_${"8".repeat(64)}`;
 
 async function fixture(action, options = {}) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-bridge-writer-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-bridge-writer-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");
@@ -304,7 +304,7 @@ test("pro-context scaffold and export artifact commit in one transaction", () =>
 }));
 
 test("atomic self-test prepares only its fixed artifact and commits a non-retained change set", () => fixture(async (context) => {
-  const mutation = await prepareAtomicCodexProSelfTest({
+  const mutation = await prepareAtomicCodexGPTSelfTest({
     config: context.config,
     guard: context.guard,
     workspace: context.workspace,
@@ -319,7 +319,7 @@ test("atomic self-test prepares only its fixed artifact and commits a non-retain
     registeredTools: []
   });
   assert.deepEqual(mutation.prepared.operations.map((operation) => operation.path), [
-    ".ai-bridge/codexpro-self-test.md"
+    ".ai-bridge/codexgpt-self-test.md"
   ]);
   assert.equal(mutation.result.write_probe.outcome, "pass");
   assert.equal(mutation.result.pro_context_probe.outcome, "pass");
@@ -330,7 +330,7 @@ test("atomic self-test prepares only its fixed artifact and commits a non-retain
       workspace: context.workspace,
       prepared: mutation.prepared,
       context: {
-        toolName: "codexpro_self_test",
+        toolName: "codexgpt_self_test",
         requestId: null,
         ownerBinding: OWNER,
         policyRevision: "policy-self-test",
@@ -348,6 +348,6 @@ test("atomic self-test prepares only its fixed artifact and commits a non-retain
   });
   assert.equal(committed.transaction.undo_supported, false);
   assert.deepEqual(await fsp.readdir(path.join(context.workspaceRoot, ".ai-bridge")), [
-    "codexpro-self-test.md"
+    "codexgpt-self-test.md"
   ]);
 }));

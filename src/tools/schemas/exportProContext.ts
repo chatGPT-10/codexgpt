@@ -337,8 +337,8 @@ export const exportProContextErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const exportProContextOutputShape = {
-  codexpro_tool: z.literal("export_pro_context"),
-  codexpro_title: z.literal("Export Pro Context"),
+  codexgpt_tool: z.literal("export_pro_context"),
+  codexgpt_title: z.literal("Export Pro Context"),
   ok: z.boolean(),
   data: exportProContextDataSchema.nullable(),
   error: exportProContextErrorSchema.nullable(),
@@ -405,8 +405,8 @@ export function createExportProContextSuccess(
 ): ExportProContextStructuredResult {
   const parsedData = exportProContextDataSchema.parse(data);
   return exportProContextOutputSchema.parse({
-    codexpro_tool: "export_pro_context",
-    codexpro_title: "Export Pro Context",
+    codexgpt_tool: "export_pro_context",
+    codexgpt_title: "Export Pro Context",
     ok: true,
     data: parsedData,
     error: null,
@@ -419,8 +419,8 @@ export function createExportProContextFailure(
   durationMs = 0
 ): ExportProContextStructuredResult {
   return exportProContextOutputSchema.parse({
-    codexpro_tool: "export_pro_context",
-    codexpro_title: "Export Pro Context",
+    codexgpt_tool: "export_pro_context",
+    codexgpt_title: "Export Pro Context",
     ok: false,
     data: null,
     error: {

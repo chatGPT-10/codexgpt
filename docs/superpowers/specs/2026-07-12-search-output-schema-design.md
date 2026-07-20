@@ -6,7 +6,7 @@ Status: Published and cross-platform CI-validated
 
 ## 1. Goal
 
-Migrate only the direct `search` MCP tool to the Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict lexical search data, stable public errors, safe optional-analysis degradation, focused contract tests, Tool Card compatibility, and `codexpro` wrapper compatibility.
+Migrate only the direct `search` MCP tool to the Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict lexical search data, stable public errors, safe optional-analysis degradation, focused contract tests, Tool Card compatibility, and `codexgpt` wrapper compatibility.
 
 The slice must preserve fixed-string and regular-expression search, ripgrep and Node fallback behavior, path and glob scoping, hidden-file handling, configured result limits, redaction, optional structured search, legacy text content, and current cross-platform behavior.
 
@@ -39,7 +39,7 @@ This is preferred over a lexical-only half migration or a broad analysis subsyst
 - Existing search options and result limits.
 - Safe structured-analysis degradation.
 - Direct Tool Card migration to nested envelope fields.
-- `codexpro` wrapper compatibility.
+- `codexgpt` wrapper compatibility.
 - Focused `node:test` contract coverage.
 - Existing smoke/stress compatibility updates where they inspect flat fields.
 - Documentation, project memory, and changelog updates.
@@ -55,12 +55,12 @@ This is preferred over a lexical-only half migration or a broad analysis subsyst
 
 ```json
 {
-  "codexpro_tool": "search",
-  "codexpro_title": "Search Files",
+  "codexgpt_tool": "search",
+  "codexgpt_title": "Search Files",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "matches": [
       {
         "path": "src/server.ts",
@@ -171,8 +171,8 @@ A provider result with `cache.key = "disabled"` or `cache.key = "unavailable"` i
 
 ```json
 {
-  "codexpro_tool": "search",
-  "codexpro_title": "Search Files",
+  "codexgpt_tool": "search",
+  "codexgpt_title": "Search Files",
   "ok": false,
   "data": null,
   "error": {
@@ -229,7 +229,7 @@ Unsafe path details become `[unsafe path omitted]`. Failure text uses only fixed
 
 ```ts
 export interface SearchProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: Partial<SearchOptions>;
@@ -251,7 +251,7 @@ The default delegates to `searchWorkspace(...)`. No hidden MCP argument or produ
 
 ## 11. Wrapper and Tool Card compatibility
 
-The `codexpro` supertool action `search` preserves wrapper metadata and carries the child envelope. No legacy flat `matches`, `truncated`, `used`, `analysis`, or `text` fields remain at wrapper top level.
+The `codexgpt` supertool action `search` preserves wrapper metadata and carries the child envelope. No legacy flat `matches`, `truncated`, `used`, `analysis`, or `text` fields remain at wrapper top level.
 
 The Tool Card must:
 
@@ -277,7 +277,7 @@ Create `test/search-contract.test.mjs` covering:
 9. Unknown workspace, outside path, blocked path, missing target, invalid regex, unavailable backend, command failure, and malformed provider classification.
 10. Human-readable content and `isError` behavior.
 11. Direct Tool Card nested-field behavior.
-12. `codexpro` wrapper compatibility.
+12. `codexgpt` wrapper compatibility.
 
 Update smoke/stress assertions only where they directly inspect old flat search structured fields.
 

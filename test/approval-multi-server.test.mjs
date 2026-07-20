@@ -76,7 +76,7 @@ async function createServer(suffix) {
 }
 
 windowsOnly("production local-control factory routes exact servers and performs real approval decisions", async (t) => {
-  const stateBaseRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-production-control-"));
+  const stateBaseRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-production-control-"));
   const first = await createServer("first");
   const second = await createServer("second");
   const runtimes = [];

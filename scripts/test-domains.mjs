@@ -62,7 +62,7 @@ export async function classifyTestDomains() {
 function localControlDomainApproved() {
   return process.env.GITHUB_ACTIONS === "true" ||
     process.env.CI_CONTROL_DOMAIN === "1" ||
-    process.env.CODEXPRO_ALLOW_CONTROL_DOMAIN_TESTS === "1";
+    process.env.CODEXGPT_ALLOW_CONTROL_DOMAIN_TESTS === "1";
 }
 
 const domains = await classifyTestDomains();
@@ -79,7 +79,7 @@ if (action === "list") {
 } else if (action === "run") {
   if (domain === "control" && !localControlDomainApproved()) {
     fail(
-      "Control-domain tests are blocked in connector-backed local execution. Run them in GitHub Actions, an independent native terminal, or set CODEXPRO_ALLOW_CONTROL_DOMAIN_TESTS=1 after proving process-domain isolation.",
+      "Control-domain tests are blocked in connector-backed local execution. Run them in GitHub Actions, an independent native terminal, or set CODEXGPT_ALLOW_CONTROL_DOMAIN_TESTS=1 after proving process-domain isolation.",
       2
     );
   }

@@ -38,7 +38,7 @@ export interface AuditRetentionConfig {
   maxClosedBytes: number;
 }
 
-export interface CodexProConfig {
+export interface CodexGPTConfig {
   defaultRoot: string;
   allowedRoots: string[];
   host: string;
@@ -228,7 +228,7 @@ function bashSessionIdFrom(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(trimmed)) {
-    throw new Error("CODEXPRO_BASH_SESSION_ID must be 1-64 characters using letters, numbers, dot, underscore, or dash, and must start with a letter or number.");
+    throw new Error("CODEXGPT_BASH_SESSION_ID must be 1-64 characters using letters, numbers, dot, underscore, or dash, and must start with a letter or number.");
   }
   return trimmed;
 }
@@ -260,7 +260,7 @@ function fileTransactionModeFrom(value: string | undefined): FileTransactionMode
   const normalized = value?.trim();
   if (!normalized) return "legacy";
   if (normalized === "legacy" || normalized === "atomic") return normalized;
-  throw new Error("CODEXPRO_FILE_TRANSACTIONS must be legacy or atomic.");
+  throw new Error("CODEXGPT_FILE_TRANSACTIONS must be legacy or atomic.");
 }
 
 function toolContractVersionFrom(value: string | undefined): ToolContractVersion {
@@ -269,7 +269,7 @@ function toolContractVersionFrom(value: string | undefined): ToolContractVersion
   if (normalized === "2") return 2;
   if (normalized === "3") return 3;
   if (normalized === "4") return 4;
-  throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4.");
+  throw new Error("CODEXGPT_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4.");
 }
 
 export interface FileTransactionCapabilities {
@@ -277,7 +277,7 @@ export interface FileTransactionCapabilities {
 }
 
 export function assertFileTransactionConfiguration(
-  config: Pick<CodexProConfig, "fileTransactions" | "writeMode">,
+  config: Pick<CodexGPTConfig, "fileTransactions" | "writeMode">,
   capabilities: FileTransactionCapabilities
 ): void {
   if (
@@ -286,7 +286,7 @@ export function assertFileTransactionConfiguration(
     !capabilities.workspaceMutatorsAtomic
   ) {
     throw new Error(
-      "CODEXPRO_FILE_TRANSACTIONS=atomic requires transaction-backed workspace mutators; disable writes or use legacy when the runtime cannot provide them."
+      "CODEXGPT_FILE_TRANSACTIONS=atomic requires transaction-backed workspace mutators; disable writes or use legacy when the runtime cannot provide them."
     );
   }
 }
@@ -312,28 +312,28 @@ function policyEngineModeFrom(value: string | undefined): PolicyEngineMode {
   const normalized = value?.trim();
   if (!normalized) return "legacy";
   if (normalized === "legacy" || normalized === "shadow" || normalized === "enforce") return normalized;
-  throw new Error("CODEXPRO_POLICY_ENGINE must be legacy, shadow, or enforce.");
+  throw new Error("CODEXGPT_POLICY_ENGINE must be legacy, shadow, or enforce.");
 }
 
 function localFileAccessFrom(value: string | undefined): LocalFileAccessMode {
   const normalized = value?.trim();
   if (!normalized) return "configured_roots";
   if (normalized === "configured_roots" || normalized === "confirmed_roots") return normalized;
-  throw new Error("CODEXPRO_LOCAL_FILE_ACCESS must be configured_roots or confirmed_roots.");
+  throw new Error("CODEXGPT_LOCAL_FILE_ACCESS must be configured_roots or confirmed_roots.");
 }
 
 function executionProfileFrom(value: string | undefined): ExecutionProfile {
   const normalized = value?.trim();
   if (!normalized) return "off";
   if (normalized === "off" || normalized === "full_access" || normalized === "workspace") return normalized;
-  throw new Error("CODEXPRO_EXECUTION_PROFILE must be off, full_access, or workspace.");
+  throw new Error("CODEXGPT_EXECUTION_PROFILE must be off, full_access, or workspace.");
 }
 
 function executionDependenciesFrom(value: string | undefined): ExecutionDependencies {
   const normalized = value?.trim();
   if (!normalized) return "off";
   if (normalized === "off" || normalized === "node_modules") return normalized;
-  throw new Error("CODEXPRO_EXECUTION_DEPENDENCIES must be off or node_modules.");
+  throw new Error("CODEXGPT_EXECUTION_DEPENDENCIES must be off or node_modules.");
 }
 
 export interface ToolContractCapabilities {
@@ -350,8 +350,8 @@ export interface ToolContractCapabilities {
 }
 
 export function assertToolContractConfiguration(
-  config: Pick<CodexProConfig, "fileTransactions" | "auditMode" | "policyEngineMode"> &
-    Partial<Pick<CodexProConfig, "toolContractVersion" | "toolMode" | "connectionTest">>,
+  config: Pick<CodexGPTConfig, "fileTransactions" | "auditMode" | "policyEngineMode"> &
+    Partial<Pick<CodexGPTConfig, "toolContractVersion" | "toolMode" | "connectionTest">>,
   capabilities: ToolContractCapabilities
 ): void {
   // Existing programmatic callers may omit the new field for one migration
@@ -366,13 +366,13 @@ export function assertToolContractConfiguration(
   }
   const contractLabel = `Contract V${config.toolContractVersion}`;
   if (config.fileTransactions !== "atomic") {
-    throw new Error(`${contractLabel} requires CODEXPRO_FILE_TRANSACTIONS=atomic.`);
+    throw new Error(`${contractLabel} requires CODEXGPT_FILE_TRANSACTIONS=atomic.`);
   }
   if (!capabilities.movePathsAvailable) {
     throw new Error(`${contractLabel} is incomplete without the Phase 3D move_paths runtime.`);
   }
   if (config.auditMode === "off") {
-    throw new Error(`${contractLabel} requires persistent audit; CODEXPRO_AUDIT_MODE cannot be off.`);
+    throw new Error(`${contractLabel} requires persistent audit; CODEXGPT_AUDIT_MODE cannot be off.`);
   }
   if (!capabilities.durableAuditAvailable) {
     throw new Error(`${contractLabel} requires an available persistent audit runtime.`);
@@ -430,7 +430,7 @@ function auditModeFrom(value: string | undefined): AuditMode {
     normalized === "best_effort" ||
     normalized === "required"
   ) return normalized;
-  throw new Error("CODEXPRO_AUDIT_MODE must be auto, off, best_effort, or required.");
+  throw new Error("CODEXGPT_AUDIT_MODE must be auto, off, best_effort, or required.");
 }
 
 function riskRank(riskClass: RiskClass): number {
@@ -438,7 +438,7 @@ function riskRank(riskClass: RiskClass): number {
 }
 
 export function resolveAuditRequirement(
-  config: Pick<CodexProConfig, "auditMode" | "policyEngineMode">,
+  config: Pick<CodexGPTConfig, "auditMode" | "policyEngineMode">,
   riskClass: RiskClass,
   mutating: boolean
 ): AuditRequirement {
@@ -455,14 +455,14 @@ export interface AuditConfigurationCapabilities {
 }
 
 export function assertAuditConfiguration(
-  config: Pick<CodexProConfig, "auditMode" | "policyEngineMode">,
+  config: Pick<CodexGPTConfig, "auditMode" | "policyEngineMode">,
   capabilities: AuditConfigurationCapabilities
 ): void {
   if (config.policyEngineMode === "enforce" && config.auditMode === "off") {
-    throw new Error("CODEXPRO_AUDIT_MODE cannot be off when CODEXPRO_POLICY_ENGINE=enforce.");
+    throw new Error("CODEXGPT_AUDIT_MODE cannot be off when CODEXGPT_POLICY_ENGINE=enforce.");
   }
   if (config.auditMode === "required" && !capabilities.durableStoreAvailable) {
-    throw new Error("CODEXPRO_AUDIT_MODE=required needs an available durable audit store.");
+    throw new Error("CODEXGPT_AUDIT_MODE=required needs an available durable audit store.");
   }
 }
 
@@ -470,7 +470,7 @@ function permissionProfileIdFrom(value: string | undefined): string | undefined 
   const normalized = value?.trim();
   if (!normalized) return undefined;
   if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(normalized)) {
-    throw new Error("CODEXPRO_PERMISSION_PROFILE must be 1-64 lowercase characters using letters, numbers, dot, underscore, or dash.");
+    throw new Error("CODEXGPT_PERMISSION_PROFILE must be 1-64 lowercase characters using letters, numbers, dot, underscore, or dash.");
   }
   return normalized;
 }
@@ -481,13 +481,13 @@ function widgetDomainFrom(value: string | undefined): string {
   try {
     parsed = new URL(raw);
   } catch {
-    throw new Error(`CODEXPRO_WIDGET_DOMAIN must be a valid origin URL, got: ${raw}`);
+    throw new Error(`CODEXGPT_WIDGET_DOMAIN must be a valid origin URL, got: ${raw}`);
   }
   if (parsed.protocol !== "https:") {
-    throw new Error("CODEXPRO_WIDGET_DOMAIN must use https.");
+    throw new Error("CODEXGPT_WIDGET_DOMAIN must use https.");
   }
   if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
-    throw new Error("CODEXPRO_WIDGET_DOMAIN must be an origin only, for example https://widgets.example.com.");
+    throw new Error("CODEXGPT_WIDGET_DOMAIN must be an origin only, for example https://widgets.example.com.");
   }
   return parsed.origin;
 }
@@ -495,25 +495,25 @@ function widgetDomainFrom(value: string | undefined): string {
 function contextDirFrom(value: string | undefined): string {
   const raw = (value?.trim() || ".ai-bridge").replaceAll("\\", "/");
   if (path.isAbsolute(raw) || path.win32.isAbsolute(raw)) {
-    throw new Error("CODEXPRO_CONTEXT_DIR must be a workspace-relative hidden directory, for example .ai-bridge.");
+    throw new Error("CODEXGPT_CONTEXT_DIR must be a workspace-relative hidden directory, for example .ai-bridge.");
   }
 
   const normalized = path.posix.normalize(raw);
   if (!normalized || normalized === "." || normalized === ".." || normalized.startsWith("../")) {
-    throw new Error("CODEXPRO_CONTEXT_DIR must stay inside the workspace.");
+    throw new Error("CODEXGPT_CONTEXT_DIR must stay inside the workspace.");
   }
 
   const parts = normalized.split("/");
   if (parts.some((part) => !part || part === "." || part === "..")) {
-    throw new Error("CODEXPRO_CONTEXT_DIR must be a simple relative directory path.");
+    throw new Error("CODEXGPT_CONTEXT_DIR must be a simple relative directory path.");
   }
   if (!parts[0].startsWith(".")) {
-    throw new Error("CODEXPRO_CONTEXT_DIR must start with a hidden directory such as .ai-bridge.");
+    throw new Error("CODEXGPT_CONTEXT_DIR must start with a hidden directory such as .ai-bridge.");
   }
 
   const blocked = new Set([".git", ".ssh", ".gnupg", ".cache", "node_modules", "src", "dist", "build", ".next", "coverage"]);
   if (parts.some((part) => blocked.has(part))) {
-    throw new Error("CODEXPRO_CONTEXT_DIR cannot point at source, dependency, build, cache, or credential directories.");
+    throw new Error("CODEXGPT_CONTEXT_DIR cannot point at source, dependency, build, cache, or credential directories.");
   }
   return normalized;
 }
@@ -529,13 +529,13 @@ function isLoopbackHost(host: string): boolean {
 
 function normalizeAllowedHost(value: string): string {
   let raw = value.trim().toLowerCase();
-  if (!raw) throw new Error("CODEXPRO_ALLOWED_HOSTS contains an empty host.");
+  if (!raw) throw new Error("CODEXGPT_ALLOWED_HOSTS contains an empty host.");
   if (raw.includes("://")) {
     let parsed: URL;
     try {
       parsed = new URL(raw);
     } catch {
-      throw new Error(`CODEXPRO_ALLOWED_HOSTS contains an invalid host: ${value}`);
+      throw new Error(`CODEXGPT_ALLOWED_HOSTS contains an invalid host: ${value}`);
     }
     raw = parsed.hostname.toLowerCase();
   }
@@ -545,7 +545,7 @@ function normalizeAllowedHost(value: string): string {
     raw = raw.slice(0, portSeparator);
   }
   if (!raw || raw === "*" || /[\\/\s]/.test(raw)) {
-    throw new Error(`CODEXPRO_ALLOWED_HOSTS contains an invalid host: ${value}`);
+    throw new Error(`CODEXGPT_ALLOWED_HOSTS contains an invalid host: ${value}`);
   }
   return raw;
 }
@@ -562,20 +562,20 @@ function allowedOriginsFrom(value: string | undefined): string[] {
     try {
       parsed = new URL(origin);
     } catch {
-      throw new Error(`CODEXPRO_ALLOWED_ORIGINS contains an invalid origin: ${origin}`);
+      throw new Error(`CODEXGPT_ALLOWED_ORIGINS contains an invalid origin: ${origin}`);
     }
     if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || parsed.pathname !== "/" || parsed.search || parsed.hash) {
-      throw new Error(`CODEXPRO_ALLOWED_ORIGINS must contain HTTP(S) origins only: ${origin}`);
+      throw new Error(`CODEXGPT_ALLOWED_ORIGINS must contain HTTP(S) origins only: ${origin}`);
     }
     return parsed.origin;
   }))];
 }
 
-export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
+export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
   const args = parseArgs(argv);
 
   const rootFromArgs = typeof args.root === "string" ? args.root : undefined;
-  const root = rootFromArgs ?? process.env.CODEXPRO_ROOT ?? process.env.CODEBASE_BRIDGE_REPO_ROOT ?? process.cwd();
+  const root = rootFromArgs ?? process.env.CODEXGPT_ROOT ?? process.env.CODEBASE_BRIDGE_REPO_ROOT ?? process.cwd();
   const defaultRoot = toRealDir(root);
 
   const allowRootArgs = Array.isArray(args["allow-root"])
@@ -584,11 +584,11 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
       ? [args["allow-root"]]
       : [];
   const envAllowedRoots = [
-    ...splitRoots(process.env.CODEXPRO_ALLOWED_ROOTS),
+    ...splitRoots(process.env.CODEXGPT_ALLOWED_ROOTS),
     ...splitRoots(process.env.CODEBASE_BRIDGE_ALLOWED_ROOTS)
   ];
 
-  const allowHome = process.env.CODEXPRO_ALLOW_HOME === "1" || args["allow-home"] === true;
+  const allowHome = process.env.CODEXGPT_ALLOW_HOME === "1" || args["allow-home"] === true;
   const requestedAllowed = [defaultRoot, ...allowRootArgs, ...envAllowedRoots, ...(allowHome ? [os.homedir()] : [])];
   const allowedRoots = [...new Set(requestedAllowed.map(toRealDir))];
 
@@ -626,61 +626,61 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
       : typeof args["tool-cards"] === "string"
         ? args["tool-cards"]
         : undefined;
-  const extraBlockedGlobs = splitList(process.env.CODEXPRO_BLOCKED_GLOBS, ",");
-  const host = hostArg ?? process.env.CODEXPRO_HOST ?? process.env.HOST ?? "127.0.0.1";
-  const authToken = process.env.CODEXPRO_HTTP_TOKEN ?? process.env.CODEBASE_BRIDGE_HTTP_TOKEN;
-  const allowNoToken = boolFrom(process.env.CODEXPRO_ALLOW_NO_HTTP_TOKEN, false) && isLoopbackHost(host);
+  const extraBlockedGlobs = splitList(process.env.CODEXGPT_BLOCKED_GLOBS, ",");
+  const host = hostArg ?? process.env.CODEXGPT_HOST ?? process.env.HOST ?? "127.0.0.1";
+  const authToken = process.env.CODEXGPT_HTTP_TOKEN ?? process.env.CODEBASE_BRIDGE_HTTP_TOKEN;
+  const allowNoToken = boolFrom(process.env.CODEXGPT_ALLOW_NO_HTTP_TOKEN, false) && isLoopbackHost(host);
   const requireHttpToken =
     (!authToken && !allowNoToken) ||
-    boolFrom(process.env.CODEXPRO_REQUIRE_HTTP_TOKEN, false) ||
-    boolFrom(process.env.CODEXPRO_TUNNEL_MODE, false) ||
+    boolFrom(process.env.CODEXGPT_REQUIRE_HTTP_TOKEN, false) ||
+    boolFrom(process.env.CODEXGPT_TUNNEL_MODE, false) ||
     (!isLoopbackHost(host) && !allowNoToken);
   const allowedHostHints = [
-    process.env.CODEXPRO_ALLOWED_HOSTS,
-    process.env.CODEXPRO_PUBLIC_HOSTNAME,
-    process.env.CODEXPRO_HOSTNAME,
+    process.env.CODEXGPT_ALLOWED_HOSTS,
+    process.env.CODEXGPT_PUBLIC_HOSTNAME,
+    process.env.CODEXGPT_HOSTNAME,
     process.env.NGROK_DOMAIN
   ].filter((value): value is string => Boolean(value));
   const allowedHosts = allowedHostsFrom(allowedHostHints.join(","), host);
-  const allowedOrigins = allowedOriginsFrom(process.env.CODEXPRO_ALLOWED_ORIGINS);
-  const allowQueryToken = boolFrom(process.env.CODEXPRO_ALLOW_QUERY_TOKEN, false);
-  const bashSessionId = bashSessionIdFrom(bashSessionArg ?? process.env.CODEXPRO_BASH_SESSION_ID);
-  const requireBashSession = boolFrom(requireBashSessionArg ?? process.env.CODEXPRO_REQUIRE_BASH_SESSION, false);
+  const allowedOrigins = allowedOriginsFrom(process.env.CODEXGPT_ALLOWED_ORIGINS);
+  const allowQueryToken = boolFrom(process.env.CODEXGPT_ALLOW_QUERY_TOKEN, false);
+  const bashSessionId = bashSessionIdFrom(bashSessionArg ?? process.env.CODEXGPT_BASH_SESSION_ID);
+  const requireBashSession = boolFrom(requireBashSessionArg ?? process.env.CODEXGPT_REQUIRE_BASH_SESSION, false);
   if (requireBashSession && !bashSessionId) {
-    throw new Error("CODEXPRO_REQUIRE_BASH_SESSION requires CODEXPRO_BASH_SESSION_ID or --bash-session.");
+    throw new Error("CODEXGPT_REQUIRE_BASH_SESSION requires CODEXGPT_BASH_SESSION_ID or --bash-session.");
   }
 
-  const config: CodexProConfig = {
+  const config: CodexGPTConfig = {
     defaultRoot,
     allowedRoots,
     host,
-    port: numberFrom(portArg ?? process.env.CODEXPRO_PORT ?? process.env.PORT, 8787, 1, 65535),
-    widgetDomain: widgetDomainFrom(widgetDomainArg ?? process.env.CODEXPRO_WIDGET_DOMAIN),
+    port: numberFrom(portArg ?? process.env.CODEXGPT_PORT ?? process.env.PORT, 8787, 1, 65535),
+    widgetDomain: widgetDomainFrom(widgetDomainArg ?? process.env.CODEXGPT_WIDGET_DOMAIN),
     authToken,
     requireHttpToken,
     allowedHosts,
     allowedOrigins,
     allowQueryToken,
-    bashMode: bashModeFrom(bashArg ?? process.env.CODEXPRO_BASH_MODE),
-    bashTranscript: bashTranscriptFrom(bashTranscriptArg ?? process.env.CODEXPRO_BASH_TRANSCRIPT),
+    bashMode: bashModeFrom(bashArg ?? process.env.CODEXGPT_BASH_MODE),
+    bashTranscript: bashTranscriptFrom(bashTranscriptArg ?? process.env.CODEXGPT_BASH_TRANSCRIPT),
     bashSessionId,
     requireBashSession,
-    codexSessions: codexSessionsFrom(codexSessionsArg ?? process.env.CODEXPRO_CODEX_SESSIONS),
-    codexDir: toCanonicalPath(codexDirArg || process.env.CODEXPRO_CODEX_DIR || path.join(os.homedir(), ".codex")),
-    writeMode: writeModeFrom(writeArg ?? process.env.CODEXPRO_WRITE_MODE),
+    codexSessions: codexSessionsFrom(codexSessionsArg ?? process.env.CODEXGPT_CODEX_SESSIONS),
+    codexDir: toCanonicalPath(codexDirArg || process.env.CODEXGPT_CODEX_DIR || path.join(os.homedir(), ".codex")),
+    writeMode: writeModeFrom(writeArg ?? process.env.CODEXGPT_WRITE_MODE),
     fileTransactions: fileTransactionModeFrom(
-      fileTransactionsArg ?? process.env.CODEXPRO_FILE_TRANSACTIONS
+      fileTransactionsArg ?? process.env.CODEXGPT_FILE_TRANSACTIONS
     ),
     toolContractVersion: toolContractVersionFrom(
-      toolContractVersionArg ?? process.env.CODEXPRO_TOOL_CONTRACT_VERSION
+      toolContractVersionArg ?? process.env.CODEXGPT_TOOL_CONTRACT_VERSION
     ),
-    toolMode: toolModeFrom(toolModeArg ?? process.env.CODEXPRO_TOOL_MODE),
-    policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXPRO_POLICY_ENGINE),
-    auditMode: auditModeFrom(auditModeArg ?? process.env.CODEXPRO_AUDIT_MODE),
+    toolMode: toolModeFrom(toolModeArg ?? process.env.CODEXGPT_TOOL_MODE),
+    policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXGPT_POLICY_ENGINE),
+    auditMode: auditModeFrom(auditModeArg ?? process.env.CODEXGPT_AUDIT_MODE),
     auditRetention: {
-      maxAgeDays: numberFrom(process.env.CODEXPRO_AUDIT_RETENTION_DAYS, 30, 1, 365),
+      maxAgeDays: numberFrom(process.env.CODEXGPT_AUDIT_RETENTION_DAYS, 30, 1, 365),
       maxClosedBytes: numberFrom(
-        process.env.CODEXPRO_AUDIT_RETENTION_BYTES,
+        process.env.CODEXGPT_AUDIT_RETENTION_BYTES,
         100 * 1024 * 1024,
         1024 * 1024,
         2 * 1024 * 1024 * 1024
@@ -688,104 +688,104 @@ export function loadConfig(argv = process.argv.slice(2)): CodexProConfig {
     },
     changeSetRetention: {
       maxPlaintextBytesPerChangeSet: strictNumberFrom(
-        "CODEXPRO_CHANGE_SET_MAX_PLAINTEXT_BYTES",
-        process.env.CODEXPRO_CHANGE_SET_MAX_PLAINTEXT_BYTES,
+        "CODEXGPT_CHANGE_SET_MAX_PLAINTEXT_BYTES",
+        process.env.CODEXGPT_CHANGE_SET_MAX_PLAINTEXT_BYTES,
         8 * 1024 * 1024,
         1024,
         64 * 1024 * 1024
       ),
       maxInstallationCiphertextBytes: strictNumberFrom(
-        "CODEXPRO_CHANGE_SET_MAX_INSTALLATION_BYTES",
-        process.env.CODEXPRO_CHANGE_SET_MAX_INSTALLATION_BYTES,
+        "CODEXGPT_CHANGE_SET_MAX_INSTALLATION_BYTES",
+        process.env.CODEXGPT_CHANGE_SET_MAX_INSTALLATION_BYTES,
         128 * 1024 * 1024,
         1024 * 1024,
         2 * 1024 * 1024 * 1024
       ),
       maxActivePerWorkspace: strictNumberFrom(
-        "CODEXPRO_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE",
-        process.env.CODEXPRO_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE,
+        "CODEXGPT_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE",
+        process.env.CODEXGPT_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE,
         20,
         1,
         1000
       ),
       activeRetentionMs: strictNumberFrom(
-        "CODEXPRO_CHANGE_SET_RETENTION_MS",
-        process.env.CODEXPRO_CHANGE_SET_RETENTION_MS,
+        "CODEXGPT_CHANGE_SET_RETENTION_MS",
+        process.env.CODEXGPT_CHANGE_SET_RETENTION_MS,
         24 * 60 * 60_000,
         60_000,
         30 * 24 * 60 * 60_000
       ),
       tombstoneRetentionMs: strictNumberFrom(
-        "CODEXPRO_CHANGE_SET_TOMBSTONE_RETENTION_MS",
-        process.env.CODEXPRO_CHANGE_SET_TOMBSTONE_RETENTION_MS,
+        "CODEXGPT_CHANGE_SET_TOMBSTONE_RETENTION_MS",
+        process.env.CODEXGPT_CHANGE_SET_TOMBSTONE_RETENTION_MS,
         30 * 24 * 60 * 60_000,
         24 * 60 * 60_000,
         365 * 24 * 60 * 60_000
       )
     },
-    permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXPRO_PERMISSION_PROFILE),
-    localFileAccess: localFileAccessFrom(process.env.CODEXPRO_LOCAL_FILE_ACCESS),
-    executionProfile: executionProfileFrom(process.env.CODEXPRO_EXECUTION_PROFILE),
-    executionDependencies: executionDependenciesFrom(process.env.CODEXPRO_EXECUTION_DEPENDENCIES),
-    gitMode: gitModeFrom(process.env.CODEXPRO_GIT_MODE),
-    gitIntegrations: gitIntegrationsFrom(process.env.CODEXPRO_GIT_INTEGRATIONS),
+    permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXGPT_PERMISSION_PROFILE),
+    localFileAccess: localFileAccessFrom(process.env.CODEXGPT_LOCAL_FILE_ACCESS),
+    executionProfile: executionProfileFrom(process.env.CODEXGPT_EXECUTION_PROFILE),
+    executionDependencies: executionDependenciesFrom(process.env.CODEXGPT_EXECUTION_DEPENDENCIES),
+    gitMode: gitModeFrom(process.env.CODEXGPT_GIT_MODE),
+    gitIntegrations: gitIntegrationsFrom(process.env.CODEXGPT_GIT_INTEGRATIONS),
     taskWorktreeRoot: path.resolve(
-      process.env.CODEXPRO_TASK_WORKTREE_ROOT ??
-      path.join(process.env.LOCALAPPDATA ?? os.homedir(), "CodexPro", "worktrees")
+      process.env.CODEXGPT_TASK_WORKTREE_ROOT ??
+      path.join(process.env.LOCALAPPDATA ?? os.homedir(), "CodexGPT", "worktrees")
     ),
-    taskWorktreeMaxCount: numberFrom(process.env.CODEXPRO_TASK_WORKTREE_MAX_COUNT, 32, 1, 128),
-    taskWorktreeMaxFiles: numberFrom(process.env.CODEXPRO_TASK_WORKTREE_MAX_FILES, 100_000, 1, 1_000_000),
+    taskWorktreeMaxCount: numberFrom(process.env.CODEXGPT_TASK_WORKTREE_MAX_COUNT, 32, 1, 128),
+    taskWorktreeMaxFiles: numberFrom(process.env.CODEXGPT_TASK_WORKTREE_MAX_FILES, 100_000, 1, 1_000_000),
     taskWorktreeMaxBytes: numberFrom(
-      process.env.CODEXPRO_TASK_WORKTREE_MAX_BYTES,
+      process.env.CODEXGPT_TASK_WORKTREE_MAX_BYTES,
       2 * 1024 * 1024 * 1024,
       1024 * 1024,
       16 * 1024 * 1024 * 1024
     ),
-    inheritEnv: process.env.CODEXPRO_INHERIT_ENV === "1",
-    maxReadBytes: numberFrom(process.env.CODEXPRO_MAX_READ_BYTES, 250_000, 4_000, 2_000_000),
-    maxWriteBytes: numberFrom(process.env.CODEXPRO_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),
+    inheritEnv: process.env.CODEXGPT_INHERIT_ENV === "1",
+    maxReadBytes: numberFrom(process.env.CODEXGPT_MAX_READ_BYTES, 250_000, 4_000, 2_000_000),
+    maxWriteBytes: numberFrom(process.env.CODEXGPT_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),
     moveMaxFileBytes: strictNumberFrom(
-      "CODEXPRO_MOVE_MAX_FILE_BYTES",
-      process.env.CODEXPRO_MOVE_MAX_FILE_BYTES,
+      "CODEXGPT_MOVE_MAX_FILE_BYTES",
+      process.env.CODEXGPT_MOVE_MAX_FILE_BYTES,
       64 * 1024 * 1024,
       1,
       1024 * 1024 * 1024
     ),
     moveMaxTotalBytes: strictNumberFrom(
-      "CODEXPRO_MOVE_MAX_TOTAL_BYTES",
-      process.env.CODEXPRO_MOVE_MAX_TOTAL_BYTES,
+      "CODEXGPT_MOVE_MAX_TOTAL_BYTES",
+      process.env.CODEXGPT_MOVE_MAX_TOTAL_BYTES,
       256 * 1024 * 1024,
       1,
       4 * 1024 * 1024 * 1024
     ),
     moveHashConcurrency: strictNumberFrom(
-      "CODEXPRO_MOVE_HASH_CONCURRENCY",
-      process.env.CODEXPRO_MOVE_HASH_CONCURRENCY,
+      "CODEXGPT_MOVE_HASH_CONCURRENCY",
+      process.env.CODEXGPT_MOVE_HASH_CONCURRENCY,
       4,
       1,
       16
     ),
-    maxOutputBytes: numberFrom(process.env.CODEXPRO_MAX_OUTPUT_BYTES, 120_000, 4_000, 2_000_000),
-    maxSearchResults: numberFrom(process.env.CODEXPRO_MAX_SEARCH_RESULTS, 200, 5, 2_000),
-    maxHttpSessions: numberFrom(process.env.CODEXPRO_MAX_HTTP_SESSIONS, 64, 1, 512),
-    httpSessionTtlMs: numberFrom(process.env.CODEXPRO_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
+    maxOutputBytes: numberFrom(process.env.CODEXGPT_MAX_OUTPUT_BYTES, 120_000, 4_000, 2_000_000),
+    maxSearchResults: numberFrom(process.env.CODEXGPT_MAX_SEARCH_RESULTS, 200, 5, 2_000),
+    maxHttpSessions: numberFrom(process.env.CODEXGPT_MAX_HTTP_SESSIONS, 64, 1, 512),
+    httpSessionTtlMs: numberFrom(process.env.CODEXGPT_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
     workspaceTtlMs: numberFrom(
-      process.env.CODEXPRO_WORKSPACE_TTL_MS,
-      numberFrom(process.env.CODEXPRO_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
+      process.env.CODEXGPT_WORKSPACE_TTL_MS,
+      numberFrom(process.env.CODEXGPT_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
       60_000,
       24 * 60 * 60_000
     ),
     blockedGlobs: [...DEFAULT_BLOCKED_GLOBS, ...extraBlockedGlobs],
-    contextDir: contextDirFrom(process.env.CODEXPRO_CONTEXT_DIR),
-    toolCards: boolFrom(toolCardsArg ?? process.env.CODEXPRO_TOOL_CARDS, false),
-    connectionTest: boolFrom(process.env.CODEXPRO_CONNECTION_TEST, false),
-    analysisEnabled: boolFrom(process.env.CODEXPRO_ANALYSIS, true),
+    contextDir: contextDirFrom(process.env.CODEXGPT_CONTEXT_DIR),
+    toolCards: boolFrom(toolCardsArg ?? process.env.CODEXGPT_TOOL_CARDS, false),
+    connectionTest: boolFrom(process.env.CODEXGPT_CONNECTION_TEST, false),
+    analysisEnabled: boolFrom(process.env.CODEXGPT_ANALYSIS, true),
     analysisLimits: {
-      maxInventoryFiles: numberFrom(process.env.CODEXPRO_ANALYSIS_MAX_INVENTORY_FILES, DEFAULT_ANALYSIS_LIMITS.maxInventoryFiles, 100, 100_000),
-      maxAnalyzedFiles: numberFrom(process.env.CODEXPRO_ANALYSIS_MAX_ANALYZED_FILES, DEFAULT_ANALYSIS_LIMITS.maxAnalyzedFiles, 10, 50_000),
-      maxScannedBytes: numberFrom(process.env.CODEXPRO_ANALYSIS_MAX_SCANNED_BYTES, DEFAULT_ANALYSIS_LIMITS.maxScannedBytes, 1_000_000, 512 * 1024 * 1024),
-      maxSymbols: numberFrom(process.env.CODEXPRO_ANALYSIS_MAX_SYMBOLS, DEFAULT_ANALYSIS_LIMITS.maxSymbols, 100, 1_000_000),
-      maxRelationships: numberFrom(process.env.CODEXPRO_ANALYSIS_MAX_RELATIONSHIPS, DEFAULT_ANALYSIS_LIMITS.maxRelationships, 100, 2_000_000)
+      maxInventoryFiles: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_INVENTORY_FILES, DEFAULT_ANALYSIS_LIMITS.maxInventoryFiles, 100, 100_000),
+      maxAnalyzedFiles: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_ANALYZED_FILES, DEFAULT_ANALYSIS_LIMITS.maxAnalyzedFiles, 10, 50_000),
+      maxScannedBytes: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_SCANNED_BYTES, DEFAULT_ANALYSIS_LIMITS.maxScannedBytes, 1_000_000, 512 * 1024 * 1024),
+      maxSymbols: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_SYMBOLS, DEFAULT_ANALYSIS_LIMITS.maxSymbols, 100, 1_000_000),
+      maxRelationships: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_RELATIONSHIPS, DEFAULT_ANALYSIS_LIMITS.maxRelationships, 100, 2_000_000)
     }
   };
   if (

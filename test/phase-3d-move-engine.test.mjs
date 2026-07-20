@@ -17,7 +17,7 @@ import {
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 
 async function fixture(action, options = {}) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-move-engine-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-move-engine-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");
@@ -283,7 +283,7 @@ test("native Windows retries transient sharing failures with revalidation and a 
   }, {
     moveFilesystem: {
       async link(source, destination) {
-        if (path.basename(destination).startsWith(".codexpro-txn-")) {
+        if (path.basename(destination).startsWith(".codexgpt-txn-")) {
           stageAttempts += 1;
           if (stageAttempts < 3) {
             const error = new Error("simulated sharing violation");

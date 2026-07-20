@@ -16,14 +16,14 @@ interface ServerWithRegisteredTools {
   _registeredTools: Record<string, RegisteredToolEntry>;
 }
 
-const LIFECYCLE_WRAPPED_HANDLER = Symbol("codexpro.lifecycle.wrapped-handler");
+const LIFECYCLE_WRAPPED_HANDLER = Symbol("codexgpt.lifecycle.wrapped-handler");
 const installedServers = new WeakSet<object>();
 
 export type MutationLifecycleState = "accepting" | "quiescing" | "disposed";
 
 export class MutationLifecycleUnavailableError extends Error {
   constructor() {
-    super("CodexPro is shutting down and cannot accept another tool invocation.");
+    super("CodexGPT is shutting down and cannot accept another tool invocation.");
     this.name = "MutationLifecycleUnavailableError";
   }
 }
@@ -141,7 +141,7 @@ function unavailableResult(): ToolCallResult {
     isError: true,
     content: [{
       type: "text",
-      text: "CodexPro is shutting down and cannot accept another tool invocation."
+      text: "CodexGPT is shutting down and cannot accept another tool invocation."
     }]
   };
 }
@@ -153,7 +153,7 @@ export function installServerMutationLifecycle(
   const candidate = server as Partial<ServerWithRegisteredTools>;
   const tools = candidate._registeredTools;
   if (!tools || typeof tools !== "object") {
-    throw new Error("CodexPro server does not expose a registered-tool map for lifecycle installation.");
+    throw new Error("CodexGPT server does not expose a registered-tool map for lifecycle installation.");
   }
   if (installedServers.has(server as object)) {
     throw new Error("Server mutation lifecycle is already installed.");

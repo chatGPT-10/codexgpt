@@ -55,7 +55,7 @@ function stagePath(root: string, operation: MoveTransactionOperationV2): string 
   const source = resolveWorkspacePath(root, operation.sourceRelativePath);
   if (
     path.dirname(absolute) !== path.dirname(source) ||
-    !/^\.codexpro-txn-[a-f0-9]{16}\.move$/.test(path.basename(absolute))
+    !/^\.codexgpt-txn-[a-f0-9]{16}\.move$/.test(path.basename(absolute))
   ) {
     throw new TransactionError("TRANSACTION_RECOVERY_REQUIRED", "Move recovery artifact path is invalid.");
   }

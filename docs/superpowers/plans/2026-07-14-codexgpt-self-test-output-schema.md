@@ -1,19 +1,19 @@
-# Direct `codexpro_self_test` Output Schema Implementation Plan
+# Direct `codexgpt_self_test` Output Schema Implementation Plan
 
 > Date: 2026-07-14  
 > Phase: 1, Slice 27  
-> Design: `docs/superpowers/specs/2026-07-14-codexpro-self-test-output-schema-design.md`  
+> Design: `docs/superpowers/specs/2026-07-14-codexgpt-self-test-output-schema-design.md`
 > Execution: uninterrupted TDD inside the unpublished Slice 17–28 batch
 
 ## Goal
 
-Replace the direct `codexpro_self_test` flat result with an exact schema-v1 structured diagnostic contract that derives all public checks from validated facts, distinguishes failed checks from failed tool execution, exposes explicit skipped probes, and preserves the local-only fixed-artifact boundary.
+Replace the direct `codexgpt_self_test` flat result with an exact schema-v1 structured diagnostic contract that derives all public checks from validated facts, distinguishes failed checks from failed tool execution, exposes explicit skipped probes, and preserves the local-only fixed-artifact boundary.
 
 ## Guardrails
 
 - Do not edit protected `scripts/smoke.mjs` or `scripts/http-smoke.mjs`.
 - Do not execute Codex, another agent, external network probes, or Cloudflare checks.
-- Do not implement the Phase 2 Policy Kernel or migrate the Slice 28 `codexpro` supertool.
+- Do not implement the Phase 2 Policy Kernel or migrate the Slice 28 `codexgpt` supertool.
 - Do not expose raw exceptions, stacks, credentials, Bash output, file content, Skill/MCP names, or Git paths.
 - Do not touch source files from the write/edit probe.
 - Do not add a production test mode or hidden MCP argument.
@@ -23,7 +23,7 @@ Replace the direct `codexpro_self_test` flat result with an exact schema-v1 stru
 
 ## Task 1 — Freeze executable acceptance criteria
 
-- [x] Add `test/codexpro-self-test-contract.test.mjs`.
+- [x] Add `test/codexgpt-self-test-contract.test.mjs`.
 - [x] Assert the exact six-field envelope, twenty-one-field data object, twelve checks, four outcomes, three failures, and ordered warnings.
 - [x] Assert all public input defaults/bounds and visibility in minimal, standard, and full modes.
 - [x] Assert failed diagnostic checks remain `ok: true` while operational failures use `ok: false`.
@@ -34,7 +34,7 @@ Replace the direct `codexpro_self_test` flat result with an exact schema-v1 stru
 
 ## Task 2 — Add the exact schema module
 
-- [x] Add `src/tools/schemas/codexproSelfTest.ts`.
+- [x] Add `src/tools/schemas/codexgptSelfTest.ts`.
 - [x] Define strict identity, request, mode, count, tool-set, inventory, Git, probe, check, terms, error, and envelope schemas.
 - [x] Define the fixed twelve-check order and safe diagnostic-code/message constraints.
 - [x] Enforce exact cross-field counts, status, tool-set differences, fixed paths, terms constants, and ordered warnings.
@@ -49,7 +49,7 @@ Replace the direct `codexpro_self_test` flat result with an exact schema-v1 stru
 - [x] Derive expected tools independently from current effective visibility rules.
 - [x] Reuse bounded Slice 17 inventory facts without exposing names or paths.
 - [x] Produce bounded Git clean/changed/not-Git/unavailable facts without paths or stderr.
-- [x] Harden the fixed `.ai-bridge/codexpro-self-test.md` probe with recognized-scaffold preflight and no unrelated overwrite.
+- [x] Harden the fixed `.ai-bridge/codexgpt-self-test.md` probe with recognized-scaffold preflight and no unrelated overwrite.
 - [x] Keep selected-only Pro-context verification build-only and keep Bash verification allowlisted/local.
 - [x] Return only structured observations and fixed internal reason codes.
 - [x] Run Provider/domain-focused tests and Build.

@@ -16,7 +16,7 @@ export function baselineNodeCapabilityReport(
 ): SandboxCapabilityReportV1 {
   return Object.freeze(sandboxCapabilityReportV1Schema.parse({
     schemaVersion: 1,
-    backendId: "codexpro-node-broker",
+    backendId: "codexgpt-node-broker",
     backendVersion: "1",
     platform,
     filesystemReadBoundary: "brokered",

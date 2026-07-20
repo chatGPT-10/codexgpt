@@ -8,7 +8,7 @@ import {
   assertFileTransactionConfiguration,
   assertToolContractConfiguration,
   persistedMutationContractVersion,
-  type CodexProConfig
+  type CodexGPTConfig
 } from "./config.js";
 import {
   createDefaultTransactionRecoveryCoordinator,
@@ -74,7 +74,7 @@ import {
 import {
   WorkspaceManager,
   PathGuard,
-  CodexProError,
+  CodexGPTError,
   type Workspace,
   type WorkspaceManagerOptions
 } from "./guard.js";
@@ -146,10 +146,10 @@ import {
   type HandoffWriteResult
 } from "./handoffOps.js";
 import {
-  codexproInventory,
+  codexgptInventory,
   loadSkill,
   LoadSkillError,
-  type CodexProInventoryResult,
+  type CodexGPTInventoryResult,
   type LoadedSkill,
   type SkillInventoryItem
 } from "./capabilitiesOps.js";
@@ -171,22 +171,22 @@ import { hasSecretValue, redactSensitiveText, redactStructured } from "./redact.
 import { inspectWorkspace, invalidateWorkspaceAnalysis, reviewWorkspaceChanges } from "./analysis/index.js";
 import type { ChangeAnalysis, WorkspaceAnalysis } from "./analysis/types.js";
 import {
-  CodexProSelfTestInternalError,
-  buildCodexProSelfTestData,
-  codexproSelfTestFailureText,
-  codexproSelfTestHumanText,
-  defaultCodexProSelfTestProvider,
-  prepareAtomicCodexProSelfTest,
-  normalizeCodexProSelfTestRequest,
-  safeCodexProSelfTestWorkspaceId,
-  type CodexProSelfTestProvider
+  CodexGPTSelfTestInternalError,
+  buildCodexGPTSelfTestData,
+  codexgptSelfTestFailureText,
+  codexgptSelfTestHumanText,
+  defaultCodexGPTSelfTestProvider,
+  prepareAtomicCodexGPTSelfTest,
+  normalizeCodexGPTSelfTestRequest,
+  safeCodexGPTSelfTestWorkspaceId,
+  type CodexGPTSelfTestProvider
 } from "./selfTestOps.js";
 import {
-  CODEXPRO_SELF_TEST_ERROR_MESSAGES,
-  codexproSelfTestOutputShape,
-  createCodexProSelfTestFailure,
-  createCodexProSelfTestSuccess
-} from "./tools/schemas/codexproSelfTest.js";
+  CODEXGPT_SELF_TEST_ERROR_MESSAGES,
+  codexgptSelfTestOutputShape,
+  createCodexGPTSelfTestFailure,
+  createCodexGPTSelfTestSuccess
+} from "./tools/schemas/codexgptSelfTest.js";
 import {
   createServerConfigFailure,
   createServerConfigSuccess,
@@ -451,15 +451,15 @@ import {
   type InspectWorkspaceProviderResult
 } from "./tools/schemas/inspectWorkspace.js";
 import {
-  CODEXPRO_INVENTORY_ERROR_MESSAGES,
-  CODEXPRO_INVENTORY_MCP_SERVER_LIMIT,
-  codexproInventoryDataSchema,
-  codexproInventoryOutputShape,
-  createCodexProInventoryFailure,
-  createCodexProInventorySuccess,
-  type CodexProInventoryData,
-  type CodexProInventoryFailureInput
-} from "./tools/schemas/codexproInventory.js";
+  CODEXGPT_INVENTORY_ERROR_MESSAGES,
+  CODEXGPT_INVENTORY_MCP_SERVER_LIMIT,
+  codexgptInventoryDataSchema,
+  codexgptInventoryOutputShape,
+  createCodexGPTInventoryFailure,
+  createCodexGPTInventorySuccess,
+  type CodexGPTInventoryData,
+  type CodexGPTInventoryFailureInput
+} from "./tools/schemas/codexgptInventory.js";
 import {
   LOAD_SKILL_ERROR_MESSAGES,
   createLoadSkillFailure,
@@ -721,14 +721,14 @@ const listWorkspacesProviderItemSchema = z.object({
 
 const listWorkspacesProviderResultSchema = z.array(listWorkspacesProviderItemSchema);
 
-const codexproInventoryProviderSkillSchema = z.object({
+const codexgptInventoryProviderSkillSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   source: z.enum(["workspace", "user", "plugin", "other"]),
   path: z.string()
 }).strict();
 
-const codexproInventoryProviderMcpServerSchema = z.object({
+const codexgptInventoryProviderMcpServerSchema = z.object({
   name: z.string(),
   source: z.enum([
     "user codex config",
@@ -738,16 +738,16 @@ const codexproInventoryProviderMcpServerSchema = z.object({
   ])
 }).strict();
 
-const codexproInventoryProviderResultSchema = z.object({
-  skills: z.array(codexproInventoryProviderSkillSchema).max(500),
+const codexgptInventoryProviderResultSchema = z.object({
+  skills: z.array(codexgptInventoryProviderSkillSchema).max(500),
   skillsTruncated: z.boolean(),
-  mcpServers: z.array(codexproInventoryProviderMcpServerSchema)
-    .max(CODEXPRO_INVENTORY_MCP_SERVER_LIMIT),
+  mcpServers: z.array(codexgptInventoryProviderMcpServerSchema)
+    .max(CODEXGPT_INVENTORY_MCP_SERVER_LIMIT),
   mcpServersTruncated: z.boolean()
 }).strict();
 
 const loadSkillProviderResultSchema = z.object({
-  skill: codexproInventoryProviderSkillSchema,
+  skill: codexgptInventoryProviderSkillSchema,
   text: z.string().max(200_000),
   bytes: z.number().int().min(0).max(100_000),
   totalBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
@@ -1013,24 +1013,24 @@ const handoffToAgentProviderResultSchema = z.object({
   promptBytes: z.number().int().min(1).max(80_000)
 }).strict();
 
-function codexproInventoryFailureText(failure: CodexProInventoryFailureInput): string {
+function codexgptInventoryFailureText(failure: CodexGPTInventoryFailureInput): string {
   return [
-    "# CodexPro Inventory Error",
+    "# CodexGPT Inventory Error",
     "",
     `Code: ${failure.code}`,
-    CODEXPRO_INVENTORY_ERROR_MESSAGES[failure.code]
+    CODEXGPT_INVENTORY_ERROR_MESSAGES[failure.code]
   ].join("\n");
 }
 
-function codexproInventorySkillCounts(
-  skills: CodexProInventoryData["skills"]
-): CodexProInventoryData["skill_counts"] {
+function codexgptInventorySkillCounts(
+  skills: CodexGPTInventoryData["skills"]
+): CodexGPTInventoryData["skill_counts"] {
   const counts = { total: skills.length, workspace: 0, user: 0, plugin: 0, other: 0 };
   for (const skill of skills) counts[skill.source] += 1;
   return counts;
 }
 
-function codexproInventorySuccessText(data: CodexProInventoryData): string {
+function codexgptInventorySuccessText(data: CodexGPTInventoryData): string {
   const skillLines = data.skills.length
     ? data.skills.map((skill) =>
         `- ${skill.name} [${skill.source}]${skill.description ? ` - ${skill.description}` : ""}`
@@ -1040,7 +1040,7 @@ function codexproInventorySuccessText(data: CodexProInventoryData): string {
     ? data.mcp_servers.map((server) => `- ${server.name} (${server.source})`)
     : ["- none discovered"];
   return [
-    "# CodexPro Inventory",
+    "# CodexGPT Inventory",
     "",
     `Workspace: ${data.root}`,
     `Bash mode: ${data.bash_mode}`,
@@ -1415,7 +1415,7 @@ function exportProContextSuccessText(data: ExportProContextData): string {
     `Output limited: ${data.output_limited ? "yes" : "no"}`,
     `Redacted: ${data.redacted ? "yes" : "no"}`,
     "",
-    `Paste ${data.path} into a high-context planning model when MCP tools are unavailable, then save the returned plan with codexpro pro-apply.`
+    `Paste ${data.path} into a high-context planning model when MCP tools are unavailable, then save the returned plan with codexgpt pro-apply.`
   ].join("\n");
 }
 
@@ -1540,7 +1540,7 @@ function codexSessionMatchesQuery(
 }
 
 function validateCodexSessionsProviderResult(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   request: NormalizedCodexSessionsRequest,
   rawResult: unknown
 ): CodexSessionsData {
@@ -1553,7 +1553,7 @@ function validateCodexSessionsProviderResult(
       (root, index) => root !== expectedRoots[index]!
     )
   ) {
-    throw new CodexProError("Codex session Provider identity mismatch.");
+    throw new CodexGPTError("Codex session Provider identity mismatch.");
   }
   if (
     request.query &&
@@ -1561,10 +1561,10 @@ function validateCodexSessionsProviderResult(
       (session) => !codexSessionMatchesQuery(session, request.query!)
     )
   ) {
-    throw new CodexProError("Codex session Provider query mismatch.");
+    throw new CodexGPTError("Codex session Provider query mismatch.");
   }
   if (config.codexSessions === "off") {
-    throw new CodexProError("Codex session Provider used while disabled.");
+    throw new CodexGPTError("Codex session Provider used while disabled.");
   }
 
   const sessionCount = result.sessions.length;
@@ -1730,13 +1730,13 @@ function normalizeReadCodexSessionRequest(
 }
 
 function validateReadCodexSessionProviderResult(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   request: NormalizedReadCodexSessionRequest,
   rawResult: unknown
 ): ReadCodexSessionData {
   const result = readCodexSessionProviderResultSchema.parse(rawResult);
   if (hasSecretValue(JSON.stringify(result))) {
-    throw new CodexProError("Codex transcript Provider returned sensitive identity data.");
+    throw new CodexGPTError("Codex transcript Provider returned sensitive identity data.");
   }
   const expectedDirectory = codexSessionDirectory(config);
   const expectedRoots = codexSessionRoots(config);
@@ -1750,7 +1750,7 @@ function validateReadCodexSessionProviderResult(
     result.max_messages !== request.maxMessages ||
     result.max_total_bytes !== request.maxTotalBytes
   ) {
-    throw new CodexProError("Codex transcript Provider identity mismatch.");
+    throw new CodexGPTError("Codex transcript Provider identity mismatch.");
   }
 
   const contentBytes = result.messages.reduce(
@@ -1971,14 +1971,14 @@ function classifyHandoffToCodexOperationFailure(
 
 async function readExactFileTail(absPath: string, byteCount: number): Promise<Buffer> {
   const stat = await fsp.stat(absPath);
-  if (!stat.isFile() || stat.size < byteCount) throw new CodexProError("Handoff log tail is unavailable.");
+  if (!stat.isFile() || stat.size < byteCount) throw new CodexGPTError("Handoff log tail is unavailable.");
   const buffer = Buffer.alloc(byteCount);
   const handle = await fsp.open(absPath, "r");
   try {
     let offset = 0;
     while (offset < byteCount) {
       const { bytesRead } = await handle.read(buffer, offset, byteCount - offset, stat.size - byteCount + offset);
-      if (bytesRead === 0) throw new CodexProError("Handoff log tail ended unexpectedly.");
+      if (bytesRead === 0) throw new CodexGPTError("Handoff log tail ended unexpectedly.");
       offset += bytesRead;
     }
     return buffer;
@@ -2039,7 +2039,7 @@ async function validateHandoffProviderResult(
     result.prompt !== request.prompt ||
     result.promptBytes !== Buffer.byteLength(result.prompt, "utf8")
   ) {
-    throw new CodexProError("Handoff provider identity or integrity mismatch.");
+    throw new CodexGPTError("Handoff provider identity or integrity mismatch.");
   }
 
   const pending = pendingWorkspaceMutation(rawResult);
@@ -2052,7 +2052,7 @@ async function validateHandoffProviderResult(
       !planArtifact.equals(Buffer.from(result.finalPlan, "utf8")) ||
       createHash("sha256").update(planArtifact).digest("hex") !== result.planSha256
     ) {
-      throw new CodexProError("Handoff plan artifact integrity mismatch.");
+      throw new CodexGPTError("Handoff plan artifact integrity mismatch.");
     }
 
     for (const logPath of expectedLoggedPaths) {
@@ -2062,7 +2062,7 @@ async function validateHandoffProviderResult(
         !tail.equals(Buffer.from(result.event, "utf8")) ||
         createHash("sha256").update(tail).digest("hex") !== result.eventSha256
       ) {
-        throw new CodexProError("Handoff log artifact integrity mismatch.");
+        throw new CodexGPTError("Handoff log artifact integrity mismatch.");
       }
     }
   }
@@ -2379,14 +2379,14 @@ function validateInspectProviderResult(
   guard: PathGuard
 ): InspectWorkspaceProviderResult {
   if (result.workspaceId !== workspace.id || result.root !== workspace.root) {
-    throw new CodexProError("Invalid inspect provider workspace identity.");
+    throw new CodexGPTError("Invalid inspect provider workspace identity.");
   }
 
   const canonicalPath = (value: string): string => {
     const resolved = guard.resolve(workspace, value);
     const normalized = resolved.relPath.replace(/^\.\/?$/, ".");
     if (normalized !== value) {
-      throw new CodexProError("Invalid inspect provider path normalization.");
+      throw new CodexGPTError("Invalid inspect provider path normalization.");
     }
     return normalized;
   };
@@ -2394,24 +2394,24 @@ function validateInspectProviderResult(
   const filePaths = new Set(result.files.map((file) => canonicalPath(file.path)));
   for (const entrypoint of result.entrypoints) {
     if (!filePaths.has(canonicalPath(entrypoint))) {
-      throw new CodexProError("Invalid inspect provider entrypoint.");
+      throw new CodexGPTError("Invalid inspect provider entrypoint.");
     }
   }
   for (const importantFile of result.importantFiles) {
     if (!filePaths.has(canonicalPath(importantFile))) {
-      throw new CodexProError("Invalid inspect provider important file.");
+      throw new CodexGPTError("Invalid inspect provider important file.");
     }
   }
   for (const area of result.areas) canonicalPath(area.path);
   for (const symbol of result.symbols) {
     if (!filePaths.has(canonicalPath(symbol.path))) {
-      throw new CodexProError("Invalid inspect provider symbol path.");
+      throw new CodexGPTError("Invalid inspect provider symbol path.");
     }
   }
   for (const relationship of result.relationships) {
     if (!filePaths.has(canonicalPath(relationship.from)) ||
         !filePaths.has(canonicalPath(relationship.to))) {
-      throw new CodexProError("Invalid inspect provider relationship path.");
+      throw new CodexGPTError("Invalid inspect provider relationship path.");
     }
   }
   return result;
@@ -2492,18 +2492,18 @@ function validateOpenCurrentWorkspaceProviderResult(
   path: string;
 }> {
   if (result.workspaceId !== workspace.id) {
-    throw new CodexProError("Open current workspace provider returned a mismatched workspace id.");
+    throw new CodexGPTError("Open current workspace provider returned a mismatched workspace id.");
   }
   if (result.root !== workspace.root) {
-    throw new CodexProError("Open current workspace provider returned a mismatched root.");
+    throw new CodexGPTError("Open current workspace provider returned a mismatched root.");
   }
   if (result.agentsLoaded !== Boolean(result.agentsPath)) {
-    throw new CodexProError("Open current workspace provider returned inconsistent AGENTS state.");
+    throw new CodexGPTError("Open current workspace provider returned inconsistent AGENTS state.");
   }
   if (result.agentsPath) {
     const resolvedAgents = guard.resolve(workspace, result.agentsPath);
     if (resolvedAgents.relPath !== result.agentsPath) {
-      throw new CodexProError("Open current workspace provider returned a non-normalized AGENTS path.");
+      throw new CodexGPTError("Open current workspace provider returned a non-normalized AGENTS path.");
     }
   }
 
@@ -2512,21 +2512,21 @@ function validateOpenCurrentWorkspaceProviderResult(
     expectedNames.length !== result.skills.length ||
     expectedNames.some((name, index) => result.skills[index] !== name)
   ) {
-    throw new CodexProError("Open current workspace provider returned mismatched skill names.");
+    throw new CodexGPTError("Open current workspace provider returned mismatched skill names.");
   }
 
   const expectedCounts = expectedOpenCurrentWorkspaceSkillCounts(result.skillInventory);
   for (const key of ["total", "workspace", "user", "plugin", "other"] as const) {
     if (result.skillCounts[key] !== expectedCounts[key]) {
-      throw new CodexProError("Open current workspace provider returned mismatched skill counts.");
+      throw new CodexGPTError("Open current workspace provider returned mismatched skill counts.");
     }
   }
 
   if (!options.includeSkills && (result.skills.length || result.skillInventory.length || result.skillCounts.total)) {
-    throw new CodexProError("Open current workspace provider returned skills when discovery was disabled.");
+    throw new CodexGPTError("Open current workspace provider returned skills when discovery was disabled.");
   }
   if (options.includeTree !== Boolean(result.tree)) {
-    throw new CodexProError("Open current workspace provider returned inconsistent tree inclusion.");
+    throw new CodexGPTError("Open current workspace provider returned inconsistent tree inclusion.");
   }
 
   return result.skillInventory.map((skill) => ({
@@ -2615,18 +2615,18 @@ function validateOpenWorkspaceProviderResult(
   path: string;
 }> {
   if (result.workspaceId !== workspace.id) {
-    throw new CodexProError("Open workspace provider returned a mismatched workspace id.");
+    throw new CodexGPTError("Open workspace provider returned a mismatched workspace id.");
   }
   if (result.root !== workspace.root) {
-    throw new CodexProError("Open workspace provider returned a mismatched root.");
+    throw new CodexGPTError("Open workspace provider returned a mismatched root.");
   }
   if (result.agentsLoaded !== Boolean(result.agentsPath)) {
-    throw new CodexProError("Open workspace provider returned inconsistent AGENTS state.");
+    throw new CodexGPTError("Open workspace provider returned inconsistent AGENTS state.");
   }
   if (result.agentsPath) {
     const resolvedAgents = guard.resolve(workspace, result.agentsPath);
     if (resolvedAgents.relPath !== result.agentsPath) {
-      throw new CodexProError("Open workspace provider returned a non-normalized AGENTS path.");
+      throw new CodexGPTError("Open workspace provider returned a non-normalized AGENTS path.");
     }
   }
 
@@ -2635,28 +2635,28 @@ function validateOpenWorkspaceProviderResult(
     expectedNames.length !== result.skills.length ||
     expectedNames.some((name, index) => result.skills[index] !== name)
   ) {
-    throw new CodexProError("Open workspace provider returned mismatched skill names.");
+    throw new CodexGPTError("Open workspace provider returned mismatched skill names.");
   }
 
   const expectedCounts = expectedOpenWorkspaceSkillCounts(result.skillInventory);
   for (const key of ["total", "workspace", "user", "plugin", "other"] as const) {
     if (result.skillCounts[key] !== expectedCounts[key]) {
-      throw new CodexProError("Open workspace provider returned mismatched skill counts.");
+      throw new CodexGPTError("Open workspace provider returned mismatched skill counts.");
     }
   }
 
   if (!options.includeSkills && (result.skills.length || result.skillInventory.length || result.skillCounts.total)) {
-    throw new CodexProError("Open workspace provider returned skills when discovery was disabled.");
+    throw new CodexGPTError("Open workspace provider returned skills when discovery was disabled.");
   }
   if (
     options.includeSkills &&
     !options.includeGlobalSkills &&
     result.skillInventory.some((skill) => skill.source !== "workspace")
   ) {
-    throw new CodexProError("Open workspace provider returned global skills when global discovery was disabled.");
+    throw new CodexGPTError("Open workspace provider returned global skills when global discovery was disabled.");
   }
   if (options.includeTree !== Boolean(result.tree)) {
-    throw new CodexProError("Open workspace provider returned inconsistent tree inclusion.");
+    throw new CodexGPTError("Open workspace provider returned inconsistent tree inclusion.");
   }
 
   return result.skillInventory.map((skill) => ({
@@ -2693,18 +2693,18 @@ function validateWorkspaceSnapshotSummary(
   path: string;
 }> {
   if (result.workspaceId !== workspace.id) {
-    throw new CodexProError("Workspace snapshot provider returned a mismatched workspace id.");
+    throw new CodexGPTError("Workspace snapshot provider returned a mismatched workspace id.");
   }
   if (result.root !== workspace.root) {
-    throw new CodexProError("Workspace snapshot provider returned a mismatched root.");
+    throw new CodexGPTError("Workspace snapshot provider returned a mismatched root.");
   }
   if (result.agentsLoaded !== Boolean(result.agentsPath)) {
-    throw new CodexProError("Workspace snapshot provider returned inconsistent AGENTS state.");
+    throw new CodexGPTError("Workspace snapshot provider returned inconsistent AGENTS state.");
   }
   if (result.agentsPath) {
     const resolvedAgents = guard.resolve(workspace, result.agentsPath);
     if (resolvedAgents.relPath !== result.agentsPath) {
-      throw new CodexProError("Workspace snapshot provider returned a non-normalized AGENTS path.");
+      throw new CodexGPTError("Workspace snapshot provider returned a non-normalized AGENTS path.");
     }
   }
 
@@ -2713,13 +2713,13 @@ function validateWorkspaceSnapshotSummary(
     expectedNames.length !== result.skills.length ||
     expectedNames.some((name, index) => result.skills[index] !== name)
   ) {
-    throw new CodexProError("Workspace snapshot provider returned mismatched skill names.");
+    throw new CodexGPTError("Workspace snapshot provider returned mismatched skill names.");
   }
 
   const expectedCounts = expectedWorkspaceSnapshotSkillCounts(result.skillInventory);
   for (const key of ["total", "workspace", "user", "plugin", "other"] as const) {
     if (result.skillCounts[key] !== expectedCounts[key]) {
-      throw new CodexProError("Workspace snapshot provider returned mismatched skill counts.");
+      throw new CodexGPTError("Workspace snapshot provider returned mismatched skill counts.");
     }
   }
 
@@ -2727,14 +2727,14 @@ function validateWorkspaceSnapshotSummary(
     !options.includeSkills &&
     (result.skills.length || result.skillInventory.length || result.skillCounts.total)
   ) {
-    throw new CodexProError("Workspace snapshot provider returned skills when discovery was disabled.");
+    throw new CodexGPTError("Workspace snapshot provider returned skills when discovery was disabled.");
   }
   if (
     options.includeSkills &&
     !options.includeGlobalSkills &&
     result.skillInventory.some((skill) => skill.source !== "workspace")
   ) {
-    throw new CodexProError("Workspace snapshot provider returned global skills when global discovery was disabled.");
+    throw new CodexGPTError("Workspace snapshot provider returned global skills when global discovery was disabled.");
   }
 
   return result.skillInventory.map((skill) => ({
@@ -2747,7 +2747,7 @@ function validateWorkspaceSnapshotSummary(
 
 function validateWorkspaceSnapshotAiFiles(
   result: WorkspaceSnapshotAiProviderResult,
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace
 ): string[] {
@@ -2762,10 +2762,10 @@ function validateWorkspaceSnapshotAiFiles(
   for (const file of result.files) {
     const relPath = guard.resolve(workspace, file).relPath;
     if (!approved.has(relPath)) {
-      throw new CodexProError("Workspace snapshot AI provider returned an unapproved context file.");
+      throw new CodexGPTError("Workspace snapshot AI provider returned an unapproved context file.");
     }
     if (seen.has(relPath)) {
-      throw new CodexProError("Workspace snapshot AI provider returned a duplicate context file.");
+      throw new CodexGPTError("Workspace snapshot AI provider returned a duplicate context file.");
     }
     seen.add(relPath);
     normalized.push(relPath);
@@ -2809,7 +2809,7 @@ function listWorkspacesFailureText(failure: ListWorkspacesFailureInput): string 
   ].join("\n");
 }
 
-class OpenWorkspaceAliasConflictError extends CodexProError {
+class OpenWorkspaceAliasConflictError extends CodexGPTError {
   constructor() {
     super("open_workspace root/path alias conflict");
   }
@@ -2871,7 +2871,7 @@ function classifyOpenWorkspaceRootFailure(
 function classifyBashFailure(
   error: unknown,
   args: Record<string, unknown>,
-  config: CodexProConfig
+  config: CodexGPTConfig
 ): BashFailureInput {
   const message = error instanceof Error ? error.message : String(error);
   const filesystemCode = nodeErrorCode(error);
@@ -2906,7 +2906,7 @@ function classifyBashFailure(
       details: { expected_session_id: safeBashSessionDetail(config.bashSessionId) }
     };
   }
-  if (message.startsWith("Command is blocked in CODEXPRO_BASH_MODE=safe:")) {
+  if (message.startsWith("Command is blocked in CODEXGPT_BASH_MODE=safe:")) {
     return {
       code: "COMMAND_POLICY_DENIED",
       details: { reason: "blocked_pattern" }
@@ -2998,7 +2998,7 @@ function classifyTreeFailure(error: unknown, args: Record<string, unknown>): Tre
   return { code: "INTERNAL_ERROR", details: {} };
 }
 
-function effectiveReadMaxBytes(config: CodexProConfig, args: Record<string, unknown>): number {
+function effectiveReadMaxBytes(config: CodexGPTConfig, args: Record<string, unknown>): number {
   const requested = typeof args.max_bytes === "number" ? args.max_bytes : config.maxReadBytes;
   return Math.min(requested, config.maxReadBytes);
 }
@@ -3006,7 +3006,7 @@ function effectiveReadMaxBytes(config: CodexProConfig, args: Record<string, unkn
 function classifyReadFailure(
   error: unknown,
   args: Record<string, unknown>,
-  config: CodexProConfig
+  config: CodexGPTConfig
 ): ReadFailureInput {
   const message = error instanceof Error ? error.message : String(error);
   const pathDetail = safeTreePathDetail(args.path ?? "[path omitted]");
@@ -3218,7 +3218,7 @@ const bashProviderResultSchema = z.object({
 function classifyWriteFailure(
   error: unknown,
   args: Record<string, unknown>,
-  config: CodexProConfig
+  config: CodexGPTConfig
 ): WriteFailureInput {
   const message = error instanceof Error ? error.message : String(error);
   const pathDetail = safeTreePathDetail(args.path ?? "[path omitted]");
@@ -3323,7 +3323,7 @@ function classifyWriteFailure(
 function classifyEditFailure(
   error: unknown,
   args: Record<string, unknown>,
-  config: CodexProConfig
+  config: CodexGPTConfig
 ): EditFailureInput {
   const message = error instanceof Error ? error.message : String(error);
   const pathDetail = safeTreePathDetail(args.path ?? "[path omitted]");
@@ -3451,7 +3451,7 @@ function classifyEditFailure(
 function classifyApplyPatchFailure(
   error: unknown,
   args: Record<string, unknown>,
-  config: CodexProConfig
+  config: CodexGPTConfig
 ): ApplyPatchFailureInput {
   const message = error instanceof Error ? error.message : String(error);
 
@@ -3597,7 +3597,7 @@ function structuredSearchRequested(args: Record<string, unknown>): boolean {
 }
 
 function normalizeSearchAnalysis(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   args: Record<string, unknown>,
   analysis: unknown
 ): { analysis: SearchAnalysis | null; warnings: SearchWarning[] } {
@@ -3851,7 +3851,7 @@ function countTextLines(value: string | undefined): number {
   return value.split(/\r?\n/).filter((line) => line.length > 0).length;
 }
 
-function bashTextResult(config: CodexProConfig, result: Awaited<ReturnType<typeof runBash>>): string {
+function bashTextResult(config: CodexGPTConfig, result: Awaited<ReturnType<typeof runBash>>): string {
   if (config.bashTranscript === "full") {
     return `# Bash\n\n\`\`\`bash\n$ ${result.command}\n\`\`\`\n\nCWD: ${result.cwd}\nExit: ${result.exitCode}${result.signal ? ` (${result.signal})` : ""}\nDuration: ${result.durationMs} ms\n\n## stdout\n\n\`\`\`text\n${result.stdout || ""}\n\`\`\`\n\n## stderr\n\n\`\`\`text\n${result.stderr || ""}\n\`\`\``;
   }
@@ -3868,7 +3868,7 @@ function bashTextResult(config: CodexProConfig, result: Awaited<ReturnType<typeo
     `Duration: ${result.durationMs} ms`,
     `Output: stdout ${stdoutLines} line${stdoutLines === 1 ? "" : "s"}, stderr ${stderrLines} line${stderrLines === 1 ? "" : "s"}.`,
     "",
-    "Raw stdout/stderr are in the structured CodexPro card. Start with `--bash-transcript full` to print raw output in chat."
+    "Raw stdout/stderr are in the structured CodexGPT card. Start with `--bash-transcript full` to print raw output in chat."
   ].join("\n");
 }
 
@@ -3881,7 +3881,7 @@ function errorResult(error: unknown): any {
 }
 
 function validateToolArgs(name: string, options: Record<string, unknown>, args: unknown): any {
-  const exactSchema = options.__codexproStrictInputSchema;
+  const exactSchema = options.__codexgptStrictInputSchema;
   if (exactSchema && typeof (exactSchema as { parse?: unknown }).parse === "function") {
     return (exactSchema as z.ZodTypeAny).parse(args ?? {});
   }
@@ -3901,7 +3901,7 @@ function validateToolArgs(name: string, options: Record<string, unknown>, args: 
   const details = parsed.error.issues
     .map((issue) => `${issue.path.length ? issue.path.join(".") : "arguments"}: ${issue.message}`)
     .join("; ");
-  throw new CodexProError(`Invalid arguments for ${name}: ${details}`);
+  throw new CodexGPTError(`Invalid arguments for ${name}: ${details}`);
 }
 
 function tagToolResult(result: any, name: string, options: Record<string, unknown>): any {
@@ -3912,12 +3912,12 @@ function tagToolResult(result: any, name: string, options: Record<string, unknow
       ? structured
       : {};
   const tagged = {
-    codexpro_tool: name,
-    codexpro_title: options.title ?? name,
+    codexgpt_tool: name,
+    codexgpt_title: options.title ?? name,
     ...base
   };
   const meta = (options._meta as Record<string, unknown> | undefined) ?? {};
-  const preserveStructuredContent = meta["codexpro/preserveStructuredContent"] === true;
+  const preserveStructuredContent = meta["codexgpt/preserveStructuredContent"] === true;
   result.structuredContent =
     (meta.ui || meta["openai/outputTemplate"]) && !preserveStructuredContent
       ? compactStructuredContent(tagged)
@@ -3939,7 +3939,7 @@ const OPTIONAL_TOOL_CARD_META = [
   "openai/toolInvocation/invoked"
 ] as const;
 
-function descriptorOptionsForConfig(config: CodexProConfig, options: Record<string, unknown>): Record<string, unknown> {
+function descriptorOptionsForConfig(config: CodexGPTConfig, options: Record<string, unknown>): Record<string, unknown> {
   if (config.toolCards) return options;
   const meta = { ...((options._meta as Record<string, unknown> | undefined) ?? {}) };
   for (const key of OPTIONAL_TOOL_CARD_META) delete meta[key];
@@ -3947,19 +3947,19 @@ function descriptorOptionsForConfig(config: CodexProConfig, options: Record<stri
 }
 
 function toolCallLoggingEnabled(): boolean {
-  return process.env.CODEXPRO_LOG_TOOL_CALLS === "1" || process.env.CODEXPRO_LOG_REQUESTS === "1";
+  return process.env.CODEXGPT_LOG_TOOL_CALLS === "1" || process.env.CODEXGPT_LOG_REQUESTS === "1";
 }
 
 function logToolCall(name: string, status: "ok" | "error", started: number): void {
   if (!toolCallLoggingEnabled()) return;
-  console.error(`[CodexProTool] ${name} ${status} ${Date.now() - started}ms`);
+  console.error(`[CodexGPTTool] ${name} ${status} ${Date.now() - started}ms`);
 }
 
-function registerToolCardResource(server: McpServer, config: CodexProConfig): void {
+function registerToolCardResource(server: McpServer, config: CodexGPTConfig): void {
   if (config.connectionTest) return;
   const s = server as any;
   if (typeof s.registerResource !== "function") {
-    throw new Error("Unsupported MCP SDK: CodexPro widgets require registerResource.");
+    throw new Error("Unsupported MCP SDK: CodexGPT widgets require registerResource.");
   }
 
   const registerUri = (uri: string, name: string): void => {
@@ -3967,8 +3967,8 @@ function registerToolCardResource(server: McpServer, config: CodexProConfig): vo
       name,
       uri,
       {
-        title: "CodexPro Tool Card",
-        description: "Compact visual renderer for CodexPro workspace orientation, source changes, and handoffs.",
+        title: "CodexGPT Tool Card",
+        description: "Compact visual renderer for CodexGPT workspace orientation, source changes, and handoffs.",
         mimeType: TOOL_CARD_MIME_TYPE
       },
       async () => ({
@@ -3986,7 +3986,7 @@ function registerToolCardResource(server: McpServer, config: CodexProConfig): vo
                   resourceDomains: []
                 }
               },
-              "openai/widgetDescription": "Renders CodexPro workspace orientation, diagnostics, file diffs, change reviews, terminal checks, Pro context exports, and handoff plans as compact developer cards with bounded previews.",
+              "openai/widgetDescription": "Renders CodexGPT workspace orientation, diagnostics, file diffs, change reviews, terminal checks, Pro context exports, and handoff plans as compact developer cards with bounded previews.",
               "openai/widgetPrefersBorder": true,
               "openai/widgetDomain": config.widgetDomain,
               "openai/widgetCSP": {
@@ -4000,23 +4000,23 @@ function registerToolCardResource(server: McpServer, config: CodexProConfig): vo
     );
   };
 
-  registerUri(TOOL_CARD_URI, "codexpro-tool-card");
+  registerUri(TOOL_CARD_URI, "codexgpt-tool-card");
   for (const legacyUri of TOOL_CARD_LEGACY_URIS) {
-    registerUri(legacyUri, `codexpro-tool-card-${legacyUri.match(/v\d+/)?.[0] ?? "legacy"}`);
+    registerUri(legacyUri, `codexgpt-tool-card-${legacyUri.match(/v\d+/)?.[0] ?? "legacy"}`);
   }
 }
 
 type CodexToolHandler = (args: any) => Promise<any> | any;
 
 export interface TreeProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: TreeOptions;
 }
 
 export interface ReadProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path: string;
@@ -4028,7 +4028,7 @@ export interface ReadProviderContext {
 }
 
 export interface WriteProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path: string;
@@ -4040,7 +4040,7 @@ export interface WriteProviderContext {
 }
 
 export interface EditProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path: string;
@@ -4063,41 +4063,41 @@ export interface ApplyPatchProviderResult {
 }
 
 export interface ApplyPatchProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   patch: string;
 }
 
 export interface OpenCurrentWorkspaceSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: OpenCurrentWorkspaceSummaryOptions;
 }
 
 export interface OpenWorkspaceSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: OpenWorkspaceSummaryOptions;
 }
 
 export interface WorkspaceSnapshotSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: WorkspaceSnapshotSummaryOptions;
 }
 
 export interface WorkspaceSnapshotAiContextProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
 }
 
 export interface BashProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   command: string;
@@ -4109,21 +4109,21 @@ export interface BashProviderContext {
 }
 
 export interface SearchProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: Partial<SearchOptions>;
 }
 
 export interface GitStatusProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path?: string;
 }
 
 export interface GitDiffProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path?: string;
@@ -4131,7 +4131,7 @@ export interface GitDiffProviderContext {
 }
 
 export interface ShowChangesGitProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path?: string;
@@ -4139,14 +4139,14 @@ export interface ShowChangesGitProviderContext {
 }
 
 export interface ShowChangesAnalysisProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   changedPaths: string[];
 }
 
-export interface CodexProInventoryProviderContext {
-  config: CodexProConfig;
+export interface CodexGPTInventoryProviderContext {
+  config: CodexGPTConfig;
   workspace: Workspace;
   options: {
     includeGlobalSkills: boolean;
@@ -4156,7 +4156,7 @@ export interface CodexProInventoryProviderContext {
 }
 
 export interface LoadSkillProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   workspace: Workspace;
   options: {
     name: string;
@@ -4169,7 +4169,7 @@ export interface LoadSkillProviderContext {
 }
 
 export interface CodexSessionsProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   options: {
     maxSessions: number;
     query?: string;
@@ -4177,26 +4177,26 @@ export interface CodexSessionsProviderContext {
 }
 
 export interface ReadCodexSessionProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   request: NormalizedReadCodexSessionRequest;
 }
 
 export interface ReadHandoffProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   limits: ReadHandoffLimits;
 }
 
 export interface WaitForHandoffStateProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   maxStateBytes: number;
 }
 
 export interface WaitForHandoffArtifactsProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   requestedKinds: WaitForHandoffArtifactKind[];
@@ -4204,7 +4204,7 @@ export interface WaitForHandoffArtifactsProviderContext {
 }
 
 export interface CodexContextProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   targetPath: string;
@@ -4216,14 +4216,14 @@ export interface CodexContextProviderContext {
 }
 
 export interface ExportProContextProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   request: PreparedProContextRequest;
   output: PreparedProContextOutput;
 }
 
-export interface CodexProServerDependencies extends Phase3DServerDependencies {
+export interface CodexGPTServerDependencies extends Phase3DServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
   readResultProvider?: (context: ReadProviderContext) => Promise<ReadFileResult>;
@@ -4247,13 +4247,13 @@ export interface CodexProServerDependencies extends Phase3DServerDependencies {
   ) => { text: string; files: string[] } | Promise<{ text: string; files: string[] }>;
   listWorkspacesProvider?: () => Workspace[] | Promise<Workspace[]>;
   inspectWorkspaceProvider?: (input: {
-    config: CodexProConfig;
+    config: CodexGPTConfig;
     guard: PathGuard;
     workspace: Workspace;
   }) => WorkspaceAnalysis | Promise<WorkspaceAnalysis>;
-  codexproInventoryProvider?: (
-    context: CodexProInventoryProviderContext
-  ) => CodexProInventoryResult | Promise<CodexProInventoryResult>;
+  codexgptInventoryProvider?: (
+    context: CodexGPTInventoryProviderContext
+  ) => CodexGPTInventoryResult | Promise<CodexGPTInventoryResult>;
   loadSkillProvider?: (
     context: LoadSkillProviderContext
   ) => LoadedSkill | Promise<LoadedSkill>;
@@ -4282,7 +4282,7 @@ export interface CodexProServerDependencies extends Phase3DServerDependencies {
     context: AgentHandoffProviderContext
   ) => HandoffWriteResult | Promise<HandoffWriteResult>;
   handoffToAgentNow?: () => string;
-  handoffToCodexProvider?: (
+  handoffToCodexGPTvider?: (
     context: AgentHandoffProviderContext
   ) => HandoffWriteResult | Promise<HandoffWriteResult>;
   handoffToCodexNow?: () => string;
@@ -4368,12 +4368,12 @@ export interface CodexProServerDependencies extends Phase3DServerDependencies {
   windowsProcessHostRuntimeV3?: import("./process/windowsHostClient.js").WindowsProcessHostRuntime;
 }
 
-const SUPERTOOL_NAME = "codexpro";
+const SUPERTOOL_NAME = "codexgpt";
 const SUPERTOOL_ACTION_ALIASES: Record<string, string> = {
   actions: "list_actions",
   config: "server_config",
-  self_test: "codexpro_self_test",
-  inventory: "codexpro_inventory",
+  self_test: "codexgpt_self_test",
+  inventory: "codexgpt_inventory",
   open: "open_current_workspace",
   snapshot: "workspace_snapshot",
   changes: "show_changes",
@@ -4403,22 +4403,22 @@ function normalizeSupertoolAction(value: unknown): string {
 }
 
 
-function isContextPath(config: CodexProConfig, relPath: string): boolean {
+function isContextPath(config: CodexGPTConfig, relPath: string): boolean {
   const normalized = relPath.split(path.sep).join("/").replace(/^\.\//, "");
   const contextDir = config.contextDir.replace(/^\.\//, "").replace(/\/$/, "");
   return normalized === contextDir || normalized.startsWith(`${contextDir}/`);
 }
 
-function assertWriteToolAllowed(config: CodexProConfig, relPath: string): void {
+function assertWriteToolAllowed(config: CodexGPTConfig, relPath: string): void {
   if (config.writeMode === "workspace") return;
   if (config.writeMode === "handoff" && isContextPath(config, relPath)) return;
   if (config.writeMode === "handoff") {
-    throw new CodexProError(
-      `Source writes are disabled because CODEXPRO_WRITE_MODE=handoff. ` +
+    throw new CodexGPTError(
+      `Source writes are disabled because CODEXGPT_WRITE_MODE=handoff. ` +
         `Use handoff_to_agent or handoff_to_codex, or write/edit/apply_patch only inside ${config.contextDir}/.`
     );
   }
-  throw new CodexProError("write/edit/apply_patch tools are disabled because CODEXPRO_WRITE_MODE=off. handoff_to_agent and handoff_to_codex are still available for planning.");
+  throw new CodexGPTError("write/edit/apply_patch tools are disabled because CODEXGPT_WRITE_MODE=off. handoff_to_agent and handoff_to_codex are still available for planning.");
 }
 
 function attachStructuredDuration(result: any, durationMs: number): any {
@@ -4454,7 +4454,7 @@ function registerToolCompat(
   const mutationRegistration = mutationRegistrationByServer.get(server as object);
   const mutationAwareHandler: CodexToolHandler = mutationRegistration?.toolNames.has(name)
     ? (args) => mutationRegistration.runtime.invokeProvider({
-        requiresMutation: name !== "codexpro_self_test",
+        requiresMutation: name !== "codexgpt_self_test",
         provider: () => handler(args)
       })
     : handler;
@@ -4504,7 +4504,7 @@ function registerToolCompat(
 const MINIMAL_TOOL_NAMES = [
   SUPERTOOL_NAME,
   "server_config",
-  "codexpro_self_test",
+  "codexgpt_self_test",
   "open_current_workspace",
   "open_workspace",
   "close_workspace",
@@ -4531,8 +4531,8 @@ const STANDARD_TOOL_NAMES = [
 const FULL_TOOL_NAMES = [
   SUPERTOOL_NAME,
   "server_config",
-  "codexpro_self_test",
-  "codexpro_inventory",
+  "codexgpt_self_test",
+  "codexgpt_inventory",
   "load_skill",
   "list_workspaces",
   "open_current_workspace",
@@ -4560,7 +4560,7 @@ const FULL_TOOL_NAMES = [
 
 const CONNECTION_TEST_HIDDEN_TOOLS = new Set<string>([
   SUPERTOOL_NAME,
-  "codexpro_self_test",
+  "codexgpt_self_test",
   "close_workspace",
   "write",
   "edit",
@@ -4583,14 +4583,14 @@ const V4_ADDITION_TOOLS = new Set<string>(v4ToolsForProjection({
   connectionTest: false
 }));
 
-function codexSessionToolNames(config: CodexProConfig): string[] {
+function codexSessionToolNames(config: CodexGPTConfig): string[] {
   if (config.codexSessions === "off") return [];
   return config.codexSessions === "read"
     ? ["codex_sessions", "read_codex_session"]
     : ["codex_sessions"];
 }
 
-function toolNamesForMode(config: CodexProConfig): string[] {
+function toolNamesForMode(config: CodexGPTConfig): string[] {
   const names: string[] =
     config.toolMode === "full"
       ? [...FULL_TOOL_NAMES]
@@ -4660,7 +4660,7 @@ function registeredToolNames(server: McpServer): string[] {
   return [...(registeredToolNamesByServer.get(server as object) ?? [])];
 }
 
-function shouldRegisterTool(config: CodexProConfig, name: string): boolean {
+function shouldRegisterTool(config: CodexGPTConfig, name: string): boolean {
   if (config.connectionTest && CONNECTION_TEST_HIDDEN_TOOLS.has(name)) return false;
   if (V3_ADDITION_TOOLS.has(name)) {
     return (v3ToolsForProjection({
@@ -4691,7 +4691,7 @@ function shouldRegisterTool(config: CodexProConfig, name: string): boolean {
 }
 
 function registerCodexTool(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   server: McpServer,
   name: string,
   options: Record<string, unknown>,
@@ -4699,7 +4699,7 @@ function registerCodexTool(
 ): void {
   if (!shouldRegisterTool(config, name)) return;
   const validatedHandler: CodexToolHandler = (args) => handler(validateToolArgs(name, options, args));
-  const { __codexproStrictInputSchema: _strictInputSchema, ...descriptorOptions } = options;
+  const { __codexgptStrictInputSchema: _strictInputSchema, ...descriptorOptions } = options;
   const mutationAwareHandler = registerToolCompat(
     server,
     name,
@@ -4836,7 +4836,7 @@ function disabledV3ToolResult(name: CanonicalToolV3Addition): any {
     };
   }
   const structured = createExecutionFailure(name as ExecutionToolName, "EXECUTION_PROFILE_DISABLED", {
-    next_action: "Enable an eligible V3 execution profile and restart CodexPro."
+    next_action: "Enable an eligible V3 execution profile and restart CodexGPT."
   });
   return {
     ...textResult("The requested V3 execution profile is disabled.", structured),
@@ -4845,9 +4845,9 @@ function disabledV3ToolResult(name: CanonicalToolV3Addition): any {
 }
 
 function registerV3ContractTools(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   server: McpServer,
-  dependencies: CodexProServerDependencies
+  dependencies: CodexGPTServerDependencies
 ): void {
   if (!contractIncludesV3(config.toolContractVersion)) return;
   for (const inheritedDefinition of V3_CONTRACT_TOOL_DEFINITIONS) {
@@ -4904,12 +4904,12 @@ function registerV3ContractTools(
         title: definition.title,
         description: definition.description,
         inputSchema: definition.inputSchema.shape,
-        __codexproStrictInputSchema: definition.inputSchema,
+        __codexgptStrictInputSchema: definition.inputSchema,
         outputSchema: definition.outputSchema,
         annotations: definition.annotations,
         _meta: {
           ...toolCardMeta(),
-          "codexpro/preserveStructuredContent": true,
+          "codexgpt/preserveStructuredContent": true,
           "openai/toolInvocation/invoking": `${definition.title}...`,
           "openai/toolInvocation/invoked": `${definition.title} complete`
         }
@@ -5147,9 +5147,9 @@ function classifyGitV4ReadFailure(error: unknown): GitV4ReadFailure {
 }
 
 function registerV4ContractTools(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   server: McpServer,
-  dependencies: CodexProServerDependencies,
+  dependencies: CodexGPTServerDependencies,
   workspaces: WorkspaceManager,
   guard: PathGuard
 ): void {
@@ -5446,12 +5446,12 @@ function registerV4ContractTools(
         title: definition.title,
         description: definition.description,
         inputSchema: definition.inputSchema,
-        __codexproStrictInputSchema: definition.inputSchema,
+        __codexgptStrictInputSchema: definition.inputSchema,
         outputSchema: definition.outputSchema,
         annotations: definition.annotations,
         _meta: {
           ...toolCardMeta(),
-          "codexpro/preserveStructuredContent": true,
+          "codexgpt/preserveStructuredContent": true,
           "openai/toolInvocation/invoking": `${definition.title}...`,
           "openai/toolInvocation/invoked": `${definition.title} complete`
         }
@@ -5469,12 +5469,12 @@ function registerV4ContractTools(
         title: "Query Audit Events",
         description: "Query the domain-separated Contract V4 audit projection with bounded filters and cursors.",
         inputSchema: queryAuditEventsInputSchemaV4,
-        __codexproStrictInputSchema: queryAuditEventsInputSchemaV4,
+        __codexgptStrictInputSchema: queryAuditEventsInputSchemaV4,
         outputSchema: queryAuditEventsOutputShapeV4,
         annotations: V4_READ_ANNOTATIONS,
         _meta: {
           ...toolCardMeta(),
-          "codexpro/preserveStructuredContent": true,
+          "codexgpt/preserveStructuredContent": true,
           "openai/toolInvocation/invoking": "Querying Contract V4 audit events...",
           "openai/toolInvocation/invoked": "Contract V4 audit query complete"
         }
@@ -5490,7 +5490,7 @@ function registerV4ContractTools(
   }
 }
 
-function serverInstructions(config: CodexProConfig): string {
+function serverInstructions(config: CodexGPTConfig): string {
   const editInstruction =
     config.connectionTest
       ? "4. Connection test mode is read-only. Write, patch, export, and handoff-writing tools are unavailable."
@@ -5507,7 +5507,7 @@ function serverInstructions(config: CodexProConfig): string {
       : "5. Use bash only for meaningful verification commands such as npm test, npm run build, lint, typecheck, or an existing project script.";
 
   return [
-    "CodexPro connects ChatGPT to one local development workspace.",
+    "CodexGPT connects ChatGPT to one local development workspace.",
     "",
     "Preferred workflow:",
     "1. Start with open_current_workspace. Use open_workspace only when the user gives a different root or asks to switch folders.",
@@ -5565,7 +5565,7 @@ function reviewFingerprint(status: string, diff: string): string {
   return createHash("sha256").update(status).update("\0").update(diff).digest("hex");
 }
 
-async function untrackedReviewFingerprint(config: CodexProConfig, guard: PathGuard, workspace: Workspace, changedFiles: string[]): Promise<string> {
+async function untrackedReviewFingerprint(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, changedFiles: string[]): Promise<string> {
   const hash = createHash("sha256");
   for (const line of changedFiles) {
     const match = line.match(/^\?\?\s+(.+)$/);
@@ -5609,7 +5609,7 @@ function decodeGitQuotedPath(pathText: string): string {
     }
     i += 1;
     const escaped = input[i];
-    if (escaped === undefined) throw new CodexProError(`Invalid quoted Git path: ${pathText}`);
+    if (escaped === undefined) throw new CodexGPTError(`Invalid quoted Git path: ${pathText}`);
     if (/[0-7]/.test(escaped)) {
       let octal = escaped;
       for (let j = 0; j < 2 && i + 1 < input.length && /[0-7]/.test(input[i + 1]); j += 1) {
@@ -5649,7 +5649,7 @@ type ApplyPatchOperationFailureKind =
   | "check_failed"
   | "apply_failed";
 
-export class ApplyPatchOperationError extends CodexProError {
+export class ApplyPatchOperationError extends CodexGPTError {
   constructor(
     public readonly applyPatchFailureKind: ApplyPatchOperationFailureKind
   ) {
@@ -5657,7 +5657,7 @@ export class ApplyPatchOperationError extends CodexProError {
   }
 }
 
-class ApplyPatchTargetError extends CodexProError {
+class ApplyPatchTargetError extends CodexGPTError {
   constructor(
     public readonly targetPath: string,
     public readonly targetCause: unknown
@@ -5684,25 +5684,25 @@ function patchTouchedPaths(patch: string): string[] {
   return [...paths];
 }
 
-function validateApplyPatchInput(config: CodexProConfig, patch: string): string[] {
-  if (!patch.trim()) throw new CodexProError("patch is required.");
+function validateApplyPatchInput(config: CodexGPTConfig, patch: string): string[] {
+  if (!patch.trim()) throw new CodexGPTError("patch is required.");
   if (Buffer.byteLength(patch, "utf8") > config.maxWriteBytes) {
-    throw new CodexProError(`Patch is too large. Limit: ${config.maxWriteBytes} bytes.`);
+    throw new CodexGPTError(`Patch is too large. Limit: ${config.maxWriteBytes} bytes.`);
   }
   if (hasSecretValue(patch)) {
-    throw new CodexProError("Secret-looking content is blocked from apply_patch. Use placeholders such as [REDACTED_SECRET].");
+    throw new CodexGPTError("Secret-looking content is blocked from apply_patch. Use placeholders such as [REDACTED_SECRET].");
   }
   if (patchHasSymlinkMode(patch)) {
-    throw new CodexProError("Symlink patches are blocked from apply_patch.");
+    throw new CodexGPTError("Symlink patches are blocked from apply_patch.");
   }
 
   const touchedPaths = patchTouchedPaths(patch);
-  if (!touchedPaths.length) throw new CodexProError("Patch must include at least one file path.");
+  if (!touchedPaths.length) throw new CodexGPTError("Patch must include at least one file path.");
   return touchedPaths;
 }
 
 function applyWorkspacePatch(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   patch: string
@@ -5890,7 +5890,7 @@ function undoChangeSetFailureResult(
 }
 
 function buildServerConfigData(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   server: McpServer,
   runtimeDiagnostics?: PolicyRuntimeDiagnostics
 ): ServerConfigData {
@@ -5949,7 +5949,7 @@ function buildServerConfigData(
   });
 }
 
-import { upgradeCodexProSupertool } from "./codexproSupertool.js";
+import { upgradeCodexGPTSupertool } from "./codexgptSupertool.js";
 import {
   authorizedGitEventV4,
   installPolicyKernel,
@@ -5977,9 +5977,9 @@ import {
   type UndoChangeSetData
 } from "./tools/schemas/undoChangeSet.js";
 
-export function createCodexProServer(
-  config: CodexProConfig,
-  dependencies: CodexProServerDependencies = {}
+export function createCodexGPTServer(
+  config: CodexGPTConfig,
+  dependencies: CodexGPTServerDependencies = {}
 ): McpServer {
   assertFileTransactionConfiguration(config, {
     workspaceMutatorsAtomic: Boolean(
@@ -6101,7 +6101,7 @@ export function createCodexProServer(
       }
     : undefined;
   const requiresAtomicAuditWrapper = config.fileTransactions === "atomic" && config.writeMode !== "off";
-  const runtimePolicyConfig: CodexProConfig = requiresAtomicAuditWrapper && policyEngineMode === "legacy"
+  const runtimePolicyConfig: CodexGPTConfig = requiresAtomicAuditWrapper && policyEngineMode === "legacy"
     ? { ...config, policyEngineMode: "shadow", auditMode: "required" }
     : config;
   effectivePolicyRuntime ??= (
@@ -6129,7 +6129,7 @@ export function createCodexProServer(
         })
       : undefined
   );
-  const server = new McpServer({ name: "CodexPro", version: "0.28.6" }, { instructions: serverInstructions(config) });
+  const server = new McpServer({ name: "CodexGPT", version: "0.28.6" }, { instructions: serverInstructions(config) });
   if (dependencies.workspaceMutationRuntime) {
     mutationRegistrationByServer.set(server as object, {
       runtime: dependencies.workspaceMutationRuntime,
@@ -6185,10 +6185,10 @@ export function createCodexProServer(
         context.workspace,
         context.patch
       ));
-  type GitReadServiceDependencyV4 = NonNullable<CodexProServerDependencies["gitReadServiceV4"]>;
-  const typedGitReadService = (activeConfig: CodexProConfig): GitReadServiceDependencyV4 | null => {
+  type GitReadServiceDependencyV4 = NonNullable<CodexGPTServerDependencies["gitReadServiceV4"]>;
+  const typedGitReadService = (activeConfig: CodexGPTConfig): GitReadServiceDependencyV4 | null => {
     if (activeConfig.toolContractVersion !== 4) return null;
-    if (!dependencies.gitReadServiceV4) throw new CodexProError("GIT_V4_HANDLER_UNAVAILABLE");
+    if (!dependencies.gitReadServiceV4) throw new CodexGPTError("GIT_V4_HANDLER_UNAVAILABLE");
     return dependencies.gitReadServiceV4;
   };
   const projectTypedGitStatus = (
@@ -6200,7 +6200,7 @@ export function createCodexProServer(
     currentBranchName: service.currentBranchName(data)
   });
   const workspaceSummaryGitProviders = (
-    activeConfig: CodexProConfig,
+    activeConfig: CodexGPTConfig,
     workspace: Workspace,
     activeGuard: PathGuard,
     logLimit: number
@@ -6256,12 +6256,12 @@ export function createCodexProServer(
     (() => workspaces.listWorkspaces());
   const inspectWorkspaceProvider =
     dependencies.inspectWorkspaceProvider ??
-    ((input: { config: CodexProConfig; guard: PathGuard; workspace: Workspace }) =>
+    ((input: { config: CodexGPTConfig; guard: PathGuard; workspace: Workspace }) =>
       inspectWorkspace(input.config, input.guard, input.workspace));
-  const codexproInventoryProvider =
-    dependencies.codexproInventoryProvider ??
-    ((context: CodexProInventoryProviderContext) =>
-      codexproInventory(context.config, context.workspace, context.options));
+  const codexgptInventoryProvider =
+    dependencies.codexgptInventoryProvider ??
+    ((context: CodexGPTInventoryProviderContext) =>
+      codexgptInventory(context.config, context.workspace, context.options));
   const loadSkillProvider =
     dependencies.loadSkillProvider ??
     ((context: LoadSkillProviderContext) =>
@@ -6401,8 +6401,8 @@ export function createCodexProServer(
       });
     });
   const handoffToAgentNow = dependencies.handoffToAgentNow ?? (() => new Date().toISOString());
-  const handoffToCodexProvider =
-    dependencies.handoffToCodexProvider ??
+  const handoffToCodexGPTvider =
+    dependencies.handoffToCodexGPTvider ??
     (async (context: AgentHandoffProviderContext) => {
       if (config.fileTransactions !== "atomic") return writePreparedAgentHandoff(context);
       const runtime = dependencies.workspaceMutationRuntime;
@@ -6564,18 +6564,18 @@ export function createCodexProServer(
     server,
     SUPERTOOL_NAME,
     {
-      title: "CodexPro Supertool",
+      title: "CodexGPT Supertool",
       description:
-        "Stable wrapper for advanced ChatGPT connector setups. Pass action plus args to call an already-registered CodexPro tool without changing the visible schema; it cannot call tools disabled by the current mode.",
+        "Stable wrapper for advanced ChatGPT connector setups. Pass action plus args to call an already-registered CodexGPT tool without changing the visible schema; it cannot call tools disabled by the current mode.",
       inputSchema: {
         action: z.string().optional().describe("Action or registered tool name. Use list_actions to see what this server mode allows."),
-        args: z.record(z.any()).optional().describe("Arguments for the selected action. Same shape as the wrapped CodexPro tool.")
+        args: z.record(z.any()).optional().describe("Arguments for the selected action. Same shape as the wrapped CodexGPT tool.")
       },
       annotations: BASH_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "openai/toolInvocation/invoking": "Running CodexPro supertool action...",
-        "openai/toolInvocation/invoked": "CodexPro supertool action complete"
+        "openai/toolInvocation/invoking": "Running CodexGPT supertool action...",
+        "openai/toolInvocation/invoked": "CodexGPT supertool action complete"
       }
     },
     async (args) => {
@@ -6583,9 +6583,9 @@ export function createCodexProServer(
       const names = registeredToolNames(server).filter((name) => name !== SUPERTOOL_NAME);
       if (action === "list_actions" || action === "help") {
         const text = [
-          "# CodexPro Supertool",
+          "# CodexGPT Supertool",
           "",
-          "Use `codexpro` only when a stable wrapper is useful for ChatGPT connector caching or custom workflows. The explicit tools remain the preferred default because they give clearer descriptions and validation.",
+          "Use `codexgpt` only when a stable wrapper is useful for ChatGPT connector caching or custom workflows. The explicit tools remain the preferred default because they give clearer descriptions and validation.",
           "",
           "## Available actions",
           "",
@@ -6608,14 +6608,14 @@ export function createCodexProServer(
       }
 
       if (action === SUPERTOOL_NAME) {
-        throw new CodexProError("codexpro cannot call itself. Use action=list_actions to inspect available wrapped actions.");
+        throw new CodexGPTError("codexgpt cannot call itself. Use action=list_actions to inspect available wrapped actions.");
       }
 
       const handler = registeredToolHandler(server, action);
       if (!handler) {
-        throw new CodexProError(
-          `CodexPro action is not available in the current mode: ${action}. ` +
-            "Call codexpro with action=list_actions, or restart CodexPro with a broader tool mode if that action should be exposed."
+        throw new CodexGPTError(
+          `CodexGPT action is not available in the current mode: ${action}. ` +
+            "Call codexgpt with action=list_actions, or restart CodexGPT with a broader tool mode if that action should be exposed."
         );
       }
 
@@ -6632,9 +6632,9 @@ export function createCodexProServer(
       if (result && typeof result === "object") {
         const structured = result.structuredContent;
         result.structuredContent = {
-          codexpro_tool: action,
-          codexpro_title: action,
-          codexpro_super_action: action,
+          codexgpt_tool: action,
+          codexgpt_title: action,
+          codexgpt_super_action: action,
           wrapped_tool: action,
           ...(structured && typeof structured === "object" && !Array.isArray(structured) ? structured : {})
         };
@@ -6649,14 +6649,14 @@ export function createCodexProServer(
     "server_config",
     {
       title: "Server Config",
-      description: "Show CodexPro server configuration, safety modes, limits, and blocked paths. Does not reveal auth tokens.",
+      description: "Show CodexGPT server configuration, safety modes, limits, and blocked paths. Does not reveal auth tokens.",
       inputSchema: {},
       outputSchema: serverConfigOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "openai/toolInvocation/invoking": "Reading CodexPro server config...",
-        "openai/toolInvocation/invoked": "CodexPro server config ready"
+        "openai/toolInvocation/invoking": "Reading CodexGPT server config...",
+        "openai/toolInvocation/invoked": "CodexGPT server config ready"
       }
     },
     async () => {
@@ -6664,7 +6664,7 @@ export function createCodexProServer(
         const safeConfig = serverConfigDataSchema.parse(await serverConfigDataProvider());
 
         return textResult(
-          `# CodexPro Server Config\n\n${JSON.stringify(safeConfig, null, 2)}`,
+          `# CodexGPT Server Config\n\n${JSON.stringify(safeConfig, null, 2)}`,
           createServerConfigSuccess(safeConfig)
         );
       } catch (error) {
@@ -6680,20 +6680,20 @@ export function createCodexProServer(
   registerCodexTool(
     config,
     server,
-    "codexpro_self_test",
+    "codexgpt_self_test",
     {
-      title: "CodexPro Self Test",
+      title: "CodexGPT Self Test",
       description:
-        "Run controlled local diagnostics only. The optional write/edit probe can touch only .ai-bridge/codexpro-self-test.md, Pro context is built in memory, and this tool does not execute agents or reveal secrets, command output, session ids, Skill names, MCP server names, or Git paths.",
+        "Run controlled local diagnostics only. The optional write/edit probe can touch only .ai-bridge/codexgpt-self-test.md, Pro context is built in memory, and this tool does not execute agents or reveal secrets, command output, session ids, Skill names, MCP server names, or Git paths.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        write_probe: z.boolean().optional().describe("Create/edit only .ai-bridge/codexpro-self-test.md. Default: true."),
+        write_probe: z.boolean().optional().describe("Create/edit only .ai-bridge/codexgpt-self-test.md. Default: true."),
         bash_probe: z.boolean().optional().describe("Check Bash policy with safe local commands only. Default: true."),
         pro_context_probe: z.boolean().optional().describe("Build a selected-only Pro context bundle in memory without writing pro-context.md. Default: true."),
         include_global_skills: z.boolean().optional().describe("Include user/plugin Skill discovery in the inventory count. Default: true."),
         max_skills: z.number().int().min(1).max(120).optional().describe("Maximum Skills to inspect during the inventory check. Default: 40.")
       },
-      outputSchema: codexproSelfTestOutputShape,
+      outputSchema: codexgptSelfTestOutputShape,
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -6702,8 +6702,8 @@ export function createCodexProServer(
       },
       _meta: {
         ...toolCardMeta(),
-        "openai/toolInvocation/invoking": "Running CodexPro self-test...",
-        "openai/toolInvocation/invoked": "CodexPro self-test complete"
+        "openai/toolInvocation/invoking": "Running CodexGPT self-test...",
+        "openai/toolInvocation/invoked": "CodexGPT self-test complete"
       }
     },
     async (args) => {
@@ -6714,18 +6714,18 @@ export function createCodexProServer(
         const details = typeof args.workspace_id === "string"
           ? {
               source: "workspace_id" as const,
-              workspace_id: safeCodexProSelfTestWorkspaceId(args.workspace_id)
+              workspace_id: safeCodexGPTSelfTestWorkspaceId(args.workspace_id)
             }
           : { source: "default_workspace" as const, workspace_id: null };
-        const failure = createCodexProSelfTestFailure({
+        const failure = createCodexGPTSelfTestFailure({
           code: "WORKSPACE_NOT_FOUND",
           details
         });
         return {
           ...textResult(
-            codexproSelfTestFailureText(
+            codexgptSelfTestFailureText(
               "WORKSPACE_NOT_FOUND",
-              CODEXPRO_SELF_TEST_ERROR_MESSAGES.WORKSPACE_NOT_FOUND
+              CODEXGPT_SELF_TEST_ERROR_MESSAGES.WORKSPACE_NOT_FOUND
             ),
             failure
           ),
@@ -6733,19 +6733,19 @@ export function createCodexProServer(
         };
       }
 
-      const request = normalizeCodexProSelfTestRequest(args);
+      const request = normalizeCodexGPTSelfTestRequest(args);
       const expectedTools = [...toolNamesForMode(config)].sort();
       const registeredTools = [...registeredToolNames(server)].sort();
       const injectedProvider = (
-        dependencies as CodexProServerDependencies & {
-          codexproSelfTestProvider?: CodexProSelfTestProvider;
+        dependencies as CodexGPTServerDependencies & {
+          codexgptSelfTestProvider?: CodexGPTSelfTestProvider;
         }
-      ).codexproSelfTestProvider;
-      const provider: CodexProSelfTestProvider = injectedProvider ?? (
+      ).codexgptSelfTestProvider;
+      const provider: CodexGPTSelfTestProvider = injectedProvider ?? (
         config.fileTransactions !== "atomic"
-          ? defaultCodexProSelfTestProvider
+          ? defaultCodexGPTSelfTestProvider
           : async (providerContext) => {
-              const mutation = await prepareAtomicCodexProSelfTest(providerContext);
+              const mutation = await prepareAtomicCodexGPTSelfTest(providerContext);
               if (!mutation.prepared) return mutation.result;
               const runtime = dependencies.workspaceMutationRuntime;
               if (!runtime) {
@@ -6759,7 +6759,7 @@ export function createCodexProServer(
                 workspace: providerContext.workspace,
                 prepared: mutation.prepared,
                 context: {
-                  toolName: "codexpro_self_test",
+                  toolName: "codexgpt_self_test",
                   requestId: null,
                   ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
                   policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
@@ -6782,22 +6782,22 @@ export function createCodexProServer(
 
       try {
         const facts = await provider(context);
-        const data = buildCodexProSelfTestData(facts, context);
+        const data = buildCodexGPTSelfTestData(facts, context);
         return carryPendingMutation(
           facts,
           textResult(
-            codexproSelfTestHumanText(data),
-            createCodexProSelfTestSuccess(data)
+            codexgptSelfTestHumanText(data),
+            createCodexGPTSelfTestSuccess(data)
           )
         );
       } catch (error) {
-        const code = error instanceof CodexProSelfTestInternalError
+        const code = error instanceof CodexGPTSelfTestInternalError
           ? "INTERNAL_ERROR" as const
           : "SELF_TEST_EXECUTION_FAILED" as const;
-        const failure = createCodexProSelfTestFailure({ code, details: {} });
+        const failure = createCodexGPTSelfTestFailure({ code, details: {} });
         return {
           ...textResult(
-            codexproSelfTestFailureText(code, CODEXPRO_SELF_TEST_ERROR_MESSAGES[code]),
+            codexgptSelfTestFailureText(code, CODEXGPT_SELF_TEST_ERROR_MESSAGES[code]),
             failure
           ),
           isError: true
@@ -6809,23 +6809,23 @@ export function createCodexProServer(
   registerCodexTool(
     config,
     server,
-    "codexpro_inventory",
+    "codexgpt_inventory",
     {
-      title: "CodexPro Inventory",
+      title: "CodexGPT Inventory",
       description:
-        "List CodexPro modes plus discovered skill names and configured MCP server names. Use this early when planning needs local agent capabilities.",
+        "List CodexGPT modes plus discovered skill names and configured MCP server names. Use this early when planning needs local agent capabilities.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         include_global_skills: z.boolean().optional().describe("Include user and plugin skill folders. Default: true."),
         include_mcp_servers: z.boolean().optional().describe("Include configured MCP server names from safe config files. Default: true."),
         max_skills: z.number().int().min(1).max(500).optional().describe("Maximum skills to list. Default: 120.")
       },
-      outputSchema: codexproInventoryOutputShape,
+      outputSchema: codexgptInventoryOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "openai/toolInvocation/invoking": "Reading CodexPro inventory...",
-        "openai/toolInvocation/invoked": "CodexPro inventory ready"
+        "openai/toolInvocation/invoking": "Reading CodexGPT inventory...",
+        "openai/toolInvocation/invoked": "CodexGPT inventory ready"
       }
     },
     async (args) => {
@@ -6835,7 +6835,7 @@ export function createCodexProServer(
         workspace = workspaces.resolveWorkspace(args.workspace_id);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const failure: CodexProInventoryFailureInput = args.workspace_id && message.startsWith("Unknown workspace_id:")
+        const failure: CodexGPTInventoryFailureInput = args.workspace_id && message.startsWith("Unknown workspace_id:")
           ? {
               code: "WORKSPACE_NOT_FOUND",
               details: {
@@ -6851,8 +6851,8 @@ export function createCodexProServer(
             : { code: "INTERNAL_ERROR", details: {} };
         return {
           ...textResult(
-            codexproInventoryFailureText(failure),
-            createCodexProInventoryFailure(failure, Date.now() - startedAt)
+            codexgptInventoryFailureText(failure),
+            createCodexGPTInventoryFailure(failure, Date.now() - startedAt)
           ),
           isError: true
         };
@@ -6866,30 +6866,30 @@ export function createCodexProServer(
 
       let rawInventory: unknown;
       try {
-        rawInventory = await codexproInventoryProvider({ config, workspace, options });
+        rawInventory = await codexgptInventoryProvider({ config, workspace, options });
       } catch {
-        const failure: CodexProInventoryFailureInput = {
+        const failure: CodexGPTInventoryFailureInput = {
           code: "INVENTORY_DISCOVERY_FAILED",
           details: {}
         };
         return {
           ...textResult(
-            codexproInventoryFailureText(failure),
-            createCodexProInventoryFailure(failure, Date.now() - startedAt)
+            codexgptInventoryFailureText(failure),
+            createCodexGPTInventoryFailure(failure, Date.now() - startedAt)
           ),
           isError: true
         };
       }
 
       try {
-        const inventory = codexproInventoryProviderResultSchema.parse(rawInventory);
+        const inventory = codexgptInventoryProviderResultSchema.parse(rawInventory);
         const skills = inventory.skills.map((skill) => ({
           name: skill.name,
           description: skill.description ?? null,
           source: skill.source,
           path: skill.path
         }));
-        const data = codexproInventoryDataSchema.parse({
+        const data = codexgptInventoryDataSchema.parse({
           workspace_id: workspace.id,
           root: workspace.root,
           bash_mode: config.bashMode,
@@ -6898,28 +6898,28 @@ export function createCodexProServer(
           include_global_skills: options.includeGlobalSkills,
           include_mcp_servers: options.includeMcpServers,
           max_skills: options.maxSkills,
-          mcp_server_limit: CODEXPRO_INVENTORY_MCP_SERVER_LIMIT,
+          mcp_server_limit: CODEXGPT_INVENTORY_MCP_SERVER_LIMIT,
           skills,
           skill_count: skills.length,
-          skill_counts: codexproInventorySkillCounts(skills),
+          skill_counts: codexgptInventorySkillCounts(skills),
           skills_truncated: inventory.skillsTruncated,
           mcp_servers: inventory.mcpServers,
           mcp_server_count: inventory.mcpServers.length,
           mcp_servers_truncated: inventory.mcpServersTruncated
         });
         return textResult(
-          codexproInventorySuccessText(data),
-          createCodexProInventorySuccess(data, Date.now() - startedAt)
+          codexgptInventorySuccessText(data),
+          createCodexGPTInventorySuccess(data, Date.now() - startedAt)
         );
       } catch {
-        const failure: CodexProInventoryFailureInput = {
+        const failure: CodexGPTInventoryFailureInput = {
           code: "INTERNAL_ERROR",
           details: {}
         };
         return {
           ...textResult(
-            codexproInventoryFailureText(failure),
-            createCodexProInventoryFailure(failure, Date.now() - startedAt)
+            codexgptInventoryFailureText(failure),
+            createCodexGPTInventoryFailure(failure, Date.now() - startedAt)
           ),
           isError: true
         };
@@ -6937,7 +6937,7 @@ export function createCodexProServer(
         "Load the bounded SKILL.md body for a discovered workspace, user, or plugin skill by name. Does not accept arbitrary paths; use after open_current_workspace/open_workspace shows skill_inventory.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        name: z.string().describe("Exact skill name from skill_inventory or codexpro_inventory."),
+        name: z.string().describe("Exact skill name from skill_inventory or codexgpt_inventory."),
         source: z.enum(["workspace", "user", "plugin", "other"]).optional().describe("Optional source when multiple skills share a name."),
         path: z.string().optional().describe("Exact sanitized path from skill_inventory when name/source are still ambiguous."),
         include_global_skills: z.boolean().optional().describe("Also scan installed user/plugin skills. Default: auto when source/path is not workspace."),
@@ -6948,7 +6948,7 @@ export function createCodexProServer(
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "codexpro/preserveStructuredContent": true,
+        "codexgpt/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Loading skill instructions...",
         "openai/toolInvocation/invoked": "Skill instructions loaded"
       }
@@ -7006,7 +7006,7 @@ export function createCodexProServer(
           (request.selector.path !== null && skill.path !== request.selector.path) ||
           (!request.options.includeGlobal && skill.source !== "workspace")
         ) {
-          throw new CodexProError("Load Skill provider returned a mismatched Skill identity.");
+          throw new CodexGPTError("Load Skill provider returned a mismatched Skill identity.");
         }
 
         const safeText = redactSensitiveText(loaded.text);
@@ -7060,14 +7060,14 @@ export function createCodexProServer(
     "list_workspaces",
     {
       title: "List Workspaces",
-      description: "List currently opened CodexPro workspaces for this server/config.",
+      description: "List currently opened CodexGPT workspaces for this server/config.",
       inputSchema: {},
       outputSchema: listWorkspacesOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "openai/toolInvocation/invoking": "Listing CodexPro workspaces...",
-        "openai/toolInvocation/invoked": "CodexPro workspaces listed"
+        "openai/toolInvocation/invoking": "Listing CodexGPT workspaces...",
+        "openai/toolInvocation/invoked": "CodexGPT workspaces listed"
       }
     },
     async () => {
@@ -7107,7 +7107,7 @@ export function createCodexProServer(
                   `- ${workspace.id} — ${workspace.root} (opened ${workspace.openedAt})`
               )
               .join("\n")
-          : "No workspaces opened on this CodexPro server/config yet. Call open_workspace first.";
+          : "No workspaces opened on this CodexGPT server/config yet. Call open_workspace first.";
 
         return textResult(
           text,
@@ -7150,8 +7150,8 @@ export function createCodexProServer(
       },
       _meta: {
         ...toolCardMeta(),
-        "openai/toolInvocation/invoking": "Closing CodexPro workspace...",
-        "openai/toolInvocation/invoked": "CodexPro workspace closed"
+        "openai/toolInvocation/invoking": "Closing CodexGPT workspace...",
+        "openai/toolInvocation/invoked": "CodexGPT workspace closed"
       }
     },
     async (args) => {
@@ -7206,8 +7206,8 @@ export function createCodexProServer(
       annotations: SESSION_READ_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "openai/toolInvocation/invoking": "Opening current CodexPro workspace...",
-        "openai/toolInvocation/invoked": "Current CodexPro workspace opened"
+        "openai/toolInvocation/invoking": "Opening current CodexGPT workspace...",
+        "openai/toolInvocation/invoked": "Current CodexGPT workspace opened"
       }
     },
     async (args) => {
@@ -7274,9 +7274,9 @@ export function createCodexProServer(
     {
       title: "Open Workspace",
       description:
-        "Open a local project directory as a CodexPro workspace. Returns a workspace_id plus git status, AGENTS.md, and a compact file tree.",
+        "Open a local project directory as a CodexGPT workspace. Returns a workspace_id plus git status, AGENTS.md, and a compact file tree.",
       inputSchema: {
-        root: z.string().optional().describe("Project directory to open. Omit to use CODEXPRO_ROOT/current working directory. Supports ~/ paths."),
+        root: z.string().optional().describe("Project directory to open. Omit to use CODEXGPT_ROOT/current working directory. Supports ~/ paths."),
         path: z.string().optional().describe("Alias for root. Useful for clients that naturally send path instead of root."),
         include_tree: z.boolean().optional().describe("Include a compact file tree. Default: true."),
         max_depth: z.number().int().min(1).max(8).optional().describe("Tree depth. Default: 3."),
@@ -7289,8 +7289,8 @@ export function createCodexProServer(
       annotations: SESSION_READ_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "openai/toolInvocation/invoking": "Opening CodexPro workspace...",
-        "openai/toolInvocation/invoked": "CodexPro workspace opened"
+        "openai/toolInvocation/invoking": "Opening CodexGPT workspace...",
+        "openai/toolInvocation/invoked": "CodexGPT workspace opened"
       }
     },
     async (args) => {
@@ -7801,10 +7801,10 @@ export function createCodexProServer(
         };
         const rawResult: unknown = await searchResultProvider({ config, guard, workspace, options });
         if (!rawResult || typeof rawResult !== "object" || Array.isArray(rawResult)) {
-          throw new CodexProError("Invalid search provider result.");
+          throw new CodexGPTError("Invalid search provider result.");
         }
         const result = rawResult as Partial<SearchResult>;
-        if (typeof result.text !== "string") throw new CodexProError("Invalid search provider text.");
+        if (typeof result.text !== "string") throw new CodexGPTError("Invalid search provider text.");
         const matches = z.array(searchMatchSchema).parse(result.matches);
         const truncated = z.boolean().parse(result.truncated);
         const used = z.enum(["ripgrep", "node"]).parse(result.used);
@@ -7969,7 +7969,7 @@ export function createCodexProServer(
           })
         );
         if (result.path !== resolved.relPath) {
-          throw new CodexProError("Write provider returned a path that does not match the resolved target.");
+          throw new CodexGPTError("Write provider returned a path that does not match the resolved target.");
         }
         const data = writeDataSchema.parse({
           workspace_id: workspace.id,
@@ -8136,7 +8136,7 @@ export function createCodexProServer(
           })
         );
         if (result.path !== resolved.relPath) {
-          throw new CodexProError("Edit provider returned a path that does not match the resolved target.");
+          throw new CodexGPTError("Edit provider returned a path that does not match the resolved target.");
         }
         const data = editDataSchema.parse({
           workspace_id: workspace.id,
@@ -8305,12 +8305,12 @@ export function createCodexProServer(
             const resolved = guard.resolve(workspace, returnedPath, { forWrite: true });
             assertWriteToolAllowed(config, resolved.relPath);
             if (returnedPath !== resolved.relPath) {
-              throw new CodexProError("Apply patch provider returned a non-normalized path.");
+              throw new CodexGPTError("Apply patch provider returned a non-normalized path.");
             }
             return resolved.relPath;
           });
         } catch {
-          throw new CodexProError("Apply patch provider returned an unsafe or non-normalized path.");
+          throw new CodexGPTError("Apply patch provider returned an unsafe or non-normalized path.");
         }
 
         const expectedSet = new Set(expectedPaths);
@@ -8319,7 +8319,7 @@ export function createCodexProServer(
           expectedSet.size !== returnedSet.size ||
           Array.from(expectedSet).some((value) => !returnedSet.has(value))
         ) {
-          throw new CodexProError("Apply patch provider returned a mismatched path set.");
+          throw new CodexGPTError("Apply patch provider returned a mismatched path set.");
         }
 
         const data = applyPatchDataSchema.parse({
@@ -8487,17 +8487,17 @@ export function createCodexProServer(
         const expectedCwd = path.relative(workspace.root, resolvedCwd.absPath) || ".";
 
         if (providerResult.command !== command) {
-          throw new CodexProError("Bash provider returned a mismatched command.");
+          throw new CodexGPTError("Bash provider returned a mismatched command.");
         }
         if (providerResult.cwd !== expectedCwd) {
-          throw new CodexProError("Bash provider returned a mismatched working directory.");
+          throw new CodexGPTError("Bash provider returned a mismatched working directory.");
         }
         if (config.bashSessionId) {
           if (providerResult.bashSessionId !== config.bashSessionId) {
-            throw new CodexProError("Bash provider returned a mismatched session id.");
+            throw new CodexGPTError("Bash provider returned a mismatched session id.");
           }
         } else if (providerResult.bashSessionId !== undefined) {
-          throw new CodexProError("Bash provider returned an unexpected session id.");
+          throw new CodexGPTError("Bash provider returned an unexpected session id.");
         }
 
         const data = bashDataSchema.parse({
@@ -8549,7 +8549,7 @@ export function createCodexProServer(
             workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
             path: z.string().optional().describe("Optional file path relative to workspace root.")
           },
-      __codexproStrictInputSchema: config.toolContractVersion === 4 ? gitStatusInputV4Schema : undefined,
+      __codexgptStrictInputSchema: config.toolContractVersion === 4 ? gitStatusInputV4Schema : undefined,
       outputSchema: config.toolContractVersion === 4 ? gitStatusOutputShapeV4 : gitStatusOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
@@ -8595,7 +8595,7 @@ export function createCodexProServer(
         });
 
         if (typeof status !== "string") {
-          throw new CodexProError("git_status provider returned a non-string result.");
+          throw new CodexGPTError("git_status provider returned a non-string result.");
         }
 
         const outputFailure = classifyGitStatusOutputFailure(status);
@@ -8660,7 +8660,7 @@ export function createCodexProServer(
             staged: z.boolean().optional().describe("Show staged diff. Default: false."),
             include_diff: z.boolean().optional().describe("Include the raw unified diff in the response. Default: true. Set false for stats-only checks.")
           },
-      __codexproStrictInputSchema: config.toolContractVersion === 4 ? gitDiffInputV4Schema : undefined,
+      __codexgptStrictInputSchema: config.toolContractVersion === 4 ? gitDiffInputV4Schema : undefined,
       outputSchema: config.toolContractVersion === 4 ? gitDiffOutputShapeV4 : gitDiffOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
@@ -8711,7 +8711,7 @@ export function createCodexProServer(
         });
 
         if (typeof providerResult !== "string") {
-          throw new CodexProError("git_diff provider returned a non-string result.");
+          throw new CodexGPTError("git_diff provider returned a non-string result.");
         }
 
         const rawDiff = normalizeGitOutput(providerResult);
@@ -8819,7 +8819,7 @@ export function createCodexProServer(
 
         const statusProviderResult = await showChangesStatusProvider(providerContext);
         if (typeof statusProviderResult !== "string") {
-          throw new CodexProError("show_changes status provider returned a non-string result.");
+          throw new CodexGPTError("show_changes status provider returned a non-string result.");
         }
         const status = normalizeGitOutput(statusProviderResult);
         const statusFailure = classifyShowChangesStatusOutputFailure(status);
@@ -8838,7 +8838,7 @@ export function createCodexProServer(
 
         const diffProviderResult = await showChangesDiffProvider(providerContext);
         if (typeof diffProviderResult !== "string") {
-          throw new CodexProError("show_changes diff provider returned a non-string result.");
+          throw new CodexGPTError("show_changes diff provider returned a non-string result.");
         }
         const diff = normalizeGitOutput(diffProviderResult);
         const diffFailure = classifyShowChangesDiffOutputFailure(diff);
@@ -8979,7 +8979,7 @@ export function createCodexProServer(
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "codexpro/preserveStructuredContent": true,
+        "codexgpt/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Reading agent handoff context...",
         "openai/toolInvocation/invoked": "Agent handoff context ready"
       }
@@ -9019,7 +9019,7 @@ export function createCodexProServer(
       try {
         const context = readHandoffProviderResultSchema.parse(rawContext);
         if (context.contextDir !== config.contextDir) {
-          throw new CodexProError("Handoff provider returned a mismatched context directory.");
+          throw new CodexGPTError("Handoff provider returned a mismatched context directory.");
         }
         const artifacts = context.artifacts.map((artifact) => {
           const safeText = redactSensitiveText(artifact.text);
@@ -9092,7 +9092,7 @@ export function createCodexProServer(
       annotations: { ...READ_ONLY_ANNOTATIONS, idempotentHint: false },
       _meta: {
         ...toolCardMeta(),
-        "codexpro/preserveStructuredContent": true,
+        "codexgpt/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Waiting for local handoff result...",
         "openai/toolInvocation/invoked": "Local handoff state ready"
       }
@@ -9183,7 +9183,7 @@ export function createCodexProServer(
             observation.stateFile !== stateFile ||
             (observation.bytes !== null && observation.bytes > limits.maxStateBytes)
           ) {
-            throw new CodexProError("Handoff state provider identity or bounds mismatch.");
+            throw new CodexGPTError("Handoff state provider identity or bounds mismatch.");
           }
         } catch {
           return waitForHandoffFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
@@ -9261,7 +9261,7 @@ export function createCodexProServer(
             providerResult.requestedKinds.length !== requestedKinds.length ||
             providerResult.requestedKinds.some((kind, index) => kind !== requestedKinds[index])
           ) {
-            throw new CodexProError("Handoff artifact provider request identity mismatch.");
+            throw new CodexGPTError("Handoff artifact provider request identity mismatch.");
           }
           const expectedByKind = new Map(
             WAIT_FOR_HANDOFF_ARTIFACT_DEFINITIONS.map((definition) => [
@@ -9281,7 +9281,7 @@ export function createCodexProServer(
             !waitForHandoffKindsAreInFixedOrder(providerResult.unavailable) ||
             providerResult.artifacts.some((artifact) => artifact.bytes > limits.maxArtifactBytes)
           ) {
-            throw new CodexProError("Handoff artifact provider coverage or bounds mismatch.");
+            throw new CodexGPTError("Handoff artifact provider coverage or bounds mismatch.");
           }
           builtArtifacts = buildWaitForHandoffArtifacts(providerResult, requestedKinds, limits);
         } catch {
@@ -9354,7 +9354,7 @@ export function createCodexProServer(
       annotations: { ...READ_ONLY_ANNOTATIONS, idempotentHint: false },
       _meta: {
         ...toolCardMeta(),
-        "codexpro/preserveStructuredContent": true,
+        "codexgpt/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Loading Codex context...",
         "openai/toolInvocation/invoked": "Codex context ready"
       }
@@ -9462,7 +9462,7 @@ export function createCodexProServer(
           (context.gitStatus !== undefined) !== includeGitStatus ||
           (context.gitDiff !== undefined) !== includeGitDiff
         ) {
-          throw new CodexProError("Codex context provider identity or requested source presence mismatch.");
+          throw new CodexGPTError("Codex context provider identity or requested source presence mismatch.");
         }
 
         const safeContext = redactSensitiveText(context.text);
@@ -9537,7 +9537,7 @@ export function createCodexProServer(
       annotations: HANDOFF_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "codexpro/preserveStructuredContent": true,
+        "codexgpt/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Exporting Pro context...",
         "openai/toolInvocation/invoked": "Pro context exported"
       }
@@ -9643,7 +9643,7 @@ export function createCodexProServer(
           hasSecretValue(result.sourceMarkdown) ||
           hasSecretValue(result.markdown)
         ) {
-          throw new CodexProError("Export provider identity, framing, or integrity mismatch.");
+          throw new CodexGPTError("Export provider identity, framing, or integrity mismatch.");
         }
 
         const data = exportProContextDataSchema.parse({
@@ -9693,7 +9693,7 @@ export function createCodexProServer(
         if (!pendingWorkspaceMutation(rawResult)) {
           const artifactPath = guard.resolve(workspace, output.path);
           if (artifactPath.relPath !== output.path) {
-            throw new CodexProError("Export artifact path mismatch.");
+            throw new CodexGPTError("Export artifact path mismatch.");
           }
           await guard.assertTextFile(
             artifactPath.absPath,
@@ -9705,7 +9705,7 @@ export function createCodexProServer(
             createHash("sha256").update(artifact).digest("hex") !== result.sha256 ||
             artifact.toString("utf8") !== result.markdown
           ) {
-            throw new CodexProError("Export artifact integrity mismatch.");
+            throw new CodexGPTError("Export artifact integrity mismatch.");
           }
         }
         return carryPendingMutation(
@@ -9795,7 +9795,7 @@ export function createCodexProServer(
           annotations: READ_ONLY_ANNOTATIONS,
           _meta: {
             ...toolCardMeta(),
-            "codexpro/preserveStructuredContent": true,
+            "codexgpt/preserveStructuredContent": true,
             "openai/toolInvocation/invoking": "Reading local Codex session...",
             "openai/toolInvocation/invoked": "Codex session read"
           }
@@ -9862,7 +9862,7 @@ export function createCodexProServer(
       annotations: HANDOFF_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "codexpro/preserveStructuredContent": true,
+        "codexgpt/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Writing agent handoff plan...",
         "openai/toolInvocation/invoked": "Agent handoff plan written"
       }
@@ -10002,7 +10002,7 @@ export function createCodexProServer(
       annotations: HANDOFF_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
-        "codexpro/preserveStructuredContent": true,
+        "codexgpt/preserveStructuredContent": true,
         "openai/toolInvocation/invoking": "Writing Codex handoff plan...",
         "openai/toolInvocation/invoked": "Codex handoff plan written"
       }
@@ -10062,7 +10062,7 @@ export function createCodexProServer(
       const providerContext = { config, guard, workspace, request, output };
       let rawResult: unknown;
       try {
-        rawResult = await handoffToCodexProvider(providerContext);
+        rawResult = await handoffToCodexGPTvider(providerContext);
       } catch (error) {
         return handoffToCodexFailureResult(
           classifyHandoffToCodexOperationFailure(error, "HANDOFF_WRITE_FAILED"),
@@ -10138,7 +10138,7 @@ export function createCodexProServer(
         annotations: LOCAL_WRITE_ANNOTATIONS,
         _meta: {
           ...toolCardMeta(),
-          "codexpro/preserveStructuredContent": true,
+          "codexgpt/preserveStructuredContent": true,
           "openai/toolInvocation/invoking": "Validating change set undo...",
           "openai/toolInvocation/invoked": "Change set undo complete"
         }
@@ -10203,7 +10203,7 @@ export function createCodexProServer(
     );
   }
 
-  upgradeCodexProSupertool(server, config.toolContractVersion);
+  upgradeCodexGPTSupertool(server, config.toolContractVersion);
   if ((policyEngineMode !== "legacy" || requiresAtomicAuditWrapper) && !effectivePolicyRuntime) {
     throw new Error("Policy Kernel runtime is required for shadow, enforce, or writable atomic audit mode.");
   }

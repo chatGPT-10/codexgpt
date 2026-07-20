@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { PathGuard } = await tsImport("../src/guard.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const workspaceModule = await tsImport("../src/workspaceOps.ts", import.meta.url);
@@ -111,7 +111,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "codex-context-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -233,8 +233,8 @@ function assertFailure(result, code, details) {
   assert.equal(result.isError, true, JSON.stringify(result));
   const parsed = parseResult(result);
   assert.deepEqual(parsed, {
-    codexpro_tool: "codex_context",
-    codexpro_title: "Codex Context",
+    codexgpt_tool: "codex_context",
+    codexgpt_title: "Codex Context",
     ok: false,
     data: null,
     error: {
@@ -270,15 +270,15 @@ test("codex_context schema exports the exact six-field envelope and twenty-eight
 
   const success = createCodexContextSuccess(sampleData(), 7);
   assert.deepEqual(Object.keys(success).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(success.codexpro_tool, "codex_context");
-  assert.equal(success.codexpro_title, "Codex Context");
+  assert.equal(success.codexgpt_tool, "codex_context");
+  assert.equal(success.codexgpt_title, "Codex Context");
   assert.equal(success.ok, true);
   assert.equal(success.error, null);
   assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
@@ -365,13 +365,13 @@ test("codex_context is full-only read-only time-varying and advertises preservat
       const descriptor = (await client.listTools()).tools.find((tool) => tool.name === "codex_context");
       assert.ok(descriptor?.outputSchema);
       assert.deepEqual(new Set(descriptor.outputSchema.required), new Set([
-        "codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"
+        "codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"
       ]));
       assert.equal(descriptor.annotations?.readOnlyHint, true);
       assert.equal(descriptor.annotations?.destructiveHint, false);
       assert.equal(descriptor.annotations?.idempotentHint, false);
       assert.equal(descriptor.annotations?.openWorldHint, false);
-      assert.equal(descriptor._meta?.["codexpro/preserveStructuredContent"], true);
+      assert.equal(descriptor._meta?.["codexgpt/preserveStructuredContent"], true);
     });
   });
 });
@@ -615,7 +615,7 @@ test("codex_context redacts before UTF-8 capping and preserves exact byte and pr
 
 test("codex_context Tool Card is nested-first dedicated bounded and retains a flat fallback", () => {
   assert.match(toolCardWidgetHtml, /function codexContextResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "codex_context"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "codex_context"/);
   assert.match(toolCardWidgetHtml, /function renderCodexContext\(data\)/);
   assert.match(toolCardWidgetHtml, /context\.preview/);
   assert.match(toolCardWidgetHtml, /context\.agents_files/);
@@ -659,13 +659,13 @@ test("codex_context supertool preserves the exact nested child envelope", async 
         gitStatus: "(no output)"
       })
     }, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "codex_context",
         args: { include_ai_bridge: false }
       });
-      assert.equal(result.structuredContent.codexpro_tool, "codex_context");
-      assert.equal(result.structuredContent.codexpro_title, "Codex Context");
-      assert.equal(result.structuredContent.codexpro_super_action, "codex_context");
+      assert.equal(result.structuredContent.codexgpt_tool, "codex_context");
+      assert.equal(result.structuredContent.codexgpt_title, "Codex Context");
+      assert.equal(result.structuredContent.codexgpt_super_action, "codex_context");
       assert.equal(result.structuredContent.wrapped_tool, "codex_context");
       assert.equal(result.structuredContent.ok, true);
       assert.equal(result.structuredContent.data.target_path, ".");

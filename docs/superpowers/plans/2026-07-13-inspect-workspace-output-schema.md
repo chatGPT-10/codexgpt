@@ -6,14 +6,14 @@
 
 **Architecture:** Add one tool-owned schema module and one injectable provider boundary around the existing `inspectWorkspace(config, guard, workspace)` operation. Validate the full provider result first, preserve full-workspace analysis and cache semantics, then filter and cap returned records for the normalized requested scope. Construct the exact nested result and migrate consumers to nested data while retaining historical Tool Card fallback and protected-source fail-closed compatibility.
 
-**Tech Stack:** TypeScript, Node.js 20/24, Zod 3, MCP SDK in-memory transport, `node:test`, existing built-in analysis engine, existing CodexPro Tool Card, exact in-memory Smoke compatibility loader, Git Bash verification backend on native Windows.
+**Tech Stack:** TypeScript, Node.js 20/24, Zod 3, MCP SDK in-memory transport, `node:test`, existing built-in analysis engine, existing CodexGPT Tool Card, exact in-memory Smoke compatibility loader, Git Bash verification backend on native Windows.
 
 ## Global Constraints
 
 - Implement one direct tool only: `inspect_workspace`.
 - Follow `AGENTS.md` and the approved design at `docs/superpowers/specs/2026-07-13-inspect-workspace-output-schema-design.md`.
 - Preserve the existing built-in analysis engine, inventory, classifier, extractor, relationship graph, cache key, LRU size, and cache invalidation behavior.
-- Preserve standard/full registration when analysis is enabled; keep the tool absent in minimal mode and when `CODEXPRO_ANALYSIS=0`.
+- Preserve standard/full registration when analysis is enabled; keep the tool absent in minimal mode and when `CODEXGPT_ANALYSIS=0`.
 - Preserve optional `workspace_id` and current default-workspace fallback; do not begin Phase 2 explicit-ID work.
 - Normalize omitted, empty, or whitespace-only scope to `.`; preserve safe nonexistent-scope success.
 - Preserve full-workspace coverage and cache state while filtering only returned entrypoints, important files, areas, files, symbols, and relationships.
@@ -21,7 +21,7 @@
 - Preserve Tool Card caps of 120 files, 80 symbols, and 120 relationships.
 - Preserve `include_symbols=false` and `include_relationships=false` as intentional omission, not output truncation.
 - Keep provider coverage warnings in `data`; keep `meta.warnings` empty.
-- Do not migrate `search`, `codexpro_inventory`, `load_skill`, `.ai-bridge`, Pro-context, handoff, or any other direct tool.
+- Do not migrate `search`, `codexgpt_inventory`, `load_skill`, `.ai-bridge`, Pro-context, handoff, or any other direct tool.
 - Do not add Serena, LSP, external semantic providers, or new analysis heuristics.
 - Do not change workspace ownership, expiry, close, persistence, random IDs, or client isolation.
 - Do not add dependencies or modify `package.json` or `package-lock.json`.
@@ -105,7 +105,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
   "../src/tools/schemas/inspectWorkspace.ts",
@@ -123,7 +123,7 @@ const {
 } = schemaModule ?? {};
 ```
 
-Add a complete config helper using the same current `CodexProConfig` fixture shape as adjacent contract tests:
+Add a complete config helper using the same current `CodexGPTConfig` fixture shape as adjacent contract tests:
 
 ```js
 function createTestConfig(root, overrides = {}) {
@@ -170,7 +170,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "inspect-workspace-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -182,7 +182,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(files, callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-inspect-contract-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-inspect-contract-"));
   try {
     for (const [relativePath, content] of Object.entries(files)) {
       const absolutePath = path.join(root, relativePath);
@@ -317,7 +317,7 @@ function sampleData(root, overrides = {}) {
 Add tests that require:
 
 ```js
-const topKeys = ["codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"];
+const topKeys = ["codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"];
 const dataKeys = [
   "areas",
   "cache",
@@ -358,8 +358,8 @@ test("inspect_workspace success constructor is exact", () => {
   assert.equal(typeof createInspectWorkspaceSuccess, "function");
   const result = createInspectWorkspaceSuccess(sampleData("D:\\Dev\\project"), 7);
   assert.deepEqual(Object.keys(result).sort(), topKeys);
-  assert.equal(result.codexpro_tool, "inspect_workspace");
-  assert.equal(result.codexpro_title, "Inspect Workspace");
+  assert.equal(result.codexgpt_tool, "inspect_workspace");
+  assert.equal(result.codexgpt_title, "Inspect Workspace");
   assert.equal(result.ok, true);
   assert.equal(result.error, null);
   assert.deepEqual(result.meta, { schemaVersion: 1, durationMs: 7, warnings: [] });
@@ -444,7 +444,7 @@ Prepare focused tests for:
 11. provider identity, path, warning, coverage, fingerprint, and cache rejection;
 12. unknown workspace and path policy classification;
 13. nested Tool Card success/failure plus historical flat fallback;
-14. direct `codexpro` supertool success/failure;
+14. direct `codexgpt` supertool success/failure;
 15. protected Smoke compatibility exact-source assertions.
 
 Use exact assertions against `result.structuredContent.data`, not permissive fallback reads.
@@ -764,8 +764,8 @@ export const inspectWorkspaceErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const inspectWorkspaceOutputShape = {
-  codexpro_tool: z.literal("inspect_workspace"),
-  codexpro_title: z.literal("Inspect Workspace"),
+  codexgpt_tool: z.literal("inspect_workspace"),
+  codexgpt_title: z.literal("Inspect Workspace"),
   ok: z.boolean(),
   data: inspectWorkspaceDataSchema.nullable(),
   error: inspectWorkspaceErrorSchema.nullable(),
@@ -803,8 +803,8 @@ export function createInspectWorkspaceSuccess(
   durationMs = 0
 ): InspectWorkspaceStructuredResult {
   return inspectWorkspaceOutputSchema.parse({
-    codexpro_tool: "inspect_workspace",
-    codexpro_title: "Inspect Workspace",
+    codexgpt_tool: "inspect_workspace",
+    codexgpt_title: "Inspect Workspace",
     ok: true,
     data: inspectWorkspaceDataSchema.parse(data),
     error: null,
@@ -817,8 +817,8 @@ export function createInspectWorkspaceFailure(
   durationMs = 0
 ): InspectWorkspaceStructuredResult {
   return inspectWorkspaceOutputSchema.parse({
-    codexpro_tool: "inspect_workspace",
-    codexpro_title: "Inspect Workspace",
+    codexgpt_tool: "inspect_workspace",
+    codexgpt_title: "Inspect Workspace",
     ok: false,
     data: null,
     error: {
@@ -906,11 +906,11 @@ Do not move unrelated imports or refactor adjacent schema blocks.
 
 - [x] **Step 2.2: Add the exact dependency boundary**
 
-Extend `CodexProServerDependencies` with:
+Extend `CodexGPTServerDependencies` with:
 
 ```ts
 inspectWorkspaceProvider?: (input: {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
 }) => WorkspaceAnalysis | Promise<WorkspaceAnalysis>;
@@ -918,11 +918,11 @@ inspectWorkspaceProvider?: (input: {
 
 Ensure `WorkspaceAnalysis` is imported as a type from `src/analysis/types.ts` or the existing analysis barrel.
 
-Initialize the production default once inside `createCodexProServer` beside other provider defaults:
+Initialize the production default once inside `createCodexGPTServer` beside other provider defaults:
 
 ```ts
 const inspectWorkspaceProvider = dependencies.inspectWorkspaceProvider ??
-  ((input: { config: CodexProConfig; guard: PathGuard; workspace: Workspace }) =>
+  ((input: { config: CodexGPTConfig; guard: PathGuard; workspace: Workspace }) =>
     inspectWorkspace(input.config, input.guard, input.workspace));
 ```
 
@@ -1019,14 +1019,14 @@ function validateInspectProviderResult(
   guard: PathGuard
 ): InspectWorkspaceProviderResult {
   if (result.workspaceId !== workspace.id || result.root !== workspace.root) {
-    throw new CodexProError("Invalid inspect provider workspace identity.");
+    throw new CodexGPTError("Invalid inspect provider workspace identity.");
   }
 
   const canonicalPath = (value: string): string => {
     const resolved = guard.resolve(workspace, value);
     const normalized = resolved.relPath.replace(/^\.\/?$/, ".");
     if (normalized !== value) {
-      throw new CodexProError("Invalid inspect provider path normalization.");
+      throw new CodexGPTError("Invalid inspect provider path normalization.");
     }
     return normalized;
   };
@@ -1034,24 +1034,24 @@ function validateInspectProviderResult(
   const filePaths = new Set(result.files.map((file) => canonicalPath(file.path)));
   for (const entrypoint of result.entrypoints) {
     if (!filePaths.has(canonicalPath(entrypoint))) {
-      throw new CodexProError("Invalid inspect provider entrypoint.");
+      throw new CodexGPTError("Invalid inspect provider entrypoint.");
     }
   }
   for (const importantFile of result.importantFiles) {
     if (!filePaths.has(canonicalPath(importantFile))) {
-      throw new CodexProError("Invalid inspect provider important file.");
+      throw new CodexGPTError("Invalid inspect provider important file.");
     }
   }
   for (const area of result.areas) canonicalPath(area.path);
   for (const symbol of result.symbols) {
     if (!filePaths.has(canonicalPath(symbol.path))) {
-      throw new CodexProError("Invalid inspect provider symbol path.");
+      throw new CodexGPTError("Invalid inspect provider symbol path.");
     }
   }
   for (const relationship of result.relationships) {
     if (!filePaths.has(canonicalPath(relationship.from)) ||
         !filePaths.has(canonicalPath(relationship.to))) {
-      throw new CodexProError("Invalid inspect provider relationship path.");
+      throw new CodexGPTError("Invalid inspect provider relationship path.");
     }
   }
   return result;
@@ -1089,7 +1089,7 @@ const listed = await client.listTools();
 const descriptor = listed.tools.find((tool) => tool.name === "inspect_workspace");
 assert.ok(descriptor?.outputSchema);
 assert.deepEqual(Object.keys(descriptor.outputSchema.properties).sort(), [
-  "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+  "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
 ]);
 assert.equal(descriptor.outputSchema.additionalProperties, false);
 ```
@@ -1342,7 +1342,7 @@ Insert beside the existing workspace/list normalizers:
 ```js
 function inspectWorkspaceResultData(data) {
   const nested =
-    data?.codexpro_tool === "inspect_workspace" &&
+    data?.codexgpt_tool === "inspect_workspace" &&
     data?.data &&
     typeof data.data === "object";
   return nested ? data.data : (data ?? {});
@@ -1356,7 +1356,7 @@ Do not fold it into a generic normalizer in this slice.
 Replace the current direct flat branch with:
 
 ```js
-if (data?.codexpro_tool === "inspect_workspace") {
+if (data?.codexgpt_tool === "inspect_workspace") {
   if (data?.ok === false) return data?.error?.code || "Workspace analysis unavailable";
   const analysis = inspectWorkspaceResultData(data);
   const coverage = analysis?.coverage || {};
@@ -1846,7 +1846,7 @@ Use `show_changes(include_diff=false)` and the repository/CI tools to confirm:
 
 - [x] **Step 5.10: Report the next approved stopping point**
 
-State that Slice 16 is published and CI-validated. Recommend design-reviewing the next remaining Phase 1 direct tool, with `codexpro_inventory` as the default candidate unless fresh inventory shows a smaller prerequisite.
+State that Slice 16 is published and CI-validated. Recommend design-reviewing the next remaining Phase 1 direct tool, with `codexgpt_inventory` as the default candidate unless fresh inventory shows a smaller prerequisite.
 
 Keep Phase 2 closed.
 
@@ -1877,4 +1877,4 @@ Before executing this plan, verify:
 
 ## Execution handoff
 
-All five tasks are complete. Implementation `4cea9bd29d1abad97e511d65acf6a57c591a2b74` passed exact-head CI run `29272546666`; publication record `1f39996d375b6191fba0bb8972c35bb3b15136ad` passed exact-head CI run `29273060702`. Both Ubuntu/Windows Node 20/24 matrices succeeded. The next approved action is design review of another remaining Phase 1 direct tool, using `codexpro_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite. Phase 2 remains closed.
+All five tasks are complete. Implementation `4cea9bd29d1abad97e511d65acf6a57c591a2b74` passed exact-head CI run `29272546666`; publication record `1f39996d375b6191fba0bb8972c35bb3b15136ad` passed exact-head CI run `29273060702`. Both Ubuntu/Windows Node 20/24 matrices succeeded. The next approved action is design review of another remaining Phase 1 direct tool, using `codexgpt_inventory` as the default candidate unless fresh inventory finds a smaller prerequisite. Phase 2 remains closed.

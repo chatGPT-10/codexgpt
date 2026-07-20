@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const previousNodeOptions = process.env.NODE_OPTIONS;
-const previousShimNodeOptions = process.env.CODEXPRO_REALPATH_PREVIOUS_NODE_OPTIONS;
+const previousShimNodeOptions = process.env.CODEXGPT_REALPATH_PREVIOUS_NODE_OPTIONS;
 const previousTemp = process.env.TEMP;
 const previousTmp = process.env.TMP;
 const originalSpawn = childProcess.spawn;
@@ -47,17 +47,17 @@ try {
     const scriptDir = path.dirname(fileURLToPath(import.meta.url));
     const shimPath = path.join(scriptDir, 'windows-realpath-shim.cjs').replaceAll('\\', '/');
     const requireOption = `--require "${shimPath.replaceAll('"', '\\"')}"`;
-    process.env.CODEXPRO_REALPATH_PREVIOUS_NODE_OPTIONS = previousNodeOptions ?? '';
+    process.env.CODEXGPT_REALPATH_PREVIOUS_NODE_OPTIONS = previousNodeOptions ?? '';
     process.env.NODE_OPTIONS = [previousNodeOptions, requireOption].filter(Boolean).join(' ');
     childProcess.spawn = (...args) => {
       const options = args[2] ?? {};
       const child = originalSpawn(...args);
-      const home = options.env?.CODEXPRO_HOME;
+      const home = options.env?.CODEXGPT_HOME;
       const originalKill = child.kill.bind(child);
       child.kill = (signal) => {
         if (signal === 'SIGTERM') {
           removeRuntimeStatusForPid(home, child.pid);
-          removeQuickTunnelCredentials(options.env?.CODEXPRO_FAKE_CLOUDFLARED_ARGS);
+          removeQuickTunnelCredentials(options.env?.CODEXGPT_FAKE_CLOUDFLARED_ARGS);
         }
         return originalKill(signal);
       };
@@ -72,8 +72,8 @@ try {
   syncBuiltinESMExports();
   if (previousNodeOptions === undefined) delete process.env.NODE_OPTIONS;
   else process.env.NODE_OPTIONS = previousNodeOptions;
-  if (previousShimNodeOptions === undefined) delete process.env.CODEXPRO_REALPATH_PREVIOUS_NODE_OPTIONS;
-  else process.env.CODEXPRO_REALPATH_PREVIOUS_NODE_OPTIONS = previousShimNodeOptions;
+  if (previousShimNodeOptions === undefined) delete process.env.CODEXGPT_REALPATH_PREVIOUS_NODE_OPTIONS;
+  else process.env.CODEXGPT_REALPATH_PREVIOUS_NODE_OPTIONS = previousShimNodeOptions;
   if (previousTemp === undefined) delete process.env.TEMP;
   else process.env.TEMP = previousTemp;
   if (previousTmp === undefined) delete process.env.TMP;

@@ -89,8 +89,8 @@ Assert the success constructor emits exactly:
 
 ```js
 {
-  codexpro_tool: "open_workspace",
-  codexpro_title: "Open Workspace",
+  codexgpt_tool: "open_workspace",
+  codexgpt_title: "Open Workspace",
   ok: true,
   data: successData(),
   error: null,
@@ -195,7 +195,7 @@ Expected: constructor/schema subset passes; handler/registration tests may remai
 **Interfaces:**
 - Consumes Task 1 schema exports.
 - Produces `OpenWorkspaceSummaryProviderContext`.
-- Extends `CodexProServerDependencies.openWorkspaceSummaryProvider`.
+- Extends `CodexGPTServerDependencies.openWorkspaceSummaryProvider`.
 - Produces nested schema-v1 success/failure results for direct `open_workspace`.
 
 - [x] **Step 1: Add failing descriptor and handler tests**
@@ -309,7 +309,7 @@ type OpenWorkspaceSummaryOptions = {
 };
 
 export interface OpenWorkspaceSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: OpenWorkspaceSummaryOptions;
@@ -410,7 +410,7 @@ Expected: all direct schema, descriptor, alias, root-stage, provider-stage, non-
 **Interfaces:**
 - Consumes Task 2 nested direct result.
 - Preserves historical flat `open_workspace` Tool Card fallback.
-- Preserves `codexpro` direct action wrapper semantics.
+- Preserves `codexgpt` direct action wrapper semantics.
 
 - [x] **Step 1: Add failing Tool Card and supertool tests**
 
@@ -422,11 +422,11 @@ assert.match(toolCardWidgetHtml, /open_workspace/);
 assert.match(toolCardWidgetHtml, /data\?\.data/);
 ```
 
-Test a direct `codexpro` call with action `open_workspace` and verify:
+Test a direct `codexgpt` call with action `open_workspace` and verify:
 
 ```js
-structured.codexpro_tool === "open_workspace";
-structured.codexpro_super_action === "open_workspace";
+structured.codexgpt_tool === "open_workspace";
+structured.codexgpt_super_action === "open_workspace";
 structured.wrapped_tool === "open_workspace";
 structured.data.workspace_id === expectedWorkspaceId;
 !("workspace_id" in structured);
@@ -452,8 +452,8 @@ Replace the direct-open helper with nested-first, flat-fallback logic for both t
 ```js
 function workspaceResultData(result) {
   const isDirectOpen =
-    result?.codexpro_tool === "open_current_workspace" ||
-    result?.codexpro_tool === "open_workspace";
+    result?.codexgpt_tool === "open_current_workspace" ||
+    result?.codexgpt_tool === "open_workspace";
   return isDirectOpen && result?.data && typeof result.data === "object"
     ? result.data
     : (result ?? {});

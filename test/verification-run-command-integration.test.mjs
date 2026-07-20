@@ -6,7 +6,7 @@ import { installPolicyKernel } from "../dist/policy/integration.js";
 import { RunCommandRuntimeV3 } from "../dist/process/runCommand.js";
 import { runCommandInputV4Schema } from "../dist/tools/schemas/execution.js";
 
-const syntheticWindowsExecutable = "C:\\CodexPro\\node.exe";
+const syntheticWindowsExecutable = "C:\\CodexGPT\\node.exe";
 
 const fullAccessProfile = Object.freeze({
   ambientFilesystem: true,

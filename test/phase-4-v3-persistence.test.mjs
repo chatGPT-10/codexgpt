@@ -131,7 +131,7 @@ test("a successful non-retained V3 batch still emits a contract-3 manifest and s
       }]
     },
     context: {
-      toolName: "codexpro_self_test",
+      toolName: "codexgpt_self_test",
       requestId: null,
       ownerBinding: `owner_${"9".repeat(64)}`,
       policyRevision: "policy-v3",

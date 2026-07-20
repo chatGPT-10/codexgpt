@@ -71,8 +71,8 @@ Every success and failure has exactly:
 
 ```ts
 interface CodexContextOutput {
-  codexpro_tool: "codex_context";
-  codexpro_title: "Codex Context";
+  codexgpt_tool: "codex_context";
+  codexgpt_title: "Codex Context";
   ok: boolean;
   data: CodexContextData | null;
   error: CodexContextError | null;
@@ -206,7 +206,7 @@ The returned context never exceeds `max_total_bytes`. Truncation uses a fixed ma
 
 `output_limited` is true iff context is truncated or an unavailable source reason is `too_large`/`output_limit`. `redacted` is true iff redaction changed provider text. Counts equal array lengths, loaded path arrays are unique and ordered, and returned paths are safe canonical relative paths.
 
-The handler sets `codexpro/preserveStructuredContent` so Tool Card tagging cannot silently truncate `data.context` and invalidate byte invariants.
+The handler sets `codexgpt/preserveStructuredContent` so Tool Card tagging cannot silently truncate `data.context` and invalidate byte invariants.
 
 ## 11. Warnings
 
@@ -254,7 +254,7 @@ Provider throws map to `CONTEXT_READ_FAILED`. Malformed provider output maps to 
 
 The Tool Card becomes nested-first and renders only bounded metadata, loaded paths, unavailable reasons, and `preview`; it never renders the full context field. Historical flat data remains a renderer fallback.
 
-Protected main and HTTP Smoke sources remain byte-for-byte unchanged. Exact-count in-memory compatibility substitutions migrate their flat `workspace_id` and `agents_files` reads. The `codexpro` action `codex_context` preserves the complete six-field child envelope plus wrapper tags.
+Protected main and HTTP Smoke sources remain byte-for-byte unchanged. Exact-count in-memory compatibility substitutions migrate their flat `workspace_id` and `agents_files` reads. The `codexgpt` action `codex_context` preserves the complete six-field child envelope plus wrapper tags.
 
 No Stress consumer currently reads direct `codex_context` fields.
 

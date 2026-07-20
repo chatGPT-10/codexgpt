@@ -18,7 +18,7 @@ import {
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 
 async function fixture(action) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-phase3d-recovery-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-phase3d-recovery-"));
   const root = await fsp.realpath(raw);
   const workspaceRoot = path.join(root, "workspace");
   const stateRoot = path.join(root, "state");
@@ -150,7 +150,7 @@ test("V1 recovery freezes on unknown participant evidence", () => fixture(async 
 async function moveFacts(workspaceRoot, sourceName, destinationName, content) {
   const source = path.join(workspaceRoot, sourceName);
   const destination = path.join(workspaceRoot, destinationName);
-  const stage = path.join(workspaceRoot, ".codexpro-txn-1234567890abcdef.move");
+  const stage = path.join(workspaceRoot, ".codexgpt-txn-1234567890abcdef.move");
   await fsp.writeFile(source, content);
   const stat = await fsp.lstat(source, { bigint: true });
   const workspace = { id: "ws_move_facts", root: workspaceRoot, openedAt: "2026-07-15T00:00:00.000Z" };

@@ -5,13 +5,13 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const {
   createPolicyToolFailure,
   isPolicyToolFailure
 } = await tsImport("../src/policy/integration.ts", import.meta.url);
 const { TOOL_POLICY_DEFINITIONS } = await tsImport("../src/policy/toolPolicy.ts", import.meta.url);
-const { CANONICAL_CODEXPRO_CHILD_TOOLS } = await tsImport("../src/tools/schemas/codexpro.ts", import.meta.url);
+const { CANONICAL_CODEXGPT_CHILD_TOOLS } = await tsImport("../src/tools/schemas/codexgpt.ts", import.meta.url);
 
 function config(overrides = {}) {
   const root = process.cwd();
@@ -150,16 +150,16 @@ function fakeRuntime(mode, decision, audits = []) {
 test("every canonical child tool has one explicit policy definition", () => {
   assert.deepEqual(
     Object.keys(TOOL_POLICY_DEFINITIONS).sort(),
-    [...CANONICAL_CODEXPRO_CHILD_TOOLS].sort()
+    [...CANONICAL_CODEXGPT_CHILD_TOOLS].sort()
   );
 });
 
 test("enforce denies the same read through direct and supertool paths", async () => {
   const runtime = fakeRuntime("enforce", denyDecision());
-  const server = createCodexProServer(config({ policyEngineMode: "enforce", toolMode: "full" }), { policyRuntime: runtime });
+  const server = createCodexGPTServer(config({ policyEngineMode: "enforce", toolMode: "full" }), { policyRuntime: runtime });
   await withClient(server, async (client) => {
     const direct = await client.callTool({ name: "read", arguments: { path: "README.md", end_line: 1 } });
-    const wrapped = await client.callTool({ name: "codexpro", arguments: { action: "read", args: { path: "README.md", end_line: 1 } } });
+    const wrapped = await client.callTool({ name: "codexgpt", arguments: { action: "read", args: { path: "README.md", end_line: 1 } } });
     assert.equal(direct.isError, true);
     assert.equal(wrapped.isError, true);
     assert.equal(direct.structuredContent, undefined);
@@ -170,23 +170,23 @@ test("enforce denies the same read through direct and supertool paths", async ()
 });
 
 test("legacy mode preserves existing exact tool envelopes", async () => {
-  const server = createCodexProServer(config({ policyEngineMode: "legacy" }));
+  const server = createCodexGPTServer(config({ policyEngineMode: "legacy" }));
   await withClient(server, async (client) => {
     const result = await client.callTool({ name: "read", arguments: { path: "README.md", end_line: 1 } });
     assert.equal(result.isError, undefined);
     assert.ok(result.structuredContent);
-    assert.equal(result.structuredContent.codexpro_tool, "read");
+    assert.equal(result.structuredContent.codexgpt_tool, "read");
   });
 });
 
 test("shadow mode executes the legacy result and records only the comparison audit", async () => {
   const audits = [];
   const runtime = fakeRuntime("shadow", denyDecision(), audits);
-  const server = createCodexProServer(config({ policyEngineMode: "shadow" }), { policyRuntime: runtime });
+  const server = createCodexGPTServer(config({ policyEngineMode: "shadow" }), { policyRuntime: runtime });
   await withClient(server, async (client) => {
     const result = await client.callTool({ name: "read", arguments: { path: "README.md", end_line: 1 } });
     assert.equal(result.isError, undefined);
-    assert.equal(result.structuredContent.codexpro_tool, "read");
+    assert.equal(result.structuredContent.codexgpt_tool, "read");
   });
   assert.equal(audits.length, 1);
   assert.equal(JSON.stringify(audits).includes(process.cwd()), false);
@@ -228,7 +228,7 @@ test("a reserved V3 grant commits after required authorization audit and before 
     persistAuthorization() { order.push("authorization-audit"); },
     persistExecution() { order.push("execution-audit"); }
   };
-  const server = createCodexProServer(config({ policyEngineMode: "enforce" }), {
+  const server = createCodexGPTServer(config({ policyEngineMode: "enforce" }), {
     policyRuntime: runtime,
     readResultProvider() {
       handlerCalls += 1;
@@ -280,7 +280,7 @@ test("required authorization audit failure burns a V3 reservation and executes z
     persistAuthorization() { throw new Error("AUDIT_UNAVAILABLE"); },
     persistExecution() {}
   };
-  const server = createCodexProServer(config({ policyEngineMode: "enforce" }), {
+  const server = createCodexGPTServer(config({ policyEngineMode: "enforce" }), {
     policyRuntime: runtime,
     readResultProvider() {
       handlerCalls += 1;

@@ -10,7 +10,7 @@ import { tsImport } from "tsx/esm/api";
 const guardModule = await tsImport("../src/guard.ts", import.meta.url);
 const serverModule = await tsImport("../src/server.ts", import.meta.url);
 const { WorkspaceManager, workspaceKeyForRoot } = guardModule;
-const { createCodexProServer } = serverModule;
+const { createCodexGPTServer } = serverModule;
 
 function configFor(root, overrides = {}) {
   return {
@@ -25,7 +25,7 @@ function configFor(root, overrides = {}) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-workspace-lifecycle-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-workspace-lifecycle-"));
   const root = await fs.realpath(created);
   try {
     return await callback(root);
@@ -57,13 +57,13 @@ function binding(overrides = {}) {
 
 test("workspaceKeyForRoot is stable and Windows-case-insensitive", () => {
   assert.equal(typeof workspaceKeyForRoot, "function");
-  const first = workspaceKeyForRoot("C:\\Dev\\CodexPro", "win32");
-  const second = workspaceKeyForRoot("c:/dev/codexpro", "win32");
+  const first = workspaceKeyForRoot("C:\\Dev\\CodexGPT", "win32");
+  const second = workspaceKeyForRoot("c:/dev/codexgpt", "win32");
   assert.match(first, /^wk_[0-9a-f]{24}$/);
   assert.equal(first, second);
   assert.notEqual(
-    workspaceKeyForRoot("/Dev/CodexPro", "linux"),
-    workspaceKeyForRoot("/dev/codexpro", "linux")
+    workspaceKeyForRoot("/Dev/CodexGPT", "linux"),
+    workspaceKeyForRoot("/dev/codexgpt", "linux")
   );
 });
 
@@ -228,7 +228,7 @@ function serverConfigFor(root, overrides = {}) {
 }
 
 async function createServerClient(config, dependencies = {}) {
-  const server = createCodexProServer(config, dependencies);
+  const server = createCodexGPTServer(config, dependencies);
   const client = new Client({ name: "workspace-lifecycle-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);

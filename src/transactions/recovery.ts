@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
-import type { CodexProConfig } from "../config.js";
+import type { CodexGPTConfig } from "../config.js";
 import { PathGuard, type Workspace } from "../guard.js";
 import { MoveRecoveryCoordinator } from "../moves/recovery.js";
 import { TransactionManifestStore } from "./atomicStateFile.js";
@@ -145,8 +145,8 @@ function validateArtifactPath(
   if (!relativePath) return null;
   const artifact = path.resolve(workspaceRoot, relativePath);
   const expected = kind === "stage"
-    ? /^\.codexpro-txn-[a-f0-9]{16}\.stage$/
-    : /^\.codexpro-txn-[a-f0-9]{16}\.backup$/;
+    ? /^\.codexgpt-txn-[a-f0-9]{16}\.stage$/
+    : /^\.codexgpt-txn-[a-f0-9]{16}\.backup$/;
   if (
     !isContainedPath(artifact, workspaceRoot) ||
     (path.dirname(artifact) !== path.dirname(targetAbsPath) &&
@@ -229,8 +229,8 @@ export class TransactionRecoveryCoordinator {
   private participantAdapter?: ParticipantRecoveryAdapter;
 
   constructor(
-    private readonly config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes"> &
-      Partial<Pick<CodexProConfig, "moveMaxFileBytes">>,
+    private readonly config: Pick<CodexGPTConfig, "blockedGlobs" | "maxWriteBytes"> &
+      Partial<Pick<CodexGPTConfig, "moveMaxFileBytes">>,
     options: TransactionRecoveryCoordinatorOptions = {}
   ) {
     this.stateRoot = options.stateRoot ?? resolveTransactionStateRoot();
@@ -684,8 +684,8 @@ export class TransactionRecoveryCoordinator {
 }
 
 export function createDefaultTransactionRecoveryCoordinator(
-  config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes"> &
-    Partial<Pick<CodexProConfig, "moveMaxFileBytes">>,
+  config: Pick<CodexGPTConfig, "blockedGlobs" | "maxWriteBytes"> &
+    Partial<Pick<CodexGPTConfig, "moveMaxFileBytes">>,
   options: TransactionRecoveryCoordinatorOptions = {}
 ): TransactionRecoveryCoordinator {
   return new TransactionRecoveryCoordinator(config, options);

@@ -72,12 +72,12 @@ const POWERSHELL_APIS = Object.freeze([
   Object.freeze({ api: "ConvertFrom-Json", pattern: /\bConvertFrom-Json\b/g }),
   Object.freeze({ api: "System.IO.File.Exists", pattern: /\[System\.IO\.File\]::Exists\s*\(/g }),
   Object.freeze({ api: "System.IO.File.ReadAllText", pattern: /\[System\.IO\.File\]::ReadAllText\s*\(/g }),
-  Object.freeze({ api: "LocalControlSpike.Run", pattern: /\[CodexPro\.Phase4\.LocalControlSpike\]::Run\s*\(/g }),
-  Object.freeze({ api: "ProcessHost.Run", pattern: /\[CodexPro\.Phase4\.ProcessHost\]::Run\s*\(/g }),
-  Object.freeze({ api: "ProcessHost.RunConPtyPersistentWorker", pattern: /\[CodexPro\.Phase4\.ProcessHost\]::RunConPtyPersistentWorker\s*\(/g }),
-  Object.freeze({ api: "ProcessHost.RunConPtyWorker", pattern: /\[CodexPro\.Phase4\.ProcessHost\]::RunConPtyWorker\s*\(/g }),
-  Object.freeze({ api: "SandboxSpike.Cleanup", pattern: /\[CodexPro\.Phase4\.SandboxSpike\]::Cleanup\s*\(/g }),
-  Object.freeze({ api: "SandboxSpike.Run", pattern: /\[CodexPro\.Phase4\.SandboxSpike\]::Run\s*\(/g })
+  Object.freeze({ api: "LocalControlSpike.Run", pattern: /\[CodexGPT\.Phase4\.LocalControlSpike\]::Run\s*\(/g }),
+  Object.freeze({ api: "ProcessHost.Run", pattern: /\[CodexGPT\.Phase4\.ProcessHost\]::Run\s*\(/g }),
+  Object.freeze({ api: "ProcessHost.RunConPtyPersistentWorker", pattern: /\[CodexGPT\.Phase4\.ProcessHost\]::RunConPtyPersistentWorker\s*\(/g }),
+  Object.freeze({ api: "ProcessHost.RunConPtyWorker", pattern: /\[CodexGPT\.Phase4\.ProcessHost\]::RunConPtyWorker\s*\(/g }),
+  Object.freeze({ api: "SandboxSpike.Cleanup", pattern: /\[CodexGPT\.Phase4\.SandboxSpike\]::Cleanup\s*\(/g }),
+  Object.freeze({ api: "SandboxSpike.Run", pattern: /\[CodexGPT\.Phase4\.SandboxSpike\]::Run\s*\(/g })
 ]);
 
 function canonicalRelativePath(file) {

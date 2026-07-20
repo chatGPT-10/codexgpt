@@ -16,13 +16,13 @@ The detailed implementation history and command-by-command evidence are recorded
 - Only `read` is migrated in this slice.
 - Successful fields keep their existing names and casing.
 - Successful fields exist only under `structuredContent.data`.
-- Top-level fields are exactly `codexpro_tool`, `codexpro_title`, `ok`, `data`, `error`, and `meta`.
+- Top-level fields are exactly `codexgpt_tool`, `codexgpt_title`, `ok`, `data`, `error`, and `meta`.
 - Metadata remains exactly `schemaVersion`, `durationMs`, and `warnings`.
 - Readable MCP `content` is preserved on success and failure.
 - Failures preserve `isError: true`.
 - No raw exception, stack trace, token, secret, environment value, or unsafe absolute path is returned.
 - Existing optional workspace fallback, file decoding, line numbering, byte limits, bounded scan, binary detection, hashing, redaction, and structured compaction remain unchanged.
-- Global `CodexProError`, path policy, authentication, Cloudflare, profiles, dependencies, shell/process behavior, Git behavior, and Phase 2 are unchanged.
+- Global `CodexGPTError`, path policy, authentication, Cloudflare, profiles, dependencies, shell/process behavior, Git behavior, and Phase 2 are unchanged.
 - The native-Windows Stress fixture `visible:123:file.txt` is not changed.
 
 ## Exact success contract

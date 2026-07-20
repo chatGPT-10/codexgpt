@@ -6,7 +6,7 @@ Status: Published in `89cf2e3` and cross-platform CI-validated by run `292263668
 
 ## 1. Goal
 
-Migrate only the direct `edit` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexpro` wrapper compatibility.
+Migrate only the direct `edit` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexgpt` wrapper compatibility.
 
 The slice preserves the current exact-text replacement algorithm, single-match default, `replace_all`, `expected_replacements`, text-file and size checks, secret-content blocking, path policy, unified diff generation, analysis-cache invalidation, human-readable content, Windows behavior, and existing smoke/stress coverage.
 
@@ -38,7 +38,7 @@ This is preferred over migrating `edit` and `apply_patch` together, folding all 
 - Existing exact-match, `replace_all`, and `expected_replacements` behavior.
 - Existing analysis-cache invalidation only when the validated result reports a changed diff.
 - Direct Tool Card nested-envelope rendering.
-- `codexpro` wrapper compatibility.
+- `codexgpt` wrapper compatibility.
 - Focused `node:test` contract coverage.
 - Smoke/stress compatibility updates only where old flat fields are inspected.
 - Documentation, changelog, project memory, and Phase 1 archive updates during implementation.
@@ -54,12 +54,12 @@ This is preferred over migrating `edit` and `apply_patch` together, folding all 
 
 ```json
 {
-  "codexpro_tool": "edit",
-  "codexpro_title": "Edit File",
+  "codexgpt_tool": "edit",
+  "codexgpt_title": "Edit File",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "path": "src/example.ts",
     "replacements": 1,
     "bytes": 123,
@@ -97,8 +97,8 @@ A successful no-diff replacement remains valid because the replacement precondit
 
 ```json
 {
-  "codexpro_tool": "edit",
-  "codexpro_title": "Edit File",
+  "codexgpt_tool": "edit",
+  "codexgpt_title": "Edit File",
   "ok": false,
   "data": null,
   "error": {
@@ -204,7 +204,7 @@ No cache invalidation occurs for failed edits, malformed provider results, retur
 
 ```ts
 export interface EditProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path: string;
@@ -242,7 +242,7 @@ It does not require `changed=true` when `replacements>0`, because identical repl
 
 ## 9. Wrapper and Tool Card compatibility
 
-The `codexpro` supertool action `edit` preserves wrapper metadata and carries the child envelope. No legacy flat `path`, `replacements`, `bytes`, `sha256`, `additions`, `deletions`, or `diff` fields remain at wrapper top level.
+The `codexgpt` supertool action `edit` preserves wrapper metadata and carries the child envelope. No legacy flat `path`, `replacements`, `bytes`, `sha256`, `additions`, `deletions`, or `diff` fields remain at wrapper top level.
 
 Add a dedicated `renderEdit` consumer that:
 
@@ -270,7 +270,7 @@ Create `test/edit-contract.test.mjs` covering:
 9. Analysis-cache invalidation only for validated changed edits.
 10. Human-readable content and `isError` behavior.
 11. Dedicated Tool Card nested-field behavior.
-12. `codexpro` wrapper compatibility.
+12. `codexgpt` wrapper compatibility.
 
 Run focused contracts, adjacent `write` and `show_changes` contracts, the complete `node:test` suite, build, smoke, native-Windows stress, and diff check.
 

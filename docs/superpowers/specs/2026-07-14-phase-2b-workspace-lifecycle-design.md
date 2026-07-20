@@ -70,7 +70,7 @@ Terminal states are represented by bounded tombstones for deterministic internal
 
 ## 5. Lifetime and cleanup
 
-The default idle lifetime is configured by `CODEXPRO_WORKSPACE_TTL_MS`; it defaults to the HTTP session TTL and is bounded from one minute to 24 hours.
+The default idle lifetime is configured by `CODEXGPT_WORKSPACE_TTL_MS`; it defaults to the HTTP session TTL and is bounded from one minute to 24 hours.
 
 - Successful resolution refreshes `lastSeenAt` and `expiresAt`.
 - Opening the same canonical root returns the existing active handle and refreshes it.

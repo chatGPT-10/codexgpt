@@ -6,12 +6,12 @@ import path from "node:path";
 import { processCreationTimeSync, processIsAlive } from "./process-identity.mjs";
 
 export const OWNED_TEMP_SCHEMA_VERSION = 1;
-export const OWNED_TEMP_MARKER = ".codexpro-owned-temp-v1.json";
-export const OWNED_TEMP_PREFIX = "codexpro-owned-v1-";
+export const OWNED_TEMP_MARKER = ".codexgpt-owned-temp-v1.json";
+export const OWNED_TEMP_PREFIX = "codexgpt-owned-v1-";
 
 const PURPOSE_PATTERN = /^[a-z][a-z0-9-]{0,31}$/u;
-const ROOT_NAME_PATTERN = /^codexpro-owned-v1-([a-z][a-z0-9-]{0,31})-([1-9][0-9]{0,9})-([a-f0-9]{16})-([A-Za-z0-9_-]{6,})$/u;
-const CLAIM_NAME_PATTERN = /^(codexpro-owned-v1-[a-z][a-z0-9-]{0,31}-[1-9][0-9]{0,9}-[a-f0-9]{16}-[A-Za-z0-9_-]{6,})\.claim-([a-f0-9]{32})$/u;
+const ROOT_NAME_PATTERN = /^codexgpt-owned-v1-([a-z][a-z0-9-]{0,31})-([1-9][0-9]{0,9})-([a-f0-9]{16})-([A-Za-z0-9_-]{6,})$/u;
+const CLAIM_NAME_PATTERN = /^(codexgpt-owned-v1-[a-z][a-z0-9-]{0,31}-[1-9][0-9]{0,9}-[a-f0-9]{16}-[A-Za-z0-9_-]{6,})\.claim-([a-f0-9]{32})$/u;
 const MAX_MARKER_BYTES = 4096;
 const DEFAULT_SWEEP_LIMIT = 1024;
 const activeRoots = new Map();
@@ -103,7 +103,7 @@ function validateMarker(marker, rootName) {
   if (
     !markerKeysAreExact(marker) ||
     marker.schemaVersion !== OWNED_TEMP_SCHEMA_VERSION ||
-    marker.kind !== "codexpro-owned-temp" ||
+    marker.kind !== "codexgpt-owned-temp" ||
     typeof marker.purpose !== "string" ||
     !PURPOSE_PATTERN.test(marker.purpose) ||
     typeof marker.rootName !== "string" ||
@@ -289,7 +289,7 @@ function createMarker(purpose, rootName, nonce) {
   const startedAt = processStartedAt();
   return Object.freeze({
     schemaVersion: OWNED_TEMP_SCHEMA_VERSION,
-    kind: "codexpro-owned-temp",
+    kind: "codexgpt-owned-temp",
     purpose,
     rootName,
     pid: process.pid,
@@ -531,7 +531,7 @@ export async function createOwnedTempRoot(purpose, options = {}) {
 
 export async function createOwnedTempEnvironment(purpose, options = {}) {
   const hostEnvironment = options.hostEnvironment ?? process.env;
-  const inheritedBaseRoot = hostEnvironment.CODEXPRO_OWNED_TEMP_BASE;
+  const inheritedBaseRoot = hostEnvironment.CODEXGPT_OWNED_TEMP_BASE;
   const owned = await createOwnedTempRoot(purpose, {
     ...options,
     ...(options.baseRoot === undefined && inheritedBaseRoot
@@ -556,7 +556,7 @@ export async function createOwnedTempEnvironment(purpose, options = {}) {
     marker: owned.marker,
     environment: Object.freeze({
       ...hostEnvironment,
-      CODEXPRO_OWNED_TEMP_BASE: ownedBaseRoot,
+      CODEXGPT_OWNED_TEMP_BASE: ownedBaseRoot,
       TEMP: tempPath,
       TMP: tempPath,
       TMPDIR: tempPath

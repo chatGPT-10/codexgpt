@@ -7,21 +7,21 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
-  "../src/tools/schemas/codexproInventory.ts",
+  "../src/tools/schemas/codexgptInventory.ts",
   import.meta.url
 ).catch(() => null);
 
 const {
-  CODEXPRO_INVENTORY_ERROR_MESSAGES,
-  CODEXPRO_INVENTORY_MCP_SERVER_LIMIT,
-  CODEXPRO_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING,
-  CODEXPRO_INVENTORY_SKILLS_TRUNCATED_WARNING,
-  codexproInventoryOutputSchema,
-  createCodexProInventoryFailure,
-  createCodexProInventorySuccess
+  CODEXGPT_INVENTORY_ERROR_MESSAGES,
+  CODEXGPT_INVENTORY_MCP_SERVER_LIMIT,
+  CODEXGPT_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING,
+  CODEXGPT_INVENTORY_SKILLS_TRUNCATED_WARNING,
+  codexgptInventoryOutputSchema,
+  createCodexGPTInventoryFailure,
+  createCodexGPTInventorySuccess
 } = schemaModule ?? {};
 
 function createTestConfig(root, overrides = {}) {
@@ -68,8 +68,8 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
-  const client = new Client({ name: "codexpro-inventory-contract-test", version: "0.0.0" });
+  const server = createCodexGPTServer(config, dependencies ?? {});
+  const client = new Client({ name: "codexgpt-inventory-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   try {
@@ -80,7 +80,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-inventory-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-inventory-contract-"));
   const root = await fs.realpath(created);
   try {
     return await callback(root, created);
@@ -159,8 +159,8 @@ function sampleInventoryData(overrides = {}) {
 }
 
 function parseInventoryResult(result) {
-  assert.equal(typeof codexproInventoryOutputSchema?.parse, "function");
-  return codexproInventoryOutputSchema.parse(result.structuredContent);
+  assert.equal(typeof codexgptInventoryOutputSchema?.parse, "function");
+  return codexgptInventoryOutputSchema.parse(result.structuredContent);
 }
 
 function assertInventoryFailure(result, code, details) {
@@ -170,35 +170,35 @@ function assertInventoryFailure(result, code, details) {
   assert.equal(parsed.data, null);
   assert.deepEqual(parsed.error, {
     code,
-    message: CODEXPRO_INVENTORY_ERROR_MESSAGES[code],
+    message: CODEXGPT_INVENTORY_ERROR_MESSAGES[code],
     retryable: false,
     details
   });
   assert.deepEqual(parsed.meta.warnings, []);
   assert.ok(parsed.meta.durationMs >= 0);
   assert.match(resultText(result), new RegExp(`Code: ${code}`));
-  assert.ok(resultText(result).includes(CODEXPRO_INVENTORY_ERROR_MESSAGES[code]));
+  assert.ok(resultText(result).includes(CODEXGPT_INVENTORY_ERROR_MESSAGES[code]));
   return parsed;
 }
 
-test("codexpro_inventory schema exports exact constructors and creates empty and populated success", () => {
-  assert.equal(CODEXPRO_INVENTORY_MCP_SERVER_LIMIT, 120);
-  assert.equal(typeof createCodexProInventorySuccess, "function");
-  assert.equal(typeof createCodexProInventoryFailure, "function");
-  assert.equal(typeof codexproInventoryOutputSchema?.parse, "function");
-  assert.equal(typeof CODEXPRO_INVENTORY_ERROR_MESSAGES, "object");
+test("codexgpt_inventory schema exports exact constructors and creates empty and populated success", () => {
+  assert.equal(CODEXGPT_INVENTORY_MCP_SERVER_LIMIT, 120);
+  assert.equal(typeof createCodexGPTInventorySuccess, "function");
+  assert.equal(typeof createCodexGPTInventoryFailure, "function");
+  assert.equal(typeof codexgptInventoryOutputSchema?.parse, "function");
+  assert.equal(typeof CODEXGPT_INVENTORY_ERROR_MESSAGES, "object");
 
-  const populated = createCodexProInventorySuccess(sampleInventoryData(), 7);
+  const populated = createCodexGPTInventorySuccess(sampleInventoryData(), 7);
   assert.deepEqual(Object.keys(populated).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(populated.codexpro_tool, "codexpro_inventory");
-  assert.equal(populated.codexpro_title, "CodexPro Inventory");
+  assert.equal(populated.codexgpt_tool, "codexgpt_inventory");
+  assert.equal(populated.codexgpt_title, "CodexGPT Inventory");
   assert.equal(populated.ok, true);
   assert.equal(populated.error, null);
   assert.deepEqual(Object.keys(populated.data).sort(), [
@@ -223,7 +223,7 @@ test("codexpro_inventory schema exports exact constructors and creates empty and
   assert.deepEqual(Object.keys(populated.data.mcp_servers[0]).sort(), ["name", "source"]);
   assert.deepEqual(populated.meta, { schemaVersion: 1, durationMs: 7, warnings: [] });
 
-  const empty = createCodexProInventorySuccess(sampleInventoryData({
+  const empty = createCodexGPTInventorySuccess(sampleInventoryData({
     include_global_skills: false,
     include_mcp_servers: false,
     skills: [],
@@ -238,22 +238,22 @@ test("codexpro_inventory schema exports exact constructors and creates empty and
   assert.equal(empty.data.mcp_server_count, 0);
 });
 
-test("codexpro_inventory schema derives exact bounded warnings", () => {
+test("codexgpt_inventory schema derives exact bounded warnings", () => {
   const twoSkills = sampleSkills();
-  const skillsTruncated = createCodexProInventorySuccess(sampleInventoryData({
+  const skillsTruncated = createCodexGPTInventorySuccess(sampleInventoryData({
     max_skills: 2,
     skills: twoSkills,
     skill_count: 2,
     skill_counts: skillCounts(twoSkills),
     skills_truncated: true
   }));
-  assert.deepEqual(skillsTruncated.meta.warnings, [CODEXPRO_INVENTORY_SKILLS_TRUNCATED_WARNING]);
+  assert.deepEqual(skillsTruncated.meta.warnings, [CODEXGPT_INVENTORY_SKILLS_TRUNCATED_WARNING]);
 
   const mcpServers = Array.from({ length: 120 }, (_, index) => ({
     name: `server-${String(index).padStart(3, "0")}`,
     source: "workspace config"
   }));
-  const both = createCodexProInventorySuccess(sampleInventoryData({
+  const both = createCodexGPTInventorySuccess(sampleInventoryData({
     max_skills: 2,
     skills: twoSkills,
     skill_count: 2,
@@ -264,12 +264,12 @@ test("codexpro_inventory schema derives exact bounded warnings", () => {
     mcp_servers_truncated: true
   }));
   assert.deepEqual(both.meta.warnings, [
-    CODEXPRO_INVENTORY_SKILLS_TRUNCATED_WARNING,
-    CODEXPRO_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING
+    CODEXGPT_INVENTORY_SKILLS_TRUNCATED_WARNING,
+    CODEXGPT_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING
   ]);
 });
 
-test("codexpro_inventory schema creates all exact stable failures", () => {
+test("codexgpt_inventory schema creates all exact stable failures", () => {
   const cases = [
     {
       code: "WORKSPACE_NOT_FOUND",
@@ -284,23 +284,23 @@ test("codexpro_inventory schema creates all exact stable failures", () => {
     {
       code: "INVENTORY_DISCOVERY_FAILED",
       details: {},
-      message: "The CodexPro capability inventory could not be collected."
+      message: "The CodexGPT capability inventory could not be collected."
     },
     {
       code: "INTERNAL_ERROR",
       details: {},
-      message: "The CodexPro capability inventory failed because of an internal error."
+      message: "The CodexGPT capability inventory failed because of an internal error."
     }
   ];
 
   for (const failureCase of cases) {
-    const failure = createCodexProInventoryFailure({
+    const failure = createCodexGPTInventoryFailure({
       code: failureCase.code,
       details: failureCase.details
     }, 9);
     assert.deepEqual(failure, {
-      codexpro_tool: "codexpro_inventory",
-      codexpro_title: "CodexPro Inventory",
+      codexgpt_tool: "codexgpt_inventory",
+      codexgpt_title: "CodexGPT Inventory",
       ok: false,
       data: null,
       error: {
@@ -314,29 +314,29 @@ test("codexpro_inventory schema creates all exact stable failures", () => {
   }
 });
 
-test("codexpro_inventory schema rejects flat malformed inconsistent duplicate unsafe and additional fields", () => {
-  const success = createCodexProInventorySuccess(sampleInventoryData());
-  const failure = createCodexProInventoryFailure({ code: "INTERNAL_ERROR", details: {} });
+test("codexgpt_inventory schema rejects flat malformed inconsistent duplicate unsafe and additional fields", () => {
+  const success = createCodexGPTInventorySuccess(sampleInventoryData());
+  const failure = createCodexGPTInventoryFailure({ code: "INTERNAL_ERROR", details: {} });
 
-  assert.throws(() => codexproInventoryOutputSchema.parse({ ...success, skills: [] }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({ ...success, widget_uri: "ui://tool-card" }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({ ...success, extra: true }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({ ...success, data: null }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({ ...success, error: failure.error }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({ ...failure, data: success.data }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({ ...failure, error: null }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({ ...success, skills: [] }));
+  assert.throws(() => codexgptInventoryOutputSchema.parse({ ...success, widget_uri: "ui://tool-card" }));
+  assert.throws(() => codexgptInventoryOutputSchema.parse({ ...success, extra: true }));
+  assert.throws(() => codexgptInventoryOutputSchema.parse({ ...success, data: null }));
+  assert.throws(() => codexgptInventoryOutputSchema.parse({ ...success, error: failure.error }));
+  assert.throws(() => codexgptInventoryOutputSchema.parse({ ...failure, data: success.data }));
+  assert.throws(() => codexgptInventoryOutputSchema.parse({ ...failure, error: null }));
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: { ...success.data, extra: true }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: {
       ...success.data,
       skills: [{ ...success.data.skills[0], path: "D:\\private\\SKILL.md" }]
     }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: {
       ...success.data,
@@ -346,7 +346,7 @@ test("codexpro_inventory schema rejects flat malformed inconsistent duplicate un
       ]
     }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: {
       ...success.data,
@@ -356,32 +356,32 @@ test("codexpro_inventory schema rejects flat malformed inconsistent duplicate un
       ]
     }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: {
       ...success.data,
       skills: [{ ...success.data.skills[0], description: undefined }]
     }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: { ...success.data, skill_count: 99 }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: {
       ...success.data,
       skill_counts: { ...success.data.skill_counts, user: 0 }
     }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: {
       ...success.data,
       skills: [...success.data.skills].reverse()
     }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: {
       ...success.data,
@@ -390,59 +390,59 @@ test("codexpro_inventory schema rejects flat malformed inconsistent duplicate un
       skill_counts: { total: 2, workspace: 2, user: 0, plugin: 0, other: 0 }
     }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: { ...success.data, include_global_skills: false }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: { ...success.data, max_skills: 3, skills_truncated: true }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: { ...success.data, include_mcp_servers: false }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     data: {
       ...success.data,
       mcp_servers: [{ name: "private", source: "D:\\private\\mcp.json" }]
     }
   }));
-  assert.throws(() => codexproInventoryOutputSchema.parse({
+  assert.throws(() => codexgptInventoryOutputSchema.parse({
     ...success,
     meta: { ...success.meta, warnings: ["private diagnostic"] }
   }));
-  assert.throws(() => createCodexProInventoryFailure({
+  assert.throws(() => createCodexGPTInventoryFailure({
     code: "INTERNAL_ERROR",
     details: { diagnostic: "private" }
   }));
 });
 
-test("codexpro_inventory is full-mode only and advertises its exact output schema", async () => {
+test("codexgpt_inventory is full-mode only and advertises its exact output schema", async () => {
   await withTempWorkspace(async (root) => {
     for (const toolMode of ["minimal", "standard"]) {
       await withConfigClient(createTestConfig(root, { toolMode }), {}, async (client) => {
         const listed = await client.listTools();
-        assert.equal(listed.tools.some((tool) => tool.name === "codexpro_inventory"), false);
+        assert.equal(listed.tools.some((tool) => tool.name === "codexgpt_inventory"), false);
       });
     }
 
     await withConfigClient(createTestConfig(root), {}, async (client) => {
       const listed = await client.listTools();
-      const descriptor = listed.tools.find((tool) => tool.name === "codexpro_inventory");
+      const descriptor = listed.tools.find((tool) => tool.name === "codexgpt_inventory");
       assert.ok(descriptor);
       assert.ok(descriptor.outputSchema);
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
     });
   });
 });
 
-test("codexpro_inventory real bounded workspace discovery returns deterministic nested data and truncation", async () => {
+test("codexgpt_inventory real bounded workspace discovery returns deterministic nested data and truncation", async () => {
   await withTempWorkspace(async (root) => {
     for (const name of ["alpha", "beta", "gamma"]) {
       const skillDir = path.join(root, ".codex", "skills", name);
@@ -455,7 +455,7 @@ test("codexpro_inventory real bounded workspace discovery returns deterministic 
     }
 
     await withConfigClient(createTestConfig(root), {}, async (client) => {
-      const result = await callTool(client, "codexpro_inventory", {
+      const result = await callTool(client, "codexgpt_inventory", {
         include_global_skills: false,
         include_mcp_servers: false,
         max_skills: 2
@@ -478,18 +478,18 @@ test("codexpro_inventory real bounded workspace discovery returns deterministic 
       assert.deepEqual(parsed.data.mcp_servers, []);
       assert.equal(parsed.data.mcp_server_count, 0);
       assert.equal(parsed.data.mcp_servers_truncated, false);
-      assert.deepEqual(parsed.meta.warnings, [CODEXPRO_INVENTORY_SKILLS_TRUNCATED_WARNING]);
+      assert.deepEqual(parsed.meta.warnings, [CODEXGPT_INVENTORY_SKILLS_TRUNCATED_WARNING]);
       assert.equal("skills" in result.structuredContent, false);
       assert.equal("widget_uri" in result.structuredContent, false);
     });
   });
 });
 
-test("codexpro_inventory effective include flags and limits are echoed and enforced against provider output", async () => {
+test("codexgpt_inventory effective include flags and limits are echoed and enforced against provider output", async () => {
   await withTempWorkspace(async (root) => {
     let observed;
     await withConfigClient(createTestConfig(root), {
-      codexproInventoryProvider: async (context) => {
+      codexgptInventoryProvider: async (context) => {
         observed = context;
         return {
           skills: [{
@@ -504,7 +504,7 @@ test("codexpro_inventory effective include flags and limits are echoed and enfor
         };
       }
     }, async (client) => {
-      const result = await callTool(client, "codexpro_inventory", {
+      const result = await callTool(client, "codexgpt_inventory", {
         include_global_skills: false,
         include_mcp_servers: false,
         max_skills: 7
@@ -525,10 +525,10 @@ test("codexpro_inventory effective include flags and limits are echoed and enfor
   });
 });
 
-test("codexpro_inventory unknown workspace returns WORKSPACE_NOT_FOUND without a root leak", async () => {
+test("codexgpt_inventory unknown workspace returns WORKSPACE_NOT_FOUND without a root leak", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {}, async (client) => {
-      const result = await callTool(client, "codexpro_inventory", {
+      const result = await callTool(client, "codexgpt_inventory", {
         workspace_id: "missing-workspace",
         include_global_skills: false,
         include_mcp_servers: false
@@ -543,14 +543,14 @@ test("codexpro_inventory unknown workspace returns WORKSPACE_NOT_FOUND without a
   });
 });
 
-test("codexpro_inventory provider throw and rejection return INVENTORY_DISCOVERY_FAILED", async () => {
+test("codexgpt_inventory provider throw and rejection return INVENTORY_DISCOVERY_FAILED", async () => {
   await withTempWorkspace(async (root) => {
-    for (const codexproInventoryProvider of [
+    for (const codexgptInventoryProvider of [
       () => { throw new Error(`private provider failure ${root}`); },
       async () => Promise.reject(new Error(`private async failure ${root}`))
     ]) {
-      await withConfigClient(createTestConfig(root), { codexproInventoryProvider }, async (client) => {
-        const result = await callTool(client, "codexpro_inventory", {
+      await withConfigClient(createTestConfig(root), { codexgptInventoryProvider }, async (client) => {
+        const result = await callTool(client, "codexgpt_inventory", {
           include_global_skills: false,
           include_mcp_servers: false
         });
@@ -562,7 +562,7 @@ test("codexpro_inventory provider throw and rejection return INVENTORY_DISCOVERY
   });
 });
 
-test("codexpro_inventory malformed provider output returns INTERNAL_ERROR without diagnostics", async () => {
+test("codexgpt_inventory malformed provider output returns INTERNAL_ERROR without diagnostics", async () => {
   await withTempWorkspace(async (root) => {
     const malformedCases = [
       "not-an-object",
@@ -595,9 +595,9 @@ test("codexpro_inventory malformed provider output returns INTERNAL_ERROR withou
 
     for (const malformed of malformedCases) {
       await withConfigClient(createTestConfig(root), {
-        codexproInventoryProvider: async () => malformed
+        codexgptInventoryProvider: async () => malformed
       }, async (client) => {
-        const result = await callTool(client, "codexpro_inventory", {
+        const result = await callTool(client, "codexgpt_inventory", {
           include_global_skills: false,
           include_mcp_servers: false
         });
@@ -609,9 +609,9 @@ test("codexpro_inventory malformed provider output returns INTERNAL_ERROR withou
   });
 });
 
-test("codexpro_inventory Tool Card is nested-first handles failures and retains flat fallback", () => {
+test("codexgpt_inventory Tool Card is nested-first handles failures and retains flat fallback", () => {
   assert.match(toolCardWidgetHtml, /function inventoryResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "codexpro_inventory"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "codexgpt_inventory"/);
   assert.match(toolCardWidgetHtml, /return nested \? data\.data : \(data \?\? \{\}\)/);
   assert.match(toolCardWidgetHtml, /if \(data\?\.ok === false\)/);
   assert.match(toolCardWidgetHtml, /const inventory = inventoryResultData\(data\)/);
@@ -620,24 +620,24 @@ test("codexpro_inventory Tool Card is nested-first handles failures and retains 
   assert.match(toolCardWidgetHtml, /error\.message \|\| "Inventory unavailable\."/);
 });
 
-test("codexpro_inventory supertool preserves the nested inventory envelope", async () => {
+test("codexgpt_inventory supertool preserves the nested inventory envelope", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {
-      codexproInventoryProvider: async () => ({
+      codexgptInventoryProvider: async () => ({
         skills: [],
         skillsTruncated: false,
         mcpServers: [],
         mcpServersTruncated: false
       })
     }, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "inventory",
         args: { include_global_skills: false, include_mcp_servers: false }
       });
-      assert.equal(result.structuredContent.codexpro_tool, "codexpro_inventory");
-      assert.equal(result.structuredContent.codexpro_title, "CodexPro Inventory");
-      assert.equal(result.structuredContent.codexpro_super_action, "inventory");
-      assert.equal(result.structuredContent.wrapped_tool, "codexpro_inventory");
+      assert.equal(result.structuredContent.codexgpt_tool, "codexgpt_inventory");
+      assert.equal(result.structuredContent.codexgpt_title, "CodexGPT Inventory");
+      assert.equal(result.structuredContent.codexgpt_super_action, "inventory");
+      assert.equal(result.structuredContent.wrapped_tool, "codexgpt_inventory");
       assert.equal(result.structuredContent.ok, true);
       assert.deepEqual(result.structuredContent.data.skills, []);
       assert.deepEqual(result.structuredContent.data.mcp_servers, []);
@@ -647,7 +647,7 @@ test("codexpro_inventory supertool preserves the nested inventory envelope", asy
   });
 });
 
-test("codexpro_inventory Stress consumers read nested data and protected Smoke sources remain unchanged", async () => {
+test("codexgpt_inventory Stress consumers read nested data and protected Smoke sources remain unchanged", async () => {
   const stress = await fs.readFile(new URL("../scripts/stress.mjs", import.meta.url), "utf8");
   const protectedMain = await fs.readFile(new URL("../scripts/smoke.mjs", import.meta.url), "utf8");
   const protectedHttp = await fs.readFile(new URL("../scripts/http-smoke.mjs", import.meta.url), "utf8");
@@ -670,8 +670,8 @@ test("codexpro_inventory Stress consumers read nested data and protected Smoke s
   }
   assert.match(stress, /skills_truncated/);
   assert.match(stress, /mcp_servers_truncated/);
-  assert.equal(countOccurrences(protectedMain, "inventory.structuredContent.codexpro_tool"), 1);
-  assert.equal(countOccurrences(protectedHttp, "inventory.structuredContent.codexpro_tool"), 1);
+  assert.equal(countOccurrences(protectedMain, "inventory.structuredContent.codexgpt_tool"), 1);
+  assert.equal(countOccurrences(protectedHttp, "inventory.structuredContent.codexgpt_tool"), 1);
   assert.equal(protectedMain.includes("inventory.structuredContent.skill_count"), false);
   assert.equal(protectedHttp.includes("inventory.structuredContent.skill_count"), false);
 });

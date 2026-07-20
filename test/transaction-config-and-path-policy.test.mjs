@@ -5,7 +5,7 @@ import {
   loadConfig
 } from "../dist/config.js";
 import { isReservedTransactionRelativePath, PathGuard } from "../dist/guard.js";
-import { createCodexProServer } from "../dist/server.js";
+import { createCodexGPTServer } from "../dist/server.js";
 
 function withEnv(name, value, action) {
   const previous = process.env[name];
@@ -20,19 +20,19 @@ function withEnv(name, value, action) {
 }
 
 test("file transactions default to legacy and reject unknown modes", () => {
-  withEnv("CODEXPRO_FILE_TRANSACTIONS", undefined, () => {
+  withEnv("CODEXGPT_FILE_TRANSACTIONS", undefined, () => {
     assert.equal(loadConfig(["--bash", "off"]).fileTransactions, "legacy");
   });
-  withEnv("CODEXPRO_FILE_TRANSACTIONS", "atomic", () => {
+  withEnv("CODEXGPT_FILE_TRANSACTIONS", "atomic", () => {
     assert.equal(loadConfig(["--bash", "off"]).fileTransactions, "atomic");
   });
-  withEnv("CODEXPRO_FILE_TRANSACTIONS", "unsafe", () => {
+  withEnv("CODEXGPT_FILE_TRANSACTIONS", "unsafe", () => {
     assert.throws(() => loadConfig(["--bash", "off"]), /legacy or atomic/);
   });
 });
 
 test("Phase 3A refuses atomic mode while public workspace writers are enabled", () => {
-  const atomicWritable = withEnv("CODEXPRO_FILE_TRANSACTIONS", "atomic", () =>
+  const atomicWritable = withEnv("CODEXGPT_FILE_TRANSACTIONS", "atomic", () =>
     loadConfig(["--bash", "off", "--write", "workspace"])
   );
   assert.throws(
@@ -40,11 +40,11 @@ test("Phase 3A refuses atomic mode while public workspace writers are enabled", 
     /requires transaction-backed workspace mutators/i
   );
   assert.throws(
-    () => createCodexProServer(atomicWritable),
+    () => createCodexGPTServer(atomicWritable),
     /requires transaction-backed workspace mutators/i
   );
 
-  const atomicReadOnly = withEnv("CODEXPRO_FILE_TRANSACTIONS", "atomic", () =>
+  const atomicReadOnly = withEnv("CODEXGPT_FILE_TRANSACTIONS", "atomic", () =>
     loadConfig(["--bash", "off", "--write", "off"])
   );
   assert.doesNotThrow(() =>
@@ -55,13 +55,13 @@ test("Phase 3A refuses atomic mode while public workspace writers are enabled", 
 test("reserved transaction artifacts are blocked by path segment", () => {
   const guard = new PathGuard({ blockedGlobs: [] }, "win32");
   for (const candidate of [
-    ".codexpro-txn-a.stage",
-    "src/.codexpro-txn-a.backup",
-    "SRC/.CODEXPRO-TXN-A.MOVE",
-    "nested/.codexpro-txn-dir/child"
+    ".codexgpt-txn-a.stage",
+    "src/.codexgpt-txn-a.backup",
+    "SRC/.CODEXGPT-TXN-A.MOVE",
+    "nested/.codexgpt-txn-dir/child"
   ]) {
     assert.equal(isReservedTransactionRelativePath(candidate, "win32"), true);
     assert.equal(guard.isBlockedRelativePath(candidate), true);
   }
-  assert.equal(guard.isBlockedRelativePath("src/codexpro-txn-normal.ts"), false);
+  assert.equal(guard.isBlockedRelativePath("src/codexgpt-txn-normal.ts"), false);
 });

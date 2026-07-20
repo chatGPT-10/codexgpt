@@ -67,8 +67,8 @@ const internalErrorSchema = toolErrorSchema.extend({
 }).strict();
 
 export const serverConfigOutputShape = {
-  codexpro_tool: z.literal("server_config"),
-  codexpro_title: z.literal("Server Config"),
+  codexgpt_tool: z.literal("server_config"),
+  codexgpt_title: z.literal("Server Config"),
   ok: z.boolean(),
   data: serverConfigDataSchema.nullable(),
   error: internalErrorSchema.nullable(),
@@ -120,8 +120,8 @@ export function createServerConfigSuccess(
   durationMs = 0
 ): ServerConfigStructuredResult {
   return serverConfigOutputSchema.parse({
-    codexpro_tool: "server_config",
-    codexpro_title: "Server Config",
+    codexgpt_tool: "server_config",
+    codexgpt_title: "Server Config",
     ok: true,
     data: serverConfigDataSchema.parse(data),
     error: null,
@@ -134,8 +134,8 @@ export function createServerConfigFailure(
   durationMs = 0
 ): ServerConfigStructuredResult {
   return serverConfigOutputSchema.parse({
-    codexpro_tool: "server_config",
-    codexpro_title: "Server Config",
+    codexgpt_tool: "server_config",
+    codexgpt_title: "Server Config",
     ok: false,
     data: null,
     error: {

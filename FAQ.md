@@ -1,20 +1,20 @@
-# CodexPro FAQ
+# CodexGPT FAQ
 
 ## Which ChatGPT account should I use?
 
 Use a ChatGPT account with Apps / Developer Mode access. OpenAI currently lists Developer Mode for Pro, Plus, Business, Enterprise, and Education accounts on web.
 
-Current testing shows free and Go accounts do not expose the app flow needed for CodexPro.
+Current testing shows free and Go accounts do not expose the app flow needed for CodexGPT.
 
-CodexPro does not unlock Developer Mode, unlock models, bypass account limits, or provide account access. It connects to the ChatGPT app surface your account already has.
+CodexGPT does not unlock Developer Mode, unlock models, bypass account limits, or provide account access. It connects to the ChatGPT app surface your account already has.
 
-Account access and model tool support are separate. An eligible account can have Apps / Developer Mode, while a specific model surface may still be unable to call connectors or MCP tools directly. If CodexPro actions are unavailable in that chat, use another tool-capable ChatGPT surface or the Pro context fallback for that session.
+Account access and model tool support are separate. An eligible account can have Apps / Developer Mode, while a specific model surface may still be unable to call connectors or MCP tools directly. If CodexGPT actions are unavailable in that chat, use another tool-capable ChatGPT surface or the Pro context fallback for that session.
 
-## How is CodexPro different from generic workspace bridges?
+## How is CodexGPT different from generic workspace bridges?
 
 They can look similar at the transport layer because both use a local MCP-style bridge and a workspace root.
 
-CodexPro is more focused: it is built around one clear product loop for ChatGPT users:
+CodexGPT is more focused: it is built around one clear product loop for ChatGPT users:
 
 ```text
 install -> setup in one repo -> paste Server URL into ChatGPT -> inspect/edit/verify/review that repo
@@ -22,13 +22,13 @@ install -> setup in one repo -> paste Server URL into ChatGPT -> inspect/edit/ve
 
 The main differences are:
 
-- CodexPro is ChatGPT Developer Mode first, not a generic workspace bridge.
+- CodexGPT is ChatGPT Developer Mode first, not a generic workspace bridge.
 - Bash, write/edit, tool mode, Codex session reads, and handoff execution are separate safety controls.
 - Durable context is repo-backed through `AGENTS.md` and `.ai-bridge/*`, so important project memory stays reviewable in files.
 - The normal workflow emphasizes compact cards, diffs, `show_changes`, smoke tests, and handoff status files.
-- CodexPro keeps a strict boundary: no model proxying, account pooling, third-party Pro site scraping, quota bypassing, or OS sandbox claims.
+- CodexGPT keeps a strict boundary: no model proxying, account pooling, third-party Pro site scraping, quota bypassing, or OS sandbox claims.
 
-CodexPro connects ChatGPT to a user-approved local repository over MCP. Repository access, command permissions, and change review remain explicit.
+CodexGPT connects ChatGPT to a user-approved local repository over MCP. Repository access, command permissions, and change review remain explicit.
 
 ## What does Repository Analysis understand?
 
@@ -41,24 +41,24 @@ Repository Analysis builds a local repository map from bounded, inspectable evid
 
 It supports TypeScript/JavaScript, Python, Go, Rust, Swift, Java, C#, C, and C++ declaration patterns. Unsupported languages still participate in safe inventory and lexical search.
 
-Relationships are labeled `exact`, `strong`, or `inferred`. The repository map does not replace a compiler or language server. CodexPro does not require a language server, daemon, embedding service, or vector database.
+Relationships are labeled `exact`, `strong`, or `inferred`. The repository map does not replace a compiler or language server. CodexGPT does not require a language server, daemon, embedding service, or vector database.
 
-Analysis is process-local and cached by a bounded workspace fingerprint. Direct CodexPro writes, edits, and patches invalidate that cache. If limits are reached, results say `partial` and retain normal tree/search/read/review fallback behavior.
+Analysis is process-local and cached by a bounded workspace fingerprint. Direct CodexGPT writes, edits, and patches invalidate that cache. If limits are reached, results say `partial` and retain normal tree/search/read/review fallback behavior.
 
-Set `CODEXPRO_ANALYSIS=0` to disable this layer while keeping the standard file, search, Git, and review tools available.
+Set `CODEXGPT_ANALYSIS=0` to disable this layer while keeping the standard file, search, Git, and review tools available.
 
 Terminal users can inspect the same facts without ChatGPT:
 
 ```bash
-codexpro inspect --json
-codexpro review --json
+codexgpt inspect --json
+codexgpt review --json
 ```
 
-## What is the `codexpro` supertool?
+## What is the `codexgpt` supertool?
 
-Note: this FAQ follows GitHub `main`. Check the npm badge/version before assuming a `main` feature is in `codexpro@latest`.
+Note: this FAQ follows GitHub `main`. Check the npm badge/version before assuming a `main` feature is in `codexgpt@latest`.
 
-`codexpro` is a stable wrapper tool for advanced setups. It accepts:
+`codexgpt` is a stable wrapper tool for advanced setups. It accepts:
 
 ```json
 { "action": "search", "args": { "query": "needle", "path": "src" } }
@@ -73,22 +73,22 @@ Use explicit tools such as `read`, `search`, `edit`, `bash`, and `show_changes` 
 Install globally once:
 
 ```bash
-npm install -g codexpro
+npm install -g codexgpt
 ```
 
 Then run setup from the repo you want ChatGPT to work on:
 
 ```bash
-codexpro setup
+codexgpt setup
 ```
 
 After setup, daily startup from that same repo is:
 
 ```bash
-codexpro start
+codexgpt start
 ```
 
-`npx codexpro@latest start` still works as a no-install fallback, but the global install is easier for normal users.
+`npx codexgpt@latest start` still works as a no-install fallback, but the global install is easier for normal users.
 
 ## What do I enable in ChatGPT?
 
@@ -108,10 +108,10 @@ Settings
 When creating the plugin, use the supported personal ChatGPT compatibility flow:
 
 ```text
-Name: CodexPro
+Name: CodexGPT
 Description: Local workspace bridge for ChatGPT coding
 Connection: Server URL
-Server URL: paste the complete URL copied by CodexPro, including codexpro_token
+Server URL: paste the complete URL copied by CodexGPT, including codexgpt_token
 Authentication: No Authentication / None
 ```
 
@@ -121,29 +121,29 @@ The complete Server URL contains the query-token credential. Treat it as a passw
 
 Yes. Keep Enforce CSP in developer mode enabled.
 
-CodexPro widgets are built for the CSP-enabled path. They do not need unrestricted network access, external fonts, remote scripts, iframes, or third-party images.
+CodexGPT widgets are built for the CSP-enabled path. They do not need unrestricted network access, external fonts, remote scripts, iframes, or third-party images.
 
-## Does CodexPro bypass rate limits?
+## Does CodexGPT bypass rate limits?
 
 No.
 
-CodexPro does not bypass, avoid, increase, pool, resell, or modify ChatGPT, Codex, OpenAI, or third-party model limits. Every request still runs through the user's own ChatGPT session and whatever limits that account has.
+CodexGPT does not bypass, avoid, increase, pool, resell, or modify ChatGPT, Codex, OpenAI, or third-party model limits. Every request still runs through the user's own ChatGPT session and whatever limits that account has.
 
-The useful part is that Codex and ChatGPT are different product surfaces. If one workflow is unavailable and another product surface you already have access to is still available, CodexPro lets you work against the same local repo without changing either product's limits.
+The useful part is that Codex and ChatGPT are different product surfaces. If one workflow is unavailable and another product surface you already have access to is still available, CodexGPT lets you work against the same local repo without changing either product's limits.
 
-## Can CodexPro use GPT-5.5?
+## Can CodexGPT use GPT-5.5?
 
 Only if your ChatGPT account already exposes that exact model, or a similar stronger model, in the ChatGPT web product surface you are using, and that model surface can call Developer Mode apps.
 
-Some GPT-5.5 Pro or other model surfaces may not expose app actions in a given chat. If CodexPro actions are unavailable there, CodexPro cannot make that request reach the local server. CodexPro does not provide, proxy, resell, or unlock models. It gives compatible ChatGPT sessions local repo tools.
+Some GPT-5.5 Pro or other model surfaces may not expose app actions in a given chat. If CodexGPT actions are unavailable there, CodexGPT cannot make that request reach the local server. CodexGPT does not provide, proxy, resell, or unlock models. It gives compatible ChatGPT sessions local repo tools.
 
 For models that cannot call tools, generate a repo context bundle instead:
 
 ```bash
-codexpro pro-bundle --root /path/to/repo --copy
+codexgpt pro-bundle --root /path/to/repo --copy
 ```
 
-## What can ChatGPT see through CodexPro?
+## What can ChatGPT see through CodexGPT?
 
 ChatGPT can see explicit workspace context exposed by tools:
 
@@ -172,50 +172,50 @@ Safety defaults block common sensitive paths:
 
 Use handoff mode if you want ChatGPT to write a plan only and let Codex execute locally. In handoff mode, generic `write` and `edit` tools are not advertised to ChatGPT.
 
-Use `CODEXPRO_WRITE_MODE=off` when you want direct `write` and `edit` tools removed from the advertised MCP tool list while still allowing bounded handoff/context files.
+Use `CODEXGPT_WRITE_MODE=off` when you want direct `write` and `edit` tools removed from the advertised MCP tool list while still allowing bounded handoff/context files.
 
 ## Are workspace IDs shared across ChatGPT sessions?
 
 No. A `workspace_id` is now a random opaque handle owned by one MCP server session: one HTTP transport session, or one STDIO process session. Opening the same root inside the same active session reuses that session's handle, but another session receives a different handle and cannot use or list the first session's workspaces.
 
-Use `close_workspace` to invalidate a handle immediately. Reopening the root creates a new handle. Idle handles expire after `CODEXPRO_WORKSPACE_TTL_MS`; the default is the HTTP session TTL, normally 30 minutes, and successful use refreshes the idle deadline.
+Use `close_workspace` to invalidate a handle immediately. Reopening the root creates a new handle. Idle handles expire after `CODEXGPT_WORKSPACE_TTL_MS`; the default is the HTTP session TTL, normally 30 minutes, and successful use refreshes the idle deadline.
 
 For one compatibility cycle, an omitted `workspace_id` still selects only that session's configured default root. It does not restore cross-session sharing.
 
-## Can CodexPro bind bash to a specific session id?
+## Can CodexGPT bind bash to a specific session id?
 
-CodexPro cannot attach to, read, or execute inside a specific Codex app conversation or terminal session.
+CodexGPT cannot attach to, read, or execute inside a specific Codex app conversation or terminal session.
 
-The MCP `bash` tool runs from the CodexPro server process you started for the configured workspace. MCP session ids are HTTP transport state between ChatGPT and CodexPro; they are not Codex conversation ids.
+The MCP `bash` tool runs from the CodexGPT server process you started for the configured workspace. MCP session ids are HTTP transport state between ChatGPT and CodexGPT; they are not Codex conversation ids.
 
-What CodexPro can do is require a matching local bash session label before it runs shell commands:
+What CodexGPT can do is require a matching local bash session label before it runs shell commands:
 
 ```bash
-codexpro start --bash-session main --require-bash-session
+codexgpt start --bash-session main --require-bash-session
 ```
 
-Then `bash` calls must include `session_id: "main"`. This helps avoid accidental shell execution in the wrong CodexPro terminal, but it is not remote control of an existing Codex app chat.
+Then `bash` calls must include `session_id: "main"`. This helps avoid accidental shell execution in the wrong CodexGPT terminal, but it is not remote control of an existing Codex app chat.
 
-CodexPro can list local Codex session ids and titles when you explicitly opt in:
+CodexGPT can list local Codex session ids and titles when you explicitly opt in:
 
 ```bash
-codexpro start --codex-sessions metadata
+codexgpt start --codex-sessions metadata
 ```
 
 This reads local Codex JSONL history under `~/.codex/sessions` and `~/.codex/archived_sessions` and returns metadata plus `codex resume <session-id>` commands. Use `--codex-sessions read` only if you also want bounded transcript reads. It does not attach to a live Codex app conversation.
 
-If you do not want ChatGPT to trigger shell commands while you work in Codex, start CodexPro with bash disabled:
+If you do not want ChatGPT to trigger shell commands while you work in Codex, start CodexGPT with bash disabled:
 
 ```bash
-codexpro start --no-bash
+codexgpt start --no-bash
 ```
 
-This removes the `bash` MCP tool from the advertised tool list. ChatGPT can still use non-bash CodexPro tools such as workspace open, read, search, and show_changes. Direct `write`/`edit` are advertised only in workspace write mode.
+This removes the `bash` MCP tool from the advertised tool list. ChatGPT can still use non-bash CodexGPT tools such as workspace open, read, search, and show_changes. Direct `write`/`edit` are advertised only in workspace write mode.
 
 If you only want ChatGPT to plan and leave execution to Codex or another local agent:
 
 ```bash
-codexpro start --mode handoff --no-bash
+codexgpt start --mode handoff --no-bash
 ```
 
 ## Which tunnel should I choose?
@@ -232,9 +232,9 @@ No public tunnel:       local-only mode, only for clients that can reach localho
 
 Cloudflare quick tunnel URLs change on restart. If you put a quick-mode URL into ChatGPT, you must edit the ChatGPT app Server URL every time you restart the tunnel.
 
-For most users, the better path is a free ngrok dev domain. Create a free ngrok account, find your assigned dev domain under Universal Gateway -> Domains, and save that hostname during `codexpro setup`.
+For most users, the better path is a free ngrok dev domain. Create a free ngrok account, find your assigned dev domain under Universal Gateway -> Domains, and save that hostname during `codexgpt setup`.
 
-If you own a domain, use Cloudflare named tunnels and route DNS to a hostname like `codexpro.example.com`.
+If you own a domain, use Cloudflare named tunnels and route DNS to a hostname like `codexgpt.example.com`.
 
 ## Why does ChatGPT show “Something went wrong” when I create a connector?
 
@@ -243,23 +243,23 @@ Usually ChatGPT could not reach the public MCP URL. A generated `trycloudflare.c
 Run the connection test:
 
 ```bash
-codexpro connection-test --root /path/to/repo
+codexgpt connection-test --root /path/to/repo
 ```
 
 This keeps `read`, `tree`, `search`, and `load_skill`, but disables file writes,
 bash, and tool cards. In ChatGPT, create the development plugin under
-`Settings -> Plugins`, paste the complete Server URL including its `codexpro_token`
+`Settings -> Plugins`, paste the complete Server URL including its `codexgpt_token`
 query string, and choose `Authentication: No Authentication / None`.
 
 The terminal output separates the failure boundary:
 
-- No `POST /mcp received`: the request did not reach CodexPro. Check the ChatGPT Plugins page and the tunnel.
-- `POST /mcp -> 401`: the complete URL was not used, the query token was removed, or the credential no longer matches the running CodexPro process.
-- `POST /mcp -> 2xx`: ChatGPT reached CodexPro and the MCP endpoint responded.
+- No `POST /mcp received`: the request did not reach CodexGPT. Check the ChatGPT Plugins page and the tunnel.
+- `POST /mcp -> 401`: the complete URL was not used, the query token was removed, or the credential no longer matches the running CodexGPT process.
+- `POST /mcp -> 2xx`: ChatGPT reached CodexGPT and the MCP endpoint responded.
 
-Keep CodexPro running while testing. A Cloudflare quick-tunnel URL changes on every restart. If Cloudflare returns `530` / `Error 1033`, check DNS or proxy-client DNS handling on the machine running `cloudflared`.
+Keep CodexGPT running while testing. A Cloudflare quick-tunnel URL changes on every restart. If Cloudflare returns `530` / `Error 1033`, check DNS or proxy-client DNS handling on the machine running `cloudflared`.
 
-ChatGPT now manages development apps under Plugins. The browser error `Failed to execute 'removeChild' on 'Node'` occurs in the ChatGPT page, before CodexPro can handle an MCP request. Remove or recreate the stale plugin entry from the Plugins page, then retry with the current URL. CodexPro cannot repair that browser-side entry.
+ChatGPT now manages development apps under Plugins. The browser error `Failed to execute 'removeChild' on 'Node'` occurs in the ChatGPT page, before CodexGPT can handle an MCP request. Remove or recreate the stale plugin entry from the Plugins page, then retry with the current URL. CodexGPT cannot repair that browser-side entry.
 
 Official references:
 
@@ -276,7 +276,7 @@ Yes, if you use a stable hostname.
 Recommended simple path:
 
 ```bash
-codexpro setup
+codexgpt setup
 # choose ngrok
 # enter your ngrok free dev domain
 ```
@@ -284,12 +284,12 @@ codexpro setup
 After that:
 
 ```bash
-codexpro start
+codexgpt start
 ```
 
-The same hostname and CodexPro token are reused for that workspace. Keep the complete credential-bearing Server URL private, and replace it in ChatGPT whenever you rotate the token.
+The same hostname and CodexGPT token are reused for that workspace. Keep the complete credential-bearing Server URL private, and replace it in ChatGPT whenever you rotate the token.
 
-## What if I run CodexPro in two repos at once?
+## What if I run CodexGPT in two repos at once?
 
 Use different local ports and different tunnel hostnames.
 
@@ -300,58 +300,58 @@ repo A: port 8787, hostname A
 repo B: port 8788, hostname B
 ```
 
-Run `codexpro setup` in each repo and save a profile per workspace.
+Run `codexgpt setup` in each repo and save a profile per workspace.
 
-## Why not use codexpro.github.io?
+## Why not use codexgpt.github.io?
 
 GitHub Pages gives `owner.github.io` only to the GitHub user or organization named `owner`.
 
-The `codexpro` GitHub username already exists, so this repo cannot use `codexpro.github.io` from the `rebel0789` account.
+The `codexgpt` GitHub username already exists, so this repo cannot use `codexgpt.github.io` from the `rebel0789` account.
 
 The clean GitHub Pages URL for this project is:
 
 ```text
-https://rebel0789.github.io/codexpro/
+https://rebel0789.github.io/codexgpt/
 ```
 
-## Is CodexPro production safe?
+## Is CodexGPT production safe?
 
-CodexPro is a local developer bridge, not an OS sandbox.
+CodexGPT is a local developer bridge, not an OS sandbox.
 
 Use it with repos you trust. Keep token auth enabled for public tunnels. Keep safe bash on unless you know why you need full bash. Read [SECURITY.md](SECURITY.md) before exposing it through a public tunnel.
 
 ## Where are saved settings stored?
 
-CodexPro stores local state under `~/.codexpro` by default. On Windows that is usually `C:\Users\<you>\.codexpro`.
+CodexGPT stores local state under `~/.codexgpt` by default. On Windows that is usually `C:\Users\<you>\.codexgpt`.
 
 Workspace profiles are JSON files saved under:
 
 ```text
-~/.codexpro/profiles/
+~/.codexgpt/profiles/
 ```
 
 Current runtime connection files are saved under:
 
 ```text
-~/.codexpro/runtime/
+~/.codexgpt/runtime/
 ```
 
 Strict Policy Kernel Permission Profiles are saved under:
 
 ```text
-~/.codexpro/permissions/
+~/.codexgpt/permissions/
 ```
 
-When shared-secret Policy identities are used, CodexPro keeps an installation-local HMAC key at `~/.codexpro/policy/identity-hmac.key`. Treat it as private local state: do not share or hand-edit it. Replacing it changes future credential references.
+When shared-secret Policy identities are used, CodexGPT keeps an installation-local HMAC key at `~/.codexgpt/policy/identity-hmac.key`. Treat it as private local state: do not share or hand-edit it. Replacing it changes future credential references.
 
-Set `CODEXPRO_HOME` to move the complete CodexPro state directory.
+Set `CODEXGPT_HOME` to move the complete CodexGPT state directory.
 
 Use:
 
 ```bash
-codexpro settings
-codexpro settings list
-codexpro settings delete --yes
+codexgpt settings
+codexgpt settings list
+codexgpt settings delete --yes
 ```
 
 Saved tokens are redacted when profiles are displayed.
@@ -362,6 +362,6 @@ Saved tokens are redacted when profiles are displayed.
 
 Contracts V1 and V2 keep the original restrictive behavior and never create pending approvals. Explicit Contract V3 adds a local-only approval CLI for confirmed roots and trusted-code Windows process execution; the remote MCP client cannot approve its own request. `full_access` still has the ambient authority of the current Windows user and is not a sandbox. The reserved `workspace` profile remains unavailable because the AppContainer/LPAC isolation gate did not pass.
 
-Permission Profiles are strict local JSON files under `~/.codexpro/permissions/`. They are separate from saved runtime connection profiles. `toolMode` changes discovery only and does not expand a Permission Profile, hard policy, identity scope, or enforcement capability. See the Contract V3 section in [README.md](README.md) for the activation and local approval flow.
+Permission Profiles are strict local JSON files under `~/.codexgpt/permissions/`. They are separate from saved runtime connection profiles. `toolMode` changes discovery only and does not expand a Permission Profile, hard policy, identity scope, or enforcement capability. See the Contract V3 section in [README.md](README.md) for the activation and local approval flow.
 
 Rollback during this migration cycle may return to reviewed `legacy` behavior, the generated compatibility profile, or a narrower read-only profile. A Policy Kernel startup or profile error never falls through to unguarded execution.

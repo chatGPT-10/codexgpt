@@ -15,7 +15,7 @@ import {
 } from "../dist/transactions/index.js";
 
 async function fixture(action) {
-  const created = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-recovery-"));
+  const created = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-recovery-"));
   const root = await fsp.realpath(created);
   const workspaceRoot = path.join(root, "workspace");
   const stateRoot = path.join(root, "state");

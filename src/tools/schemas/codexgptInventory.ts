@@ -1,18 +1,18 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 
-export const CODEXPRO_INVENTORY_MCP_SERVER_LIMIT = 120 as const;
+export const CODEXGPT_INVENTORY_MCP_SERVER_LIMIT = 120 as const;
 
-export const CODEXPRO_INVENTORY_SKILLS_TRUNCATED_WARNING =
+export const CODEXGPT_INVENTORY_SKILLS_TRUNCATED_WARNING =
   "Skill inventory reached the requested max_skills limit." as const;
 
-export const CODEXPRO_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING =
+export const CODEXGPT_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING =
   "MCP server inventory reached the fixed 120-server limit." as const;
 
-export const CODEXPRO_INVENTORY_ERROR_MESSAGES = {
+export const CODEXGPT_INVENTORY_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not open.",
-  INVENTORY_DISCOVERY_FAILED: "The CodexPro capability inventory could not be collected.",
-  INTERNAL_ERROR: "The CodexPro capability inventory failed because of an internal error."
+  INVENTORY_DISCOVERY_FAILED: "The CodexGPT capability inventory could not be collected.",
+  INTERNAL_ERROR: "The CodexGPT capability inventory failed because of an internal error."
 } as const;
 
 const safeOneLineSchema = z.string()
@@ -27,14 +27,14 @@ const skillDescriptionSchema = z.string()
   .refine((value) => value.trim() === value, "Description cannot have surrounding whitespace.")
   .refine((value) => !/[\r\n\u0000-\u001f\u007f]/.test(value), "Description must be one line.");
 
-export const codexproInventorySkillSourceSchema = z.enum([
+export const codexgptInventorySkillSourceSchema = z.enum([
   "workspace",
   "user",
   "plugin",
   "other"
 ]);
 
-export const codexproInventoryMcpSourceSchema = z.enum([
+export const codexgptInventoryMcpSourceSchema = z.enum([
   "user codex config",
   "workspace config",
   "workspace cursor config",
@@ -47,7 +47,7 @@ function hasSafeSelectorSegments(value: string): boolean {
 }
 
 function isSkillSelectorForSource(
-  source: z.infer<typeof codexproInventorySkillSourceSchema>,
+  source: z.infer<typeof codexgptInventorySkillSourceSchema>,
   selector: string
 ): boolean {
   if (selector.includes("\\") || !selector.endsWith("/SKILL.md")) return false;
@@ -65,10 +65,10 @@ function isSkillSelectorForSource(
   return /^\$EXTERNAL\/[0-9a-f]{12}\/SKILL\.md$/.test(selector);
 }
 
-export const codexproInventorySkillSchema = z.object({
+export const codexgptInventorySkillSchema = z.object({
   name: safeOneLineSchema,
   description: skillDescriptionSchema.nullable(),
-  source: codexproInventorySkillSourceSchema,
+  source: codexgptInventorySkillSourceSchema,
   path: z.string().min(1).max(1024)
 }).strict().superRefine((value, context) => {
   if (!isSkillSelectorForSource(value.source, value.path)) {
@@ -80,12 +80,12 @@ export const codexproInventorySkillSchema = z.object({
   }
 });
 
-export const codexproInventoryMcpServerSchema = z.object({
+export const codexgptInventoryMcpServerSchema = z.object({
   name: safeOneLineSchema,
-  source: codexproInventoryMcpSourceSchema
+  source: codexgptInventoryMcpSourceSchema
 }).strict();
 
-export const codexproInventorySkillCountsSchema = z.object({
+export const codexgptInventorySkillCountsSchema = z.object({
   total: z.number().int().nonnegative(),
   workspace: z.number().int().nonnegative(),
   user: z.number().int().nonnegative(),
@@ -100,12 +100,12 @@ const skillSourceRank = {
   other: 3
 } as const;
 
-export type CodexProInventorySkill = z.infer<typeof codexproInventorySkillSchema>;
-export type CodexProInventoryMcpServer = z.infer<typeof codexproInventoryMcpServerSchema>;
+export type CodexGPTInventorySkill = z.infer<typeof codexgptInventorySkillSchema>;
+export type CodexGPTInventoryMcpServer = z.infer<typeof codexgptInventoryMcpServerSchema>;
 
-export function compareCodexProInventorySkills(
-  left: CodexProInventorySkill,
-  right: CodexProInventorySkill
+export function compareCodexGPTInventorySkills(
+  left: CodexGPTInventorySkill,
+  right: CodexGPTInventorySkill
 ): number {
   const sourceOrder = skillSourceRank[left.source] - skillSourceRank[right.source];
   if (sourceOrder !== 0) return sourceOrder;
@@ -114,16 +114,16 @@ export function compareCodexProInventorySkills(
   return 0;
 }
 
-export function compareCodexProInventoryMcpServers(
-  left: CodexProInventoryMcpServer,
-  right: CodexProInventoryMcpServer
+export function compareCodexGPTInventoryMcpServers(
+  left: CodexGPTInventoryMcpServer,
+  right: CodexGPTInventoryMcpServer
 ): number {
   if (left.name !== right.name) return left.name < right.name ? -1 : 1;
   if (left.source !== right.source) return left.source < right.source ? -1 : 1;
   return 0;
 }
 
-export const codexproInventoryDataSchema = z.object({
+export const codexgptInventoryDataSchema = z.object({
   workspace_id: safeOneLineSchema,
   root: z.string().min(1),
   bash_mode: z.enum(["off", "safe", "full"]),
@@ -132,13 +132,13 @@ export const codexproInventoryDataSchema = z.object({
   include_global_skills: z.boolean(),
   include_mcp_servers: z.boolean(),
   max_skills: z.number().int().min(1).max(500),
-  mcp_server_limit: z.literal(CODEXPRO_INVENTORY_MCP_SERVER_LIMIT),
-  skills: z.array(codexproInventorySkillSchema).max(500),
+  mcp_server_limit: z.literal(CODEXGPT_INVENTORY_MCP_SERVER_LIMIT),
+  skills: z.array(codexgptInventorySkillSchema).max(500),
   skill_count: z.number().int().nonnegative().max(500),
-  skill_counts: codexproInventorySkillCountsSchema,
+  skill_counts: codexgptInventorySkillCountsSchema,
   skills_truncated: z.boolean(),
-  mcp_servers: z.array(codexproInventoryMcpServerSchema).max(CODEXPRO_INVENTORY_MCP_SERVER_LIMIT),
-  mcp_server_count: z.number().int().nonnegative().max(CODEXPRO_INVENTORY_MCP_SERVER_LIMIT),
+  mcp_servers: z.array(codexgptInventoryMcpServerSchema).max(CODEXGPT_INVENTORY_MCP_SERVER_LIMIT),
+  mcp_server_count: z.number().int().nonnegative().max(CODEXGPT_INVENTORY_MCP_SERVER_LIMIT),
   mcp_servers_truncated: z.boolean()
 }).strict().superRefine((value, context) => {
   if (value.skill_count !== value.skills.length) {
@@ -163,7 +163,7 @@ export const codexproInventoryDataSchema = z.object({
     }
     seenSkills.add(identity);
 
-    if (index > 0 && compareCodexProInventorySkills(value.skills[index - 1]!, skill) > 0) {
+    if (index > 0 && compareCodexGPTInventorySkills(value.skills[index - 1]!, skill) > 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["skills", index],
@@ -232,7 +232,7 @@ export const codexproInventoryDataSchema = z.object({
     }
     seenServers.add(identity);
 
-    if (index > 0 && compareCodexProInventoryMcpServers(value.mcp_servers[index - 1]!, server) > 0) {
+    if (index > 0 && compareCodexGPTInventoryMcpServers(value.mcp_servers[index - 1]!, server) > 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["mcp_servers", index],
@@ -276,57 +276,57 @@ const workspaceNotFoundDetailsSchema = z.union([
 
 const workspaceNotFoundErrorSchema = z.object({
   code: z.literal("WORKSPACE_NOT_FOUND"),
-  message: z.literal(CODEXPRO_INVENTORY_ERROR_MESSAGES.WORKSPACE_NOT_FOUND),
+  message: z.literal(CODEXGPT_INVENTORY_ERROR_MESSAGES.WORKSPACE_NOT_FOUND),
   retryable: z.literal(false),
   details: workspaceNotFoundDetailsSchema
 }).strict();
 
 const inventoryDiscoveryFailedErrorSchema = z.object({
   code: z.literal("INVENTORY_DISCOVERY_FAILED"),
-  message: z.literal(CODEXPRO_INVENTORY_ERROR_MESSAGES.INVENTORY_DISCOVERY_FAILED),
+  message: z.literal(CODEXGPT_INVENTORY_ERROR_MESSAGES.INVENTORY_DISCOVERY_FAILED),
   retryable: z.literal(false),
   details: emptyDetailsSchema
 }).strict();
 
 const internalErrorSchema = z.object({
   code: z.literal("INTERNAL_ERROR"),
-  message: z.literal(CODEXPRO_INVENTORY_ERROR_MESSAGES.INTERNAL_ERROR),
+  message: z.literal(CODEXGPT_INVENTORY_ERROR_MESSAGES.INTERNAL_ERROR),
   retryable: z.literal(false),
   details: emptyDetailsSchema
 }).strict();
 
-export const codexproInventoryErrorSchema = z.discriminatedUnion("code", [
+export const codexgptInventoryErrorSchema = z.discriminatedUnion("code", [
   workspaceNotFoundErrorSchema,
   inventoryDiscoveryFailedErrorSchema,
   internalErrorSchema
 ]);
 
-export const codexproInventoryOutputShape = {
-  codexpro_tool: z.literal("codexpro_inventory"),
-  codexpro_title: z.literal("CodexPro Inventory"),
+export const codexgptInventoryOutputShape = {
+  codexgpt_tool: z.literal("codexgpt_inventory"),
+  codexgpt_title: z.literal("CodexGPT Inventory"),
   ok: z.boolean(),
-  data: codexproInventoryDataSchema.nullable(),
-  error: codexproInventoryErrorSchema.nullable(),
+  data: codexgptInventoryDataSchema.nullable(),
+  error: codexgptInventoryErrorSchema.nullable(),
   meta: toolMetaSchema
 };
 
-const codexproInventoryOutputBaseSchema = z.object(codexproInventoryOutputShape).strict();
+const codexgptInventoryOutputBaseSchema = z.object(codexgptInventoryOutputShape).strict();
 
-export const codexproInventoryOutputSchema = codexproInventoryOutputBaseSchema.superRefine(
+export const codexgptInventoryOutputSchema = codexgptInventoryOutputBaseSchema.superRefine(
   (value, context) => {
     if (value.ok) {
       if (value.data === null) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["data"],
-          message: "Successful codexpro_inventory results require data."
+          message: "Successful codexgpt_inventory results require data."
         });
       }
       if (value.error !== null) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["error"],
-          message: "Successful codexpro_inventory results require error to be null."
+          message: "Successful codexgpt_inventory results require error to be null."
         });
       }
 
@@ -350,30 +350,30 @@ export const codexproInventoryOutputSchema = codexproInventoryOutputBaseSchema.s
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["data"],
-        message: "Failed codexpro_inventory results require data to be null."
+        message: "Failed codexgpt_inventory results require data to be null."
       });
     }
     if (value.error === null) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["error"],
-        message: "Failed codexpro_inventory results require an error object."
+        message: "Failed codexgpt_inventory results require an error object."
       });
     }
     if (value.meta.warnings.length !== 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["meta", "warnings"],
-        message: "Failed codexpro_inventory results cannot include warnings."
+        message: "Failed codexgpt_inventory results cannot include warnings."
       });
     }
   }
 );
 
-export type CodexProInventoryData = z.infer<typeof codexproInventoryDataSchema>;
-export type CodexProInventoryStructuredResult = z.infer<typeof codexproInventoryOutputBaseSchema>;
+export type CodexGPTInventoryData = z.infer<typeof codexgptInventoryDataSchema>;
+export type CodexGPTInventoryStructuredResult = z.infer<typeof codexgptInventoryOutputBaseSchema>;
 
-export type CodexProInventoryFailureInput =
+export type CodexGPTInventoryFailureInput =
   | {
       code: "WORKSPACE_NOT_FOUND";
       details:
@@ -383,21 +383,21 @@ export type CodexProInventoryFailureInput =
   | { code: "INVENTORY_DISCOVERY_FAILED"; details: Record<string, never> }
   | { code: "INTERNAL_ERROR"; details: Record<string, never> };
 
-function inventoryWarnings(data: CodexProInventoryData): string[] {
+function inventoryWarnings(data: CodexGPTInventoryData): string[] {
   const warnings: string[] = [];
-  if (data.skills_truncated) warnings.push(CODEXPRO_INVENTORY_SKILLS_TRUNCATED_WARNING);
-  if (data.mcp_servers_truncated) warnings.push(CODEXPRO_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING);
+  if (data.skills_truncated) warnings.push(CODEXGPT_INVENTORY_SKILLS_TRUNCATED_WARNING);
+  if (data.mcp_servers_truncated) warnings.push(CODEXGPT_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING);
   return warnings;
 }
 
-export function createCodexProInventorySuccess(
-  data: CodexProInventoryData,
+export function createCodexGPTInventorySuccess(
+  data: CodexGPTInventoryData,
   durationMs = 0
-): CodexProInventoryStructuredResult {
-  const parsedData = codexproInventoryDataSchema.parse(data);
-  return codexproInventoryOutputSchema.parse({
-    codexpro_tool: "codexpro_inventory",
-    codexpro_title: "CodexPro Inventory",
+): CodexGPTInventoryStructuredResult {
+  const parsedData = codexgptInventoryDataSchema.parse(data);
+  return codexgptInventoryOutputSchema.parse({
+    codexgpt_tool: "codexgpt_inventory",
+    codexgpt_title: "CodexGPT Inventory",
     ok: true,
     data: parsedData,
     error: null,
@@ -405,18 +405,18 @@ export function createCodexProInventorySuccess(
   });
 }
 
-export function createCodexProInventoryFailure(
-  failure: CodexProInventoryFailureInput,
+export function createCodexGPTInventoryFailure(
+  failure: CodexGPTInventoryFailureInput,
   durationMs = 0
-): CodexProInventoryStructuredResult {
-  return codexproInventoryOutputSchema.parse({
-    codexpro_tool: "codexpro_inventory",
-    codexpro_title: "CodexPro Inventory",
+): CodexGPTInventoryStructuredResult {
+  return codexgptInventoryOutputSchema.parse({
+    codexgpt_tool: "codexgpt_inventory",
+    codexgpt_title: "CodexGPT Inventory",
     ok: false,
     data: null,
     error: {
       code: failure.code,
-      message: CODEXPRO_INVENTORY_ERROR_MESSAGES[failure.code],
+      message: CODEXGPT_INVENTORY_ERROR_MESSAGES[failure.code],
       retryable: false,
       details: failure.details
     },

@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
-process.env["CODEXPRO_ALLOW_QUERY_" + "TOKEN"] = "1";
+process.env["CODEXGPT_ALLOW_QUERY_" + "TOKEN"] = "1";
 
 const require = createRequire(import.meta.url);
 const sourceUrl = new URL("./http-smoke.mjs", import.meta.url);
@@ -145,6 +145,6 @@ source = source.replace(exportBlockPattern, `  await withClient(mcpUrl, async (c
     const exported = await callTool(client, 'export_pro_context', {
       workspace_id: exportWorkspaceId,`);
 
-source += "\n//# sourceURL=codexpro-http-smoke-compat.mjs";
+source += "\n//# sourceURL=codexgpt-http-smoke-compat.mjs";
 const encoded = Buffer.from(source, "utf8").toString("base64");
 await import(`data:text/javascript;base64,${encoded}`);

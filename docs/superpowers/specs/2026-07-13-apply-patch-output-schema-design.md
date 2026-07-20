@@ -6,7 +6,7 @@ Status: Published in commit `c761b4e`; CI run `29233787814` passed Ubuntu/Window
 
 ## 1. Goal
 
-Migrate only the direct `apply_patch` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexpro` wrapper compatibility.
+Migrate only the direct `apply_patch` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexgpt` wrapper compatibility.
 
 The slice preserves the current unified-diff workflow, workspace path validation, blocked-path policy, secret-content detection, symlink-patch rejection, patch-size limit, `git apply --check` preflight, `git apply` execution, bounded and redacted subprocess output, diff statistics, analysis-cache invalidation, human-readable MCP content, Windows behavior, and existing smoke/stress coverage.
 
@@ -46,7 +46,7 @@ This is preferred over three alternatives:
 - Existing patch parsing, blocked paths, symlink rejection, secret-content rejection, size limit, `git apply --check`, and `git apply` behavior.
 - Analysis-cache invalidation only after complete provider and path-set validation.
 - Direct Tool Card nested-envelope rendering.
-- `codexpro` wrapper compatibility.
+- `codexgpt` wrapper compatibility.
 - Focused `node:test` contract coverage.
 - Smoke/stress compatibility updates only where old flat fields are inspected.
 - Documentation, changelog, project memory, and Phase 1 archive updates during implementation.
@@ -63,12 +63,12 @@ This is preferred over three alternatives:
 
 ```json
 {
-  "codexpro_tool": "apply_patch",
-  "codexpro_title": "Apply Patch",
+  "codexgpt_tool": "apply_patch",
+  "codexgpt_title": "Apply Patch",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "paths": [
       "src/example.ts",
       "test/example.test.mjs"
@@ -111,14 +111,14 @@ Add:
 
 ```ts
 export interface ApplyPatchProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   patch: string;
 }
 ```
 
-Extend `CodexProServerDependencies` with:
+Extend `CodexGPTServerDependencies` with:
 
 ```ts
 applyPatchResultProvider?: (
@@ -160,8 +160,8 @@ A malformed provider result, unsafe returned path, missing path, extra path, dup
 
 ```json
 {
-  "codexpro_tool": "apply_patch",
-  "codexpro_title": "Apply Patch",
+  "codexgpt_tool": "apply_patch",
+  "codexgpt_title": "Apply Patch",
   "ok": false,
   "data": null,
   "error": {
@@ -314,7 +314,7 @@ Failure cards show only the stable error code and fixed public message.
 
 Route only direct `apply_patch` to this new renderer. Keep `export_pro_context` on the legacy `renderFile` path.
 
-The `codexpro` supertool continues to preserve the child structured result and adds only wrapper identity fields. It must not flatten `data`, overwrite `ok/error/meta`, or restore legacy top-level patch fields.
+The `codexgpt` supertool continues to preserve the child structured result and adds only wrapper identity fields. It must not flatten `data`, overwrite `ok/error/meta`, or restore legacy top-level patch fields.
 
 ## 12. Contract tests
 

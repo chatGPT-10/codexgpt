@@ -72,11 +72,11 @@ function assertCommand(args, expected) {
 }
 
 assertCommand(['dist/stdio.js', '--version'], pkg.version);
-assertCommand(['dist/stdio.js', '--help'], 'CodexPro MCP stdio server');
+assertCommand(['dist/stdio.js', '--help'], 'CodexGPT MCP stdio server');
 assertCommand(['dist/http.js', '--version'], pkg.version);
-assertCommand(['dist/http.js', '--help'], 'CodexPro MCP HTTP server');
+assertCommand(['dist/http.js', '--help'], 'CodexGPT MCP HTTP server');
 
-const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-smoke-'));
+const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-smoke-'));
 await fs.writeFile(path.join(tmp, 'demo.txt'), 'alpha\nread\nread\nomega\n', 'utf8');
 await fs.writeFile(path.join(tmp, 'other.txt'), 'keep\n', 'utf8');
 await fs.writeFile(path.join(tmp, 'config.txt'), 'OPENAI_API_KEY=sk-realSecretValue123\n', 'utf8');
@@ -129,7 +129,7 @@ await fs.writeFile(path.join(tmp, '.agents', 'skills', 'smoke-skill', 'SKILL.md'
   '# Duplicate Smoke Skill',
   ''
 ].join('\n'), 'utf8');
-const outsideSkillRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-outside-skills-'));
+const outsideSkillRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-outside-skills-'));
 await fs.mkdir(path.join(outsideSkillRoot, 'outside-skill'), { recursive: true });
 await fs.writeFile(path.join(outsideSkillRoot, 'outside-skill', 'SKILL.md'), [
   '---',
@@ -157,7 +157,7 @@ await fs.mkdir(path.join(tmp, 'test'), { recursive: true });
 await fs.writeFile(path.join(tmp, 'test', 'auth.test.ts'), "import { authenticate } from '../src/auth.js';\nvoid authenticate('test');\n", 'utf8');
 await fs.writeFile(path.join(tmp, 'é.ts'), 'export const accent = 1;\n', 'utf8');
 await fs.writeFile(path.join(tmp, '旧名.ts'), 'export const renamed = true;\n', 'utf8');
-const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-outside-'));
+const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-outside-'));
 await fs.writeFile(path.join(outside, 'secret.txt'), 'do-not-read', 'utf8');
 const danglingSymlinks = [];
 for (const [linkPath, targetPath] of [
@@ -192,21 +192,21 @@ if (commitResult.status !== 0) {
 
 const client = new McpStdioClient('node', ['dist/stdio.js', '--root', tmp, '--allow-root', tmp, '--bash', 'safe', '--tool-mode', 'full'], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: tmp, CODEXPRO_ALLOWED_ROOTS: tmp, CODEXPRO_WIDGET_DOMAIN: 'https://widgets.codexpro.test', CODEXPRO_TOOL_CARDS: '0' }
+  env: { ...process.env, CODEXGPT_ROOT: tmp, CODEXGPT_ALLOWED_ROOTS: tmp, CODEXGPT_WIDGET_DOMAIN: 'https://widgets.codexgpt.test', CODEXGPT_TOOL_CARDS: '0' }
 });
 
 await client.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-smoke', version: '0.1.0' }
 });
 client.notify('notifications/initialized');
 const tools = await client.request('tools/list', {});
 const toolNames = tools.tools.map((tool) => tool.name);
-for (const expected of ['server_config', 'codexpro_self_test', 'codexpro_inventory', 'list_workspaces', 'open_current_workspace', 'open_workspace', 'workspace_snapshot', 'inspect_workspace', 'tree', 'search', 'load_skill', 'read', 'write', 'edit', 'apply_patch', 'bash', 'git_status', 'git_diff', 'show_changes', 'read_handoff', 'wait_for_handoff', 'codex_context', 'handoff_to_agent', 'handoff_to_codex', 'export_pro_context']) {
+for (const expected of ['server_config', 'codexgpt_self_test', 'codexgpt_inventory', 'list_workspaces', 'open_current_workspace', 'open_workspace', 'workspace_snapshot', 'inspect_workspace', 'tree', 'search', 'load_skill', 'read', 'write', 'edit', 'apply_patch', 'bash', 'git_status', 'git_diff', 'show_changes', 'read_handoff', 'wait_for_handoff', 'codex_context', 'handoff_to_agent', 'handoff_to_codex', 'export_pro_context']) {
   if (!toolNames.includes(expected)) throw new Error(`missing tool: ${expected}`);
 }
-const toolCardUri = 'ui://widget/codexpro-tool-card-v9.html';
+const toolCardUri = 'ui://widget/codexgpt-tool-card-v9.html';
 const toolsByName = new Map(tools.tools.map((tool) => [tool.name, tool]));
 function hasWidgetMeta(name) {
   const meta = toolsByName.get(name)?._meta ?? {};
@@ -227,22 +227,22 @@ async function expectToolError(name, args, pattern, targetClient = client) {
   }
 }
 for (const visualTool of toolNames) {
-  if (hasWidgetMeta(visualTool) || hasToolCardStatusMeta(visualTool)) throw new Error(`${visualTool} exposed widget metadata while CODEXPRO_TOOL_CARDS is off`);
+  if (hasWidgetMeta(visualTool) || hasToolCardStatusMeta(visualTool)) throw new Error(`${visualTool} exposed widget metadata while CODEXGPT_TOOL_CARDS is off`);
 }
 const cardClient = new McpStdioClient('node', ['dist/stdio.js', '--root', tmp, '--allow-root', tmp, '--bash', 'safe', '--tool-mode', 'full'], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: tmp, CODEXPRO_ALLOWED_ROOTS: tmp, CODEXPRO_TOOL_CARDS: '1' }
+  env: { ...process.env, CODEXGPT_ROOT: tmp, CODEXGPT_ALLOWED_ROOTS: tmp, CODEXGPT_TOOL_CARDS: '1' }
 });
 await cardClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-smoke-card-opt-in', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-smoke-card-opt-in', version: '0.1.0' }
 });
 cardClient.notify('notifications/initialized');
 const cardTools = await cardClient.request('tools/list', {});
 const cardSearchMeta = cardTools.tools.find((tool) => tool.name === 'search')?._meta ?? {};
 if (cardSearchMeta.ui?.resourceUri !== toolCardUri || cardSearchMeta['openai/outputTemplate'] !== toolCardUri) {
-  throw new Error('CODEXPRO_TOOL_CARDS=1 did not opt search into widget metadata');
+  throw new Error('CODEXGPT_TOOL_CARDS=1 did not opt search into widget metadata');
 }
 const cardOpened = await cardClient.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
 const cardSearch = await cardClient.request('tools/call', {
@@ -250,17 +250,17 @@ const cardSearch = await cardClient.request('tools/call', {
   arguments: { workspace_id: cardOpened.structuredContent.workspace_id, query: 'read', path: 'demo.txt', max_results: 5 }
 });
 if (!cardSearch.structuredContent.data?.matches?.length) {
-  throw new Error(`CODEXPRO_TOOL_CARDS=1 search did not include nested matches: ${JSON.stringify(cardSearch.structuredContent)}`);
+  throw new Error(`CODEXGPT_TOOL_CARDS=1 search did not include nested matches: ${JSON.stringify(cardSearch.structuredContent)}`);
 }
 const cardInspect = await cardClient.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: cardOpened.structuredContent.workspace_id } });
-if (cardInspect.structuredContent.codexpro_tool !== 'inspect_workspace' || !cardInspect.structuredContent.coverage) {
+if (cardInspect.structuredContent.codexgpt_tool !== 'inspect_workspace' || !cardInspect.structuredContent.coverage) {
   throw new Error(`inspect workspace card payload missing analysis: ${JSON.stringify(cardInspect.structuredContent)}`);
 }
 const cardStructuredSearch = await cardClient.request('tools/call', {
   name: 'search',
   arguments: { workspace_id: cardOpened.structuredContent.workspace_id, query: 'authenticate', path: 'src', intent: 'symbol', include_tests: true }
 });
-if (cardStructuredSearch.structuredContent.codexpro_tool !== 'search' || !cardStructuredSearch.structuredContent.data.analysis?.groups?.definitions?.length) {
+if (cardStructuredSearch.structuredContent.codexgpt_tool !== 'search' || !cardStructuredSearch.structuredContent.data.analysis?.groups?.definitions?.length) {
   throw new Error(`structured search card payload missing grouped analysis: ${JSON.stringify(cardStructuredSearch.structuredContent)}`);
 }
 if (spawnSync(process.platform === 'win32' ? 'where' : 'sh', process.platform === 'win32' ? ['rg'] : ['-lc', 'command -v rg >/dev/null 2>&1']).status === 0) {
@@ -277,7 +277,7 @@ const resources = await client.request('resources/list', {});
 const toolCard = resources.resources.find((resource) => resource.uri === toolCardUri);
 if (!toolCard) throw new Error(`missing tool-card resource: ${toolCardUri}`);
 if (toolCard.mimeType !== 'text/html;profile=mcp-app') throw new Error(`unexpected tool-card mime type: ${toolCard.mimeType}`);
-const legacyToolCardUri = 'ui://widget/codexpro-tool-card-v8.html';
+const legacyToolCardUri = 'ui://widget/codexgpt-tool-card-v8.html';
 const legacyToolCard = resources.resources.find((resource) => resource.uri === legacyToolCardUri);
 if (!legacyToolCard) throw new Error(`missing legacy tool-card resource: ${legacyToolCardUri}`);
 const widget = await client.request('resources/read', { uri: toolCardUri });
@@ -289,7 +289,7 @@ if (!widgetText.includes('<meta charset="utf-8">') || !widgetText.includes('Wait
 if (!widgetMeta.ui?.csp || !widgetMeta['openai/widgetCSP']) {
   throw new Error('tool-card widget resource did not expose standard and ChatGPT CSP metadata');
 }
-if (widgetMeta.ui?.domain !== 'https://widgets.codexpro.test' || widgetMeta['openai/widgetDomain'] !== 'https://widgets.codexpro.test') {
+if (widgetMeta.ui?.domain !== 'https://widgets.codexgpt.test' || widgetMeta['openai/widgetDomain'] !== 'https://widgets.codexgpt.test') {
   throw new Error('tool-card widget resource did not expose standard and ChatGPT widget domain metadata');
 }
 const legacyWidget = await client.request('resources/read', { uri: legacyToolCardUri });
@@ -302,7 +302,7 @@ if (!(legacyWidget.contents?.[0]?.text ?? '').includes('Waiting for tool result'
 const current = await client.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });
 const realTmp = await fs.realpath(tmp);
 if (current.structuredContent.data?.root !== realTmp) throw new Error(`open_current_workspace opened ${current.structuredContent.data?.root}, expected ${realTmp}`);
-if (current.structuredContent.codexpro_tool !== 'open_current_workspace') throw new Error('tool result was not tagged for widget rendering');
+if (current.structuredContent.codexgpt_tool !== 'open_current_workspace') throw new Error('tool result was not tagged for widget rendering');
 if (current.structuredContent.data?.tool_mode !== 'full') throw new Error(`open_current_workspace did not expose tool_mode: ${current.structuredContent.data?.tool_mode}`);
 if (current.structuredContent.data?.skill_inventory?.length) {
   throw new Error('open_current_workspace discovered skills by default');
@@ -315,20 +315,20 @@ if (currentWithSkills.structuredContent.data?.skill_inventory?.some?.((skill) =>
   throw new Error('open_current_workspace followed a symlinked workspace skill root outside the workspace');
 }
 const selfTest = await client.request('tools/call', {
-  name: 'codexpro_self_test',
+  name: 'codexgpt_self_test',
   arguments: {
     workspace_id: current.structuredContent.data?.workspace_id,
     max_skills: 12
   }
 });
-if (selfTest.structuredContent.status === 'fail' || !selfTest.structuredContent.expected_tools?.includes?.('codexpro_self_test')) {
-  throw new Error(`codexpro_self_test failed: ${JSON.stringify(selfTest.structuredContent)}`);
+if (selfTest.structuredContent.status === 'fail' || !selfTest.structuredContent.expected_tools?.includes?.('codexgpt_self_test')) {
+  throw new Error(`codexgpt_self_test failed: ${JSON.stringify(selfTest.structuredContent)}`);
 }
 if (JSON.stringify([...(selfTest.structuredContent.expected_tools ?? [])].sort()) !== JSON.stringify([...(selfTest.structuredContent.registered_tools ?? [])].sort())) {
-  throw new Error(`codexpro_self_test expected/registered tools mismatch: ${JSON.stringify(selfTest.structuredContent)}`);
+  throw new Error(`codexgpt_self_test expected/registered tools mismatch: ${JSON.stringify(selfTest.structuredContent)}`);
 }
-if (!selfTest.structuredContent.files_touched?.includes?.('.ai-bridge/codexpro-self-test.md')) {
-  throw new Error('codexpro_self_test did not run the .ai-bridge write/edit probe');
+if (!selfTest.structuredContent.files_touched?.includes?.('.ai-bridge/codexgpt-self-test.md')) {
+  throw new Error('codexgpt_self_test did not run the .ai-bridge write/edit probe');
 }
 const snapshotAlias = await client.request('tools/call', {
   name: 'workspace_snapshot',
@@ -356,8 +356,8 @@ if (loadedSkill.structuredContent.skill?.name !== 'smoke-skill' || !loadedSkill.
 }
 await expectToolError('load_skill', { name: 'missing-skill' }, /Skill not found/);
 await expectToolError('load_skill', { name: 'outside-skill', source: 'workspace', include_global_skills: false }, /Skill not found/);
-const inventory = await client.request('tools/call', { name: 'codexpro_inventory', arguments: { include_global_skills: false, include_mcp_servers: false } });
-if (inventory.structuredContent.codexpro_tool !== 'codexpro_inventory') throw new Error('inventory result was not tagged for widget rendering');
+const inventory = await client.request('tools/call', { name: 'codexgpt_inventory', arguments: { include_global_skills: false, include_mcp_servers: false } });
+if (inventory.structuredContent.codexgpt_tool !== 'codexgpt_inventory') throw new Error('inventory result was not tagged for widget rendering');
 const opened = await client.request('tools/call', { name: 'open_workspace', arguments: { root: tmp, include_tree: true } });
 const ws = opened.structuredContent.workspace_id;
 const workspaceAnalysis = await client.request('tools/call', { name: 'inspect_workspace', arguments: { workspace_id: ws } });
@@ -383,15 +383,15 @@ if (openedByPath.structuredContent.workspace_id !== ws) {
 await client.request('tools/call', { name: 'read', arguments: { workspace_id: ws, path: 'demo.txt' } });
 await fs.writeFile(path.join(tmp, 'tokens.txt'), [
   'Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz123456',
-  'https://example.test/mcp?codexpro_token=verysecretcodexprotoken123&x=1',
-  'codexpro_token=secretsecret12345',
-  '"codexpro_token": "shortcodextoken"',
+  'https://example.test/mcp?codexgpt_token=verysecretcodexgpttoken123&x=1',
+  'codexgpt_token=secretsecret12345',
+  '"codexgpt_token": "shortcodextoken"',
   'ANTHROPIC_API_KEY=sk-ant-abcdefghijklmnopqrstuvwxyz123456',
   '"api_key": "jsonsecretvalueabcdefghijklmnop"',
   'service_token: yamlsecretvalueabcdefghijklmnop',
   'ngrok config add-authtoken 2abcDEFghiJKLmnopQRSTuvWXyz_1234567890',
   'cloudflared tunnel run --token eyJhbGciOiJIUzI1NiJ9.eyJ0dW5uZWwiOiJjb2RleHBybyJ9.signature1234567890',
-  'cloudflared tunnel run --token-file /Users/rebel/.codexpro/cloudflare-tunnel-token'
+  'cloudflared tunnel run --token-file /Users/rebel/.codexgpt/cloudflare-tunnel-token'
 ].join('\n'), 'utf8');
 const secretRead = await client.request('tools/call', { name: 'read', arguments: { workspace_id: ws, path: 'config.txt' } });
 const secretPayload = JSON.stringify(secretRead);
@@ -400,14 +400,14 @@ if (secretPayload.includes('sk-realSecretValue123') || !secretPayload.includes('
 }
 const tokenRead = await client.request('tools/call', { name: 'read', arguments: { workspace_id: ws, path: 'tokens.txt' } });
 const tokenPayload = JSON.stringify(tokenRead);
-for (const leaked of ['ghp_abcdefghijklmnopqrstuvwxyz123456', 'verysecretcodexprotoken123', 'secretsecret12345', 'shortcodextoken', 'sk-ant-abcdefghijklmnopqrstuvwxyz123456', 'jsonsecretvalueabcdefghijklmnop', 'yamlsecretvalueabcdefghijklmnop', '2abcDEFghiJKLmnopQRSTuvWXyz_1234567890', 'eyJhbGciOiJIUzI1NiJ9.eyJ0dW5uZWwiOiJjb2RleHBybyJ9.signature1234567890']) {
+for (const leaked of ['ghp_abcdefghijklmnopqrstuvwxyz123456', 'verysecretcodexgpttoken123', 'secretsecret12345', 'shortcodextoken', 'sk-ant-abcdefghijklmnopqrstuvwxyz123456', 'jsonsecretvalueabcdefghijklmnop', 'yamlsecretvalueabcdefghijklmnop', '2abcDEFghiJKLmnopQRSTuvWXyz_1234567890', 'eyJhbGciOiJIUzI1NiJ9.eyJ0dW5uZWwiOiJjb2RleHBybyJ9.signature1234567890']) {
   if (tokenPayload.includes(leaked)) throw new Error(`read leaked token-like content: ${leaked}`);
 }
-if (!tokenPayload.includes('/Users/rebel/.codexpro/cloudflare-tunnel-token')) {
+if (!tokenPayload.includes('/Users/rebel/.codexgpt/cloudflare-tunnel-token')) {
   throw new Error('redaction hid a non-secret Cloudflare token-file path');
 }
 await expectToolError('write', { workspace_id: ws, path: 'notes.md', content: 'OPENAI_API_KEY=sk-realSecretValue123\n' }, /Secret-looking content is blocked/);
-await expectToolError('write', { workspace_id: ws, path: 'token.txt', content: 'codexpro_token=shorttok\n' }, /Secret-looking content is blocked/);
+await expectToolError('write', { workspace_id: ws, path: 'token.txt', content: 'codexgpt_token=shorttok\n' }, /Secret-looking content is blocked/);
 await expectToolError('write', { workspace_id: ws, path: 'notes.yaml', content: 'api_key: yamlsecretvalueabcdefghijklmnop\n' }, /Secret-looking content is blocked/);
 await client.request('tools/call', {
   name: 'write',
@@ -823,12 +823,12 @@ async function assertToolMode(mode, expected, hidden, extraEnv = {}) {
   if (mode) args.push('--tool-mode', mode);
   const modeClient = new McpStdioClient('node', args, {
     cwd: path.resolve('.'),
-    env: { ...process.env, CODEXPRO_ROOT: tmp, CODEXPRO_ALLOWED_ROOTS: tmp, CODEXPRO_TOOL_MODE: '', ...extraEnv }
+    env: { ...process.env, CODEXGPT_ROOT: tmp, CODEXGPT_ALLOWED_ROOTS: tmp, CODEXGPT_TOOL_MODE: '', ...extraEnv }
   });
   await modeClient.request('initialize', {
     protocolVersion: '2024-11-05',
     capabilities: {},
-    clientInfo: { name: `codexpro-${mode || 'default'}-smoke`, version: '0.1.0' }
+    clientInfo: { name: `codexgpt-${mode || 'default'}-smoke`, version: '0.1.0' }
   });
   modeClient.notify('notifications/initialized');
   const modeTools = await modeClient.request('tools/list', {});
@@ -839,8 +839,8 @@ async function assertToolMode(mode, expected, hidden, extraEnv = {}) {
   for (const hiddenName of hidden) {
     if (names.includes(hiddenName)) throw new Error(`${mode || 'default'} mode should hide ${hiddenName}; got ${names.join(', ')}`);
   }
-  const superActions = await modeClient.request('tools/call', { name: 'codexpro', arguments: { action: 'list_actions' } });
-  const expectedActions = names.filter((name) => name !== 'codexpro').sort();
+  const superActions = await modeClient.request('tools/call', { name: 'codexgpt', arguments: { action: 'list_actions' } });
+  const expectedActions = names.filter((name) => name !== 'codexgpt').sort();
   const actualActions = [...superActions.structuredContent.actions].sort();
   if (JSON.stringify(actualActions) !== JSON.stringify(expectedActions)) {
     throw new Error(`${mode || 'default'} supertool actions did not match registered tools: expected ${expectedActions.join(', ')} got ${actualActions.join(', ')}`);
@@ -848,18 +848,18 @@ async function assertToolMode(mode, expected, hidden, extraEnv = {}) {
   modeClient.close();
 }
 
-await assertToolMode('', ['codexpro', 'server_config', 'codexpro_self_test', 'open_current_workspace', 'open_workspace', 'inspect_workspace', 'tree', 'search', 'load_skill', 'read', 'write', 'edit', 'apply_patch', 'bash', 'show_changes', 'read_handoff', 'wait_for_handoff', 'export_pro_context', 'handoff_to_agent'], ['codexpro_inventory', 'workspace_snapshot', 'git_status', 'git_diff', 'codex_context', 'handoff_to_codex']);
-await assertToolMode('minimal', ['codexpro', 'server_config', 'codexpro_self_test', 'open_current_workspace', 'open_workspace', 'read', 'write', 'edit', 'apply_patch', 'bash', 'show_changes'], ['inspect_workspace', 'tree', 'search', 'load_skill', 'read_handoff', 'wait_for_handoff', 'export_pro_context', 'handoff_to_agent', 'codex_context']);
-await assertToolMode('', ['codexpro', 'server_config', 'show_changes', 'search'], ['inspect_workspace'], { CODEXPRO_ANALYSIS: '0' });
+await assertToolMode('', ['codexgpt', 'server_config', 'codexgpt_self_test', 'open_current_workspace', 'open_workspace', 'inspect_workspace', 'tree', 'search', 'load_skill', 'read', 'write', 'edit', 'apply_patch', 'bash', 'show_changes', 'read_handoff', 'wait_for_handoff', 'export_pro_context', 'handoff_to_agent'], ['codexgpt_inventory', 'workspace_snapshot', 'git_status', 'git_diff', 'codex_context', 'handoff_to_codex']);
+await assertToolMode('minimal', ['codexgpt', 'server_config', 'codexgpt_self_test', 'open_current_workspace', 'open_workspace', 'read', 'write', 'edit', 'apply_patch', 'bash', 'show_changes'], ['inspect_workspace', 'tree', 'search', 'load_skill', 'read_handoff', 'wait_for_handoff', 'export_pro_context', 'handoff_to_agent', 'codex_context']);
+await assertToolMode('', ['codexgpt', 'server_config', 'show_changes', 'search'], ['inspect_workspace'], { CODEXGPT_ANALYSIS: '0' });
 
 const handoffWriteClient = new McpStdioClient('node', ['dist/stdio.js', '--root', tmp, '--allow-root', tmp, '--write', 'handoff'], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: tmp, CODEXPRO_ALLOWED_ROOTS: tmp, CODEXPRO_TOOL_MODE: '' }
+  env: { ...process.env, CODEXGPT_ROOT: tmp, CODEXGPT_ALLOWED_ROOTS: tmp, CODEXGPT_TOOL_MODE: '' }
 });
 await handoffWriteClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-write-handoff-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-write-handoff-smoke', version: '0.1.0' }
 });
 handoffWriteClient.notify('notifications/initialized');
 const handoffWriteTools = await handoffWriteClient.request('tools/list', {});
@@ -873,25 +873,25 @@ const handoffWriteConfig = await handoffWriteClient.request('tools/call', { name
 if (handoffWriteConfig.structuredContent.data?.writeMode !== 'handoff' || handoffWriteConfig.structuredContent.data?.registeredTools?.includes?.('write') || handoffWriteConfig.structuredContent.data?.registeredTools?.includes?.('edit') || handoffWriteConfig.structuredContent.data?.registeredTools?.includes?.('apply_patch')) {
   throw new Error(`server_config did not report write handoff with hidden edit tools: ${JSON.stringify(handoffWriteConfig.structuredContent)}`);
 }
-const handoffSelfTest = await handoffWriteClient.request('tools/call', { name: 'codexpro_self_test', arguments: { write_probe: false, bash_probe: false, pro_context_probe: false } });
+const handoffSelfTest = await handoffWriteClient.request('tools/call', { name: 'codexgpt_self_test', arguments: { write_probe: false, bash_probe: false, pro_context_probe: false } });
 if (handoffSelfTest.structuredContent.status === 'fail') {
-  throw new Error(`codexpro_self_test failed under --write handoff: ${JSON.stringify(handoffSelfTest.structuredContent)}`);
+  throw new Error(`codexgpt_self_test failed under --write handoff: ${JSON.stringify(handoffSelfTest.structuredContent)}`);
 }
 for (const hiddenWriteTool of ['write', 'edit', 'apply_patch']) {
   if (handoffSelfTest.structuredContent.expected_tools?.includes?.(hiddenWriteTool) || handoffSelfTest.structuredContent.registered_tools?.includes?.(hiddenWriteTool)) {
-    throw new Error(`codexpro_self_test exposed ${hiddenWriteTool} under --write handoff: ${JSON.stringify(handoffSelfTest.structuredContent)}`);
+    throw new Error(`codexgpt_self_test exposed ${hiddenWriteTool} under --write handoff: ${JSON.stringify(handoffSelfTest.structuredContent)}`);
   }
 }
 handoffWriteClient.close();
 
 const noBashClient = new McpStdioClient('node', ['dist/stdio.js', '--root', tmp, '--allow-root', tmp, '--bash', 'off'], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: tmp, CODEXPRO_ALLOWED_ROOTS: tmp, CODEXPRO_TOOL_MODE: '' }
+  env: { ...process.env, CODEXGPT_ROOT: tmp, CODEXGPT_ALLOWED_ROOTS: tmp, CODEXGPT_TOOL_MODE: '' }
 });
 await noBashClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-no-bash-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-no-bash-smoke', version: '0.1.0' }
 });
 noBashClient.notify('notifications/initialized');
 const noBashTools = await noBashClient.request('tools/list', {});
@@ -907,12 +907,12 @@ noBashClient.close();
 
 const disabledWriteClient = new McpStdioClient('node', ['dist/stdio.js', '--root', tmp, '--allow-root', tmp, '--write', 'off'], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: tmp, CODEXPRO_ALLOWED_ROOTS: tmp, CODEXPRO_TOOL_MODE: '' }
+  env: { ...process.env, CODEXGPT_ROOT: tmp, CODEXGPT_ALLOWED_ROOTS: tmp, CODEXGPT_TOOL_MODE: '' }
 });
 await disabledWriteClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-write-off-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-write-off-smoke', version: '0.1.0' }
 });
 disabledWriteClient.notify('notifications/initialized');
 const disabledWriteTools = await disabledWriteClient.request('tools/list', {});
@@ -926,13 +926,13 @@ const disabledWriteConfig = await disabledWriteClient.request('tools/call', { na
 if (disabledWriteConfig.structuredContent.data?.writeMode !== 'off') {
   throw new Error(`server_config did not report write off: ${JSON.stringify(disabledWriteConfig.structuredContent)}`);
 }
-const disabledSelfTest = await disabledWriteClient.request('tools/call', { name: 'codexpro_self_test', arguments: { write_probe: false, bash_probe: false, pro_context_probe: false } });
+const disabledSelfTest = await disabledWriteClient.request('tools/call', { name: 'codexgpt_self_test', arguments: { write_probe: false, bash_probe: false, pro_context_probe: false } });
 if (disabledSelfTest.structuredContent.status === 'fail') {
-  throw new Error(`codexpro_self_test failed under --write off: ${JSON.stringify(disabledSelfTest.structuredContent)}`);
+  throw new Error(`codexgpt_self_test failed under --write off: ${JSON.stringify(disabledSelfTest.structuredContent)}`);
 }
 for (const hiddenWriteTool of ['write', 'edit', 'apply_patch']) {
   if (disabledSelfTest.structuredContent.expected_tools?.includes?.(hiddenWriteTool) || disabledSelfTest.structuredContent.registered_tools?.includes?.(hiddenWriteTool)) {
-    throw new Error(`codexpro_self_test exposed ${hiddenWriteTool} under --write off: ${JSON.stringify(disabledSelfTest.structuredContent)}`);
+    throw new Error(`codexgpt_self_test exposed ${hiddenWriteTool} under --write off: ${JSON.stringify(disabledSelfTest.structuredContent)}`);
   }
 }
 disabledWriteClient.close();
@@ -941,16 +941,16 @@ const standardCodexSessionsClient = new McpStdioClient('node', ['dist/stdio.js',
   cwd: path.resolve('.'),
   env: {
     ...process.env,
-    CODEXPRO_ROOT: tmp,
-    CODEXPRO_ALLOWED_ROOTS: tmp,
-    CODEXPRO_CODEX_SESSIONS: 'metadata',
-    CODEXPRO_CODEX_DIR: codexHistoryDir
+    CODEXGPT_ROOT: tmp,
+    CODEXGPT_ALLOWED_ROOTS: tmp,
+    CODEXGPT_CODEX_SESSIONS: 'metadata',
+    CODEXGPT_CODEX_DIR: codexHistoryDir
   }
 });
 await standardCodexSessionsClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-standard-codex-sessions-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-standard-codex-sessions-smoke', version: '0.1.0' }
 });
 standardCodexSessionsClient.notify('notifications/initialized');
 const standardCodexSessionTools = await standardCodexSessionsClient.request('tools/list', {});
@@ -969,12 +969,12 @@ standardCodexSessionsClient.close();
 
 const fullTranscriptClient = new McpStdioClient('node', ['dist/stdio.js', '--root', tmp, '--allow-root', tmp, '--bash', 'safe'], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: tmp, CODEXPRO_ALLOWED_ROOTS: tmp, CODEXPRO_BASH_TRANSCRIPT: 'full' }
+  env: { ...process.env, CODEXGPT_ROOT: tmp, CODEXGPT_ALLOWED_ROOTS: tmp, CODEXGPT_BASH_TRANSCRIPT: 'full' }
 });
 await fullTranscriptClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-full-bash-transcript-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-full-bash-transcript-smoke', version: '0.1.0' }
 });
 fullTranscriptClient.notify('notifications/initialized');
 const fullTranscriptBash = await fullTranscriptClient.request('tools/call', { name: 'bash', arguments: { command: 'pwd' } });
@@ -988,48 +988,48 @@ const emptyCodexDirClient = new McpStdioClient('node', ['dist/stdio.js', '--root
   cwd: path.resolve('.'),
   env: {
     ...process.env,
-    CODEXPRO_ROOT: tmp,
-    CODEXPRO_ALLOWED_ROOTS: tmp,
-    CODEXPRO_CODEX_DIR: ''
+    CODEXGPT_ROOT: tmp,
+    CODEXGPT_ALLOWED_ROOTS: tmp,
+    CODEXGPT_CODEX_DIR: ''
   }
 });
 await emptyCodexDirClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-empty-codex-dir-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-empty-codex-dir-smoke', version: '0.1.0' }
 });
 emptyCodexDirClient.notify('notifications/initialized');
 const emptyCodexDirConfig = await emptyCodexDirClient.request('tools/call', { name: 'server_config', arguments: {} });
 const expectedDefaultCodexDir = path.join(os.homedir(), '.codex');
 if (emptyCodexDirConfig.structuredContent.data?.codexDir !== expectedDefaultCodexDir) {
-  throw new Error(`empty CODEXPRO_CODEX_DIR resolved to ${emptyCodexDirConfig.structuredContent.data?.codexDir}, expected ${expectedDefaultCodexDir}`);
+  throw new Error(`empty CODEXGPT_CODEX_DIR resolved to ${emptyCodexDirConfig.structuredContent.data?.codexDir}, expected ${expectedDefaultCodexDir}`);
 }
 emptyCodexDirClient.close();
 
 const invalidContextDir = spawnSync('node', ['dist/stdio.js', '--root', tmp, '--allow-root', tmp], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: tmp, CODEXPRO_ALLOWED_ROOTS: tmp, CODEXPRO_CONTEXT_DIR: 'src' },
+  env: { ...process.env, CODEXGPT_ROOT: tmp, CODEXGPT_ALLOWED_ROOTS: tmp, CODEXGPT_CONTEXT_DIR: 'src' },
   encoding: 'utf8',
   timeout: 5000
 });
-if (invalidContextDir.status === 0 || !String(invalidContextDir.stderr || invalidContextDir.stdout).includes('CODEXPRO_CONTEXT_DIR')) {
-  throw new Error(`invalid CODEXPRO_CONTEXT_DIR=src was not rejected: status=${invalidContextDir.status} stdout=${invalidContextDir.stdout} stderr=${invalidContextDir.stderr}`);
+if (invalidContextDir.status === 0 || !String(invalidContextDir.stderr || invalidContextDir.stdout).includes('CODEXGPT_CONTEXT_DIR')) {
+  throw new Error(`invalid CODEXGPT_CONTEXT_DIR=src was not rejected: status=${invalidContextDir.status} stdout=${invalidContextDir.stdout} stderr=${invalidContextDir.stderr}`);
 }
 
 const codexSessionsClient = new McpStdioClient('node', ['dist/stdio.js', '--root', tmp, '--allow-root', tmp, '--tool-mode', 'full'], {
   cwd: path.resolve('.'),
   env: {
     ...process.env,
-    CODEXPRO_ROOT: tmp,
-    CODEXPRO_ALLOWED_ROOTS: tmp,
-    CODEXPRO_CODEX_SESSIONS: 'read',
-    CODEXPRO_CODEX_DIR: codexHistoryDir
+    CODEXGPT_ROOT: tmp,
+    CODEXGPT_ALLOWED_ROOTS: tmp,
+    CODEXGPT_CODEX_SESSIONS: 'read',
+    CODEXGPT_CODEX_DIR: codexHistoryDir
   }
 });
 await codexSessionsClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-codex-sessions-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-codex-sessions-smoke', version: '0.1.0' }
 });
 codexSessionsClient.notify('notifications/initialized');
 const codexSessionTools = await codexSessionsClient.request('tools/list', {});
@@ -1093,16 +1093,16 @@ const sessionGuardClient = new McpStdioClient('node', [
   cwd: path.resolve('.'),
   env: {
     ...process.env,
-    CODEXPRO_ROOT: tmp,
-    CODEXPRO_ALLOWED_ROOTS: tmp,
-    CODEXPRO_BASH_SESSION_ID: '',
-    CODEXPRO_REQUIRE_BASH_SESSION: ''
+    CODEXGPT_ROOT: tmp,
+    CODEXGPT_ALLOWED_ROOTS: tmp,
+    CODEXGPT_BASH_SESSION_ID: '',
+    CODEXGPT_REQUIRE_BASH_SESSION: ''
   }
 });
 await sessionGuardClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-bash-session-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-bash-session-smoke', version: '0.1.0' }
 });
 sessionGuardClient.notify('notifications/initialized');
 const guardedConfig = await sessionGuardClient.request('tools/call', { name: 'server_config', arguments: {} });
@@ -1116,24 +1116,24 @@ if (guardedBash.structuredContent.data?.bash_session_id !== 'codex-main' || guar
   throw new Error(`bash session guard did not allow matching session id: ${JSON.stringify(guardedBash.structuredContent)}`);
 }
 const guardedSelfTest = await sessionGuardClient.request('tools/call', {
-  name: 'codexpro_self_test',
+  name: 'codexgpt_self_test',
   arguments: { write_probe: false, pro_context_probe: false }
 });
 if (guardedSelfTest.structuredContent.status === 'fail') {
-  throw new Error(`codexpro_self_test failed under bash session guard: ${JSON.stringify(guardedSelfTest.structuredContent.checks)}`);
+  throw new Error(`codexgpt_self_test failed under bash session guard: ${JSON.stringify(guardedSelfTest.structuredContent.checks)}`);
 }
 sessionGuardClient.close();
 
-const nonGitRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-non-git-'));
+const nonGitRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-non-git-'));
 await fs.writeFile(path.join(nonGitRoot, 'README.md'), '# Non-git fixture\n', 'utf8');
 const nonGitClient = new McpStdioClient('node', ['dist/stdio.js', '--root', nonGitRoot, '--allow-root', nonGitRoot, '--tool-mode', 'full'], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: nonGitRoot, CODEXPRO_ALLOWED_ROOTS: nonGitRoot }
+  env: { ...process.env, CODEXGPT_ROOT: nonGitRoot, CODEXGPT_ALLOWED_ROOTS: nonGitRoot }
 });
 await nonGitClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-non-git-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-non-git-smoke', version: '0.1.0' }
 });
 nonGitClient.notify('notifications/initialized');
 const nonGitDiff = await nonGitClient.request('tools/call', { name: 'git_diff', arguments: { include_diff: false } });
@@ -1151,18 +1151,18 @@ if (!nonGitDiff.content?.[0]?.text?.includes('The workspace is not a Git reposit
 }
 nonGitClient.close();
 
-const lowerAgentsRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-lower-agents-'));
+const lowerAgentsRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-lower-agents-'));
 await fs.writeFile(path.join(lowerAgentsRoot, 'agents.md'), '# Lowercase agents\n\n- Lowercase instruction file loaded.\n', 'utf8');
 await fs.mkdir(path.join(lowerAgentsRoot, 'src'));
 await fs.writeFile(path.join(lowerAgentsRoot, 'src', 'demo.ts'), 'export const demo = true;\n', 'utf8');
 const lowerClient = new McpStdioClient('node', ['dist/stdio.js', '--root', lowerAgentsRoot, '--allow-root', lowerAgentsRoot, '--tool-mode', 'full'], {
   cwd: path.resolve('.'),
-  env: { ...process.env, CODEXPRO_ROOT: lowerAgentsRoot, CODEXPRO_ALLOWED_ROOTS: lowerAgentsRoot }
+  env: { ...process.env, CODEXGPT_ROOT: lowerAgentsRoot, CODEXGPT_ALLOWED_ROOTS: lowerAgentsRoot }
 });
 await lowerClient.request('initialize', {
   protocolVersion: '2024-11-05',
   capabilities: {},
-  clientInfo: { name: 'codexpro-lower-agents-smoke', version: '0.1.0' }
+  clientInfo: { name: 'codexgpt-lower-agents-smoke', version: '0.1.0' }
 });
 lowerClient.notify('notifications/initialized');
 const lowerOpened = await lowerClient.request('tools/call', { name: 'open_current_workspace', arguments: { include_tree: false } });

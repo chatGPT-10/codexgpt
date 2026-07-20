@@ -9,7 +9,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
 const {
-  createCodexProServer,
+  createCodexGPTServer,
   createExecutionFailure,
   loadConfig
 } = await tsImport("../fixtures/ts-imports/phase-4a-integration-imports.ts", import.meta.url);
@@ -45,13 +45,13 @@ async function freePort() {
 
 function v3Config(toolMode = "full") {
   return withEnv({
-    CODEXPRO_TOOL_CONTRACT_VERSION: "3",
-    CODEXPRO_FILE_TRANSACTIONS: "atomic",
-    CODEXPRO_AUDIT_MODE: "required",
-    CODEXPRO_POLICY_ENGINE: "enforce",
-    CODEXPRO_TOOL_MODE: toolMode,
-    CODEXPRO_EXECUTION_PROFILE: "off",
-    CODEXPRO_LOCAL_FILE_ACCESS: "configured_roots"
+    CODEXGPT_TOOL_CONTRACT_VERSION: "3",
+    CODEXGPT_FILE_TRANSACTIONS: "atomic",
+    CODEXGPT_AUDIT_MODE: "required",
+    CODEXGPT_POLICY_ENGINE: "enforce",
+    CODEXGPT_TOOL_MODE: toolMode,
+    CODEXGPT_EXECUTION_PROFILE: "off",
+    CODEXGPT_LOCAL_FILE_ACCESS: "configured_roots"
   }, () => loadConfig([
     "--root", process.cwd(),
     "--allow-root", process.cwd(),
@@ -141,7 +141,7 @@ async function withClient(server, action) {
 test("V3 direct and supertool execution traverse one live policy and handler path", async () => {
   const handlerCalls = [];
   const authorizations = [];
-  const server = createCodexProServer(v3Config(), dependencies({ handlerCalls, authorizations }));
+  const server = createCodexGPTServer(v3Config(), dependencies({ handlerCalls, authorizations }));
   await withClient(server, async (client) => {
     const args = {
       command: { kind: "powershell", script: "Write-Output integration", edition: "windows" },
@@ -150,7 +150,7 @@ test("V3 direct and supertool execution traverse one live policy and handler pat
     };
     const direct = await client.callTool({ name: "run_command", arguments: args });
     const wrapped = await client.callTool({
-      name: "codexpro",
+      name: "codexgpt",
       arguments: { action: "run_command", args }
     });
     assert.equal(direct.structuredContent.error.code, "HOST_UNAVAILABLE");
@@ -161,7 +161,7 @@ test("V3 direct and supertool execution traverse one live policy and handler pat
 });
 
 test("POSIX command discovery never concatenates argv through shell true", async () => {
-  const source = await fs.readFile("scripts/codexpro.mjs", "utf8");
+  const source = await fs.readFile("scripts/codexgpt.mjs", "utf8");
   assert.doesNotMatch(source, /shell:\s*true/);
   assert.equal(source.match(/spawnSync\('\/bin\/sh', \['-c', 'command -v "\$1"'/g)?.length, 2);
 });
@@ -169,7 +169,7 @@ test("POSIX command discovery never concatenates argv through shell true", async
 test("doctor separates backend, Job, ConPTY, approval, root, full-access, and sandbox evidence", async () => {
   const port = await freePort();
   const result = spawnSync(process.execPath, [
-    "scripts/codexpro.mjs",
+    "scripts/codexgpt.mjs",
     "doctor",
     "--no-profile",
     "--port", String(port),
@@ -182,12 +182,12 @@ test("doctor separates backend, Job, ConPTY, approval, root, full-access, and sa
     env: {
       ...process.env,
       NO_COLOR: "1",
-      CODEXPRO_TOOL_CONTRACT_VERSION: "3",
-      CODEXPRO_POLICY_ENGINE: "enforce",
-      CODEXPRO_AUDIT_MODE: "required",
-      CODEXPRO_EXECUTION_PROFILE: "full_access",
-      CODEXPRO_PERMISSION_PROFILE: "ambient",
-      CODEXPRO_LOCAL_FILE_ACCESS: "configured_roots"
+      CODEXGPT_TOOL_CONTRACT_VERSION: "3",
+      CODEXGPT_POLICY_ENGINE: "enforce",
+      CODEXGPT_AUDIT_MODE: "required",
+      CODEXGPT_EXECUTION_PROFILE: "full_access",
+      CODEXGPT_PERMISSION_PROFILE: "ambient",
+      CODEXGPT_LOCAL_FILE_ACCESS: "configured_roots"
     }
   });
   const expectedStatus = process.platform === "win32" ? 0 : 1;

@@ -61,13 +61,13 @@ export interface RuntimeConnection {
 
 // Runtime connection records keep only safe policy selectors, never policy bodies or credentials.
 
-export function codexProHome(): string {
-  const customHome = process.env.CODEXPRO_HOME;
-  return customHome ? path.resolve(expandHome(customHome)) : path.join(os.homedir(), ".codexpro");
+export function CodexGPTHome(): string {
+  const customHome = process.env.CODEXGPT_HOME;
+  return customHome ? path.resolve(expandHome(customHome)) : path.join(os.homedir(), ".codexgpt");
 }
 
 export function profileDir(): string {
-  return path.join(codexProHome(), "profiles");
+  return path.join(CodexGPTHome(), "profiles");
 }
 
 export function profileIdForRoot(root: string): string {
@@ -79,7 +79,7 @@ export function profilePathForRoot(root: string): string {
 }
 
 export function runtimeDir(): string {
-  return path.join(codexProHome(), "runtime");
+  return path.join(CodexGPTHome(), "runtime");
 }
 
 export function runtimeStatusPathForRoot(root: string): string {

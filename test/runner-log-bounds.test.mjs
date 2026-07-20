@@ -34,7 +34,7 @@ async function waitForTerminal(root, runId) {
 }
 
 test("detached runner retains a bounded tail and records dropped stdout/stderr bytes", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-bounds-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-bounds-"));
   try {
     const started = JSON.parse((await execute([
       "start",
@@ -70,7 +70,7 @@ test("detached runner retains a bounded tail and records dropped stdout/stderr b
 });
 
 test("runner rejects log caps above the hard maximum before creating a run", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-limit-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-limit-"));
   try {
     await assert.rejects(
       execute([

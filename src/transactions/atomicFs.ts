@@ -1,7 +1,7 @@
 import path from "node:path";
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import fsp from "node:fs/promises";
-import type { CodexProConfig } from "../config.js";
+import type { CodexGPTConfig } from "../config.js";
 import type { PathGuard, Workspace } from "../guard.js";
 import {
   TransactionError,
@@ -65,7 +65,7 @@ function reservedSibling(
   }
   return path.join(
     path.dirname(targetAbsPath),
-    `.codexpro-txn-${random.toString("hex")}.${kind}`
+    `.codexgpt-txn-${random.toString("hex")}.${kind}`
   );
 }
 
@@ -105,7 +105,7 @@ export class AtomicWorkspaceFs {
   private readonly maxBytes: number;
 
   constructor(
-    config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes">,
+    config: Pick<CodexGPTConfig, "blockedGlobs" | "maxWriteBytes">,
     private readonly guard: PathGuard,
     private readonly workspace: Workspace,
     dependencies: Partial<AtomicWorkspaceFsDependencies> = {}
@@ -476,7 +476,7 @@ export class AtomicWorkspaceFs {
     for (const artifact of [prepared.stageAbsPath, prepared.backupAbsPath]) {
       if (!artifact) continue;
       const basename = path.basename(artifact);
-      if (!/^\.codexpro-txn-[a-f0-9]{16}\.(?:stage|backup|move)$/.test(basename)) {
+      if (!/^\.codexgpt-txn-[a-f0-9]{16}\.(?:stage|backup|move)$/.test(basename)) {
         throw new TransactionError("TRANSACTION_STATE_CORRUPT", "Transaction artifact name is invalid.");
       }
       if (path.dirname(artifact) !== prepared.artifactParentAbsPath) {

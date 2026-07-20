@@ -652,7 +652,7 @@ export class GitIntegrationGateV4 {
       if (request.operation !== "commit") {
         await fsp.writeFile(
           path.join(integrationGitDir, "HEAD"),
-          "ref: refs/heads/codexpro-integration\n",
+          "ref: refs/heads/codexgpt-integration\n",
           { flag: "wx", mode: 0o600 }
         );
       }

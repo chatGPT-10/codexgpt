@@ -14,7 +14,7 @@ import {
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 
 async function fixture(action, options = {}) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-engine-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-engine-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state-outside-workspace");
   const workspaceRoot = path.join(root, "workspace");
@@ -200,7 +200,7 @@ test("failure after a transaction-owned directory creation removes the empty dir
     );
     await assert.rejects(() => fsp.stat(path.join(workspaceRoot, ".ai-bridge")), { code: "ENOENT" });
     assert.deepEqual(
-      (await fsp.readdir(workspaceRoot)).filter((name) => name.startsWith(".codexpro-txn-")),
+      (await fsp.readdir(workspaceRoot)).filter((name) => name.startsWith(".codexgpt-txn-")),
       []
     );
   }, {

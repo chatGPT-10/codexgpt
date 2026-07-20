@@ -6,7 +6,7 @@
 
 ## 1. Decision
 
-CodexPro will use a repository-owned, compiled Policy Kernel rather than continuing distributed handler checks or introducing a general-purpose external policy engine.
+CodexGPT will use a repository-owned, compiled Policy Kernel rather than continuing distributed handler checks or introducing a general-purpose external policy engine.
 
 The selected architecture is:
 
@@ -35,7 +35,7 @@ Approval never means “run with every permission of the current Windows account
 
 ## 2. Problem statement
 
-CodexPro already enforces useful controls through `allowedRoots`, Windows path validation, blocked globs, tool visibility, write mode, Bash mode, HTTP Host/Origin/authentication checks, secret-content checks, and bounded outputs. These decisions are currently distributed across configuration, transport, tool registration, guards, and handlers.
+CodexGPT already enforces useful controls through `allowedRoots`, Windows path validation, blocked globs, tool visibility, write mode, Bash mode, HTTP Host/Origin/authentication checks, secret-content checks, and bounded outputs. These decisions are currently distributed across configuration, transport, tool registration, guards, and handlers.
 
 The Policy Kernel must establish one deterministic answer for this question:
 
@@ -218,7 +218,7 @@ NetworkResourceV1
 
 Each descriptor has a stable operation, workspace identity when applicable, normalized safe fields, and a `resourceFingerprint` derived from canonical policy facts rather than display strings.
 
-Arbitrary Shell text is treated as opaque for authorization. CodexPro must not claim that parsing a command string proves every filesystem, process, registry, credential, or network side effect. Opaque commands require a stronger risk class and enforceable sandbox capabilities.
+Arbitrary Shell text is treated as opaque for authorization. CodexGPT must not claim that parsing a command string proves every filesystem, process, registry, credential, or network side effect. Opaque commands require a stronger risk class and enforceable sandbox capabilities.
 
 ## 9. Provenance and audit facts
 

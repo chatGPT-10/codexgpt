@@ -44,7 +44,7 @@ Create a shared classifier and common file-tool error union for `tree`, `read`, 
 
 This is deferred because it would reopen the published `tree` implementation and establish abstractions before enough migrated tools exist to prove the correct boundary.
 
-### 2.3 Global typed `CodexProError` refactor
+### 2.3 Global typed `CodexGPTError` refactor
 
 Add stable internal codes to the global error class and migrate all throw sites.
 
@@ -61,14 +61,14 @@ This slice does not:
 - require explicit `workspace_id` when it is currently optional;
 - alter workspace ID generation, default-workspace fallback, ownership, expiry, close behavior, or session binding;
 - begin Phase 2 workspace lifecycle work;
-- refactor the global `CodexProError` class;
+- refactor the global `CodexGPTError` class;
 - create a shared global error-classification framework;
 - change path-policy behavior in `PathGuard`;
 - change the successful `root` value from its current absolute path representation;
 - change the current `sha256` calculation;
 - remove existing redaction or human-readable content;
 - change `search`, `tree`, `write`, `edit`, `apply_patch`, or any other tool contract;
-- change the `codexpro` supertool's own legacy invalid-argument behavior;
+- change the `codexgpt` supertool's own legacy invalid-argument behavior;
 - fix the unrelated native-Windows Stress fixture containing `visible:123:file.txt`;
 - add dependencies, environment flags, CLI options, hidden MCP arguments, HTTP routes, or production failure switches;
 - stage, commit, push, modify credentials, change profiles, or alter Cloudflare state.
@@ -94,7 +94,7 @@ The current handler:
    - `sha256`;
    - `truncated`.
 
-`tagToolResult` adds `codexpro_tool` and `codexpro_title` at the structured-result top level.
+`tagToolResult` adds `codexgpt_tool` and `codexgpt_title` at the structured-result top level.
 
 Before this slice, `read` has no exact `outputSchema`. Handler failures fall through to the common wrapper and produce `isError: true`, readable error text, and the legacy structured shape `{ error: string }`.
 
@@ -107,15 +107,15 @@ The tool card currently routes `read` through the generic `renderFile` branch, w
 Direct `read.structuredContent` contains exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
 meta
 ```
 
-Tool identity remains at the top level for CodexPro routing and card headers.
+Tool identity remains at the top level for CodexGPT routing and card headers.
 
 All `read`-specific successful fields live only under `data`. They are not duplicated at the top level.
 
@@ -125,12 +125,12 @@ A successful result has this shape:
 
 ```json
 {
-  "codexpro_tool": "read",
-  "codexpro_title": "Read File",
+  "codexgpt_tool": "read",
+  "codexgpt_title": "Read File",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "path": "src/server.ts",
     "text": "1 | import ...",
     "startLine": 1,
@@ -183,8 +183,8 @@ A failed result has this shape:
 
 ```json
 {
-  "codexpro_tool": "read",
-  "codexpro_title": "Read File",
+  "codexgpt_tool": "read",
+  "codexgpt_title": "Read File",
   "ok": false,
   "data": null,
   "error": {
@@ -482,7 +482,7 @@ The complete output schema must reject:
 
 ## 9. Local error-classification boundary
 
-The global `CodexProError` remains untyped. This slice adds a `read`-local classification boundary in `src/server.ts` and does not alter other tools.
+The global `CodexGPTError` remains untyped. This slice adds a `read`-local classification boundary in `src/server.ts` and does not alter other tools.
 
 Classification order:
 
@@ -497,7 +497,7 @@ Classification order:
 9. path escape, unsafe path form, or symlink/junction boundary rejection -> `PATH_OUTSIDE_WORKSPACE`;
 10. otherwise -> `INTERNAL_ERROR`.
 
-The classifier may recognize current known `CodexProError` message prefixes only inside this local adapter. Tests lock those mappings. Any unrecognized message fails closed to `INTERNAL_ERROR`.
+The classifier may recognize current known `CodexGPTError` message prefixes only inside this local adapter. Tests lock those mappings. Any unrecognized message fails closed to `INTERNAL_ERROR`.
 
 The existing safe workspace-ID and path-detail behavior used by `tree` may be reused internally. No unsafe input or resolved absolute path may enter error details.
 
@@ -569,17 +569,17 @@ MCP result with isError: true and readable safe content
 
 The direct `read` handler catches its own expected and unexpected errors so valid tool inputs return the exact failure schema instead of the common legacy `{ error: string }` shape.
 
-Input-schema validation remains outside this tool-local handler. The existing `codexpro` supertool malformed-argument behavior remains unchanged and is not advertised as a direct `read` result.
+Input-schema validation remains outside this tool-local handler. The existing `codexgpt` supertool malformed-argument behavior remains unchanged and is not advertised as a direct `read` result.
 
 ## 12. Constructor-only test seam
 
-Extend `CodexProServerDependencies` with one programmatic `readResultProvider` seam.
+Extend `CodexGPTServerDependencies` with one programmatic `readResultProvider` seam.
 
 Its intended shape is equivalent to:
 
 ```ts
 export interface ReadProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path: string;
@@ -616,8 +616,8 @@ The `read` descriptor advertises its exact `outputSchema` from the same Zod sour
 The descriptor requires exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
@@ -634,7 +634,7 @@ Add dedicated `read` handling instead of routing the migrated result through the
 
 The card must:
 
-- keep top-level `codexpro_tool` and `codexpro_title` for routing and the header;
+- keep top-level `codexgpt_tool` and `codexgpt_title` for routing and the header;
 - read successful fields only from `structuredContent.data`;
 - use `data.path` as the subtitle or supporting path;
 - show a bounded preview of `data.text`;
@@ -784,8 +784,8 @@ The slice is complete only when:
 - NUL-byte detection is not complete text-encoding validation.
 - Tool-card structured-string compaction can bound `data.text` without changing the line-selection `truncated` flag.
 - Tool-card verification remains primarily a source-contract test unless a later separately approved browser-level test harness is added.
-- The global `CodexProError` remains untyped.
-- The `codexpro` supertool can add wrapper metadata fields around a child result and retains legacy handling for malformed child arguments.
+- The global `CodexGPTError` remains untyped.
+- The `codexgpt` supertool can add wrapper metadata fields around a child result and retains legacy handling for malformed child arguments.
 - Native Windows `npm run stress` remains blocked by the unrelated invalid fixture filename.
 
 ## 21. Rollback

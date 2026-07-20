@@ -78,7 +78,7 @@ windowsOnly("Gate G0 proves the exact Git executable and safe native-host capsul
 });
 
 windowsOnly("the real Windows host carries large Git output and a typed Gate X private stage", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-host-control-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-host-control-"));
   const runtime = new WindowsProcessHostRuntime({ scriptsRoot: path.resolve("scripts") });
   let executor;
   t.after(async () => {
@@ -87,8 +87,8 @@ windowsOnly("the real Windows host carries large Git output and a typed Gate X p
     await fs.rm(root, { recursive: true, force: true });
   });
   git(root, ["init"]);
-  git(root, ["config", "user.name", "CodexPro Test"]);
-  git(root, ["config", "user.email", "codexpro@example.invalid"]);
+  git(root, ["config", "user.name", "CodexGPT Test"]);
+  git(root, ["config", "user.email", "codexgpt@example.invalid"]);
   const large = Buffer.alloc(2 * 1024 * 1024, 0x71);
   await fs.writeFile(path.join(root, "tracked.bin"), large);
   await fs.writeFile(path.join(root, "tracked.txt"), "first\n", "utf8");

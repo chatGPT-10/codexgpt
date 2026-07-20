@@ -1,8 +1,8 @@
-# CodexPro Personal Fork — Project Instructions
+# CodexGPT Personal Fork — Project Instructions
 
 ## 1. Mission
 
-This repository is the user's personal CodexPro fork. Evolve it incrementally into a Windows-native, security-first, self-hosted local development bridge for ChatGPT.
+This repository is the user's personal CodexGPT fork. Evolve it incrementally into a Windows-native, security-first, self-hosted local development bridge for ChatGPT.
 
 Target network path:
 
@@ -12,7 +12,7 @@ ChatGPT web
 mcp.<user-domain>
   -> Cloudflare DNS/TLS/Tunnel
 127.0.0.1:8787
-  -> customized CodexPro
+  -> customized CodexGPT
   -> explicitly authorized local workspaces
 ```
 
@@ -40,7 +40,7 @@ The implementation must remain self-hosted. Cloudflare is used only for DNS, TLS
 - Use test-driven development for behavior changes and bug fixes.
 - Verify with fresh command output before claiming completion.
 - Use explicit assumptions; do not present unverified security properties as guarantees.
-- Do not bypass CodexPro secret-content protections.
+- Do not bypass CodexGPT secret-content protections.
 - Pause for user confirmation before architecture changes, irreversible operations, credential migration, access expansion, staging, commits, pushes, destructive Git actions, or history rewrites.
 
 ## 4. Memory protocol
@@ -75,12 +75,12 @@ Memory rules:
 
 ### 5.1 Public entry and authentication
 
-- `scripts/codexpro-entry.mjs` is the supported public CLI entry.
-- Direct `node scripts/codexpro.mjs` invocation bypasses entry-layer protections and is not the supported public launch path.
-- The supported public CLI uses the personal query-token compatibility flow for ChatGPT Web when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset.
+- `scripts/codexgpt-entry.mjs` is the supported public CLI entry.
+- Direct `node scripts/codexgpt.mjs` invocation bypasses entry-layer protections and is not the supported public launch path.
+- The supported public CLI uses the personal query-token compatibility flow for ChatGPT Web when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset.
 - The CLI may print and copy the credential-bearing Server URL for that flow and must instruct `Authentication: None / No Authentication`.
 - Treat the URL as a secret: it may leak through browser history, clipboard contents, screenshots, logs, and copied links.
-- `CODEXPRO_ALLOW_QUERY_TOKEN=0` explicitly disables URL credentials for advanced compatible clients that can send an `Authorization: Bearer` header.
+- `CODEXGPT_ALLOW_QUERY_TOKEN=0` explicitly disables URL credentials for advanced compatible clients that can send an `Authorization: Bearer` header.
 - Server-side Bearer support remains available for compatible clients, but documentation must not claim ChatGPT Web supports manual static-Bearer configuration.
 - OAuth 2.1 is the later standards-based direction. Its Phase 8 implementation is authorized only within the execution boundary in Section 9 and must pass the dedicated identity, migration, rollback, and security gates before activation.
 - Non-loopback and tunnel modes must fail closed without authentication unless an explicit reviewed override exists.
@@ -109,7 +109,7 @@ Memory rules:
 - A saved profile with `bash: off` must not require Bash.
 - `doctor --no-profile` must skip every saved-profile read and validation.
 - With `inheritEnv=false`, keep arbitrary parent variables and tokens out of Bash. On Windows, preserve or derive only the bounded user/configuration paths needed for normal CLI and OS-keyring discovery; never solve CLI authentication by copying `GH_TOKEN` into the child environment.
-- `CODEXPRO_INHERIT_ENV=1` exposes the complete parent environment and is restricted to trusted local repositories.
+- `CODEXGPT_INHERIT_ENV=1` exposes the complete parent environment and is restricted to trusted local repositories.
 - Full Bash is for trusted local repositories only.
 
 ### 5.5 External references
@@ -137,9 +137,9 @@ Memory rules:
 
 The following rules are mandatory and are enforced by `npm run policy:check` plus CI contract tests:
 
-- Use `scripts/toolchain-manager.mjs` and the verified `%LOCALAPPDATA%\CodexPro\toolchains` manifest for exact Windows Node 20/24 reproduction. Temporary runtimes are migration sources only; platform-sensitive changes require both pinned majors before publication.
+- Use `scripts/toolchain-manager.mjs` and the verified `%LOCALAPPDATA%\CodexGPT\toolchains` manifest for exact Windows Node 20/24 reproduction. Temporary runtimes are migration sources only; platform-sensitive changes require both pinned majors before publication.
 - `scripts/test-domains.mjs` is authoritative. Run `ordinary` through `scripts/long-task-runner.mjs`; run `control`/`all` only in CI or a proven independent native terminal. Retain bounded run evidence, prove no same-kind run is active before retrying, and stop only an exact owned run ID—never all `node.exe` processes.
-- Use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>` for focused tests and local tasks. They and detached tasks isolate `TEMP`/`TMP`/`TMPDIR` in marked owned roots; detached evidence defaults to 20 terminal runs and 14 days. `npm run task:cleanup` may delete only verified dead-owner `codexpro-owned-v1-*` roots and terminal run evidence, never unmarked temporary entries or persistent worktree, candidate, recovery, credential, audit, or toolchain state.
+- Use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>` for focused tests and local tasks. They and detached tasks isolate `TEMP`/`TMP`/`TMPDIR` in marked owned roots; detached evidence defaults to 20 terminal runs and 14 days. `npm run task:cleanup` may delete only verified dead-owner `codexgpt-owned-v1-*` roots and terminal run evidence, never unmarked temporary entries or persistent worktree, candidate, recovery, credential, audit, or toolchain state.
 - Diagnose CI with `scripts/exact-head-ci.mjs` or `scripts/ci-failure-summary.mjs`, bound to the exact 40-character HEAD, bounded Windows user/config state, and no inherited GitHub tokens. Fix the first underlying error and keep evidence only under ignored `.ai-bridge/`.
 - A phase closes only when its closure SHA passes exact-head CI; never create a follow-up repository commit solely to record the run ID. Runtime-relevant changes—scripts, workflows, package metadata, tests, configuration, source, or fixtures—require the complete Ubuntu/Windows Node 20/24 matrix. Documentation-only changes use the documentation/policy gate.
 - Replacement fixtures must pre-create a distinct stable object before installation; never infer identity from monotonic inode/file-index or timestamps. Mutation review identity must use repository path, syscall type, and a normalized semantic AST/call digest. Line/column are diagnostic only.
@@ -157,7 +157,7 @@ The following rules are mandatory and are enforced by `npm run policy:check` plu
 ## 6. Documentation map
 
 - `Memory.md` indexes current state and `docs/memory/archive/` append-only history.
-- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` controls sequencing; paired files under `docs/superpowers/specs/` and `plans/` control exact phase contracts/TDD.
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` controls sequencing; paired files under `docs/superpowers/specs/` and `plans/` control exact phase contracts/TDD.
 - `README.md`, `README_ZH.md`, `SECURITY.md`, `CLOUDFLARED_VERIFIED_INSTALL.md`, and `design.md` are the active user/security/design references. `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` is a historical baseline.
 
 Keep long mechanisms and history out of this rule file.

@@ -1,4 +1,4 @@
-import type { CodexProConfig } from "../config.js";
+import type { CodexGPTConfig } from "../config.js";
 import type { ManagedWorktreeRoot } from "../worktrees/root.js";
 import { admitManagedWorktreeRoot } from "../worktrees/root.js";
 import { WindowsProcessHostRuntime } from "../process/windowsHostClient.js";
@@ -11,7 +11,7 @@ export interface ProductionGitBootstrapV4 {
 }
 
 export async function createProductionGitBootstrapV4(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   options: {
     stateRoot: string;
     explicitGitPath?: string;

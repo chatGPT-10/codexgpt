@@ -350,8 +350,8 @@ export class MovePathsService {
     const providerResult: MutationToolResult = {
       content: [{ type: "text", text: `Prepared atomic move of ${prepared.operations.length} file(s).` }],
       structuredContent: {
-        codexpro_tool: "move_paths",
-        codexpro_title: "Move Paths",
+        codexgpt_tool: "move_paths",
+        codexgpt_title: "Move Paths",
         ok: true,
         data: {
           workspace_id: input.workspace.id,

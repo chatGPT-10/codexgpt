@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const {
   closeWorkspaceOutputSchema,
   createCloseWorkspaceFailure,
@@ -61,9 +61,9 @@ function configFor(root, overrides = {}) {
 }
 
 async function withConnection(toolMode, callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-close-workspace-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-close-workspace-"));
   const root = await fs.realpath(created);
-  const server = createCodexProServer(configFor(root, { toolMode }));
+  const server = createCodexGPTServer(configFor(root, { toolMode }));
   const client = new Client({ name: "close-workspace-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -123,8 +123,8 @@ for (const toolMode of ["minimal", "standard", "full"]) {
         arguments: { workspace_id: workspaceId }
       }));
 
-      assert.equal(closed.codexpro_tool, "close_workspace");
-      assert.equal(closed.codexpro_title, "Close Workspace");
+      assert.equal(closed.codexgpt_tool, "close_workspace");
+      assert.equal(closed.codexgpt_title, "Close Workspace");
       assert.equal(closed.ok, true);
       assert.deepEqual(Object.keys(closed.data).sort(), ["closed_at", "state", "workspace_id"]);
       assert.equal(closed.data.workspace_id, workspaceId);
@@ -132,8 +132,8 @@ for (const toolMode of ["minimal", "standard", "full"]) {
       assert.equal(new Date(closed.data.closed_at).toISOString(), closed.data.closed_at);
       assert.equal(closed.error, null);
       assert.deepEqual(Object.keys(closed).sort(), [
-        "codexpro_title",
-        "codexpro_tool",
+        "codexgpt_title",
+        "codexgpt_tool",
         "data",
         "error",
         "meta",
@@ -179,11 +179,11 @@ test("close_workspace returns one safe not-found shape for unknown and already c
   });
 });
 
-test("codexpro supertool delegates close_workspace to the same lifecycle handler", async () => {
+test("codexgpt supertool delegates close_workspace to the same lifecycle handler", async () => {
   await withConnection("standard", async ({ client, root }) => {
     const workspaceId = await openWorkspace(client, root);
     const closed = structured(await client.callTool({
-      name: "codexpro",
+      name: "codexgpt",
       arguments: {
         action: "close_workspace",
         args: { workspace_id: workspaceId }
@@ -191,8 +191,8 @@ test("codexpro supertool delegates close_workspace to the same lifecycle handler
     }));
 
     assert.equal(closed.ok, true, JSON.stringify(closed));
-    assert.equal(closed.codexpro_tool, "close_workspace");
-    assert.equal(closed.codexpro_super_action, "close_workspace");
+    assert.equal(closed.codexgpt_tool, "close_workspace");
+    assert.equal(closed.codexgpt_super_action, "close_workspace");
     assert.equal(closed.wrapped_tool, "close_workspace");
 
     const stale = structured(await client.callTool({

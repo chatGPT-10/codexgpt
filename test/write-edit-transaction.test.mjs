@@ -39,7 +39,7 @@ const OWNER = `owner_${"5".repeat(64)}`;
 const NOW = Date.parse("2026-07-14T12:00:00.000Z");
 
 async function fixture(action, engineOptions = {}) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-write-edit-txn-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-write-edit-txn-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");

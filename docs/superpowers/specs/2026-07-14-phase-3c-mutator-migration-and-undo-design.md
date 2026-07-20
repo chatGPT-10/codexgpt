@@ -16,7 +16,7 @@ The reference public migrations are `write` and `edit`, but Phase 3 cannot close
 - `handoff_to_codex`;
 - `.ai-bridge` scaffold creation;
 - handoff log updates;
-- `codexpro_self_test` write/edit probe;
+- `codexgpt_self_test` write/edit probe;
 - `scripts/pro-apply.mjs`;
 - any other repository-supported workspace writer found by the final static mutation inventory.
 
@@ -27,7 +27,7 @@ Application-state writers such as profiles, identity keys, transaction journals,
 1. In atomic mode, no supported workspace writer may call direct `writeFile`, `appendFile`, replacing `rename`, or destructive unlink outside the transaction kernel.
 2. Every visible successful mutation has a `changeSetId` internally, even when contract V1 hides it.
 3. Contract V1 remains exact and unchanged for one migration cycle.
-4. Contract V2 is a coherent server-start snapshot; direct tools and the `codexpro` supertool use the same active version.
+4. Contract V2 is a coherent server-start snapshot; direct tools and the `codexgpt` supertool use the same active version.
 5. Contract V2 cannot start unless file transactions are `atomic` and the audit configuration satisfies its policy mode.
 6. Undo is a new guarded transaction, never a blind restoration or history rewrite.
 7. Undo cannot overwrite modifications made after the original change set.
@@ -39,7 +39,7 @@ Application-state writers such as profiles, identity keys, transaction journals,
 
 ### 3.1 Configuration
 
-`CODEXPRO_TOOL_CONTRACT_VERSION` accepts:
+`CODEXGPT_TOOL_CONTRACT_VERSION` accepts:
 
 - `1` — the exact Phase 1 tool contracts and 28-tool canonical set;
 - `2` — transaction-aware mutator contracts plus Phase 3 tools.
@@ -50,7 +50,7 @@ Configuration validation requires:
 
 ```text
 contract 2
-→ CODEXPRO_FILE_TRANSACTIONS=atomic
+→ CODEXGPT_FILE_TRANSACTIONS=atomic
 → persistent audit configuration valid for the selected policy mode
 → Phase 3 state root available
 ```
@@ -62,8 +62,8 @@ A SessionGrant continues to bind the exact active tool contract version. No gran
 The schemas expose explicit versioned sets:
 
 ```ts
-CANONICAL_CODEXPRO_CHILD_TOOLS_V1
-CANONICAL_CODEXPRO_CHILD_TOOLS_V2
+CANONICAL_CODEXGPT_CHILD_TOOLS_V1
+CANONICAL_CODEXGPT_CHILD_TOOLS_V2
 ```
 
 V2 contains the V1 tools plus:
@@ -191,7 +191,7 @@ It uses the same transaction/audit failure family as `write` in addition to its 
 ### 7.3 Internal scripts and probes
 
 - `scripts/pro-apply.mjs` calls the same transaction service used by the server.
-- `codexpro_self_test` limits its transaction to `.ai-bridge/codexpro-self-test.md` and marks the resulting change set non-retained unless the caller's public tool contract requires otherwise.
+- `codexgpt_self_test` limits its transaction to `.ai-bridge/codexgpt-self-test.md` and marks the resulting change set non-retained unless the caller's public tool contract requires otherwise.
 - Internal probes do not bypass PathPolicy, audit mode, or reserved-artifact rules.
 
 ### 7.4 Static closure gate

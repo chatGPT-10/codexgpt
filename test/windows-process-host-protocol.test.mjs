@@ -241,7 +241,7 @@ test("ConPTY probe uses one manifest-bound Node child and retains bounded failur
 });
 
 test("startup abort terminates the exact spawned host and removes its temporary root", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-host-abort-test-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-host-abort-test-"));
   const child = new EventEmitter();
   child.stdin = new PassThrough();
   child.stdout = new PassThrough();

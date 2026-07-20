@@ -181,8 +181,8 @@ const searchMetaSchema = toolMetaSchema.extend({
 }).strict();
 
 export const searchOutputShape = {
-  codexpro_tool: z.literal("search"),
-  codexpro_title: z.literal("Search Files"),
+  codexgpt_tool: z.literal("search"),
+  codexgpt_title: z.literal("Search Files"),
   ok: z.boolean(),
   data: searchDataSchema.nullable(),
   error: searchErrorSchema.nullable(),
@@ -261,8 +261,8 @@ export function createSearchSuccess(
   warnings: SearchWarning[] = []
 ): SearchStructuredResult {
   return searchOutputSchema.parse({
-    codexpro_tool: "search",
-    codexpro_title: "Search Files",
+    codexgpt_tool: "search",
+    codexgpt_title: "Search Files",
     ok: true,
     data: searchDataSchema.parse(data),
     error: null,
@@ -275,8 +275,8 @@ export function createSearchFailure(
   durationMs = 0
 ): SearchStructuredResult {
   return searchOutputSchema.parse({
-    codexpro_tool: "search",
-    codexpro_title: "Search Files",
+    codexgpt_tool: "search",
+    codexgpt_title: "Search Files",
     ok: false,
     data: null,
     error: {

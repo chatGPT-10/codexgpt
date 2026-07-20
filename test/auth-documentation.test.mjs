@@ -42,7 +42,7 @@ test("public authentication guides document the personal query-token flow and UR
     const text = read(path);
     assertNoStaticBearerSetup(path, text);
     assert.match(text, /Authentication:\s*(?:No Authentication(?:\s*\/\s*None)?|None)/i, `${path} must document the ChatGPT authentication selection`);
-    assert.match(text, /(?:query-token|query token|URL-token|codexpro_token)/i, `${path} must identify the URL credential flow`);
+    assert.match(text, /(?:query-token|query token|URL-token|codexgpt_token)/i, `${path} must identify the URL credential flow`);
     for (const term of ["browser history", "clipboard", "screenshots", "logs", "copied links"]) {
       assert.match(text, new RegExp(term, "i"), `${path} must warn about ${term}`);
     }
@@ -52,7 +52,7 @@ test("public authentication guides document the personal query-token flow and UR
     const text = read(path);
     assertNoStaticBearerSetup(path, text);
     assert.match(text, /Authentication:\s*(?:No Authentication(?:\s*\/\s*None)?|None)/i, `${path} 必须说明 ChatGPT 的认证选项`);
-    assert.match(text, /(?:query-token|query token|URL-token|codexpro_token)/i, `${path} 必须说明 URL 凭据流程`);
+    assert.match(text, /(?:query-token|query token|URL-token|codexgpt_token)/i, `${path} 必须说明 URL 凭据流程`);
     for (const term of ["浏览器历史", "剪贴板", "截图", "日志", "复制的链接"]) {
       assert.match(text, new RegExp(term), `${path} 必须警告：${term}`);
     }
@@ -80,10 +80,10 @@ test("example environment does not disable the supported personal CLI flow by de
   const example = read("config.example.env");
   assert.doesNotMatch(
     example,
-    /^CODEXPRO_ALLOW_QUERY_TOKEN=0$/m,
+    /^CODEXGPT_ALLOW_QUERY_TOKEN=0$/m,
     "config.example.env must not explicitly disable the supported public CLI query-token flow"
   );
-  assert.match(example, /^# CODEXPRO_ALLOW_QUERY_TOKEN=0$/m);
+  assert.match(example, /^# CODEXGPT_ALLOW_QUERY_TOKEN=0$/m);
   assert.match(example, /supported public CLI[^\n]{0,160}query-token/i);
 });
 

@@ -16,7 +16,7 @@ import { PendingApprovalStore } from "../dist/policy/pendingApprovals.js";
 import { createAuthorizationFactsV3, semanticDigest } from "../dist/policy/authorizationFacts.js";
 
 function tempRoot() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-audit-v3-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-audit-v3-"));
 }
 
 function hex32(text) {

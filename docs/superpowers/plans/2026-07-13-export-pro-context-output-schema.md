@@ -59,7 +59,7 @@
 - [x] Add exact-count protected main-Smoke compatibility substitutions.
 - [x] Add exact-count protected HTTP-Smoke compatibility substitutions.
 - [x] Migrate native Stress to nested data and preserve supertool wrapper assertions.
-- [x] Keep `scripts/pro-bundle.mjs` and `codexpro_self_test` compatible with expanded domain results.
+- [x] Keep `scripts/pro-bundle.mjs` and `codexgpt_self_test` compatible with expanded domain results.
 - [x] Prove protected sources are unchanged and direct supertool child-envelope preservation holds.
 - [x] Run focused and adjacent tests.
 

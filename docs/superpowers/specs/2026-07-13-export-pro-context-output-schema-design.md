@@ -61,7 +61,7 @@ max_total_bytes?
 Effective defaults remain:
 
 ```text
-title = "CodexPro Context Bundle"
+title = "CodexGPT Context Bundle"
 include_important_files = true
 include_changed_files = true
 include_diff = true
@@ -85,8 +85,8 @@ Every handler success and classified failure has exactly:
 
 ```ts
 interface ExportProContextOutput {
-  codexpro_tool: "export_pro_context";
-  codexpro_title: "Export Pro Context";
+  codexgpt_tool: "export_pro_context";
+  codexgpt_title: "Export Pro Context";
   ok: boolean;
   data: ExportProContextData | null;
   error: ExportProContextError | null;
@@ -295,9 +295,9 @@ Typed domain failures retain their safe category. An untyped provider throw maps
 
 The Tool Card becomes nested-first. It renders the saved path, byte/hash summary, source counts, created files, safe unavailable reasons, and limit/redaction pills. It never reads or renders internal Markdown. Historical flat results remain a renderer fallback.
 
-Protected main and HTTP Smoke sources remain byte-for-byte unchanged. Exact-count in-memory compatibility substitutions migrate their flat `path` and `files_included` reads. Native Stress migrates directly. The `codexpro` action `pro_export` preserves the complete six-field child envelope plus wrapper tags.
+Protected main and HTTP Smoke sources remain byte-for-byte unchanged. Exact-count in-memory compatibility substitutions migrate their flat `path` and `files_included` reads. Native Stress migrates directly. The `codexgpt` action `pro_export` preserves the complete six-field child envelope plus wrapper tags.
 
-`scripts/pro-bundle.mjs` continues to receive internal Markdown for optional clipboard copying and uses the expanded result fields without changing its public command-line interface. `codexpro_self_test` continues to use the build-only compatibility wrapper and selected-only invariant.
+`scripts/pro-bundle.mjs` continues to receive internal Markdown for optional clipboard copying and uses the expanded result fields without changing its public command-line interface. `codexgpt_self_test` continues to use the build-only compatibility wrapper and selected-only invariant.
 
 ## 14. Focused tests
 

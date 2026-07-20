@@ -17,19 +17,19 @@ The kernel must provide:
 - stable internal change-set identity;
 - no dependency on Git, Shell, PowerShell, WSL, Worktree, or a project-operated cloud service.
 
-It does not claim database-style instantaneous atomic visibility across several files. During an external process crash, other applications may temporarily observe an intermediate multi-file state. CodexPro must restore or finish cleanup before reopening that workspace.
+It does not claim database-style instantaneous atomic visibility across several files. During an external process crash, other applications may temporarily observe an intermediate multi-file state. CodexGPT must restore or finish cleanup before reopening that workspace.
 
 ## 2. Security invariants
 
 1. Every source, target, temporary path, backup path, and created directory is validated through the existing canonical `PathGuard` and blocked-path policy.
-2. Transaction artifacts use reserved unpredictable names and are inaccessible through public CodexPro file tools.
+2. Transaction artifacts use reserved unpredictable names and are inaccessible through public CodexGPT file tools.
 3. No manifest stores file contents, complete diffs, credentials, raw tokens, or workspace absolute paths.
 4. A transaction belongs to exactly one canonical workspace and one local volume.
 5. Only ordinary files are supported by the V1 backend. Directories, symlinks, junctions, reparse-point escapes, devices, sockets, and alternate data streams are rejected.
 6. A visible mutation is never attempted until the durable journal describes how to restore the previous state.
 7. An incomplete transaction is rolled back during recovery. Recovery does not silently convert an unacknowledged transaction into success.
 8. Recovery failure freezes mutation access for the workspace and returns a stable fail-closed error.
-9. Filesystem TOCTOU is reduced through last-practical-moment identity and hash revalidation, but external processes remain outside CodexPro's locking boundary.
+9. Filesystem TOCTOU is reduced through last-practical-moment identity and hash revalidation, but external processes remain outside CodexGPT's locking boundary.
 
 ## 3. State roots and identifiers
 
@@ -39,9 +39,9 @@ Transaction control state is outside every workspace and outside Git.
 
 Resolution order:
 
-1. If `CODEXPRO_HOME` is explicitly configured, use `<CODEXPRO_HOME>/state/v1`.
-2. On Windows, use `%LOCALAPPDATA%/CodexPro/state/v1`.
-3. On non-Windows systems, use `$XDG_STATE_HOME/codexpro/v1` when available, otherwise `~/.local/state/codexpro/v1`.
+1. If `CODEXGPT_HOME` is explicitly configured, use `<CODEXGPT_HOME>/state/v1`.
+2. On Windows, use `%LOCALAPPDATA%/CodexGPT/state/v1`.
+3. On non-Windows systems, use `$XDG_STATE_HOME/codexgpt/v1` when available, otherwise `~/.local/state/codexgpt/v1`.
 
 Existing profile and runtime paths are not migrated in Phase 3A.
 
@@ -93,14 +93,14 @@ Identifiers are opaque and do not encode a path, process ID, timestamp, credenti
 The V1 backend creates only sibling artifacts on the same volume as the affected file:
 
 ```text
-.codexpro-txn-<random>.stage
-.codexpro-txn-<random>.backup
-.codexpro-txn-<random>.move
+.codexgpt-txn-<random>.stage
+.codexgpt-txn-<random>.backup
+.codexgpt-txn-<random>.move
 ```
 
 Rules:
 
-- all `.codexpro-txn-*` names are hard-blocked by `PathGuard` for public reads, writes, search, tree, patch, move, and Git-facing path selectors;
+- all `.codexgpt-txn-*` names are hard-blocked by `PathGuard` for public reads, writes, search, tree, patch, move, and Git-facing path selectors;
 - names do not contain the original file name;
 - creation uses exclusive semantics;
 - artifacts are listed in the durable manifest before they become rollback-critical;
@@ -229,7 +229,7 @@ The owner record contains only:
 - transaction ID;
 - creation time.
 
-Each CodexPro process creates an instance record under `instances/`. A contender:
+Each CodexGPT process creates an instance record under `instances/`. A contender:
 
 1. attempts atomic lock-directory creation;
 2. if the lock exists, validates the owner record and process liveness;
@@ -241,7 +241,7 @@ PID reuse or unverifiable process state must fail closed rather than delete a po
 
 ### 8.3 In-process gate
 
-A server-local gate prevents its own read and mutation handlers from entering an affected workspace while a commit or recovery is in the visible-change phase. Reads return a stable busy/recovery error rather than observing a CodexPro-generated partial state. External applications are outside this gate.
+A server-local gate prevents its own read and mutation handlers from entering an affected workspace while a commit or recovery is in the visible-change phase. Reads return a stable busy/recovery error rather than observing a CodexGPT-generated partial state. External applications are outside this gate.
 
 ## 9. Manifest and state machine
 
@@ -382,7 +382,7 @@ Messages and details contain only bounded workspace IDs, relative paths, counts,
 
 ## 13. Feature flag and compatibility
 
-`CODEXPRO_FILE_TRANSACTIONS` accepts:
+`CODEXGPT_FILE_TRANSACTIONS` accepts:
 
 - `legacy` — existing mutators remain on their current implementation;
 - `atomic` — migrated mutators must use the Phase 3 kernel.

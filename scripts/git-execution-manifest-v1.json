@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "capabilityName": "codexpro-git-execution",
+  "capabilityName": "codexgpt-git-execution",
   "capabilityVersion": 1,
   "commandTransport": "direct_argv",
   "executionIsolation": "none",

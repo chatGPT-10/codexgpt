@@ -140,8 +140,8 @@ export const movePathsErrorSchema = z.object({
 });
 
 export const movePathsOutputShape = {
-  codexpro_tool: z.literal("move_paths"),
-  codexpro_title: z.literal("Move Paths"),
+  codexgpt_tool: z.literal("move_paths"),
+  codexgpt_title: z.literal("Move Paths"),
   ok: z.boolean(),
   data: movePathsDataSchema.nullable(),
   error: movePathsErrorSchema.nullable(),
@@ -165,8 +165,8 @@ export type MovePathsStructuredResult = z.infer<typeof movePathsOutputBaseSchema
 
 export function createMovePathsSuccess(data: MovePathsData, durationMs = 0): MovePathsStructuredResult {
   return movePathsOutputSchema.parse({
-    codexpro_tool: "move_paths",
-    codexpro_title: "Move Paths",
+    codexgpt_tool: "move_paths",
+    codexgpt_title: "Move Paths",
     ok: true,
     data,
     error: null,
@@ -180,8 +180,8 @@ export function createMovePathsFailure(
   durationMs = 0
 ): MovePathsStructuredResult {
   return movePathsOutputSchema.parse({
-    codexpro_tool: "move_paths",
-    codexpro_title: "Move Paths",
+    codexgpt_tool: "move_paths",
+    codexgpt_title: "Move Paths",
     ok: false,
     data: null,
     error: { code, message: MOVE_PATHS_ERROR_MESSAGES[code], retryable: retryableByCode[code], details },

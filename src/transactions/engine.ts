@@ -1,6 +1,6 @@
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import fsp from "node:fs/promises";
-import type { CodexProConfig } from "../config.js";
+import type { CodexGPTConfig } from "../config.js";
 import type { PathGuard, Workspace } from "../guard.js";
 import {
   MoveTransactionCoordinator,
@@ -159,8 +159,8 @@ export class AtomicTransactionEngine {
   private readonly moves: MoveTransactionCoordinator;
 
   constructor(
-    private readonly config: Pick<CodexProConfig, "blockedGlobs" | "maxWriteBytes"> &
-      Partial<Pick<CodexProConfig, "moveMaxFileBytes" | "moveMaxTotalBytes" | "moveHashConcurrency">>,
+    private readonly config: Pick<CodexGPTConfig, "blockedGlobs" | "maxWriteBytes"> &
+      Partial<Pick<CodexGPTConfig, "moveMaxFileBytes" | "moveMaxTotalBytes" | "moveHashConcurrency">>,
     private readonly guard: PathGuard,
     private readonly stateRoot: string,
     registry: ProcessInstanceRegistry,

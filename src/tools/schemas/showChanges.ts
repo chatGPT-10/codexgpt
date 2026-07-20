@@ -248,8 +248,8 @@ const showChangesMetaSchema = toolMetaSchema.extend({
 }).strict();
 
 export const showChangesOutputShape = {
-  codexpro_tool: z.literal("show_changes"),
-  codexpro_title: z.literal("Show Changes"),
+  codexgpt_tool: z.literal("show_changes"),
+  codexgpt_title: z.literal("Show Changes"),
   ok: z.boolean(),
   data: showChangesDataSchema.nullable(),
   error: showChangesErrorSchema.nullable(),
@@ -319,8 +319,8 @@ export function createShowChangesSuccess(
   warnings: Array<typeof SHOW_CHANGES_ANALYSIS_WARNING> = []
 ): ShowChangesStructuredResult {
   return showChangesOutputSchema.parse({
-    codexpro_tool: "show_changes",
-    codexpro_title: "Show Changes",
+    codexgpt_tool: "show_changes",
+    codexgpt_title: "Show Changes",
     ok: true,
     data: showChangesDataSchema.parse(data),
     error: null,
@@ -333,8 +333,8 @@ export function createShowChangesFailure(
   durationMs = 0
 ): ShowChangesStructuredResult {
   return showChangesOutputSchema.parse({
-    codexpro_tool: "show_changes",
-    codexpro_title: "Show Changes",
+    codexgpt_tool: "show_changes",
+    codexgpt_title: "Show Changes",
     ok: false,
     data: null,
     error: {

@@ -57,12 +57,12 @@ The direct tool returns this envelope in `structuredContent`:
 
 ```json
 {
-  "codexpro_tool": "git_diff",
-  "codexpro_title": "Git Diff",
+  "codexgpt_tool": "git_diff",
+  "codexgpt_title": "Git Diff",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "path": "workspace diff",
     "staged": false,
     "include_diff": true,
@@ -110,8 +110,8 @@ Failures return:
 
 ```json
 {
-  "codexpro_tool": "git_diff",
-  "codexpro_title": "Git Diff",
+  "codexgpt_tool": "git_diff",
+  "codexgpt_title": "Git Diff",
   "ok": false,
   "data": null,
   "error": {
@@ -171,7 +171,7 @@ Add an optional server dependency:
 
 ```ts
 gitDiffResultProvider?: (input: {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path?: string;
@@ -191,10 +191,10 @@ The default provider delegates to the current `gitDiff(...)` function. This seam
 
 ## 9. Wrapper compatibility
 
-The `codexpro` supertool action `git_diff` must continue preserving its wrapper metadata while carrying the nested child contract:
+The `codexgpt` supertool action `git_diff` must continue preserving its wrapper metadata while carrying the nested child contract:
 
-- `codexpro_tool: "git_diff"`
-- `codexpro_super_action: "git_diff"`
+- `codexgpt_tool: "git_diff"`
+- `codexgpt_super_action: "git_diff"`
 - `wrapped_tool: "git_diff"`
 - nested `ok`, `data`, `error`, and `meta`
 
@@ -229,7 +229,7 @@ Create `test/git-diff-contract.test.mjs` covering:
 17. Malformed provider output mapping.
 18. Secret-bearing thrown exception redaction.
 19. Direct tool-card nested-field behavior while preserving `show_changes`.
-20. `codexpro` wrapper compatibility.
+20. `codexgpt` wrapper compatibility.
 
 Update existing smoke/stress assertions only where they directly access the old flat `git_diff` structured fields.
 

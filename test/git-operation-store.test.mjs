@@ -6,7 +6,7 @@ import test from "node:test";
 import { GitOperationStore } from "../dist/git/operationStore.js";
 
 async function withStore(callback) {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-operation-store-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-operation-store-"));
   const masterKey = Buffer.alloc(32, 4);
   const store = new GitOperationStore({ stateRoot, masterKey, now: () => 1_700_000_000_000, randomBytes: (size) => Buffer.alloc(size, 5) });
   try {

@@ -3,7 +3,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import type { CodexProConfig } from "./config.js";
+import type { CodexGPTConfig } from "./config.js";
 import { isSubpath, type Workspace } from "./guard.js";
 
 export interface SkillInventoryItem {
@@ -70,7 +70,7 @@ export interface McpServerInventoryItem {
 
 const MAX_MCP_SERVER_INVENTORY = 120;
 
-export interface CodexProInventoryResult {
+export interface CodexGPTInventoryResult {
   skills: SkillInventoryItem[];
   skillsTruncated: boolean;
   mcpServers: McpServerInventoryItem[];
@@ -500,11 +500,11 @@ export async function discoverMcpServers(workspace: Workspace): Promise<McpServe
   return (await discoverMcpServerResult(workspace)).servers;
 }
 
-export async function codexproInventory(
-  config: CodexProConfig,
+export async function codexgptInventory(
+  config: CodexGPTConfig,
   workspace: Workspace,
   options: { includeGlobalSkills?: boolean; includeMcpServers?: boolean; maxSkills?: number } = {}
-): Promise<CodexProInventoryResult> {
+): Promise<CodexGPTInventoryResult> {
   const skillResult = await discoverSkillRecords(workspace, {
     includeGlobal: options.includeGlobalSkills !== false,
     maxSkills: options.maxSkills

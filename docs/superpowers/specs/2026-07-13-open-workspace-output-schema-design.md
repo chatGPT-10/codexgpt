@@ -6,7 +6,7 @@ Status: Published and cross-platform CI-validated
 
 ## 1. Goal
 
-Migrate only the direct `open_workspace` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public failures, focused contract tests, Tool Card compatibility, and `codexpro` wrapper compatibility.
+Migrate only the direct `open_workspace` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public failures, focused contract tests, Tool Card compatibility, and `codexgpt` wrapper compatibility.
 
 The slice preserves the current ability to open an explicitly selected local directory or the configured default root, deterministic workspace identifiers, allowed-root and Windows path enforcement, existing-workspace reuse, optional compact tree generation, optional workspace/global skill discovery, root AGENTS discovery, Git status and recent-commit human summary, and registration in minimal, standard, and full tool modes.
 
@@ -84,7 +84,7 @@ One existing alias edge case is intentionally corrected: a blank `root` can curr
 - Strict provider-result validation and cross-field consistency checks.
 - Existing human-readable workspace summary, including recent commits in MCP text only.
 - Nested-envelope handling in the shared workspace Tool Card renderer while retaining flat-result fallback.
-- Direct registered-name compatibility through the `codexpro` supertool.
+- Direct registered-name compatibility through the `codexgpt` supertool.
 - Focused `node:test` contract coverage.
 - Smoke, HTTP Smoke, and Stress updates where they currently read the flat result.
 - Documentation, changelog, project memory, and active Phase 1 archive updates during implementation.
@@ -166,7 +166,7 @@ This is the only deliberate user-visible input correction in the slice.
 
 ## 6. Result semantics
 
-`ok` answers whether CodexPro opened the selected authorized root and produced a valid, internally consistent workspace summary.
+`ok` answers whether CodexGPT opened the selected authorized root and produced a valid, internally consistent workspace summary.
 
 - `ok: true`: the selected root was opened or reused and every structured field passed strict validation.
 - `ok: false`: aliases conflicted, the selected root was invalid or could not be opened safely, or the summary/provider result could not be trusted.
@@ -181,8 +181,8 @@ Optional tree and skill discovery remain request-controlled data, not independen
 
 ```json
 {
-  "codexpro_tool": "open_workspace",
-  "codexpro_title": "Open Workspace",
+  "codexgpt_tool": "open_workspace",
+  "codexgpt_title": "Open Workspace",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
@@ -298,7 +298,7 @@ Add:
 
 ```ts
 export interface OpenWorkspaceSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: {
@@ -311,7 +311,7 @@ export interface OpenWorkspaceSummaryProviderContext {
 }
 ```
 
-Extend `CodexProServerDependencies` with:
+Extend `CodexGPTServerDependencies` with:
 
 ```ts
 openWorkspaceSummaryProvider?: (
@@ -470,7 +470,7 @@ Recommended mapping:
 - other root-stage failures -> `WORKSPACE_OPEN_FAILED` unless they demonstrably represent an internal invariant failure;
 - every Phase B failure -> `INTERNAL_ERROR`.
 
-Public messages come only from `OPEN_WORKSPACE_ERROR_MESSAGES`; raw `CodexProError`, Node, Git, AGENTS, skill, and provider messages remain private.
+Public messages come only from `OPEN_WORKSPACE_ERROR_MESSAGES`; raw `CodexGPTError`, Node, Git, AGENTS, skill, and provider messages remain private.
 
 ## 14. Envelope schema
 
@@ -478,8 +478,8 @@ The exact top-level output is:
 
 ```ts
 {
-  codexpro_tool: z.literal("open_workspace"),
-  codexpro_title: z.literal("Open Workspace"),
+  codexgpt_tool: z.literal("open_workspace"),
+  codexgpt_title: z.literal("Open Workspace"),
   ok: z.boolean(),
   data: openWorkspaceDataSchema.nullable(),
   error: openWorkspaceErrorSchema.nullable(),
@@ -519,8 +519,8 @@ Update its helper so both direct migrated open tools use nested data when presen
 ```js
 function workspaceResultData(result) {
   const isDirectOpen =
-    result?.codexpro_tool === "open_current_workspace" ||
-    result?.codexpro_tool === "open_workspace";
+    result?.codexgpt_tool === "open_current_workspace" ||
+    result?.codexgpt_tool === "open_workspace";
 
   return isDirectOpen && result?.data && typeof result.data === "object"
     ? result.data
@@ -540,11 +540,11 @@ The renderer continues to display only safe bounded fields and fixed failure mes
 
 ## 17. Supertool compatibility
 
-The `codexpro` supertool must continue to call `open_workspace` by its registered action name and return the migrated nested result with the existing wrapper tags.
+The `codexgpt` supertool must continue to call `open_workspace` by its registered action name and return the migrated nested result with the existing wrapper tags.
 
 The short `open` alias remains mapped to `open_current_workspace`; this slice does not change alias routing.
 
-Tests must verify that wrapper tagging does not flatten the tool data, overwrite `codexpro_tool`, duplicate legacy fields, or remove the strict failure envelope.
+Tests must verify that wrapper tagging does not flatten the tool data, overwrite `codexgpt_tool`, duplicate legacy fields, or remove the strict failure envelope.
 
 ## 18. Consumer migration
 

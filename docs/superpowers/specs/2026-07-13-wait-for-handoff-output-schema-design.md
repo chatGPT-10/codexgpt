@@ -53,22 +53,22 @@ The current handler in `src/server.ts`:
 - returns optional flat fields and excerpts with character rather than UTF-8 byte accounting;
 - does not advertise an `outputSchema` and uses the generic Tool Card.
 
-The lifecycle writer in `scripts/codexpro.mjs` emits version 1 with `running`, `completed`, `failed`, or `timed_out`, plus iteration, plan hash, timestamps, executor identity, terminal result fields, and fixed artifact paths.
+The lifecycle writer in `scripts/codexgpt.mjs` emits version 1 with `running`, `completed`, `failed`, or `timed_out`, plus iteration, plan hash, timestamps, executor identity, terminal result fields, and fixed artifact paths.
 
 ## 4. Exact envelope
 
 Top-level fields are exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
 meta
 ```
 
-`codexpro_tool` is `wait_for_handoff`; `codexpro_title` is `Wait For Handoff`.
+`codexgpt_tool` is `wait_for_handoff`; `codexgpt_title` is `Wait For Handoff`.
 
 ## 5. Exact success data
 
@@ -286,7 +286,7 @@ The descriptor advertises the exact output schema and uses structured-content pr
 - Protected `scripts/smoke.mjs` remains unchanged. `scripts/smoke-platform-compat.mjs` performs exact-count substitutions from its known flat wait fields to nested data/run/artifact-path fields.
 - Protected HTTP Smoke reads no wait result fields and needs no substitution.
 - Stress consumers migrate directly to nested `data` and artifact arrays.
-- `codexpro` action `handoff_poll` preserves the complete six-field child envelope plus its existing wrapper tags.
+- `codexgpt` action `handoff_poll` preserves the complete six-field child envelope plus its existing wrapper tags.
 
 ## 13. Focused tests
 

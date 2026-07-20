@@ -7,22 +7,22 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
-  "../src/tools/schemas/codexproSelfTest.ts",
+  "../src/tools/schemas/codexgptSelfTest.ts",
   import.meta.url
 ).catch(() => null);
 
 const {
-  CODEXPRO_SELF_TEST_CHECK_NAMES,
-  CODEXPRO_SELF_TEST_ERROR_MESSAGES,
-  CODEXPRO_SELF_TEST_FAILED_WARNING,
-  CODEXPRO_SELF_TEST_SKIPPED_WARNING,
-  CODEXPRO_SELF_TEST_WARNED_WARNING,
-  codexproSelfTestOutputSchema,
-  createCodexProSelfTestFailure,
-  createCodexProSelfTestSuccess
+  CODEXGPT_SELF_TEST_CHECK_NAMES,
+  CODEXGPT_SELF_TEST_ERROR_MESSAGES,
+  CODEXGPT_SELF_TEST_FAILED_WARNING,
+  CODEXGPT_SELF_TEST_SKIPPED_WARNING,
+  CODEXGPT_SELF_TEST_WARNED_WARNING,
+  codexgptSelfTestOutputSchema,
+  createCodexGPTSelfTestFailure,
+  createCodexGPTSelfTestSuccess
 } = schemaModule ?? {};
 
 const DATA_KEYS = [
@@ -77,7 +77,7 @@ const ERROR_CODES = [
   "WORKSPACE_NOT_FOUND"
 ].sort();
 
-const FIXED_ARTIFACT = ".ai-bridge/codexpro-self-test.md";
+const FIXED_ARTIFACT = ".ai-bridge/codexgpt-self-test.md";
 
 function createTestConfig(root, overrides = {}) {
   return {
@@ -125,7 +125,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-self-test-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-self-test-contract-"));
   const root = await fs.realpath(created);
   try {
     return await callback(root);
@@ -135,8 +135,8 @@ async function withTempWorkspace(callback) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
-  const client = new Client({ name: "codexpro-self-test-contract", version: "0.0.0" });
+  const server = createCodexGPTServer(config, dependencies ?? {});
+  const client = new Client({ name: "codexgpt-self-test-contract", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   try {
@@ -147,7 +147,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function callSelfTest(client, args = {}) {
-  return client.callTool({ name: "codexpro_self_test", arguments: args });
+  return client.callTool({ name: "codexgpt_self_test", arguments: args });
 }
 
 function resultText(result) {
@@ -158,8 +158,8 @@ function resultText(result) {
 }
 
 function parseResult(result) {
-  assert.equal(typeof codexproSelfTestOutputSchema?.parse, "function");
-  return codexproSelfTestOutputSchema.parse(result.structuredContent);
+  assert.equal(typeof codexgptSelfTestOutputSchema?.parse, "function");
+  return codexgptSelfTestOutputSchema.parse(result.structuredContent);
 }
 
 function termsBoundary() {
@@ -184,8 +184,8 @@ function requestDefaults(overrides = {}) {
 }
 
 function sampleProviderResult(root, overrides = {}) {
-  const expected = overrides.expected_tools ?? ["codexpro_self_test", "server_config"];
-  const registered = overrides.registered_tools ?? ["codexpro_self_test", "server_config"];
+  const expected = overrides.expected_tools ?? ["codexgpt_self_test", "server_config"];
+  const registered = overrides.registered_tools ?? ["codexgpt_self_test", "server_config"];
   return {
     workspace_id: "ws_test",
     root,
@@ -241,7 +241,7 @@ function sampleProviderResult(root, overrides = {}) {
       enforcement_declared: true,
       policy_revision: "policy_0123456789abcdef01234567",
       hard_policy_revision: "hard-policy-v1",
-      backend_id: "codexpro-node-broker",
+      backend_id: "codexgpt-node-broker",
       evidence_revision: "node-broker-v1",
       missing_capabilities: []
     },
@@ -300,8 +300,8 @@ function sampleData(root, overrides = {}) {
     bash_session_guard: { required: false, configured: false },
     http_auth: { enabled: true, required_for_public_access: true },
     request: requestDefaults(),
-    expected_tools: ["codexpro_self_test", "server_config"],
-    registered_tools: ["codexpro_self_test", "server_config"],
+    expected_tools: ["codexgpt_self_test", "server_config"],
+    registered_tools: ["codexgpt_self_test", "server_config"],
     missing_tools: [],
     unexpected_tools: [],
     tool_set_matches: true,
@@ -322,7 +322,7 @@ function sampleData(root, overrides = {}) {
       enforcement_declared: true,
       policy_revision: "policy_0123456789abcdef01234567",
       hard_policy_revision: "hard-policy-v1",
-      backend_id: "codexpro-node-broker",
+      backend_id: "codexgpt-node-broker",
       evidence_revision: "node-broker-v1",
       missing_capabilities: []
     },
@@ -341,7 +341,7 @@ function assertFailure(result, code, details) {
   assert.equal(parsed.data, null);
   assert.deepEqual(parsed.error, {
     code,
-    message: CODEXPRO_SELF_TEST_ERROR_MESSAGES[code],
+    message: CODEXGPT_SELF_TEST_ERROR_MESSAGES[code],
     retryable: code === "SELF_TEST_EXECUTION_FAILED",
     details
   });
@@ -350,19 +350,19 @@ function assertFailure(result, code, details) {
   return parsed;
 }
 
-test("codexpro_self_test schema exports the exact six-field envelope and twenty-two-field data", async () => {
+test("codexgpt_self_test schema exports the exact six-field envelope and twenty-two-field data", async () => {
   await withTempWorkspace(async (root) => {
-    assert.deepEqual(CODEXPRO_SELF_TEST_CHECK_NAMES, CHECK_NAMES);
-    assert.deepEqual(Object.keys(CODEXPRO_SELF_TEST_ERROR_MESSAGES ?? {}).sort(), ERROR_CODES);
-    assert.equal(typeof createCodexProSelfTestSuccess, "function");
-    assert.equal(typeof createCodexProSelfTestFailure, "function");
+    assert.deepEqual(CODEXGPT_SELF_TEST_CHECK_NAMES, CHECK_NAMES);
+    assert.deepEqual(Object.keys(CODEXGPT_SELF_TEST_ERROR_MESSAGES ?? {}).sort(), ERROR_CODES);
+    assert.equal(typeof createCodexGPTSelfTestSuccess, "function");
+    assert.equal(typeof createCodexGPTSelfTestFailure, "function");
 
-    const success = createCodexProSelfTestSuccess(sampleData(root), 7);
+    const success = createCodexGPTSelfTestSuccess(sampleData(root), 7);
     assert.deepEqual(Object.keys(success).sort(), [
-      "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+      "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
     ]);
-    assert.equal(success.codexpro_tool, "codexpro_self_test");
-    assert.equal(success.codexpro_title, "CodexPro Self Test");
+    assert.equal(success.codexgpt_tool, "codexgpt_self_test");
+    assert.equal(success.codexgpt_title, "CodexGPT Self Test");
     assert.equal(success.ok, true);
     assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
     assert.deepEqual(success.data.checks.map((item) => item.name), CHECK_NAMES);
@@ -376,12 +376,12 @@ test("codexpro_self_test schema exports the exact six-field envelope and twenty-
     assert.deepEqual(success.meta, {
       schemaVersion: 1,
       durationMs: 7,
-      warnings: [CODEXPRO_SELF_TEST_SKIPPED_WARNING]
+      warnings: [CODEXGPT_SELF_TEST_SKIPPED_WARNING]
     });
   });
 });
 
-test("codexpro_self_test schema derives exact warning order and keeps failed diagnostics successful", async () => {
+test("codexgpt_self_test schema derives exact warning order and keeps failed diagnostics successful", async () => {
   await withTempWorkspace(async (root) => {
     const checks = sampleChecks({
       registered_tool_set: ["fail", "TOOL_SET_MISMATCH", "Expected and registered tool sets differ."],
@@ -392,8 +392,8 @@ test("codexpro_self_test schema derives exact warning order and keeps failed dia
       status: "fail",
       checks,
       counts: { total: 18, passed: 15, warned: 1, failed: 1, skipped: 1 },
-      expected_tools: ["codexpro_self_test", "server_config"],
-      registered_tools: ["codexpro_self_test"],
+      expected_tools: ["codexgpt_self_test", "server_config"],
+      registered_tools: ["codexgpt_self_test"],
       missing_tools: ["server_config"],
       unexpected_tools: [],
       tool_set_matches: false,
@@ -404,19 +404,19 @@ test("codexpro_self_test schema derives exact warning order and keeps failed dia
         mcp_servers_truncated: false
       }
     });
-    const result = createCodexProSelfTestSuccess(data);
+    const result = createCodexGPTSelfTestSuccess(data);
     assert.equal(result.ok, true);
     assert.equal(result.data.status, "fail");
     assert.equal(result.error, null);
     assert.deepEqual(result.meta.warnings, [
-      CODEXPRO_SELF_TEST_FAILED_WARNING,
-      CODEXPRO_SELF_TEST_WARNED_WARNING,
-      CODEXPRO_SELF_TEST_SKIPPED_WARNING
+      CODEXGPT_SELF_TEST_FAILED_WARNING,
+      CODEXGPT_SELF_TEST_WARNED_WARNING,
+      CODEXGPT_SELF_TEST_SKIPPED_WARNING
     ]);
   });
 });
 
-test("codexpro_self_test schema rejects cross-field, tool-set, path, terms, check, and secret drift", async () => {
+test("codexgpt_self_test schema rejects cross-field, tool-set, path, terms, check, and secret drift", async () => {
   await withTempWorkspace(async (root) => {
     const mutations = [
       (data) => { data.counts.total = 11; },
@@ -442,12 +442,12 @@ test("codexpro_self_test schema rejects cross-field, tool-set, path, terms, chec
     for (const mutate of mutations) {
       const data = structuredClone(sampleData(root));
       mutate(data);
-      assert.throws(() => createCodexProSelfTestSuccess(data));
+      assert.throws(() => createCodexGPTSelfTestSuccess(data));
     }
   });
 });
 
-test("codexpro_self_test schema exposes exactly three stable failures", () => {
+test("codexgpt_self_test schema exposes exactly three stable failures", () => {
   const cases = [
     ["WORKSPACE_NOT_FOUND", { source: "workspace_id", workspace_id: "missing" }, false],
     ["WORKSPACE_NOT_FOUND", { source: "default_workspace", workspace_id: null }, false],
@@ -455,12 +455,12 @@ test("codexpro_self_test schema exposes exactly three stable failures", () => {
     ["INTERNAL_ERROR", {}, false]
   ];
   for (const [code, details, retryable] of cases) {
-    const result = createCodexProSelfTestFailure({ code, details }, 3);
+    const result = createCodexGPTSelfTestFailure({ code, details }, 3);
     assert.equal(result.ok, false);
     assert.equal(result.data, null);
     assert.deepEqual(result.error, {
       code,
-      message: CODEXPRO_SELF_TEST_ERROR_MESSAGES[code],
+      message: CODEXGPT_SELF_TEST_ERROR_MESSAGES[code],
       retryable,
       details
     });
@@ -468,12 +468,12 @@ test("codexpro_self_test schema exposes exactly three stable failures", () => {
   }
 });
 
-test("codexpro_self_test remains visible in every tool mode and advertises exact inputs, output, and annotations", async () => {
+test("codexgpt_self_test remains visible in every tool mode and advertises exact inputs, output, and annotations", async () => {
   await withTempWorkspace(async (root) => {
     for (const toolMode of ["minimal", "standard", "full"]) {
       await withConfigClient(createTestConfig(root, { toolMode }), {}, async (client) => {
         const listed = await client.listTools();
-        const descriptor = listed.tools.find((tool) => tool.name === "codexpro_self_test");
+        const descriptor = listed.tools.find((tool) => tool.name === "codexgpt_self_test");
         assert.ok(descriptor, toolMode);
         assert.equal(descriptor.inputSchema.properties.max_skills.minimum, 1);
         assert.equal(descriptor.inputSchema.properties.max_skills.maximum, 120);
@@ -484,26 +484,26 @@ test("codexpro_self_test remains visible in every tool mode and advertises exact
           assert.ok(descriptor.inputSchema.properties[name], name);
         }
         assert.deepEqual(descriptor.outputSchema.required.sort(), [
-          "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+          "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
         ]);
         assert.equal(descriptor.annotations?.readOnlyHint, false);
         assert.equal(descriptor.annotations?.destructiveHint, false);
         assert.equal(descriptor.annotations?.idempotentHint, true);
         assert.equal(descriptor.annotations?.openWorldHint, false);
         assert.match(descriptor.description, /local diagnostics only/i);
-        assert.match(descriptor.description, /\.ai-bridge\/codexpro-self-test\.md/);
+        assert.match(descriptor.description, /\.ai-bridge\/codexgpt-self-test\.md/);
         assert.match(descriptor.description, /does not execute agents/i);
       });
     }
   });
 });
 
-test("codexpro_self_test normalizes defaults before one Provider call and derives exact public data", async () => {
+test("codexgpt_self_test normalizes defaults before one Provider call and derives exact public data", async () => {
   await withTempWorkspace(async (root) => {
     let calls = 0;
     let observedContext;
     await withConfigClient(createTestConfig(root), {
-      codexproSelfTestProvider: async (context) => {
+      codexgptSelfTestProvider: async (context) => {
         calls += 1;
         observedContext = context;
         return sampleProviderResult(root, {
@@ -545,18 +545,18 @@ test("codexpro_self_test normalizes defaults before one Provider call and derive
   });
 });
 
-test("codexpro_self_test derives missing and unexpected tools from independent observations", async () => {
+test("codexgpt_self_test derives missing and unexpected tools from independent observations", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {
-      codexproSelfTestProvider: async (context) => sampleProviderResult(root, {
+      codexgptSelfTestProvider: async (context) => sampleProviderResult(root, {
         workspace_id: context.workspace.id,
         root: context.workspace.root,
         tool_mode: context.config.toolMode,
         write_mode: context.config.writeMode,
         bash_mode: context.config.bashMode,
         request: context.request,
-        expected_tools: ["codexpro_self_test", "server_config", "tree"],
-        registered_tools: ["codexpro_self_test", "search", "server_config"]
+        expected_tools: ["codexgpt_self_test", "server_config", "tree"],
+        registered_tools: ["codexgpt_self_test", "search", "server_config"]
       })
     }, async (client) => {
       const parsed = parseResult(await callSelfTest(client, {
@@ -579,7 +579,7 @@ test("codexpro_self_test derives missing and unexpected tools from independent o
   });
 });
 
-test("codexpro_self_test maps workspace absence, Provider failure, and Provider drift to stable failures", async () => {
+test("codexgpt_self_test maps workspace absence, Provider failure, and Provider drift to stable failures", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {}, async (client) => {
       assertFailure(
@@ -590,7 +590,7 @@ test("codexpro_self_test maps workspace absence, Provider failure, and Provider 
     });
 
     await withConfigClient(createTestConfig(root), {
-      codexproSelfTestProvider: async () => {
+      codexgptSelfTestProvider: async () => {
         throw new Error("raw provider secret test-placeholder-token");
       }
     }, async (client) => {
@@ -600,7 +600,7 @@ test("codexpro_self_test maps workspace absence, Provider failure, and Provider 
     });
 
     await withConfigClient(createTestConfig(root), {
-      codexproSelfTestProvider: async (context) => ({
+      codexgptSelfTestProvider: async (context) => ({
         ...sampleProviderResult(root, {
           workspace_id: context.workspace.id,
           root: context.workspace.root,
@@ -619,11 +619,11 @@ test("codexpro_self_test maps workspace absence, Provider failure, and Provider 
   });
 });
 
-test("codexpro_self_test rejects aliased, duplicate, unsorted, identity, and secret-shaped Provider facts", async () => {
+test("codexgpt_self_test rejects aliased, duplicate, unsorted, identity, and secret-shaped Provider facts", async () => {
   await withTempWorkspace(async (root) => {
     const variants = [
       (context) => {
-        const shared = ["codexpro_self_test", "server_config"];
+        const shared = ["codexgpt_self_test", "server_config"];
         const result = sampleProviderResult(root, {
           workspace_id: context.workspace.id,
           root: context.workspace.root,
@@ -643,7 +643,7 @@ test("codexpro_self_test rejects aliased, duplicate, unsorted, identity, and sec
         write_mode: context.config.writeMode,
         bash_mode: context.config.bashMode,
         request: context.request,
-        expected_tools: ["server_config", "codexpro_self_test"],
+        expected_tools: ["server_config", "codexgpt_self_test"],
         registered_tools: context.registeredTools
       }),
       (context) => sampleProviderResult(root, {
@@ -653,7 +653,7 @@ test("codexpro_self_test rejects aliased, duplicate, unsorted, identity, and sec
         write_mode: context.config.writeMode,
         bash_mode: context.config.bashMode,
         request: context.request,
-        expected_tools: ["codexpro_self_test", "codexpro_self_test"],
+        expected_tools: ["codexgpt_self_test", "codexgpt_self_test"],
         registered_tools: context.registeredTools
       }),
       (context) => sampleProviderResult(root, {
@@ -728,7 +728,7 @@ test("codexpro_self_test rejects aliased, duplicate, unsorted, identity, and sec
 
     for (const variant of variants) {
       await withConfigClient(createTestConfig(root), {
-        codexproSelfTestProvider: async (context) => variant(context)
+        codexgptSelfTestProvider: async (context) => variant(context)
       }, async (client) => {
         assertFailure(await callSelfTest(client), "INTERNAL_ERROR", {});
       });
@@ -736,7 +736,7 @@ test("codexpro_self_test rejects aliased, duplicate, unsorted, identity, and sec
   });
 });
 
-test("codexpro_self_test makes disabled probes explicit skipped outcomes across write and Bash modes", async () => {
+test("codexgpt_self_test makes disabled probes explicit skipped outcomes across write and Bash modes", async () => {
   await withTempWorkspace(async (root) => {
     for (const [writeMode, bashMode] of [
       ["off", "off"],
@@ -749,7 +749,7 @@ test("codexpro_self_test makes disabled probes explicit skipped outcomes across 
         bashSessionId: bashMode === "off" ? undefined : "guarded-session",
         requireBashSession: bashMode !== "off"
       }), {
-        codexproSelfTestProvider: async (context) => sampleProviderResult(root, {
+        codexgptSelfTestProvider: async (context) => sampleProviderResult(root, {
           workspace_id: context.workspace.id,
           root: context.workspace.root,
           tool_mode: context.config.toolMode,
@@ -806,7 +806,7 @@ test("codexpro_self_test makes disabled probes explicit skipped outcomes across 
   });
 });
 
-test("codexpro_self_test production probe writes, edits, and verifies only the fixed artifact", async () => {
+test("codexgpt_self_test production probe writes, edits, and verifies only the fixed artifact", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root, { bashMode: "off" }), {}, async (client) => {
       const parsed = parseResult(await callSelfTest(client, {
@@ -824,20 +824,20 @@ test("codexpro_self_test production probe writes, edits, and verifies only the f
       assert.deepEqual(parsed.data.files_touched, [FIXED_ARTIFACT]);
       assert.equal(
         await fs.readFile(path.join(root, FIXED_ARTIFACT), "utf8"),
-        "# CodexPro Self Test\n\nThis file is managed by CodexPro's local self-test.\nmarker: after\n"
+        "# CodexGPT Self Test\n\nThis file is managed by CodexGPT's local self-test.\nmarker: after\n"
       );
     });
   });
 });
 
-test("codexpro_self_test production probe migrates only the recognized legacy artifact", async () => {
+test("codexgpt_self_test production probe migrates only the recognized legacy artifact", async () => {
   await withTempWorkspace(async (root) => {
     const artifact = path.join(root, FIXED_ARTIFACT);
     await fs.mkdir(path.dirname(artifact), { recursive: true });
     await fs.writeFile(
       artifact,
       [
-        "# CodexPro Self Test",
+        "# CodexGPT Self Test",
         "",
         "Updated: 2026-07-14T04:09:39.294Z",
         `Workspace: ${root}`,
@@ -860,15 +860,15 @@ test("codexpro_self_test production probe migrates only the recognized legacy ar
       assert.equal(parsed.data.checks[8].code, "WRITE_EDIT_PROBE_PASSED");
       assert.equal(
         await fs.readFile(artifact, "utf8"),
-        "# CodexPro Self Test\n\nThis file is managed by CodexPro's local self-test.\nmarker: after\n"
+        "# CodexGPT Self Test\n\nThis file is managed by CodexGPT's local self-test.\nmarker: after\n"
       );
     });
   });
 });
 
-test("codexpro_self_test production probe refuses unrelated pre-existing artifact content", async () => {
+test("codexgpt_self_test production probe refuses unrelated pre-existing artifact content", async () => {
   await withTempWorkspace(async (root) => {
-    const artifact = path.join(root, ".ai-bridge", "codexpro-self-test.md");
+    const artifact = path.join(root, ".ai-bridge", "codexgpt-self-test.md");
     await fs.mkdir(path.dirname(artifact), { recursive: true });
     await fs.writeFile(artifact, "# User notes\n\nDo not overwrite this file.\n", "utf8");
 
@@ -892,9 +892,9 @@ test("codexpro_self_test production probe refuses unrelated pre-existing artifac
   });
 });
 
-test("codexpro_self_test Tool Card is nested-only, bounded, failure-aware, and renders all four counts", () => {
+test("codexgpt_self_test Tool Card is nested-only, bounded, failure-aware, and renders all four counts", () => {
   assert.match(toolCardWidgetHtml, /function selfTestResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "codexpro_self_test"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "codexgpt_self_test"/);
   assert.match(toolCardWidgetHtml, /selfTestResultData\(data\)/);
   assert.match(toolCardWidgetHtml, /summaryItem\("Skipped"/);
   assert.match(toolCardWidgetHtml, /missing_tools/);
@@ -904,7 +904,7 @@ test("codexpro_self_test Tool Card is nested-only, bounded, failure-aware, and r
   assert.doesNotMatch(toolCardWidgetHtml, /check\?\.detail/);
 });
 
-test("codexpro_self_test maintained consumers use nested data without editing protected Smoke sources", async () => {
+test("codexgpt_self_test maintained consumers use nested data without editing protected Smoke sources", async () => {
   const compat = await fs.readFile(new URL("../scripts/smoke-platform-compat.mjs", import.meta.url), "utf8");
   const stress = await fs.readFile(new URL("../scripts/stress.mjs", import.meta.url), "utf8");
   const smoke = await fs.readFile(new URL("../scripts/smoke.mjs", import.meta.url), "utf8");
@@ -924,5 +924,5 @@ test("codexpro_self_test maintained consumers use nested data without editing pr
   assert.match(stress, /structuredContent\.data\?\.status/);
   assert.match(stress, /structuredContent\.data\?\.checks/);
   assert.match(smoke, /selfTest\.structuredContent\.status/);
-  assert.match(httpSmoke, /codexpro_self_test/);
+  assert.match(httpSmoke, /codexgpt_self_test/);
 });

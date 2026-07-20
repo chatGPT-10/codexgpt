@@ -90,7 +90,7 @@ const FILESYSTEM_MODULES = new Set(["fs", "fs/promises", "node:fs", "node:fs/pro
 // Keep empty until the RED inventory has exposed every current direct writer.
 const REVIEWED_ALLOWLIST = Object.freeze({
   "scripts/atomic-file.mjs": Object.freeze({
-    purpose: "Atomic JSON replacement for exact CodexPro-owned runner evidence and managed toolchain manifests outside authorized workspaces.",
+    purpose: "Atomic JSON replacement for exact CodexGPT-owned runner evidence and managed toolchain manifests outside authorized workspaces.",
     occurrences: Object.freeze([
       "open:e54c87ef386f",
       "writeFile:07f0c29a7b9b",
@@ -148,7 +148,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "writeFile:0cba90440f49",
       "writeFile:9cf14fd86f45",
       "writeFile:34c66b35c442",
-      "mkdtemp:a1eeece921f2",
+      "mkdtemp:1952d4205e87",
       "mkdir:ab9edf876b0b",
       "mkdir:c038cf0ea56c",
       "mkdir:4cc9191135ad",
@@ -168,7 +168,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     purpose: "Isolated native-host temporary bootstrap cleanup plus atomic ignored Gate N capability evidence under .ai-bridge/phase-4.",
     occurrences: Object.freeze([
       "rm:fa5bd97f7b6a",
-      "mkdtemp:87d4d233e205",
+      "mkdtemp:ac597ce76ac6",
       "mkdir:8d59c783ac4b",
       "writeFile:cfb2f2c460f2",
       "rename:2b73a699394a"
@@ -178,7 +178,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     purpose: "Gate-A0-only private temporary state-root creation and exact-session cleanup outside authorized workspaces.",
     occurrences: Object.freeze([
       "rm:d429a2552f37",
-      "mkdtemp:170e5c4d3d8f",
+      "mkdtemp:6387dfbd2fcd",
       "mkdir:2ac12b7246b3",
       "rm:e98c88543b7d"
     ])
@@ -186,7 +186,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
   "scripts/worktree-delete-control.mjs": Object.freeze({
     purpose: "Gate W0 isolated OS-temporary junction deletion oracle with an external positive canary and verified exact temporary-root cleanup.",
     occurrences: Object.freeze([
-      "mkdtemp:cbbc0cbe6301",
+      "mkdtemp:a1fc9877d000",
       "mkdir:69fd927f80a8",
       "mkdir:9ae71d40146f",
       "mkdir:b70b77ed957e",
@@ -209,7 +209,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "mkdir:3363dd16a7b7",
       "mkdir:26ca7694018a",
       "writeFile:5b18b2aac5bd",
-      "writeFile:42032cc04e14",
+      "writeFile:1261bce522c6",
       "writeFile:4ac2f4b2aa28"
     ])
   }),
@@ -227,7 +227,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "mkdir:2f32be8e04d9",
       "mkdir:2efaa8e3a01f",
       "mkdir:e0c81e0d846f",
-      "writeFile:581014c6bb91",
+      "writeFile:d38166b36176",
       "writeFile:928b0f280982",
       "writeFile:15159aacbf31",
       "writeFile:605f975b9deb"
@@ -372,7 +372,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "150:7:renameSync:662f5f5db2f5"
     ])
   }),
-  "scripts/codexpro.mjs": Object.freeze({
+  "scripts/codexgpt.mjs": Object.freeze({
     purpose: "CLI profile, managed binary, runtime marker, and ephemeral tunnel state outside authorized workspaces.",
     occurrences: Object.freeze([
       "663:3:rmSync:67965deb6791",
@@ -851,7 +851,7 @@ test("legacy workspace writers are unreachable from the atomic default server pa
   assert.equal(count('if (config.fileTransactions !== "atomic") return writePreparedAgentHandoff(context);'), 2);
   assert.match(
     server,
-    /config\.fileTransactions !== "atomic"\s+\? defaultCodexProSelfTestProvider\s+: async/
+    /config\.fileTransactions !== "atomic"\s+\? defaultCodexGPTSelfTestProvider\s+: async/
   );
 
   assert.match(REVIEWED_ALLOWLIST["src/fsOps.ts"].purpose, /^Legacy-mode-only /);

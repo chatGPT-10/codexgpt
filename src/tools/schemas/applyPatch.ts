@@ -161,8 +161,8 @@ export const applyPatchErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const applyPatchOutputShape = {
-  codexpro_tool: z.literal("apply_patch"),
-  codexpro_title: z.literal("Apply Patch"),
+  codexgpt_tool: z.literal("apply_patch"),
+  codexgpt_title: z.literal("Apply Patch"),
   ok: z.boolean(),
   data: applyPatchDataSchema.nullable(),
   error: applyPatchErrorSchema.nullable(),
@@ -228,8 +228,8 @@ export function createApplyPatchSuccess(
   durationMs = 0
 ): ApplyPatchStructuredResult {
   return applyPatchOutputSchema.parse({
-    codexpro_tool: "apply_patch",
-    codexpro_title: "Apply Patch",
+    codexgpt_tool: "apply_patch",
+    codexgpt_title: "Apply Patch",
     ok: true,
     data: applyPatchDataSchema.parse(data),
     error: null,
@@ -242,8 +242,8 @@ export function createApplyPatchFailure(
   durationMs = 0
 ): ApplyPatchStructuredResult {
   return applyPatchOutputSchema.parse({
-    codexpro_tool: "apply_patch",
-    codexpro_title: "Apply Patch",
+    codexgpt_tool: "apply_patch",
+    codexgpt_title: "Apply Patch",
     ok: false,
     data: null,
     error: {
@@ -338,8 +338,8 @@ export const applyPatchDataSchemaV2 = applyPatchDataSchema.extend({
 export const applyPatchErrorSchemaV2 = z.union([applyPatchErrorSchema, applyPatchTransactionErrorSchema]);
 
 export const applyPatchOutputShapeV2 = {
-  codexpro_tool: z.literal("apply_patch"),
-  codexpro_title: z.literal("Apply Patch"),
+  codexgpt_tool: z.literal("apply_patch"),
+  codexgpt_title: z.literal("Apply Patch"),
   ok: z.boolean(),
   data: applyPatchDataSchemaV2.nullable(),
   error: applyPatchErrorSchemaV2.nullable(),
@@ -370,8 +370,8 @@ export function createApplyPatchSuccessV2(
   durationMs = 0
 ): ApplyPatchStructuredResultV2 {
   return applyPatchOutputSchemaV2.parse({
-    codexpro_tool: "apply_patch",
-    codexpro_title: "Apply Patch",
+    codexgpt_tool: "apply_patch",
+    codexgpt_title: "Apply Patch",
     ok: true,
     data: applyPatchDataSchemaV2.parse(data),
     error: null,
@@ -385,8 +385,8 @@ export function createApplyPatchTransactionFailureV2(
 ): ApplyPatchStructuredResultV2 {
   const code = applyPatchTransactionErrorCodeSchema.parse(failure.code);
   return applyPatchOutputSchemaV2.parse({
-    codexpro_tool: "apply_patch",
-    codexpro_title: "Apply Patch",
+    codexgpt_tool: "apply_patch",
+    codexgpt_title: "Apply Patch",
     ok: false,
     data: null,
     error: {

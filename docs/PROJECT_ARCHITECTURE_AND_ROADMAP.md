@@ -1,6 +1,6 @@
-# CodexPro Personal Fork — Architecture and Roadmap
+# CodexGPT Personal Fork — Architecture and Roadmap
 
-This document contains the historical audit baseline, design references, target architecture, long-term contracts, and phased roadmap for the personal CodexPro fork.
+This document contains the historical audit baseline, design references, target architecture, long-term contracts, and phased roadmap for the personal CodexGPT fork.
 
 Authority boundaries:
 
@@ -14,9 +14,9 @@ Authority boundaries:
 Audit date: 2026-07-11.
 
 ```text
-Repository: D:\Dev\codexpro
+Repository: D:\Dev\codexgpt
 Branch: main
-Package: codexpro
+Package: codexgpt
 Version: 0.28.6
 Node requirement: >=20
 Initial Git state: clean
@@ -25,7 +25,7 @@ Initial Git state: clean
 Architecture at the initial audit:
 
 ```text
-scripts/codexpro.mjs
+scripts/codexgpt.mjs
   CLI, profiles, setup, doctor, Cloudflare/ngrok/Tailscale launch
 
 src/http.ts
@@ -101,7 +101,7 @@ Serena is an optional semantic-provider reference for:
 - diagnostics;
 - rename and WorkspaceEdit previews.
 
-Serena or another provider must not write files directly. Proposed edits must pass through CodexPro path policy and the future atomic edit service.
+Serena or another provider must not write files directly. Proposed edits must pass through CodexGPT path policy and the future atomic edit service.
 
 ### Desktop Commander
 
@@ -178,8 +178,8 @@ Long-term public ChatGPT connection:
 
 Current compatibility and migration direction:
 
-- the supported public CLI defaults to personal ChatGPT query-token compatibility when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset;
-- `CODEXPRO_ALLOW_QUERY_TOKEN=0` selects Bearer-header output for compatible non-ChatGPT clients;
+- the supported public CLI defaults to personal ChatGPT query-token compatibility when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset;
+- `CODEXGPT_ALLOW_QUERY_TOKEN=0` selects Bearer-header output for compatible non-ChatGPT clients;
 - direct unsupported server launches keep query authentication off unless explicitly enabled;
 - the long-term model uses scoped tokens, hashed token storage, token IDs, expiry, revocation, rotation, and OAuth 2.1.
 
@@ -231,7 +231,7 @@ lsp
 none
 ```
 
-Providers may inspect and propose edits, but every path and edit must be validated and applied by CodexPro.
+Providers may inspect and propose edits, but every path and edit must be validated and applied by CodexGPT.
 
 ## 5. Target tool groups
 
@@ -406,7 +406,7 @@ Delivered scope:
 5. Allowed Host policy.
 6. Explicit Origin policy.
 7. Bearer-header authentication retained for compatible clients.
-8. The supported public CLI defaults to the personal ChatGPT query-token compatibility flow; `CODEXPRO_ALLOW_QUERY_TOKEN=0` explicitly selects the Bearer-client path.
+8. The supported public CLI defaults to the personal ChatGPT query-token compatibility flow; `CODEXGPT_ALLOW_QUERY_TOKEN=0` explicitly selects the Bearer-client path.
 9. Token query strings excluded from request logs.
 10. Doctor diagnostics for unavailable shell backends.
 11. Pinned, checksum-verified Cloudflared installation and exact managed-binary routing.
@@ -417,7 +417,7 @@ Closure evidence is recorded in `docs/memory/archive/phase-0-and-0.5.md`.
 
 ### Phase 1 — Exact output schemas and stable errors
 
-Historical-status note (2026-07-14): this document preserves the original audit baseline and first-seven-slice snapshot below. Active sequencing is superseded by `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`. All twenty-eight Phase 1 slices are published and cross-platform exact-head CI-validated. Unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed run `29314923948` on Ubuntu/Windows Node 20/24, and Phase 1 is formally closed. At that date Phase 2 had not started. Current state and evidence are indexed in `Memory.md`.
+Historical-status note (2026-07-14): this document preserves the original audit baseline and first-seven-slice snapshot below. Active sequencing is superseded by `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`. All twenty-eight Phase 1 slices are published and cross-platform exact-head CI-validated. Unified Slices 17–28 implementation `021ab90` plus Windows portability repair `e20d84e` passed run `29314923948` on Ubuntu/Windows Node 20/24, and Phase 1 is formally closed. At that date Phase 2 had not started. Current state and evidence are indexed in `Memory.md`.
 
 - delivered the common result, metadata, and stable-error primitives required by incremental tool migration;
 - delivered exact advertised `outputSchema` contracts for `server_config`, `tree`, `read`, direct `search`, `git_status`, direct `git_diff`, and direct `show_changes`, with real MCP success/failure contract tests;

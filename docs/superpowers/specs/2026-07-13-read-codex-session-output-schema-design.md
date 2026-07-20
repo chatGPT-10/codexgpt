@@ -120,8 +120,8 @@ Effective `selection` is exactly `session_id`, `source_path`, or `both`.
 
 ```json
 {
-  "codexpro_tool": "read_codex_session",
-  "codexpro_title": "Read Codex Session",
+  "codexgpt_tool": "read_codex_session",
+  "codexgpt_title": "Read Codex Session",
   "ok": true,
   "data": {},
   "error": null,
@@ -259,7 +259,7 @@ Add:
 ```ts
 readCodexSessionProvider?: (
   context: {
-    config: CodexProConfig;
+    config: CodexGPTConfig;
     request: NormalizedReadCodexSessionRequest;
   }
 ) => CodexSessionReadResult | Promise<CodexSessionReadResult>;
@@ -303,7 +303,7 @@ The Tool Card will:
 - show selector, message/content counts, redaction, and truncation state;
 - preview at most eight messages and at most 600 characters per message;
 - never render the entire raw transcript or JSON envelope;
-- preserve the complete bounded structured result by setting `codexpro/preserveStructuredContent=true`.
+- preserve the complete bounded structured result by setting `codexgpt/preserveStructuredContent=true`.
 
 No flat fallback is retained for this migrated direct tool.
 

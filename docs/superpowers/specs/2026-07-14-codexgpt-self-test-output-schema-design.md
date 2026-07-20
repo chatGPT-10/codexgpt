@@ -1,17 +1,17 @@
-# Direct `codexpro_self_test` Output Schema Design
+# Direct `codexgpt_self_test` Output Schema Design
 
 > Date: 2026-07-14  
 > Phase: 1, Slice 27  
 > Status: Approved under the recorded uninterrupted Slice 17–28 authorization  
-> Scope: direct `codexpro_self_test` only
+> Scope: direct `codexgpt_self_test` only
 
 ## 1. Purpose
 
-Migrate the direct `codexpro_self_test` tool from its legacy flat diagnostic object to one exact schema-v1 result without weakening its local-only safety boundary or turning diagnostic findings into transport failures.
+Migrate the direct `codexgpt_self_test` tool from its legacy flat diagnostic object to one exact schema-v1 result without weakening its local-only safety boundary or turning diagnostic findings into transport failures.
 
 The tool exists to answer one question:
 
-> Does this CodexPro process, under its current effective modes and workspace, behave consistently with its own advertised local capabilities and safety boundaries?
+> Does this CodexGPT process, under its current effective modes and workspace, behave consistently with its own advertised local capabilities and safety boundaries?
 
 The result must distinguish four different facts:
 
@@ -120,7 +120,7 @@ The Provider returns bounded structured observations. The handler validates iden
 - adding network probes or external Cloudflare checks;
 - adding source-file writes;
 - changing authentication behavior;
-- migrating the Slice 28 `codexpro` supertool;
+- migrating the Slice 28 `codexgpt` supertool;
 - staging, committing, pushing, publishing, or exact-head CI.
 
 ## 5. Public envelope
@@ -128,8 +128,8 @@ The Provider returns bounded structured observations. The handler validates iden
 The exact top-level result is:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
@@ -139,8 +139,8 @@ meta
 Constants:
 
 ```text
-codexpro_tool  = "codexpro_self_test"
-codexpro_title = "CodexPro Self Test"
+codexgpt_tool  = "codexgpt_self_test"
+codexgpt_title = "CodexGPT Self Test"
 meta.schemaVersion = 1
 ```
 
@@ -339,8 +339,8 @@ No changed paths, diff, Git stderr, executable paths, or repository internals ar
 ### 6.9 Probe artifact and touched files
 
 ```text
-probe_artifact: null | ".ai-bridge/codexpro-self-test.md"
-files_touched: [] | [".ai-bridge/codexpro-self-test.md"]
+probe_artifact: null | ".ai-bridge/codexgpt-self-test.md"
+files_touched: [] | [".ai-bridge/codexgpt-self-test.md"]
 ```
 
 Rules:
@@ -352,7 +352,7 @@ Rules:
 - a skipped or preflight-rejected probe may leave both fields empty;
 - duplicates, absolute paths, backslashes, alternate context paths, and additional files are rejected.
 
-The probe must not overwrite unrelated user content. It may create or update only an absent file or a file that exactly matches a recognized CodexPro self-test scaffold. A conflicting meaningful file produces a failed diagnostic check without modification.
+The probe must not overwrite unrelated user content. It may create or update only an absent file or a file that exactly matches a recognized CodexGPT self-test scaffold. A conflicting meaningful file produces a failed diagnostic check without modification.
 
 The final owned scaffold should avoid secrets and unnecessary environment data. It must not persist the workspace root, credentials, command output, or arbitrary timestamps solely for the diagnostic.
 
@@ -465,7 +465,7 @@ details:
 #### `SELF_TEST_EXECUTION_FAILED`
 
 ```text
-message: "The CodexPro self-test could not be completed."
+message: "The CodexGPT self-test could not be completed."
 retryable: true
 details: {}
 ```
@@ -475,7 +475,7 @@ Used only when an unexpected operational failure prevents a coherent twelve-chec
 #### `INTERNAL_ERROR`
 
 ```text
-message: "The CodexPro self-test failed because of an internal error."
+message: "The CodexGPT self-test failed because of an internal error."
 retryable: false
 details: {}
 ```
@@ -576,7 +576,7 @@ openWorldHint: false
 The description must state that the tool:
 
 - performs local diagnostics only;
-- may touch only `.ai-bridge/codexpro-self-test.md` when the write probe is enabled;
+- may touch only `.ai-bridge/codexgpt-self-test.md` when the write probe is enabled;
 - does not execute agents, proxy models, bypass quotas, or contact external services.
 
 ## 13. Human text and Tool Card
@@ -646,7 +646,7 @@ Regression must cover:
 
 ### 15.1 Deliberate RED baseline
 
-Create `test/codexpro-self-test-contract.test.mjs` before production changes. The full focused baseline must execute and fail for missing exact behavior rather than fixture or import failures.
+Create `test/codexgpt-self-test-contract.test.mjs` before production changes. The full focused baseline must execute and fail for missing exact behavior rather than fixture or import failures.
 
 ### 15.2 Required focused coverage
 
@@ -710,7 +710,7 @@ Before declaring Slice 27 locally complete:
 
 Rollback is one Slice:
 
-- remove `src/tools/schemas/codexproSelfTest.ts`;
+- remove `src/tools/schemas/codexgptSelfTest.ts`;
 - restore the legacy direct handler and flat Tool Card;
 - remove the focused contract test;
 - remove only Slice 27 compatibility substitutions and Stress migration;

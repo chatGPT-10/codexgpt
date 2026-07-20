@@ -1,5 +1,5 @@
 {
-  "name": "codexpro",
+  "name": "codexgpt",
   "version": "0.28.6",
   "description": "Windows-first, self-hosted MCP tools that connect ChatGPT to one local repository through a loopback server and an optional HTTPS tunnel.",
   "type": "module",
@@ -11,13 +11,13 @@
   "bugs": {
     "url": "https://github.com/chatGPT-10/codexgpt/issues"
   },
-  "homepage": "https://rebel0789.github.io/codexpro/",
+  "homepage": "https://rebel0789.github.io/codexgpt/",
   "keywords": [
     "mcp",
     "chatgpt",
     "codex",
     "apps-sdk",
-    "codexpro",
+    "codexgpt",
     "local-development",
     "cloudflare-tunnel",
     "ngrok",
@@ -53,9 +53,9 @@
     "access": "public"
   },
   "bin": {
-    "codexpro": "scripts/codexpro-entry.mjs",
-    "codexpro-mcp": "dist/stdio.js",
-    "codexpro-mcp-http": "dist/http.js"
+    "codexgpt": "scripts/codexgpt-entry.mjs",
+    "codexgpt-mcp": "dist/stdio.js",
+    "codexgpt-mcp-http": "dist/http.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -70,17 +70,17 @@
     "analysis:smoke": "npm run build && node scripts/analysis-smoke.mjs",
     "analysis:cli-smoke": "npm run build && node scripts/analysis-cli-smoke.mjs",
     "doctor": "node scripts/doctor.mjs",
-    "connect": "node scripts/codexpro-entry.mjs",
-    "connect:setup": "node scripts/codexpro-entry.mjs setup",
-    "connect:local": "node scripts/codexpro-entry.mjs --tunnel none",
+    "connect": "node scripts/codexgpt-entry.mjs",
+    "connect:setup": "node scripts/codexgpt-entry.mjs setup",
+    "connect:local": "node scripts/codexgpt-entry.mjs --tunnel none",
     "cloudflared:install": "node scripts/cloudflared-installer.mjs install",
     "cloudflared:upgrade": "node scripts/cloudflared-installer.mjs upgrade",
     "cloudflared:status": "node scripts/cloudflared-installer.mjs status",
-    "connect:cloudflare": "node scripts/codexpro-entry.mjs --tunnel cloudflare",
-    "connect:chatgpt": "node scripts/codexpro-entry.mjs --tunnel cloudflare",
-    "connect:stable": "node scripts/codexpro-entry.mjs --tunnel cloudflare-named",
-    "connect:ngrok": "node scripts/codexpro-entry.mjs ngrok",
-    "connect:tailscale": "node scripts/codexpro-entry.mjs tailscale",
+    "connect:cloudflare": "node scripts/codexgpt-entry.mjs --tunnel cloudflare",
+    "connect:chatgpt": "node scripts/codexgpt-entry.mjs --tunnel cloudflare",
+    "connect:stable": "node scripts/codexgpt-entry.mjs --tunnel cloudflare-named",
+    "connect:ngrok": "node scripts/codexgpt-entry.mjs ngrok",
+    "connect:tailscale": "node scripts/codexgpt-entry.mjs tailscale",
     "pro:bundle": "node scripts/pro-bundle.mjs",
     "pro:apply": "node scripts/pro-apply.mjs",
     "policy:check": "node scripts/repository-policy.mjs",

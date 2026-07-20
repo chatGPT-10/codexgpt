@@ -23,7 +23,7 @@ const validManifest = {
     state: "staged",
     relativePath: "src/example.ts",
     comparisonKey: "src/example.ts",
-    stageRelativePath: "src/.codexpro-txn-5555555555555555.stage",
+    stageRelativePath: "src/.codexgpt-txn-5555555555555555.stage",
     backupRelativePath: null,
     before: {
       exists: true,
@@ -67,9 +67,9 @@ test("transaction manifest rejects unknown, absolute, unsafe, and duplicate fact
   }
   for (const stageRelativePath of [
     "src/example.stage",
-    "other/.codexpro-txn-5555555555555555.stage",
-    "src/.codexpro-txn-short.stage",
-    "src/.codexpro-txn-5555555555555555.txt"
+    "other/.codexgpt-txn-5555555555555555.stage",
+    "src/.codexgpt-txn-short.stage",
+    "src/.codexgpt-txn-5555555555555555.txt"
   ]) {
     const candidate = clone(validManifest);
     candidate.operations[0].stageRelativePath = stageRelativePath;

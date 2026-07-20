@@ -8,7 +8,7 @@ import { PersistentAuditStore } from "../dist/audit/store.js";
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
 function stateRoot() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-audit-store-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-audit-store-"));
 }
 
 function commonEvent(eventId, eventType, timestamp = "2026-07-14T12:00:00.000Z") {

@@ -4,7 +4,7 @@
 
 **Goal:** Replace process-global deterministic workspace identifiers with session-scoped opaque lifecycle handles that can be closed, expired, and invalidated without breaking the one-cycle omitted-`workspace_id` compatibility path.
 
-**Architecture:** `WorkspaceManager` becomes a session-local capability registry with a stable internal `workspaceKey`, random public `workspaceId`, idle expiry, close/revoke operations, and strict lookup. `createCodexProServer` owns a new manager per server instance, while existing handlers use an explicitly named compatibility resolver. A strict `close_workspace` tool exposes bounded lifecycle control without leaking roots, identity bindings, or revocation reasons.
+**Architecture:** `WorkspaceManager` becomes a session-local capability registry with a stable internal `workspaceKey`, random public `workspaceId`, idle expiry, close/revoke operations, and strict lookup. `createCodexGPTServer` owns a new manager per server instance, while existing handlers use an explicitly named compatibility resolver. A strict `close_workspace` tool exposes bounded lifecycle control without leaking roots, identity bindings, or revocation reasons.
 
 **Tech Stack:** TypeScript 5.8, Node.js 20/24, MCP SDK 1.17, Zod 3.25, Node test runner, native Windows verification.
 
@@ -28,7 +28,7 @@
 - Create: `test/workspace-lifecycle.test.mjs`
 
 **Interfaces:**
-- Consumes: `CodexProConfig.defaultRoot`, `allowedRoots`, `httpSessionTtlMs`, existing Windows path validation.
+- Consumes: `CodexGPTConfig.defaultRoot`, `allowedRoots`, `httpSessionTtlMs`, existing Windows path validation.
 - Produces: `WorkspaceManager.openWorkspace(root?)`, `getWorkspace(id)`, `resolveWorkspace(id?)`, `closeWorkspace(id)`, `listWorkspaces()`, `revokeAll(reason)`, `revokeForPolicyRevision(revision)`, and exported `workspaceKeyForRoot(root, platform)`.
 
 - [x] **Step 1: Write failing lifecycle tests**
@@ -63,12 +63,12 @@ Expected: FAIL because lifecycle constructor options, random IDs, strict lookup,
 
 - [x] **Step 3: Add bounded configuration**
 
-Add optional `workspaceTtlMs` to `CodexProConfig` and load it with:
+Add optional `workspaceTtlMs` to `CodexGPTConfig` and load it with:
 
 ```ts
 workspaceTtlMs: numberFrom(
-  process.env.CODEXPRO_WORKSPACE_TTL_MS,
-  numberFrom(process.env.CODEXPRO_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
+  process.env.CODEXGPT_WORKSPACE_TTL_MS,
+  numberFrom(process.env.CODEXGPT_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
   60_000,
   24 * 60 * 60_000
 )
@@ -116,7 +116,7 @@ Review Task 1 with `show_changes` scoped to the three files. Do not stage or com
 
 **Interfaces:**
 - Consumes: Task 1 `WorkspaceManager` lifecycle API and `PolicySessionContextSource`.
-- Produces: one manager per `createCodexProServer` invocation; strict Policy Kernel workspace resolution; explicit compatibility resolution in existing tool handlers.
+- Produces: one manager per `createCodexGPTServer` invocation; strict Policy Kernel workspace resolution; explicit compatibility resolution in existing tool handlers.
 
 - [x] **Step 1: Add failing cross-server integration tests**
 
@@ -139,7 +139,7 @@ function workspaceManagerKey(...) { ... }
 function getSharedWorkspaceManager(...) { ... }
 ```
 
-Construct a new manager inside `createCodexProServer`:
+Construct a new manager inside `createCodexGPTServer`:
 
 ```ts
 const workspaces = new WorkspaceManager(config, workspaceBindingForServer(dependencies.policySessionContextSource));
@@ -182,7 +182,7 @@ Review exact server/policy changes with `show_changes`. Do not stage or commit.
 
 **Files:**
 - Create: `src/tools/schemas/closeWorkspace.ts`
-- Modify: `src/tools/schemas/codexpro.ts`
+- Modify: `src/tools/schemas/codexgpt.ts`
 - Modify: `src/server.ts`
 - Modify: `src/policy/toolPolicy.ts`
 - Modify: `src/toolCardWidget.ts` only for safe title/icon categorization if required by existing exhaustive mappings.
@@ -199,8 +199,8 @@ Assert the strict success envelope:
 
 ```js
 {
-  codexpro_tool: "close_workspace",
-  codexpro_title: "Close Workspace",
+  codexgpt_tool: "close_workspace",
+  codexgpt_title: "Close Workspace",
   ok: true,
   data: {
     workspace_id: "ws_...",
@@ -239,7 +239,7 @@ Register a handler requiring `workspace_id`, call `workspaces.closeWorkspace`, a
 
 - [x] **Step 5: Run focused contracts and confirm GREEN**
 
-Run: `node --test test/close-workspace-contract.test.mjs test/codexpro-supertool-contract.test.mjs`
+Run: `node --test test/close-workspace-contract.test.mjs test/codexgpt-supertool-contract.test.mjs`
 Expected: PASS.
 
 - [x] **Step 6: Record checkpoint without committing**
@@ -253,7 +253,7 @@ Review schema, server, policy, and tests. Do not stage or commit.
 **Files:**
 - Modify: `Memory.md`
 - Create: `docs/memory/archive/phase-2b-workspace-lifecycle.md`
-- Modify: `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` only to record completion evidence without changing future phase scope.
+- Modify: `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` only to record completion evidence without changing future phase scope.
 - Modify: `README.md`, `README_ZH.md`, `FAQ.md`, `FAQ_ZH.md`, or `config.example.env` only where the new TTL or close lifecycle is user-facing.
 
 **Interfaces:**

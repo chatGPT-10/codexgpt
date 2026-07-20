@@ -88,8 +88,8 @@ export const workspaceSnapshotErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const workspaceSnapshotOutputShape = {
-  codexpro_tool: z.literal("workspace_snapshot"),
-  codexpro_title: z.literal("Workspace Snapshot"),
+  codexgpt_tool: z.literal("workspace_snapshot"),
+  codexgpt_title: z.literal("Workspace Snapshot"),
   ok: z.boolean(),
   data: workspaceSnapshotDataSchema.nullable(),
   error: workspaceSnapshotErrorSchema.nullable(),
@@ -154,8 +154,8 @@ export function createWorkspaceSnapshotSuccess(
   durationMs = 0
 ): WorkspaceSnapshotStructuredResult {
   return workspaceSnapshotOutputSchema.parse({
-    codexpro_tool: "workspace_snapshot",
-    codexpro_title: "Workspace Snapshot",
+    codexgpt_tool: "workspace_snapshot",
+    codexgpt_title: "Workspace Snapshot",
     ok: true,
     data: workspaceSnapshotDataSchema.parse(data),
     error: null,
@@ -168,8 +168,8 @@ export function createWorkspaceSnapshotFailure(
   durationMs = 0
 ): WorkspaceSnapshotStructuredResult {
   return workspaceSnapshotOutputSchema.parse({
-    codexpro_tool: "workspace_snapshot",
-    codexpro_title: "Workspace Snapshot",
+    codexgpt_tool: "workspace_snapshot",
+    codexgpt_title: "Workspace Snapshot",
     ok: false,
     data: null,
     error: {

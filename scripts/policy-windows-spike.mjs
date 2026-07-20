@@ -28,7 +28,7 @@ function isSubpath(candidate, parent) {
 function assertSyntheticFixtureRoot(fixtureRoot) {
   const resolved = path.resolve(fixtureRoot);
   const temporaryRoot = path.resolve(os.tmpdir());
-  if (!isSubpath(resolved, temporaryRoot) || resolved === temporaryRoot || !path.basename(resolved).startsWith("codexpro-")) {
+  if (!isSubpath(resolved, temporaryRoot) || resolved === temporaryRoot || !path.basename(resolved).startsWith("codexgpt-")) {
     throw new Error("Windows spike requires a temporary synthetic fixture root.");
   }
   return resolved;
@@ -109,7 +109,7 @@ async function defaultExecutor(fixtureRoot, probe) {
 }
 
 async function main() {
-  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-policy-spike-"));
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-policy-spike-"));
   try {
     await fs.mkdir(path.join(fixtureRoot, "workspace"), { recursive: true });
     await fs.mkdir(path.join(fixtureRoot, "outside"), { recursive: true });

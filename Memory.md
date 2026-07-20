@@ -1,4 +1,4 @@
-# CodexPro Memory Index
+# CodexGPT Memory Index
 
 This is the concise project-memory index. Complete implementation and maintenance records are stored under `docs/memory/archive/`.
 
@@ -6,9 +6,10 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-19.
-- Workspace: `D:\Dev\codexpro`; branch: `main`; package: `codexpro@0.28.6`.
+- Date: 2026-07-20.
+- Workspace checkout path is operator-managed; publication target: `main`; package: `codexgpt@0.28.6`.
 - GitHub repository and `origin`: `chatGPT-10/codexgpt` over HTTPS.
+- Canonical project identity is CodexGPT: package, CLI, environment variables, state directories, MCP tools, source paths, tests, and active documentation use the CodexGPT name.
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
 - Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
@@ -20,19 +21,19 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 
 ## Active decisions and constraints
 
-- Keep CodexPro self-hosted. Cloudflare is limited to DNS, TLS, and Tunnel; authorization and path enforcement remain local.
+- Keep CodexGPT self-hosted. Cloudflare is limited to DNS, TLS, and Tunnel; authorization and path enforcement remain local.
 - Native Windows is primary. Git Bash is the temporary execution backend; native PowerShell remains required future work.
-- Preserve the verified managed Node `v20.20.2` and `v24.15.0` runtimes under `%LOCALAPPDATA%\CodexPro\toolchains\`; cleanup requires explicit user approval.
+- Preserve the verified managed Node `v20.20.2` and `v24.15.0` runtimes under `%LOCALAPPDATA%\CodexGPT\toolchains\`; cleanup requires explicit user approval.
 - Node test-loader rules: use one test-only integration barrel, load leaf implementations before shared servers, and keep executable TypeScript import barrels under package-excluded `fixtures/ts-imports/`; these avoid Node 20 loader deadlocks and Node 24 recursive test discovery.
 - Safe Bash is a command-policy filter, not an operating-system sandbox.
-- `scripts/codexpro-entry.mjs` is the supported public CLI entry; direct `scripts/codexpro.mjs` launch is unsupported.
-- The public CLI defaults to the personal ChatGPT query-token flow when `CODEXPRO_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; `CODEXPRO_ALLOW_QUERY_TOKEN=0` is only for compatible non-ChatGPT Bearer clients.
+- `scripts/codexgpt-entry.mjs` is the supported public CLI entry; direct `scripts/codexgpt.mjs` launch is unsupported.
+- The public CLI defaults to the personal ChatGPT query-token flow when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; `CODEXGPT_ALLOW_QUERY_TOKEN=0` is only for compatible non-ChatGPT Bearer clients.
 - Server-side Bearer support must not be documented as manual static-Bearer support in ChatGPT Web. OAuth 2.1 remains reserved for Phase 8 and requires its dedicated identity, migration, rollback, and security gates.
 - Policy Kernel uses an immutable compiled snapshot and pure deterministic evaluator. Tool Surface, Policy, Approval, and Sandbox remain separate; grants cannot exceed hard policy, identity scopes, Permission Profile, allowed roots, or demonstrated capabilities.
-- `CODEXPRO_POLICY_ENGINE=legacy` remains the migration default; `shadow` is observational and `enforce` is fail-closed. V1/V2 never create approvals; V3 composite scopes keep `process:manage` from starting code.
+- `CODEXGPT_POLICY_ENGINE=legacy` remains the migration default; `shadow` is observational and `enforce` is fail-closed. V1/V2 never create approvals; V3 composite scopes keep `process:manage` from starting code.
 - Public `workspace_id` values are random session-scoped handles. Core lookup requires an explicit ID; omitted-ID compatibility exists only at the named session-local resolver.
 - Keep `scripts/smoke.mjs` and `scripts/http-smoke.mjs` protected and unchanged. Compatibility loaders use exact fail-closed in-memory substitutions.
-- `CODEXPRO_FILE_TRANSACTIONS=legacy` remains the compatibility default. Selecting `atomic` routes supported workspace writers through the transaction runtime with no direct-write fallback; writable atomic V1 requires terminal persistent audit.
+- `CODEXGPT_FILE_TRANSACTIONS=legacy` remains the compatibility default. Selecting `atomic` routes supported workspace writers through the transaction runtime with no direct-write fallback; writable atomic V1 requires terminal persistent audit.
 - Phase 3 state stays outside workspaces and Git; its participant recovery, V1/V2 readers, stable file identity, move undo, hard-link fail-closed behavior, and recovery freeze remain Phase 4 compatibility gates.
 - Phase 4 V3 is exact 39: V2 minus `bash`, plus eight typed execution/process tools and `open_full_access_workspace`; V1/V2 wire and pending-approval behavior remain frozen.
 - Phase 4 separates brokered `confirmed_roots`, ambient **Full access (ask first)**, and unavailable `workspace`. Full access is trusted-code authority, not filesystem, credential, registry, network, or broker isolation.
@@ -40,7 +41,7 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - V3 lifecycle uses strict `AuditEventV3` inside the existing MAC-chained envelope. V2 audit wire stays exact and filters V3 before V2 paging; V3 has a separate V2/V3 projection and cursor, while V2-compatible authorization/execution evidence remains queryable after rollback.
 - Phase 5 V4 is opt-in exact 51 and preserves V1=28/V2=31/V3=39. Gate R binds expected-old mutations and durable approval; Gate X exposes only four typed local Git operations, with bounded verified object promotion before private-index installation. It accepts no caller-selected command or remote/credential/force/config mutation and remains ambient current-user `full_access`, not isolation.
 - Phase 4 authority defaults to configured roots with execution/dependencies off; nondefault values are V3-only and capability changes revoke dependent state. Gate S remains blocked diagnostic evidence, and `workspace` stays unavailable with no `full_access` fallback.
-- With `inheritEnv=false`, Windows Bash preserves or derives only bounded user/configuration paths required for normal CLI and keyring discovery. Do not copy `GH_TOKEN` or arbitrary API variables into the child; `CODEXPRO_INHERIT_ENV=1` is explicit full-environment opt-in for trusted repositories only.
+- With `inheritEnv=false`, Windows Bash preserves or derives only bounded user/configuration paths required for normal CLI and keyring discovery. Do not copy `GH_TOKEN` or arbitrary API variables into the child; `CODEXGPT_INHERIT_ENV=1` is explicit full-environment opt-in for trusted repositories only.
 - Mutation inventory binds each direct primitive to path, syscall, semantic digest, and reviewed purpose; atomic production paths cannot fall back to legacy writers.
 - CI evidence is exact-HEAD-bound, compact, and stored only below ignored `.ai-bridge/`. Manifest assets stay LF-pinned; Windows paths use `path.win32`; POSIX lookup passes candidates only as quoted positional data and never uses `shell: true` with argv.
 - `scripts/test-domains.mjs` is authoritative: isolated complete regression uses `all`, connector-backed local work uses `ordinary`, and Windows control runs serialize. Long runs use the identity-bound detached runner; destructive stop oracles remain control-domain only.
@@ -56,13 +57,15 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - Phase 5 design, Gate G0/R/X implementation, portability repairs, failed closure diagnostics, and final local closure are retained in STEP-323 and STEP-344 through STEP-362. Closure head `9aa76b9` passed exact-head run `29698209894` across the complete matrix.
 - STEP-363 adversarial focused run `2026-07-19T19-49-04-795Z-interphase-cleanup-adversarial-focused-38f5ac3f` passed 61/61 on each managed Node major. Ordinary run `2026-07-19T19-18-17-116Z-interphase-cleanup-ordinary-final-2-d1a614a7` passed 1,096 tests per major with zero failures and two established skips.
 - STEP-363 cleanup removed 157 obsolete terminal runs with zero failures; the final explicit scan retained 20 runs and found zero owned-temp candidates, invalid paths, failed deletions, or interrupted claims. Build, policy, diff, mutation inventory, and the 521-entry package dry-run passed.
+- STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
+- STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior. Final exact-head matrix remains required.
 
 ## Known limitations
 
 - Phase 2A has no user-facing approval issuance surface. Phase 4A adds a V3-only exact local approval path for eligible ambient-authority execution; it is not OS isolation.
 - Workspace lifecycle state is intentionally process-local. OAuth owner identity and lifecycle persistence remain out of scope.
 - Operational rollback must retain V2 readers, participant reconciliation, and recovery evidence.
-- External processes remain outside CodexPro's workspace lock. Open-handle identity checks reduce path-replacement TOCTOU but cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary readers, or absolute power-loss durability when directory sync is unsupported.
+- External processes remain outside CodexGPT's workspace lock. Open-handle identity checks reduce path-replacement TOCTOU but cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary readers, or absolute power-loss durability when directory sync is unsupported.
 - Environment narrowing is defense in depth, not credential isolation; same-user child processes may access account-readable files and system keyrings.
 - Safe Bash timeout does not reliably terminate every Windows descendant process.
 - Confirmed-root modules retain an injected identity oracle. `full_access` and ConPTY are ambient-authority features; only owned Job members are lifecycle-controlled. Task 4B0 remains blocked evidence and activates no sandbox behavior.
@@ -79,6 +82,8 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 3. Do not enter Phase 6 or push the interphase runtime change without a new explicit action.
 
 ## Recent summaries
+
+- **STEP-365 - Canonical CodexGPT rename:** replace the previous project name across active package, CLI, environment, state, tool, source, test, and documentation surfaces; preserve append-only historical archives and record the correction here.
 
 - **STEP-364 - Neat-freak reconciliation:** align rules, contributor/security guidance, Chinese developer docs, changelog, archive labels, and concise project memory with STEP-363.
 - **STEP-363 - Automatic owned temporary cleanup:** add cleanup-backed focused/task launchers, detached TEMP isolation, bounded terminal-run retention, legacy/claim recovery, and safe dead-owner cleanup.

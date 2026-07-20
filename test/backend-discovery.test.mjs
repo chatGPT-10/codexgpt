@@ -51,7 +51,7 @@ test("manifest-bound Windows assets pin checkout bytes to LF", async () => {
 });
 
 test("backend discovery accepts only digest-reviewed explicit paths and deterministic Windows locations", async (t) => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-backend-discovery-"));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-backend-discovery-"));
   t.after(() => fsp.rm(root, { recursive: true, force: true }));
   const explicit = path.join(root, "reviewed.exe");
   await fsp.writeFile(explicit, Buffer.from("reviewed-backend"));

@@ -12,8 +12,8 @@ import { SessionGrantStore } from "../dist/policy/approval.js";
 import { bindGitExecutable, createGitCapabilityEvidence } from "../dist/git/capabilities.js";
 import { admitManagedWorktreeRoot } from "../dist/worktrees/root.js";
 import {
-  connectProductionCodexProServer,
-  createProductionCodexProServer
+  connectProductionCodexGPTServer,
+  createProductionCodexGPTServer
 } from "../dist/productionRuntime.js";
 import { CONTRACT_V4_ADDITIONS } from "../dist/tools/contracts/index.js";
 
@@ -34,7 +34,7 @@ function withEnv(changes, action) {
 }
 
 test("supported production composition installs the probed V4 Git service before transport connect", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-production-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-production-"));
   const workspace = path.join(root, "workspace");
   const home = path.join(root, "home");
   const managedPath = path.join(root, "managed");
@@ -80,13 +80,13 @@ test("supported production composition installs the probed V4 Git service before
   };
   try {
     const config = withEnv({
-      CODEXPRO_HOME: home,
-      CODEXPRO_TOOL_CONTRACT_VERSION: "4",
-      CODEXPRO_FILE_TRANSACTIONS: "atomic",
-      CODEXPRO_AUDIT_MODE: "required",
-      CODEXPRO_POLICY_ENGINE: "enforce",
-      CODEXPRO_GIT_MODE: "local",
-      CODEXPRO_TASK_WORKTREE_ROOT: managedPath
+      CODEXGPT_HOME: home,
+      CODEXGPT_TOOL_CONTRACT_VERSION: "4",
+      CODEXGPT_FILE_TRANSACTIONS: "atomic",
+      CODEXGPT_AUDIT_MODE: "required",
+      CODEXGPT_POLICY_ENGINE: "enforce",
+      CODEXGPT_GIT_MODE: "local",
+      CODEXGPT_TASK_WORKTREE_ROOT: managedPath
     }, () => loadConfig([
       "--root", workspace,
       "--allow-root", workspace,
@@ -98,8 +98,8 @@ test("supported production composition installs the probed V4 Git service before
       sessionId: "git-production-bootstrap",
       scopes: policyIdentityScopes(config)
     });
-    const server = createProductionCodexProServer(config, {
-      stateRootOptions: { env: { ...process.env, CODEXPRO_HOME: home } },
+    const server = createProductionCodexGPTServer(config, {
+      stateRootOptions: { env: { ...process.env, CODEXGPT_HOME: home } },
       policySessionContextSource: source,
       localApprovalRuntimeV3,
       gitBootstrapV4: {
@@ -111,7 +111,7 @@ test("supported production composition installs the probed V4 Git service before
     const client = new Client({ name: "git-production-bootstrap-test", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([
-      connectProductionCodexProServer(server, serverTransport),
+      connectProductionCodexGPTServer(server, serverTransport),
       client.connect(clientTransport)
     ]);
     const listed = await client.listTools();

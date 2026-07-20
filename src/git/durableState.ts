@@ -85,7 +85,7 @@ export function deriveGateRSubkey(masterKey: Buffer, label: string): Buffer {
     "sha256",
     masterKey,
     Buffer.alloc(0),
-    Buffer.from(`codexpro/phase5/gate-r/${label}/v1`, "utf8"),
+    Buffer.from(`codexgpt/phase5/gate-r/${label}/v1`, "utf8"),
     32
   ));
 }

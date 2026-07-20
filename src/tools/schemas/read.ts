@@ -149,8 +149,8 @@ export const readErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const readOutputShape = {
-  codexpro_tool: z.literal("read"),
-  codexpro_title: z.literal("Read File"),
+  codexgpt_tool: z.literal("read"),
+  codexgpt_title: z.literal("Read File"),
   ok: z.boolean(),
   data: readDataSchema.nullable(),
   error: readErrorSchema.nullable(),
@@ -213,8 +213,8 @@ export function createReadSuccess(
   durationMs = 0
 ): ReadStructuredResult {
   return readOutputSchema.parse({
-    codexpro_tool: "read",
-    codexpro_title: "Read File",
+    codexgpt_tool: "read",
+    codexgpt_title: "Read File",
     ok: true,
     data: readDataSchema.parse(data),
     error: null,
@@ -227,8 +227,8 @@ export function createReadFailure(
   durationMs = 0
 ): ReadStructuredResult {
   return readOutputSchema.parse({
-    codexpro_tool: "read",
-    codexpro_title: "Read File",
+    codexgpt_tool: "read",
+    codexgpt_title: "Read File",
     ok: false,
     data: null,
     error: {

@@ -10,7 +10,7 @@ import { tsImport } from "tsx/esm/api";
 
 const schemaModule = await tsImport("../src/tools/schemas/handoffToCodex.ts", import.meta.url).catch(() => null);
 const handoffModule = await tsImport("../src/handoffOps.ts", import.meta.url).catch(() => null);
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 
 const {
@@ -154,7 +154,7 @@ async function withTempWorkspace(callback) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "handoff-to-codex-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -252,10 +252,10 @@ test("handoff_to_codex schema exports the exact six-field envelope and thirty-si
 
   const success = createHandoffToCodexSuccess(sampleData(), 7);
   assert.deepEqual(Object.keys(success).sort(), [
-    "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+    "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
   ]);
-  assert.equal(success.codexpro_tool, "handoff_to_codex");
-  assert.equal(success.codexpro_title, "Handoff To Codex");
+  assert.equal(success.codexgpt_tool, "handoff_to_codex");
+  assert.equal(success.codexgpt_title, "Handoff To Codex");
   assert.equal(success.ok, true);
   assert.equal(success.error, null);
   assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
@@ -328,7 +328,7 @@ test("handoff_to_codex remains full-only and advertises only the exact direct co
             assert.deepEqual(Object.keys(descriptor.inputSchema.properties).sort(), ["append", "plan", "title", "workspace_id"]);
             assert.deepEqual(descriptor.inputSchema.required, ["plan"]);
             assert.deepEqual(descriptor.outputSchema.required, [
-              "codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"
+              "codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"
             ]);
             const advertisedData = descriptor.outputSchema.properties.data.anyOf.find(
               (candidate) => candidate.type === "object"
@@ -444,7 +444,7 @@ test("handoff_to_codex rejects provider identity drift", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {
       handoffToCodexNow: () => UPDATED_AT,
-      handoffToCodexProvider: async (context) => ({
+      handoffToCodexGPTvider: async (context) => ({
         ...(await writePreparedAgentHandoff(context)),
         agent: "opencode"
       })
@@ -458,7 +458,7 @@ test("handoff_to_codex rejects a missing durable plan", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {
       handoffToCodexNow: () => UPDATED_AT,
-      handoffToCodexProvider: async (context) => {
+      handoffToCodexGPTvider: async (context) => {
         const written = await writePreparedAgentHandoff(context);
         await fs.rm(path.join(root, ".ai-bridge", "current-plan.md"));
         return written;
@@ -473,7 +473,7 @@ test("handoff_to_codex rejects mismatched durable log tails", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {
       handoffToCodexNow: () => UPDATED_AT,
-      handoffToCodexProvider: async (context) => {
+      handoffToCodexGPTvider: async (context) => {
         const written = await writePreparedAgentHandoff(context);
         await fs.appendFile(path.join(root, ".ai-bridge", "execution-log.jsonl"), "{}\n");
         return written;
@@ -486,8 +486,8 @@ test("handoff_to_codex rejects mismatched durable log tails", async () => {
 
 test("handoff Tool Card is nested-first for both direct tools with no flat fallback", () => {
   const helper = toolCardWidgetHtml.match(/function handoffToAgentResultData\(data\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
-  assert.match(helper, /data\?\.codexpro_tool === "handoff_to_codex"/);
-  assert.match(helper, /data\?\.codexpro_tool === "handoff_to_agent"/);
+  assert.match(helper, /data\?\.codexgpt_tool === "handoff_to_codex"/);
+  assert.match(helper, /data\?\.codexgpt_tool === "handoff_to_agent"/);
   assert.match(toolCardWidgetHtml, /handoff\.plan_sha256/);
   assert.match(toolCardWidgetHtml, /truncate\(handoff\.prompt/);
   assert.match(toolCardWidgetHtml, /truncate\(handoff\.diff/);
@@ -497,13 +497,13 @@ test("handoff Tool Card is nested-first for both direct tools with no flat fallb
 test("handoff_to_codex supertool preserves the exact nested child envelope", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), { handoffToCodexNow: () => UPDATED_AT }, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "codex_handoff",
         args: { plan: "- next" }
       });
-      assert.equal(result.structuredContent.codexpro_tool, "handoff_to_codex");
-      assert.equal(result.structuredContent.codexpro_title, "Handoff To Codex");
-      assert.equal(result.structuredContent.codexpro_super_action, "codex_handoff");
+      assert.equal(result.structuredContent.codexgpt_tool, "handoff_to_codex");
+      assert.equal(result.structuredContent.codexgpt_title, "Handoff To Codex");
+      assert.equal(result.structuredContent.codexgpt_super_action, "codex_handoff");
       assert.equal(result.structuredContent.wrapped_tool, "handoff_to_codex");
       assert.equal(result.structuredContent.ok, true);
       assert.equal(result.structuredContent.data.agent, "codex");

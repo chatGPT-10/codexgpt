@@ -16,7 +16,7 @@ Migrate only the direct `inspect_workspace` MCP tool to the established Phase 1 
 - exact path, coverage, count, cache, and warning invariants;
 - focused contract tests;
 - nested Tool Card compatibility with historical flat fallback;
-- direct `codexpro` supertool compatibility;
+- direct `codexgpt` supertool compatibility;
 - fail-closed migration of protected Smoke consumers;
 - unchanged analysis-engine, cache, write-invalidation, authentication, and workspace-lifecycle semantics.
 
@@ -27,7 +27,7 @@ This slice stabilizes the existing built-in repository-analysis protocol. It doe
 The first fifteen Phase 1 slices already stabilize the direct configuration, file, Git-read, change-review, Shell, workspace-open, workspace-snapshot, and workspace-list protocols. The remaining tools now divide into three broad groups:
 
 1. the core repository-analysis result, `inspect_workspace`;
-2. capability and Skill inventory tools such as `codexpro_inventory` and `load_skill`;
+2. capability and Skill inventory tools such as `codexgpt_inventory` and `load_skill`;
 3. `.ai-bridge`, context-export, and handoff tools.
 
 `inspect_workspace` is no longer the smallest remaining tool, but it is the highest-leverage remaining foundational result:
@@ -61,7 +61,7 @@ Add one tool-owned schema module, one injectable provider boundary around the ex
 
 **Decision:** Recommended and approved.
 
-### Approach B — Migrate `codexpro_inventory` first
+### Approach B — Migrate `codexgpt_inventory` first
 
 This is a smaller result and would stabilize Skill and MCP-server inventory.
 
@@ -109,7 +109,7 @@ The direct tool currently:
 
 - is registered in standard and full tool modes when repository analysis is enabled;
 - is absent in minimal mode;
-- is absent when `CODEXPRO_ANALYSIS=0`;
+- is absent when `CODEXGPT_ANALYSIS=0`;
 - accepts optional `workspace_id` and retains the current default-workspace fallback;
 - accepts an optional workspace-relative `path` used only to scope returned records;
 - analyzes the bounded workspace through `inspectWorkspace(config, guard, workspace)`;
@@ -151,7 +151,7 @@ Slice 16 preserves these semantics except the flat result and generic failure su
 - One injected `inspectWorkspaceProvider` boundary for tests.
 - Five stable non-retryable failure codes.
 - Nested Tool Card success/failure rendering with historical flat fallback.
-- Direct `codexpro` supertool compatibility.
+- Direct `codexgpt` supertool compatibility.
 - Exact fail-closed in-memory migration of protected main-Smoke consumers.
 - Direct migration of normal Stress and adjacent contract-test consumers.
 - Focused, adjacent, complete, Build, analysis Smoke, HTTP Smoke, full Smoke, Stress, package, and diff verification.
@@ -159,7 +159,7 @@ Slice 16 preserves these semantics except the flat result and generic failure su
 
 ### 6.2 Out of scope
 
-- `codexpro_inventory`, `load_skill`, `read_handoff`, `wait_for_handoff`, `codex_context`, Pro-context, or handoff tools.
+- `codexgpt_inventory`, `load_skill`, `read_handoff`, `wait_for_handoff`, `codex_context`, Pro-context, or handoff tools.
 - Direct `search` schema changes or shared-schema extraction.
 - Analysis inventory, classifier, extractor, graph, cache, or provider redesign.
 - New analysis languages, symbol kinds, relationship kinds, ranking, or heuristics.
@@ -179,8 +179,8 @@ The top-level result uses the established strict Phase 1 envelope:
 
 ```json
 {
-  "codexpro_tool": "inspect_workspace",
-  "codexpro_title": "Inspect Workspace",
+  "codexgpt_tool": "inspect_workspace",
+  "codexgpt_title": "Inspect Workspace",
   "ok": true,
   "data": {
     "workspace_id": "ws_0123456789abcdef01234567",
@@ -535,7 +535,7 @@ Add one optional test-only dependency:
 
 ```ts
 inspectWorkspaceProvider?: (input: {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
 }) => WorkspaceAnalysis | Promise<WorkspaceAnalysis>;
@@ -605,8 +605,8 @@ All failures use the strict Phase 1 envelope:
 
 ```json
 {
-  "codexpro_tool": "inspect_workspace",
-  "codexpro_title": "Inspect Workspace",
+  "codexgpt_tool": "inspect_workspace",
+  "codexgpt_title": "Inspect Workspace",
   "ok": false,
   "data": null,
   "error": {
@@ -681,7 +681,7 @@ Add one nested-first normalizer:
 ```js
 function inspectWorkspaceResultData(data) {
   const nested =
-    data?.codexpro_tool === "inspect_workspace" &&
+    data?.codexgpt_tool === "inspect_workspace" &&
     data?.data &&
     typeof data.data === "object";
   return nested ? data.data : (data ?? {});
@@ -700,7 +700,7 @@ Behavior:
 - historical saved flat results continue to render;
 - current success does not use flat fallbacks before nested data.
 
-### 12.2 Direct `codexpro` supertool
+### 12.2 Direct `codexgpt` supertool
 
 The direct action must preserve:
 

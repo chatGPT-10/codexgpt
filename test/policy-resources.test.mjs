@@ -22,7 +22,7 @@ const config = {
 };
 
 function withWorkspace(callback) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-policy-resource-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-policy-resource-"));
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   fs.writeFileSync(path.join(root, "src", "File.ts"), "export {};\n", "utf8");
   const workspace = { id: "ws_resource", root: fs.realpathSync.native(root), openedAt: new Date().toISOString() };

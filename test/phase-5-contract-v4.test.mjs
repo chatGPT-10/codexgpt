@@ -50,10 +50,10 @@ function withEnv(changes, action) {
 
 function config(changes = {}, argv = ["--bash", "off", "--write", "off"]) {
   return withEnv({
-    CODEXPRO_TOOL_CONTRACT_VERSION: undefined,
-    CODEXPRO_FILE_TRANSACTIONS: undefined,
-    CODEXPRO_AUDIT_MODE: undefined,
-    CODEXPRO_POLICY_ENGINE: undefined,
+    CODEXGPT_TOOL_CONTRACT_VERSION: undefined,
+    CODEXGPT_FILE_TRANSACTIONS: undefined,
+    CODEXGPT_AUDIT_MODE: undefined,
+    CODEXGPT_POLICY_ENGINE: undefined,
     ...changes
   }, () => loadConfig(argv));
 }
@@ -88,11 +88,11 @@ const V4_ADDITIONS = Object.freeze([
 
 test("contract V4 parses explicitly while V1 remains default", () => {
   assert.equal(config().toolContractVersion, 1);
-  assert.equal(config({ CODEXPRO_TOOL_CONTRACT_VERSION: "4" }).toolContractVersion, 4);
+  assert.equal(config({ CODEXGPT_TOOL_CONTRACT_VERSION: "4" }).toolContractVersion, 4);
   assert.equal(config({}, ["--bash", "off", "--write", "off", "--tool-contract-version", "4"]).toolContractVersion, 4);
   assert.throws(
-    () => config({ CODEXPRO_TOOL_CONTRACT_VERSION: "5" }),
-    /CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4/
+    () => config({ CODEXGPT_TOOL_CONTRACT_VERSION: "5" }),
+    /CODEXGPT_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4/
   );
 });
 
@@ -124,10 +124,10 @@ test("V4 profile projection exposes ten standard additions, twelve full addition
 
 test("V4 startup fails closed unless all contract, native-host, local-approval, and Git capability dependencies exist", () => {
   const valid = config({
-    CODEXPRO_TOOL_CONTRACT_VERSION: "4",
-    CODEXPRO_FILE_TRANSACTIONS: "atomic",
-    CODEXPRO_AUDIT_MODE: "required",
-    CODEXPRO_POLICY_ENGINE: "enforce"
+    CODEXGPT_TOOL_CONTRACT_VERSION: "4",
+    CODEXGPT_FILE_TRANSACTIONS: "atomic",
+    CODEXGPT_AUDIT_MODE: "required",
+    CODEXGPT_POLICY_ENGINE: "enforce"
   });
   assert.doesNotThrow(() => assertToolContractConfiguration(valid, COMPLETE_V4_CAPABILITIES));
   for (const [field, pattern] of [

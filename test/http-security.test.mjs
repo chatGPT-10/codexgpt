@@ -41,28 +41,28 @@ function request(url, { headers = {} } = {}) {
 }
 
 async function startServer(overrides = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-http-security-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-http-security-"));
   const port = await freePort();
   const credential = randomBytes(32).toString("base64url");
   const env = {
     ...process.env,
-    CODEXPRO_ROOT: root,
-    CODEXPRO_ALLOWED_ROOTS: root,
-    CODEXPRO_HOST: "127.0.0.1",
-    CODEXPRO_PORT: String(port),
-    CODEXPRO_HTTP_TOKEN: credential,
-    CODEXPRO_ALLOWED_HOSTS: "127.0.0.1,localhost,mcp.example.test",
-    CODEXPRO_BASH_MODE: "off",
-    CODEXPRO_WRITE_MODE: "off",
-    CODEXPRO_TOOL_MODE: "minimal",
-    CODEXPRO_LOG_REQUESTS: "1",
-    CODEXPRO_TUNNEL_MODE: "0",
+    CODEXGPT_ROOT: root,
+    CODEXGPT_ALLOWED_ROOTS: root,
+    CODEXGPT_HOST: "127.0.0.1",
+    CODEXGPT_PORT: String(port),
+    CODEXGPT_HTTP_TOKEN: credential,
+    CODEXGPT_ALLOWED_HOSTS: "127.0.0.1,localhost,mcp.example.test",
+    CODEXGPT_BASH_MODE: "off",
+    CODEXGPT_WRITE_MODE: "off",
+    CODEXGPT_TOOL_MODE: "minimal",
+    CODEXGPT_LOG_REQUESTS: "1",
+    CODEXGPT_TUNNEL_MODE: "0",
     ...overrides
   };
   delete env.HOST;
   delete env.PORT;
-  if (!("CODEXPRO_ALLOW_QUERY_TOKEN" in overrides)) delete env.CODEXPRO_ALLOW_QUERY_TOKEN;
-  if (!("CODEXPRO_ALLOWED_ORIGINS" in overrides)) delete env.CODEXPRO_ALLOWED_ORIGINS;
+  if (!("CODEXGPT_ALLOW_QUERY_TOKEN" in overrides)) delete env.CODEXGPT_ALLOW_QUERY_TOKEN;
+  if (!("CODEXGPT_ALLOWED_ORIGINS" in overrides)) delete env.CODEXGPT_ALLOWED_ORIGINS;
 
   const child = spawn(process.execPath, ["dist/http.js"], {
     cwd: process.cwd(),
@@ -109,7 +109,7 @@ async function startServer(overrides = {}) {
 test("HTTP security defaults reject query credentials and untrusted hosts/origins", async () => {
   const server = await startServer();
   try {
-    const queryOnly = await request(`${server.baseUrl}/healthz?codexpro_token=${encodeURIComponent(server.credential)}`);
+    const queryOnly = await request(`${server.baseUrl}/healthz?codexgpt_token=${encodeURIComponent(server.credential)}`);
     assert.equal(queryOnly.status, 401);
 
     const authorized = await request(`${server.baseUrl}/healthz`, {
@@ -152,10 +152,10 @@ test("HTTP security defaults reject query credentials and untrusted hosts/origin
 
 test("tunnel mode still rejects query credentials unless explicitly enabled", async () => {
   const server = await startServer({
-    CODEXPRO_TUNNEL_MODE: "1"
+    CODEXGPT_TUNNEL_MODE: "1"
   });
   try {
-    const queryOnly = await request(`${server.baseUrl}/healthz?codexpro_token=${encodeURIComponent(server.credential)}`);
+    const queryOnly = await request(`${server.baseUrl}/healthz?codexgpt_token=${encodeURIComponent(server.credential)}`);
     assert.equal(queryOnly.status, 401);
 
     const authorized = await request(`${server.baseUrl}/healthz`, {
@@ -169,11 +169,11 @@ test("tunnel mode still rejects query credentials unless explicitly enabled", as
 
 test("explicit origin and legacy query compatibility settings are honored", async () => {
   const server = await startServer({
-    CODEXPRO_ALLOW_QUERY_TOKEN: "1",
-    CODEXPRO_ALLOWED_ORIGINS: "https://client.example"
+    CODEXGPT_ALLOW_QUERY_TOKEN: "1",
+    CODEXGPT_ALLOWED_ORIGINS: "https://client.example"
   });
   try {
-    const legacyQuery = await request(`${server.baseUrl}/healthz?codexpro_token=${encodeURIComponent(server.credential)}`);
+    const legacyQuery = await request(`${server.baseUrl}/healthz?codexgpt_token=${encodeURIComponent(server.credential)}`);
     assert.equal(legacyQuery.status, 200);
 
     const configuredOrigin = await request(`${server.baseUrl}/healthz`, {

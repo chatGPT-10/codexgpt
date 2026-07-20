@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const previousBashEnv = process.env.BASH_ENV;
-const previousInheritEnv = process.env.CODEXPRO_INHERIT_ENV;
+const previousInheritEnv = process.env.CODEXGPT_INHERIT_ENV;
 const previousTemp = process.env.TEMP;
 const previousTmp = process.env.TMP;
 const previousPathext = process.env.PATHEXT;
@@ -252,7 +252,7 @@ async function importMigratedSmokeSource() {
     'superActions.structuredContent.data.actions',
     1
   );
-  source += '\n//# sourceURL=codexpro-smoke-compat.mjs';
+  source += '\n//# sourceURL=codexgpt-smoke-compat.mjs';
   const encoded = Buffer.from(source, 'utf8').toString('base64');
   await import(`data:text/javascript;base64,${encoded}`);
 }
@@ -262,7 +262,7 @@ try {
     const canonicalTemp = await fs.realpath(os.tmpdir());
     process.env.TEMP = canonicalTemp;
     process.env.TMP = canonicalTemp;
-    compatibilityDir = await fs.mkdtemp(path.join(canonicalTemp, 'codexpro-smoke-bash-env-'));
+    compatibilityDir = await fs.mkdtemp(path.join(canonicalTemp, 'codexgpt-smoke-bash-env-'));
     const bashEnvPath = path.join(compatibilityDir, 'bash-env.sh');
     await fs.writeFile(
       bashEnvPath,
@@ -270,7 +270,7 @@ try {
       'utf8'
     );
     process.env.BASH_ENV = bashEnvPath;
-    process.env.CODEXPRO_INHERIT_ENV = '1';
+    process.env.CODEXGPT_INHERIT_ENV = '1';
     if (!process.env.PATHEXT) {
       process.env.PATHEXT = '.COM;.EXE;.BAT;.CMD';
     }
@@ -281,8 +281,8 @@ try {
   if (previousBashEnv === undefined) delete process.env.BASH_ENV;
   else process.env.BASH_ENV = previousBashEnv;
 
-  if (previousInheritEnv === undefined) delete process.env.CODEXPRO_INHERIT_ENV;
-  else process.env.CODEXPRO_INHERIT_ENV = previousInheritEnv;
+  if (previousInheritEnv === undefined) delete process.env.CODEXGPT_INHERIT_ENV;
+  else process.env.CODEXGPT_INHERIT_ENV = previousInheritEnv;
 
   if (previousTemp === undefined) delete process.env.TEMP;
   else process.env.TEMP = previousTemp;

@@ -16,7 +16,7 @@ import {
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
 async function withStore(callback) {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-v4-audit-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-v4-audit-"));
   const registry = new ProcessInstanceRegistry(stateRoot);
   const store = PersistentAuditStore.open({
     stateRoot,

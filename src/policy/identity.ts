@@ -1,7 +1,7 @@
 import { createHmac, randomBytes as nodeRandomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { codexProHome } from "../profileStore.js";
+import { CodexGPTHome } from "../profileStore.js";
 import { requestIdentityV1Schema } from "./schemas.js";
 import type { PolicyScope, RequestIdentityV1 } from "./types.js";
 
@@ -28,7 +28,7 @@ function base32Lower(buffer: Buffer): string {
   return output;
 }
 
-export function identityKeyPath(home = codexProHome()): string {
+export function identityKeyPath(home = CodexGPTHome()): string {
   return path.join(home, "policy", "identity-hmac.key");
 }
 
@@ -73,7 +73,7 @@ export function credentialRef(rawCredential: string, key: Buffer): string {
   if (!rawCredential) throw new Error("Credential reference requires a non-empty credential.");
   if (!Buffer.isBuffer(key) || key.length !== IDENTITY_KEY_BYTES) throw new Error("Credential reference key is invalid.");
   const digest = createHmac("sha256", key)
-    .update("codexpro/request-identity/v1\0", "utf8")
+    .update("codexgpt/request-identity/v1\0", "utf8")
     .update(rawCredential, "utf8")
     .digest();
   return `cred_${base32Lower(digest).slice(0, 26)}`;

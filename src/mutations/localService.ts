@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { persistedMutationContractVersion, type CodexProConfig } from "../config.js";
+import { persistedMutationContractVersion, type CodexGPTConfig } from "../config.js";
 import { PersistentAuditStore, workspaceAuditRef } from "../audit/index.js";
 import {
   authorizationAuditEventV2Schema,
@@ -52,7 +52,7 @@ export class LocalMutationService {
   private readonly workspaceRefKey: Buffer;
 
   constructor(
-    private readonly config: CodexProConfig,
+    private readonly config: CodexGPTConfig,
     guard: PathGuard,
     private readonly options: LocalMutationServiceOptions = {}
   ) {

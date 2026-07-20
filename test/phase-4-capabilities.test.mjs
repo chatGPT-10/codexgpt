@@ -207,10 +207,10 @@ test("default policy runtime reads the live per-server evidence revision", async
 
 test("Phase 4 authority configuration is exact, V3-only, and defaults off", () => {
   const names = [
-    "CODEXPRO_TOOL_CONTRACT_VERSION",
-    "CODEXPRO_LOCAL_FILE_ACCESS",
-    "CODEXPRO_EXECUTION_PROFILE",
-    "CODEXPRO_EXECUTION_DEPENDENCIES"
+    "CODEXGPT_TOOL_CONTRACT_VERSION",
+    "CODEXGPT_LOCAL_FILE_ACCESS",
+    "CODEXGPT_EXECUTION_PROFILE",
+    "CODEXGPT_EXECUTION_DEPENDENCIES"
   ];
   const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   try {
@@ -220,16 +220,16 @@ test("Phase 4 authority configuration is exact, V3-only, and defaults off", () =
     assert.equal(defaults.executionProfile, "off");
     assert.equal(defaults.executionDependencies, "off");
 
-    process.env.CODEXPRO_TOOL_CONTRACT_VERSION = "3";
-    process.env.CODEXPRO_LOCAL_FILE_ACCESS = "confirmed_roots";
-    process.env.CODEXPRO_EXECUTION_PROFILE = "full_access";
-    process.env.CODEXPRO_EXECUTION_DEPENDENCIES = "node_modules";
+    process.env.CODEXGPT_TOOL_CONTRACT_VERSION = "3";
+    process.env.CODEXGPT_LOCAL_FILE_ACCESS = "confirmed_roots";
+    process.env.CODEXGPT_EXECUTION_PROFILE = "full_access";
+    process.env.CODEXGPT_EXECUTION_DEPENDENCIES = "node_modules";
     const enabled = loadConfig(["--root", process.cwd()]);
     assert.equal(enabled.localFileAccess, "confirmed_roots");
     assert.equal(enabled.executionProfile, "full_access");
     assert.equal(enabled.executionDependencies, "node_modules");
 
-    process.env.CODEXPRO_TOOL_CONTRACT_VERSION = "2";
+    process.env.CODEXGPT_TOOL_CONTRACT_VERSION = "2";
     assert.throws(() => loadConfig(["--root", process.cwd()]), /Contract V3/);
   } finally {
     for (const name of names) {

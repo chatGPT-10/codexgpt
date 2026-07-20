@@ -4,7 +4,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { minimatch } from "minimatch";
-import type { CodexProConfig } from "./config.js";
+import type { CodexGPTConfig } from "./config.js";
 import { expandHome } from "./config.js";
 import { ProtectedRootPolicy } from "./access/protectedRoots.js";
 
@@ -29,10 +29,10 @@ export interface PolicyPathFacts {
   unresolvedSuffix: string[];
 }
 
-export class CodexProError extends Error {
+export class CodexGPTError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "CodexProError";
+    this.name = "CodexGPTError";
   }
 }
 
@@ -48,7 +48,7 @@ export function normalizeRelPath(relPath: string): string {
 }
 
 const WINDOWS_RESERVED_BASENAME = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
-const RESERVED_TRANSACTION_PREFIX = ".codexpro-txn-";
+const RESERVED_TRANSACTION_PREFIX = ".codexgpt-txn-";
 
 export function isReservedTransactionRelativePath(
   relPath: string,
@@ -66,34 +66,34 @@ export function isReservedTransactionRelativePath(
 
 export function assertSafePathInput(inputPath: string, platform: NodeJS.Platform = process.platform): void {
   if (inputPath.includes("\0")) {
-    throw new CodexProError("Path contains a null byte.");
+    throw new CodexGPTError("Path contains a null byte.");
   }
   if (platform !== "win32") return;
 
   const normalized = inputPath.replace(/\//g, "\\");
   if (/^\\\\[?.]\\/.test(normalized)) {
-    throw new CodexProError(`Windows device paths are not allowed: ${inputPath}`);
+    throw new CodexGPTError(`Windows device paths are not allowed: ${inputPath}`);
   }
   if (/^\\\\/.test(normalized)) {
-    throw new CodexProError(`UNC paths are not allowed: ${inputPath}`);
+    throw new CodexGPTError(`UNC paths are not allowed: ${inputPath}`);
   }
   if (/^[A-Za-z]:(?!\\)/.test(normalized)) {
-    throw new CodexProError(`Drive-relative Windows paths are not allowed: ${inputPath}`);
+    throw new CodexGPTError(`Drive-relative Windows paths are not allowed: ${inputPath}`);
   }
 
   const withoutDrive = /^[A-Za-z]:/.test(normalized) ? normalized.slice(2) : normalized;
   if (withoutDrive.includes(":")) {
-    throw new CodexProError(`NTFS alternate data stream paths are not allowed: ${inputPath}`);
+    throw new CodexGPTError(`NTFS alternate data stream paths are not allowed: ${inputPath}`);
   }
 
   for (const segment of withoutDrive.split(/\\+/).filter(Boolean)) {
     if (segment === "." || segment === "..") continue;
     if (segment.endsWith(".") || segment.endsWith(" ")) {
-      throw new CodexProError(`Windows path segments may not end with a dot or space: ${inputPath}`);
+      throw new CodexGPTError(`Windows path segments may not end with a dot or space: ${inputPath}`);
     }
     const basename = segment.split(".", 1)[0];
     if (WINDOWS_RESERVED_BASENAME.test(basename)) {
-      throw new CodexProError(`Windows reserved device name is not allowed: ${inputPath}`);
+      throw new CodexGPTError(`Windows reserved device name is not allowed: ${inputPath}`);
     }
   }
 }
@@ -193,7 +193,7 @@ export class WorkspaceManager {
   private readonly taskWorktrees?: WorkspaceManagerOptions["taskWorktrees"];
 
   constructor(
-    private readonly config: CodexProConfig,
+    private readonly config: CodexGPTConfig,
     options: WorkspaceManagerOptions = {}
   ) {
     const fallbackSessionId = `local-${randomUUID()}`;
@@ -222,16 +222,16 @@ export class WorkspaceManager {
     assertSafePathInput(requested);
     const resolved = path.resolve(requested);
     if (!fs.existsSync(resolved)) {
-      throw new CodexProError(`Workspace root does not exist: ${resolved}`);
+      throw new CodexGPTError(`Workspace root does not exist: ${resolved}`);
     }
     const stat = fs.statSync(resolved);
     if (!stat.isDirectory()) {
-      throw new CodexProError(`Workspace root is not a directory: ${resolved}`);
+      throw new CodexGPTError(`Workspace root is not a directory: ${resolved}`);
     }
     const realRoot = fs.realpathSync.native(resolved);
     const allowed = this.config.allowedRoots.some((allowedRoot) => isSubpath(realRoot, allowedRoot));
     if (!allowed) {
-      throw new CodexProError(
+      throw new CodexGPTError(
         `Workspace root is outside allowed roots: ${realRoot}\nAllowed roots:\n${this.config.allowedRoots.map((r) => `- ${r}`).join("\n")}`
       );
     }
@@ -269,7 +269,7 @@ export class WorkspaceManager {
 
   getWorkspace(id: string): Workspace {
     if (typeof id !== "string" || !id.trim()) {
-      throw new CodexProError("workspace_id is required. Call open_workspace first.");
+      throw new CodexGPTError("workspace_id is required. Call open_workspace first.");
     }
     this.pruneExpired();
     const record = this.records.get(id);
@@ -289,7 +289,7 @@ export class WorkspaceManager {
     }
     if (!record || !this.recordMatchesCurrentBinding(record)) {
       if (record) this.revokeRecord(record, "policy_revision_changed");
-      throw new CodexProError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
+      throw new CodexGPTError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
     }
     this.beforeWorkspaceUse(record.workspace.root);
     return this.touch(record);
@@ -301,7 +301,7 @@ export class WorkspaceManager {
 
   closeWorkspace(id: string): ClosedWorkspace {
     if (typeof id !== "string" || !id.trim()) {
-      throw new CodexProError("workspace_id is required. Call open_workspace first.");
+      throw new CodexGPTError("workspace_id is required. Call open_workspace first.");
     }
     this.pruneExpired();
     const record = this.records.get(id);
@@ -321,7 +321,7 @@ export class WorkspaceManager {
     }
     if (!record || !this.recordMatchesCurrentBinding(record)) {
       if (record) this.revokeRecord(record, "policy_revision_changed");
-      throw new CodexProError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
+      throw new CodexGPTError(`Unknown workspace_id: ${id}. Call open_workspace first.`);
     }
     const closedAt = new Date(this.now()).toISOString();
     this.revokeRecord(record, "closed", closedAt);
@@ -373,7 +373,7 @@ export class WorkspaceManager {
   private currentTransportSessionId(): string {
     const sessionId = this.transportSessionId().trim();
     if (!sessionId || sessionId === "pending") {
-      throw new CodexProError("Workspace transport session is unavailable.");
+      throw new CodexGPTError("Workspace transport session is unavailable.");
     }
     return sessionId;
   }
@@ -388,12 +388,12 @@ export class WorkspaceManager {
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const bytes = this.randomBytes(16);
       if (!Buffer.isBuffer(bytes) || bytes.length !== 16) {
-        throw new CodexProError("Workspace id generator returned an invalid value.");
+        throw new CodexGPTError("Workspace id generator returned an invalid value.");
       }
       const id = `ws_${bytes.toString("hex")}`;
       if (!this.records.has(id) && !this.tombstones.has(id)) return id;
     }
-    throw new CodexProError("Workspace id generation failed.");
+    throw new CodexGPTError("Workspace id generation failed.");
   }
 
   private pruneExpired(): void {
@@ -432,7 +432,7 @@ export class PathGuard {
   private readonly confirmedFileBindings = new Map<string, { dev: string; ino: string; nlink: number }>();
 
   constructor(
-    private readonly config: Pick<CodexProConfig, "blockedGlobs">,
+    private readonly config: Pick<CodexGPTConfig, "blockedGlobs">,
     private readonly platform: NodeJS.Platform = process.platform
   ) {
     this.protectedRoots = new ProtectedRootPolicy({ platform });
@@ -450,13 +450,13 @@ export class PathGuard {
 
   assertNotBlocked(relPath: string): void {
     if (this.isBlockedRelativePath(relPath)) {
-      throw new CodexProError(`Path is blocked by safety rules: ${relPath}`);
+      throw new CodexGPTError(`Path is blocked by safety rules: ${relPath}`);
     }
   }
 
   resolve(workspace: Workspace, inputPath = ".", options: { forWrite?: boolean } = {}): { absPath: string; relPath: string } {
     if (workspace.accessClass === "confirmed_root" && options.forWrite && workspace.access !== "read_write") {
-      throw new CodexProError("Confirmed-root workspace is read-only.");
+      throw new CodexGPTError("Confirmed-root workspace is read-only.");
     }
     assertSafePathInput(inputPath || ".", this.platform);
     const expanded = expandHome(inputPath || ".");
@@ -466,7 +466,7 @@ export class PathGuard {
     let relPath = displayPath(absPath, workspace.root);
 
     if (workspace.accessClass === "confirmed_root" && this.protectedRoots.classify(absPath).blocked) {
-      throw new CodexProError("Path is protected from confirmed-root access.");
+      throw new CodexGPTError("Path is protected from confirmed-root access.");
     }
 
     if (!isSubpath(absPath, workspace.root)) {
@@ -477,12 +477,12 @@ export class PathGuard {
         const parent = closestExistingParent(path.dirname(absPath));
         const realParent = maybeRealpath(parent);
         if (!realParent || !isSubpath(realParent, workspace.root)) {
-          throw new CodexProError(`Path escapes workspace root: ${inputPath}`);
+          throw new CodexGPTError(`Path escapes workspace root: ${inputPath}`);
         }
         absPath = path.resolve(realParent, path.relative(parent, absPath));
         relPath = displayPath(absPath, workspace.root);
       } else {
-        throw new CodexProError(`Path escapes workspace root: ${inputPath}`);
+        throw new CodexGPTError(`Path escapes workspace root: ${inputPath}`);
       }
     }
 
@@ -490,17 +490,17 @@ export class PathGuard {
 
     if (realTarget) {
       if (!isSubpath(realTarget, workspace.root)) {
-        throw new CodexProError(`Path resolves outside workspace root through a symlink: ${inputPath}`);
+        throw new CodexGPTError(`Path resolves outside workspace root through a symlink: ${inputPath}`);
       }
       const realRel = displayPath(realTarget, workspace.root);
       this.assertNotBlocked(realRel);
       if (workspace.accessClass === "confirmed_root") {
         if (this.protectedRoots.classify(realTarget).blocked) {
-          throw new CodexProError("Resolved path is protected from confirmed-root access.");
+          throw new CodexGPTError("Resolved path is protected from confirmed-root access.");
         }
         const targetStat = fs.statSync(realTarget, { bigint: true });
         if (targetStat.isFile() && targetStat.nlink !== 1n) {
-          throw new CodexProError("Confirmed-root ordinary files must have exactly one hard link.");
+          throw new CodexGPTError("Confirmed-root ordinary files must have exactly one hard link.");
         }
         if (targetStat.isFile()) {
           this.confirmedFileBindings.set(realTarget, {
@@ -515,21 +515,21 @@ export class PathGuard {
     if (options.forWrite) {
       try {
         if (fs.lstatSync(absPath).isSymbolicLink()) {
-          throw new CodexProError(`Refusing to write through a symlink: ${inputPath}`);
+          throw new CodexGPTError(`Refusing to write through a symlink: ${inputPath}`);
         }
       } catch (error) {
-        if (error instanceof CodexProError) throw error;
+        if (error instanceof CodexGPTError) throw error;
       }
       const parent = closestExistingParent(path.dirname(absPath));
       const realParent = maybeRealpath(parent);
       if (realParent && !isSubpath(realParent, workspace.root)) {
-        throw new CodexProError(`Write path resolves through a parent outside the workspace: ${inputPath}`);
+        throw new CodexGPTError(`Write path resolves through a parent outside the workspace: ${inputPath}`);
       }
       if (realParent) {
         const realParentRel = displayPath(realParent, workspace.root);
         this.assertNotBlocked(realParentRel);
         if (workspace.accessClass === "confirmed_root" && this.protectedRoots.classify(realParent).blocked) {
-          throw new CodexProError("Write parent is protected from confirmed-root access.");
+          throw new CodexGPTError("Write parent is protected from confirmed-root access.");
         }
       }
     }
@@ -551,7 +551,7 @@ export class PathGuard {
       : closestExistingParent(path.dirname(resolved.absPath));
     const existingParent = maybeRealpath(existingParentCandidate);
     if (!existingParent || !isSubpath(existingParent, workspace.root)) {
-      throw new CodexProError(`Path parent is outside the workspace: ${inputPath}`);
+      throw new CodexGPTError(`Path parent is outside the workspace: ${inputPath}`);
     }
     const parentStat = fs.statSync(existingParent);
     const parentIdentityPayload = `${existingParent}\0${parentStat.dev}\0${parentStat.ino}`;
@@ -570,7 +570,7 @@ export class PathGuard {
     for (const segment of unresolvedSuffix) {
       assertSafePathInput(segment, this.platform);
       if (segment === "..") {
-        throw new CodexProError(`Path escapes workspace root: ${inputPath}`);
+        throw new CodexGPTError(`Path escapes workspace root: ${inputPath}`);
       }
     }
 
@@ -594,13 +594,13 @@ export class PathGuard {
       stat.nlink !== confirmed.nlink ||
       stat.nlink !== 1
     )) {
-      throw new CodexProError("Confirmed-root file identity or link count changed before access.");
+      throw new CodexGPTError("Confirmed-root file identity or link count changed before access.");
     }
     if (!stat.isFile()) {
-      throw new CodexProError(`Not a file: ${absPath}`);
+      throw new CodexGPTError(`Not a file: ${absPath}`);
     }
     if (stat.size > maxBytes) {
-      throw new CodexProError(`File is too large (${stat.size} bytes). Limit: ${maxBytes} bytes.`);
+      throw new CodexGPTError(`File is too large (${stat.size} bytes). Limit: ${maxBytes} bytes.`);
     }
     if (stat.size === 0) return;
     const handle = await fsp.open(absPath, "r");
@@ -611,7 +611,7 @@ export class PathGuard {
         const { bytesRead } = await handle.read(sample, 0, sample.length, offset);
         if (bytesRead === 0) break;
         if (sample.subarray(0, bytesRead).includes(0)) {
-          throw new CodexProError("Refusing to read binary file.");
+          throw new CodexGPTError("Refusing to read binary file.");
         }
         offset += bytesRead;
       }

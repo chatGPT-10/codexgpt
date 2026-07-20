@@ -24,7 +24,7 @@ function expandHome(input) {
 }
 
 function canonicalRoot(argv, env = process.env) {
-  const input = optionValue(argv, "root") || env.CODEXPRO_ROOT || process.cwd();
+  const input = optionValue(argv, "root") || env.CODEXGPT_ROOT || process.cwd();
   const resolved = path.resolve(expandHome(input));
   try {
     return fs.realpathSync(resolved);
@@ -33,24 +33,24 @@ function canonicalRoot(argv, env = process.env) {
   }
 }
 
-function codexProHome(env = process.env) {
-  const configured = env.CODEXPRO_HOME?.trim();
-  return configured ? path.resolve(expandHome(configured)) : path.join(os.homedir(), ".codexpro");
+function CodexGPTHome(env = process.env) {
+  const configured = env.CODEXGPT_HOME?.trim();
+  return configured ? path.resolve(expandHome(configured)) : path.join(os.homedir(), ".codexgpt");
 }
 
 function savedProfileHostname(argv, env = process.env) {
   const explicit =
     optionValue(argv, "hostname") ||
     optionValue(argv, "url") ||
-    env.CODEXPRO_PUBLIC_HOSTNAME ||
-    env.CODEXPRO_HOSTNAME ||
+    env.CODEXGPT_PUBLIC_HOSTNAME ||
+    env.CODEXGPT_HOSTNAME ||
     env.NGROK_DOMAIN ||
     "";
   if (explicit || argv.includes("--no-profile")) return explicit;
 
   const root = canonicalRoot(argv, env);
   const profileId = createHash("sha256").update(root).digest("hex").slice(0, 24);
-  const profilePath = path.join(codexProHome(env), "profiles", `${profileId}.json`);
+  const profilePath = path.join(CodexGPTHome(env), "profiles", `${profileId}.json`);
   try {
     const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
     return typeof profile?.hostname === "string" ? profile.hostname.trim() : "";
@@ -62,7 +62,7 @@ function savedProfileHostname(argv, env = process.env) {
 export function launchEnvironment(argv, env = process.env) {
   const publicHostname = savedProfileHostname(argv, env);
   return publicHostname
-    ? { ...env, CODEXPRO_PUBLIC_HOSTNAME: publicHostname }
+    ? { ...env, CODEXGPT_PUBLIC_HOSTNAME: publicHostname }
     : env;
 }
 
@@ -76,14 +76,14 @@ export function connectorAuthOutputEnvironment(argv, env = process.env) {
   const connectorCommands = new Set(["start", "stable", "connection-test", "ngrok", "tailscale"]);
   if (!connectorCommands.has(subcommand) || argv.includes("--no-auth")) return env;
 
-  if (!("CODEXPRO_ALLOW_QUERY_TOKEN" in env)) {
+  if (!("CODEXGPT_ALLOW_QUERY_TOKEN" in env)) {
     return {
       ...env,
-      CODEXPRO_ALLOW_QUERY_TOKEN: "1"
+      CODEXGPT_ALLOW_QUERY_TOKEN: "1"
     };
   }
 
-  if (boolFromValue(env.CODEXPRO_ALLOW_QUERY_TOKEN, false)) return env;
+  if (boolFromValue(env.CODEXGPT_ALLOW_QUERY_TOKEN, false)) return env;
 
   const shimPath = path.join(scriptDir, "connector-auth-output-shim.cjs").replaceAll("\\", "/");
   const requireOption = `--require "${shimPath.replaceAll('"', '\\"')}"`;
@@ -91,8 +91,8 @@ export function connectorAuthOutputEnvironment(argv, env = process.env) {
   return {
     ...env,
     NODE_OPTIONS: [previousNodeOptions, requireOption].filter(Boolean).join(" "),
-    CODEXPRO_CONNECTOR_AUTH_PREVIOUS_NODE_OPTIONS: previousNodeOptions,
-    CODEXPRO_CONNECTOR_AUTH_OUTPUT_SHIM: "1"
+    CODEXGPT_CONNECTOR_AUTH_PREVIOUS_NODE_OPTIONS: previousNodeOptions,
+    CODEXGPT_CONNECTOR_AUTH_OUTPUT_SHIM: "1"
   };
 }
 
@@ -101,7 +101,7 @@ function savedProfileTunnel(argv, env = process.env) {
 
   const root = canonicalRoot(argv, env);
   const profileId = createHash("sha256").update(root).digest("hex").slice(0, 24);
-  const profilePath = path.join(codexProHome(env), "profiles", `${profileId}.json`);
+  const profilePath = path.join(CodexGPTHome(env), "profiles", `${profileId}.json`);
   try {
     const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
     if (!profile || typeof profile !== "object" || Array.isArray(profile)) return "";
@@ -122,7 +122,7 @@ export function requiresVerifiedCloudflared(argv, env = process.env) {
 
   const effectiveTunnel =
     optionValue(argv, "tunnel") ||
-    env.CODEXPRO_TUNNEL?.trim() ||
+    env.CODEXGPT_TUNNEL?.trim() ||
     savedProfileTunnel(argv, env) ||
     "cloudflare";
   return effectiveTunnel === "cloudflare" || effectiveTunnel === "cloudflare-named";
@@ -130,10 +130,10 @@ export function requiresVerifiedCloudflared(argv, env = process.env) {
 
 export function verifiedCloudflaredPath(env = process.env, platform = process.platform) {
   const pathApi = platform === "win32" ? path.win32 : path.posix;
-  const configuredHome = env.CODEXPRO_HOME?.trim();
+  const configuredHome = env.CODEXGPT_HOME?.trim();
   const home = configuredHome
     ? pathApi.resolve(configuredHome)
-    : pathApi.join(os.homedir(), ".codexpro");
+    : pathApi.join(os.homedir(), ".codexgpt");
   const binary = platform === "win32" ? "cloudflared.exe" : "cloudflared";
   return pathApi.join(home, "bin", binary);
 }
@@ -186,13 +186,13 @@ async function main() {
   }
 
   const launchEnv = launchEnvironment(forwarded);
-  exitFrom(runNodeScript("codexpro.mjs", forwarded, connectorAuthOutputEnvironment(forwarded, launchEnv)));
+  exitFrom(runNodeScript("codexgpt.mjs", forwarded, connectorAuthOutputEnvironment(forwarded, launchEnv)));
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (isMain) {
   main().catch((error) => {
-    console.error(`[codexpro] ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`[codexgpt] ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   });
 }

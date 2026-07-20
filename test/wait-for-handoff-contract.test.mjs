@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { PathGuard } = await tsImport("../src/guard.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const workspaceModule = await tsImport("../src/workspaceOps.ts", import.meta.url);
@@ -115,7 +115,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "wait-for-handoff-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -312,8 +312,8 @@ function assertFailure(result, code, details, retryable = false) {
   assert.equal(result.isError, true, JSON.stringify(result));
   const parsed = parseResult(result);
   assert.deepEqual(parsed, {
-    codexpro_tool: "wait_for_handoff",
-    codexpro_title: "Wait For Handoff",
+    codexgpt_tool: "wait_for_handoff",
+    codexgpt_title: "Wait For Handoff",
     ok: false,
     data: null,
     error: {
@@ -344,10 +344,10 @@ test("wait_for_handoff schema exports fixed definitions and exact matched and de
 
   const matched = createWaitForHandoffSuccess(sampleData(), 7);
   assert.deepEqual(Object.keys(matched).sort(), [
-    "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+    "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
   ]);
-  assert.equal(matched.codexpro_tool, "wait_for_handoff");
-  assert.equal(matched.codexpro_title, "Wait For Handoff");
+  assert.equal(matched.codexgpt_tool, "wait_for_handoff");
+  assert.equal(matched.codexgpt_title, "Wait For Handoff");
   assert.equal(matched.ok, true);
   assert.equal(matched.error, null);
   assert.deepEqual(Object.keys(matched.data).sort(), DATA_KEYS);
@@ -476,7 +476,7 @@ test("wait_for_handoff is standard full only read-only time-varying and advertis
         assert.ok(descriptor?.outputSchema);
         assert.deepEqual(
           new Set(descriptor.outputSchema.required),
-          new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+          new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
         );
         assert.equal(descriptor.annotations?.readOnlyHint, true);
         assert.equal(descriptor.annotations?.destructiveHint, false);
@@ -887,7 +887,7 @@ test("wait_for_handoff enforces UTF-8 excerpt and aggregate bounds after redacti
 
 test("wait_for_handoff Tool Card is nested-first dedicated and bounded", () => {
   assert.match(toolCardWidgetHtml, /function waitForHandoffResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "wait_for_handoff"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "wait_for_handoff"/);
   assert.match(toolCardWidgetHtml, /function renderWaitForHandoff\(data\)/);
   assert.match(toolCardWidgetHtml, /previewLines\(artifact\.text, 20\)/);
   assert.match(toolCardWidgetHtml, /wait\.unavailable/);
@@ -936,7 +936,7 @@ test("wait_for_handoff supertool preserves the exact nested child envelope", asy
       waitForHandoffStateProvider: async () => stateProviderResult(rawRun()),
       waitForHandoffArtifactsProvider: async (context) => artifactProviderResult(context.requestedKinds)
     }, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "handoff_poll",
         args: {
           max_wait_seconds: 1,
@@ -945,9 +945,9 @@ test("wait_for_handoff supertool preserves the exact nested child envelope", asy
           include_tests: false
         }
       });
-      assert.equal(result.structuredContent.codexpro_tool, "wait_for_handoff");
-      assert.equal(result.structuredContent.codexpro_title, "Wait For Handoff");
-      assert.equal(result.structuredContent.codexpro_super_action, "handoff_poll");
+      assert.equal(result.structuredContent.codexgpt_tool, "wait_for_handoff");
+      assert.equal(result.structuredContent.codexgpt_title, "Wait For Handoff");
+      assert.equal(result.structuredContent.codexgpt_super_action, "handoff_poll");
       assert.equal(result.structuredContent.wrapped_tool, "wait_for_handoff");
       assert.equal(result.structuredContent.ok, true);
       assert.equal(result.structuredContent.data.succeeded, true);

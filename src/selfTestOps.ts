@@ -1,9 +1,9 @@
 import fsp from "node:fs/promises";
 import { z } from "zod";
-import type { CodexProConfig } from "./config.js";
+import type { CodexGPTConfig } from "./config.js";
 import { probeAuditReadiness } from "./audit/diagnostics.js";
 import { probeBashAvailability, runBash } from "./bashOps.js";
-import { codexproInventory } from "./capabilitiesOps.js";
+import { codexgptInventory } from "./capabilitiesOps.js";
 import {
   editTextFile,
   prepareWorkspaceTextBatch,
@@ -20,20 +20,20 @@ import {
 import { identityForStdio } from "./policy/identity.js";
 import { inspectPolicyConfiguration, policyIdentityScopes } from "./policy/runtime.js";
 import {
-  CODEXPRO_SELF_TEST_ARTIFACT,
-  codexproSelfTestDataSchema,
-  codexproSelfTestPolicySchema,
-  codexproSelfTestRequestSchema,
-  codexproSelfTestTermsBoundarySchema,
-  type CodexProSelfTestCheck,
-  type CodexProSelfTestData,
-  type CodexProSelfTestRequest
-} from "./tools/schemas/codexproSelfTest.js";
+  CODEXGPT_SELF_TEST_ARTIFACT,
+  codexgptSelfTestDataSchema,
+  codexgptSelfTestPolicySchema,
+  codexgptSelfTestRequestSchema,
+  codexgptSelfTestTermsBoundarySchema,
+  type CodexGPTSelfTestCheck,
+  type CodexGPTSelfTestData,
+  type CodexGPTSelfTestRequest
+} from "./tools/schemas/codexgptSelfTest.js";
 
 const SELF_TEST_SCAFFOLD_BEFORE = [
-  "# CodexPro Self Test",
+  "# CodexGPT Self Test",
   "",
-  "This file is managed by CodexPro's local self-test.",
+  "This file is managed by CodexGPT's local self-test.",
   "marker: before",
   ""
 ].join("\n");
@@ -49,7 +49,7 @@ const safeToolNameSchema = z.string()
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
   .refine((value) => !/(?:bearer|authorization|api[_-]?key|access[_-]?token|password|secret|sk-)/i.test(value));
 
-const providerRequestSchema = codexproSelfTestRequestSchema;
+const providerRequestSchema = codexgptSelfTestRequestSchema;
 const providerOutcomeSchema = z.enum(["pass", "warn", "fail", "skipped"]);
 
 const providerResultSchema = z.object({
@@ -90,10 +90,10 @@ const providerResultSchema = z.object({
       "WRITE_EDIT_PROBE_CONFLICT",
       "WRITE_EDIT_PROBE_FAILED"
     ]),
-    probe_artifact: z.literal(CODEXPRO_SELF_TEST_ARTIFACT).nullable(),
+    probe_artifact: z.literal(CODEXGPT_SELF_TEST_ARTIFACT).nullable(),
     files_touched: z.union([
       z.tuple([]),
-      z.tuple([z.literal(CODEXPRO_SELF_TEST_ARTIFACT)])
+      z.tuple([z.literal(CODEXGPT_SELF_TEST_ARTIFACT)])
     ])
   }).strict(),
   pro_context_probe: z.object({
@@ -134,34 +134,34 @@ const providerResultSchema = z.object({
       retentionValid: z.boolean()
     }).strict()
   }).strict(),
-  policy: codexproSelfTestPolicySchema,
-  terms_boundary: codexproSelfTestTermsBoundarySchema
+  policy: codexgptSelfTestPolicySchema,
+  terms_boundary: codexgptSelfTestTermsBoundarySchema
 }).strict();
 
-export type CodexProSelfTestProviderResult = z.infer<typeof providerResultSchema>;
+export type CodexGPTSelfTestProviderResult = z.infer<typeof providerResultSchema>;
 
-export interface CodexProSelfTestProviderContext {
-  config: CodexProConfig;
+export interface CodexGPTSelfTestProviderContext {
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
-  request: CodexProSelfTestRequest;
+  request: CodexGPTSelfTestRequest;
   expectedTools: string[];
   registeredTools: string[];
 }
 
-export type CodexProSelfTestProvider = (
-  context: CodexProSelfTestProviderContext
-) => CodexProSelfTestProviderResult | Promise<CodexProSelfTestProviderResult>;
+export type CodexGPTSelfTestProvider = (
+  context: CodexGPTSelfTestProviderContext
+) => CodexGPTSelfTestProviderResult | Promise<CodexGPTSelfTestProviderResult>;
 
-export interface PreparedCodexProSelfTestMutation {
-  result: CodexProSelfTestProviderResult;
+export interface PreparedCodexGPTSelfTestMutation {
+  result: CodexGPTSelfTestProviderResult;
   prepared: PreparedWorkspaceTextBatch | null;
 }
 
-export class CodexProSelfTestInternalError extends Error {
+export class CodexGPTSelfTestInternalError extends Error {
   constructor() {
-    super("codexpro_self_test provider contract drift");
-    this.name = "CodexProSelfTestInternalError";
+    super("codexgpt_self_test provider contract drift");
+    this.name = "CodexGPTSelfTestInternalError";
   }
 }
 
@@ -173,7 +173,7 @@ function hasDuplicates(values: string[]): boolean {
   return new Set(values).size !== values.length;
 }
 
-function exactRequest(left: CodexProSelfTestRequest, right: CodexProSelfTestRequest): boolean {
+function exactRequest(left: CodexGPTSelfTestRequest, right: CodexGPTSelfTestRequest): boolean {
   return (
     left.write_probe === right.write_probe &&
     left.bash_probe === right.bash_probe &&
@@ -188,7 +188,7 @@ function samePath(left: string, right: string): boolean {
   return left === right;
 }
 
-function gitState(status: string): CodexProSelfTestProviderResult["git"] {
+function gitState(status: string): CodexGPTSelfTestProviderResult["git"] {
   const trimmed = status.trim();
   const lower = trimmed.toLowerCase();
   if (lower.includes("not a git repository")) {
@@ -217,7 +217,7 @@ async function readExistingProbe(
   guard: PathGuard,
   workspace: Workspace
 ): Promise<string | null> {
-  const resolved = guard.resolve(workspace, CODEXPRO_SELF_TEST_ARTIFACT, { forWrite: true });
+  const resolved = guard.resolve(workspace, CODEXGPT_SELF_TEST_ARTIFACT, { forWrite: true });
   try {
     return await fsp.readFile(resolved.absPath, "utf8");
   } catch (error) {
@@ -233,7 +233,7 @@ function isRecognizedLegacyProbe(content: string, workspace: Workspace): boolean
   const lines = content.split("\n");
   if (
     lines.length !== 6 ||
-    lines[0] !== "# CodexPro Self Test" ||
+    lines[0] !== "# CodexGPT Self Test" ||
     lines[1] !== "" ||
     (lines[4] !== "marker: before" && lines[4] !== "marker: after") ||
     lines[5] !== ""
@@ -256,11 +256,11 @@ function isRecognizedLegacyProbe(content: string, workspace: Workspace): boolean
 }
 
 async function runWriteProbe(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
-  request: CodexProSelfTestRequest
-): Promise<CodexProSelfTestProviderResult["write_probe"]> {
+  request: CodexGPTSelfTestRequest
+): Promise<CodexGPTSelfTestProviderResult["write_probe"]> {
   if (!request.write_probe) {
     return {
       outcome: "skipped",
@@ -308,7 +308,7 @@ async function runWriteProbe(
       config,
       guard,
       workspace,
-      CODEXPRO_SELF_TEST_ARTIFACT,
+      CODEXGPT_SELF_TEST_ARTIFACT,
       SELF_TEST_SCAFFOLD_BEFORE,
       { createDirs: true, overwrite: true }
     );
@@ -316,7 +316,7 @@ async function runWriteProbe(
       config,
       guard,
       workspace,
-      CODEXPRO_SELF_TEST_ARTIFACT,
+      CODEXGPT_SELF_TEST_ARTIFACT,
       "marker: before",
       "marker: after",
       { expectedReplacements: 1 }
@@ -328,8 +328,8 @@ async function runWriteProbe(
     return {
       outcome: "pass",
       reason_code: "WRITE_EDIT_PROBE_PASSED",
-      probe_artifact: CODEXPRO_SELF_TEST_ARTIFACT,
-      files_touched: [CODEXPRO_SELF_TEST_ARTIFACT]
+      probe_artifact: CODEXGPT_SELF_TEST_ARTIFACT,
+      files_touched: [CODEXGPT_SELF_TEST_ARTIFACT]
     };
   } catch {
     return {
@@ -342,22 +342,22 @@ async function runWriteProbe(
 }
 
 async function runProContextProbe(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
-  request: CodexProSelfTestRequest,
-  writeProbe: CodexProSelfTestProviderResult["write_probe"]
-): Promise<CodexProSelfTestProviderResult["pro_context_probe"]> {
+  request: CodexGPTSelfTestRequest,
+  writeProbe: CodexGPTSelfTestProviderResult["write_probe"]
+): Promise<CodexGPTSelfTestProviderResult["pro_context_probe"]> {
   if (!request.pro_context_probe) {
     return { outcome: "skipped", reason_code: "PRO_CONTEXT_PROBE_DISABLED" };
   }
-  if (writeProbe.probe_artifact !== CODEXPRO_SELF_TEST_ARTIFACT) {
+  if (writeProbe.probe_artifact !== CODEXGPT_SELF_TEST_ARTIFACT) {
     return { outcome: "skipped", reason_code: "PRO_CONTEXT_PROBE_UNAVAILABLE" };
   }
   try {
     const built = await buildProContext(config, guard, workspace, {
-      title: "CodexPro Self Test Context",
-      selectedPaths: [CODEXPRO_SELF_TEST_ARTIFACT],
+      title: "CodexGPT Self Test Context",
+      selectedPaths: [CODEXGPT_SELF_TEST_ARTIFACT],
       includeImportantFiles: false,
       includeChangedFiles: false,
       includeDiff: false,
@@ -367,7 +367,7 @@ async function runProContextProbe(
     });
     const exactOnly =
       built.filesIncluded.length === 1 &&
-      built.filesIncluded[0] === CODEXPRO_SELF_TEST_ARTIFACT;
+      built.filesIncluded[0] === CODEXGPT_SELF_TEST_ARTIFACT;
     return exactOnly
       ? { outcome: "pass", reason_code: "PRO_CONTEXT_PROBE_PASSED" }
       : { outcome: "fail", reason_code: "PRO_CONTEXT_PROBE_FAILED" };
@@ -377,11 +377,11 @@ async function runProContextProbe(
 }
 
 async function runBashPolicyProbe(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
-  request: CodexProSelfTestRequest
-): Promise<CodexProSelfTestProviderResult["bash_policy_probe"]> {
+  request: CodexGPTSelfTestRequest
+): Promise<CodexGPTSelfTestProviderResult["bash_policy_probe"]> {
   if (!request.bash_probe) {
     return { outcome: "skipped", reason_code: "BASH_POLICY_DISABLED" };
   }
@@ -413,8 +413,8 @@ async function runBashPolicyProbe(
   }
 }
 
-export function normalizeCodexProSelfTestRequest(args: Record<string, unknown>): CodexProSelfTestRequest {
-  return codexproSelfTestRequestSchema.parse({
+export function normalizeCodexGPTSelfTestRequest(args: Record<string, unknown>): CodexGPTSelfTestRequest {
+  return codexgptSelfTestRequestSchema.parse({
     write_probe: args.write_probe === undefined ? true : args.write_probe,
     bash_probe: args.bash_probe === undefined ? true : args.bash_probe,
     pro_context_probe: args.pro_context_probe === undefined ? true : args.pro_context_probe,
@@ -423,14 +423,14 @@ export function normalizeCodexProSelfTestRequest(args: Record<string, unknown>):
   });
 }
 
-export function safeCodexProSelfTestWorkspaceId(value: unknown): string {
+export function safeCodexGPTSelfTestWorkspaceId(value: unknown): string {
   const text = typeof value === "string" ? value.trim() : "";
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(text)
     ? text
     : "workspace-id-omitted";
 }
 
-function policyFacts(config: CodexProConfig): CodexProSelfTestProviderResult["policy"] {
+function policyFacts(config: CodexGPTConfig): CodexGPTSelfTestProviderResult["policy"] {
   let identityValid = false;
   try {
     identityForStdio(policyIdentityScopes(config));
@@ -466,17 +466,17 @@ function policyFacts(config: CodexProConfig): CodexProSelfTestProviderResult["po
       enforcement_declared: true,
       policy_revision: "policy-unavailable",
       hard_policy_revision: "hard-policy-v1",
-      backend_id: "codexpro-node-broker",
+      backend_id: "codexgpt-node-broker",
       evidence_revision: "node-broker-v1",
       missing_capabilities: []
     };
   }
 }
 
-export const defaultCodexProSelfTestProvider: CodexProSelfTestProvider = async (context) => {
-  let inventory: CodexProSelfTestProviderResult["inventory"];
+export const defaultCodexGPTSelfTestProvider: CodexGPTSelfTestProvider = async (context) => {
+  let inventory: CodexGPTSelfTestProviderResult["inventory"];
   try {
-    const result = await codexproInventory(context.config, context.workspace, {
+    const result = await codexgptInventory(context.config, context.workspace, {
       includeGlobalSkills: context.request.include_global_skills,
       includeMcpServers: true,
       maxSkills: context.request.max_skills
@@ -501,7 +501,7 @@ export const defaultCodexProSelfTestProvider: CodexProSelfTestProvider = async (
     };
   }
 
-  let git: CodexProSelfTestProviderResult["git"];
+  let git: CodexGPTSelfTestProviderResult["git"];
   try {
     git = gitState(gitStatus(context.config, context.workspace));
   } catch {
@@ -574,15 +574,15 @@ export const defaultCodexProSelfTestProvider: CodexProSelfTestProvider = async (
 };
 
 async function runAtomicProContextProbe(
-  context: CodexProSelfTestProviderContext
-): Promise<CodexProSelfTestProviderResult["pro_context_probe"]> {
+  context: CodexGPTSelfTestProviderContext
+): Promise<CodexGPTSelfTestProviderResult["pro_context_probe"]> {
   if (!context.request.pro_context_probe) {
     return { outcome: "skipped", reason_code: "PRO_CONTEXT_PROBE_DISABLED" };
   }
   try {
     const request = await prepareProContextRequest(context.config, context.guard, context.workspace, {
-      title: "CodexPro Self Test Context",
-      selectedPaths: [CODEXPRO_SELF_TEST_ARTIFACT],
+      title: "CodexGPT Self Test Context",
+      selectedPaths: [CODEXGPT_SELF_TEST_ARTIFACT],
       includeImportantFiles: false,
       includeChangedFiles: false,
       includeDiff: false,
@@ -597,9 +597,9 @@ async function runAtomicProContextProbe(
       request,
       [],
       {},
-      { [CODEXPRO_SELF_TEST_ARTIFACT]: SELF_TEST_SCAFFOLD_AFTER }
+      { [CODEXGPT_SELF_TEST_ARTIFACT]: SELF_TEST_SCAFFOLD_AFTER }
     );
-    return built.filesIncluded.length === 1 && built.filesIncluded[0] === CODEXPRO_SELF_TEST_ARTIFACT
+    return built.filesIncluded.length === 1 && built.filesIncluded[0] === CODEXGPT_SELF_TEST_ARTIFACT
       ? { outcome: "pass", reason_code: "PRO_CONTEXT_PROBE_PASSED" }
       : { outcome: "fail", reason_code: "PRO_CONTEXT_PROBE_FAILED" };
   } catch {
@@ -607,11 +607,11 @@ async function runAtomicProContextProbe(
   }
 }
 
-export async function prepareAtomicCodexProSelfTest(
-  context: CodexProSelfTestProviderContext
-): Promise<PreparedCodexProSelfTestMutation> {
+export async function prepareAtomicCodexGPTSelfTest(
+  context: CodexGPTSelfTestProviderContext
+): Promise<PreparedCodexGPTSelfTestMutation> {
   if (!context.request.write_probe || context.config.writeMode === "off") {
-    return { result: await defaultCodexProSelfTestProvider(context), prepared: null };
+    return { result: await defaultCodexGPTSelfTestProvider(context), prepared: null };
   }
   let existing: string | null;
   try {
@@ -625,7 +625,7 @@ export async function prepareAtomicCodexProSelfTest(
     existing !== SELF_TEST_SCAFFOLD_AFTER &&
     !isRecognizedLegacyProbe(existing, context.workspace)
   ) {
-    const baseline = await defaultCodexProSelfTestProvider({
+    const baseline = await defaultCodexGPTSelfTestProvider({
       ...context,
       request: { ...context.request, write_probe: false, pro_context_probe: false }
     });
@@ -645,7 +645,7 @@ export async function prepareAtomicCodexProSelfTest(
     };
   }
 
-  const baseline = await defaultCodexProSelfTestProvider({
+  const baseline = await defaultCodexGPTSelfTestProvider({
     ...context,
     request: { ...context.request, write_probe: false, pro_context_probe: false }
   });
@@ -653,7 +653,7 @@ export async function prepareAtomicCodexProSelfTest(
     context.config,
     context.guard,
     context.workspace,
-    [{ path: CODEXPRO_SELF_TEST_ARTIFACT, content: SELF_TEST_SCAFFOLD_AFTER, mode: "replace" }]
+    [{ path: CODEXGPT_SELF_TEST_ARTIFACT, content: SELF_TEST_SCAFFOLD_AFTER, mode: "replace" }]
   );
   return {
     result: {
@@ -662,8 +662,8 @@ export async function prepareAtomicCodexProSelfTest(
       write_probe: {
         outcome: "pass",
         reason_code: "WRITE_EDIT_PROBE_PASSED",
-        probe_artifact: CODEXPRO_SELF_TEST_ARTIFACT,
-        files_touched: [CODEXPRO_SELF_TEST_ARTIFACT]
+        probe_artifact: CODEXGPT_SELF_TEST_ARTIFACT,
+        files_touched: [CODEXGPT_SELF_TEST_ARTIFACT]
       },
       pro_context_probe: await runAtomicProContextProbe(context)
     },
@@ -672,19 +672,19 @@ export async function prepareAtomicCodexProSelfTest(
 }
 
 function check(
-  name: CodexProSelfTestCheck["name"],
-  status: CodexProSelfTestCheck["status"],
-  code: CodexProSelfTestCheck["code"],
+  name: CodexGPTSelfTestCheck["name"],
+  status: CodexGPTSelfTestCheck["status"],
+  code: CodexGPTSelfTestCheck["code"],
   message: string
-): CodexProSelfTestCheck {
+): CodexGPTSelfTestCheck {
   return { name, status, code, message };
 }
 
 function deriveChecks(
-  facts: CodexProSelfTestProviderResult,
+  facts: CodexGPTSelfTestProviderResult,
   missingTools: string[],
   unexpectedTools: string[]
-): CodexProSelfTestCheck[] {
+): CodexGPTSelfTestCheck[] {
   const toolSetMatches = missingTools.length === 0 && unexpectedTools.length === 0;
   const writeModeCheck = facts.write_mode === "workspace"
     ? check("write_mode", "pass", "WRITE_MODE_VALID", "Write mode is workspace.")
@@ -699,7 +699,7 @@ function deriveChecks(
     ? check("registered_tool_set", "pass", "TOOL_SET_MATCH", "Expected and registered tool sets match.")
     : check("registered_tool_set", "fail", "TOOL_SET_MISMATCH", "Expected and registered tool sets differ.");
 
-  let inventoryCheck: CodexProSelfTestCheck;
+  let inventoryCheck: CodexGPTSelfTestCheck;
   if (facts.inventory.outcome === "fail") {
     inventoryCheck = check("inventory", "fail", "INVENTORY_FAILED", "The capability inventory could not be collected.");
   } else if (facts.inventory.outcome === "warn") {
@@ -721,7 +721,7 @@ function deriveChecks(
         ? check("git_status", "warn", "NOT_GIT", "The workspace is not a Git repository.")
         : check("git_status", "warn", "GIT_UNAVAILABLE", "The workspace Git state is unavailable.");
 
-  const writeMessages: Record<CodexProSelfTestProviderResult["write_probe"]["reason_code"], string> = {
+  const writeMessages: Record<CodexGPTSelfTestProviderResult["write_probe"]["reason_code"], string> = {
     WRITE_EDIT_PROBE_PASSED: "The fixed write/edit probe passed.",
     WRITE_EDIT_PROBE_DISABLED: "The write/edit probe was disabled by request.",
     WRITE_EDIT_PROBE_UNAVAILABLE: "The write/edit probe was unavailable in the current write mode.",
@@ -735,7 +735,7 @@ function deriveChecks(
     writeMessages[facts.write_probe.reason_code]
   );
 
-  const proMessages: Record<CodexProSelfTestProviderResult["pro_context_probe"]["reason_code"], string> = {
+  const proMessages: Record<CodexGPTSelfTestProviderResult["pro_context_probe"]["reason_code"], string> = {
     PRO_CONTEXT_PROBE_PASSED: "The selected-only Pro context probe passed.",
     PRO_CONTEXT_PROBE_DISABLED: "The selected-only Pro context probe was disabled by request.",
     PRO_CONTEXT_PROBE_UNAVAILABLE: "The selected-only Pro context probe was unavailable without the fixed artifact.",
@@ -748,7 +748,7 @@ function deriveChecks(
     proMessages[facts.pro_context_probe.reason_code]
   );
 
-  const bashMessages: Record<CodexProSelfTestProviderResult["bash_policy_probe"]["reason_code"], string> = {
+  const bashMessages: Record<CodexGPTSelfTestProviderResult["bash_policy_probe"]["reason_code"], string> = {
     BASH_POLICY_PASSED: "The safe Bash policy probe passed.",
     BASH_POLICY_DISABLED: "The Bash policy probe was disabled by request.",
     BASH_POLICY_UNAVAILABLE: "The Bash policy probe was unavailable in Bash-off mode.",
@@ -776,7 +776,7 @@ function deriveChecks(
   const policyEnforcementCheck = facts.policy.enforcement_declared
     ? check("policy_enforcement", "pass", "POLICY_ENFORCEMENT_DECLARED", "The enforcement capability limits are declared.")
     : check("policy_enforcement", "fail", "POLICY_ENFORCEMENT_INVALID", "The enforcement capability limits are unavailable.");
-  const auditMessages: Record<CodexProSelfTestProviderResult["audit_probe"]["reason_code"], string> = {
+  const auditMessages: Record<CodexGPTSelfTestProviderResult["audit_probe"]["reason_code"], string> = {
     AUDIT_READY: "Persistent audit state, key, writer lock, tail, and retention are ready.",
     AUDIT_DISABLED: "Persistent audit is explicitly disabled.",
     AUDIT_UNINITIALIZED: "Persistent audit is configured but its installation state is not initialized yet.",
@@ -814,10 +814,10 @@ function deriveChecks(
   ];
 }
 
-export function buildCodexProSelfTestData(
+export function buildCodexGPTSelfTestData(
   rawFacts: unknown,
-  context: CodexProSelfTestProviderContext
-): CodexProSelfTestData {
+  context: CodexGPTSelfTestProviderContext
+): CodexGPTSelfTestData {
   if (
     rawFacts &&
     typeof rawFacts === "object" &&
@@ -826,11 +826,11 @@ export function buildCodexProSelfTestData(
     (rawFacts as { expected_tools?: unknown }).expected_tools ===
       (rawFacts as { registered_tools?: unknown }).registered_tools
   ) {
-    throw new CodexProSelfTestInternalError();
+    throw new CodexGPTSelfTestInternalError();
   }
 
   const parsed = providerResultSchema.safeParse(rawFacts);
-  if (!parsed.success) throw new CodexProSelfTestInternalError();
+  if (!parsed.success) throw new CodexGPTSelfTestInternalError();
   const facts = parsed.data;
 
   const inventoryValid =
@@ -888,7 +888,7 @@ export function buildCodexProSelfTestData(
       facts.audit_probe.reason_code === "AUDIT_UNAVAILABLE"
     ));
   if (!inventoryValid || !writeProbeValid || !proContextProbeValid || !bashPolicyProbeValid || !auditProbeValid) {
-    throw new CodexProSelfTestInternalError();
+    throw new CodexGPTSelfTestInternalError();
   }
 
   if (
@@ -905,7 +905,7 @@ export function buildCodexProSelfTestData(
     facts.policy.profile_id !== (context.config.permissionProfileId ?? "compat-v1") ||
     !exactRequest(facts.request, context.request)
   ) {
-    throw new CodexProSelfTestInternalError();
+    throw new CodexGPTSelfTestInternalError();
   }
   if (
     hasDuplicates(facts.expected_tools) ||
@@ -914,7 +914,7 @@ export function buildCodexProSelfTestData(
     JSON.stringify(facts.registered_tools) !== JSON.stringify(sortedCopy(facts.registered_tools)) ||
     !samePath(facts.root, context.workspace.root)
   ) {
-    throw new CodexProSelfTestInternalError();
+    throw new CodexGPTSelfTestInternalError();
   }
 
   const expectedTools = [...facts.expected_tools];
@@ -965,14 +965,14 @@ export function buildCodexProSelfTestData(
     terms_boundary: facts.terms_boundary
   };
 
-  const validated = codexproSelfTestDataSchema.safeParse(data);
-  if (!validated.success) throw new CodexProSelfTestInternalError();
+  const validated = codexgptSelfTestDataSchema.safeParse(data);
+  if (!validated.success) throw new CodexGPTSelfTestInternalError();
   return validated.data;
 }
 
-export function codexproSelfTestHumanText(data: CodexProSelfTestData): string {
+export function codexgptSelfTestHumanText(data: CodexGPTSelfTestData): string {
   return [
-    "# CodexPro Self Test",
+    "# CodexGPT Self Test",
     "",
     `Status: ${data.status}`,
     `Checks: ${data.counts.passed} pass, ${data.counts.warned} warn, ${data.counts.failed} fail, ${data.counts.skipped} skipped`,
@@ -983,13 +983,13 @@ export function codexproSelfTestHumanText(data: CodexProSelfTestData): string {
     "",
     ...data.checks.map((item) => `- ${item.status.toUpperCase()} ${item.name} [${item.code}]: ${item.message}`),
     "",
-    "CodexPro is a local workspace bridge. It does not provide models, proxy model access, bypass quotas, or execute agents."
+    "CodexGPT is a local workspace bridge. It does not provide models, proxy model access, bypass quotas, or execute agents."
   ].join("\n");
 }
 
-export function codexproSelfTestFailureText(code: string, message: string): string {
+export function codexgptSelfTestFailureText(code: string, message: string): string {
   return [
-    "# CodexPro Self Test Error",
+    "# CodexGPT Self Test Error",
     "",
     `Code: ${code}`,
     message

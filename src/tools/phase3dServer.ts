@@ -1,6 +1,6 @@
 import {
   persistedV2ContractVersion,
-  type CodexProConfig,
+  type CodexGPTConfig,
   type ToolContractVersion
 } from "../config.js";
 import { contractIncludesV2 } from "./contracts/catalog.js";
@@ -76,7 +76,7 @@ export interface CreatePhase3DResourceResolverInput {
 }
 
 export interface CreatePhase3DServerIntegrationInput extends CreatePhase3DResourceResolverInput {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   policyRevision(): string;
 }
 

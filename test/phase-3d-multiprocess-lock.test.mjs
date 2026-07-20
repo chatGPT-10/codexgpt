@@ -42,7 +42,7 @@ async function waitFor(file, timeoutMs = 20_000) {
 }
 
 async function runLockContention(aliasTransform = (value) => value) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-phase3d-lock-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-phase3d-lock-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");
@@ -78,7 +78,7 @@ async function runLockContention(aliasTransform = (value) => value) {
     await assert.rejects(() => fsp.stat(path.join(workspaceRoot, "a.txt")), { code: "ENOENT" });
     assert.equal(await fsp.readFile(path.join(workspaceRoot, "b.txt"), "utf8"), "alpha");
     assert.deepEqual(
-      (await fsp.readdir(workspaceRoot)).filter((name) => name.startsWith(".codexpro-txn-")),
+      (await fsp.readdir(workspaceRoot)).filter((name) => name.startsWith(".codexgpt-txn-")),
       []
     );
   } finally {

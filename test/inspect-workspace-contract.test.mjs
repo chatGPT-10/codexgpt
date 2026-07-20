@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
   "../src/tools/schemas/inspectWorkspace.ts",
@@ -68,7 +68,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "inspect-workspace-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -80,7 +80,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(files, callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-inspect-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-inspect-contract-"));
   const root = await fs.realpath(created);
   try {
     for (const [relativePath, content] of Object.entries(files)) {
@@ -235,7 +235,7 @@ function assertInspectFailure(result, code, details) {
   return parsed;
 }
 
-const topKeys = ["codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"];
+const topKeys = ["codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"];
 const dataKeys = [
   "areas",
   "cache",
@@ -294,8 +294,8 @@ test("inspect_workspace schema exports exact constructors and nested success", (
 
   const success = createInspectWorkspaceSuccess(sampleData("D:\\Dev\\project"), 7);
   assert.deepEqual(Object.keys(success).sort(), topKeys);
-  assert.equal(success.codexpro_tool, "inspect_workspace");
-  assert.equal(success.codexpro_title, "Inspect Workspace");
+  assert.equal(success.codexgpt_tool, "inspect_workspace");
+  assert.equal(success.codexgpt_title, "Inspect Workspace");
   assert.equal(success.ok, true);
   assert.equal(success.error, null);
   assert.deepEqual(Object.keys(success.data).sort(), dataKeys);
@@ -324,8 +324,8 @@ test("inspect_workspace schema creates five exact stable failures", () => {
       9
     );
     assert.deepEqual(result, {
-      codexpro_tool: "inspect_workspace",
-      codexpro_title: "Inspect Workspace",
+      codexgpt_tool: "inspect_workspace",
+      codexgpt_title: "Inspect Workspace",
       ok: false,
       data: null,
       error: {
@@ -568,7 +568,7 @@ test("inspect_workspace classifies workspace and path failures without leaking u
 
 test("inspect_workspace Tool Card is nested-first, failure-aware, and retains flat fallback", () => {
   assert.match(toolCardWidgetHtml, /function inspectWorkspaceResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "inspect_workspace"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "inspect_workspace"/);
   assert.match(toolCardWidgetHtml, /return nested \? data\.data : \(data \?\? \{\}\)/);
   assert.match(toolCardWidgetHtml, /const analysis = inspectWorkspaceResultData\(data\)/);
   assert.match(toolCardWidgetHtml, /data\?\.ok === false/);
@@ -578,13 +578,13 @@ test("inspect_workspace Tool Card is nested-first, failure-aware, and retains fl
 test("inspect_workspace supertool preserves the exact nested envelope", async () => {
   await withTempWorkspace({ "src/index.ts": "export function main() {}\n" }, async (root) => {
     await withConfigClient(createTestConfig(root, { toolMode: "full" }), {}, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "inspect_workspace",
         args: {}
       });
-      assert.equal(result.structuredContent.codexpro_tool, "inspect_workspace");
-      assert.equal(result.structuredContent.codexpro_title, "Inspect Workspace");
-      assert.equal(result.structuredContent.codexpro_super_action, "inspect_workspace");
+      assert.equal(result.structuredContent.codexgpt_tool, "inspect_workspace");
+      assert.equal(result.structuredContent.codexgpt_title, "Inspect Workspace");
+      assert.equal(result.structuredContent.codexgpt_super_action, "inspect_workspace");
       assert.equal(result.structuredContent.wrapped_tool, "inspect_workspace");
       assert.equal(result.structuredContent.ok, true);
       assert.ok(result.structuredContent.data.coverage);

@@ -50,8 +50,8 @@ Create the opening contract tests with fixtures for changed, clean, stats-only, 
 
 ```js
 const parsed = gitDiffOutputSchema.parse(createGitDiffSuccess(changedData(), 7));
-assert.equal(parsed.codexpro_tool, "git_diff");
-assert.equal(parsed.codexpro_title, "Git Diff");
+assert.equal(parsed.codexgpt_tool, "git_diff");
+assert.equal(parsed.codexgpt_title, "Git Diff");
 assert.equal(parsed.ok, true);
 assert.deepEqual(parsed.data, changedData());
 assert.equal(parsed.error, null);
@@ -131,7 +131,7 @@ git commit -m "feat(schema): add git_diff result contract"
 
 **Interfaces:**
 - Add `GitDiffProviderContext` with `config`, `guard`, `workspace`, optional `path`, and `staged`.
-- Add optional `gitDiffResultProvider` to `CodexProServerDependencies`.
+- Add optional `gitDiffResultProvider` to `CodexGPTServerDependencies`.
 - Default provider delegates to `gitDiff(config, guard, workspace, path, staged)`.
 
 - [x] **Step 1: Add failing runtime tests**
@@ -142,7 +142,7 @@ Add in-memory MCP tests that assert:
 const descriptor = (await client.listTools()).tools.find((tool) => tool.name === "git_diff");
 assert.ok(descriptor.outputSchema);
 assert.deepEqual(new Set(descriptor.outputSchema.required), new Set([
-  "codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"
+  "codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"
 ]));
 ```
 
@@ -213,7 +213,7 @@ try {
     staged
   });
   if (typeof rawProviderResult !== "string") {
-    throw new CodexProError("git_diff provider returned a non-string result.");
+    throw new CodexGPTError("git_diff provider returned a non-string result.");
   }
   const rawDiff = normalizeGitOutput(rawProviderResult);
   const outputFailure = classifyGitDiffOutputFailure(rawDiff);
@@ -305,7 +305,7 @@ const error = data?.error ?? {};
 
 Assert it does not read direct `data.diff`, `data.additions`, `data.deletions`, `data.changed`, or `data.diff_error` as top-level fields. Also assert `renderChanges` still reads its existing flat `show_changes` fields.
 
-Call the `codexpro` supertool with action `git_diff` and assert wrapper metadata plus nested `data`/`error` with no legacy top-level diff fields.
+Call the `codexgpt` supertool with action `git_diff` and assert wrapper metadata plus nested `data`/`error` with no legacy top-level diff fields.
 
 - [x] **Step 2: Run focused tests and verify RED**
 

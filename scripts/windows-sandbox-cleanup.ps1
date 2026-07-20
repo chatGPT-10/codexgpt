@@ -16,6 +16,6 @@ Add-Type -Path $sourcePath -ReferencedAssemblies @(
   "Microsoft.CSharp.dll"
 )
 
-if (-not [CodexPro.Phase4.SandboxSpike]::Cleanup($ProbeNonce)) {
+if (-not [CodexGPT.Phase4.SandboxSpike]::Cleanup($ProbeNonce)) {
   throw "SANDBOX_CLEANUP_FAILED"
 }
