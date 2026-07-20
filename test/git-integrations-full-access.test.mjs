@@ -351,7 +351,9 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
       const marker = path.join(fixture.root, "snapshot-marker.txt");
       const source = (label) => [
         "import fs from 'node:fs';",
-        `fs.appendFileSync(process.argv[2], ${JSON.stringify(`${label}\n`)});`,
+        "let parentCommand = null;",
+        "try { parentCommand = fs.readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').replaceAll('\\0', ' ').trim(); } catch {}",
+        `fs.appendFileSync(process.argv[2], JSON.stringify({ label: ${JSON.stringify(label)}, parentCommand, argv: process.argv }) + '\\n');`,
         "process.stdin.pipe(process.stdout);",
         ""
       ].join("\n");
@@ -374,6 +376,8 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
             "filter.snapshot.clean"
           ], undefined, { allowFailure: true });
           assert.equal(retainedCommand.status, 1);
+          assert.equal(request.integrationConfigOverrides.some((entry) => entry.includes(script)), false);
+          await fs.rm(marker, { force: true });
           await fs.writeFile(script, source("drifted"), "utf8");
           return baseExecute(repository, request);
         }
@@ -413,9 +417,9 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
         })
       });
       assert.equal(staged.normalization, "approved_full_access");
-      const executions = (await fs.readFile(marker, "utf8")).trim().split(/\r?\n/u);
+      const executions = (await fs.readFile(marker, "utf8")).trim().split(/\r?\n/u).map((line) => JSON.parse(line));
       assert.ok(executions.length >= 1);
-      assert.deepEqual(new Set(executions), new Set(["reviewed"]));
+      assert.deepEqual(new Set(executions.map((entry) => entry.label)), new Set(["reviewed"]), executions);
       assert.match(await fs.readFile(script, "utf8"), /drifted/u);
     } finally {
       reviews.dispose();
