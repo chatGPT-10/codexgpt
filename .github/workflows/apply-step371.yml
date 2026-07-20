@@ -1,11 +1,6 @@
 name: Apply STEP-371
 
-on:
-  push:
-    branches:
-      - fix/gate-x-execution-window-20260720
-    paths:
-      - .github/workflows/apply-step371.yml
+on: [push]
 
 permissions:
   contents: write
