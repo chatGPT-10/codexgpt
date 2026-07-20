@@ -1,7 +1,7 @@
 {
   "name": "codexpro",
   "version": "0.28.6",
-  "description": "A local MCP/App SDK-style connector that lets ChatGPT inspect, edit, and hand off work to Codex inside a local dev workspace.",
+  "description": "Windows-first, self-hosted MCP tools that connect ChatGPT to one local repository through a loopback server and an optional HTTPS tunnel.",
   "type": "module",
   "license": "MIT",
   "repository": {
