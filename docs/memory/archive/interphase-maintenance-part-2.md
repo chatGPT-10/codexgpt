@@ -161,3 +161,41 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 - Active tracked paths and UTF-8 text outside append-only archives contain no residual previous project identifier. `git diff --check`, TypeScript build, isolated settings Smoke, and the 521-entry `codexgpt@0.28.6` package dry-run passed.
 - A combined local Smoke run passed analysis, analysis CLI, protected main, HTTP, Pro CLI, and doctor components before one settings runtime-status timeout. The isolated settings Smoke immediately passed; the complete exact-head CI matrix remains required to distinguish local timing noise from a portable defect.
 - The first final-head Ubuntu Node 24 regression exposed only frozen V1 descriptor/call hashes and protected Smoke source hashes that still represented the previous namespace. Updated those exact hashes from observed canonical CodexGPT descriptors, normalized server-config payloads, and LF-normalized protected sources; tool names, counts, envelopes, and runtime behavior remained unchanged.
+
+
+## 2026-07-20 — STEP-366: Remove mutable Gate X commands from the private integration config
+
+**Status:** Implemented in an isolated exact-merge worktree; pending pull-request exact-head CI.
+
+**Goal:** Repair CI run 113 and make Gate X immutable integration execution structural rather than dependent on Git configuration precedence.
+
+**Files changed:** `src/git/integrations.ts`, `test/git-integrations-full-access.test.mjs`, `test/mutation-architecture.test.mjs`, `Memory.md`, and this archive.
+
+**Implementation summary:**
+
+- CI run 113 initially failed only Ubuntu Node 20 in `Gate X executes an immutable integration snapshot across final revalidation and spawn`: the marker observed both the reviewed snapshot and the subsequently drifted repository script. The failed job rerun passed, proving intermittency but not eliminating the unsafe state.
+- Root cause: Gate X copied the repository's complete local Git config into its private Git directory and also supplied reviewed snapshot commands through command-line configuration overrides. The private execution therefore retained the original mutable command and the snapshot command for the same key, relying on precedence instead of removing the unreviewed execution path.
+- Gate X now removes each discovered executable integration command key and the inherited `core.hooksPath` key from the private config using bounded Git config operations, verifies every key is absent, and then exposes only the materialized reviewed command or private hook snapshot.
+- Advanced the internal integration implementation revision so previously minted durable review facts fail closed after this execution-bundle change.
+- Strengthened the regression to assert the mutable command is absent from the private config before the original script is changed and approved execution begins. Updated the exact mutation-review digest for the changed private-config write.
+
+**Verification:**
+
+- The strengthened regression failed against the original implementation because `filter.snapshot.clean` was still present in the private config.
+- `npm run build` passed.
+- `npm run test:focused -- test/git-integrations-full-access.test.mjs` passed 10/10.
+- The exact formerly failing immutable-snapshot test passed five consecutive isolated runs.
+- `npm run test:focused -- test/git-integrations-approval.test.mjs test/git-integrations-full-access.test.mjs test/mutation-architecture.test.mjs` passed 17/17.
+- `npm run test:focused -- test/git-integrations-worktree.test.mjs` passed 4/4; `npm run test:focused -- test/git-sha256-v4.test.mjs` passed 2/2.
+- `npm run policy:check` and `git diff --check` passed.
+- GitHub Actions run 113 attempt 2 passed the rerun Ubuntu Node 20 job and completed successfully; a new exact-head runtime matrix remains required for this code change.
+
+**Risks and limitations:**
+
+- The private config intentionally retains reviewed non-command Git configuration facts; only executable integration keys and inherited hooks-path selection are removed and replaced by immutable materialized equivalents.
+- This remains ambient `full_access` execution under the current user and does not create OS isolation.
+- The additional bounded Git config operations can fail closed if the private config cannot be normalized or verified.
+
+**Rollback:** Revert STEP-366 as one unit. Do not retain the strengthened test while restoring duplicate executable keys, and do not restore the previous implementation revision independently.
+
+**Next step:** Publish the focused repair through a dedicated pull request and require Repository policy plus the complete Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix before merge.

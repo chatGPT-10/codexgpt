@@ -13,7 +13,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
 - Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
-- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-363 cleanup and STEP-364 documentation reconciliation are locally complete, unstaged, and uncommitted.
+- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-366 repairs the Gate X private integration bundle after post-merge CI run 113 exposed an intermittent duplicate-command path; the focused repair is locally verified and pending exact-head pull-request CI.
 
 ## Approved execution boundary
 
@@ -58,7 +58,8 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - STEP-363 adversarial focused run `2026-07-19T19-49-04-795Z-interphase-cleanup-adversarial-focused-38f5ac3f` passed 61/61 on each managed Node major. Ordinary run `2026-07-19T19-18-17-116Z-interphase-cleanup-ordinary-final-2-d1a614a7` passed 1,096 tests per major with zero failures and two established skips.
 - STEP-363 cleanup removed 157 obsolete terminal runs with zero failures; the final explicit scan retained 20 runs and found zero owned-temp candidates, invalid paths, failed deletions, or interrupted claims. Build, policy, diff, mutation inventory, and the 521-entry package dry-run passed.
 - STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
-- STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior. Final exact-head matrix remains required.
+- STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior.
+- Post-merge CI run 113 initially failed only Ubuntu Node 20 because an immutable Gate X integration test observed both reviewed and drifted filter execution. Attempt 2 passed, confirming intermittency. STEP-366 removes executable integration keys and inherited hooks selection from the copied private config, verifies absence, advances the review implementation revision, and passed build, policy, diff integrity, 17/17 focused approval/integration/mutation tests, 4/4 worktree integration tests, 2/2 SHA-256 tests, and five consecutive exact reproducer runs.
 
 ## Known limitations
 
@@ -77,12 +78,13 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 
 ## Open items
 
-1. Keep STEP-363 and STEP-364 unstaged and uncommitted until the user explicitly requests publication.
+1. Publish STEP-366 through a focused pull request and require the complete runtime matrix before merge.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
-3. Do not enter Phase 6 or push the interphase runtime change without a new explicit action.
+3. Do not enter Phase 6 as part of this CI repair.
 
 ## Recent summaries
 
+- **STEP-366 - Gate X private-config isolation:** remove original executable integration commands from the copied private Git config, verify their absence, and execute only reviewed materialized snapshots.
 - **STEP-365 - Canonical CodexGPT rename:** replace the previous project name across active package, CLI, environment, state, tool, source, test, and documentation surfaces; preserve append-only historical archives and record the correction here.
 
 - **STEP-364 - Neat-freak reconciliation:** align rules, contributor/security guidance, Chinese developer docs, changelog, archive labels, and concise project memory with STEP-363.

@@ -228,7 +228,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "mkdir:2efaa8e3a01f",
       "mkdir:e0c81e0d846f",
       "writeFile:d38166b36176",
-      "writeFile:928b0f280982",
+      "writeFile:7749af193a1b",
       "writeFile:15159aacbf31",
       "writeFile:605f975b9deb"
     ])
