@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { waitForTerminalPublication } from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -32,6 +33,36 @@ async function waitForTerminal(root, runId, deadlineMs = 15_000) {
   }
   throw new Error(`Run ${runId} did not become terminal.`);
 }
+
+test("terminal publication grace tolerates delayed Windows result visibility", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-terminal-publication-"));
+  const result = { schemaVersion: 2, runId: "delayed-result" };
+  let publishError;
+  const publish = new Promise((resolve) => {
+    setTimeout(async () => {
+      try {
+        const pending = path.join(directory, "result.json.pending");
+        await fs.writeFile(pending, `${JSON.stringify(result)}\n`, "utf8");
+        await fs.rename(pending, path.join(directory, "result.json"));
+      } catch (error) {
+        publishError = error;
+      } finally {
+        resolve();
+      }
+    }, 2_000);
+  });
+
+  try {
+    const terminal = await waitForTerminalPublication(directory);
+    await publish;
+    if (publishError) throw publishError;
+    assert.deepEqual(terminal.result, result);
+    assert.equal(terminal.stopped, undefined);
+  } finally {
+    await publish;
+    await fs.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
 
 async function waitForDirectoryCount(root, expected, deadlineMs = 5_000) {
   const deadline = Date.now() + deadlineMs;

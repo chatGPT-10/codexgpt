@@ -288,7 +288,7 @@ async function readRunFiles(directory) {
   return { metadata, result, stopped, evidence };
 }
 
-async function waitForTerminalPublication(directory, deadlineMs = 1_000) {
+export async function waitForTerminalPublication(directory, deadlineMs = 5_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const [result, stopped] = await Promise.all([

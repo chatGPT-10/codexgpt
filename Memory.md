@@ -13,7 +13,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
 - Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
-- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape identified by CI #113/#115; the focused runtime repair is locally verified and pending exact-head pull-request plus post-merge CI.
+- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape identified by CI #113/#115. STEP-368 repairs the independent Windows Node 24 detached-run terminal-publication observation race exposed by PR CI #119; both repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
 
 ## Approved execution boundary
 
@@ -60,6 +60,7 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
 - STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior.
 - Post-merge CI run 113 initially failed only Ubuntu Node 20 because an immutable Gate X integration test observed both reviewed and drifted filter execution. STEP-366 removed the original executable keys from the copied private config, but post-merge CI #115 reproduced the drift. Process ancestry proved the remaining source was an ordinary original-repository `git write-tree` after the review window. STEP-367 moves old-tree calculation, private add, and new-tree calculation into the same private materialized snapshot bundle, returns object-format-validated tree OIDs, and removes ordinary write-tree from the Gate X stage path. Build, policy, diff integrity, the 521-entry package dry-run, 25/25 affected tests, and five consecutive exact regression runs passed.
+- PR CI #119 passed policy, Ubuntu Node 20/24, and Windows Node 20, but Windows Node 24 reported two false `stale` detached runs while their exact worker evidence was awaiting terminal result publication. STEP-368 extends only the exact-evidence terminal-publication grace from one to five seconds and adds a deterministic two-second delayed atomic-publication regression. Node 20/24 affected suites passed 28/28, the complete cleanup file passed five consecutive Node 24 runs, and build, policy, diff integrity, and the 521-entry package dry-run passed.
 
 ## Known limitations
 
@@ -78,12 +79,13 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 
 ## Open items
 
-1. Publish STEP-367 through the existing diagnostic pull request, require the complete runtime matrix, then verify the resulting `main` push CI.
+1. Publish STEP-368 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
 3. Do not enter Phase 6 as part of this CI repair.
 
 ## Recent summaries
 
+- **STEP-368 - Detached-run terminal publication grace:** avoid false Windows `stale` classification while exact worker evidence is still publishing terminal state, with a deterministic delayed-publication regression.
 - **STEP-367 - Gate X private tree derivation:** compute both old and new approved stage trees inside the same private immutable integration bundle and reject ordinary write-tree execution in the Gate X stage path.
 - **STEP-366 - Gate X private-config isolation:** remove original executable integration commands from the copied private Git config, verify their absence, and execute only reviewed materialized snapshots.
 - **STEP-365 - Canonical CodexGPT rename:** replace the previous project name across active package, CLI, environment, state, tool, source, test, and documentation surfaces; preserve append-only historical archives and record the correction here.
@@ -98,7 +100,8 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
 - [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
-- [Active interphase maintenance Part 2 — STEP-363 onward](docs/memory/archive/interphase-maintenance-part-2.md)
+- [Closed interphase maintenance Part 2 — STEP-363 through STEP-367](docs/memory/archive/interphase-maintenance-part-2.md)
+- [Active interphase maintenance Part 3 — STEP-368 onward](docs/memory/archive/interphase-maintenance-part-3.md)
 - [Phase 1 Volume 1 — STEP-073 through STEP-139](docs/memory/archive/phase-1.md)
 - [Closed Phase 1 Volume 2 — STEP-140 through STEP-151](docs/memory/archive/phase-1-part-2.md)
 - [Closed Phase 1 Volume 3 — STEP-152 through STEP-165](docs/memory/archive/phase-1-part-3.md)
