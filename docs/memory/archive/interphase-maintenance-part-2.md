@@ -271,3 +271,35 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 **Rollback:** Revert STEP-368 as one unit. Do not restore the previous unavailable-equals-mismatch behavior without also accepting unsafe retry classification under transient Windows identity-query failure.
 
 **Next step:** Push the amended PR head, require a fresh complete matrix, then verify the post-merge main push matrix.
+
+
+## 2026-07-20 — STEP-369: Separate Git child-environment isolation from Gate X execution
+
+**Status:** Implemented on the active CI-repair branch; pending exact-head CI.
+
+**Goal:** Correct an over-constrained STEP-367 regression while retaining a deterministic proof that fixture Git children do not inherit ambient Git configuration.
+
+**Files changed:** `test/git-integrations-full-access.test.mjs`, `Memory.md`, and this archive.
+
+**Correction to STEP-367:**
+
+- STEP-367 recorded that the parent `GIT_CONFIG_*` poison remained active through the approved Gate X stage. PR run 121 showed this combined two distinct contracts and caused the test itself to install an unreviewed `filter.snapshot.process` sibling while the approved operation was in flight.
+- Git process filters have precedence semantics in which a configured `process` driver can supersede reviewed `clean`/`smudge` commands. Attempting to neutralize that sibling with additional command-scoped values disabled legitimate reviewed filters and broke stage and checkout integration controls. That attempted production change was discarded before commit.
+- The corrected test now injects the ambient process filter only around an isolated fixture `runGit` config probe, proves the spawned Git child cannot observe it, restores the parent environment, and then separately tests Gate X immutable snapshot execution against on-disk script drift.
+- This preserves the intended STEP-367 fix—bounded child process environments—without claiming that arbitrary in-process environment mutation after review is a supported Gate X input.
+
+**Verification:**
+
+- Managed Node `v20.20.2` and `v24.15.0`: Gate X approval, full-access integration, worktree integration, and mutation architecture passed 21/21 on each major.
+- The exact immutable-snapshot test passed on both managed Node majors.
+- The discarded sibling-neutralization experiment failed four integration controls locally and was not committed or pushed.
+- Final build, policy, diff integrity, runner identity, and cleanup gates remain required on the amended head.
+
+**Risks and limitations:**
+
+- The fixture proves child-process environment isolation at the spawn boundary. It does not promise resilience to arbitrary mutation of the parent Node process environment during an approved operation.
+- Production Gate X still relies on the clean production executor environment plus STEP-366 private-config sanitization and immutable executable snapshots.
+
+**Rollback:** Revert STEP-369 together with the corrected test only if the invalid process-wide poison expectation is intentionally restored; do not reintroduce the discarded filter-sibling override logic.
+
+**Next step:** Commit and push the corrected regression, require a fresh complete PR matrix, then verify the post-merge main matrix.
