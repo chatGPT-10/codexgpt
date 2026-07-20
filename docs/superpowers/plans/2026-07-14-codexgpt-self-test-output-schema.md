@@ -2,7 +2,7 @@
 
 > Date: 2026-07-14  
 > Phase: 1, Slice 27  
-> Design: `docs/superpowers/specs/2026-07-14-codexgpt-self-test-output-schema-design.md`  
+> Design: `docs/superpowers/specs/2026-07-14-codexgpt-self-test-output-schema-design.md`
 > Execution: uninterrupted TDD inside the unpublished Slice 17–28 batch
 
 ## Goal

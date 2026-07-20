@@ -152,3 +152,11 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 **Rollback:** Revert the STEP-365 commit. Do not partially restore mixed namespaces.
 
 **Next step:** Require the complete runtime matrix, repair only concrete rename regressions, and merge after exact-head success.
+
+
+**Adversarial verification addendum:**
+
+- The materialized branch exposed rename-induced integrity drift rather than runtime feature drift: three manifest-bound native-host file hashes, one semantic native-API inventory digest, and six exact mutation-review call digests changed because the canonical namespace changed inside reviewed source strings.
+- Updated only those derived authorities after inspecting each affected source operation. Repository policy then passed, and the focused naming/authentication/package/operational/native-host/mutation suite passed 63/63.
+- Active tracked paths and UTF-8 text outside append-only archives contain no residual previous project identifier. `git diff --check`, TypeScript build, isolated settings Smoke, and the 521-entry `codexgpt@0.28.6` package dry-run passed.
+- A combined local Smoke run passed analysis, analysis CLI, protected main, HTTP, Pro CLI, and doctor components before one settings runtime-status timeout. The isolated settings Smoke immediately passed; the complete exact-head CI matrix remains required to distinguish local timing noise from a portable defect.

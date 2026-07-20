@@ -7,7 +7,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 ## Current state
 
 - Date: 2026-07-20.
-- Workspace: `D:\Dev\codexgpt`; branch: `main`; package: `codexgpt@0.28.6`.
+- Workspace checkout path is operator-managed; publication target: `main`; package: `codexgpt@0.28.6`.
 - GitHub repository and `origin`: `chatGPT-10/codexgpt` over HTTPS.
 - Canonical project identity is CodexGPT: package, CLI, environment variables, state directories, MCP tools, source paths, tests, and active documentation use the CodexGPT name.
 - Primary platform: native Windows; WSL remains optional.
@@ -57,6 +57,7 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - Phase 5 design, Gate G0/R/X implementation, portability repairs, failed closure diagnostics, and final local closure are retained in STEP-323 and STEP-344 through STEP-362. Closure head `9aa76b9` passed exact-head run `29698209894` across the complete matrix.
 - STEP-363 adversarial focused run `2026-07-19T19-49-04-795Z-interphase-cleanup-adversarial-focused-38f5ac3f` passed 61/61 on each managed Node major. Ordinary run `2026-07-19T19-18-17-116Z-interphase-cleanup-ordinary-final-2-d1a614a7` passed 1,096 tests per major with zero failures and two established skips.
 - STEP-363 cleanup removed 157 obsolete terminal runs with zero failures; the final explicit scan retained 20 runs and found zero owned-temp candidates, invalid paths, failed deletions, or interrupted claims. Build, policy, diff, mutation inventory, and the 521-entry package dry-run passed.
+- STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
 
 ## Known limitations
 
