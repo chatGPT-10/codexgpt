@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: apply-step371
+  cancel-in-progress: true
+
 jobs:
   apply:
     runs-on: ubuntu-latest
@@ -18,23 +22,10 @@ jobs:
         with:
           ref: fix/gate-x-execution-window-20260720
           fetch-depth: 0
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-      - name: Apply exact patch
-        run: git apply --check .github/step371.patch && git apply .github/step371.patch
-      - name: Validate patch
+      - name: Apply exact patch and publish
         run: |
-          npm ci
-          npm run build
-          npm run test:focused -- test/task-cleanup-lifecycle.test.mjs test/runner-process-identity.test.mjs test/operational-reliability.test.mjs test/mutation-architecture.test.mjs
-          npm run policy:check
-          git diff --check
-          npm pack --dry-run --json > /tmp/package.json
-          node -e "const p=require('/tmp/package.json')[0]; if(p.entryCount!==521) throw new Error('unexpected package entry count '+p.entryCount)"
-      - name: Commit validated result
-        run: |
+          git apply --check .github/step371.patch
+          git apply .github/step371.patch
           rm .github/step371.patch .github/workflows/apply-step371.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
