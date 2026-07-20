@@ -58,6 +58,7 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - STEP-363 adversarial focused run `2026-07-19T19-49-04-795Z-interphase-cleanup-adversarial-focused-38f5ac3f` passed 61/61 on each managed Node major. Ordinary run `2026-07-19T19-18-17-116Z-interphase-cleanup-ordinary-final-2-d1a614a7` passed 1,096 tests per major with zero failures and two established skips.
 - STEP-363 cleanup removed 157 obsolete terminal runs with zero failures; the final explicit scan retained 20 runs and found zero owned-temp candidates, invalid paths, failed deletions, or interrupted claims. Build, policy, diff, mutation inventory, and the 521-entry package dry-run passed.
 - STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
+- STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior. Final exact-head matrix remains required.
 
 ## Known limitations
 
