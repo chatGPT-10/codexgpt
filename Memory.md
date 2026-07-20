@@ -13,7 +13,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
 - Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
-- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape identified by CI #113/#115. STEP-368 added bounded terminal-publication tolerance, STEP-369 removed retention self-observation, and STEP-370 distinguishes a live exact-evidence worker with temporarily unavailable creation-time lookup from a dead or reused PID. The combined repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
+- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape. STEP-368 through STEP-371 repair detached-run terminal observation: bounded publication tolerance, no retention self-observation, live-unavailable identity separation, and an exact bounded finalization lease. The combined repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
 
 ## Approved execution boundary
 
@@ -60,7 +60,7 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
 - STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior.
 - Post-merge CI run 113 initially failed only Ubuntu Node 20 because an immutable Gate X integration test observed both reviewed and drifted filter execution. STEP-366 removed the original executable keys from the copied private config, but post-merge CI #115 reproduced the drift. Process ancestry proved the remaining source was an ordinary original-repository `git write-tree` after the review window. STEP-367 moves old-tree calculation, private add, and new-tree calculation into the same private materialized snapshot bundle, returns object-format-validated tree OIDs, and removes ordinary write-tree from the Gate X stage path. Build, policy, diff integrity, the 521-entry package dry-run, 25/25 affected tests, and five consecutive exact regression runs passed.
-- PR CI #119 exposed false `stale` detached runs on Windows Node 24. STEP-368 added exact-evidence terminal-publication tolerance; CI #122 then exposed retention self-observation on Ubuntu Node 20, repaired by STEP-369. CI #124 passed policy and Ubuntu Node 20 regression but Ubuntu Node 24 still classified one live finalizing worker as stale when creation-time lookup was temporarily unavailable. STEP-370 returns `running` with unowned `process_identity_unavailable` only when exact persisted evidence matches and the PID is still alive; stop re-verifies exact ownership before any signal. Dead, reused, mismatched, or foreign identities remain stale. Node 20/24 affected suites passed 30/30 and the cleanup/process-identity files passed five consecutive Node 24 runs at 17/17.
+- PR CI #119, #122, and #124 progressively exposed terminal-publication, retention self-observation, and live identity-lookup ambiguity. CI #125 passed policy and both Ubuntu matrices but Windows Node 24 still observed two post-child/pre-result windows after the worker was no longer externally observable. STEP-371 writes an exact metadata/evidence-bound 60-second finalization lease immediately after child completion and renews it before retention; state reports unowned `terminal_publication_in_progress` until result publication or bounded lease expiry. Dead or forged records cannot extend the lease beyond the fixed bound. Node 20/24 affected suites passed 32/32 and cleanup/process-identity passed five consecutive Node 24 runs at 19/19. A deterministic integration regression proves the worker publishes the exact lease before a deliberately delayed retention pass can complete.
 
 ## Known limitations
 
@@ -79,12 +79,13 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 
 ## Open items
 
-1. Publish STEP-370 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
+1. Publish STEP-371 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
 3. Do not enter Phase 6 as part of this CI repair.
 
 ## Recent summaries
 
+- **STEP-371 - Exact bounded finalization lease:** publish a metadata/evidence-bound lease after child completion so cleanup and retention cannot be misclassified as stale before `result.json`.
 - **STEP-370 - Separate live identity unavailability from stale identity:** keep exact-evidence live workers observable as unowned-running while preserving fail-closed stop authorization.
 - **STEP-369 - Exclude preserved run before retention scan:** prevent a detached worker from evaluating its own nonterminal state while preparing its terminal retention report.
 - **STEP-368 - Detached-run terminal publication grace:** add bounded tolerance for exact worker evidence awaiting terminal state publication; superseded in root-cause completeness by STEP-369.

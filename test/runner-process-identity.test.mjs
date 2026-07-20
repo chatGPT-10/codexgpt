@@ -6,7 +6,13 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { processCreationTime, verifyWorkerIdentity } from "../scripts/long-task-runner.mjs";
+import {
+  processCreationTime,
+  runState,
+  TERMINAL_PUBLICATION_LEASE_MS,
+  terminalPublicationLeaseActive,
+  verifyWorkerIdentity
+} from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -70,6 +76,60 @@ test("exact evidence distinguishes temporary identity unavailability from a dead
     processIsAlive: () => false
   });
   assert.deepEqual(dead, { owned: false, reason: "process_identity_mismatch" });
+});
+
+test("an exact bounded finalization lease keeps terminal publication observable without ownership", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalizing-"));
+  const runId = "finalizing-run";
+  const directory = path.join(root, runId);
+  try {
+    await fs.mkdir(directory);
+    const stat = await fs.stat(directory, { bigint: true });
+    const metadata = {
+      schemaVersion: 2,
+      runId,
+      kind: "finalizing",
+      workerPid: 999999,
+      workerNonce: "a".repeat(64),
+      workerCreationTime: "linux:1",
+      workerCommandDigest: "b".repeat(64),
+      commandDigest: "c".repeat(64),
+      startedAt: new Date().toISOString(),
+      directory,
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) }
+    };
+    const evidence = {
+      schemaVersion: 2,
+      runId,
+      workerPid: metadata.workerPid,
+      workerNonce: metadata.workerNonce,
+      workerCreationTime: metadata.workerCreationTime,
+      workerCommandDigest: metadata.workerCommandDigest,
+      commandDigest: metadata.commandDigest,
+      publishedAt: metadata.startedAt
+    };
+    const publishedAtMs = Date.now();
+    const finalizing = {
+      ...evidence,
+      publishedAt: new Date(publishedAtMs).toISOString(),
+      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS).toISOString()
+    };
+    await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify(metadata)}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "worker-evidence.json"), `${JSON.stringify(evidence)}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "finalizing.json"), `${JSON.stringify(finalizing)}\n`, "utf8");
+
+    assert.equal(terminalPublicationLeaseActive(metadata, evidence, finalizing, publishedAtMs), true);
+    assert.equal(terminalPublicationLeaseActive(metadata, evidence, {
+      ...finalizing,
+      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS + 1).toISOString()
+    }, publishedAtMs), false);
+
+    const state = await runState(directory);
+    assert.equal(state.status, "running");
+    assert.deepEqual(state.identity, { owned: false, reason: "terminal_publication_in_progress" });
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
 });
 
 test("worker evidence mismatch makes a live PID stale and never blocks a same-kind retry", async () => {

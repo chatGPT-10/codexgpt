@@ -16,6 +16,7 @@ export const DEFAULT_LOG_LIMIT_BYTES = 1024 * 1024;
 export const MAX_LOG_LIMIT_BYTES = 8 * 1024 * 1024;
 export const DEFAULT_RUN_RETENTION_COUNT = 20;
 export const DEFAULT_RUN_RETENTION_DAYS = 14;
+export const TERMINAL_PUBLICATION_LEASE_MS = 60_000;
 
 const RUN_PRUNE_CLAIM_PATTERN = /^\.codexgpt-run-prune-[a-f0-9]{32}$/u;
 
@@ -255,6 +256,18 @@ function workerEvidenceMatches(metadata, evidence) {
     evidence.workerCreationTime === metadata.workerCreationTime);
 }
 
+export function terminalPublicationLeaseActive(metadata, evidence, finalizing, nowMs = Date.now()) {
+  if (!workerEvidenceMatches(metadata, evidence) || !workerEvidenceMatches(metadata, finalizing)) return false;
+  const publishedAt = Date.parse(finalizing.publishedAt);
+  const expiresAt = Date.parse(finalizing.expiresAt);
+  return Number.isFinite(publishedAt) &&
+    Number.isFinite(expiresAt) &&
+    publishedAt <= nowMs + 5_000 &&
+    expiresAt >= nowMs &&
+    expiresAt > publishedAt &&
+    expiresAt - publishedAt <= TERMINAL_PUBLICATION_LEASE_MS;
+}
+
 export async function verifyWorkerIdentity(metadata, evidence, options = {}) {
   if (!metadata || metadata.schemaVersion !== RUNNER_SCHEMA_VERSION) return { owned: false, reason: "unsupported_metadata" };
   if (!evidence || evidence.schemaVersion !== RUNNER_SCHEMA_VERSION) return { owned: false, reason: "missing_worker_evidence" };
@@ -281,10 +294,11 @@ async function readRunFiles(directory) {
     throw new Error("Run metadata id does not match its containing directory.");
   }
   await verifyDirectoryWithoutLinks(directory, metadata.directoryIdentity);
-  const [result, stopped, evidence] = await Promise.all([
+  const [result, stopped, evidence, finalizing] = await Promise.all([
     readJson(path.join(directory, "result.json")),
     readJson(path.join(directory, "stopped.json")),
-    readJson(path.join(directory, "worker-evidence.json"))
+    readJson(path.join(directory, "worker-evidence.json")),
+    readJson(path.join(directory, "finalizing.json"))
   ]);
   if (result && result.runId !== expectedRunId) {
     throw new Error("Run result id does not match its containing directory.");
@@ -292,7 +306,10 @@ async function readRunFiles(directory) {
   if (stopped && stopped.runId !== expectedRunId) {
     throw new Error("Run stop record id does not match its containing directory.");
   }
-  return { metadata, result, stopped, evidence };
+  if (finalizing && finalizing.runId !== expectedRunId) {
+    throw new Error("Run finalization record id does not match its containing directory.");
+  }
+  return { metadata, result, stopped, evidence, finalizing };
 }
 
 export async function waitForTerminalPublication(directory, deadlineMs = 5_000) {
@@ -308,10 +325,10 @@ export async function waitForTerminalPublication(directory, deadlineMs = 5_000) 
   return { result: undefined, stopped: undefined };
 }
 
-async function runState(directory) {
+export async function runState(directory) {
   const files = await readRunFiles(directory);
   if (!files) return undefined;
-  const { metadata, result, stopped, evidence } = files;
+  const { metadata, result, stopped, evidence, finalizing } = files;
   let status;
   let identity;
   if (stopped) {
@@ -320,6 +337,9 @@ async function runState(directory) {
   } else if (result) {
     status = "completed";
     identity = { owned: false, reason: "result_recorded" };
+  } else if (terminalPublicationLeaseActive(metadata, evidence, finalizing)) {
+    status = "running";
+    identity = { owned: false, reason: "terminal_publication_in_progress" };
   } else {
     identity = await verifyWorkerIdentity(metadata, evidence);
     if (identity.owned || identity.reason === "process_identity_unavailable") {
@@ -620,6 +640,14 @@ async function worker() {
     publishedAt: new Date().toISOString()
   };
   await writeJsonAtomic(directory, "worker-evidence.json", evidence);
+  const publishTerminalLease = async () => {
+    const publishedAtMs = Date.now();
+    await writeJsonAtomic(directory, "finalizing.json", {
+      ...evidence,
+      publishedAt: new Date(publishedAtMs).toISOString(),
+      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS).toISOString()
+    });
+  };
 
   const stdoutTail = new BoundedTail(command.logLimitBytes);
   const stderrTail = new BoundedTail(command.logLimitBytes);
@@ -662,6 +690,7 @@ async function worker() {
         child.once("error", (error) => finish({ code: 127, signal: null, error: error.stack ?? error.message }));
         child.once("close", (code, signal) => finish({ code: code ?? 1, signal, error: null }));
       });
+    await publishTerminalLease();
   } finally {
     if (taskTemp) {
       try {
@@ -688,6 +717,7 @@ async function worker() {
     fsp.writeFile(stdoutPath, stdoutTail.bytes()),
     fsp.writeFile(stderrPath, stderrTail.bytes())
   ]);
+  await publishTerminalLease();
   let retention;
   try {
     retention = await pruneTerminalRuns(path.dirname(directory), {

@@ -117,3 +117,42 @@ This append-only continuation starts at STEP-368. Earlier interphase records rem
 **Rollback:** Revert STEP-370 to collapse unavailable and mismatched identity again. That restores the false-stale behavior under transient lookup failure.
 
 **Next step:** Push the exact corrected head, require the complete Ubuntu/Windows Node 20/24 matrix, squash-merge only if the PR head remains unchanged, then require the resulting `main` push CI to pass.
+
+## 2026-07-20 — STEP-371: Publish an exact bounded finalization lease
+
+**Status:** Implemented after CI #125 exposed a post-child/pre-result window not covered by external process observation; pending exact-head and post-merge CI.
+
+**Goal:** Represent terminal publication as durable bounded state instead of inferring it only from process visibility.
+
+**Failure evidence:**
+
+- Run `29748908778` passed Repository policy and both Ubuntu matrices. Windows Node 24 failed terminal retention and interrupted prune-claim recovery after 6–7 second false-stale observations.
+- The worker had completed its child but had not yet published `result.json`; external PID and creation-time observation was insufficient to represent cleanup, log publication, and retention finalization reliably under full Windows load.
+
+**Implementation summary:**
+
+- After child completion, the worker atomically writes `finalizing.json`, bound to the same run ID, PID, nonce, creation time, command digest, and worker-command digest as exact metadata and worker evidence.
+- The record carries a fixed maximum 60-second lease and is renewed after temporary cleanup/log publication immediately before retention.
+- `runState` checks the exact lease before process observation and reports `running` with `owned=false` and reason `terminal_publication_in_progress` until `result.json`, `stopped.json`, or lease expiry.
+- Validation rejects future-skewed, expired, non-positive, overlong, mismatched, malformed, or foreign finalization records. Result and stop records retain precedence.
+- Added direct state coverage proving a dead/unobservable PID with a valid exact lease remains non-authorizing running state, while an overlong lease is rejected.
+- Added a deterministic worker integration regression that installs an exact-evidence dead run to hold retention in the five-second terminal-publication path, then proves the real worker publishes `finalizing.json` before retention completes, exposes only unowned `terminal_publication_in_progress`, and eventually publishes a successful result.
+
+**Verification:**
+
+- Node 24 affected cleanup, process-identity, operational, and mutation suites passed 32/32.
+- Native Windows Node 20 passed the same 32/32.
+- Cleanup plus process-identity passed five consecutive Node 24 runs, 19/19 each.
+- The direct finalization-state regression completes without process lookup and records `identity.owned=false`.
+- The worker integration regression deterministically observed `finalizing.json` while `result.json` was absent during delayed retention, then observed terminal completion with exit code 0 on both managed Node majors.
+
+**Adversarial review:**
+
+- The lease cannot authorize stop: it never sets ownership, and the stop path independently re-verifies exact process identity before signaling.
+- A crashed worker can block a same-kind retry only until the fixed lease expires; arbitrary expiry extension is rejected.
+- Mismatched worker evidence prevents lease activation, so tampered evidence remains immediately stale.
+- The record is written only after child completion and therefore does not weaken task execution identity or allow a foreign running task to masquerade as the reviewed worker.
+
+**Rollback:** Revert STEP-371 to remove `finalizing.json` handling. That restores dependence on externally observable process identity during post-child finalization.
+
+**Next step:** Push the exact head, require the complete matrix, squash-merge only on unchanged head, then require the resulting `main` push CI to pass.
