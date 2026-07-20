@@ -7,9 +7,9 @@
   "productionPowerShell": "scripts/windows-local-control.ps1",
   "productionCSharp": "scripts/windows-local-control.cs",
   "gateA0CSharp": "scripts/windows-local-control-spike.cs",
-  "productionPowerShellSha256": "317f872028e4e79d182fd50371cf228578ccd8798904be9576716908f9e5f7cc",
-  "productionCSharpSha256": "af0f6583feaaff33b0badcda80bea494b284bd3e097ca161d40e3f810da5915c",
-  "gateA0CSharpSha256": "af0f6583feaaff33b0badcda80bea494b284bd3e097ca161d40e3f810da5915c",
+  "productionPowerShellSha256": "9bd2a01ecaf92ea7a5bfe392fa78744dcf9be290144645767ec105db8a9fdeba",
+  "productionCSharpSha256": "81690c89a0c698f3442eb5e2303fffe0be3dfc0c07b37bf0b39edfff21a43066",
+  "gateA0CSharpSha256": "81690c89a0c698f3442eb5e2303fffe0be3dfc0c07b37bf0b39edfff21a43066",
   "requiredPipeModeFlags": [
     "PIPE_TYPE_MESSAGE",
     "PIPE_READMODE_MESSAGE",
