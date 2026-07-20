@@ -191,3 +191,75 @@ This append-only continuation starts at STEP-368. Earlier interphase records rem
 **Rollback:** Revert STEP-372 only to restore the observation gap while retaining the STEP-371 lease format.
 
 **Next step:** Re-run the affected suites and repository gates, publish one ordinary correction commit, require the complete exact-head matrix, then squash-merge only if that head remains unchanged and the resulting `main` push matrix passes.
+
+## 2026-07-20 — STEP-373: Replace finalization timing inference with a renewable worker lifecycle lease
+
+**Status:** Implemented after exact-head CI #135 proved that finalization-only persistence left a pre-finalization observation gap; pending a new exact-head and post-merge matrix.
+
+**Goal:** Represent the worker's complete nonterminal lifecycle durably and with a fixed bound, instead of relying on a succession of process-observation and terminal-publication timing windows.
+
+**Failure evidence:**
+
+- Exact-head run `29759707664` on `d1a93691d52f075e60a3102a0ba16265b7bfb6e1` passed Repository policy and complete Ubuntu Node 24. Ubuntu Node 20 failed two detached-run tests: one same-kind retry did not publish terminal state within the 15-second test bound, and one ordinary detached task was classified stale after the five-second terminal wait.
+- Both failures occurred before a finalization lease could serve as durable evidence. The underlying model still represented `running` only through instantaneous OS process observation, while `finalizing` alone had a durable lease.
+
+**Implementation summary:**
+
+- Replaced branch-local `finalizing.json` with one `worker-lease.json` containing exact worker evidence plus phase `running` or `finalizing`.
+- The worker publishes phase `running` immediately after exact `worker-evidence.json`, before child setup, then advances to `finalizing` immediately after child completion and again before retention.
+- The lease has a fixed maximum duration of 60 seconds and renews every 15 seconds through long-running child execution and finalization. Serialized atomic writes prevent an older queued heartbeat from downgrading a newer phase.
+- `runState` and the bounded terminal wait accept the lease only when metadata, persisted worker evidence, run ID, PID, nonce, creation time, command digest, worker-command digest, phase, timestamps, and maximum duration all validate.
+- Active lease state is always non-authorizing: phase `running` reports `worker_lease_active`; phase `finalizing` reports `terminal_publication_in_progress`. Stop still re-reads evidence and requires exact current OS process identity before signaling.
+- Result and stop records retain precedence. A crashed worker can delay a same-kind retry only until the fixed lease expires.
+- Increased test observation deadlines from 15 to 30 seconds to retain a finite bound while allowing full-suite scheduler contention; no production deadline was extended.
+
+**Verification:**
+
+- Native Windows Node 24 cleanup and process-identity suites passed 20/20.
+- Native Windows Node 20 passed the same 20/20.
+- Cleanup plus process identity passed five consecutive Node 24 runs, 20/20 each.
+- Direct state coverage proves both running and finalizing lease phases remain unowned and that overlong records are rejected.
+
+**Adversarial review:**
+
+- A forged or stale lease cannot activate without the separately persisted exact worker evidence and metadata.
+- The lease never widens stop, deletion, child-process, filesystem, or command authority; it only delays stale classification for at most 60 seconds after the last authentic renewal.
+- Evidence tampering remains immediately stale because heartbeat records do not overwrite `worker-evidence.json`.
+- Result and stopped files remain authoritative even if a heartbeat write completes after terminal publication.
+- The design uses one lifecycle record rather than accumulating separate startup, running, and finalization files.
+
+**Rollback:** Revert STEP-373 to restore the branch-local finalization-only lease and its known pre-finalization false-stale window.
+
+**Next step:** Complete affected Node 20/24 gates, publish the exact correction head, require the complete matrix, squash-merge only on unchanged head, then require the resulting `main` push matrix to pass.
+
+## 2026-07-20 — STEP-374: Make the private-stdin command-line proof independent of WMI timing
+
+**Status:** Implemented after exact-head CI #135 exposed an independent Windows control-test oracle failure; pending a new exact-head and post-merge matrix.
+
+**Goal:** Preserve the proof that PowerShell receives only the fixed encoded bootstrap on its command line while removing an unrelated, timing-sensitive CIM dependency.
+
+**Failure evidence:**
+
+- Windows Node 24 in run `29759707664` failed only `PowerShell execution uses script-over-private-stdin with Unicode and exact Win32 exit mapping`.
+- The executed PowerShell request succeeded, but `Get-CimInstance Win32_Process -Filter "ProcessId=$PID"` intermittently returned an empty `CommandLine`, so the test could not observe `-EncodedCommand`. This was an oracle failure, not evidence that the script entered the command line.
+
+**Implementation summary:**
+
+- Replaced the WMI/CIM self-query with `[Environment]::CommandLine` inside the same PowerShell process.
+- The assertion remains unchanged: the private script marker must be absent and the fixed encoded bootstrap flag must be present.
+- Production host code, protocol, process creation, environment construction, and authority boundaries are unchanged.
+
+**Verification:**
+
+- Native Windows Node 24 complete `windows-process-host-control.test.mjs`: 10/10 passed.
+- Native Windows Node 20 complete `windows-process-host-control.test.mjs`: 10/10 passed.
+
+**Adversarial review:**
+
+- The replacement observes the exact current process rather than a separately queried process table row, so there is no PID-selection or process-enumeration widening.
+- The proof remains meaningful because `[Environment]::CommandLine` exposes the actual invocation string seen by the PowerShell process.
+- No production fallback or test skip was added.
+
+**Rollback:** Revert STEP-374 to restore the intermittent empty-CIM oracle.
+
+**Next step:** Run final repository gates, publish the exact combined correction head, require the complete matrix, squash-merge only on unchanged head, then require the resulting `main` push matrix to pass.

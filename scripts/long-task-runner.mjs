@@ -16,7 +16,8 @@ export const DEFAULT_LOG_LIMIT_BYTES = 1024 * 1024;
 export const MAX_LOG_LIMIT_BYTES = 8 * 1024 * 1024;
 export const DEFAULT_RUN_RETENTION_COUNT = 20;
 export const DEFAULT_RUN_RETENTION_DAYS = 14;
-export const TERMINAL_PUBLICATION_LEASE_MS = 60_000;
+export const WORKER_LEASE_MS = 60_000;
+export const WORKER_LEASE_RENEW_MS = 15_000;
 
 const RUN_PRUNE_CLAIM_PATTERN = /^\.codexgpt-run-prune-[a-f0-9]{32}$/u;
 
@@ -256,16 +257,26 @@ function workerEvidenceMatches(metadata, evidence) {
     evidence.workerCreationTime === metadata.workerCreationTime);
 }
 
-export function terminalPublicationLeaseActive(metadata, evidence, finalizing, nowMs = Date.now()) {
-  if (!workerEvidenceMatches(metadata, evidence) || !workerEvidenceMatches(metadata, finalizing)) return false;
-  const publishedAt = Date.parse(finalizing.publishedAt);
-  const expiresAt = Date.parse(finalizing.expiresAt);
+export function workerLeaseActive(metadata, evidence, lease, nowMs = Date.now()) {
+  if (!workerEvidenceMatches(metadata, evidence) || !workerEvidenceMatches(metadata, lease)) return false;
+  if (lease.phase !== "running" && lease.phase !== "finalizing") return false;
+  const publishedAt = Date.parse(lease.publishedAt);
+  const expiresAt = Date.parse(lease.expiresAt);
   return Number.isFinite(publishedAt) &&
     Number.isFinite(expiresAt) &&
     publishedAt <= nowMs + 5_000 &&
     expiresAt >= nowMs &&
     expiresAt > publishedAt &&
-    expiresAt - publishedAt <= TERMINAL_PUBLICATION_LEASE_MS;
+    expiresAt - publishedAt <= WORKER_LEASE_MS;
+}
+
+function workerLeaseIdentity(lease) {
+  return {
+    owned: false,
+    reason: lease?.phase === "finalizing"
+      ? "terminal_publication_in_progress"
+      : "worker_lease_active"
+  };
 }
 
 export async function verifyWorkerIdentity(metadata, evidence, options = {}) {
@@ -294,11 +305,11 @@ async function readRunFiles(directory) {
     throw new Error("Run metadata id does not match its containing directory.");
   }
   await verifyDirectoryWithoutLinks(directory, metadata.directoryIdentity);
-  const [result, stopped, evidence, finalizing] = await Promise.all([
+  const [result, stopped, evidence, lease] = await Promise.all([
     readJson(path.join(directory, "result.json")),
     readJson(path.join(directory, "stopped.json")),
     readJson(path.join(directory, "worker-evidence.json")),
-    readJson(path.join(directory, "finalizing.json"))
+    readJson(path.join(directory, "worker-lease.json"))
   ]);
   if (result && result.runId !== expectedRunId) {
     throw new Error("Run result id does not match its containing directory.");
@@ -306,34 +317,34 @@ async function readRunFiles(directory) {
   if (stopped && stopped.runId !== expectedRunId) {
     throw new Error("Run stop record id does not match its containing directory.");
   }
-  if (finalizing && finalizing.runId !== expectedRunId) {
-    throw new Error("Run finalization record id does not match its containing directory.");
+  if (lease && lease.runId !== expectedRunId) {
+    throw new Error("Run worker lease id does not match its containing directory.");
   }
-  return { metadata, result, stopped, evidence, finalizing };
+  return { metadata, result, stopped, evidence, lease };
 }
 
 export async function waitForTerminalPublication(directory, deadlineMs = 5_000, observation = {}) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
-    const [result, stopped, finalizing] = await Promise.all([
+    const [result, stopped, lease] = await Promise.all([
       readJson(path.join(directory, "result.json")),
       readJson(path.join(directory, "stopped.json")),
-      readJson(path.join(directory, "finalizing.json"))
+      readJson(path.join(directory, "worker-lease.json"))
     ]);
     if (
       result ||
       stopped ||
-      terminalPublicationLeaseActive(observation.metadata, observation.evidence, finalizing)
-    ) return { result, stopped, finalizing };
+      workerLeaseActive(observation.metadata, observation.evidence, lease)
+    ) return { result, stopped, lease };
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  return { result: undefined, stopped: undefined, finalizing: undefined };
+  return { result: undefined, stopped: undefined, lease: undefined };
 }
 
 export async function runState(directory) {
   const files = await readRunFiles(directory);
   if (!files) return undefined;
-  const { metadata, result, stopped, evidence, finalizing } = files;
+  const { metadata, result, stopped, evidence, lease } = files;
   let status;
   let identity;
   if (stopped) {
@@ -342,9 +353,9 @@ export async function runState(directory) {
   } else if (result) {
     status = "completed";
     identity = { owned: false, reason: "result_recorded" };
-  } else if (terminalPublicationLeaseActive(metadata, evidence, finalizing)) {
+  } else if (workerLeaseActive(metadata, evidence, lease)) {
     status = "running";
-    identity = { owned: false, reason: "terminal_publication_in_progress" };
+    identity = workerLeaseIdentity(lease);
   } else {
     identity = await verifyWorkerIdentity(metadata, evidence);
     if (identity.owned || identity.reason === "process_identity_unavailable") {
@@ -356,7 +367,7 @@ export async function runState(directory) {
         : {
             result: await readJson(path.join(directory, "result.json")),
             stopped: await readJson(path.join(directory, "stopped.json")),
-            finalizing: undefined
+            lease: undefined
           };
       if (terminal.stopped) {
         status = "stopped";
@@ -366,9 +377,9 @@ export async function runState(directory) {
         status = "completed";
         return { ...metadata, status, identity: { owned: false, reason: "result_recorded" }, result: terminal.result, stopped: null };
       }
-      if (terminalPublicationLeaseActive(metadata, evidence, terminal.finalizing)) {
+      if (workerLeaseActive(metadata, evidence, terminal.lease)) {
         status = "running";
-        return { ...metadata, status, identity: { owned: false, reason: "terminal_publication_in_progress" }, result: null, stopped: null };
+        return { ...metadata, status, identity: workerLeaseIdentity(terminal.lease), result: null, stopped: null };
       }
       status = "stale";
     }
@@ -650,14 +661,26 @@ async function worker() {
     publishedAt: new Date().toISOString()
   };
   await writeJsonAtomic(directory, "worker-evidence.json", evidence);
-  const publishTerminalLease = async () => {
-    const publishedAtMs = Date.now();
-    await writeJsonAtomic(directory, "finalizing.json", {
-      ...evidence,
-      publishedAt: new Date(publishedAtMs).toISOString(),
-      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS).toISOString()
+  let leasePhase = "running";
+  let leaseWrite = Promise.resolve();
+  const publishWorkerLease = (phase = leasePhase) => {
+    leasePhase = phase;
+    leaseWrite = leaseWrite.catch(() => {}).then(async () => {
+      const publishedAtMs = Date.now();
+      await writeJsonAtomic(directory, "worker-lease.json", {
+        ...evidence,
+        phase: leasePhase,
+        publishedAt: new Date(publishedAtMs).toISOString(),
+        expiresAt: new Date(publishedAtMs + WORKER_LEASE_MS).toISOString()
+      });
     });
+    return leaseWrite;
   };
+  await publishWorkerLease("running");
+  const leaseTimer = setInterval(() => {
+    void publishWorkerLease().catch(() => {});
+  }, WORKER_LEASE_RENEW_MS);
+  leaseTimer.unref();
 
   const stdoutTail = new BoundedTail(command.logLimitBytes);
   const stderrTail = new BoundedTail(command.logLimitBytes);
@@ -700,7 +723,7 @@ async function worker() {
         child.once("error", (error) => finish({ code: 127, signal: null, error: error.stack ?? error.message }));
         child.once("close", (code, signal) => finish({ code: code ?? 1, signal, error: null }));
       });
-    await publishTerminalLease();
+    await publishWorkerLease("finalizing");
   } finally {
     if (taskTemp) {
       try {
@@ -727,7 +750,7 @@ async function worker() {
     fsp.writeFile(stdoutPath, stdoutTail.bytes()),
     fsp.writeFile(stderrPath, stderrTail.bytes())
   ]);
-  await publishTerminalLease();
+  await publishWorkerLease("finalizing");
   let retention;
   try {
     retention = await pruneTerminalRuns(path.dirname(directory), {
@@ -764,7 +787,12 @@ async function worker() {
     stdout: stdoutTail.summary(),
     stderr: stderrTail.summary()
   };
-  await writeJsonAtomic(directory, "result.json", result);
+  try {
+    await writeJsonAtomic(directory, "result.json", result);
+  } finally {
+    clearInterval(leaseTimer);
+    await leaseWrite.catch(() => {});
+  }
   process.exitCode = outcome.code;
 }
 

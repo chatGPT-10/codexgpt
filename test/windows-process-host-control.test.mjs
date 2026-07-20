@@ -341,7 +341,7 @@ test("PowerShell execution uses script-over-private-stdin with Unicode and exact
 
     const commandLine = await runPowerShell(session, [
       "$marker='CXP4_SCRIPT_MARKER_MUST_NOT_BE_IN_COMMAND_LINE'",
-      "$command=(Get-CimInstance Win32_Process -Filter \"ProcessId=$PID\").CommandLine",
+      "$command=[Environment]::CommandLine",
       "[Console]::Write($command)"
     ].join(";"));
     assert.equal(commandLine.exitCode, 0);

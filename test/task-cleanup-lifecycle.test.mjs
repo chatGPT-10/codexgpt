@@ -23,7 +23,7 @@ async function executeLongRunner(args, options = {}) {
   });
 }
 
-async function waitForTerminal(root, runId, deadlineMs = 15_000) {
+async function waitForTerminal(root, runId, deadlineMs = 30_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const state = JSON.parse((await executeLongRunner(["status", "--root", root, "--run", runId])).stdout);
@@ -46,6 +46,20 @@ async function waitForPath(target, deadlineMs = 10_000) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`Timed out waiting for ${target}.`);
+}
+
+async function waitForJson(target, predicate, deadlineMs = 10_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    try {
+      const value = JSON.parse(await fs.readFile(target, "utf8"));
+      if (predicate(value)) return value;
+    } catch (error) {
+      if (error?.code !== "ENOENT" && !(error instanceof SyntaxError)) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for matching JSON at ${target}.`);
 }
 
 test("terminal publication grace tolerates delayed Windows result visibility", async () => {
@@ -78,7 +92,7 @@ test("terminal publication grace tolerates delayed Windows result visibility", a
   }
 });
 
-test("worker publishes an exact finalization lease before delayed retention completes", async () => {
+test("worker advances its exact lifecycle lease before delayed retention completes", async () => {
   const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-runs-"));
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-temp-"));
   const blockerRunId = "2020-01-01T00-00-00-000Z-finalization-blocker-aaaaaaaa";
@@ -123,7 +137,7 @@ test("worker publishes an exact finalization lease before delayed retention comp
       "process.exit(0)"
     ])).stdout);
     const directory = path.join(runRoot, started.runId);
-    await waitForPath(path.join(directory, "finalizing.json"));
+    await waitForJson(path.join(directory, "worker-lease.json"), (lease) => lease.phase === "finalizing");
     await assert.rejects(() => fs.access(path.join(directory, "result.json")), { code: "ENOENT" });
 
     const state = JSON.parse((await executeLongRunner([

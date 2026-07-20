@@ -9,8 +9,8 @@ import { promisify } from "node:util";
 import {
   processCreationTime,
   runState,
-  TERMINAL_PUBLICATION_LEASE_MS,
-  terminalPublicationLeaseActive,
+  WORKER_LEASE_MS,
+  workerLeaseActive,
   verifyWorkerIdentity,
   waitForTerminalPublication
 } from "../scripts/long-task-runner.mjs";
@@ -30,7 +30,7 @@ async function execute(args, options = {}) {
   });
 }
 
-async function waitForCompletion(root, runId, deadlineMs = 15_000) {
+async function waitForCompletion(root, runId, deadlineMs = 30_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const state = JSON.parse((await execute(["status", "--root", root, "--run", runId])).stdout);
@@ -79,7 +79,7 @@ test("exact evidence distinguishes temporary identity unavailability from a dead
   assert.deepEqual(dead, { owned: false, reason: "process_identity_mismatch" });
 });
 
-test("an exact bounded finalization lease keeps terminal publication observable without ownership", async () => {
+test("an exact bounded worker lease keeps finalization observable without ownership", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalizing-"));
   const runId = "finalizing-run";
   const directory = path.join(root, runId);
@@ -110,30 +110,37 @@ test("an exact bounded finalization lease keeps terminal publication observable 
       publishedAt: metadata.startedAt
     };
     const publishedAtMs = Date.now();
-    const finalizing = {
+    const lease = {
       ...evidence,
+      phase: "running",
       publishedAt: new Date(publishedAtMs).toISOString(),
-      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS).toISOString()
+      expiresAt: new Date(publishedAtMs + WORKER_LEASE_MS).toISOString()
     };
     await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify(metadata)}\n`, "utf8");
     await fs.writeFile(path.join(directory, "worker-evidence.json"), `${JSON.stringify(evidence)}\n`, "utf8");
-    await fs.writeFile(path.join(directory, "finalizing.json"), `${JSON.stringify(finalizing)}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "worker-lease.json"), `${JSON.stringify(lease)}\n`, "utf8");
 
-    assert.equal(terminalPublicationLeaseActive(metadata, evidence, finalizing, publishedAtMs), true);
-    assert.equal(terminalPublicationLeaseActive(metadata, evidence, {
-      ...finalizing,
-      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS + 1).toISOString()
+    assert.equal(workerLeaseActive(metadata, evidence, lease, publishedAtMs), true);
+    assert.equal(workerLeaseActive(metadata, evidence, {
+      ...lease,
+      expiresAt: new Date(publishedAtMs + WORKER_LEASE_MS + 1).toISOString()
     }, publishedAtMs), false);
 
-    const state = await runState(directory);
-    assert.equal(state.status, "running");
-    assert.deepEqual(state.identity, { owned: false, reason: "terminal_publication_in_progress" });
+    const runningState = await runState(directory);
+    assert.equal(runningState.status, "running");
+    assert.deepEqual(runningState.identity, { owned: false, reason: "worker_lease_active" });
+
+    const finalizingLease = { ...lease, phase: "finalizing" };
+    await fs.writeFile(path.join(directory, "worker-lease.json"), `${JSON.stringify(finalizingLease)}\n`, "utf8");
+    const finalizingState = await runState(directory);
+    assert.equal(finalizingState.status, "running");
+    assert.deepEqual(finalizingState.identity, { owned: false, reason: "terminal_publication_in_progress" });
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
 });
 
-test("terminal observation notices an exact lease published during its bounded wait", async () => {
+test("terminal observation notices an exact worker lease published during its bounded wait", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalizing-wait-"));
   const metadata = {
     schemaVersion: 2,
@@ -154,16 +161,17 @@ test("terminal observation notices an exact lease published during its bounded w
     commandDigest: metadata.commandDigest
   };
   const publishedAtMs = Date.now();
-  const finalizing = {
+  const lease = {
     ...evidence,
+    phase: "finalizing",
     publishedAt: new Date(publishedAtMs).toISOString(),
-    expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS).toISOString()
+    expiresAt: new Date(publishedAtMs + WORKER_LEASE_MS).toISOString()
   };
   let publishError;
   const publish = new Promise((resolve) => {
     setTimeout(async () => {
       try {
-        await fs.writeFile(path.join(directory, "finalizing.json"), `${JSON.stringify(finalizing)}\n`, "utf8");
+        await fs.writeFile(path.join(directory, "worker-lease.json"), `${JSON.stringify(lease)}\n`, "utf8");
       } catch (error) {
         publishError = error;
       } finally {
@@ -179,7 +187,7 @@ test("terminal observation notices an exact lease published during its bounded w
     await publish;
     if (publishError) throw publishError;
     assert.ok(elapsedMs < 1_000, `Lease observation took ${elapsedMs}ms.`);
-    assert.deepEqual(observed.finalizing, finalizing);
+    assert.deepEqual(observed.lease, lease);
     assert.equal(observed.result, undefined);
     assert.equal(observed.stopped, undefined);
   } finally {
