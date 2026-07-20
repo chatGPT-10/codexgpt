@@ -345,7 +345,7 @@ async function runState(directory) {
   };
 }
 
-async function listStates(root) {
+async function listStates(root, options = {}) {
   let entries = [];
   try {
     await verifyDirectoryWithoutLinks(root);
@@ -356,7 +356,12 @@ async function listStates(root) {
   }
   const states = [];
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.isSymbolicLink() || RUN_PRUNE_CLAIM_PATTERN.test(entry.name)) continue;
+    if (
+      !entry.isDirectory() ||
+      entry.isSymbolicLink() ||
+      RUN_PRUNE_CLAIM_PATTERN.test(entry.name) ||
+      entry.name === options.excludeRunId
+    ) continue;
     try {
       const state = await runState(path.join(root, entry.name));
       if (state) states.push(state);
@@ -510,7 +515,7 @@ async function removeTerminalRun(root, state) {
   }
 }
 
-async function pruneTerminalRuns(root, options = {}) {
+export async function pruneTerminalRuns(root, options = {}) {
   const keepCount = positiveInteger(options.keepCount, DEFAULT_RUN_RETENTION_COUNT, 10_000);
   const maxAgeDays = positiveInteger(options.maxAgeDays, DEFAULT_RUN_RETENTION_DAYS, 36_500);
   const preserveRunId = options.preserveRunId;
@@ -519,7 +524,7 @@ async function pruneTerminalRuns(root, options = {}) {
   if (claimed.missing) {
     return { scanned: 0, removed: 0, retained: 0, failed: 0, invalid: 0, keepCount, maxAgeDays, errors: [], claimed };
   }
-  const states = await listStates(root);
+  const states = await listStates(root, { excludeRunId: preserveRunId });
   const invalidStates = states.filter((state) => state.status === "stale" && typeof state.error === "string");
   const terminal = states
     .filter((state) => state.status === "completed" || state.status === "stopped")

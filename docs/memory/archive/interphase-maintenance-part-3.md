@@ -41,3 +41,42 @@ This append-only continuation starts at STEP-368. Earlier interphase records rem
 **Rollback:** Revert STEP-368 as one unit. Restoring the one-second grace also requires removing the delayed-publication regression.
 
 **Next step:** Push the updated exact PR head, require Repository policy plus all Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package jobs, squash-merge only if the head remains unchanged, then require the resulting `main` push matrix to pass.
+
+## 2026-07-20 — STEP-369: Exclude the preserved run before retention state evaluation
+
+**Status:** Implemented after adversarial CI invalidated the completeness of STEP-368; pending a new exact-head pull-request matrix and post-merge `main` CI.
+
+**Goal:** Remove the underlying detached-run self-observation cycle rather than extending its timing window.
+
+**Files changed:** `scripts/long-task-runner.mjs`, `test/task-cleanup-lifecycle.test.mjs`, `Memory.md`, and this archive.
+
+**Correction to STEP-368:**
+
+- Exact-head PR CI run `29746909721` passed Repository policy but failed Ubuntu Node 20 regression. The delayed-publication regression passed, yet the same retention test still observed `stale`, and the same-kind retry test timed out.
+- The five-second grace exposed the structural cause: a worker calls `pruneTerminalRuns` before writing its own `result.json`; the retention scan evaluated every run and filtered `preserveRunId` only after state evaluation. When process identity was temporarily unavailable, the worker waited for its own result publication, which could not occur until that same retention scan returned. External status polling entered the same bounded wait.
+- STEP-368 remains a valid bounded terminal-publication tolerance, but it was not a complete root-cause repair by itself.
+
+**Implementation summary:**
+
+- `listStates` now accepts one exact excluded run ID and skips that direct child before reading metadata, verifying process identity, or waiting for terminal publication.
+- `pruneTerminalRuns` passes only its existing `preserveRunId` into that exclusion. Normal list/status/clean behavior remains unchanged; no caller-selected path or wildcard is introduced.
+- The retention allowance remains unchanged: the preserved current run still consumes one configured retention slot, but it cannot deadlock or delay its own finalization.
+- Exported the existing retention helper for a deterministic regression. The test creates an exact-evidence nonterminal preserved run with a dead PID; the pre-fix implementation enters the five-second wait, while the fixed implementation excludes it before state evaluation and leaves the directory untouched.
+
+**Verification:**
+
+- Node `v24.15.0`: affected cleanup, process-identity, operational-reliability, and mutation suites passed 29/29.
+- Native Windows Node `v20.20.2`: the same suites passed 29/29.
+- The combined cleanup and process-identity files passed five consecutive Node 24 runs, 16/16 each.
+- The preserved-run regression completed in 22 ms or less in the recorded Node 20/24 runs, proving it did not enter the five-second publication path.
+- Adversarial review confirmed the exclusion is exact-name-only, applies only to the internally generated current run ID, performs no deletion or authority expansion, and leaves external cleanup scans unchanged.
+
+**Risks and limitations:**
+
+- The five-second exact-evidence publication grace from STEP-368 remains as bounded tolerance for genuine post-exit publication visibility. A crashed exact worker may therefore take up to five seconds to become stale.
+- The preserved run is intentionally not included in invalid-state diagnostics during its own retention pass; it is not eligible for deletion in that pass and remains visible to ordinary status/list calls.
+- Full Ubuntu/Windows Node 20/24 CI remains mandatory because the self-observation manifested differently under Windows Node 24 and Ubuntu Node 20 load.
+
+**Rollback:** Revert STEP-369 to restore the previous scan order. Doing so reintroduces self-observation and must not be paired with a longer terminal-publication grace.
+
+**Next step:** Push the corrected exact PR head, require the complete matrix, squash-merge only on the unchanged reviewed head, then require the resulting `main` push CI to pass.

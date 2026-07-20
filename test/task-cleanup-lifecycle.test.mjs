@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { waitForTerminalPublication } from "../scripts/long-task-runner.mjs";
+import { pruneTerminalRuns, waitForTerminalPublication } from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -61,6 +61,62 @@ test("terminal publication grace tolerates delayed Windows result visibility", a
   } finally {
     await publish;
     await fs.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("retention excludes the preserved in-progress run before state evaluation", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-preserved-run-"));
+  const runId = "2026-07-20T00-00-00-000Z-preserved-run-aaaaaaaa";
+  const directory = path.join(root, runId);
+  try {
+    await fs.mkdir(directory);
+    const stat = await fs.stat(directory, { bigint: true });
+    const metadata = {
+      schemaVersion: 2,
+      runId,
+      kind: "preserved-run",
+      workerPid: 999999,
+      workerNonce: "a".repeat(64),
+      workerCreationTime: "linux:1",
+      workerCommandDigest: "b".repeat(64),
+      commandDigest: "c".repeat(64),
+      startedAt: "2026-07-20T00:00:00.000Z",
+      directory,
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) },
+      command: [process.execPath, "-e", ""],
+      cwd: repositoryRoot,
+      logLimitBytes: 4096,
+      retentionCount: 1,
+      retentionDays: 14,
+      host: os.hostname()
+    };
+    const evidence = {
+      schemaVersion: 2,
+      runId,
+      workerPid: metadata.workerPid,
+      workerNonce: metadata.workerNonce,
+      workerCreationTime: metadata.workerCreationTime,
+      commandDigest: metadata.commandDigest,
+      workerCommandDigest: metadata.workerCommandDigest,
+      publishedAt: metadata.startedAt
+    };
+    await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify(metadata)}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "worker-evidence.json"), `${JSON.stringify(evidence)}\n`, "utf8");
+
+    const startedAt = performance.now();
+    const report = await pruneTerminalRuns(root, {
+      keepCount: 1,
+      maxAgeDays: 14,
+      preserveRunId: runId
+    });
+    const elapsedMs = performance.now() - startedAt;
+
+    assert.ok(elapsedMs < 1_000, `Preserved run evaluation took ${elapsedMs}ms.`);
+    assert.equal(report.scanned, 0);
+    assert.equal(report.failed, 0);
+    assert.deepEqual((await fs.readdir(root)).sort(), [runId]);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 

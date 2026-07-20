@@ -13,7 +13,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
 - Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
-- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape identified by CI #113/#115. STEP-368 repairs the independent Windows Node 24 detached-run terminal-publication observation race exposed by PR CI #119; both repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
+- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape identified by CI #113/#115. STEP-368 added bounded terminal-publication tolerance after PR CI #119; CI #122 proved the retained run was still evaluating itself during pre-result pruning. STEP-369 removes that self-observation structurally. The combined repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
 
 ## Approved execution boundary
 
@@ -60,7 +60,7 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
 - STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior.
 - Post-merge CI run 113 initially failed only Ubuntu Node 20 because an immutable Gate X integration test observed both reviewed and drifted filter execution. STEP-366 removed the original executable keys from the copied private config, but post-merge CI #115 reproduced the drift. Process ancestry proved the remaining source was an ordinary original-repository `git write-tree` after the review window. STEP-367 moves old-tree calculation, private add, and new-tree calculation into the same private materialized snapshot bundle, returns object-format-validated tree OIDs, and removes ordinary write-tree from the Gate X stage path. Build, policy, diff integrity, the 521-entry package dry-run, 25/25 affected tests, and five consecutive exact regression runs passed.
-- PR CI #119 passed policy, Ubuntu Node 20/24, and Windows Node 20, but Windows Node 24 reported two false `stale` detached runs while their exact worker evidence was awaiting terminal result publication. STEP-368 extends only the exact-evidence terminal-publication grace from one to five seconds and adds a deterministic two-second delayed atomic-publication regression. Node 20/24 affected suites passed 28/28, the complete cleanup file passed five consecutive Node 24 runs, and build, policy, diff integrity, and the 521-entry package dry-run passed.
+- PR CI #119 passed policy, Ubuntu Node 20/24, and Windows Node 20, but Windows Node 24 reported two false `stale` detached runs while their exact worker evidence was awaiting terminal result publication. STEP-368 extended only the exact-evidence terminal-publication grace from one to five seconds and added a deterministic delayed-publication regression. CI #122 then failed Ubuntu Node 20 because `pruneTerminalRuns` still evaluated the preserved current run before filtering it, creating a self-observation delay that moved in lockstep with the longer grace. STEP-369 excludes the exact preserved run before any state or process-identity evaluation. Node 20/24 affected suites passed 29/29, the combined cleanup/process-identity files passed five consecutive Node 24 runs at 16/16, and the preserved-run regression completes without entering the five-second path.
 
 ## Known limitations
 
@@ -79,13 +79,14 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 
 ## Open items
 
-1. Publish STEP-368 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
+1. Publish STEP-369 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
 3. Do not enter Phase 6 as part of this CI repair.
 
 ## Recent summaries
 
-- **STEP-368 - Detached-run terminal publication grace:** avoid false Windows `stale` classification while exact worker evidence is still publishing terminal state, with a deterministic delayed-publication regression.
+- **STEP-369 - Exclude preserved run before retention scan:** prevent a detached worker from evaluating its own nonterminal state while preparing its terminal retention report.
+- **STEP-368 - Detached-run terminal publication grace:** add bounded tolerance for exact worker evidence awaiting terminal state publication; superseded in root-cause completeness by STEP-369.
 - **STEP-367 - Gate X private tree derivation:** compute both old and new approved stage trees inside the same private immutable integration bundle and reject ordinary write-tree execution in the Gate X stage path.
 - **STEP-366 - Gate X private-config isolation:** remove original executable integration commands from the copied private Git config, verify their absence, and execute only reviewed materialized snapshots.
 - **STEP-365 - Canonical CodexGPT rename:** replace the previous project name across active package, CLI, environment, state, tool, source, test, and documentation surfaces; preserve append-only historical archives and record the correction here.
