@@ -366,6 +366,14 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
       const executor = {
         ...fixture.executor,
         async runApprovedIntegration(repository, request) {
+          const retainedCommand = runGit(fixture.root, [
+            "config",
+            "--file",
+            path.join(request.integrationGitDir, "config"),
+            "--get-all",
+            "filter.snapshot.clean"
+          ], undefined, { allowFailure: true });
+          assert.equal(retainedCommand.status, 1);
           await fs.writeFile(script, source("drifted"), "utf8");
           return baseExecute(repository, request);
         }

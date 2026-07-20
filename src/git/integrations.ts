@@ -77,7 +77,7 @@ const INTEGRATION_IMPLEMENTATION_REVISION = sha256Git(JSON.stringify({
   configIncludes: "rejected",
   externalAttributesFile: "rejected",
   signingSelectors: "explicit-effective-program-and-key-v1",
-  executionBundle: "stable-config-and-executable-snapshot-v1",
+  executionBundle: "stable-config-and-executable-snapshot-v2",
   executionIsolation: "none"
 }));
 
@@ -344,6 +344,30 @@ async function readStableConfig(repository: GitRepositoryIdentity): Promise<{
 function commandToken(value: string): string {
   if (!value || /[\u0000\r\n"]/u.test(value)) throw integrationError();
   return `"${value}"`;
+}
+
+async function removePrivateConfigKey(
+  executor: GitCommandExecutor,
+  configPath: string,
+  key: string,
+  required: boolean
+): Promise<void> {
+  const options = { stdoutLimitBytes: 256, stderrLimitBytes: 4096, timeoutMs: 30_000 };
+  const removed = await executor.run(null, ["config", "--file", configPath, "--unset-all", key], options);
+  if (
+    removed.timedOut ||
+    removed.stdoutTruncated ||
+    removed.stderrTruncated ||
+    (removed.status !== 0 && !(removed.status === 5 && !required))
+  ) throw integrationError();
+  const verified = await executor.run(null, ["config", "--file", configPath, "--get-all", key], options);
+  if (
+    verified.timedOut ||
+    verified.stdoutTruncated ||
+    verified.stderrTruncated ||
+    verified.status !== 1 ||
+    verified.stdout.length !== 0
+  ) throw integrationError();
 }
 
 interface DiscoveredIntegrationsV4 {
@@ -656,10 +680,15 @@ export class GitIntegrationGateV4 {
           { flag: "wx", mode: 0o600 }
         );
       }
-      await fsp.writeFile(path.join(integrationGitDir, "config"), discovered.configBytes, {
+      const privateConfigPath = path.join(integrationGitDir, "config");
+      await fsp.writeFile(privateConfigPath, discovered.configBytes, {
         flag: "wx",
         mode: 0o600
       });
+      for (const key of [...new Set(discovered.commands.map((command) => command.key))].sort()) {
+        await removePrivateConfigKey(this.options.executor, privateConfigPath, key, true);
+      }
+      await removePrivateConfigKey(this.options.executor, privateConfigPath, "core.hookspath", false);
       let executableIndex = 0;
       for (const identity of discovered.identities) {
         if (!identity.snapshotContent || !identity.canonicalPath) continue;
