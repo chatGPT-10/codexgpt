@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { processCreationTime } from "../scripts/long-task-runner.mjs";
+import { processCreationTime, verifyWorkerIdentity } from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,6 +37,39 @@ test("process creation identity is available for the current process", async () 
   const created = await processCreationTime(process.pid);
   assert.equal(typeof created, "string");
   assert.ok(created.length > 0);
+});
+
+test("exact evidence distinguishes temporary identity unavailability from a dead worker", async () => {
+  const metadata = {
+    schemaVersion: 2,
+    runId: "identity-unavailable",
+    workerPid: 4242,
+    workerNonce: "a".repeat(64),
+    workerCreationTime: "linux:123",
+    workerCommandDigest: "b".repeat(64),
+    commandDigest: "c".repeat(64)
+  };
+  const evidence = {
+    schemaVersion: 2,
+    runId: metadata.runId,
+    workerPid: metadata.workerPid,
+    workerNonce: metadata.workerNonce,
+    workerCreationTime: metadata.workerCreationTime,
+    workerCommandDigest: metadata.workerCommandDigest,
+    commandDigest: metadata.commandDigest
+  };
+
+  const unavailable = await verifyWorkerIdentity(metadata, evidence, {
+    processCreationTime: async () => undefined,
+    processIsAlive: () => true
+  });
+  assert.deepEqual(unavailable, { owned: false, reason: "process_identity_unavailable" });
+
+  const dead = await verifyWorkerIdentity(metadata, evidence, {
+    processCreationTime: async () => undefined,
+    processIsAlive: () => false
+  });
+  assert.deepEqual(dead, { owned: false, reason: "process_identity_mismatch" });
 });
 
 test("worker evidence mismatch makes a live PID stale and never blocks a same-kind retry", async () => {

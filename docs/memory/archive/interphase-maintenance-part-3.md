@@ -80,3 +80,40 @@ This append-only continuation starts at STEP-368. Earlier interphase records rem
 **Rollback:** Revert STEP-369 to restore the previous scan order. Doing so reintroduces self-observation and must not be paired with a longer terminal-publication grace.
 
 **Next step:** Push the corrected exact PR head, require the complete matrix, squash-merge only on the unchanged reviewed head, then require the resulting `main` push CI to pass.
+
+## 2026-07-20 — STEP-370: Separate live identity unavailability from stale identity
+
+**Status:** Implemented after CI #124 exposed the remaining process-observation ambiguity; pending a new exact-head matrix and post-merge `main` CI.
+
+**Goal:** Keep a live, exact-evidence detached worker observable during transient process creation-time lookup failure without granting termination authority to an unverified PID.
+
+**Failure evidence and root cause:**
+
+- Exact-head run `29747796375` passed Repository policy and Ubuntu Node 20 regression, but Ubuntu Node 24 failed `detached tasks use an owned TEMP tree and remove it before terminal completion` after one five-second status wait.
+- STEP-369 removed retention self-observation; the remaining path was a live worker whose exact persisted metadata/evidence matched while the platform creation-time lookup temporarily returned unavailable under full regression load.
+- The previous identity function collapsed both unavailable lookup and dead/reused PID into `process_identity_mismatch`, so `runState` entered terminal publication waiting and eventually returned stale even though the PID remained alive.
+
+**Implementation summary:**
+
+- Exact evidence is still required first. If creation time is unavailable, the runner now performs a non-authorizing liveness probe.
+- An exact-evidence live PID is reported as `running` with `identity.owned=false` and reason `process_identity_unavailable`.
+- A dead PID, a readable creation-time mismatch, malformed evidence, or mismatched evidence remains stale.
+- The stop path is unchanged in authority: it re-reads evidence and requires `verifyWorkerIdentity(...).owned === true` before sending any signal. The unowned-running state therefore cannot authorize termination.
+- Added deterministic injected-observation coverage for live-unavailable versus dead identity outcomes.
+
+**Verification:**
+
+- Node `v24.15.0`: affected cleanup, process-identity, operational-reliability, and mutation suites passed 30/30.
+- Native Windows Node `v20.20.2`: the same suites passed 30/30.
+- Cleanup plus process-identity files passed five consecutive Node 24 runs, 17/17 each.
+- The new identity regression proves an unavailable creation-time lookup plus live PID yields only unowned-running evidence, while the same unavailable lookup plus dead PID remains mismatch.
+
+**Adversarial review:**
+
+- The fallback executes only after schema-valid exact worker evidence matches metadata, so tampered evidence still fails immediately and does not block same-kind retry.
+- PID liveness alone never sets `owned=true`; it can delay a same-kind retry but cannot authorize stop, deletion, or process-tree widening.
+- A readable different creation time remains a reuse/mismatch and never receives the live-unavailable state.
+
+**Rollback:** Revert STEP-370 to collapse unavailable and mismatched identity again. That restores the false-stale behavior under transient lookup failure.
+
+**Next step:** Push the exact corrected head, require the complete Ubuntu/Windows Node 20/24 matrix, squash-merge only if the PR head remains unchanged, then require the resulting `main` push CI to pass.

@@ -7,7 +7,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeJsonAtomicFile } from "./atomic-file.mjs";
 import { createOwnedTempEnvironment, sweepStaleOwnedTempRoots } from "./owned-temp-root.mjs";
-import { processCreationTime } from "./process-identity.mjs";
+import { processCreationTime, processIsAlive } from "./process-identity.mjs";
 
 export { processCreationTime } from "./process-identity.mjs";
 
@@ -255,12 +255,19 @@ function workerEvidenceMatches(metadata, evidence) {
     evidence.workerCreationTime === metadata.workerCreationTime);
 }
 
-async function verifyWorkerIdentity(metadata, evidence) {
+export async function verifyWorkerIdentity(metadata, evidence, options = {}) {
   if (!metadata || metadata.schemaVersion !== RUNNER_SCHEMA_VERSION) return { owned: false, reason: "unsupported_metadata" };
   if (!evidence || evidence.schemaVersion !== RUNNER_SCHEMA_VERSION) return { owned: false, reason: "missing_worker_evidence" };
   if (!workerEvidenceMatches(metadata, evidence)) return { owned: false, reason: "worker_evidence_mismatch" };
-  const currentCreationTime = await processCreationTime(metadata.workerPid);
-  if (!currentCreationTime || currentCreationTime !== metadata.workerCreationTime) {
+  const readCreationTime = options.processCreationTime ?? processCreationTime;
+  const isAlive = options.processIsAlive ?? processIsAlive;
+  const currentCreationTime = await readCreationTime(metadata.workerPid);
+  if (!currentCreationTime) {
+    return isAlive(metadata.workerPid)
+      ? { owned: false, reason: "process_identity_unavailable" }
+      : { owned: false, reason: "process_identity_mismatch" };
+  }
+  if (currentCreationTime !== metadata.workerCreationTime) {
     return { owned: false, reason: "process_identity_mismatch" };
   }
   return { owned: true, reason: "exact_worker_identity" };
@@ -315,7 +322,7 @@ async function runState(directory) {
     identity = { owned: false, reason: "result_recorded" };
   } else {
     identity = await verifyWorkerIdentity(metadata, evidence);
-    if (identity.owned) {
+    if (identity.owned || identity.reason === "process_identity_unavailable") {
       status = "running";
     } else {
       const exactEvidence = workerEvidenceMatches(metadata, evidence);
