@@ -59,7 +59,7 @@ test("safe reads replace repository filters with a fixed non-required failure se
       ]);
       return {
         status: 0,
-        stdout: Buffer.from("filter.codexpro.clean\nreviewed-filter\0", "utf8"),
+        stdout: Buffer.from("filter.codexgpt.clean\nreviewed-filter\0", "utf8"),
         stderr: Buffer.alloc(0),
         stdoutTruncated: false,
         stderrTruncated: false,
@@ -68,10 +68,10 @@ test("safe reads replace repository filters with a fixed non-required failure se
     }
   };
   assert.deepEqual(await neutralizedFilterConfig(executor, repository), [
-    "filter.codexpro.process=",
-    "filter.codexpro.clean=! :",
-    "filter.codexpro.smudge=! :",
-    "filter.codexpro.required=false"
+    "filter.codexgpt.process=",
+    "filter.codexgpt.clean=! :",
+    "filter.codexgpt.smudge=! :",
+    "filter.codexgpt.required=false"
   ]);
 });
 
@@ -83,8 +83,8 @@ test("Gate X stages through a private index, runs reviewed filters, and commits 
       const postIndexMarker = path.join(fixture.root, "post-index-marker.txt");
       const canary = path.resolve("fixtures", "git-canary-child.mjs");
       const filterCommand = `${quote(process.execPath)} ${quote(canary)} ${quote(marker)} filter`;
-      runGit(fixture.root, ["config", "filter.codexpro.clean", filterCommand]);
-      await fs.writeFile(path.join(fixture.root, ".gitattributes"), "tracked.txt filter=codexpro\n", "utf8");
+      runGit(fixture.root, ["config", "filter.codexgpt.clean", filterCommand]);
+      await fs.writeFile(path.join(fixture.root, ".gitattributes"), "tracked.txt filter=codexgpt\n", "utf8");
       runGit(fixture.root, ["add", ".gitattributes"]);
       runGit(fixture.root, ["commit", "-m", "attributes"]);
       await fs.rm(marker, { force: true });
@@ -503,8 +503,8 @@ test("Gate X signs only the shadow commit through an explicitly reviewed SSH sig
     const reviews = new GitReviewTokenServiceV4({ key: Buffer.alloc(32, 78) });
     try {
       const systemSigner = path.join(process.env.WINDIR ?? "C:\\Windows", "System32", "OpenSSH", "ssh-keygen.exe");
-      const signer = path.join(fixture.root, ".git", "codexpro-ssh-keygen.exe");
-      const key = path.join(fixture.root, ".git", "codexpro-signing-key");
+      const signer = path.join(fixture.root, ".git", "codexgpt-ssh-keygen.exe");
+      const key = path.join(fixture.root, ".git", "codexgpt-signing-key");
       const generated = spawnSync(systemSigner, ["-q", "-t", "ed25519", "-N", "", "-f", key], {
         cwd: fixture.root,
         encoding: "utf8",

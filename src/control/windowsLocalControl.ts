@@ -285,7 +285,7 @@ export class WindowsLocalControlRuntime {
       if (
         ready?.schemaVersion !== 1 || ready.code !== "CONTROL_READY" || ready.serverId !== serverId ||
         ready.nonce !== nonce || ready.pipeRejectRemoteClients !== true ||
-        ready.pipePath !== `\\\\.\\pipe\\codexpro-control-${serverId}`
+        ready.pipePath !== `\\\\.\\pipe\\codexgpt-control-${serverId}`
       ) throw controlError("CONTROL_READY_MISMATCH");
     } catch (error) {
       child.kill();

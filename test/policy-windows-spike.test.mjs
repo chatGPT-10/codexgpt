@@ -7,7 +7,7 @@ import test from "node:test";
 const { runSpikeFixture, SPIKE_CAPABILITY_NAMES } = await import("../scripts/policy-windows-spike.mjs");
 
 test("Windows spike uses only synthetic fixture facts and never returns a real user path", async () => {
-  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-policy-spike-test-"));
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-policy-spike-test-"));
   const calls = [];
   try {
     const report = await runSpikeFixture({
@@ -43,7 +43,7 @@ test("spike rejects non-temporary fixture roots and malformed executor results",
     /temporary synthetic fixture/i
   );
 
-  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-policy-spike-test-"));
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-policy-spike-test-"));
   try {
     await assert.rejects(
       runSpikeFixture({ fixtureRoot, platform: "win32", execute: async () => ({ id: "wrong", outcome: "pass", detailCode: "x" }) }),
@@ -55,7 +55,7 @@ test("spike rejects non-temporary fixture roots and malformed executor results",
 });
 
 test("spike capability summary remains conservative when probes do not prove isolation", async () => {
-  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-policy-spike-test-"));
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-policy-spike-test-"));
   try {
     const report = await runSpikeFixture({
       fixtureRoot,

@@ -1,4 +1,4 @@
-# Direct `codexpro_inventory` Output Schema Design
+# Direct `codexgpt_inventory` Output Schema Design
 
 > Date: 2026-07-13  
 > Phase: 1  
@@ -8,7 +8,7 @@
 
 ## 1. Decision summary
 
-Migrate only the direct full-mode `codexpro_inventory` tool to the established Phase 1 schema-v1 envelope.
+Migrate only the direct full-mode `codexgpt_inventory` tool to the established Phase 1 schema-v1 envelope.
 
 The slice will:
 
@@ -44,9 +44,9 @@ It does not require loading Skill bodies, trusting scripts, testing MCP connecti
 Current production flow:
 
 ```text
-direct codexpro_inventory handler
+direct codexgpt_inventory handler
   → WorkspaceManager.getWorkspace
-  → codexproInventory
+  → codexgptInventory
       → discoverSkillInventory
       → discoverMcpServers
   → flat structuredContent
@@ -71,11 +71,11 @@ Current behavior:
 Current proven consumers:
 
 - Tool Card subtitle and inventory renderer;
-- `codexpro_self_test`, through the internal provider result;
+- `codexgpt_self_test`, through the internal provider result;
 - protected main Smoke and HTTP Smoke identity checks;
 - native Stress Skill count/selection checks;
 - native Stress MCP cap and secret-leak checks;
-- `codexpro` supertool `inventory` action.
+- `codexgpt` supertool `inventory` action.
 
 ## 4. Approaches considered
 
@@ -125,7 +125,7 @@ Rejected because it begins Phase 6 inside Phase 1, expands the public contract b
 
 ### 5.1 In scope
 
-- `src/tools/schemas/codexproInventory.ts`.
+- `src/tools/schemas/codexgptInventory.ts`.
 - exact direct-tool `outputSchema`.
 - exact sixteen-field success `data`.
 - exact nested Skill and MCP item schemas.
@@ -134,7 +134,7 @@ Rejected because it begins Phase 6 inside Phase 1, expands the public contract b
 - explicit Skill and MCP truncation flags.
 - fixed safe meta warnings derived from truncation.
 - safe display path validation.
-- one injected `codexproInventoryProvider` boundary.
+- one injected `codexgptInventoryProvider` boundary.
 - three fixed non-retryable failures.
 - nested-first Tool Card rendering with historical flat fallback.
 - direct supertool compatibility.
@@ -154,7 +154,7 @@ Rejected because it begins Phase 6 inside Phase 1, expands the public contract b
 - workspace ownership, close, expiry, or identity isolation;
 - Permission Profiles, Hooks, Sandbox, OAuth, or scopes;
 - changes to tool modes;
-- changes to `codexpro_self_test` public output;
+- changes to `codexgpt_self_test` public output;
 - changes to protected `scripts/smoke.mjs` or `scripts/http-smoke.mjs` source files;
 - package dependencies;
 - a general `server.ts` decomposition.
@@ -167,8 +167,8 @@ Success has exactly six top-level fields:
 
 ```json
 {
-  "codexpro_tool": "codexpro_inventory",
-  "codexpro_title": "CodexPro Inventory",
+  "codexgpt_tool": "codexgpt_inventory",
+  "codexgpt_title": "CodexGPT Inventory",
   "ok": true,
   "data": {},
   "error": null,
@@ -351,8 +351,8 @@ If both inventories are truncated, warnings appear once each in Skill-then-MCP o
 Add a test-only dependency interface:
 
 ```ts
-export interface CodexProInventoryProviderContext {
-  config: CodexProConfig;
+export interface CodexGPTInventoryProviderContext {
+  config: CodexGPTConfig;
   workspace: Workspace;
   options: {
     includeGlobalSkills: boolean;
@@ -362,20 +362,20 @@ export interface CodexProInventoryProviderContext {
 }
 ```
 
-`CodexProServerDependencies` gains:
+`CodexGPTServerDependencies` gains:
 
 ```ts
-codexproInventoryProvider?: (
-  context: CodexProInventoryProviderContext
-) => CodexProInventoryResult | Promise<CodexProInventoryResult>;
+codexgptInventoryProvider?: (
+  context: CodexGPTInventoryProviderContext
+) => CodexGPTInventoryResult | Promise<CodexGPTInventoryResult>;
 ```
 
-Production defaults to the existing `codexproInventory` domain function.
+Production defaults to the existing `codexgptInventory` domain function.
 
 The domain result becomes:
 
 ```ts
-export interface CodexProInventoryResult {
+export interface CodexGPTInventoryResult {
   skills: SkillInventoryItem[];
   skillsTruncated: boolean;
   mcpServers: McpServerInventoryItem[];
@@ -439,7 +439,7 @@ The error never includes the workspace root or allowed-root list.
 Message:
 
 ```text
-The CodexPro capability inventory could not be collected.
+The CodexGPT capability inventory could not be collected.
 ```
 
 Details are exactly `{}`.
@@ -451,7 +451,7 @@ This covers provider throw/rejection after a workspace was resolved.
 Message:
 
 ```text
-The CodexPro capability inventory failed because of an internal error.
+The CodexGPT capability inventory failed because of an internal error.
 ```
 
 Details are exactly `{}`.
@@ -483,7 +483,7 @@ No raw exception reaches `content`, `structuredContent`, Tool Card, logs added b
 
 Add `inventoryResultData(data)`:
 
-- unwrap `data.data` for exact nested `codexpro_inventory` success;
+- unwrap `data.data` for exact nested `codexgpt_inventory` success;
 - retain the historical flat object for saved/cached old results;
 - render fixed error code/message when `ok === false`;
 - use nested counts, modes, Skills, MCP names, and truncation flags;
@@ -515,13 +515,13 @@ If implementation evidence finds a flat read not visible in the current audit, m
 
 ### 14.4 Self-test
 
-`codexpro_self_test` calls the internal domain function and consumes `skills.length` and `mcpServers.length`. Preserve those arrays. It may ignore the two new truncation booleans until its own Slice 27 contract is designed.
+`codexgpt_self_test` calls the internal domain function and consumes `skills.length` and `mcpServers.length`. Preserve those arrays. It may ignore the two new truncation booleans until its own Slice 27 contract is designed.
 
 ### 14.5 Supertool
 
-The `codexpro` action `inventory` continues invoking the registered direct handler. It may add established wrapper identity fields, but must preserve `ok`, `data`, `error`, and `meta` without reintroducing flat inventory data.
+The `codexgpt` action `inventory` continues invoking the registered direct handler. It may add established wrapper identity fields, but must preserve `ok`, `data`, `error`, and `meta` without reintroducing flat inventory data.
 
-The generic `codexpro` public schema remains Slice 28.
+The generic `codexgpt` public schema remains Slice 28.
 
 ## 15. Security rules
 
@@ -538,7 +538,7 @@ The generic `codexpro` public schema remains Slice 28.
 
 ## 16. Focused test design
 
-Create `test/codexpro-inventory-contract.test.mjs`.
+Create `test/codexgpt-inventory-contract.test.mjs`.
 
 ### 16.1 Pure schema tests
 
@@ -619,7 +619,7 @@ Verify:
 Narrow to broad:
 
 ```powershell
-node --test test/codexpro-inventory-contract.test.mjs
+node --test test/codexgpt-inventory-contract.test.mjs
 node --test test/open-current-workspace-contract.test.mjs test/open-workspace-contract.test.mjs test/workspace-snapshot-contract.test.mjs test/inspect-workspace-contract.test.mjs
 npm run build
 node scripts/analysis-smoke.mjs
@@ -640,9 +640,9 @@ Tests that execute repository code run with the current Windows user permissions
 
 Create:
 
-- `src/tools/schemas/codexproInventory.ts`
-- `test/codexpro-inventory-contract.test.mjs`
-- `docs/superpowers/plans/2026-07-13-codexpro-inventory-output-schema.md`
+- `src/tools/schemas/codexgptInventory.ts`
+- `test/codexgpt-inventory-contract.test.mjs`
+- `docs/superpowers/plans/2026-07-13-codexgpt-inventory-output-schema.md`
 
 Modify:
 
@@ -653,14 +653,14 @@ Modify:
 - `AGENTS.md`
 - `Memory.md`
 - active Phase 1 archive volume(s)
-- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` only for current status after completion
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` only for current status after completion
 
 Protected `scripts/smoke.mjs` and `scripts/http-smoke.mjs` should remain byte-for-byte unchanged unless a proven current consumer forces an exact compatibility-layer update.
 
 ## 19. Acceptance criteria
 
 ```text
-[ ] direct codexpro_inventory remains full-mode read-only
+[ ] direct codexgpt_inventory remains full-mode read-only
 [ ] descriptor advertises its exact output schema
 [ ] success has exactly six top-level and sixteen data fields
 [ ] Skill and MCP items are exact, bounded, ordered, unique, and sanitized

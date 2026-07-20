@@ -72,7 +72,7 @@ if (process.platform === 'win32' && fs.realpathSync?.native) {
   syncBuiltinESMExports();
 }
 
-const previousNodeOptions = process.env.CODEXPRO_REALPATH_PREVIOUS_NODE_OPTIONS;
+const previousNodeOptions = process.env.CODEXGPT_REALPATH_PREVIOUS_NODE_OPTIONS;
 if (previousNodeOptions) process.env.NODE_OPTIONS = previousNodeOptions;
 else delete process.env.NODE_OPTIONS;
-delete process.env.CODEXPRO_REALPATH_PREVIOUS_NODE_OPTIONS;
+delete process.env.CODEXGPT_REALPATH_PREVIOUS_NODE_OPTIONS;

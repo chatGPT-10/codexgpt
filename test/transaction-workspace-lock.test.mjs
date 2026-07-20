@@ -10,7 +10,7 @@ import {
 } from "../dist/transactions/index.js";
 
 function tempRoot() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-lock-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-lock-"));
 }
 
 function cleanup(root) {

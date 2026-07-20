@@ -231,7 +231,7 @@ test("a stuck ClosePseudoConsole makes only the isolated worker fatal, preserves
 });
 
 test("host crash closes its creation-time Job and kills the exact owned process tree", { skip: process.platform !== "win32" }, async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-host-crash-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-host-crash-"));
   const recordPath = path.join(root, "tree.json");
   const session = await startWindowsProcessHostSpike();
   let hostCreationTime;
@@ -257,7 +257,7 @@ test("host crash closes its creation-time Job and kills the exact owned process 
 });
 
 test("parent EOF is detected without consuming protocol bytes and revokes every active Job", { skip: process.platform !== "win32" }, async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-host-eof-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-host-eof-"));
   const recordPath = path.join(root, "tree.json");
   const session = await startWindowsProcessHostSpike();
   let hostCreationTime;
@@ -283,7 +283,7 @@ test("parent EOF is detected without consuming protocol bytes and revokes every 
 });
 
 test("an abrupt Node controller exit closes host stdin, then the host watchdog revokes its Jobs", { skip: process.platform !== "win32" }, async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-node-crash-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-node-crash-"));
   const recordPath = path.join(root, "tree.json");
   const evidencePath = path.join(root, "controller.json");
   const controller = spawn(process.execPath, [nodeCrashControllerFixture, recordPath, evidencePath], {

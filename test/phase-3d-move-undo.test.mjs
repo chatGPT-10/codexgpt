@@ -24,7 +24,7 @@ const sha = (value) => createHash("sha256").update(value).digest("hex");
 const ownerBinding = "owner_" + "7".repeat(64);
 
 async function fixture(action) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-move-undo-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-move-undo-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");
@@ -194,7 +194,7 @@ test("move undo reverses a complete cycle through the same V2 engine", () => fix
 }));
 
 test("move undo recovers when original change-set effect precedes its participant fact", async () => {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-move-undo-participant-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-move-undo-participant-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");

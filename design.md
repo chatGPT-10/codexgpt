@@ -1,6 +1,6 @@
-# Design - CodexPro
+# Design - CodexGPT
 
-A locked product-system note for CodexPro docs and the local admin surface.
+A locked product-system note for CodexGPT docs and the local admin surface.
 Every redesign should keep the same trust story: ChatGPT can act through a
 token-protected local MCP bridge, while configured roots, locally confirmed
 roots, trusted-code process execution, writes, Codex history, and handoff
@@ -14,7 +14,7 @@ modern-minimal developer tool
 
 Use ChatGPT like your local coding agent.
 
-CodexPro should explain itself in this order:
+CodexGPT should explain itself in this order:
 
 1. Install the CLI.
 2. Run setup inside one repo.
@@ -64,7 +64,7 @@ motion support. Animate transform and opacity only.
 
 ## Copy Rules
 
-- Say what CodexPro does, then say what it does not do.
+- Say what CodexGPT does, then say what it does not do.
 - Keep `configured_roots`, `confirmed_roots`, trusted-code `full_access`, and
   unavailable `workspace` visually and verbally distinct.
 - Keep typed local Git, managed task worktrees, and unrestricted processes
@@ -83,7 +83,7 @@ motion support. Animate transform and opacity only.
 - Describe Job Objects as member lifetime control and ConPTY as terminal I/O;
   never call either one a sandbox.
 - Do not claim permanent ChatGPT memory. Say repo-backed context files.
-- Do not imply CodexPro unlocks models, bypasses limits, automates approval
+- Do not imply CodexGPT unlocks models, bypasses limits, automates approval
   gates, or provides secure human-presence proof after same-user code runs.
 - Never present the reserved `workspace` profile or retained Gate S probe as a
   usable sandbox. Unavailable means unavailable; no fallback to `full_access`.

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import type { CodexProConfig } from "./config.js";
+import type { CodexGPTConfig } from "./config.js";
 import {
   aiBridgeScaffoldWrites,
   ensureAiBridge,
@@ -136,7 +136,7 @@ export interface HandoffWriteResult {
 }
 
 export interface AgentHandoffProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   request: PreparedAgentHandoffRequest;
@@ -269,7 +269,7 @@ function isExactIsoTimestamp(value: string): boolean {
 }
 
 export function prepareAgentHandoffRequest(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   workspace: Workspace,
   options: AgentHandoffRequestOptions
 ): PreparedAgentHandoffRequest {
@@ -362,7 +362,7 @@ function classifyOutputPathError(error: unknown): HandoffOperationError {
 }
 
 async function readExistingPlan(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   planPath: string
@@ -393,7 +393,7 @@ async function readExistingPlan(
 }
 
 export async function preflightAgentHandoffOutput(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   request: PreparedAgentHandoffRequest

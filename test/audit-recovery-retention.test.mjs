@@ -8,7 +8,7 @@ import { PersistentAuditStore } from "../dist/audit/store.js";
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
 function temporaryStateRoot() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-audit-recovery-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-audit-recovery-"));
 }
 
 function hex32(text) {

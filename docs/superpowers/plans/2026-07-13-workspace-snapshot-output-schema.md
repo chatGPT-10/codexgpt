@@ -6,7 +6,7 @@
 
 **Architecture:** Add one tool-owned schema module and two injectable read-provider boundaries around the existing `workspaceSummary` and `readAiBridgeContext` operations. Resolve the workspace first, invoke and validate each provider in a separate failure stage, normalize only approved AI bridge filenames, build exact public data, and preserve the existing redacted text response. Keep the tool full-mode only and retain historical flat Tool Card fallback.
 
-**Tech Stack:** TypeScript, Node.js 20/24, Zod 3, MCP SDK in-memory transport, `node:test`, existing CodexPro Tool Card, Git Bash verification backend on Windows.
+**Tech Stack:** TypeScript, Node.js 20/24, Zod 3, MCP SDK in-memory transport, `node:test`, existing CodexGPT Tool Card, Git Bash verification backend on Windows.
 
 ## Global Constraints
 
@@ -55,7 +55,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
   "../src/tools/schemas/workspaceSnapshot.ts",
@@ -157,11 +157,11 @@ Add pure schema tests with these exact assertions:
 
 1. The module exists and all four exports are functions/objects.
 2. Success has exactly top-level keys:
-   `codexpro_title`, `codexpro_tool`, `data`, `error`, `meta`, `ok`.
+   `codexgpt_title`, `codexgpt_tool`, `data`, `error`, `meta`, `ok`.
 3. Success data has exactly:
    `agents_loaded`, `agents_path`, `ai_context_files`, `bash_mode`, `git_status`, `root`, `skill_counts`, `skill_inventory`, `skills`, `tool_mode`, `tree`, `workspace_id`, `write_mode`.
-4. `codexpro_tool === "workspace_snapshot"`.
-5. `codexpro_title === "Workspace Snapshot"`.
+4. `codexgpt_tool === "workspace_snapshot"`.
+5. `codexgpt_title === "Workspace Snapshot"`.
 6. `meta === { schemaVersion: 1, durationMs: 7, warnings: [] }` for duration 7.
 7. Every approved failure has exact code, message, `retryable: false`, details, and duration.
 8. Reject:
@@ -226,7 +226,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({
     name: "workspace-snapshot-contract-test",
     version: "0.0.0"
@@ -245,7 +245,7 @@ async function withConfigClient(config, dependencies, callback) {
 
 async function withTempWorkspace(callback) {
   const created = await fs.mkdtemp(
-    path.join(os.tmpdir(), "codexpro-workspace-snapshot-contract-")
+    path.join(os.tmpdir(), "codexgpt-workspace-snapshot-contract-")
   );
   const root = await fs.realpath(created);
   try {
@@ -338,7 +338,7 @@ workspace_snapshot rejects global skills when global discovery is disabled
 workspace_snapshot rejects malformed, duplicate, outside, and unapproved AI files
 workspace_snapshot Tool Card consumes nested data and retains flat fallback
 workspace_snapshot Tool Card lists AI filenames without file contents
-codexpro workspace_snapshot action and snapshot alias preserve strict envelopes
+codexgpt workspace_snapshot action and snapshot alias preserve strict envelopes
 Smoke compatibility migrates the protected snapshot tree consumer in memory
 HTTP Smoke compatibility migrates the protected snapshot workspace-id consumer in memory
 ```
@@ -367,8 +367,8 @@ await withConfigClient(createTestConfig(root, { toolMode: "full" }), {}, async (
   assert.deepEqual(
     new Set(descriptor.outputSchema.required),
     new Set([
-      "codexpro_tool",
-      "codexpro_title",
+      "codexgpt_tool",
+      "codexgpt_title",
       "ok",
       "data",
       "error",
@@ -487,8 +487,8 @@ export const workspaceSnapshotErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const workspaceSnapshotOutputShape = {
-  codexpro_tool: z.literal("workspace_snapshot"),
-  codexpro_title: z.literal("Workspace Snapshot"),
+  codexgpt_tool: z.literal("workspace_snapshot"),
+  codexgpt_title: z.literal("Workspace Snapshot"),
   ok: z.boolean(),
   data: workspaceSnapshotDataSchema.nullable(),
   error: workspaceSnapshotErrorSchema.nullable(),
@@ -559,8 +559,8 @@ export function createWorkspaceSnapshotSuccess(
   durationMs = 0
 ): WorkspaceSnapshotStructuredResult {
   return workspaceSnapshotOutputSchema.parse({
-    codexpro_tool: "workspace_snapshot",
-    codexpro_title: "Workspace Snapshot",
+    codexgpt_tool: "workspace_snapshot",
+    codexgpt_title: "Workspace Snapshot",
     ok: true,
     data: workspaceSnapshotDataSchema.parse(data),
     error: null,
@@ -573,8 +573,8 @@ export function createWorkspaceSnapshotFailure(
   durationMs = 0
 ): WorkspaceSnapshotStructuredResult {
   return workspaceSnapshotOutputSchema.parse({
-    codexpro_tool: "workspace_snapshot",
-    codexpro_title: "Workspace Snapshot",
+    codexgpt_tool: "workspace_snapshot",
+    codexgpt_title: "Workspace Snapshot",
     ok: false,
     data: null,
     error: {
@@ -699,20 +699,20 @@ type WorkspaceSnapshotAiProviderResult = z.infer<
 
 ```ts
 export interface WorkspaceSnapshotSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: WorkspaceSnapshotSummaryOptions;
 }
 
 export interface WorkspaceSnapshotAiContextProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
 }
 ```
 
-- [x] Extend `CodexProServerDependencies` exactly:
+- [x] Extend `CodexGPTServerDependencies` exactly:
 
 ```ts
 workspaceSnapshotSummaryProvider?: (
@@ -758,24 +758,24 @@ function validateWorkspaceSnapshotSummary(
   path: string;
 }> {
   if (result.workspaceId !== workspace.id) {
-    throw new CodexProError(
+    throw new CodexGPTError(
       "Workspace snapshot provider returned a mismatched workspace id."
     );
   }
   if (result.root !== workspace.root) {
-    throw new CodexProError(
+    throw new CodexGPTError(
       "Workspace snapshot provider returned a mismatched root."
     );
   }
   if (result.agentsLoaded !== Boolean(result.agentsPath)) {
-    throw new CodexProError(
+    throw new CodexGPTError(
       "Workspace snapshot provider returned inconsistent AGENTS state."
     );
   }
   if (result.agentsPath) {
     const resolvedAgents = guard.resolve(workspace, result.agentsPath);
     if (resolvedAgents.relPath !== result.agentsPath) {
-      throw new CodexProError(
+      throw new CodexGPTError(
         "Workspace snapshot provider returned a non-normalized AGENTS path."
       );
     }
@@ -786,7 +786,7 @@ function validateWorkspaceSnapshotSummary(
     expectedNames.length !== result.skills.length ||
     expectedNames.some((name, index) => result.skills[index] !== name)
   ) {
-    throw new CodexProError(
+    throw new CodexGPTError(
       "Workspace snapshot provider returned mismatched skill names."
     );
   }
@@ -802,7 +802,7 @@ function validateWorkspaceSnapshotSummary(
     "other"
   ] as const) {
     if (result.skillCounts[key] !== expectedCounts[key]) {
-      throw new CodexProError(
+      throw new CodexGPTError(
         "Workspace snapshot provider returned mismatched skill counts."
       );
     }
@@ -816,7 +816,7 @@ function validateWorkspaceSnapshotSummary(
       result.skillCounts.total
     )
   ) {
-    throw new CodexProError(
+    throw new CodexGPTError(
       "Workspace snapshot provider returned skills when discovery was disabled."
     );
   }
@@ -826,7 +826,7 @@ function validateWorkspaceSnapshotSummary(
     !options.includeGlobalSkills &&
     result.skillInventory.some((skill) => skill.source !== "workspace")
   ) {
-    throw new CodexProError(
+    throw new CodexGPTError(
       "Workspace snapshot provider returned global skills when global discovery was disabled."
     );
   }
@@ -863,7 +863,7 @@ const WORKSPACE_SNAPSHOT_AI_CONTEXT_NAMES = [
 ```ts
 function validateWorkspaceSnapshotAiFiles(
   result: WorkspaceSnapshotAiProviderResult,
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace
 ): string[] {
@@ -878,12 +878,12 @@ function validateWorkspaceSnapshotAiFiles(
   for (const file of result.files) {
     const relPath = guard.resolve(workspace, file).relPath;
     if (!approved.has(relPath)) {
-      throw new CodexProError(
+      throw new CodexGPTError(
         "Workspace snapshot AI provider returned an unapproved context file."
       );
     }
     if (seen.has(relPath)) {
-      throw new CodexProError(
+      throw new CodexGPTError(
         "Workspace snapshot AI provider returned a duplicate context file."
       );
     }
@@ -942,7 +942,7 @@ No raw error argument may enter this text.
 
 ### Step 2.5 — Wire production defaults
 
-- [x] In `createCodexProServer`, add defaults after the open-workspace providers:
+- [x] In `createCodexGPTServer`, add defaults after the open-workspace providers:
 
 ```ts
 const workspaceSnapshotSummaryProvider =
@@ -1226,9 +1226,9 @@ feat(schema): add exact workspace_snapshot result contract
 ```js
 function workspaceResultData(data) {
   const isWorkspaceResult =
-    data?.codexpro_tool === "open_current_workspace" ||
-    data?.codexpro_tool === "open_workspace" ||
-    data?.codexpro_tool === "workspace_snapshot";
+    data?.codexgpt_tool === "open_current_workspace" ||
+    data?.codexgpt_tool === "open_workspace" ||
+    data?.codexgpt_tool === "workspace_snapshot";
   return isWorkspaceResult && data?.data && typeof data.data === "object"
     ? data.data
     : (data ?? {});
@@ -1240,7 +1240,7 @@ This retains historical flat snapshot fallback when `data` is absent.
 - [x] Replace the snapshot subtitle branch with nested failure-aware logic:
 
 ```js
-if (data?.codexpro_tool === "workspace_snapshot") {
+if (data?.codexgpt_tool === "workspace_snapshot") {
   if (data?.ok === false) {
     return data?.error?.code || "Workspace snapshot unavailable";
   }
@@ -1281,12 +1281,12 @@ fold(
 )
 ```
 
-Open tools will show an empty AI handoff fold only if this is inserted unconditionally. Avoid that behavior change: include the fold only when `data.codexpro_tool === "workspace_snapshot"`.
+Open tools will show an empty AI handoff fold only if this is inserted unconditionally. Avoid that behavior change: include the fold only when `data.codexgpt_tool === "workspace_snapshot"`.
 
 Use:
 
 ```js
-const aiContextSection = data?.codexpro_tool === "workspace_snapshot"
+const aiContextSection = data?.codexgpt_tool === "workspace_snapshot"
   ? fold(
       "AI handoff",
       aiContextFiles.length + " files",
@@ -1347,9 +1347,9 @@ assert.match(toolCardWidgetHtml, /No readable AI handoff files/);
 Assert for each:
 
 ```js
-structured.codexpro_tool === "workspace_snapshot"
-structured.codexpro_title === "Workspace Snapshot"
-structured.codexpro_super_action === "workspace_snapshot"
+structured.codexgpt_tool === "workspace_snapshot"
+structured.codexgpt_title === "Workspace Snapshot"
+structured.codexgpt_super_action === "workspace_snapshot"
 structured.wrapped_tool === "workspace_snapshot"
 structured.ok === true
 structured.data.root === root
@@ -1365,8 +1365,8 @@ Inject a summary-provider failure and assert the wrapped failure keeps `SNAPSHOT
 snapshotAlias.structuredContent.data?.tree
 snapshot.structuredContent.data?.workspace_id
 expectedCount
-sourceURL=codexpro-smoke-compat.mjs
-sourceURL=codexpro-http-smoke-compat.mjs
+sourceURL=codexgpt-smoke-compat.mjs
+sourceURL=codexgpt-http-smoke-compat.mjs
 data:text/javascript;base64
 ```
 
@@ -1525,7 +1525,7 @@ Do not claim publication or CI before a commit has been pushed and exact-head CI
 
 ### Step 4.4 — Perform final review
 
-- [x] Use CodexPro `show_changes` with the unified diff.
+- [x] Use CodexGPT `show_changes` with the unified diff.
 - [x] Verify the changed-file set is limited to:
 
 ```text
@@ -1672,7 +1672,7 @@ Do not force push or rewrite history.
 [ ] Provider invocation and validation stages are distinguished
 [ ] Tool Card handles nested success/failure and flat fallback
 [ ] Tool Card shows AI filenames but not contents
-[ ] codexpro direct action and snapshot alias preserve the envelope
+[ ] codexgpt direct action and snapshot alias preserve the envelope
 [ ] Protected Smoke sources are unchanged
 [ ] Compatibility loaders fail closed on source drift
 [ ] Focused contract passes

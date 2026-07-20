@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const { LoadSkillError } = await tsImport("../src/capabilitiesOps.ts", import.meta.url);
 const schemaModule = await tsImport("../src/tools/schemas/loadSkill.ts", import.meta.url).catch(() => null);
@@ -65,7 +65,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "load-skill-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -183,15 +183,15 @@ test("load_skill schema exports exact constructors and fourteen-field success", 
 
   const success = createLoadSkillSuccess(sampleLoadData(), 7);
   assert.deepEqual(Object.keys(success).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(success.codexpro_tool, "load_skill");
-  assert.equal(success.codexpro_title, "Load Skill");
+  assert.equal(success.codexgpt_tool, "load_skill");
+  assert.equal(success.codexgpt_title, "Load Skill");
   assert.equal(success.ok, true);
   assert.equal(success.error, null);
   assert.deepEqual(Object.keys(success.data).sort(), [
@@ -274,8 +274,8 @@ test("load_skill schema creates every exact stable failure", () => {
   for (const [code, details] of cases) {
     const failure = createLoadSkillFailure({ code, details }, 9);
     assert.deepEqual(failure, {
-      codexpro_tool: "load_skill",
-      codexpro_title: "Load Skill",
+      codexgpt_tool: "load_skill",
+      codexgpt_title: "Load Skill",
       ok: false,
       data: null,
       error: {
@@ -391,7 +391,7 @@ test("load_skill is standard/full only read-only and advertises its exact output
         assert.equal(descriptor.outputSchema.type, "object");
         assert.deepEqual(
           new Set(descriptor.outputSchema.required),
-          new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+          new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
         );
         assert.equal(descriptor.annotations?.readOnlyHint, true);
         assert.equal(descriptor.annotations?.destructiveHint, false);
@@ -707,7 +707,7 @@ test("load_skill malformed provider results are fixed INTERNAL_ERROR", async () 
 
 test("load_skill Tool Card is nested-first bounded and retains historical flat fallback", () => {
   assert.match(toolCardWidgetHtml, /function loadSkillResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "load_skill"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "load_skill"/);
   assert.match(toolCardWidgetHtml, /return nested \? data\.data : \(data \?\? \{\}\)/);
   assert.match(toolCardWidgetHtml, /function renderLoadSkill\(data\)/);
   assert.match(toolCardWidgetHtml, /previewLines\(skillData\.text, 80\)/);
@@ -757,13 +757,13 @@ test("load_skill supertool preserves the exact nested child envelope", async () 
         discoveryTruncated: false
       })
     }, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "load_skill",
         args: { name: "workspace-skill", source: "workspace" }
       });
-      assert.equal(result.structuredContent.codexpro_tool, "load_skill");
-      assert.equal(result.structuredContent.codexpro_title, "Load Skill");
-      assert.equal(result.structuredContent.codexpro_super_action, "load_skill");
+      assert.equal(result.structuredContent.codexgpt_tool, "load_skill");
+      assert.equal(result.structuredContent.codexgpt_title, "Load Skill");
+      assert.equal(result.structuredContent.codexgpt_super_action, "load_skill");
       assert.equal(result.structuredContent.wrapped_tool, "load_skill");
       assert.equal(result.structuredContent.ok, true);
       assert.equal(result.structuredContent.data.text, text);

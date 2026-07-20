@@ -10,8 +10,8 @@
 Phase 5 is not a command-string wrapper around `git`. It adds three deliberately separate components:
 
 1. **A typed local-Git domain.** Tool Contract V4 adds exact local branch, index, commit, restore, and stash operations. Inputs are closed schemas; callers cannot supply flags, arbitrary revisions, config, environment, remotes, or executable paths.
-2. **A Git execution capsule.** CodexPro invokes one identity-bound Git executable through the Phase 4 native host with a fixed environment, fixed command builders, bounded input/output, disabled prompts/network/lazy fetch, and repository integrations disabled by default. This is a policy and execution-control boundary, not an OS sandbox.
-3. **A persistent task-worktree manager.** CodexPro creates opaque, owner-bound task artifacts below a startup-configured local managed root, then issues session-local workspace handles for them. Task artifacts may survive server restart; workspace handles do not.
+2. **A Git execution capsule.** CodexGPT invokes one identity-bound Git executable through the Phase 4 native host with a fixed environment, fixed command builders, bounded input/output, disabled prompts/network/lazy fetch, and repository integrations disabled by default. This is a policy and execution-control boundary, not an OS sandbox.
+3. **A persistent task-worktree manager.** CodexGPT creates opaque, owner-bound task artifacts below a startup-configured local managed root, then issues session-local workspace handles for them. Task artifacts may survive server restart; workspace handles do not.
 
 The default user flow is:
 
@@ -71,7 +71,7 @@ The protected adversary includes:
 - stale, foreign, replayed, reordered, or concurrently retried state/review/merge tokens;
 - a task directory replaced with a junction, symlink, mount, hard link, or different stable object;
 - a crash or audit failure between Git object creation, index installation, ref update, worktree materialization, and terminal recording;
-- another Git process changing a ref/index while CodexPro is preparing or executing a request;
+- another Git process changing a ref/index while CodexGPT is preparing or executing a request;
 - output floods, invalid UTF-8, terminal control bytes, malicious filenames, and secret-bearing diffs or commit subjects.
 
 The design does not claim protection from:
@@ -151,7 +151,7 @@ The historical outline's `git_apply_patch` is rejected. Existing `apply_patch` p
 - `standard`: all V4 additions except `git_restore` and `git_stash`.
 - `full`: all twelve V4 additions.
 
-Visibility is not authorization. Every direct tool and `codexpro` child action still passes the same Policy Kernel, resource resolution, approval, audit, and capability checks.
+Visibility is not authorization. Every direct tool and `codexgpt` child action still passes the same Policy Kernel, resource resolution, approval, audit, and capability checks.
 
 ### 4.3 Existing Git tools under V4
 
@@ -181,7 +181,7 @@ V4 is nondefault. Selecting it requires Policy Kernel `enforce`, durable audit, 
 
 ### 5.1 Repository admission
 
-For every V4 repository, CodexPro resolves and binds:
+For every V4 repository, CodexGPT resolves and binds:
 
 - opaque random `repository_id`;
 - canonical worktree root and stable directory identity;
@@ -192,9 +192,9 @@ For every V4 repository, CodexPro resolves and binds:
 - Git executable path, stable identity, digest/version/capability revision;
 - repository-policy, PathPolicy, secret-policy, contract, and Policy Kernel revisions.
 
-A normal primary repository must keep its Git metadata below its admitted root. A linked worktree is accepted only when it is a CodexPro-managed task whose `.git` indirection and `commondir` match the stored parent identity. Bare repositories, arbitrary external gitdirs, unsafe ownership, reftable until explicitly proved, external object alternates, replacement refs, and unresolved partial-clone objects fail closed. Safe mutations also reject sparse checkout, sparse index, and split index until their exact index/worktree semantics have dedicated evidence; read tools may report those facts but cannot mint a mutation token.
+A normal primary repository must keep its Git metadata below its admitted root. A linked worktree is accepted only when it is a CodexGPT-managed task whose `.git` indirection and `commondir` match the stored parent identity. Bare repositories, arbitrary external gitdirs, unsafe ownership, reftable until explicitly proved, external object alternates, replacement refs, and unresolved partial-clone objects fail closed. Safe mutations also reject sparse checkout, sparse index, and split index until their exact index/worktree semantics have dedicated evidence; read tools may report those facts but cannot mint a mutation token.
 
-Mutable Git metadata may not be a reparse point or multi-link ordinary file. Immutable object files may be shared/hard-linked; CodexPro never edits an existing object in place.
+Mutable Git metadata may not be a reparse point or multi-link ordinary file. Immutable object files may be shared/hard-linked; CodexGPT never edits an existing object in place.
 
 Repositories referenced by persistent tasks have an authenticated versioned registry record with a random opaque `repository_id`, sealed canonical path, stable repository/common-dir identities, owner binding, and last validated capability/policy revisions. The ID is never a path hash. Restart reopens and revalidates the record before task recovery; path/identity drift makes it unavailable without exposing or automatically rebinding the old record.
 
@@ -253,7 +253,7 @@ Tokens expire after five minutes, are one context only, conceal private roots/OI
 
 ### 6.2 Locks
 
-- A repository-wide CodexPro lock serializes ref/common-metadata mutations.
+- A repository-wide CodexGPT lock serializes ref/common-metadata mutations.
 - A worktree lock serializes its index and file-plane mutations.
 - Locks use Phase 3 process-instance ownership and exact PID creation-time identity.
 - Ordering is always repository lock, then lexically ordered worktree locks, then Phase 3 file transaction lock.
@@ -281,7 +281,7 @@ Raw file content, complete diffs, commit messages, canonical private roots, toke
 
 Git object creation may leave unreachable immutable objects after failure; this is not reported as a committed mutation. Index/ref/worktree effects are acknowledged only after reconciliation and terminal audit. If the effect is durable but terminal audit cannot be proved, the repository freezes with `GIT_RECOVERY_REQUIRED`; it is not silently rewound across possible external work.
 
-The journal coordinates participants; it does not provide database-style simultaneous visibility to external Git processes. A checked-out-target integration may be observed between its file, index, ref, and terminal-audit transitions. CodexPro therefore retains exact rollback state, blocks its own concurrent access, rechecks expected identities at every boundary, and after a crash either finishes, safely rolls back, or freezes for recovery. Documentation and results must not claim cross-process atomic visibility.
+The journal coordinates participants; it does not provide database-style simultaneous visibility to external Git processes. A checked-out-target integration may be observed between its file, index, ref, and terminal-audit transitions. CodexGPT therefore retains exact rollback state, blocks its own concurrent access, rechecks expected identities at every boundary, and after a crash either finishes, safely rolls back, or freezes for recovery. Documentation and results must not claim cross-process atomic visibility.
 
 ### 6.4 Concurrency and idempotency
 
@@ -321,7 +321,7 @@ The journal coordinates participants; it does not provide database-style simulta
 - Requires a fresh index token and a non-empty exact staged tree.
 - Independently re-enumerates and rescans staged paths/blobs; it never trusts `git_stage` alone.
 - Applies the same secret-content policy to the full commit message before `commit-tree`; rejected messages create no commit object. V4 results and audit never return the message, while `git_log` subjects are bounded, neutralized, and secret-redacted or omitted.
-- Derives author/committer identity only from an explicit local CodexPro Git identity or exact admitted repository-local `user.name`/`user.email` keys. System/global files, includes, conditional includes, environment identity, and caller values are ignored; absence fails with `GIT_IDENTITY_REQUIRED`. The reviewed values are copied into the clean command scope. Callers cannot set identity, dates, signing, amend, parents, or trailers.
+- Derives author/committer identity only from an explicit local CodexGPT Git identity or exact admitted repository-local `user.name`/`user.email` keys. System/global files, includes, conditional includes, environment identity, and caller values are ignored; absence fails with `GIT_IDENTITY_REQUIRED`. The reviewed values are copied into the clean command scope. Callers cannot set identity, dates, signing, amend, parents, or trailers.
 - Safe mode creates the commit with hooks/signing disabled and updates the current local branch by expected-old OID.
 - Detached/unborn HEAD, merge state, unresolved entries, blocked content, identity absence, or changed index fails closed.
 - Returns the new commit/tree/parent OIDs, typed file counts, `hooks_executed: false`, `signature: none`, and a fresh state token.
@@ -343,7 +343,7 @@ There is no arbitrary source revision, recursive root restore, combined index/wo
 
 The tool exposes `list`, `prepare_create`, `execute_create`, `prepare_apply`, `execute_apply`, `prepare_forget`, and `execute_forget`. It never exposes shared-stack `pop`, positional `drop`, or `clear`.
 
-- Stashes are owner/task-bound opaque objects retained under `refs/codexpro/stash/*`, not the shared `refs/stash` stack.
+- Stashes are owner/task-bound opaque objects retained under `refs/codexgpt/stash/*`, not the shared `refs/stash` stack.
 - Create includes only exact reviewed tracked/untracked paths; ignored and blocked paths are never included. Its authenticated record binds the original worktree/task, base tree, exact selected index entries/tree, exact selected worktree/untracked tree, modes, identities, and private ref/OIDs.
 - Only after the private ref and complete rollback material are durable does create clean those selected paths to the current `HEAD`, preserving every unselected index/worktree entry. Staged versus unstaged state is retained rather than flattened.
 - Apply is limited to the same bound worktree/task, keeps the stash ref after success, and restores both selected index and worktree planes. `prepare_apply` performs bounded object-only three-way/no-clobber checks from the recorded base to current state inside sealed quarantine, then completely rescans synthesized output; any conflict, secret, incomplete scan, or untracked overwrite issues no execute token. Accepted synthesized objects are promoted only as an execute journal participant before index/file installation.
@@ -363,7 +363,7 @@ Task records use random opaque `task_worktree_id` values. They persist in authen
 - canonical managed path sealed at rest, stable root identity, per-worktree Git dir/common-dir relation, and lock reason;
 - creation/update timestamps, policy/capability revisions, state, and cleanup/recovery facts.
 
-The default root is `%LOCALAPPDATA%\CodexPro\worktrees\v1`. `CODEXPRO_WORKTREE_ROOT` is a startup-local setting, never a remote tool argument. It must be an owned, ordinary, fixed local directory outside credential/audit/key/control roots and may not be UNC, mapped, removable, device, reparse, or nested inside a repository. Short opaque directory components reduce path pressure.
+The default root is `%LOCALAPPDATA%\CodexGPT\worktrees\v1`. `CODEXGPT_WORKTREE_ROOT` is a startup-local setting, never a remote tool argument. It must be an owned, ordinary, fixed local directory outside credential/audit/key/control roots and may not be UNC, mapped, removable, device, reparse, or nested inside a repository. Short opaque directory components reduce path pressure.
 
 Creating a task never mutates `allowedRoots`. `get_task_worktree` issues a new session-local workspace handle with `accessClass: task_worktree`; ordinary file tools then use normal PathGuard, atomic mutation, hard-deny, policy, and audit behavior. Closing that handle does not remove the persistent task.
 
@@ -408,7 +408,7 @@ Creation succeeds only after Git's NUL-delimited worktree inventory, branch ref,
 
 The first request freezes those complete facts in an immutable removal review and creates no delete/unlock effect. The local R3 card states that the checkout and registration will be removed while the branch, commits, and private stashes remain. Exact retry consumes the grant and revalidates every identity/count/lock fact before revocation or deletion begins.
 
-The manager revokes handles, quarantines input, drains owned Jobs, unlocks the exact CodexPro lock, and deletes only through the proved handle-safe remover. Generic recursive deletion and `git worktree remove` are not deletion backends. The journal removes the proved task tree and its separately stored exact CodexPro-owned common-dir worktree-administration directory as two stable-identity participants, then verifies the complete inventory and records a tombstone. Global `worktree prune/repair` is never used as cleanup because it could affect unrelated registrations. File-lock failure returns `WORKTREE_IN_USE`; CodexPro never kills unrelated processes or retries with force.
+The manager revokes handles, quarantines input, drains owned Jobs, unlocks the exact CodexGPT lock, and deletes only through the proved handle-safe remover. Generic recursive deletion and `git worktree remove` are not deletion backends. The journal removes the proved task tree and its separately stored exact CodexGPT-owned common-dir worktree-administration directory as two stable-identity participants, then verifies the complete inventory and records a tombstone. Global `worktree prune/repair` is never used as cleanup because it could affect unrelated registrations. File-lock failure returns `WORKTREE_IN_USE`; CodexGPT never kills unrelated processes or retries with force.
 
 ## 9. Merge review and execution
 
@@ -417,9 +417,9 @@ The manager revokes handles, quarantines input, drains owned Jobs, unlocks the e
 `merge_task_worktree { action: prepare }` requires a clean committed task and the task record's bound target branch. The caller cannot supply or substitute another target ref. It binds exact target/task OIDs and produces one immutable merge plan:
 
 - If target is an ancestor of task, the candidate is the task head.
-- Otherwise CodexPro uses a Gate-G0-proved object-only merge capability: `merge-tree --write-tree --stdin` with exact full OIDs and NUL-delimited output, inside a sealed private object quarantine that reads the admitted repository object database but receives every newly created blob/tree/commit. The parser treats the per-record merge status, not the process exit code, as clean/conflicted and never consumes human conflict messages as authorization facts. Lazy fetch and executable integrations are disabled and affected custom merge drivers are rejected. It never runs porcelain `git merge` in a checkout. The resulting quarantined tree is completely rescanned. The strict optional merge message uses the same bounds and pre-object secret policy as `git_commit`; absence selects the fixed text `Merge CodexPro task worktree`. With the same reviewed local identity/no-caller-date/no-signing rules as `git_commit`, `commit-tree` then creates the candidate with the exact target first parent and task second parent. Only after all path/secret/shape checks pass does a journaled immutable-object promotion verify-or-install the quarantined objects into the main ODB and create an expected-absent private candidate ref. The message and identity values are absent from V4 results and audit.
+- Otherwise CodexGPT uses a Gate-G0-proved object-only merge capability: `merge-tree --write-tree --stdin` with exact full OIDs and NUL-delimited output, inside a sealed private object quarantine that reads the admitted repository object database but receives every newly created blob/tree/commit. The parser treats the per-record merge status, not the process exit code, as clean/conflicted and never consumes human conflict messages as authorization facts. Lazy fetch and executable integrations are disabled and affected custom merge drivers are rejected. It never runs porcelain `git merge` in a checkout. The resulting quarantined tree is completely rescanned. The strict optional merge message uses the same bounds and pre-object secret policy as `git_commit`; absence selects the fixed text `Merge CodexGPT task worktree`. With the same reviewed local identity/no-caller-date/no-signing rules as `git_commit`, `commit-tree` then creates the candidate with the exact target first parent and task second parent. Only after all path/secret/shape checks pass does a journaled immutable-object promotion verify-or-install the quarantined objects into the main ODB and create an expected-absent private candidate ref. The message and identity values are absent from V4 results and audit.
 - Conflicts return typed bounded paths and no live-target mutation; automatic resolution is out of scope.
-- If the object-only capability or machine-safe conflict form is unavailable, divergent preparation fails with `GIT_MERGE_CAPABILITY_UNAVAILABLE`; it never falls back to a live target or task checkout. After the candidate exists, CodexPro may raw-materialize a separate integration task worktree only to run checks against that exact OID.
+- If the object-only capability or machine-safe conflict form is unavailable, divergent preparation fails with `GIT_MERGE_CAPABILITY_UNAVAILABLE`; it never falls back to a live target or task checkout. After the candidate exists, CodexGPT may raw-materialize a separate integration task worktree only to run checks against that exact OID.
 - Fast-forward and divergent plans both require a bounded complete traversal of every commit newly reachable from the candidate relative to the target. Commit messages and relevant typed metadata are control-neutralized and secret-scanned without entering results/audit; an incomplete history scan or secret-bearing commit blocks plan issuance.
 - The plan returns candidate OID, typed target-to-candidate diff, status, complete secret/path scan, integration workspace when needed, required-check state, and an opaque `merge_plan_id`.
 
@@ -457,9 +457,9 @@ Merge execution requires all configured receipt categories. Because Phase 5 cann
 - repository/worktree/Git/policy/capability identities;
 - Windows path and lock feasibility.
 
-The target moves only from the expected old target to the prepared candidate. CodexPro does not run checkout, reset, read-tree-with-worktree-update, or porcelain merge against the live target. It first builds and verifies the exact raw target-to-candidate file delta, a complete candidate private index, encrypted rollback bytes, and expected-old ref update. The journal then applies the guarded Phase 3 file transaction, atomically replaces the per-worktree index, updates the ref by expected-old CAS with hooks disabled, and persists terminal audit. Any failed boundary rolls back while facts still match or freezes as `GIT_RECOVERY_REQUIRED`; external observers may see an intermediate participant state as stated in Section 6.3.
+The target moves only from the expected old target to the prepared candidate. CodexGPT does not run checkout, reset, read-tree-with-worktree-update, or porcelain merge against the live target. It first builds and verifies the exact raw target-to-candidate file delta, a complete candidate private index, encrypted rollback bytes, and expected-old ref update. The journal then applies the guarded Phase 3 file transaction, atomically replaces the per-worktree index, updates the ref by expected-old CAS with hooks disabled, and persists terminal audit. Any failed boundary rolls back while facts still match or freezes as `GIT_RECOVERY_REQUIRED`; external observers may see an intermediate participant state as stated in Section 6.3.
 
-The exact NUL-delimited worktree inventory determines whether the bound target branch is checked out. If it is checked out in the admitted primary worktree, the file/index/ref sequence above is mandatory. If it is not checked out anywhere, execute is ref-only after proving that absence twice. A foreign, ambiguous, or changing checkout relation fails closed; CodexPro never updates a checked-out branch whose worktree it cannot reconcile.
+The exact NUL-delimited worktree inventory determines whether the bound target branch is checked out. If it is checked out in the admitted primary worktree, the file/index/ref sequence above is mandatory. If it is not checked out anywhere, execute is ref-only after proving that absence twice. A foreign, ambiguous, or changing checkout relation fails closed; CodexGPT never updates a checked-out branch whose worktree it cannot reconcile.
 
 For a checked-out target, the affected-path attribute/config inventory must also prove that writing candidate raw blobs is the correct checkout representation. Built-in EOL conversion, LFS/smudge, or another checkout transform on an affected path blocks the safe execute path with an action-oriented normalization/integration error. The optional approved-integration path is the only V4 route that may run those transformations.
 
@@ -657,7 +657,7 @@ No Phase 5 runtime implementation existed during this review, so these repairs c
 - [Git update-index documentation](https://git-scm.com/docs/git-update-index) for private-index `--index-info` construction.
 - [Git commit-tree documentation](https://git-scm.com/docs/git-commit-tree) for stdin commit messages and explicit parent construction.
 - [Git cat-file documentation](https://git-scm.com/docs/git-cat-file) for batch metadata checks before bounded content reads.
-- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` for phase order and approved scope.
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md` for phase order and approved scope.
 - `docs/superpowers/specs/2026-07-16-phase-4-windows-execution-and-sandbox-design.md` for execution, approval, identity, audit, and sandbox meanings.
 - `SECURITY.md` for active path, secret, transaction, audit, and public-entry boundaries.
 

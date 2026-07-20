@@ -44,7 +44,7 @@ export class GitReviewTokenServiceV4 {
   mint<T>(kind: string, value: T): string {
     if (!/^[a-z][a-z0-9_]{0,63}$/.test(kind)) throw gitMutationError("GIT_STATE_TOKEN_INVALID");
     const nonce = randomBytes(32);
-    const mac = createHmac("sha256", this.#key).update("codexpro.git.review.v1\0").update(nonce).digest();
+    const mac = createHmac("sha256", this.#key).update("codexgpt.git.review.v1\0").update(nonce).digest();
     const token = `review_${Buffer.concat([nonce, mac]).toString("base64url")}`;
     const now = this.#now();
     const stored = { kind, value, issuedAt: now, expiresAt: now + this.#ttlMs };
@@ -65,7 +65,7 @@ export class GitReviewTokenServiceV4 {
       throw gitMutationError("GIT_STATE_TOKEN_INVALID");
     }
     const expected = createHmac("sha256", this.#key)
-      .update("codexpro.git.review.v1\0")
+      .update("codexgpt.git.review.v1\0")
       .update(decoded.subarray(0, 32))
       .digest();
     if (!timingSafeEqual(expected, decoded.subarray(32))) throw gitMutationError("GIT_STATE_TOKEN_INVALID");

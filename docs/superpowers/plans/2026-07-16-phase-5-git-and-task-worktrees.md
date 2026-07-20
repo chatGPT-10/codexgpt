@@ -135,7 +135,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - `src/tools/contracts/v4.ts`
 - `src/tools/schemas/gitV4Common.ts`
 - one strict schema module for each of the twelve V4 additions
-- V4 variants for `git_status`, `git_diff`, `query_audit_events`, and `codexpro`
+- V4 variants for `git_status`, `git_diff`, `query_audit_events`, and `codexgpt`
 - `test/phase-5-contract-v4.test.mjs`
 - `test/phase-5-v4-inherited-contract.test.mjs`
 - `test/phase-5-v4-persistence.test.mjs`
@@ -144,8 +144,8 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 
 - `src/config.ts`
 - every affected file under `src/tools/contracts/`
-- `src/tools/schemas/codexpro.ts`
-- `src/codexproSupertool.ts`
+- `src/tools/schemas/codexgpt.ts`
+- `src/codexgptSupertool.ts`
 - `src/server.ts`
 - `src/productionRuntime.ts`
 - versioned profile/config tests and package/static inventories
@@ -162,7 +162,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - V1 exact 28, V2 exact 31, V3 exact 39, unchanged names/profiles/schemas/aliases/failures;
 - V4 exact 51: all V3 plus the exact twelve additions and no `bash`/`git_apply_patch`;
 - standard exposes ten additions and full all twelve; minimal/connection expose none;
-- inherited tools work directly and through `codexpro`; no mutation alias exists;
+- inherited tools work directly and through `codexgpt`; no mutation alias exists;
 - V4 `git_status`/`git_diff` select strict V4 schemas while older versions keep exact schema 1;
 - unknown fields, raw flags/revisions/remotes/config/environment/executable inputs fail strict parsing;
 - V4 nondefault; invalid config and missing enforce/audit/session/native/local-control/capability dependencies spawn zero children;
@@ -223,7 +223,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - Promote Gate-G0 builder and capability evidence without semantic changes.
 - Use documented machine formats only; human text is display-only after sanitization.
 - Keep the old schema constructors for V1–V3 and add explicit V4 projectors.
-- Use a bounded attribute/integration inventory to neutralize executable filters for safe reads; hold the CodexPro worktree lock and recheck inventory identities around Git.
+- Use a bounded attribute/integration inventory to neutralize executable filters for safe reads; hold the CodexGPT worktree lock and recheck inventory identities around Git.
 - Mark the result `execution_isolation: none` and `repository_integrations: disabled`.
 
 **Verify:** new focused suites, all existing Git/show-changes/context/export contracts, build, managed Node 20/24 ordinary run, policy/package/static/secret/diff checks.
@@ -318,7 +318,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - stage rejects blocked paths, secret content, unsupported type/size, sparse/split index, external filters in safe mode, changed worktree/index, and unmerged state;
 - stage's complete attribute/config inventory proves raw bytes need no built-in EOL or clean-filter transformation; otherwise it fails `GIT_NORMALIZATION_REQUIRED`/`GIT_INTEGRATION_REQUIRED` without object/index effects and points to the separately approved path;
 - stage scans path/type/size/secret policy before object creation, hashes only exact accepted raw bytes with `hash-object -w --stdin --no-filters` and no `--path`, edits a private temporary index with generated NUL-delimited plumbing, verifies the exact resulting tree, and installs that index atomically only after expected-old identity still matches; `git add` is a failing canary;
-- commit requires exact index token, non-empty staged tree, current local branch, fresh R3 grant, identity only from an explicit local CodexPro profile or exact admitted repository-local keys, message over stdin, and no amend/signing/hooks/trailers/dates/`-a`;
+- commit requires exact index token, non-empty staged tree, current local branch, fresh R3 grant, identity only from an explicit local CodexGPT profile or exact admitted repository-local keys, message over stdin, and no amend/signing/hooks/trailers/dates/`-a`;
 - system/global identity, includes/conditional includes, inherited author/committer environment, and caller identity never participate; absence returns `GIT_IDENTITY_REQUIRED`;
 - commit rescans staged blobs independently and rejects an externally staged secret;
 - commit secret-scans the complete message before `commit-tree`, creates no object on rejection, and never returns the message through V4 result/audit; `git_log` redacts or omits secret-bearing subjects;
@@ -358,7 +358,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - restore only `index_from_head` or `worktree_from_index`; no arbitrary source/root reset/combined reset/force;
 - `worktree_from_index` and stash apply fail before effects when EOL/smudge checkout transformation would be required; `index_from_head` remains private-index CAS only;
 - every overwritten byte has encrypted retained undo material before R3 execution; size/type/secret/path/identity failure is pre-side-effect;
-- stash uses opaque owner/task refs under `refs/codexpro/stash/*`, never shared `refs/stash`;
+- stash uses opaque owner/task refs under `refs/codexgpt/stash/*`, never shared `refs/stash`;
 - create records the bound worktree/task, base, selected index tree/entries, selected worktree/untracked tree, modes, identities, and private ref/OIDs; it includes only exact reviewed tracked/untracked paths and never ignored/blocked/secret paths;
 - create cleans selected paths to current `HEAD` only after private ref and complete rollback are durable, preserves unselected entries, and retains staged-versus-unstaged state;
 - apply is same-worktree/task only, object-only three-way/no-clobber previewed in quarantine, completely rescans synthesized output, promotes accepted objects only during execute, restores both selected index/worktree planes, retains its ref after success, and has complete rollback; shared-stack pop/drop/clear are unrepresentable;
@@ -378,7 +378,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 
 ### Task 5B0 — Gate W0: managed root, tree preflight, and raw blob materializer
 
-**Goal:** prove that CodexPro can create and remove only its own task tree without executing filters or traversing hostile Windows objects.
+**Goal:** prove that CodexGPT can create and remove only its own task tree without executing filters or traversing hostile Windows objects.
 
 **Add:**
 
@@ -410,7 +410,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 
 - Preflight the entire candidate tree before `git worktree add` side effects.
 - Stream exact raw blobs through bounded same-volume staging and final identity checks; do not buffer an unbounded repository in memory.
-- Use the native handle-safe remover proved by the control oracle for the task tree and, as a separate stable-identity journal participant, its exact CodexPro-owned common-dir administration directory. Never delegate either to generic recursive delete or `git worktree remove`, and never run global `worktree prune/repair` for one task.
+- Use the native handle-safe remover proved by the control oracle for the task tree and, as a separate stable-identity journal participant, its exact CodexGPT-owned common-dir administration directory. Never delegate either to generic recursive delete or `git worktree remove`, and never run global `worktree prune/repair` for one task.
 
 **Verify:** active/managed ordinary tests, Windows control canaries under Node 20/24, build, package/mutation/domain/policy/secret/diff checks.
 
@@ -485,7 +485,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - merge target is the task record's bound local target branch and is not caller-selectable; rename/deletion/rebinding drift fails closed without probing another ref;
 - fast-forward candidate equals task head only when exact ancestry holds;
 - divergent candidate uses the Gate-G0-proved object-only merge capability inside a sealed object quarantine with exact target first parent/task second parent, hooks/autostash/rerere/integrations/network disabled, and affected custom drivers rejected; porcelain `git merge` against any checkout is a failing canary;
-- merge-produced blobs/tree and the strict optional merge message pass complete path/secret/shape checks before journaled immutable-object promotion and expected-absent candidate-ref creation; the absent-message default is exact `Merge CodexPro task worktree`, the message is absent from result/audit, and rejection leaves the main ODB/ref set unchanged;
+- merge-produced blobs/tree and the strict optional merge message pass complete path/secret/shape checks before journaled immutable-object promotion and expected-absent candidate-ref creation; the absent-message default is exact `Merge CodexGPT task worktree`, the message is absent from result/audit, and rejection leaves the main ODB/ref set unchanged;
 - merge `commit-tree` uses the same reviewed local identity, caller-date prohibition, no-signing rule, and private-stdin message handling as `git_commit`;
 - unavailable machine-safe object merge fails `GIT_MERGE_CAPABILITY_UNAVAILABLE`; it never falls back to a live target/task checkout, while fast-forward preparation remains available;
 - conflicts return bounded typed paths, do not mutate target, and clean recoverable integration state;
@@ -532,7 +532,7 @@ Failure is supported but blocks dependent capabilities. No gate failure falls ba
 - remove requires exact task identity/generation/head, clean index/worktree, zero untracked/ignored/reparse/foreign/nested entries, no active owned process/input/plan/mutation, and R3;
 - remove's first call creates only an immutable complete review; the local R3 card distinguishes checkout/registration removal from retained branch/commits/stashes, and retry revalidates before handle revocation or deletion;
 - removal revokes handles/drains owned Jobs, keeps branch/stash/task commits, never uses force, and records tombstone;
-- task root and exact CodexPro-owned common-dir administration directory are removed as separate identity-bound participants; inventory reconciliation proves only that registration disappeared, with a canary proving unrelated worktree metadata survives;
+- task root and exact CodexGPT-owned common-dir administration directory are removed as separate identity-bound participants; inventory reconciliation proves only that registration disappeared, with a canary proving unrelated worktree metadata survives;
 - Windows held handles/junction canaries fail safely without killing a process or touching external files.
 
 **Implementation:**
@@ -607,7 +607,7 @@ Only after runtime evidence, update:
 - `SECURITY.md`
 - `design.md`
 - `AGENTS.md`
-- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - `Memory.md`
 - active Phase 5 archive volume
 
@@ -619,7 +619,7 @@ Documentation must distinguish:
 - typed local-only Git surface from separately approved unrestricted commands;
 - clean checkout removal from branch deletion;
 - merge preparation/candidate checks from live-target execution;
-- CodexPro locks from external-process exclusion;
+- CodexGPT locks from external-process exclusion;
 - rollback configuration from deletion of persistent tasks/branches/stashes/audit.
 
 Run `neat-freak`, then rerun every documentation/policy/static gate affected by its edits.

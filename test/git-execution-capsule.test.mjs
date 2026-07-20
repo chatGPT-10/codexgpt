@@ -54,7 +54,7 @@ test("Gate G0 manifest freezes the private execution capsule contract", () => {
     },
     {
       schemaVersion: 1,
-      capabilityName: "codexpro-git-execution",
+      capabilityName: "codexgpt-git-execution",
       capabilityVersion: 1,
       executionIsolation: "none",
       repositoryIntegrations: "disabled",
@@ -86,7 +86,7 @@ test("Gate G0 manifest freezes the private execution capsule contract", () => {
 });
 
 test("Gate G0 manifest rejects any security-control drift", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-manifest-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-manifest-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const original = JSON.parse(await fs.readFile(path.resolve("scripts/git-execution-manifest-v1.json"), "utf8"));
   const mutations = [
@@ -317,7 +317,7 @@ test("capability revision binds the exact implementation and native-host manifes
 });
 
 test("executable replacement prevents host spawn and diagnostics stay bounded", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-binding-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-binding-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const executable = path.join(root, "git.exe");
   await fs.writeFile(executable, "first");

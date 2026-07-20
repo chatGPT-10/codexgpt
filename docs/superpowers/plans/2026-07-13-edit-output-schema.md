@@ -6,7 +6,7 @@
 
 **Architecture:** Add one exact schema module and one injectable provider boundary around the existing `editTextFile` implementation. The direct handler validates the provider result and returned path, classifies failures into fixed public errors, and returns nested structured data. A dedicated Tool Card renderer consumes the new nested contract without changing `apply_patch` or `export_pro_context`.
 
-**Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexPro file/path/redaction/diff/analysis-cache services.
+**Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexGPT file/path/redaction/diff/analysis-cache services.
 
 **Status:** Completed, published in `89cf2e3`, and cross-platform CI-validated by run `29226366822`.
 
@@ -64,7 +64,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   EDIT_ERROR_MESSAGES,
@@ -80,7 +80,7 @@ Add `sampleEditData()` with exactly these fields:
 function sampleEditData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "src/example.ts",
     replacements: 1,
     bytes: 24,
@@ -144,7 +144,7 @@ Change only the function signature:
 
 ```ts
 export async function editTextFile(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   filePath: string,
@@ -241,7 +241,7 @@ Use `show_changes` restricted to `src/fsOps.ts`, `src/tools/schemas/edit.ts`, an
 
 **Interfaces:**
 - Consumes: `EditFileResult`, `editDataSchema`, `editOutputShape`, `createEditSuccess`, `createEditFailure`, `EDIT_ERROR_MESSAGES`, and `EditFailureInput` from Task 1.
-- Produces: `EditProviderContext`, optional `editResultProvider` in `CodexProServerDependencies`, strict `editProviderResultSchema`, `classifyEditFailure`, and the migrated direct handler.
+- Produces: `EditProviderContext`, optional `editResultProvider` in `CodexGPTServerDependencies`, strict `editProviderResultSchema`, `classifyEditFailure`, and the migrated direct handler.
 
 - [x] **Step 1: Add shared test helpers and failing direct-handler contract tests**
 
@@ -307,7 +307,7 @@ Add:
 
 ```ts
 export interface EditProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path: string;
@@ -320,7 +320,7 @@ export interface EditProviderContext {
 }
 ```
 
-Extend `CodexProServerDependencies`:
+Extend `CodexGPTServerDependencies`:
 
 ```ts
 editResultProvider?: (context: EditProviderContext) => Promise<EditFileResult>;
@@ -389,7 +389,7 @@ const result = editProviderResultSchema.parse(await editResultProvider({
   }
 }));
 if (result.path !== resolved.relPath) {
-  throw new CodexProError("Edit provider returned a path that does not match the resolved target.");
+  throw new CodexGPTError("Edit provider returned a path that does not match the resolved target.");
 }
 const data = editDataSchema.parse({
   workspace_id: workspace.id,
@@ -469,9 +469,9 @@ Assert routing is exactly:
   root.innerHTML = renderFile(data);
 ```
 
-- [x] **Step 3: Add failing `codexpro` wrapper tests**
+- [x] **Step 3: Add failing `codexgpt` wrapper tests**
 
-Call `codexpro` with `action:"edit"`. Assert wrapper metadata remains present, the child envelope remains strict, and none of these fields appear at wrapper top level:
+Call `codexgpt` with `action:"edit"`. Assert wrapper metadata remains present, the child envelope remains strict, and none of these fields appear at wrapper top level:
 
 ```text
 path replacements bytes sha256 additions deletions diff

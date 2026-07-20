@@ -242,8 +242,8 @@ export const handoffToAgentErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const handoffToAgentOutputShape = {
-  codexpro_tool: z.literal("handoff_to_agent"),
-  codexpro_title: z.literal("Handoff To Agent"),
+  codexgpt_tool: z.literal("handoff_to_agent"),
+  codexgpt_title: z.literal("Handoff To Agent"),
   ok: z.boolean(),
   data: handoffToAgentDataSchema.nullable(),
   error: handoffToAgentErrorSchema.nullable(),
@@ -304,8 +304,8 @@ export function createHandoffToAgentSuccess(
 ): HandoffToAgentStructuredResult {
   const parsedData = handoffToAgentDataSchema.parse(data);
   return handoffToAgentOutputSchema.parse({
-    codexpro_tool: "handoff_to_agent",
-    codexpro_title: "Handoff To Agent",
+    codexgpt_tool: "handoff_to_agent",
+    codexgpt_title: "Handoff To Agent",
     ok: true,
     data: parsedData,
     error: null,
@@ -318,8 +318,8 @@ export function createHandoffToAgentFailure(
   durationMs = 0
 ): HandoffToAgentStructuredResult {
   return handoffToAgentOutputSchema.parse({
-    codexpro_tool: "handoff_to_agent",
-    codexpro_title: "Handoff To Agent",
+    codexgpt_tool: "handoff_to_agent",
+    codexgpt_title: "Handoff To Agent",
     ok: false,
     data: null,
     error: {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { codexProHome } from "../profileStore.js";
+import { CodexGPTHome } from "../profileStore.js";
 import {
   compiledPermissionProfileV1Schema,
   compiledPermissionProfileV3Schema,
@@ -41,11 +41,11 @@ export interface LoadedPermissionProfileGraphV3 {
   sourceHashes: PolicySourceHashV1[];
 }
 
-export function permissionDir(home = codexProHome()): string {
+export function permissionDir(home = CodexGPTHome()): string {
   return path.join(home, "permissions");
 }
 
-export function permissionProfilePath(id: string, home = codexProHome()): string {
+export function permissionProfilePath(id: string, home = CodexGPTHome()): string {
   if (!PROFILE_ID.test(id)) {
     throw new PolicyConfigError("Invalid permission profile id.");
   }

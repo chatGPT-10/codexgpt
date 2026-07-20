@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import type { CodexProConfig } from "./config.js";
+import type { CodexGPTConfig } from "./config.js";
 import type { PreparedFileBefore } from "./fsOps.js";
-import { CodexProError, type PathGuard, type Workspace } from "./guard.js";
+import { CodexGPTError, type PathGuard, type Workspace } from "./guard.js";
 import { hasSecretValue, redactSensitiveText } from "./redact.js";
 import {
   TransactionError,
@@ -58,7 +58,7 @@ export interface PreparedWorkspacePatch {
   operations: PreparedPatchOperation[];
 }
 
-export class PatchPlanError extends CodexProError {
+export class PatchPlanError extends CodexGPTError {
   constructor(public readonly patchPlanFailureKind: "invalid" | "check_failed") {
     super(
       patchPlanFailureKind === "invalid"
@@ -287,7 +287,7 @@ function applyHunks(beforeText: string, filePatch: ParsedFilePatch): Buffer {
 }
 
 async function inspectTarget(
-  config: Pick<CodexProConfig, "maxReadBytes" | "maxWriteBytes">,
+  config: Pick<CodexGPTConfig, "maxReadBytes" | "maxWriteBytes">,
   guard: PathGuard,
   workspace: Workspace,
   targetPath: string
@@ -347,7 +347,7 @@ function versionConflict(relativePath: string): TransactionError {
 }
 
 export async function prepareWorkspacePatch(
-  config: Pick<CodexProConfig, "maxReadBytes" | "maxWriteBytes" | "maxOutputBytes">,
+  config: Pick<CodexGPTConfig, "maxReadBytes" | "maxWriteBytes" | "maxOutputBytes">,
   guard: PathGuard,
   workspace: Workspace,
   patch: string,
@@ -355,10 +355,10 @@ export async function prepareWorkspacePatch(
 ): Promise<PreparedWorkspacePatch> {
   if (!patch.trim()) throw new PatchPlanError("invalid");
   if (Buffer.byteLength(patch, "utf8") > config.maxWriteBytes) {
-    throw new CodexProError(`Patch is too large. Limit: ${config.maxWriteBytes} bytes.`);
+    throw new CodexGPTError(`Patch is too large. Limit: ${config.maxWriteBytes} bytes.`);
   }
   if (hasSecretValue(patch)) {
-    throw new CodexProError("Secret-looking content is blocked from apply_patch. Use placeholders such as [REDACTED_SECRET].");
+    throw new CodexGPTError("Secret-looking content is blocked from apply_patch. Use placeholders such as [REDACTED_SECRET].");
   }
   const parsedFiles = parseUnifiedDiff(patch);
   if (parsedFiles.length > 1_000) throw new PatchPlanError("invalid");
@@ -401,7 +401,7 @@ export async function prepareWorkspacePatch(
     if (afterBytes.length > config.maxWriteBytes) throw new PatchPlanError("check_failed");
     const afterText = afterBytes.toString("utf8");
     if (hasSecretValue(afterText)) {
-      throw new CodexProError("Secret-looking content is blocked from apply_patch. Use placeholders such as [REDACTED_SECRET].");
+      throw new CodexGPTError("Secret-looking content is blocked from apply_patch. Use placeholders such as [REDACTED_SECRET].");
     }
     for (const hunk of filePatch.hunks) {
       additions += hunk.body.filter((line) => line.kind === "add").length;

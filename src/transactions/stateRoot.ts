@@ -32,7 +32,7 @@ export function resolveTransactionStateRoot(
   const env = options.env ?? process.env;
   const homeDir = options.homeDir ?? os.homedir();
   const api = pathApiFor(platform);
-  const explicit = env.CODEXPRO_HOME?.trim();
+  const explicit = env.CODEXGPT_HOME?.trim();
   if (explicit) {
     return api.resolve(expandHomeWith(homeDir, explicit, platform), "state", "v1");
   }
@@ -41,13 +41,13 @@ export function resolveTransactionStateRoot(
     if (!local) {
       throw new TransactionError(
         "TRANSACTION_PRECONDITION_FAILED",
-        "Windows transaction state requires LOCALAPPDATA or CODEXPRO_HOME."
+        "Windows transaction state requires LOCALAPPDATA or CODEXGPT_HOME."
       );
     }
-    return api.resolve(local, "CodexPro", "state", "v1");
+    return api.resolve(local, "CodexGPT", "state", "v1");
   }
   const base = env.XDG_STATE_HOME?.trim() || api.join(homeDir, ".local", "state");
-  return api.resolve(base, "codexpro", "v1");
+  return api.resolve(base, "codexgpt", "v1");
 }
 
 export interface TransactionStateDirectories {

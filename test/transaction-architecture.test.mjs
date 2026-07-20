@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import * as transactions from "../dist/transactions/index.js";
-import { CANONICAL_CODEXPRO_CHILD_TOOLS } from "../dist/tools/schemas/codexpro.js";
+import { CANONICAL_CODEXGPT_CHILD_TOOLS } from "../dist/tools/schemas/codexgpt.js";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const transactionRoot = path.join(repositoryRoot, "src", "transactions");
@@ -102,7 +102,7 @@ test("transaction modules have no shell Git network or worktree dependencies", a
 
 test("reserved artifacts are blocked unconditionally and manifests exclude sensitive payload fields", async () => {
   const guard = await read("src/guard.ts");
-  assert.match(guard, /RESERVED_TRANSACTION_PREFIX\s*=\s*["']\.codexpro-txn-["']/);
+  assert.match(guard, /RESERVED_TRANSACTION_PREFIX\s*=\s*["']\.codexgpt-txn-["']/);
   assert.match(guard, /isReservedTransactionRelativePath\(rel, this\.platform\)/);
 
   const types = await read("src/transactions/types.ts");
@@ -135,14 +135,14 @@ test("protected smoke sources and the canonical public tool count remain exact",
   const httpSmoke = canonicalSource(await read("scripts/http-smoke.mjs"));
   assert.equal(createHash("sha256").update(smoke).digest("hex"), "0234c92e88072c9e5d73f2fbb663131f7e68572f2c80d7a89f9601392111fbae");
   assert.equal(createHash("sha256").update(httpSmoke).digest("hex"), "b61f925c562dadea6c4ce3c1fad56edb286be1ffee81c2bcadb46196cfe660f4");
-  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.length, 28);
-  assert.equal(new Set(CANONICAL_CODEXPRO_CHILD_TOOLS).size, 28);
+  assert.equal(CANONICAL_CODEXGPT_CHILD_TOOLS.length, 28);
+  assert.equal(new Set(CANONICAL_CODEXGPT_CHILD_TOOLS).size, 28);
 });
 
 test("stateful CLI smoke wrappers isolate the transaction state root", async () => {
   const proSmoke = await read("scripts/pro-smoke.mjs");
   const executeHandoffSmoke = await read("scripts/execute-handoff-smoke.mjs");
-  assert.match(proSmoke, /const proApplyEnv = \{ \.\.\.process\.env, CODEXPRO_HOME: stateHome \};/);
-  assert.match(executeHandoffSmoke, /CODEXPRO_HOME: executeHandoffStateHome/);
+  assert.match(proSmoke, /const proApplyEnv = \{ \.\.\.process\.env, CODEXGPT_HOME: stateHome \};/);
+  assert.match(executeHandoffSmoke, /CODEXGPT_HOME: executeHandoffStateHome/);
   assert.match(executeHandoffSmoke, /\.\.\.env\s*\n\s*\}/);
 });

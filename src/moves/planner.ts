@@ -12,7 +12,7 @@ import {
   type MovePlannerConfig
 } from "./types.js";
 
-const RESERVED_ARTIFACT = /^\.codexpro-txn-[a-f0-9]{16}\.(?:stage|backup|move)$/i;
+const RESERVED_ARTIFACT = /^\.codexgpt-txn-[a-f0-9]{16}\.(?:stage|backup|move)$/i;
 
 function normalizedRequestedRelativePath(workspace: Workspace, input: string): string {
   return path.relative(workspace.root, path.resolve(workspace.root, input)).replace(/\\/g, "/").normalize("NFC");

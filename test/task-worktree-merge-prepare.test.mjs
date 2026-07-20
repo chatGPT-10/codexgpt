@@ -55,7 +55,7 @@ test("divergent merge preparation creates a scanned two-parent candidate without
     );
     const repositoryBeforeFinalize = await fixture.manager.primaryRepository(fixture.workspace);
     const refsBeforeFinalize = await fixture.executor.run(repositoryBeforeFinalize, [
-      "for-each-ref", "refs/codexpro/candidates/"
+      "for-each-ref", "refs/codexgpt/candidates/"
     ]);
     assert.equal(refsBeforeFinalize.stdout.length, 0);
     const prepared = await fixture.service.merge({
@@ -105,7 +105,7 @@ test("conflicted divergent merge promotes no candidate ref", async () => {
     assert.equal(conflicted.status, "conflicted");
     assert.equal(conflicted.merge_plan_id, null);
     const repository = await fixture.manager.primaryRepository(fixture.workspace);
-    const refs = await fixture.executor.run(repository, ["for-each-ref", "refs/codexpro/candidates/"]);
+    const refs = await fixture.executor.run(repository, ["for-each-ref", "refs/codexgpt/candidates/"]);
     assert.equal(refs.stdout.length, 0);
   });
 });
@@ -171,7 +171,7 @@ test("plan persistence failure leaves fast-forward and divergent repositories re
     }), /TEST_PLAN_CREATE_FAILED/);
     assert.equal(fixture.store.read(created.task.task_worktree_id).record.state, "ready");
     const repository = await fixture.manager.primaryRepository(fixture.workspace);
-    const refs = await fixture.executor.run(repository, ["for-each-ref", "refs/codexpro/candidates/"]);
+    const refs = await fixture.executor.run(repository, ["for-each-ref", "refs/codexgpt/candidates/"]);
     assert.equal(refs.stdout.length, 0);
   }, { failPlanCreate: true });
 
@@ -199,7 +199,7 @@ test("plan persistence failure leaves fast-forward and divergent repositories re
     assert.equal(fixture.store.read(created.task.task_worktree_id).record.state, "ready");
     assert.equal(runGit(fixture.workspace.root, ["rev-parse", "HEAD"]).stdout.toString().trim(), targetBefore);
     const repository = await fixture.manager.primaryRepository(fixture.workspace);
-    const refs = await fixture.executor.run(repository, ["for-each-ref", "refs/codexpro/candidates/"]);
+    const refs = await fixture.executor.run(repository, ["for-each-ref", "refs/codexgpt/candidates/"]);
     assert.equal(refs.stdout.length, 0);
   }, { failPlanCreate: true });
 });

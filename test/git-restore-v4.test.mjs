@@ -103,7 +103,7 @@ test("V4 restore rejects a post-review hardlink without changing the outside fil
 
 test("V4 durable restore supports a configured-size 300 KiB tracked file across restart", async () => {
   await withGitMutationRepository(async (fixture) => {
-    const durableRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-restore-large-"));
+    const durableRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-restore-large-"));
     const masterKey = Buffer.alloc(32, 61);
     const reviewKey = Buffer.alloc(32, 62);
     try {

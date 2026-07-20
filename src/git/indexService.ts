@@ -46,7 +46,7 @@ export class GitIndexTokenServiceV4 {
 
   mint(facts: GitIndexTokenFactsV4): string {
     const nonce = randomBytes(32);
-    const mac = createHmac("sha256", this.#key).update("codexpro.git.index.v1\0").update(nonce).digest();
+    const mac = createHmac("sha256", this.#key).update("codexgpt.git.index.v1\0").update(nonce).digest();
     const token = `gitx_${Buffer.concat([nonce, mac]).toString("base64url")}`;
     this.#tokens.set(token, { facts: Object.freeze({ ...facts }), expiresAt: this.#now() + this.#ttlMs });
     return token;
@@ -61,7 +61,7 @@ export class GitIndexTokenServiceV4 {
       throw gitMutationError("GIT_STATE_TOKEN_INVALID");
     }
     const expected = createHmac("sha256", this.#key)
-      .update("codexpro.git.index.v1\0")
+      .update("codexgpt.git.index.v1\0")
       .update(decoded.subarray(0, 32))
       .digest();
     if (!timingSafeEqual(expected, decoded.subarray(32))) throw gitMutationError("GIT_STATE_TOKEN_INVALID");

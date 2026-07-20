@@ -6,7 +6,7 @@ import test from "node:test";
 import { GitRepositoryStore } from "../dist/git/repositoryStore.js";
 
 async function withStore(callback) {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-repository-store-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-repository-store-"));
   const masterKey = Buffer.alloc(32, 7);
   const store = new GitRepositoryStore({ stateRoot, masterKey, now: () => 1_700_000_000_000, randomBytes: (size) => Buffer.alloc(size, 9) });
   try {

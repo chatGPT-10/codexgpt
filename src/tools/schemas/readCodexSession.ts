@@ -324,8 +324,8 @@ export const readCodexSessionErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const readCodexSessionOutputShape = {
-  codexpro_tool: z.literal("read_codex_session"),
-  codexpro_title: z.literal("Read Codex Session"),
+  codexgpt_tool: z.literal("read_codex_session"),
+  codexgpt_title: z.literal("Read Codex Session"),
   ok: z.boolean(),
   data: readCodexSessionDataSchema.nullable(),
   error: readCodexSessionErrorSchema.nullable(),
@@ -433,8 +433,8 @@ export function createReadCodexSessionSuccess(
 ): ReadCodexSessionStructuredResult {
   const parsedData = readCodexSessionDataSchema.parse(data);
   return readCodexSessionOutputSchema.parse({
-    codexpro_tool: "read_codex_session",
-    codexpro_title: "Read Codex Session",
+    codexgpt_tool: "read_codex_session",
+    codexgpt_title: "Read Codex Session",
     ok: true,
     data: parsedData,
     error: null,
@@ -447,8 +447,8 @@ export function createReadCodexSessionFailure(
   durationMs = 0
 ): ReadCodexSessionStructuredResult {
   return readCodexSessionOutputSchema.parse({
-    codexpro_tool: "read_codex_session",
-    codexpro_title: "Read Codex Session",
+    codexgpt_tool: "read_codex_session",
+    codexgpt_title: "Read Codex Session",
     ok: false,
     data: null,
     error: {

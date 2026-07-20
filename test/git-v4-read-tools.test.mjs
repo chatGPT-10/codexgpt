@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { loadConfig } from "../dist/config.js";
 import { PathGuard } from "../dist/guard.js";
-import { createCodexProServer } from "../dist/server.js";
+import { createCodexGPTServer } from "../dist/server.js";
 import {
   GitReadServiceV4,
   ProcessLocalGitReadCoordinator
@@ -73,7 +73,7 @@ function executor() {
 }
 
 async function withRepository(callback, options = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-v4-read-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-v4-read-"));
   try {
     runGit(root, [
       "init",
@@ -127,11 +127,11 @@ function withEnv(changes, action) {
 
 function v4Config(root) {
   return withEnv({
-    CODEXPRO_ROOT: root,
-    CODEXPRO_TOOL_CONTRACT_VERSION: "4",
-    CODEXPRO_FILE_TRANSACTIONS: "atomic",
-    CODEXPRO_AUDIT_MODE: "required",
-    CODEXPRO_POLICY_ENGINE: "enforce"
+    CODEXGPT_ROOT: root,
+    CODEXGPT_TOOL_CONTRACT_VERSION: "4",
+    CODEXGPT_FILE_TRANSACTIONS: "atomic",
+    CODEXGPT_AUDIT_MODE: "required",
+    CODEXGPT_POLICY_ENGINE: "enforce"
   }, () => loadConfig(["--bash", "off", "--write", "off", "--tool-mode", "full"]));
 }
 
@@ -314,7 +314,7 @@ test("V4 status refuses a token when repository state changes between exact snap
 
 test("V4 diff rejects object-resolution metadata introduced after the initial snapshot", async () => {
   await withRepository(async (root) => {
-    const outsideObjects = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-alt-"));
+    const outsideObjects = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-alt-"));
     const base = executor();
     let injected = false;
     const racingExecutor = {
@@ -476,7 +476,7 @@ test("V4 MCP handlers use the typed read service and never fall back to legacy h
   await withRepository(async (root) => {
     await fs.appendFile(path.join(root, "tracked.txt"), "beta\n", "utf8");
     const fixture = createService(root);
-    const server = createCodexProServer(v4Config(root), v4Dependencies(fixture.service));
+    const server = createCodexGPTServer(v4Config(root), v4Dependencies(fixture.service));
     try {
       const tools = server._registeredTools;
       const opened = await tools.open_current_workspace.handler({});
@@ -547,7 +547,7 @@ test("V4 MCP handlers use the typed read service and never fall back to legacy h
 
 test("V4 inherited Git consumers fail closed when the typed read service is absent", async () => {
   await withRepository(async (root) => {
-    const server = createCodexProServer(v4Config(root), v4Dependencies(undefined));
+    const server = createCodexGPTServer(v4Config(root), v4Dependencies(undefined));
     try {
       const result = await server._registeredTools.open_current_workspace.handler({});
       assert.equal(result.isError, true);
@@ -610,16 +610,16 @@ test("V4 structured success envelopes validate without legacy root/path fields",
     repository_integrations: "disabled"
   };
   assert.equal(gitStatusOutputSchemaV4.safeParse({
-    codexpro_tool: "git_status",
-    codexpro_title: "Git Status",
+    codexgpt_tool: "git_status",
+    codexgpt_title: "Git Status",
     ok: true,
     data: statusData,
     error: null,
     meta: { schemaVersion: 1, durationMs: 0, warnings: [] }
   }).success, true);
   assert.equal(gitDiffOutputSchemaV4.safeParse({
-    codexpro_tool: "git_diff",
-    codexpro_title: "Git Diff",
+    codexgpt_tool: "git_diff",
+    codexgpt_title: "Git Diff",
     ok: true,
     data: {
       repository_id: statusData.repository_id,

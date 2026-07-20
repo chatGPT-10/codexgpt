@@ -40,7 +40,7 @@ test("process creation identity is available for the current process", async () 
 });
 
 test("worker evidence mismatch makes a live PID stale and never blocks a same-kind retry", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-identity-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-identity-"));
   let first;
   let second;
   try {
@@ -87,7 +87,7 @@ test("worker evidence mismatch makes a live PID stale and never blocks a same-ki
 });
 
 test("replacing a run directory is detected before status trusts replacement metadata", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-path-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-path-"));
   try {
     const started = JSON.parse((await execute([
       "start",

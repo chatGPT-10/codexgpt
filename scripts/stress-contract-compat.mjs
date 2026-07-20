@@ -13,7 +13,7 @@ function replaceExactCount(source, oldText, newText, expectedCount) {
   return source.split(oldText).join(newText);
 }
 
-const policyFixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-policy-stress-'));
+const policyFixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-policy-stress-'));
 try {
   const policyReport = await runSpikeFixture({
     fixtureRoot: policyFixtureRoot,
@@ -52,7 +52,7 @@ source = replaceExactCount(
 source = replaceExactCount(
   source,
   "    assert(blockedSearch.isError === true && String(blockedSearch.structuredContent.error).includes('not available'), 'supertool allowed disabled search action');",
-  "    assert(blockedSearch.isError === true && blockedSearch.structuredContent.codexpro_tool === 'codexpro' && blockedSearch.structuredContent.error?.code === 'ACTION_NOT_AVAILABLE', 'supertool allowed disabled search action');",
+  "    assert(blockedSearch.isError === true && blockedSearch.structuredContent.codexgpt_tool === 'codexgpt' && blockedSearch.structuredContent.error?.code === 'ACTION_NOT_AVAILABLE', 'supertool allowed disabled search action');",
   1
 );
 
@@ -64,8 +64,8 @@ source = replaceExactCount(
 );
 source = replaceExactCount(
   source,
-  "    assert(malformedRead.isError === true && malformedRead.structuredContent.codexpro_tool === 'read' && malformedRead.structuredContent.wrapped_tool === 'read', 'supertool malformed read was not tagged as read');",
-  "    assert(malformedRead.isError === true && malformedRead.structuredContent.codexpro_tool === 'codexpro' && malformedRead.structuredContent.error?.code === 'ACTION_ARGUMENTS_INVALID', 'supertool malformed read was not classified by the wrapper');",
+  "    assert(malformedRead.isError === true && malformedRead.structuredContent.codexgpt_tool === 'read' && malformedRead.structuredContent.wrapped_tool === 'read', 'supertool malformed read was not tagged as read');",
+  "    assert(malformedRead.isError === true && malformedRead.structuredContent.codexgpt_tool === 'codexgpt' && malformedRead.structuredContent.error?.code === 'ACTION_ARGUMENTS_INVALID', 'supertool malformed read was not classified by the wrapper');",
   1
 );
 source = replaceExactCount(
@@ -78,17 +78,17 @@ source = replaceExactCount(
 source = replaceExactCount(
   source,
   "    assert(blockedBash.isError === true && String(blockedBash.structuredContent.error).includes('not available'), 'supertool allowed disabled bash action');",
-  "    assert(blockedBash.isError === true && blockedBash.structuredContent.codexpro_tool === 'codexpro' && blockedBash.structuredContent.error?.code === 'ACTION_NOT_AVAILABLE', 'supertool allowed disabled bash action');",
+  "    assert(blockedBash.isError === true && blockedBash.structuredContent.codexgpt_tool === 'codexgpt' && blockedBash.structuredContent.error?.code === 'ACTION_NOT_AVAILABLE', 'supertool allowed disabled bash action');",
   1
 );
 
 source = replaceExactCount(
   source,
   "    assert(blockedWrite.isError === true && String(blockedWrite.structuredContent.error).includes('not available'), 'minimal handoff supertool allowed disabled write');",
-  "    assert(blockedWrite.isError === true && blockedWrite.structuredContent.codexpro_tool === 'codexpro' && blockedWrite.structuredContent.error?.code === 'ACTION_NOT_AVAILABLE', 'minimal handoff supertool allowed disabled write');",
+  "    assert(blockedWrite.isError === true && blockedWrite.structuredContent.codexgpt_tool === 'codexgpt' && blockedWrite.structuredContent.error?.code === 'ACTION_NOT_AVAILABLE', 'minimal handoff supertool allowed disabled write');",
   1
 );
 
-source += '\n//# sourceURL=codexpro-stress-contract-compat.mjs';
+source += '\n//# sourceURL=codexgpt-stress-contract-compat.mjs';
 const encoded = Buffer.from(source, 'utf8').toString('base64');
 await import(`data:text/javascript;base64,${encoded}`);

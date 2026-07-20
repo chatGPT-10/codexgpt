@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { z } from "zod";
-import { upgradeCodexProSupertool } from "../dist/codexproSupertool.js";
-import * as codexpro from "../dist/tools/schemas/codexpro.js";
+import { upgradeCodexGPTSupertool } from "../dist/codexgptSupertool.js";
+import * as codexgpt from "../dist/tools/schemas/codexgpt.js";
 import { writeOutputSchemaV2 } from "../dist/tools/schemas/write.js";
 import { editOutputSchemaV2 } from "../dist/tools/schemas/edit.js";
 import { applyPatchOutputSchemaV2 } from "../dist/tools/schemas/applyPatch.js";
@@ -28,37 +28,37 @@ const V3_ADDITIONS = [
   "list_processes"
 ];
 
-test("CodexPro V3 inherits every non-Bash V2 child and adds exactly nine actions", () => {
-  assert.equal(codexpro.CANONICAL_CODEXPRO_CHILD_TOOLS_V3.length, 39);
-  assert.equal(codexpro.CANONICAL_CODEXPRO_CHILD_TOOLS_V3.includes("bash"), false);
+test("CodexGPT V3 inherits every non-Bash V2 child and adds exactly nine actions", () => {
+  assert.equal(codexgpt.CANONICAL_CODEXGPT_CHILD_TOOLS_V3.length, 39);
+  assert.equal(codexgpt.CANONICAL_CODEXGPT_CHILD_TOOLS_V3.includes("bash"), false);
   assert.deepEqual(
-    codexpro.CANONICAL_CODEXPRO_CHILD_TOOLS_V3.slice(0, 30),
-    codexpro.CANONICAL_CODEXPRO_CHILD_TOOLS_V2.filter((name) => name !== "bash")
+    codexgpt.CANONICAL_CODEXGPT_CHILD_TOOLS_V3.slice(0, 30),
+    codexgpt.CANONICAL_CODEXGPT_CHILD_TOOLS_V2.filter((name) => name !== "bash")
   );
-  assert.deepEqual(codexpro.CANONICAL_CODEXPRO_CHILD_TOOLS_V3.slice(30), V3_ADDITIONS);
-  assert.strictEqual(codexpro.canonicalCodexProChildTools(3), codexpro.CANONICAL_CODEXPRO_CHILD_TOOLS_V3);
+  assert.deepEqual(codexgpt.CANONICAL_CODEXGPT_CHILD_TOOLS_V3.slice(30), V3_ADDITIONS);
+  assert.strictEqual(codexgpt.canonicalCodexGPTChildTools(3), codexgpt.CANONICAL_CODEXGPT_CHILD_TOOLS_V3);
 });
 
 test("V2 and V3 supertool schema maps retain atomic write/edit/apply_patch projections", () => {
-  assert.strictEqual(codexpro.CODEXPRO_CHILD_OUTPUT_SCHEMAS_V2.write, writeOutputSchemaV2);
-  assert.strictEqual(codexpro.CODEXPRO_CHILD_OUTPUT_SCHEMAS_V2.edit, editOutputSchemaV2);
-  assert.strictEqual(codexpro.CODEXPRO_CHILD_OUTPUT_SCHEMAS_V2.apply_patch, applyPatchOutputSchemaV2);
-  assert.strictEqual(codexpro.CODEXPRO_CHILD_OUTPUT_SCHEMAS_V3.write, writeOutputSchemaV2);
-  assert.strictEqual(codexpro.CODEXPRO_CHILD_OUTPUT_SCHEMAS_V3.edit, editOutputSchemaV2);
-  assert.strictEqual(codexpro.CODEXPRO_CHILD_OUTPUT_SCHEMAS_V3.apply_patch, applyPatchOutputSchemaV2);
+  assert.strictEqual(codexgpt.CODEXGPT_CHILD_OUTPUT_SCHEMAS_V2.write, writeOutputSchemaV2);
+  assert.strictEqual(codexgpt.CODEXGPT_CHILD_OUTPUT_SCHEMAS_V2.edit, editOutputSchemaV2);
+  assert.strictEqual(codexgpt.CODEXGPT_CHILD_OUTPUT_SCHEMAS_V2.apply_patch, applyPatchOutputSchemaV2);
+  assert.strictEqual(codexgpt.CODEXGPT_CHILD_OUTPUT_SCHEMAS_V3.write, writeOutputSchemaV2);
+  assert.strictEqual(codexgpt.CODEXGPT_CHILD_OUTPUT_SCHEMAS_V3.edit, editOutputSchemaV2);
+  assert.strictEqual(codexgpt.CODEXGPT_CHILD_OUTPUT_SCHEMAS_V3.apply_patch, applyPatchOutputSchemaV2);
 });
 
 test("V3 has one strict output schema for every canonical direct and supertool action", () => {
   assert.deepEqual(
-    Object.keys(codexpro.CODEXPRO_CHILD_OUTPUT_SCHEMAS_V3).sort(),
-    [...codexpro.CANONICAL_CODEXPRO_CHILD_TOOLS_V3].sort()
+    Object.keys(codexgpt.CODEXGPT_CHILD_OUTPUT_SCHEMAS_V3).sort(),
+    [...codexgpt.CANONICAL_CODEXGPT_CHILD_TOOLS_V3].sort()
   );
   for (const name of V3_ADDITIONS) {
-    assert.equal(typeof codexpro.CODEXPRO_CHILD_OUTPUT_SCHEMAS_V3[name]?.safeParse, "function", name);
-    assert.equal(codexpro.resolveCodexProActionV3(name), name);
+    assert.equal(typeof codexgpt.CODEXGPT_CHILD_OUTPUT_SCHEMAS_V3[name]?.safeParse, "function", name);
+    assert.equal(codexgpt.resolveCodexGPTActionV3(name), name);
   }
-  assert.equal(codexpro.resolveCodexProActionV3("bash"), null);
-  assert.equal(codexpro.resolveCodexProActionV3("open"), "open_current_workspace");
+  assert.equal(codexgpt.resolveCodexGPTActionV3("bash"), null);
+  assert.equal(codexgpt.resolveCodexGPTActionV3("open"), "open_current_workspace");
 });
 
 test("V3 command and root inputs are strict and never accept a generic command string", () => {
@@ -108,7 +108,7 @@ test("V3 direct and supertool dispatch share one strict child schema handler and
   };
   const fakeServer = {
     _registeredTools: {
-      codexpro: {
+      codexgpt: {
         inputSchema: z.object({ action: z.string(), args: z.record(z.unknown()).optional() }).strict(),
         annotations: {},
         enabled: true,
@@ -125,29 +125,29 @@ test("V3 direct and supertool dispatch share one strict child schema handler and
       }
     }
   };
-  upgradeCodexProSupertool(fakeServer, 3);
+  upgradeCodexGPTSupertool(fakeServer, 3);
   const args = {
     command: { kind: "argv", executable: "node", args: ["--version"] },
     cwd: { kind: "workspace" },
     mode: "full_access"
   };
   const direct = await fakeServer._registeredTools.run_command.handler(args);
-  const wrapped = await fakeServer._registeredTools.codexpro.handler({ action: "run_command", args });
+  const wrapped = await fakeServer._registeredTools.codexgpt.handler({ action: "run_command", args });
   assert.equal(targetCalls, 2);
   const {
-    codexpro_super_action: _action,
+    codexgpt_super_action: _action,
     wrapped_tool: _tool,
     ...wrappedChild
   } = wrapped.structuredContent;
   assert.deepEqual(wrappedChild, direct.structuredContent);
-  assert.equal(wrapped.structuredContent.codexpro_super_action, "run_command");
+  assert.equal(wrapped.structuredContent.codexgpt_super_action, "run_command");
   assert.equal(wrapped.structuredContent.wrapped_tool, "run_command");
 
-  const invalid = await fakeServer._registeredTools.codexpro.handler({
+  const invalid = await fakeServer._registeredTools.codexgpt.handler({
     action: "run_command",
     args: { ...args, unexpected: true }
   });
   assert.equal(invalid.structuredContent.error.code, "ACTION_ARGUMENTS_INVALID");
   assert.equal(targetCalls, 2);
-  assert.equal(codexpro.resolveCodexProActionV3("full_access"), null);
+  assert.equal(codexgpt.resolveCodexGPTActionV3("full_access"), null);
 });

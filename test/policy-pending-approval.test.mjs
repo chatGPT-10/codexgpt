@@ -91,7 +91,7 @@ test("V3 identical requests deduplicate without extending TTL or duplicating lif
 test("authorization binding changes cannot match the same approval", () => {
   const base = facts();
   const variants = [
-    facts({ canonicalAction: "codexpro.process.run_command" }),
+    facts({ canonicalAction: "codexgpt.process.run_command" }),
     facts({ semanticFactsDigest: fingerprint("c") }),
     facts({ identitySubject: "subject-b" }),
     facts({ credentialRevision: "credential-revision-2" }),
@@ -108,8 +108,8 @@ test("authorization binding changes cannot match the same approval", () => {
 
 test("direct and supertool routes share only the same exact canonical action binding", () => {
   const direct = facts({ toolName: "run_command" });
-  const supertool = facts({ toolName: "codexpro", canonicalAction: "process.run_command" });
-  const otherAction = facts({ toolName: "codexpro", canonicalAction: "process.terminate" });
+  const supertool = facts({ toolName: "codexgpt", canonicalAction: "process.run_command" });
+  const otherAction = facts({ toolName: "codexgpt", canonicalAction: "process.terminate" });
 
   assert.equal(supertool.bindingFingerprint, direct.bindingFingerprint);
   assert.notEqual(otherAction.bindingFingerprint, direct.bindingFingerprint);

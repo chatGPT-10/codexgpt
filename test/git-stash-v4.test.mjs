@@ -145,7 +145,7 @@ test("V4 private stash commit excludes unselected staged changes", async () => {
       const created = await service.executeCreate({
         workspace: fixture.workspace, guard: fixture.guard, reviewToken: prepared.review_token
       });
-      const ref = `refs/codexpro/stash/${created.stash_id.slice(6)}`;
+      const ref = `refs/codexgpt/stash/${created.stash_id.slice(6)}`;
       assert.equal(runGit(fixture.root, ["show", `${ref}:tracked.txt`]).stdout.toString(), "selected-staged\n");
       assert.equal(runGit(fixture.root, ["show", `${ref}:delete.txt`]).stdout.toString(), "remove\n");
     } finally {
@@ -188,7 +188,7 @@ test("V4 private stash apply previews a conservative three-way merge and rejects
 
 test("V4 private stash registry survives same-binary restart without exposing private paths", async () => {
   await withGitMutationRepository(async (fixture) => {
-    const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-stash-restart-"));
+    const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-stash-restart-"));
     const masterKey = Buffer.alloc(32, 63);
     const reviewKey = Buffer.alloc(32, 64);
     await fs.writeFile(path.join(fixture.root, "tracked.txt"), "restart-stash\n");
@@ -294,7 +294,7 @@ test("V4 private stash registry survives same-binary restart without exposing pr
 
 test("V4 private stash remains actionable beyond the opaque-record TTL horizon", async () => {
   await withGitMutationRepository(async (fixture) => {
-    const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-stash-age-"));
+    const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-stash-age-"));
     const masterKey = Buffer.alloc(32, 68);
     const reviewKey = Buffer.alloc(32, 69);
     const initialNow = Date.now();

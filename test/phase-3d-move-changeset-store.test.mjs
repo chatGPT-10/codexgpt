@@ -52,7 +52,7 @@ function draft(overrides = {}) {
 }
 
 test("Move Change Set V2 is authenticated, zero-blob, monotonic, and isolated from V1 readers", () => {
-  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-move-changeset-"));
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-move-changeset-"));
   const installation = loadOrCreateInstallationState({ stateRoot });
   const key = installationMasterKey(installation);
   const moveStore = new MoveChangeSetStore({ stateRoot, masterKey: key, now: () => Date.parse("2026-07-15T00:05:00.000Z") });
@@ -89,7 +89,7 @@ test("Move Change Set V2 is authenticated, zero-blob, monotonic, and isolated fr
 });
 
 test("Move Change Set V2 rejects malformed move facts and detects tampering", () => {
-  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-move-changeset-"));
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-move-changeset-"));
   const key = installationMasterKey(loadOrCreateInstallationState({ stateRoot }));
   const store = new MoveChangeSetStore({ stateRoot, masterKey: key });
   try {

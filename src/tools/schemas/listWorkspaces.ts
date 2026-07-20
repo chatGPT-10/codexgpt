@@ -75,8 +75,8 @@ export const listWorkspacesErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const listWorkspacesOutputShape = {
-  codexpro_tool: z.literal("list_workspaces"),
-  codexpro_title: z.literal("List Workspaces"),
+  codexgpt_tool: z.literal("list_workspaces"),
+  codexgpt_title: z.literal("List Workspaces"),
   ok: z.boolean(),
   data: listWorkspacesDataSchema.nullable(),
   error: listWorkspacesErrorSchema.nullable(),
@@ -132,8 +132,8 @@ export function createListWorkspacesSuccess(
   durationMs = 0
 ): ListWorkspacesStructuredResult {
   return listWorkspacesOutputSchema.parse({
-    codexpro_tool: "list_workspaces",
-    codexpro_title: "List Workspaces",
+    codexgpt_tool: "list_workspaces",
+    codexgpt_title: "List Workspaces",
     ok: true,
     data: listWorkspacesDataSchema.parse(data),
     error: null,
@@ -146,8 +146,8 @@ export function createListWorkspacesFailure(
   durationMs = 0
 ): ListWorkspacesStructuredResult {
   return listWorkspacesOutputSchema.parse({
-    codexpro_tool: "list_workspaces",
-    codexpro_title: "List Workspaces",
+    codexgpt_tool: "list_workspaces",
+    codexgpt_title: "List Workspaces",
     ok: false,
     data: null,
     error: {

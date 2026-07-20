@@ -1,13 +1,13 @@
-# `codexpro` Supertool Output Schema Design
+# `codexgpt` Supertool Output Schema Design
 
 > Date: 2026-07-14  
 > Phase: 1, Slice 28  
 > Status: Implemented locally and verified; unpublished  
-> Scope: `codexpro` supertool only
+> Scope: `codexgpt` supertool only
 
 ## 1. Purpose
 
-Migrate the final Phase 1 advertised tool, `codexpro`, to an exact schema-v1 contract without giving the wrapper any authority that the registered direct tools do not already possess.
+Migrate the final Phase 1 advertised tool, `codexgpt`, to an exact schema-v1 contract without giving the wrapper any authority that the registered direct tools do not already possess.
 
 The wrapper exists for connector-cache and custom-client compatibility. It is not a permission layer, a policy engine, or a second implementation of any child tool.
 
@@ -43,7 +43,7 @@ No new public argument is added.
 The legacy wrapper currently has two result forms:
 
 - `list_actions` returns a flat `{ actions }` object;
-- child dispatch returns the child structured result with `codexpro_super_action` and `wrapped_tool` added at the same level.
+- child dispatch returns the child structured result with `codexgpt_super_action` and `wrapped_tool` added at the same level.
 
 The current child wrapping is intentionally transparent to human `content` and MCP `isError`, but it has no exact advertised wrapper schema.
 
@@ -55,7 +55,7 @@ The existing alias set is preserved and no alias is added in this slice:
 open           -> open_current_workspace
 snapshot       -> workspace_snapshot
 changes        -> show_changes
-inventory      -> codexpro_inventory
+inventory      -> codexgpt_inventory
 handoff_poll   -> wait_for_handoff
 pro_export     -> export_pro_context
 agent_handoff  -> handoff_to_agent
@@ -88,7 +88,7 @@ This is small but cannot prove that the wrapped payload is the selected child's 
 
 ### Approach C — Closed discriminated union with transparent child preservation
 
-`list_actions` and wrapper-owned failures use the ordinary six-field `codexpro` envelope. Child dispatch uses a closed union of exact child shapes plus the two wrapper identity fields. The child result, `content`, and `isError` remain semantically unchanged.
+`list_actions` and wrapper-owned failures use the ordinary six-field `codexgpt` envelope. Child dispatch uses a closed union of exact child shapes plus the two wrapper identity fields. The child result, `content`, and `isError` remain semantically unchanged.
 
 **Decision: Approach C.**
 
@@ -125,8 +125,8 @@ This is small but cannot prove that the wrapped payload is the selected child's 
 `list_actions` success and wrapper-owned failures use exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
@@ -136,8 +136,8 @@ meta
 Constants:
 
 ```text
-codexpro_tool  = "codexpro"
-codexpro_title = "CodexPro"
+codexgpt_tool  = "codexgpt"
+codexgpt_title = "CodexGPT"
 meta.schemaVersion = 1
 ```
 
@@ -156,7 +156,7 @@ Invariants:
 
 - actions are unique;
 - actions are sorted by code-point order;
-- actions do not contain `codexpro` or `list_actions`;
+- actions do not contain `codexgpt` or `list_actions`;
 - actions contain canonical registered direct-tool names only;
 - aliases are not listed as separate capabilities;
 - `action_count === actions.length`.
@@ -166,15 +166,15 @@ Invariants:
 A wrapped child result has the child's exact six fields plus:
 
 ```text
-codexpro_super_action
+codexgpt_super_action
 wrapped_tool
 ```
 
 Invariants:
 
 - `wrapped_tool` is a canonical direct-tool name;
-- `codexpro_tool === wrapped_tool`;
-- resolving `codexpro_super_action` yields `wrapped_tool`;
+- `codexgpt_tool === wrapped_tool`;
+- resolving `codexgpt_super_action` yields `wrapped_tool`;
 - removing the two wrapper fields produces a value accepted by the exact child output schema;
 - the wrapper does not modify child `ok`, `data`, `error`, or `meta`;
 - the wrapper does not modify human `content` or MCP `isError`.
@@ -194,7 +194,7 @@ INTERNAL_ERROR
 
 ### `ACTION_NOT_AVAILABLE`
 
-Used for unknown actions, aliases whose canonical target is not registered, canonical targets disabled by the effective mode, and recursive `codexpro` dispatch.
+Used for unknown actions, aliases whose canonical target is not registered, canonical targets disabled by the effective mode, and recursive `codexgpt` dispatch.
 
 Unknown and disabled actions intentionally share one public failure family so the wrapper does not expose a second capability-probing channel.
 
@@ -242,7 +242,7 @@ Details:
 
 ## 8. Routing architecture
 
-The new `src/tools/schemas/codexpro.ts` owns:
+The new `src/tools/schemas/codexgpt.ts` owns:
 
 - canonical direct-tool identifiers;
 - fixed aliases;
@@ -252,7 +252,7 @@ The new `src/tools/schemas/codexpro.ts` owns:
 - wrapped-child validation and construction;
 - the advertised wrapper output shape/schema.
 
-The new `src/codexproSupertool.ts` owns the post-registration wrapper upgrade. It reads the server's effective registered-tool map, derives available canonical actions, validates the selected input, invokes the registered target handler directly, and validates the returned child envelope before adding wrapper identity fields.
+The new `src/codexgptSupertool.ts` owns the post-registration wrapper upgrade. It reads the server's effective registered-tool map, derives available canonical actions, validates the selected input, invokes the registered target handler directly, and validates the returned child envelope before adding wrapper identity fields.
 
 `src/server.ts` remains the owner of direct-tool registration and invokes the upgrade only after the effective tool surface has been assembled. The wrapper must not import or call child domain functions directly, and it must not delegate through the legacy supertool dispatcher because that would preserve a second routing implementation.
 
@@ -272,9 +272,9 @@ normalize action
 
 ## 9. Tool Card behavior
 
-Child results retain the child's `codexpro_tool`, so existing dedicated child renderers remain authoritative.
+Child results retain the child's `codexgpt_tool`, so existing dedicated child renderers remain authoritative.
 
-The `codexpro` renderer handles only:
+The `codexgpt` renderer handles only:
 
 - `list_actions` success;
 - wrapper-owned failures;
@@ -320,7 +320,7 @@ Rollback is a normal revert of the Slice 28 changes after publication. Before pu
 ## 13. Acceptance criteria
 
 ```text
-[x] `codexpro` advertises an exact outputSchema
+[x] `codexgpt` advertises an exact outputSchema
 [x] `list_actions` uses the six-field schema-v1 envelope
 [x] list_actions equals the actual registered canonical direct-tool set
 [x] aliases cannot bypass effective registration gates

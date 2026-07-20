@@ -34,9 +34,9 @@ function withEnv(changes, action) {
 
 function config(changes = {}) {
   return withEnv({
-    CODEXPRO_MOVE_MAX_FILE_BYTES: undefined,
-    CODEXPRO_MOVE_MAX_TOTAL_BYTES: undefined,
-    CODEXPRO_MOVE_HASH_CONCURRENCY: undefined,
+    CODEXGPT_MOVE_MAX_FILE_BYTES: undefined,
+    CODEXGPT_MOVE_MAX_TOTAL_BYTES: undefined,
+    CODEXGPT_MOVE_HASH_CONCURRENCY: undefined,
     ...changes
   }, () => loadConfig(["--bash", "off"]));
 }
@@ -74,17 +74,17 @@ test("move limits default exactly and reject malformed or out-of-range values", 
   assert.equal(defaults.moveHashConcurrency, 4);
 
   const custom = config({
-    CODEXPRO_MOVE_MAX_FILE_BYTES: "1234",
-    CODEXPRO_MOVE_MAX_TOTAL_BYTES: "5678",
-    CODEXPRO_MOVE_HASH_CONCURRENCY: "2"
+    CODEXGPT_MOVE_MAX_FILE_BYTES: "1234",
+    CODEXGPT_MOVE_MAX_TOTAL_BYTES: "5678",
+    CODEXGPT_MOVE_HASH_CONCURRENCY: "2"
   });
   assert.equal(custom.moveMaxFileBytes, 1234);
   assert.equal(custom.moveMaxTotalBytes, 5678);
   assert.equal(custom.moveHashConcurrency, 2);
 
-  assert.throws(() => config({ CODEXPRO_MOVE_MAX_FILE_BYTES: "1.5" }), /must be an integer/);
-  assert.throws(() => config({ CODEXPRO_MOVE_MAX_TOTAL_BYTES: "0" }), /must be an integer/);
-  assert.throws(() => config({ CODEXPRO_MOVE_HASH_CONCURRENCY: "17" }), /must be an integer/);
+  assert.throws(() => config({ CODEXGPT_MOVE_MAX_FILE_BYTES: "1.5" }), /must be an integer/);
+  assert.throws(() => config({ CODEXGPT_MOVE_MAX_TOTAL_BYTES: "0" }), /must be an integer/);
+  assert.throws(() => config({ CODEXGPT_MOVE_HASH_CONCURRENCY: "17" }), /must be an integer/);
 });
 
 test("move input contract is strict, bounded, hash-guarded, and rejects ADS syntax", () => {
@@ -139,7 +139,7 @@ test("move failures use closed messages, retryability, and bounded relative deta
     const result = createMovePathsFailure(code, { workspace_id: "ws_test", move_count: 1 });
     assert.equal(result.error.message, MOVE_PATHS_ERROR_MESSAGES[code]);
     assert.equal(movePathsOutputSchema.safeParse(result).success, true);
-    assert.equal(JSON.stringify(result).includes(".codexpro-txn-"), false);
+    assert.equal(JSON.stringify(result).includes(".codexgpt-txn-"), false);
   }
   assert.equal(createMovePathsFailure("TRANSACTION_BUSY").error.retryable, true);
   assert.equal(createMovePathsFailure("AUDIT_UNAVAILABLE").error.retryable, true);

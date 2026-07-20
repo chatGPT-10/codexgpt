@@ -305,7 +305,7 @@ export class MoveTransactionCoordinator {
       for (let attempt = 0; attempt < 16; attempt += 1) {
         const stageAbsPath = path.join(
           path.dirname(operation.sourceAbsPath),
-          `.codexpro-txn-${this.artifactToken()}.move`
+          `.codexgpt-txn-${this.artifactToken()}.move`
         );
         const relative = path.relative(batch.workspace.root, stageAbsPath).replaceAll("\\", "/");
         if (used.has(relative) || await pathEntryExists(stageAbsPath)) continue;

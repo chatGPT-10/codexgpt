@@ -33,7 +33,7 @@ Add-Type -Path $sourcePath -ReferencedAssemblies @(
   "Microsoft.CSharp.dll"
 )
 
-$result = [CodexPro.Phase4.SandboxSpike]::Run(
+$result = [CodexGPT.Phase4.SandboxSpike]::Run(
   $RepositoryRoot,
   $FixtureDigest,
   $ProbeNonce,

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { removeManagedTaskTree } from "../dist/worktrees/remover.js";
 
-const base = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-worktree-delete-control-"));
+const base = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-worktree-delete-control-"));
 const managed = path.join(base, "managed");
 const outside = path.join(base, "outside");
 let supported = true;

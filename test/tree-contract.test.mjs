@@ -5,7 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   TREE_ERROR_MESSAGES,
@@ -58,7 +58,7 @@ function createTestConfig() {
 }
 
 async function withInMemoryClient(dependencies, callback) {
-  const server = createCodexProServer(createTestConfig(), dependencies);
+  const server = createCodexGPTServer(createTestConfig(), dependencies);
   const client = new Client({ name: "tree-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -98,7 +98,7 @@ function assertTreeFailure(result, code, details) {
 function sampleTreeData() {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     text: ".\n├── src/\n└── test/",
     entries: 2,
     truncated: false
@@ -143,15 +143,15 @@ test("tree success constructor produces the strict schema-v1 envelope", () => {
   const parsed = treeOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "tree");
-  assert.equal(parsed.codexpro_title, "File Tree");
+  assert.equal(parsed.codexgpt_tool, "tree");
+  assert.equal(parsed.codexgpt_title, "File Tree");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleTreeData());
@@ -232,7 +232,7 @@ test("tree advertises the exact output schema and returns a valid real success e
     assert.equal(descriptor.outputSchema.type, "object");
     assert.deepEqual(
       new Set(descriptor.outputSchema.required),
-      new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+      new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
     );
 
     const result = await client.callTool({
@@ -354,7 +354,7 @@ test("tree tool card reads successful fields only from nested data", () => {
   const renderer = rendererMatch[0];
   assert.match(
     toolCardWidgetHtml,
-    /if \(data\?\.codexpro_tool === "tree"\) \{\s*if \(data\?\.ok === false\)[\s\S]*?const tree = data\?\.data \?\? \{\};/
+    /if \(data\?\.codexgpt_tool === "tree"\) \{\s*if \(data\?\.ok === false\)[\s\S]*?const tree = data\?\.data \?\? \{\};/
   );
   assert.match(renderer, /const tree = data\?\.data \?\? \{\};/);
   assert.match(renderer, /tree\.text/);

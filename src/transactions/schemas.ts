@@ -48,7 +48,7 @@ export const transactionParentRelativePathSchema = z.union([
 
 const transactionArtifactPathSchema = transactionRelativePathSchema.refine((value) => {
   const basename = path.posix.basename(value.replace(/\\/g, "/"));
-  return /^\.codexpro-txn-[a-f0-9]{16}\.(?:stage|backup|move)$/.test(basename);
+  return /^\.codexgpt-txn-[a-f0-9]{16}\.(?:stage|backup|move)$/.test(basename);
 }, "Transaction artifact path has an invalid reserved basename.");
 
 export const fileMetadataV1Schema = z.object({

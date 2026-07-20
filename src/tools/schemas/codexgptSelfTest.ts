@@ -2,9 +2,9 @@ import path from "node:path";
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 
-export const CODEXPRO_SELF_TEST_ARTIFACT = ".ai-bridge/codexpro-self-test.md" as const;
+export const CODEXGPT_SELF_TEST_ARTIFACT = ".ai-bridge/codexgpt-self-test.md" as const;
 
-export const CODEXPRO_SELF_TEST_CHECK_NAMES = [
+export const CODEXGPT_SELF_TEST_CHECK_NAMES = [
   "workspace",
   "tool_mode",
   "write_mode",
@@ -25,20 +25,20 @@ export const CODEXPRO_SELF_TEST_CHECK_NAMES = [
   "terms_boundary"
 ] as const;
 
-export const CODEXPRO_SELF_TEST_FAILED_WARNING =
+export const CODEXGPT_SELF_TEST_FAILED_WARNING =
   "One or more self-test checks failed." as const;
-export const CODEXPRO_SELF_TEST_WARNED_WARNING =
+export const CODEXGPT_SELF_TEST_WARNED_WARNING =
   "One or more self-test checks returned warnings." as const;
-export const CODEXPRO_SELF_TEST_SKIPPED_WARNING =
+export const CODEXGPT_SELF_TEST_SKIPPED_WARNING =
   "One or more optional self-test probes were skipped." as const;
 
-export const CODEXPRO_SELF_TEST_ERROR_MESSAGES = {
+export const CODEXGPT_SELF_TEST_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not open.",
-  SELF_TEST_EXECUTION_FAILED: "The CodexPro self-test could not be completed.",
-  INTERNAL_ERROR: "The CodexPro self-test failed because of an internal error."
+  SELF_TEST_EXECUTION_FAILED: "The CodexGPT self-test could not be completed.",
+  INTERNAL_ERROR: "The CodexGPT self-test failed because of an internal error."
 } as const;
 
-export const CODEXPRO_SELF_TEST_DIAGNOSTIC_CODES = [
+export const CODEXGPT_SELF_TEST_DIAGNOSTIC_CODES = [
   "WORKSPACE_READY",
   "TOOL_MODE_VALID",
   "WRITE_MODE_VALID",
@@ -146,7 +146,7 @@ function checkSortedUnique(
   });
 }
 
-export const codexproSelfTestRequestSchema = z.object({
+export const codexgptSelfTestRequestSchema = z.object({
   write_probe: z.boolean(),
   bash_probe: z.boolean(),
   pro_context_probe: z.boolean(),
@@ -154,7 +154,7 @@ export const codexproSelfTestRequestSchema = z.object({
   max_skills: z.number().int().min(1).max(120)
 }).strict();
 
-export const codexproSelfTestCountsSchema = z.object({
+export const codexgptSelfTestCountsSchema = z.object({
   total: z.literal(18),
   passed: z.number().int().min(0).max(18),
   warned: z.number().int().min(0).max(18),
@@ -162,7 +162,7 @@ export const codexproSelfTestCountsSchema = z.object({
   skipped: z.number().int().min(0).max(18)
 }).strict();
 
-export const codexproSelfTestInventorySchema = z.object({
+export const codexgptSelfTestInventorySchema = z.object({
   skill_count: z.number().int().min(0).max(120),
   mcp_server_count: z.number().int().min(0).max(120),
   skills_truncated: z.boolean(),
@@ -184,7 +184,7 @@ export const codexproSelfTestInventorySchema = z.object({
   }
 });
 
-export const codexproSelfTestGitSchema = z.object({
+export const codexgptSelfTestGitSchema = z.object({
   repository_state: z.enum(["clean", "changed", "not_git", "unavailable"]),
   changed_entries: z.number().int().nonnegative()
 }).strict().superRefine((value, context) => {
@@ -211,7 +211,7 @@ export const codexproSelfTestGitSchema = z.object({
   }
 });
 
-export const codexproSelfTestPolicySchema = z.object({
+export const codexgptSelfTestPolicySchema = z.object({
   engine_mode: z.enum(["legacy", "shadow", "enforce"]),
   profile_id: safeIdentifierSchema,
   schema_valid: z.boolean(),
@@ -226,7 +226,7 @@ export const codexproSelfTestPolicySchema = z.object({
   missing_capabilities: z.array(safeIdentifierSchema).max(16)
 }).strict();
 
-export const codexproSelfTestTermsBoundarySchema = z.object({
+export const codexgptSelfTestTermsBoundarySchema = z.object({
   local_workspace_bridge: z.literal(true),
   provides_models: z.literal(false),
   proxies_model_access: z.literal(false),
@@ -234,17 +234,17 @@ export const codexproSelfTestTermsBoundarySchema = z.object({
   remote_agent_execution: z.literal(false)
 }).strict();
 
-export const codexproSelfTestCheckSchema = z.object({
-  name: z.enum(CODEXPRO_SELF_TEST_CHECK_NAMES),
+export const codexgptSelfTestCheckSchema = z.object({
+  name: z.enum(CODEXGPT_SELF_TEST_CHECK_NAMES),
   status: z.enum(["pass", "warn", "fail", "skipped"]),
-  code: z.enum(CODEXPRO_SELF_TEST_DIAGNOSTIC_CODES),
+  code: z.enum(CODEXGPT_SELF_TEST_DIAGNOSTIC_CODES),
   message: safeMessageSchema
 }).strict();
 
 const toolArraySchema = z.array(safeToolNameSchema).max(28);
 const fixedTouchedFilesSchema = z.union([
   z.tuple([]),
-  z.tuple([z.literal(CODEXPRO_SELF_TEST_ARTIFACT)])
+  z.tuple([z.literal(CODEXGPT_SELF_TEST_ARTIFACT)])
 ]);
 
 const allowedCheckOutcomes = new Set([
@@ -299,11 +299,11 @@ const allowedCheckOutcomes = new Set([
   "terms_boundary:pass:TERMS_BOUNDARY_VALID"
 ]);
 
-export const codexproSelfTestDataSchema = z.object({
+export const codexgptSelfTestDataSchema = z.object({
   workspace_id: safeIdentifierSchema,
   root: canonicalAbsolutePathSchema,
   status: z.enum(["pass", "warn", "fail"]),
-  counts: codexproSelfTestCountsSchema,
+  counts: codexgptSelfTestCountsSchema,
   tool_mode: z.enum(["minimal", "standard", "full"]),
   write_mode: z.enum(["off", "handoff", "workspace"]),
   bash_mode: z.enum(["off", "safe", "full"]),
@@ -315,19 +315,19 @@ export const codexproSelfTestDataSchema = z.object({
     enabled: z.boolean(),
     required_for_public_access: z.boolean()
   }).strict(),
-  request: codexproSelfTestRequestSchema,
+  request: codexgptSelfTestRequestSchema,
   expected_tools: toolArraySchema,
   registered_tools: toolArraySchema,
   missing_tools: toolArraySchema,
   unexpected_tools: toolArraySchema,
   tool_set_matches: z.boolean(),
-  inventory: codexproSelfTestInventorySchema,
-  git: codexproSelfTestGitSchema,
-  policy: codexproSelfTestPolicySchema,
-  probe_artifact: z.literal(CODEXPRO_SELF_TEST_ARTIFACT).nullable(),
+  inventory: codexgptSelfTestInventorySchema,
+  git: codexgptSelfTestGitSchema,
+  policy: codexgptSelfTestPolicySchema,
+  probe_artifact: z.literal(CODEXGPT_SELF_TEST_ARTIFACT).nullable(),
   files_touched: fixedTouchedFilesSchema,
-  checks: z.array(codexproSelfTestCheckSchema).length(18),
-  terms_boundary: codexproSelfTestTermsBoundarySchema
+  checks: z.array(codexgptSelfTestCheckSchema).length(18),
+  terms_boundary: codexgptSelfTestTermsBoundarySchema
 }).strict().superRefine((value, context) => {
   for (const field of ["expected_tools", "registered_tools", "missing_tools", "unexpected_tools"] as const) {
     checkSortedUnique(value[field], context, field);
@@ -404,7 +404,7 @@ export const codexproSelfTestDataSchema = z.object({
   }
 
   value.checks.forEach((check, index) => {
-    if (check.name !== CODEXPRO_SELF_TEST_CHECK_NAMES[index]) {
+    if (check.name !== CODEXGPT_SELF_TEST_CHECK_NAMES[index]) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["checks", index, "name"],
@@ -450,7 +450,7 @@ export const codexproSelfTestDataSchema = z.object({
     });
   }
   if (value.probe_artifact !== null && (
-    value.files_touched.length !== 1 || value.files_touched[0] !== CODEXPRO_SELF_TEST_ARTIFACT
+    value.files_touched.length !== 1 || value.files_touched[0] !== CODEXGPT_SELF_TEST_ARTIFACT
   )) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -472,39 +472,39 @@ const workspaceNotFoundDetailsSchema = z.union([
   }).strict()
 ]);
 
-export const codexproSelfTestErrorSchema = z.discriminatedUnion("code", [
+export const codexgptSelfTestErrorSchema = z.discriminatedUnion("code", [
   z.object({
     code: z.literal("WORKSPACE_NOT_FOUND"),
-    message: z.literal(CODEXPRO_SELF_TEST_ERROR_MESSAGES.WORKSPACE_NOT_FOUND),
+    message: z.literal(CODEXGPT_SELF_TEST_ERROR_MESSAGES.WORKSPACE_NOT_FOUND),
     retryable: z.literal(false),
     details: workspaceNotFoundDetailsSchema
   }).strict(),
   z.object({
     code: z.literal("SELF_TEST_EXECUTION_FAILED"),
-    message: z.literal(CODEXPRO_SELF_TEST_ERROR_MESSAGES.SELF_TEST_EXECUTION_FAILED),
+    message: z.literal(CODEXGPT_SELF_TEST_ERROR_MESSAGES.SELF_TEST_EXECUTION_FAILED),
     retryable: z.literal(true),
     details: emptyDetailsSchema
   }).strict(),
   z.object({
     code: z.literal("INTERNAL_ERROR"),
-    message: z.literal(CODEXPRO_SELF_TEST_ERROR_MESSAGES.INTERNAL_ERROR),
+    message: z.literal(CODEXGPT_SELF_TEST_ERROR_MESSAGES.INTERNAL_ERROR),
     retryable: z.literal(false),
     details: emptyDetailsSchema
   }).strict()
 ]);
 
-export const codexproSelfTestOutputShape = {
-  codexpro_tool: z.literal("codexpro_self_test"),
-  codexpro_title: z.literal("CodexPro Self Test"),
+export const codexgptSelfTestOutputShape = {
+  codexgpt_tool: z.literal("codexgpt_self_test"),
+  codexgpt_title: z.literal("CodexGPT Self Test"),
   ok: z.boolean(),
-  data: codexproSelfTestDataSchema.nullable(),
-  error: codexproSelfTestErrorSchema.nullable(),
+  data: codexgptSelfTestDataSchema.nullable(),
+  error: codexgptSelfTestErrorSchema.nullable(),
   meta: toolMetaSchema
 };
 
-const codexproSelfTestOutputBaseSchema = z.object(codexproSelfTestOutputShape).strict();
+const codexgptSelfTestOutputBaseSchema = z.object(codexgptSelfTestOutputShape).strict();
 
-export const codexproSelfTestOutputSchema = codexproSelfTestOutputBaseSchema.superRefine(
+export const codexgptSelfTestOutputSchema = codexgptSelfTestOutputBaseSchema.superRefine(
   (value, context) => {
     if (value.ok) {
       if (value.data === null) {
@@ -561,11 +561,11 @@ export const codexproSelfTestOutputSchema = codexproSelfTestOutputBaseSchema.sup
   }
 );
 
-export type CodexProSelfTestRequest = z.infer<typeof codexproSelfTestRequestSchema>;
-export type CodexProSelfTestData = z.infer<typeof codexproSelfTestDataSchema>;
-export type CodexProSelfTestCheck = z.infer<typeof codexproSelfTestCheckSchema>;
-export type CodexProSelfTestStructuredResult = z.infer<typeof codexproSelfTestOutputBaseSchema>;
-export type CodexProSelfTestFailureInput =
+export type CodexGPTSelfTestRequest = z.infer<typeof codexgptSelfTestRequestSchema>;
+export type CodexGPTSelfTestData = z.infer<typeof codexgptSelfTestDataSchema>;
+export type CodexGPTSelfTestCheck = z.infer<typeof codexgptSelfTestCheckSchema>;
+export type CodexGPTSelfTestStructuredResult = z.infer<typeof codexgptSelfTestOutputBaseSchema>;
+export type CodexGPTSelfTestFailureInput =
   | {
       code: "WORKSPACE_NOT_FOUND";
       details:
@@ -575,22 +575,22 @@ export type CodexProSelfTestFailureInput =
   | { code: "SELF_TEST_EXECUTION_FAILED"; details: Record<string, never> }
   | { code: "INTERNAL_ERROR"; details: Record<string, never> };
 
-function selfTestWarnings(data: CodexProSelfTestData): string[] {
+function selfTestWarnings(data: CodexGPTSelfTestData): string[] {
   const warnings: string[] = [];
-  if (data.counts.failed > 0) warnings.push(CODEXPRO_SELF_TEST_FAILED_WARNING);
-  if (data.counts.warned > 0) warnings.push(CODEXPRO_SELF_TEST_WARNED_WARNING);
-  if (data.counts.skipped > 0) warnings.push(CODEXPRO_SELF_TEST_SKIPPED_WARNING);
+  if (data.counts.failed > 0) warnings.push(CODEXGPT_SELF_TEST_FAILED_WARNING);
+  if (data.counts.warned > 0) warnings.push(CODEXGPT_SELF_TEST_WARNED_WARNING);
+  if (data.counts.skipped > 0) warnings.push(CODEXGPT_SELF_TEST_SKIPPED_WARNING);
   return warnings;
 }
 
-export function createCodexProSelfTestSuccess(
-  data: CodexProSelfTestData,
+export function createCodexGPTSelfTestSuccess(
+  data: CodexGPTSelfTestData,
   durationMs = 0
-): CodexProSelfTestStructuredResult {
-  const parsedData = codexproSelfTestDataSchema.parse(data);
-  return codexproSelfTestOutputSchema.parse({
-    codexpro_tool: "codexpro_self_test",
-    codexpro_title: "CodexPro Self Test",
+): CodexGPTSelfTestStructuredResult {
+  const parsedData = codexgptSelfTestDataSchema.parse(data);
+  return codexgptSelfTestOutputSchema.parse({
+    codexgpt_tool: "codexgpt_self_test",
+    codexgpt_title: "CodexGPT Self Test",
     ok: true,
     data: parsedData,
     error: null,
@@ -598,18 +598,18 @@ export function createCodexProSelfTestSuccess(
   });
 }
 
-export function createCodexProSelfTestFailure(
-  failure: CodexProSelfTestFailureInput,
+export function createCodexGPTSelfTestFailure(
+  failure: CodexGPTSelfTestFailureInput,
   durationMs = 0
-): CodexProSelfTestStructuredResult {
-  return codexproSelfTestOutputSchema.parse({
-    codexpro_tool: "codexpro_self_test",
-    codexpro_title: "CodexPro Self Test",
+): CodexGPTSelfTestStructuredResult {
+  return codexgptSelfTestOutputSchema.parse({
+    codexgpt_tool: "codexgpt_self_test",
+    codexgpt_title: "CodexGPT Self Test",
     ok: false,
     data: null,
     error: {
       code: failure.code,
-      message: CODEXPRO_SELF_TEST_ERROR_MESSAGES[failure.code],
+      message: CODEXGPT_SELF_TEST_ERROR_MESSAGES[failure.code],
       retryable: failure.code === "SELF_TEST_EXECUTION_FAILED",
       details: failure.details
     },

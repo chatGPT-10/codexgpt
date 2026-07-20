@@ -73,16 +73,16 @@ test("process-tree cleanup targets the POSIX group and the Windows child", () =>
 });
 
 async function startCli({ allowQueryToken, disableQueryToken = false }) {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-connector-auth-home-"));
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-connector-auth-home-"));
   const port = await freePort();
   const token = randomBytes(24).toString("hex");
-  const env = { ...process.env, CODEXPRO_HOME: home };
-  if (allowQueryToken) env.CODEXPRO_ALLOW_QUERY_TOKEN = "1";
-  else if (disableQueryToken) env.CODEXPRO_ALLOW_QUERY_TOKEN = "0";
-  else delete env.CODEXPRO_ALLOW_QUERY_TOKEN;
+  const env = { ...process.env, CODEXGPT_HOME: home };
+  if (allowQueryToken) env.CODEXGPT_ALLOW_QUERY_TOKEN = "1";
+  else if (disableQueryToken) env.CODEXGPT_ALLOW_QUERY_TOKEN = "0";
+  else delete env.CODEXGPT_ALLOW_QUERY_TOKEN;
 
   const child = spawn(process.execPath, [
-    "scripts/codexpro-entry.mjs",
+    "scripts/codexgpt-entry.mjs",
     "start",
     "--no-profile",
     "--root", process.cwd(),
@@ -108,7 +108,7 @@ async function startCli({ allowQueryToken, disableQueryToken = false }) {
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error(`Timed out waiting for CLI readiness\nstdout:\n${stdout}\nstderr:\n${stderr}`)), 15000);
     const check = () => {
-      if (stdout.includes("CodexPro ready") && stdout.includes("Keys:")) {
+      if (stdout.includes("CodexGPT ready") && stdout.includes("Keys:")) {
         clearTimeout(timeout);
         resolve();
       }
@@ -121,7 +121,7 @@ async function startCli({ allowQueryToken, disableQueryToken = false }) {
     check();
   });
 
-  const readyOutput = stdout.slice(stdout.lastIndexOf("CodexPro ready"));
+  const readyOutput = stdout.slice(stdout.lastIndexOf("CodexGPT ready"));
   const urls = readyOutput.match(/http:\/\/127\.0\.0\.1:\d+\/mcp(?:\?[^\s]+)?/g) ?? [];
   const serverUrl = urls.at(-1);
   assert.ok(serverUrl, `CLI output did not contain a Server URL\n${readyOutput}`);
@@ -151,11 +151,11 @@ async function startCli({ allowQueryToken, disableQueryToken = false }) {
 test("default public CLI output uses the personal ChatGPT query-token flow", async () => {
   const cli = await startCli({ allowQueryToken: false });
   try {
-    assert.match(cli.serverUrl, /[?&]codexpro_token=/);
+    assert.match(cli.serverUrl, /[?&]codexgpt_token=/);
     assert.match(cli.readyOutput, /Authentication:\s*(?:No Authentication(?:\s*\/\s*None)?|None)/i);
     assert.doesNotMatch(cli.readyOutput, /Authorization:\s*Bearer/i);
 
-    const queryStatus = await request(`${cli.baseUrl}/healthz?codexpro_token=${encodeURIComponent(cli.token)}`);
+    const queryStatus = await request(`${cli.baseUrl}/healthz?codexgpt_token=${encodeURIComponent(cli.token)}`);
     const bearerStatus = await request(`${cli.baseUrl}/healthz`, { authorization: `Bearer ${cli.token}` });
     assert.equal(queryStatus, 200);
     assert.equal(bearerStatus, 200);
@@ -167,10 +167,10 @@ test("default public CLI output uses the personal ChatGPT query-token flow", asy
 test("explicit query-token compatibility retains URL-token and Authentication None guidance", async () => {
   const cli = await startCli({ allowQueryToken: true });
   try {
-    assert.match(cli.serverUrl, /[?&]codexpro_token=/);
+    assert.match(cli.serverUrl, /[?&]codexgpt_token=/);
     assert.match(cli.readyOutput, /Authentication:\s*(?:No Authentication(?:\s*\/\s*None)?|None)/i);
 
-    const queryStatus = await request(`${cli.baseUrl}/healthz?codexpro_token=${encodeURIComponent(cli.token)}`);
+    const queryStatus = await request(`${cli.baseUrl}/healthz?codexgpt_token=${encodeURIComponent(cli.token)}`);
     const bearerStatus = await request(`${cli.baseUrl}/healthz`, { authorization: `Bearer ${cli.token}` });
     assert.equal(queryStatus, 200);
     assert.equal(bearerStatus, 200);
@@ -187,7 +187,7 @@ test("explicit query-token opt-out describes Bearer only for compatible non-Chat
     assert.match(cli.readyOutput, /not ChatGPT Web/i);
     assert.doesNotMatch(cli.readyOutput, /open ChatGPT[^\n]{0,200}Bearer/i);
 
-    const queryStatus = await request(`${cli.baseUrl}/healthz?codexpro_token=${encodeURIComponent(cli.token)}`);
+    const queryStatus = await request(`${cli.baseUrl}/healthz?codexgpt_token=${encodeURIComponent(cli.token)}`);
     const bearerStatus = await request(`${cli.baseUrl}/healthz`, { authorization: `Bearer ${cli.token}` });
     assert.equal(queryStatus, 401);
     assert.equal(bearerStatus, 200);

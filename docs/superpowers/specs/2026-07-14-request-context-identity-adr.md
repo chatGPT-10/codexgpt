@@ -7,7 +7,7 @@
 
 ## 1. Context
 
-CodexPro currently accepts requests through STDIO and Streamable HTTP. HTTP may authenticate with the personal query-token compatibility flow or a Bearer token. MCP transport sessions exist, but current workspaces are service-level objects and are not yet bound to a stable request identity.
+CodexGPT currently accepts requests through STDIO and Streamable HTTP. HTTP may authenticate with the personal query-token compatibility flow or a Bearer token. MCP transport sessions exist, but current workspaces are service-level objects and are not yet bound to a stable request identity.
 
 Phase 2A needs one identity and context interface that works before OAuth 2.1 and can accept OAuth subject/scopes later without introducing a second identity system.
 
@@ -22,7 +22,7 @@ The design must distinguish:
 
 ## 2. Decision
 
-CodexPro will create one immutable `RequestContextV1` for every request entering the central tool wrapper. The context contains a normalized `RequestIdentityV1`, transport facts, workspace binding when applicable, selected runtime and permission profiles, policy revision, and grant revision.
+CodexGPT will create one immutable `RequestContextV1` for every request entering the central tool wrapper. The context contains a normalized `RequestIdentityV1`, transport facts, workspace binding when applicable, selected runtime and permission profiles, policy revision, and grant revision.
 
 Raw credentials never enter `RequestContextV1`.
 
@@ -54,7 +54,7 @@ interface RequestIdentityV1 {
 
 `credentialRef` is a safe local identifier, not a credential. It is generated from the credential using an application-local secret and a domain-separated HMAC. It must:
 
-- be stable for the same credential within the same CodexPro installation;
+- be stable for the same credential within the same CodexGPT installation;
 - differ across installations even when the raw credential is the same;
 - be non-reversible from logs or audit records;
 - use a bounded public representation such as `cred_<base32-prefix>`;
@@ -336,7 +336,7 @@ Costs:
 
 ## 14. Security claims prohibited by this ADR
 
-Before Phase 8, CodexPro must not claim:
+Before Phase 8, CodexGPT must not claim:
 
 - strong per-human owner isolation;
 - revocable OAuth subject identity;

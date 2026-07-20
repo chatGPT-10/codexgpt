@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const { readHandoffContext } = await tsImport("../src/workspaceOps.ts", import.meta.url);
 const schemaModule = await tsImport("../src/tools/schemas/readHandoff.ts", import.meta.url).catch(() => null);
@@ -77,7 +77,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "read-handoff-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -227,15 +227,15 @@ test("read_handoff schema exports fixed definitions and exact populated and abse
 
   const populated = createReadHandoffSuccess(sampleReadData(), 7);
   assert.deepEqual(Object.keys(populated).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(populated.codexpro_tool, "read_handoff");
-  assert.equal(populated.codexpro_title, "Read Handoff");
+  assert.equal(populated.codexgpt_tool, "read_handoff");
+  assert.equal(populated.codexgpt_title, "Read Handoff");
   assert.equal(populated.ok, true);
   assert.equal(populated.error, null);
   assert.deepEqual(Object.keys(populated.data).sort(), [
@@ -302,8 +302,8 @@ test("read_handoff schema creates all exact stable failures", () => {
   ];
   for (const [code, details] of cases) {
     assert.deepEqual(createReadHandoffFailure({ code, details }, 9), {
-      codexpro_tool: "read_handoff",
-      codexpro_title: "Read Handoff",
+      codexgpt_tool: "read_handoff",
+      codexgpt_title: "Read Handoff",
       ok: false,
       data: null,
       error: {
@@ -374,7 +374,7 @@ test("read_handoff is standard full only read-only and advertises exact output s
         assert.equal(descriptor.outputSchema.type, "object");
         assert.deepEqual(
           new Set(descriptor.outputSchema.required),
-          new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+          new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
         );
         assert.equal(descriptor.annotations?.readOnlyHint, true);
         assert.equal(descriptor.annotations?.destructiveHint, false);
@@ -609,7 +609,7 @@ test("read_handoff echoes provider context and returns stable workspace provider
 
 test("read_handoff Tool Card is nested-first dedicated bounded and keeps historical flat fallback", () => {
   assert.match(toolCardWidgetHtml, /function readHandoffResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "read_handoff"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "read_handoff"/);
   assert.match(toolCardWidgetHtml, /return nested \? data\.data : \(data \?\? \{\}\)/);
   assert.match(toolCardWidgetHtml, /function renderReadHandoff\(data\)/);
   assert.match(toolCardWidgetHtml, /previewLines\(artifact\.text, 20\)/);
@@ -647,13 +647,13 @@ test("read_handoff supertool preserves the exact nested child envelope", async (
     await withConfigClient(createTestConfig(root), {
       readHandoffProvider: async () => publicToProvider(data)
     }, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "read_handoff",
         args: {}
       });
-      assert.equal(result.structuredContent.codexpro_tool, "read_handoff");
-      assert.equal(result.structuredContent.codexpro_title, "Read Handoff");
-      assert.equal(result.structuredContent.codexpro_super_action, "read_handoff");
+      assert.equal(result.structuredContent.codexgpt_tool, "read_handoff");
+      assert.equal(result.structuredContent.codexgpt_title, "Read Handoff");
+      assert.equal(result.structuredContent.codexgpt_super_action, "read_handoff");
       assert.equal(result.structuredContent.wrapped_tool, "read_handoff");
       assert.equal(result.structuredContent.ok, true);
       assert.equal(result.structuredContent.data.artifacts[0].text, data.artifacts[0].text);

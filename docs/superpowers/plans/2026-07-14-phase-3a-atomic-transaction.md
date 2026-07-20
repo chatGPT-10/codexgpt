@@ -4,7 +4,7 @@
 
 **Goal:** Build an internal, Windows-first workspace file transaction kernel with exact SHA-256 preconditions, same-volume staging and hard-link rollback, conservative cross-process locking, durable manifests, synchronous normal-failure rollback, and deterministic crash recovery before workspace reuse.
 
-**Architecture:** Control-plane operations—installation state, manifest transitions, lock ownership, and crash recovery—use synchronous Node filesystem calls so persistence order is explicit and recovery can run from the existing synchronous `WorkspaceManager` boundary. File-data operations—reading, hashing, staging bytes, and metadata application—use asynchronous Node APIs behind an injected adapter. Phase 3A adds no public MCP tool and does not migrate existing workspace writers. Until Phase 3C marks every supported workspace mutator as transaction-backed, server construction fails closed when `CODEXPRO_FILE_TRANSACTIONS=atomic` is combined with any enabled public write mode; atomic mode is usable only with `CODEXPRO_WRITE_MODE=off` for kernel and recovery verification.
+**Architecture:** Control-plane operations—installation state, manifest transitions, lock ownership, and crash recovery—use synchronous Node filesystem calls so persistence order is explicit and recovery can run from the existing synchronous `WorkspaceManager` boundary. File-data operations—reading, hashing, staging bytes, and metadata application—use asynchronous Node APIs behind an injected adapter. Phase 3A adds no public MCP tool and does not migrate existing workspace writers. Until Phase 3C marks every supported workspace mutator as transaction-backed, server construction fails closed when `CODEXGPT_FILE_TRANSACTIONS=atomic` is combined with any enabled public write mode; atomic mode is usable only with `CODEXGPT_WRITE_MODE=off` for kernel and recovery verification.
 
 **Tech Stack:** TypeScript 5.8, Node.js 20/24 built-in `crypto`, `fs`, and `fs/promises`, Zod 3.25, Node test runner, native Windows NTFS verification, Ubuntu CI compatibility.
 
@@ -13,15 +13,15 @@
 - Native Windows is the primary platform; WSL must not become mandatory.
 - Use Node-native filesystem APIs only. Do not introduce PowerShell, Git, Worktree, copy/delete, Windows TxF, native addons, or third-party transaction dependencies.
 - Transaction control state stays outside authorized workspaces and Git.
-- Workspace artifacts use reserved unpredictable `.codexpro-txn-*` sibling names on the same volume as the affected file.
-- Public path surfaces must hard-block every path segment beginning with `.codexpro-txn-`, regardless of user-supplied blocked-glob configuration.
+- Workspace artifacts use reserved unpredictable `.codexgpt-txn-*` sibling names on the same volume as the affected file.
+- Public path surfaces must hard-block every path segment beginning with `.codexgpt-txn-`, regardless of user-supplied blocked-glob configuration.
 - The V1 atomic backend requires hard-link support. An unsupported volume returns `ATOMIC_BACKEND_UNAVAILABLE`; no direct-write fallback is allowed.
 - Before Phase 3C completes mutator migration, `atomic` plus any enabled public write mode is an invalid server configuration; the server must fail before registering tools.
 - Exact file SHA-256 is calculated over bytes, not decoded text.
 - A caller precondition and the kernel's observed precondition are both revalidated immediately before visible mutation.
 - Single-file replacement exposes either complete old bytes or complete new bytes. Multi-file failure is synchronously rolled back, but no database-style instantaneous cross-file visibility claim is made.
 - Manifests must not contain canonical workspace roots, file bodies, complete diffs, credentials, tokens, cookies, environment-file contents, or private keys.
-- External processes remain outside the CodexPro workspace lock. Unverifiable lock ownership and uncertain rollback fail closed.
+- External processes remain outside the CodexGPT workspace lock. Unverifiable lock ownership and uncertain rollback fail closed.
 - Existing Phase 1 tool schemas, the 28-tool contract V1 surface, protected `scripts/smoke.mjs`, and protected `scripts/http-smoke.mjs` remain unchanged.
 - Do not stage, commit, push, publish, alter system policy, install system components, or begin Phase 3B–3D implementation without the applicable later approval.
 
@@ -67,7 +67,7 @@
 
 **Files:**
 - Modify: `src/config.ts:6-49, 192-207, 314-429`
-- Modify: `src/server.ts` at the beginning of `createCodexProServer(...)`, before manager or tool registration
+- Modify: `src/server.ts` at the beginning of `createCodexGPTServer(...)`, before manager or tool registration
 - Modify: `src/guard.ts:33-78, 347-423`
 - Modify: `config.example.env`
 - Create: `test/transaction-config-and-path-policy.test.mjs`
@@ -75,8 +75,8 @@
 - Modify: `docs/memory/archive/phase-3.md`
 
 **Interfaces:**
-- Consumes: existing `CodexProConfig`, `loadConfig()`, `createCodexProServer()`, `PathGuard.isBlockedRelativePath()`, and Windows case-insensitive path comparison.
-- Produces: `FileTransactionMode`, `CodexProConfig.fileTransactions`, `FileTransactionCapabilities`, `assertFileTransactionConfiguration(config, capabilities)`, `isReservedTransactionRelativePath(relPath, platform)`, and the invariant that every `.codexpro-txn-*` path segment is blocked independently of configured globs.
+- Consumes: existing `CodexGPTConfig`, `loadConfig()`, `createCodexGPTServer()`, `PathGuard.isBlockedRelativePath()`, and Windows case-insensitive path comparison.
+- Produces: `FileTransactionMode`, `CodexGPTConfig.fileTransactions`, `FileTransactionCapabilities`, `assertFileTransactionConfiguration(config, capabilities)`, `isReservedTransactionRelativePath(relPath, platform)`, and the invariant that every `.codexgpt-txn-*` path segment is blocked independently of configured globs.
 
 - [ ] **Step 1: Write failing configuration and path-policy tests**
 
@@ -90,7 +90,7 @@ import {
   loadConfig
 } from "../dist/config.js";
 import { isReservedTransactionRelativePath, PathGuard } from "../dist/guard.js";
-import { createCodexProServer } from "../dist/server.js";
+import { createCodexGPTServer } from "../dist/server.js";
 
 function withEnv(name, value, action) {
   const previous = process.env[name];
@@ -105,19 +105,19 @@ function withEnv(name, value, action) {
 }
 
 test("file transactions default to legacy and reject unknown modes", () => {
-  withEnv("CODEXPRO_FILE_TRANSACTIONS", undefined, () => {
+  withEnv("CODEXGPT_FILE_TRANSACTIONS", undefined, () => {
     assert.equal(loadConfig(["--bash", "off"]).fileTransactions, "legacy");
   });
-  withEnv("CODEXPRO_FILE_TRANSACTIONS", "atomic", () => {
+  withEnv("CODEXGPT_FILE_TRANSACTIONS", "atomic", () => {
     assert.equal(loadConfig(["--bash", "off"]).fileTransactions, "atomic");
   });
-  withEnv("CODEXPRO_FILE_TRANSACTIONS", "unsafe", () => {
+  withEnv("CODEXGPT_FILE_TRANSACTIONS", "unsafe", () => {
     assert.throws(() => loadConfig(["--bash", "off"]), /legacy or atomic/);
   });
 });
 
 test("Phase 3A refuses atomic mode while public workspace writers are enabled", () => {
-  const atomicWritable = withEnv("CODEXPRO_FILE_TRANSACTIONS", "atomic", () =>
+  const atomicWritable = withEnv("CODEXGPT_FILE_TRANSACTIONS", "atomic", () =>
     loadConfig(["--bash", "off", "--write", "workspace"])
   );
   assert.throws(
@@ -125,11 +125,11 @@ test("Phase 3A refuses atomic mode while public workspace writers are enabled", 
     /requires transaction-backed workspace mutators/i
   );
   assert.throws(
-    () => createCodexProServer(atomicWritable),
+    () => createCodexGPTServer(atomicWritable),
     /requires transaction-backed workspace mutators/i
   );
 
-  const atomicReadOnly = withEnv("CODEXPRO_FILE_TRANSACTIONS", "atomic", () =>
+  const atomicReadOnly = withEnv("CODEXGPT_FILE_TRANSACTIONS", "atomic", () =>
     loadConfig(["--bash", "off", "--write", "off"])
   );
   assert.doesNotThrow(() =>
@@ -140,15 +140,15 @@ test("Phase 3A refuses atomic mode while public workspace writers are enabled", 
 test("reserved transaction artifacts are blocked by path segment", () => {
   const guard = new PathGuard({ blockedGlobs: [] }, "win32");
   for (const candidate of [
-    ".codexpro-txn-a.stage",
-    "src/.codexpro-txn-a.backup",
-    "SRC/.CODEXPRO-TXN-A.MOVE",
-    "nested/.codexpro-txn-dir/child"
+    ".codexgpt-txn-a.stage",
+    "src/.codexgpt-txn-a.backup",
+    "SRC/.CODEXGPT-TXN-A.MOVE",
+    "nested/.codexgpt-txn-dir/child"
   ]) {
     assert.equal(isReservedTransactionRelativePath(candidate, "win32"), true);
     assert.equal(guard.isBlockedRelativePath(candidate), true);
   }
-  assert.equal(guard.isBlockedRelativePath("src/codexpro-txn-normal.ts"), false);
+  assert.equal(guard.isBlockedRelativePath("src/codexgpt-txn-normal.ts"), false);
 });
 ```
 
@@ -173,15 +173,15 @@ function fileTransactionModeFrom(value: string | undefined): FileTransactionMode
   const normalized = value?.trim();
   if (!normalized) return "legacy";
   if (normalized === "legacy" || normalized === "atomic") return normalized;
-  throw new Error("CODEXPRO_FILE_TRANSACTIONS must be legacy or atomic.");
+  throw new Error("CODEXGPT_FILE_TRANSACTIONS must be legacy or atomic.");
 }
 ```
 
-Add `fileTransactions: FileTransactionMode` to `CodexProConfig`, parse optional `--file-transactions`, and populate:
+Add `fileTransactions: FileTransactionMode` to `CodexGPTConfig`, parse optional `--file-transactions`, and populate:
 
 ```ts
 fileTransactions: fileTransactionModeFrom(
-  fileTransactionsArg ?? process.env.CODEXPRO_FILE_TRANSACTIONS
+  fileTransactionsArg ?? process.env.CODEXGPT_FILE_TRANSACTIONS
 ),
 ```
 
@@ -197,7 +197,7 @@ export interface FileTransactionCapabilities {
 }
 
 export function assertFileTransactionConfiguration(
-  config: Pick<CodexProConfig, "fileTransactions" | "writeMode">,
+  config: Pick<CodexGPTConfig, "fileTransactions" | "writeMode">,
   capabilities: FileTransactionCapabilities
 ): void {
   if (
@@ -206,13 +206,13 @@ export function assertFileTransactionConfiguration(
     !capabilities.workspaceMutatorsAtomic
   ) {
     throw new Error(
-      "CODEXPRO_FILE_TRANSACTIONS=atomic requires transaction-backed workspace mutators; keep CODEXPRO_WRITE_MODE=off until Phase 3C migration is complete."
+      "CODEXGPT_FILE_TRANSACTIONS=atomic requires transaction-backed workspace mutators; keep CODEXGPT_WRITE_MODE=off until Phase 3C migration is complete."
     );
   }
 }
 ```
 
-At the first executable line of `createCodexProServer(...)`, before constructing a workspace manager or registering any tool, call:
+At the first executable line of `createCodexGPTServer(...)`, before constructing a workspace manager or registering any tool, call:
 
 ```ts
 assertFileTransactionConfiguration(config, {
@@ -227,7 +227,7 @@ Phase 3C changes this capability to `true` only after the static mutation-closur
 Add to `src/guard.ts`:
 
 ```ts
-const RESERVED_TRANSACTION_PREFIX = ".codexpro-txn-";
+const RESERVED_TRANSACTION_PREFIX = ".codexgpt-txn-";
 
 export function isReservedTransactionRelativePath(
   relPath: string,
@@ -253,7 +253,7 @@ Add to `config.example.env`:
 ```dotenv
 # Phase 3A internal kernel. Keep legacy until every supported workspace writer
 # is migrated in Phase 3C; atomic mode never falls back to direct writes.
-CODEXPRO_FILE_TRANSACTIONS=legacy
+CODEXGPT_FILE_TRANSACTIONS=legacy
 ```
 
 - [ ] **Step 7: Build and run focused tests to confirm GREEN**
@@ -310,7 +310,7 @@ const validManifest = {
     state: "staged",
     relativePath: "src/example.ts",
     comparisonKey: "src/example.ts",
-    stageRelativePath: "src/.codexpro-txn-5555555555555555.stage",
+    stageRelativePath: "src/.codexgpt-txn-5555555555555555.stage",
     backupRelativePath: null,
     before: {
       exists: true,
@@ -427,7 +427,7 @@ if (new Set(operationIds).size !== operationIds.length) {
 }
 ```
 
-Artifact paths must be relative, remain in the same parent as their logical path, and contain a basename beginning with `.codexpro-txn-`. Schemas must reject `bytes`, `content`, `diff`, `workspaceRoot`, `authorization`, `cookie`, and any unknown field by using `.strict()` throughout.
+Artifact paths must be relative, remain in the same parent as their logical path, and contain a basename beginning with `.codexgpt-txn-`. Schemas must reject `bytes`, `content`, `diff`, `workspaceRoot`, `authorization`, `cookie`, and any unknown field by using `.strict()` throughout.
 
 - [ ] **Step 5: Export only the closed Phase 3A surface**
 
@@ -474,7 +474,7 @@ assert.equal(
     env: { LOCALAPPDATA: "C:\\Users\\Noah\\AppData\\Local" },
     homeDir: "C:\\Users\\Noah"
   }),
-  path.resolve("C:\\Users\\Noah\\AppData\\Local", "CodexPro", "state", "v1")
+  path.resolve("C:\\Users\\Noah\\AppData\\Local", "CodexGPT", "state", "v1")
 );
 
 assert.equal(
@@ -483,13 +483,13 @@ assert.equal(
     env: { XDG_STATE_HOME: "/tmp/state" },
     homeDir: "/home/noah"
   }),
-  path.resolve("/tmp/state", "codexpro", "v1")
+  path.resolve("/tmp/state", "codexgpt", "v1")
 );
 ```
 
 Also assert:
 
-- explicit `CODEXPRO_HOME` resolves to `<home>/state/v1` on every platform;
+- explicit `CODEXGPT_HOME` resolves to `<home>/state/v1` on every platform;
 - two equivalent Windows roots produce the same `wsk_` value;
 - a case-distinct Linux path produces a different value;
 - different installation keys produce different workspace-state keys;
@@ -524,19 +524,19 @@ export function resolveTransactionStateRoot(
   const platform = options.platform ?? process.platform;
   const env = options.env ?? process.env;
   const homeDir = options.homeDir ?? os.homedir();
-  if (env.CODEXPRO_HOME?.trim()) {
-    return path.resolve(expandHomeWith(homeDir, env.CODEXPRO_HOME.trim()), "state", "v1");
+  if (env.CODEXGPT_HOME?.trim()) {
+    return path.resolve(expandHomeWith(homeDir, env.CODEXGPT_HOME.trim()), "state", "v1");
   }
   if (platform === "win32") {
     const local = env.LOCALAPPDATA?.trim();
     if (!local) throw new TransactionError(
       "TRANSACTION_PRECONDITION_FAILED",
-      "Windows transaction state requires LOCALAPPDATA or CODEXPRO_HOME."
+      "Windows transaction state requires LOCALAPPDATA or CODEXGPT_HOME."
     );
-    return path.resolve(local, "CodexPro", "state", "v1");
+    return path.resolve(local, "CodexGPT", "state", "v1");
   }
   const base = env.XDG_STATE_HOME?.trim() || path.join(homeDir, ".local", "state");
-  return path.resolve(base, "codexpro", "v1");
+  return path.resolve(base, "codexgpt", "v1");
 }
 ```
 
@@ -571,7 +571,7 @@ export function deriveTransactionSubkey(masterKey: Buffer, label: string): Buffe
     "sha256",
     masterKey,
     Buffer.alloc(0),
-    Buffer.from(`codexpro/phase3/${label}/v1`, "utf8"),
+    Buffer.from(`codexgpt/phase3/${label}/v1`, "utf8"),
     32
   ));
 }
@@ -914,7 +914,7 @@ Generate sibling paths using independent 8-byte random suffixes:
 function reservedSibling(targetAbsPath: string, kind: "stage" | "backup" | "move", random: Buffer): string {
   return path.join(
     path.dirname(targetAbsPath),
-    `.codexpro-txn-${random.toString("hex")}.${kind}`
+    `.codexgpt-txn-${random.toString("hex")}.${kind}`
   );
 }
 ```
@@ -1138,7 +1138,7 @@ Append STEP-271 and update `Memory.md`. Verify every state and fault point has a
 
 **Interfaces:**
 - Consumes: strict manifests, state root/key, lock protocol, atomic filesystem rollback/finalize primitives, and the Task 1 atomic/read-only startup guard.
-- Produces: `TransactionRecoveryCoordinator.ensureWorkspaceReady(root)`, `createDefaultTransactionRecoveryCoordinator(config)`, `recoverManifest()`, `WorkspaceManagerOptions.beforeWorkspaceUse`, optional `CodexProServerDependencies.transactionRecoveryCoordinator`, and fail-closed workspace freezing.
+- Produces: `TransactionRecoveryCoordinator.ensureWorkspaceReady(root)`, `createDefaultTransactionRecoveryCoordinator(config)`, `recoverManifest()`, `WorkspaceManagerOptions.beforeWorkspaceUse`, optional `CodexGPTServerDependencies.transactionRecoveryCoordinator`, and fail-closed workspace freezing.
 
 - [ ] **Step 1: Write failing deterministic recovery tests**
 
@@ -1184,7 +1184,7 @@ Extend the existing in-memory helper so server dependencies can be injected:
 
 ```js
 async function createServerClient(config, dependencies = {}) {
-  const server = createCodexProServer(config, dependencies);
+  const server = createCodexGPTServer(config, dependencies);
   const client = new Client({ name: "workspace-lifecycle-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -1284,7 +1284,7 @@ A thrown recovery error propagates without creating or refreshing a handle. Exis
 Extend the internal server dependency type:
 
 ```ts
-export interface CodexProServerDependencies {
+export interface CodexGPTServerDependencies {
   policySessionContextSource?: PolicySessionContextSource;
   transactionRecoveryCoordinator?: Pick<
     TransactionRecoveryCoordinator,
@@ -1323,7 +1323,7 @@ The Task 1 guard means this production path is read-only in Phase 3A: `atomic` c
 2. performs a three-file transaction;
 3. calls `process.exit(91)` at the selected fault point without cleanup.
 
-The parent `test/transaction-crash-recovery.test.mjs` spawns a fresh Node process for each visible boundary, asserts exit code 91, creates a recovery coordinator, calls `ensureWorkspaceReady(root)`, and verifies the complete before-state with no visible `.codexpro-txn-*` artifacts.
+The parent `test/transaction-crash-recovery.test.mjs` spawns a fresh Node process for each visible boundary, asserts exit code 91, creates a recovery coordinator, calls `ensureWorkspaceReady(root)`, and verifies the complete before-state with no visible `.codexgpt-txn-*` artifacts.
 
 Pass only paths created by the parent test inside its disposable fixture root. Do not pass file contents, credentials, real user state directories, or unrelated user-profile paths through child arguments or environment.
 
@@ -1350,7 +1350,7 @@ Append STEP-272 and update `Memory.md`. Confirm recovery runs before handle issu
 - Modify: `config.example.env`
 - Modify: `AGENTS.md`
 - Modify: `Memory.md`
-- Modify: `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- Modify: `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - Modify: `docs/memory/archive/phase-3.md`
 - Modify: `CHANGELOG.md`
 - Modify: `SECURITY.md` only for accurate internal-kernel limitations; do not claim public atomic mutators yet.
@@ -1419,7 +1419,7 @@ Expected: PASS; Windows LF/CRLF working-copy warnings may be recorded separately
 
 Use targeted `search` and `show_changes` to verify:
 
-- every `.codexpro-txn-*` path is blocked publicly;
+- every `.codexgpt-txn-*` path is blocked publicly;
 - no canonical workspace root is persisted in transaction state;
 - no file body, complete diff, credential, token, Cookie, private key, or `.env` content appears in manifests/log fixtures;
 - all hard-link-unavailable branches fail closed;

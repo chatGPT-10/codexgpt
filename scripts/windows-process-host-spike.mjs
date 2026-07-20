@@ -415,7 +415,7 @@ export class WindowsProcessHostSpikeSession {
 
 export async function startWindowsProcessHostSpike({ platform = process.platform } = {}) {
   if (platform !== "win32") throw protocolError("WINDOWS_HOST_UNAVAILABLE");
-  const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-phase4-host-"));
+  const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-phase4-host-"));
   const nodeToHostKey = randomBytes(32);
   const hostToNodeKey = randomBytes(32);
   const nonce = randomBytes(32).toString("hex");

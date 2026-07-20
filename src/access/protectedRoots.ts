@@ -72,7 +72,7 @@ export class ProtectedRootPolicy {
       ruleId = "protected.codex-auth";
     } else if (/^[a-z]:\\windows\\system32\\config(?:\\|$)/i.test(compared)) {
       ruleId = "protected.windows-credentials";
-    } else if (/\\appdata\\(?:local|roaming)\\(?:google\\chrome|microsoft\\(?:edge|credentials|vault)|mozilla|codex|codexpro)(?:\\|$)/i.test(compared)) {
+    } else if (/\\appdata\\(?:local|roaming)\\(?:google\\chrome|microsoft\\(?:edge|credentials|vault)|mozilla|codex|codexgpt)(?:\\|$)/i.test(compared)) {
       ruleId = "protected.browser-or-codex-store";
     }
 

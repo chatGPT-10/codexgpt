@@ -7,7 +7,7 @@ export const CLOSE_WORKSPACE_ERROR_MESSAGES = {
 } as const;
 
 const workspaceIdSchema = z.string()
-  .regex(/^ws_[0-9a-f]{32}$/, "workspace_id must be an opaque CodexPro workspace handle.");
+  .regex(/^ws_[0-9a-f]{32}$/, "workspace_id must be an opaque CodexGPT workspace handle.");
 
 const utcTimestampSchema = z.string().refine((value) => {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
@@ -43,8 +43,8 @@ export const closeWorkspaceErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const closeWorkspaceOutputShape = {
-  codexpro_tool: z.literal("close_workspace"),
-  codexpro_title: z.literal("Close Workspace"),
+  codexgpt_tool: z.literal("close_workspace"),
+  codexgpt_title: z.literal("Close Workspace"),
   ok: z.boolean(),
   data: closeWorkspaceDataSchema.nullable(),
   error: closeWorkspaceErrorSchema.nullable(),
@@ -99,8 +99,8 @@ export function createCloseWorkspaceSuccess(
   durationMs = 0
 ): CloseWorkspaceStructuredResult {
   return closeWorkspaceOutputSchema.parse({
-    codexpro_tool: "close_workspace",
-    codexpro_title: "Close Workspace",
+    codexgpt_tool: "close_workspace",
+    codexgpt_title: "Close Workspace",
     ok: true,
     data: closeWorkspaceDataSchema.parse(data),
     error: null,
@@ -113,8 +113,8 @@ export function createCloseWorkspaceFailure(
   durationMs = 0
 ): CloseWorkspaceStructuredResult {
   return closeWorkspaceOutputSchema.parse({
-    codexpro_tool: "close_workspace",
-    codexpro_title: "Close Workspace",
+    codexgpt_tool: "close_workspace",
+    codexgpt_title: "Close Workspace",
     ok: false,
     data: null,
     error: {

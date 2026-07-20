@@ -6,7 +6,7 @@
 
 ## 1. Decision
 
-CodexPro will define a strict, repository-owned `PermissionProfileDocumentV1` in JSON. It will not copy an evolving upstream TOML syntax and will not reuse the current runtime workspace profile as a permission document.
+CodexGPT will define a strict, repository-owned `PermissionProfileDocumentV1` in JSON. It will not copy an evolving upstream TOML syntax and will not reuse the current runtime workspace profile as a permission document.
 
 `RuntimeProfile` controls startup, Tunnel, port, backend, Tool Surface, and presentation settings. `PermissionProfile` controls the maximum filesystem, Git, Shell, Process, and Network access available to a request identity. A runtime profile may reference a permission profile but cannot override it.
 
@@ -15,8 +15,8 @@ CodexPro will define a strict, repository-owned `PermissionProfileDocumentV1` in
 V1 storage locations are:
 
 ```text
-~/.codexpro/profiles/<workspace-hash>.json
-~/.codexpro/permissions/<permission-profile-id>.json
+~/.codexgpt/profiles/<workspace-hash>.json
+~/.codexgpt/permissions/<permission-profile-id>.json
 ```
 
 The permission directory is local configuration state, not workspace-controlled content. Workspace files, AGENTS instructions, Hooks, Skills, and tool arguments cannot select arbitrary permission files or mutate immutable hard policy.
@@ -495,7 +495,7 @@ Rejected because reformatting or inheritance could change security behavior.
 
 ### Adopt a general external policy engine now
 
-Rejected because it adds a runtime and policy language before CodexPro has stabilized its resource, identity, approval, and enforcement contracts. The pure evaluator boundary can be replaced later without changing those contracts.
+Rejected because it adds a runtime and policy language before CodexGPT has stabilized its resource, identity, approval, and enforcement contracts. The pure evaluator boundary can be replaced later without changing those contracts.
 
 ## 19. Security claims prohibited by this design
 

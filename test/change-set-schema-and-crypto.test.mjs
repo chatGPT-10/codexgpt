@@ -18,11 +18,11 @@ const SHA_A = "a".repeat(64);
 const SHA_B = "b".repeat(64);
 
 const RETENTION_ENV = [
-  "CODEXPRO_CHANGE_SET_MAX_PLAINTEXT_BYTES",
-  "CODEXPRO_CHANGE_SET_MAX_INSTALLATION_BYTES",
-  "CODEXPRO_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE",
-  "CODEXPRO_CHANGE_SET_RETENTION_MS",
-  "CODEXPRO_CHANGE_SET_TOMBSTONE_RETENTION_MS"
+  "CODEXGPT_CHANGE_SET_MAX_PLAINTEXT_BYTES",
+  "CODEXGPT_CHANGE_SET_MAX_INSTALLATION_BYTES",
+  "CODEXGPT_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE",
+  "CODEXGPT_CHANGE_SET_RETENTION_MS",
+  "CODEXGPT_CHANGE_SET_TOMBSTONE_RETENTION_MS"
 ];
 
 function withRetentionEnv(changes, action) {
@@ -120,7 +120,7 @@ test("change-set retention defaults are bounded and configuration is strict", ()
     tombstoneRetentionMs: 30 * 24 * 60 * 60_000
   });
   assert.throws(
-    () => withRetentionEnv({ CODEXPRO_CHANGE_SET_MAX_PLAINTEXT_BYTES: "10" }, () =>
+    () => withRetentionEnv({ CODEXGPT_CHANGE_SET_MAX_PLAINTEXT_BYTES: "10" }, () =>
       loadConfig(["--bash", "off"])
     ),
     /integer between 1024 and 67108864/

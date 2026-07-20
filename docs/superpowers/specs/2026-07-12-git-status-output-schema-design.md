@@ -73,7 +73,7 @@ This slice does not:
 - require explicit `workspace_id` when it is currently optional;
 - alter workspace ID generation, default-workspace fallback, ownership, expiry, close behavior, or session binding;
 - begin Phase 2 workspace lifecycle work;
-- refactor the global `CodexProError` class;
+- refactor the global `CodexGPTError` class;
 - build a global Git error framework or typed Git service;
 - change path-policy behavior in `PathGuard`;
 - change the successful `root` value from its current absolute representation;
@@ -144,15 +144,15 @@ Before this slice, `git_status` has no exact `outputSchema`. Handler exceptions 
 Direct `git_status.structuredContent` contains exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
 meta
 ```
 
-Tool identity remains at the top level for CodexPro routing and card headers.
+Tool identity remains at the top level for CodexGPT routing and card headers.
 
 All `git_status`-specific successful fields live only under `data`. They are not duplicated at the top level.
 
@@ -162,12 +162,12 @@ A successful changed-worktree result has this shape:
 
 ```json
 {
-  "codexpro_tool": "git_status",
-  "codexpro_title": "Git Status",
+  "codexgpt_tool": "git_status",
+  "codexgpt_title": "Git Status",
   "ok": true,
   "data": {
     "workspace_id": "ws_0123456789abcdef",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "path": "workspace status",
     "status": "## main...origin/main\n M src/server.ts\n?? new-file.txt",
     "changed_files": [
@@ -190,7 +190,7 @@ A clean result retains the same data shape:
 ```json
 {
   "workspace_id": "ws_0123456789abcdef",
-  "root": "D:\\Dev\\codexpro",
+  "root": "D:\\Dev\\codexgpt",
   "path": "workspace status",
   "status": "## main...origin/main",
   "changed_files": [],
@@ -244,8 +244,8 @@ A failed result has this shape:
 
 ```json
 {
-  "codexpro_tool": "git_status",
-  "codexpro_title": "Git Status",
+  "codexgpt_tool": "git_status",
+  "codexgpt_title": "Git Status",
   "ok": false,
   "data": null,
   "error": {
@@ -524,14 +524,14 @@ Add the narrow context:
 
 ```ts
 export interface GitStatusProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path?: string;
 }
 ```
 
-Extend `CodexProServerDependencies` with:
+Extend `CodexGPTServerDependencies` with:
 
 ```ts
 gitStatusResultProvider?: (
@@ -547,7 +547,7 @@ gitStatus(config, workspace, guard, path)
 
 Rules:
 
-- the seam exists only on `createCodexProServer` construction;
+- the seam exists only on `createCodexGPTServer` construction;
 - it is used for deterministic contract tests, especially unavailable Git, command failure, malformed output, secret-bearing exceptions, and `INTERNAL_ERROR`;
 - it is not reachable through environment variables, CLI flags, MCP arguments, HTTP routes, saved profiles, or production runtime controls;
 - production behavior remains the current `gitStatus` implementation.
@@ -627,10 +627,10 @@ This migration must not change the legacy top-level field handling used by `show
 
 ## 14. Supertool compatibility
 
-The `codexpro` supertool dispatches to the registered `git_status` handler and then adds its current wrapper metadata:
+The `codexgpt` supertool dispatches to the registered `git_status` handler and then adds its current wrapper metadata:
 
 ```text
-codexpro_super_action
+codexgpt_super_action
 wrapped_tool
 ```
 
@@ -639,8 +639,8 @@ The direct `git_status.outputSchema` describes only the direct tool result and r
 The supertool result is not parsed as a direct `gitStatusOutputSchema` because the supertool intentionally adds wrapper fields. Nevertheless:
 
 - nested `data`, `error`, `ok`, and `meta` from the child remain unchanged;
-- `codexpro_tool` remains `git_status` after wrapper merging;
-- existing `codexpro(action=git_status)` consumers must migrate to `structuredContent.data.changed_files` and related nested fields;
+- `codexgpt_tool` remains `git_status` after wrapper merging;
+- existing `codexgpt(action=git_status)` consumers must migrate to `structuredContent.data.changed_files` and related nested fields;
 - malformed supertool child arguments remain outside this slice.
 
 ## 15. Consumer audit and migration
@@ -752,7 +752,7 @@ Prove that the `git_status` branches:
 
 Prove:
 
-- `codexpro(action=git_status)` retains wrapper metadata;
+- `codexgpt(action=git_status)` retains wrapper metadata;
 - its child contract remains nested under `data`/`error`;
 - the approved Stress assertions use the nested shape;
 - no approved old top-level direct consumer remains.

@@ -8,7 +8,7 @@ export interface PendingVerificationReceiptV4 {
   attach(receipt: string): void;
 }
 
-const PENDING_VERIFICATION_RECEIPT = Symbol("codexpro.pending-verification-receipt.v4");
+const PENDING_VERIFICATION_RECEIPT = Symbol("codexgpt.pending-verification-receipt.v4");
 
 export function attachPendingVerificationReceipt<T extends object>(
   value: T,

@@ -8,21 +8,21 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 import { z } from "zod";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
-const { upgradeCodexProSupertool } = await tsImport("../src/codexproSupertool.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
+const { upgradeCodexGPTSupertool } = await tsImport("../src/codexgptSupertool.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
-const schemaModule = await tsImport("../src/tools/schemas/codexpro.ts", import.meta.url).catch(() => null);
+const schemaModule = await tsImport("../src/tools/schemas/codexgpt.ts", import.meta.url).catch(() => null);
 
 const {
-  CANONICAL_CODEXPRO_CHILD_TOOLS,
-  CODEXPRO_ACTION_ALIASES,
-  CODEXPRO_ERROR_MESSAGES,
-  codexproOutputSchema,
-  codexproOutputShape,
-  createCodexProFailure,
-  createCodexProListActionsSuccess,
-  resolveCodexProAction,
-  wrapCodexProChildResult
+  CANONICAL_CODEXGPT_CHILD_TOOLS,
+  CODEXGPT_ACTION_ALIASES,
+  CODEXGPT_ERROR_MESSAGES,
+  codexgptOutputSchema,
+  codexgptOutputShape,
+  createCodexGPTFailure,
+  createCodexGPTListActionsSuccess,
+  resolveCodexGPTAction,
+  wrapCodexGPTChildResult
 } = schemaModule ?? {};
 
 function createTestConfig(root, overrides = {}) {
@@ -69,8 +69,8 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
-  const client = new Client({ name: "codexpro-contract-test", version: "0.0.0" });
+  const server = createCodexGPTServer(config, dependencies ?? {});
+  const client = new Client({ name: "codexgpt-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   try {
@@ -81,7 +81,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-contract-"));
   const root = await fs.realpath(created);
   try {
     await fs.writeFile(path.join(root, "demo.txt"), "alpha\nbeta\n", "utf8");
@@ -102,20 +102,20 @@ function resultText(result) {
     .join("\n");
 }
 
-function parseCodexPro(result) {
-  assert.equal(typeof codexproOutputSchema?.parse, "function");
-  return codexproOutputSchema.parse(result.structuredContent);
+function parseCodexGPT(result) {
+  assert.equal(typeof codexgptOutputSchema?.parse, "function");
+  return codexgptOutputSchema.parse(result.structuredContent);
 }
 
 function assertWrapperFailure(result, code, details) {
   assert.equal(result.isError, true, JSON.stringify(result));
-  const parsed = parseCodexPro(result);
-  assert.equal(parsed.codexpro_tool, "codexpro");
+  const parsed = parseCodexGPT(result);
+  assert.equal(parsed.codexgpt_tool, "codexgpt");
   assert.equal(parsed.ok, false);
   assert.equal(parsed.data, null);
   assert.deepEqual(parsed.error, {
     code,
-    message: CODEXPRO_ERROR_MESSAGES[code],
+    message: CODEXGPT_ERROR_MESSAGES[code],
     retryable: false,
     details
   });
@@ -129,41 +129,41 @@ const EXPECTED_ALIASES = Object.freeze({
   open: "open_current_workspace",
   snapshot: "workspace_snapshot",
   changes: "show_changes",
-  inventory: "codexpro_inventory",
+  inventory: "codexgpt_inventory",
   handoff_poll: "wait_for_handoff",
   pro_export: "export_pro_context",
   agent_handoff: "handoff_to_agent",
   codex_handoff: "handoff_to_codex"
 });
 
-test("codexpro module exposes the exact closed wrapper API", () => {
+test("codexgpt module exposes the exact closed wrapper API", () => {
   assert.ok(schemaModule);
-  assert.equal(typeof codexproOutputSchema?.parse, "function");
-  assert.equal(typeof codexproOutputShape, "object");
-  assert.equal(typeof createCodexProListActionsSuccess, "function");
-  assert.equal(typeof createCodexProFailure, "function");
-  assert.equal(typeof resolveCodexProAction, "function");
-  assert.equal(typeof wrapCodexProChildResult, "function");
-  assert.deepEqual(CODEXPRO_ACTION_ALIASES, EXPECTED_ALIASES);
-  assert.equal(Array.isArray(CANONICAL_CODEXPRO_CHILD_TOOLS), true);
-  assert.equal(CANONICAL_CODEXPRO_CHILD_TOOLS.length, 28);
-  assert.equal(new Set(CANONICAL_CODEXPRO_CHILD_TOOLS).size, 28);
-  assert.ok(CANONICAL_CODEXPRO_CHILD_TOOLS.includes("close_workspace"));
-  assert.ok(!CANONICAL_CODEXPRO_CHILD_TOOLS.includes("codexpro"));
+  assert.equal(typeof codexgptOutputSchema?.parse, "function");
+  assert.equal(typeof codexgptOutputShape, "object");
+  assert.equal(typeof createCodexGPTListActionsSuccess, "function");
+  assert.equal(typeof createCodexGPTFailure, "function");
+  assert.equal(typeof resolveCodexGPTAction, "function");
+  assert.equal(typeof wrapCodexGPTChildResult, "function");
+  assert.deepEqual(CODEXGPT_ACTION_ALIASES, EXPECTED_ALIASES);
+  assert.equal(Array.isArray(CANONICAL_CODEXGPT_CHILD_TOOLS), true);
+  assert.equal(CANONICAL_CODEXGPT_CHILD_TOOLS.length, 28);
+  assert.equal(new Set(CANONICAL_CODEXGPT_CHILD_TOOLS).size, 28);
+  assert.ok(CANONICAL_CODEXGPT_CHILD_TOOLS.includes("close_workspace"));
+  assert.ok(!CANONICAL_CODEXGPT_CHILD_TOOLS.includes("codexgpt"));
 });
 
-test("codexpro upgrade safely skips the connection-test surface but rejects a corrupt registration", () => {
-  assert.doesNotThrow(() => upgradeCodexProSupertool({ _registeredTools: {} }));
+test("codexgpt upgrade safely skips the connection-test surface but rejects a corrupt registration", () => {
+  assert.doesNotThrow(() => upgradeCodexGPTSupertool({ _registeredTools: {} }));
   assert.throws(
-    () => upgradeCodexProSupertool({ _registeredTools: { codexpro: { handler: null } } }),
+    () => upgradeCodexGPTSupertool({ _registeredTools: { codexgpt: { handler: null } } }),
     /registration is unavailable/
   );
 });
 
-test("codexpro list_actions excludes registered entries that are explicitly disabled", async () => {
+test("codexgpt list_actions excludes registered entries that are explicitly disabled", async () => {
   const fakeServer = {
     _registeredTools: {
-      codexpro: {
+      codexgpt: {
         inputSchema: z.object({ action: z.string(), args: z.record(z.unknown()).optional() }).strict(),
         annotations: {},
         enabled: true,
@@ -176,20 +176,20 @@ test("codexpro list_actions excludes registered entries that are explicitly disa
       }
     }
   };
-  upgradeCodexProSupertool(fakeServer);
-  const result = await fakeServer._registeredTools.codexpro.handler({ action: "list_actions" });
+  upgradeCodexGPTSupertool(fakeServer);
+  const result = await fakeServer._registeredTools.codexgpt.handler({ action: "list_actions" });
   assert.deepEqual(result.structuredContent.data.actions, []);
   assert.equal(result.structuredContent.data.action_count, 0);
 });
 
-test("codexpro dispatch invokes the registered target handler rather than the legacy wrapper", async () => {
+test("codexgpt dispatch invokes the registered target handler rather than the legacy wrapper", async () => {
   let legacyCalls = 0;
   let targetCalls = 0;
   const childResult = {
     content: [{ type: "text", text: "server config child" }],
     structuredContent: {
-      codexpro_tool: "server_config",
-      codexpro_title: "Server Config",
+      codexgpt_tool: "server_config",
+      codexgpt_title: "Server Config",
       ok: false,
       data: null,
       error: {
@@ -204,7 +204,7 @@ test("codexpro dispatch invokes the registered target handler rather than the le
   };
   const fakeServer = {
     _registeredTools: {
-      codexpro: {
+      codexgpt: {
         inputSchema: z.object({ action: z.string(), args: z.record(z.unknown()).optional() }).strict(),
         annotations: {},
         enabled: true,
@@ -224,8 +224,8 @@ test("codexpro dispatch invokes the registered target handler rather than the le
     }
   };
 
-  upgradeCodexProSupertool(fakeServer);
-  const result = await fakeServer._registeredTools.codexpro.handler({
+  upgradeCodexGPTSupertool(fakeServer);
+  const result = await fakeServer._registeredTools.codexgpt.handler({
     action: "server_config",
     args: {}
   });
@@ -234,15 +234,15 @@ test("codexpro dispatch invokes the registered target handler rather than the le
   assert.equal(targetCalls, 1);
   assert.deepEqual(result.content, childResult.content);
   assert.equal(result.isError, true);
-  assert.equal(result.structuredContent.codexpro_tool, "server_config");
+  assert.equal(result.structuredContent.codexgpt_tool, "server_config");
   assert.equal(result.structuredContent.wrapped_tool, "server_config");
 });
 
-test("codexpro list_actions constructor sorts validates and rejects malformed envelopes", () => {
-  const value = createCodexProListActionsSuccess(["read", "server_config", "read"], 4);
+test("codexgpt list_actions constructor sorts validates and rejects malformed envelopes", () => {
+  const value = createCodexGPTListActionsSuccess(["read", "server_config", "read"], 4);
   assert.deepEqual(value, {
-    codexpro_tool: "codexpro",
-    codexpro_title: "CodexPro",
+    codexgpt_tool: "codexgpt",
+    codexgpt_title: "CodexGPT",
     ok: true,
     data: {
       actions: ["read", "server_config"],
@@ -255,51 +255,51 @@ test("codexpro list_actions constructor sorts validates and rejects malformed en
       warnings: []
     }
   });
-  assert.throws(() => createCodexProListActionsSuccess(["codexpro"]));
-  assert.throws(() => codexproOutputSchema.parse({ ...value, extra: true }));
-  assert.throws(() => codexproOutputSchema.parse({
+  assert.throws(() => createCodexGPTListActionsSuccess(["codexgpt"]));
+  assert.throws(() => codexgptOutputSchema.parse({ ...value, extra: true }));
+  assert.throws(() => codexgptOutputSchema.parse({
     ...value,
     data: { actions: ["server_config", "read"], action_count: 2 }
   }));
-  assert.throws(() => codexproOutputSchema.parse({
+  assert.throws(() => codexgptOutputSchema.parse({
     ...value,
     data: { actions: ["read", "read"], action_count: 2 }
   }));
-  assert.throws(() => codexproOutputSchema.parse({
+  assert.throws(() => codexgptOutputSchema.parse({
     ...value,
     data: { actions: ["read"], action_count: 2 }
   }));
 });
 
-test("codexpro aliases resolve only to fixed canonical tools", () => {
+test("codexgpt aliases resolve only to fixed canonical tools", () => {
   for (const [alias, canonical] of Object.entries(EXPECTED_ALIASES)) {
-    assert.equal(resolveCodexProAction(alias), canonical);
+    assert.equal(resolveCodexGPTAction(alias), canonical);
   }
-  assert.equal(resolveCodexProAction("read"), "read");
-  assert.equal(resolveCodexProAction("codexpro"), null);
-  assert.equal(resolveCodexProAction("list_actions"), null);
-  assert.equal(resolveCodexProAction("unknown"), null);
+  assert.equal(resolveCodexGPTAction("read"), "read");
+  assert.equal(resolveCodexGPTAction("codexgpt"), null);
+  assert.equal(resolveCodexGPTAction("list_actions"), null);
+  assert.equal(resolveCodexGPTAction("unknown"), null);
 });
 
-test("codexpro fixed failures are strict redacted and control-safe", () => {
+test("codexgpt fixed failures are strict redacted and control-safe", () => {
   for (const [code, details] of [
     ["ACTION_NOT_AVAILABLE", { action: "unknown" }],
     ["ACTION_ARGUMENTS_INVALID", { action: "read", wrapped_tool: "read" }],
     ["CHILD_RESULT_INVALID", { action: "read", wrapped_tool: "read" }],
     ["INTERNAL_ERROR", {}]
   ]) {
-    const value = createCodexProFailure({ code, details }, 2);
+    const value = createCodexGPTFailure({ code, details }, 2);
     assert.equal(value.ok, false);
     assert.equal(value.data, null);
     assert.deepEqual(value.error, {
       code,
-      message: CODEXPRO_ERROR_MESSAGES[code],
+      message: CODEXGPT_ERROR_MESSAGES[code],
       retryable: false,
       details
     });
     assert.deepEqual(value.meta, { schemaVersion: 1, durationMs: 2, warnings: [] });
   }
-  const safe = createCodexProFailure({
+  const safe = createCodexGPTFailure({
     code: "ACTION_NOT_AVAILABLE",
     details: { action: `bad\r\n${"x".repeat(500)}` }
   });
@@ -307,18 +307,18 @@ test("codexpro fixed failures are strict redacted and control-safe", () => {
   assert.ok(safe.error.details.action.length <= 160);
 });
 
-test("codexpro advertises exact input output and closed-world annotations in every mode", async () => {
+test("codexgpt advertises exact input output and closed-world annotations in every mode", async () => {
   await withTempWorkspace(async (root) => {
     for (const toolMode of ["minimal", "standard", "full"]) {
       await withConfigClient(createTestConfig(root, { toolMode }), {}, async (client) => {
         const listed = await client.listTools();
-        const descriptor = listed.tools.find((tool) => tool.name === "codexpro");
+        const descriptor = listed.tools.find((tool) => tool.name === "codexgpt");
         assert.ok(descriptor, toolMode);
         assert.deepEqual(descriptor.inputSchema.required, ["action"]);
         assert.ok(descriptor.inputSchema.properties.action);
         assert.ok(descriptor.inputSchema.properties.args);
         assert.deepEqual(descriptor.outputSchema.required.sort(), [
-          "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+          "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
         ]);
         assert.equal(descriptor.annotations?.readOnlyHint, false);
         assert.equal(descriptor.annotations?.destructiveHint, true);
@@ -329,7 +329,7 @@ test("codexpro advertises exact input output and closed-world annotations in eve
   });
 });
 
-test("codexpro list_actions is nested sorted canonical and equal to actual registered direct tools", async () => {
+test("codexgpt list_actions is nested sorted canonical and equal to actual registered direct tools", async () => {
   await withTempWorkspace(async (root) => {
     for (const overrides of [
       { toolMode: "minimal", bashMode: "off" },
@@ -343,9 +343,9 @@ test("codexpro list_actions is nested sorted canonical and equal to actual regis
     ]) {
       await withConfigClient(createTestConfig(root, overrides), {}, async (client) => {
         const listed = await client.listTools();
-        const direct = listed.tools.map((tool) => tool.name).filter((name) => name !== "codexpro").sort();
-        const result = await callTool(client, "codexpro", { action: "list_actions" });
-        const parsed = parseCodexPro(result);
+        const direct = listed.tools.map((tool) => tool.name).filter((name) => name !== "codexgpt").sort();
+        const result = await callTool(client, "codexgpt", { action: "list_actions" });
+        const parsed = parseCodexGPT(result);
         assert.equal(parsed.ok, true);
         assert.deepEqual(parsed.data.actions, direct);
         assert.equal(parsed.data.action_count, direct.length);
@@ -358,30 +358,30 @@ test("codexpro list_actions is nested sorted canonical and equal to actual regis
   });
 });
 
-test("codexpro preserves exact canonical and alias child envelopes content and isError", async () => {
+test("codexgpt preserves exact canonical and alias child envelopes content and isError", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {}, async (client) => {
-      const opened = await callTool(client, "codexpro", {
+      const opened = await callTool(client, "codexgpt", {
         action: "open",
         args: { include_tree: false }
       });
       assert.equal(opened.isError, undefined);
-      assert.equal(opened.structuredContent.codexpro_tool, "open_current_workspace");
-      assert.equal(opened.structuredContent.codexpro_super_action, "open");
+      assert.equal(opened.structuredContent.codexgpt_tool, "open_current_workspace");
+      assert.equal(opened.structuredContent.codexgpt_super_action, "open");
       assert.equal(opened.structuredContent.wrapped_tool, "open_current_workspace");
       assert.equal(opened.structuredContent.ok, true);
       const workspaceId = opened.structuredContent.data.workspace_id;
 
       const direct = await callTool(client, "read", { workspace_id: workspaceId, path: "demo.txt" });
-      const wrapped = await callTool(client, "codexpro", {
+      const wrapped = await callTool(client, "codexgpt", {
         action: "read",
         args: { workspace_id: workspaceId, path: "demo.txt" }
       });
-      assert.equal(wrapped.structuredContent.codexpro_tool, "read");
-      assert.equal(wrapped.structuredContent.codexpro_super_action, "read");
+      assert.equal(wrapped.structuredContent.codexgpt_tool, "read");
+      assert.equal(wrapped.structuredContent.codexgpt_super_action, "read");
       assert.equal(wrapped.structuredContent.wrapped_tool, "read");
       const stripped = { ...wrapped.structuredContent };
-      delete stripped.codexpro_super_action;
+      delete stripped.codexgpt_super_action;
       delete stripped.wrapped_tool;
       assert.deepEqual(
         { ...stripped, meta: { ...stripped.meta, durationMs: 0 } },
@@ -393,38 +393,38 @@ test("codexpro preserves exact canonical and alias child envelopes content and i
       assert.equal(wrapped.isError, direct.isError);
 
       const directFailure = await callTool(client, "read", { workspace_id: workspaceId, path: "missing.txt" });
-      const wrappedFailure = await callTool(client, "codexpro", {
+      const wrappedFailure = await callTool(client, "codexgpt", {
         action: "read",
         args: { workspace_id: workspaceId, path: "missing.txt" }
       });
       assert.equal(wrappedFailure.isError, true);
-      assert.equal(wrappedFailure.structuredContent.codexpro_tool, "read");
+      assert.equal(wrappedFailure.structuredContent.codexgpt_tool, "read");
       assert.equal(wrappedFailure.structuredContent.wrapped_tool, "read");
       assert.equal(wrappedFailure.structuredContent.error.code, directFailure.structuredContent.error.code);
     });
   });
 });
 
-test("codexpro rejects unknown recursive disabled and malformed actions with stable wrapper errors", async () => {
+test("codexgpt rejects unknown recursive disabled and malformed actions with stable wrapper errors", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root, { toolMode: "minimal", bashMode: "off" }), {}, async (client) => {
       assertWrapperFailure(
-        await callTool(client, "codexpro", { action: "unknown" }),
+        await callTool(client, "codexgpt", { action: "unknown" }),
         "ACTION_NOT_AVAILABLE",
         { action: "unknown" }
       );
       assertWrapperFailure(
-        await callTool(client, "codexpro", { action: "codexpro" }),
+        await callTool(client, "codexgpt", { action: "codexgpt" }),
         "ACTION_NOT_AVAILABLE",
-        { action: "codexpro" }
+        { action: "codexgpt" }
       );
       assertWrapperFailure(
-        await callTool(client, "codexpro", { action: "search", args: { query: "alpha" } }),
+        await callTool(client, "codexgpt", { action: "search", args: { query: "alpha" } }),
         "ACTION_NOT_AVAILABLE",
         { action: "search" }
       );
       assertWrapperFailure(
-        await callTool(client, "codexpro", { action: "read", args: { path: ["demo.txt"] } }),
+        await callTool(client, "codexgpt", { action: "read", args: { path: ["demo.txt"] } }),
         "ACTION_ARGUMENTS_INVALID",
         { action: "read", wrapped_tool: "read" }
       );
@@ -432,10 +432,10 @@ test("codexpro rejects unknown recursive disabled and malformed actions with sta
   });
 });
 
-test("codexpro wrapper helper fails closed on identity drift extra wrapper fields and malformed child data", async () => {
+test("codexgpt wrapper helper fails closed on identity drift extra wrapper fields and malformed child data", async () => {
   const child = {
-    codexpro_tool: "server_config",
-    codexpro_title: "Server Config",
+    codexgpt_tool: "server_config",
+    codexgpt_title: "Server Config",
     ok: false,
     data: null,
     error: {
@@ -446,19 +446,19 @@ test("codexpro wrapper helper fails closed on identity drift extra wrapper field
     },
     meta: { schemaVersion: 1, durationMs: 0, warnings: [] }
   };
-  assert.throws(() => wrapCodexProChildResult("read", "read", child));
-  assert.throws(() => wrapCodexProChildResult("server_config", "server_config", {
+  assert.throws(() => wrapCodexGPTChildResult("read", "read", child));
+  assert.throws(() => wrapCodexGPTChildResult("server_config", "server_config", {
     ...child,
-    codexpro_super_action: "server_config"
+    codexgpt_super_action: "server_config"
   }));
-  assert.throws(() => wrapCodexProChildResult("server_config", "server_config", {
+  assert.throws(() => wrapCodexGPTChildResult("server_config", "server_config", {
     ...child,
     legacy: "private diagnostic"
   }));
 });
 
-test("codexpro Tool Card and compatibility consumers use wrapper-owned nested data without touching protected sources", async () => {
-  assert.match(toolCardWidgetHtml, /codexpro_tool === ["']codexpro["']/);
+test("codexgpt Tool Card and compatibility consumers use wrapper-owned nested data without touching protected sources", async () => {
+  assert.match(toolCardWidgetHtml, /codexgpt_tool === ["']codexgpt["']/);
   assert.match(toolCardWidgetHtml, /action_count/);
   assert.match(toolCardWidgetHtml, /data\.actions|actions/);
 

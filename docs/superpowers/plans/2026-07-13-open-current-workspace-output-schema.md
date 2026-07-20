@@ -137,7 +137,7 @@ Do not stage or commit. Record Task 1 RED/GREEN evidence in the active Phase 1 a
 
 ```ts
 export interface OpenCurrentWorkspaceSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: {
@@ -242,13 +242,13 @@ Assert the workspace renderer/subtitle code uses a compatibility helper equivale
 
 ```js
 function workspaceResultData(payload) {
-  return payload?.codexpro_tool === "open_current_workspace"
+  return payload?.codexgpt_tool === "open_current_workspace"
     ? (payload?.data ?? {})
     : (payload ?? {});
 }
 ```
 
-Assert failures show only stable code/message and `codexpro` action `open` preserves nested `ok/data/error/meta` without restoring flat fields.
+Assert failures show only stable code/message and `codexgpt` action `open` preserves nested `ok/data/error/meta` without restoring flat fields.
 
 - [x] **Step 2: Run focused tests and confirm RED**
 

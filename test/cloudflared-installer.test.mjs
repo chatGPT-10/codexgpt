@@ -11,9 +11,9 @@ import {
   cloudflaredReleaseUrl
 } from "../scripts/cloudflared-release.mjs";
 import { assertSha256, sha256Buffer } from "../scripts/cloudflared-installer.mjs";
-import * as codexproEntry from "../scripts/codexpro-entry.mjs";
+import * as codexgptEntry from "../scripts/codexgpt-entry.mjs";
 
-const { requiresVerifiedCloudflared } = codexproEntry;
+const { requiresVerifiedCloudflared } = codexgptEntry;
 
 test("cloudflared release manifest is pinned and does not use a latest URL", () => {
   assert.equal(CLOUDFLARED_RELEASE.version, "2026.7.1");
@@ -39,7 +39,7 @@ test("asset selection rejects unsupported platform and architecture pairs", () =
   assert.throws(() => cloudflaredAsset("win32", "arm64"), /not supported/);
 });
 
-test("public CodexPro entry routes Cloudflare starts through the verified installer", () => {
+test("public CodexGPT entry routes Cloudflare starts through the verified installer", () => {
   assert.equal(requiresVerifiedCloudflared(["--no-profile"]), true);
   assert.equal(requiresVerifiedCloudflared(["start", "--no-profile"]), true);
   assert.equal(requiresVerifiedCloudflared(["stable"]), true);
@@ -54,8 +54,8 @@ test("public CodexPro entry routes Cloudflare starts through the verified instal
 });
 
 test("saved non-Cloudflare profiles skip the verified Cloudflared installer", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-entry-root-"));
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-entry-home-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-entry-root-"));
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-entry-home-"));
 
   try {
     const realRoot = fsSync.realpathSync(root);
@@ -65,7 +65,7 @@ test("saved non-Cloudflare profiles skip the verified Cloudflared installer", as
     await fs.mkdir(profileDir, { recursive: true });
 
     assert.equal(
-      requiresVerifiedCloudflared(["start", "--root", realRoot], { CODEXPRO_HOME: home }),
+      requiresVerifiedCloudflared(["start", "--root", realRoot], { CODEXGPT_HOME: home }),
       true,
       "a start without a saved profile should default to Cloudflare"
     );
@@ -76,7 +76,7 @@ test("saved non-Cloudflare profiles skip the verified Cloudflared installer", as
       tunnel: "cloudflare-named"
     }), "utf8");
     assert.equal(
-      requiresVerifiedCloudflared(["connection-test", "--root", realRoot], { CODEXPRO_HOME: home }),
+      requiresVerifiedCloudflared(["connection-test", "--root", realRoot], { CODEXGPT_HOME: home }),
       true,
       "connection-test should use a saved Cloudflare tunnel"
     );
@@ -89,12 +89,12 @@ test("saved non-Cloudflare profiles skip the verified Cloudflared installer", as
       }), "utf8");
 
       assert.equal(
-        requiresVerifiedCloudflared(["start", "--root", realRoot], { CODEXPRO_HOME: home }),
+        requiresVerifiedCloudflared(["start", "--root", realRoot], { CODEXGPT_HOME: home }),
         false,
         `saved ${tunnel} profile should not require Cloudflared`
       );
       assert.equal(
-        requiresVerifiedCloudflared(["connection-test", "--root", realRoot], { CODEXPRO_HOME: home }),
+        requiresVerifiedCloudflared(["connection-test", "--root", realRoot], { CODEXGPT_HOME: home }),
         false,
         `connection-test with saved ${tunnel} profile should not require Cloudflared`
       );
@@ -106,10 +106,10 @@ test("saved non-Cloudflare profiles skip the verified Cloudflared installer", as
 });
 
 test("verified Cloudflared starts pass the exact pinned binary path to the legacy CLI", () => {
-  assert.equal(typeof codexproEntry.withVerifiedCloudflaredArgs, "function");
-  const forwarded = codexproEntry.withVerifiedCloudflaredArgs(
+  assert.equal(typeof codexgptEntry.withVerifiedCloudflaredArgs, "function");
+  const forwarded = codexgptEntry.withVerifiedCloudflaredArgs(
     ["start", "--tunnel", "cloudflare-named"],
-    { CODEXPRO_HOME: "C:/Users/test/.codexpro" },
+    { CODEXGPT_HOME: "C:/Users/test/.codexgpt" },
     "win32"
   );
 
@@ -118,7 +118,7 @@ test("verified Cloudflared starts pass the exact pinned binary path to the legac
     "--tunnel",
     "cloudflare-named",
     "--cloudflared",
-    "C:\\Users\\test\\.codexpro\\bin\\cloudflared.exe",
+    "C:\\Users\\test\\.codexgpt\\bin\\cloudflared.exe",
     "--no-install-cloudflared"
   ]);
 });

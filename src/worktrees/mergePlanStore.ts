@@ -277,7 +277,7 @@ export class MergePlanStoreV4 {
       !path.isAbsolute(plan.primaryWorkspaceRoot) ||
       !plan.targetRef.startsWith("refs/heads/") ||
       !plan.taskRef.startsWith("refs/heads/codex/") ||
-      (plan.candidateRef !== null && !plan.candidateRef.startsWith("refs/codexpro/candidates/")) ||
+      (plan.candidateRef !== null && !plan.candidateRef.startsWith("refs/codexgpt/candidates/")) ||
       !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(plan.targetOid) ||
       !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(plan.taskOid) ||
       !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(plan.candidateOid) ||

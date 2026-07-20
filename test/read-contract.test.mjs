@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   READ_ERROR_MESSAGES,
@@ -19,7 +19,7 @@ const {
 function sampleReadData() {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "src/server.ts",
     text: "1 | import path from \"node:path\";",
     startLine: 1,
@@ -84,15 +84,15 @@ test("read success constructor produces the strict schema-v1 envelope", () => {
   const parsed = readOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "read");
-  assert.equal(parsed.codexpro_title, "Read File");
+  assert.equal(parsed.codexgpt_tool, "read");
+  assert.equal(parsed.codexgpt_title, "Read File");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleReadData());
@@ -224,7 +224,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 
 async function withInMemoryClient(options, callback) {
   const root = options.root ?? process.cwd();
-  const server = createCodexProServer(
+  const server = createCodexGPTServer(
     createTestConfig(root, options.configOverrides ?? {}),
     options.dependencies ?? {}
   );
@@ -244,7 +244,7 @@ async function withInMemoryClient(options, callback) {
 }
 
 async function withTempWorkspace(files, callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-read-contract-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-read-contract-"));
   try {
     for (const [relativePath, content] of Object.entries(files)) {
       const absolutePath = path.join(root, relativePath);
@@ -288,7 +288,7 @@ test("read advertises the exact output schema and returns a valid real success e
     assert.equal(descriptor.outputSchema.type, "object");
     assert.deepEqual(
       new Set(descriptor.outputSchema.required),
-      new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+      new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
     );
 
     const result = await client.callTool({
@@ -534,7 +534,7 @@ test("read tool card reads successful fields only from nested data", () => {
 
   assert.match(
     toolCardWidgetHtml,
-    /if \(data\?\.codexpro_tool === "read"\) \{\s*if \(data\?\.ok === false\) return data\?\.error\?\.code[\s\S]*?const file = data\?\.data \?\? \{\};/
+    /if \(data\?\.codexgpt_tool === "read"\) \{\s*if \(data\?\.ok === false\) return data\?\.error\?\.code[\s\S]*?const file = data\?\.data \?\? \{\};/
   );
 
   const rendererMatch = toolCardWidgetHtml.match(

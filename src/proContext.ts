@@ -3,9 +3,9 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { minimatch } from "minimatch";
-import type { CodexProConfig } from "./config.js";
+import type { CodexGPTConfig } from "./config.js";
 import type { Workspace } from "./guard.js";
-import { CodexProError, PathGuard, normalizeRelPath } from "./guard.js";
+import { CodexGPTError, PathGuard, normalizeRelPath } from "./guard.js";
 import {
   aiBridgeScaffoldWrites,
   listFiles,
@@ -202,7 +202,7 @@ function normalizeTitle(value: unknown): string {
     throw new ProContextOperationError("REQUEST_INVALID", "title");
   }
   const title = (value as string | undefined)?.trim().replace(/[\r\n]+/g, " ").replace(/[ \t]+/g, " ") ||
-    "CodexPro Context Bundle";
+    "CodexGPT Context Bundle";
   if (title.length > 200 || /[\u0000-\u001f\u007f]/.test(title)) {
     throw new ProContextOperationError("REQUEST_INVALID", "title");
   }
@@ -242,7 +242,7 @@ function classifyOutputPathError(error: unknown): ProContextOperationError {
 }
 
 export async function prepareProContextRequest(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   options: ProContextOptions = {}
@@ -314,7 +314,7 @@ export async function prepareProContextRequest(
 }
 
 export async function preflightProContextOutput(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   request: PreparedProContextRequest
@@ -494,7 +494,7 @@ function formatAiContext(
 }
 
 export async function buildPreparedProContext(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   request: PreparedProContextRequest,
@@ -640,7 +640,7 @@ export async function buildPreparedProContext(
       `Bash mode: ${config.bashMode}`,
       `Tool mode: ${config.toolMode}`,
       "",
-      "Purpose: paste this bundle into a high-context ChatGPT model when that model cannot call the CodexPro MCP tools directly.",
+      "Purpose: paste this bundle into a high-context ChatGPT model when that model cannot call the CodexGPT MCP tools directly.",
       "Instruction for ChatGPT: use this as repository context, produce a narrow Codex execution plan, and avoid inventing files or runtime facts not shown here."
     ].join("\n"));
 
@@ -738,7 +738,7 @@ export async function buildPreparedProContext(
 }
 
 export async function exportPreparedProContext(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   request: PreparedProContextRequest,
@@ -778,7 +778,7 @@ export async function exportPreparedProContext(
 }
 
 export async function prepareProContextMutation(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   request: PreparedProContextRequest,
@@ -829,7 +829,7 @@ export async function prepareProContextMutation(
 }
 
 export async function buildProContext(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   options: ProContextOptions = {}
@@ -839,7 +839,7 @@ export async function buildProContext(
 }
 
 export async function exportProContext(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
   options: ProContextOptions = {}

@@ -17,8 +17,8 @@ if (-not [System.IO.File]::Exists($sourcePath)) {
 
 Add-Type -Path $sourcePath -ReferencedAssemblies @('System.Web.Extensions') -ErrorAction Stop | Out-Null
 if ($Persistent.IsPresent) {
-    [CodexPro.Phase4.ProcessHost]::RunConPtyPersistentWorker()
+    [CodexGPT.Phase4.ProcessHost]::RunConPtyPersistentWorker()
     exit [Environment]::ExitCode
 }
-[CodexPro.Phase4.ProcessHost]::RunConPtyWorker($SimulateCloseHang.IsPresent, $NodeExecutable, $ProbeScript)
+[CodexGPT.Phase4.ProcessHost]::RunConPtyWorker($SimulateCloseHang.IsPresent, $NodeExecutable, $ProbeScript)
 exit [Environment]::ExitCode

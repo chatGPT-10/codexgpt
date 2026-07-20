@@ -19,7 +19,7 @@ const SHA_B = "b".repeat(64);
 const WORKSPACE = `wsk_${"4".repeat(32)}`;
 
 function root() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-changeset-store-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-changeset-store-"));
 }
 
 function ids(seed) {
@@ -345,7 +345,7 @@ test("corrupt manifests and blobs fail closed and remain on disk", () => {
 });
 
 test("paths are Windows-safe and existing workspace locks serialize store mutations", () => {
-  const winRoot = "C:\\CodexPro\\state\\v1";
+  const winRoot = "C:\\CodexGPT\\state\\v1";
   const directory = changeSetDirectoryFor(
     winRoot,
     WORKSPACE,

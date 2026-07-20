@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   OPEN_CURRENT_WORKSPACE_ERROR_MESSAGES,
@@ -19,7 +19,7 @@ const {
 function sampleWorkspaceData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     agents_loaded: true,
     agents_path: "AGENTS.md",
     skills: ["brainstorming", "plugin-skill"],
@@ -86,15 +86,15 @@ test("open_current_workspace success constructor produces the strict schema-v1 e
   const parsed = openCurrentWorkspaceOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "open_current_workspace");
-  assert.equal(parsed.codexpro_title, "Open Current Workspace");
+  assert.equal(parsed.codexgpt_tool, "open_current_workspace");
+  assert.equal(parsed.codexgpt_title, "Open Current Workspace");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleWorkspaceData());
@@ -288,7 +288,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 
 async function withInMemoryClient(options, callback) {
   const root = options.root ?? process.cwd();
-  const server = createCodexProServer(
+  const server = createCodexGPTServer(
     createTestConfig(root, options.configOverrides ?? {}),
     options.dependencies ?? {}
   );
@@ -308,7 +308,7 @@ async function withInMemoryClient(options, callback) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "open-current-workspace-config-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -325,7 +325,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-open-current-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-open-current-contract-"));
   const root = await fs.realpath(created);
   try {
     await fs.writeFile(path.join(root, "AGENTS.md"), "# Test instructions\n", "utf8");
@@ -406,7 +406,7 @@ test("open_current_workspace advertises an exact output schema in every tool mod
         assert.equal(descriptor.outputSchema.type, "object");
         assert.deepEqual(
           new Set(descriptor.outputSchema.required),
-          new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+          new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
         );
       });
     }
@@ -550,14 +550,14 @@ test("open_current_workspace rejects provider identity, AGENTS, skill, count and
 });
 
 test("open_current_workspace returns stable safe default-root failures", async () => {
-  const missing = path.join(os.tmpdir(), `codexpro-missing-${Date.now()}-${Math.random()}`);
+  const missing = path.join(os.tmpdir(), `codexgpt-missing-${Date.now()}-${Math.random()}`);
   await withConfigClient(createTestConfig(missing, { allowedRoots: [os.tmpdir()] }), {}, async (client) => {
     const result = await client.callTool({ name: "open_current_workspace", arguments: {} });
     assertWorkspaceFailure(result, "DEFAULT_ROOT_NOT_FOUND", { source: "configured_default_root" });
     assert.equal(resultText(result).includes(missing), false);
   });
 
-  const fileDir = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-root-file-"));
+  const fileDir = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-root-file-"));
   const filePath = path.join(fileDir, "workspace.txt");
   await fs.writeFile(filePath, "not a directory", "utf8");
   try {
@@ -570,8 +570,8 @@ test("open_current_workspace returns stable safe default-root failures", async (
     await fs.rm(fileDir, { recursive: true, force: true });
   }
 
-  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-outside-root-"));
-  const allowed = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-allowed-root-"));
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-outside-root-"));
+  const allowed = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-allowed-root-"));
   try {
     const realOutside = await fs.realpath(outside);
     const realAllowed = await fs.realpath(allowed);
@@ -621,7 +621,7 @@ test("open_current_workspace keeps a non-Git directory as a successful workspace
 
 test("open_current_workspace Tool Card consumes nested data and keeps flat workspace compatibility", () => {
   assert.match(toolCardWidgetHtml, /function workspaceResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "open_current_workspace"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "open_current_workspace"/);
   assert.match(toolCardWidgetHtml, /data\?\.data \?\? \{\}/);
   assert.match(toolCardWidgetHtml, /function renderWorkspace\(data\)/);
   assert.match(toolCardWidgetHtml, /const workspace = workspaceResultData\(data\)/);
@@ -638,7 +638,7 @@ test("Smoke lowercase AGENTS compatibility reads the migrated nested workspace c
   assert.doesNotMatch(smokeSource, /lowerOpened\.structuredContent\.agents_path/);
 });
 
-test("codexpro open alias preserves strict success and failure envelopes", async () => {
+test("codexgpt open alias preserves strict success and failure envelopes", async () => {
   await withTempWorkspace(async (root) => {
     await withInMemoryClient({
       root,
@@ -653,7 +653,7 @@ test("codexpro open alias preserves strict success and failure envelopes", async
       }
     }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: {
           action: "open",
           args: { include_tree: false, include_skills: false }
@@ -661,9 +661,9 @@ test("codexpro open alias preserves strict success and failure envelopes", async
       });
       const structured = result.structuredContent;
 
-      assert.equal(structured.codexpro_tool, "open_current_workspace");
-      assert.equal(structured.codexpro_title, "Open Current Workspace");
-      assert.equal(structured.codexpro_super_action, "open");
+      assert.equal(structured.codexgpt_tool, "open_current_workspace");
+      assert.equal(structured.codexgpt_title, "Open Current Workspace");
+      assert.equal(structured.codexgpt_super_action, "open");
       assert.equal(structured.wrapped_tool, "open_current_workspace");
       assert.equal(structured.ok, true);
       assert.equal(structured.error, null);
@@ -681,14 +681,14 @@ test("codexpro open alias preserves strict success and failure envelopes", async
       }
     }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: { action: "open", args: {} }
       });
       const structured = result.structuredContent;
 
       assert.equal(result.isError, true);
-      assert.equal(structured.codexpro_tool, "open_current_workspace");
-      assert.equal(structured.codexpro_super_action, "open");
+      assert.equal(structured.codexgpt_tool, "open_current_workspace");
+      assert.equal(structured.codexgpt_super_action, "open");
       assert.equal(structured.wrapped_tool, "open_current_workspace");
       assert.equal(structured.ok, false);
       assert.equal(structured.data, null);

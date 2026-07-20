@@ -12,4 +12,4 @@ if (-not [System.IO.File]::Exists($sourcePath)) {
 }
 
 Add-Type -Path $sourcePath -ReferencedAssemblies @('System.Web.Extensions', 'System.Security') -ErrorAction Stop | Out-Null
-[Console]::Out.WriteLine([CodexPro.Phase4.Tests.LocalControlNegativeProbe]::Run($Mode, $PipePath, $OwnedJobName))
+[Console]::Out.WriteLine([CodexGPT.Phase4.Tests.LocalControlNegativeProbe]::Run($Mode, $PipePath, $OwnedJobName))

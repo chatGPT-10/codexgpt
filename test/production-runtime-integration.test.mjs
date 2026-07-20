@@ -16,8 +16,8 @@ import {
   CONTRACT_V3_CHILD_TOOLS
 } from "../dist/tools/contracts/index.js";
 import {
-  connectProductionCodexProServer,
-  createProductionCodexProServer
+  connectProductionCodexGPTServer,
+  createProductionCodexGPTServer
 } from "../dist/productionRuntime.js";
 
 function withEnv(changes, action) {
@@ -45,7 +45,7 @@ function withEnv(changes, action) {
 }
 
 async function fixture(action) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-production-runtime-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-production-runtime-"));
   const workspaceDirectory = path.join(root, "workspace");
   const stateHome = path.join(root, "home");
   await fs.mkdir(workspaceDirectory, { recursive: true });
@@ -59,14 +59,14 @@ async function fixture(action) {
 
 function configFor(workspaceRoot, stateHome, overrides = {}) {
   return withEnv({
-    CODEXPRO_HOME: stateHome,
-    CODEXPRO_FILE_TRANSACTIONS: overrides.fileTransactions ?? "atomic",
-    CODEXPRO_AUDIT_MODE: overrides.auditMode ?? "required",
-    CODEXPRO_POLICY_ENGINE: overrides.policyEngineMode ?? "legacy",
-    CODEXPRO_TOOL_CONTRACT_VERSION: overrides.toolContractVersion ?? "1",
-    CODEXPRO_TOOL_MODE: overrides.toolMode ?? "standard",
-    CODEXPRO_CODEX_SESSIONS: overrides.codexSessions ?? "off",
-    CODEXPRO_CONNECTION_TEST: overrides.connectionTest ? "1" : undefined
+    CODEXGPT_HOME: stateHome,
+    CODEXGPT_FILE_TRANSACTIONS: overrides.fileTransactions ?? "atomic",
+    CODEXGPT_AUDIT_MODE: overrides.auditMode ?? "required",
+    CODEXGPT_POLICY_ENGINE: overrides.policyEngineMode ?? "legacy",
+    CODEXGPT_TOOL_CONTRACT_VERSION: overrides.toolContractVersion ?? "1",
+    CODEXGPT_TOOL_MODE: overrides.toolMode ?? "standard",
+    CODEXGPT_CODEX_SESSIONS: overrides.codexSessions ?? "off",
+    CODEXGPT_CONNECTION_TEST: overrides.connectionTest ? "1" : undefined
   }, () => loadConfig([
     "--root", workspaceRoot,
     "--allow-root", workspaceRoot,
@@ -101,7 +101,7 @@ async function assertEventuallyMissing(targetPath, timeoutMs = 5_000) {
 function productionOptions(stateHome, overrides = {}) {
   return {
     stateRootOptions: {
-      env: { ...process.env, CODEXPRO_HOME: stateHome }
+      env: { ...process.env, CODEXGPT_HOME: stateHome }
     },
     ...overrides
   };
@@ -139,7 +139,7 @@ function wireHash(value, replacements) {
 
 function normalizedCallPayload(value) {
   const {
-    codexpro_super_action: _superAction,
+    codexgpt_super_action: _superAction,
     wrapped_tool: _wrappedTool,
     ...payload
   } = value;
@@ -151,7 +151,7 @@ function normalizedCallPayload(value) {
 
 function normalizedServerConfigCallPayload(value) {
   const payload = normalizedCallPayload(value);
-  assert.equal(payload.codexpro_tool, "server_config");
+  assert.equal(payload.codexgpt_tool, "server_config");
   assert.ok(payload.data && typeof payload.data === "object");
   assert.ok(Array.isArray(payload.data.allowedRoots));
   assert.ok(payload.data.enforcement && typeof payload.data.enforcement === "object");
@@ -193,13 +193,13 @@ test("Gate R production wiring fails closed outside contract 4 or before startup
     auditMode: "required"
   });
   assert.throws(
-    () => createProductionCodexProServer(config, productionOptions(stateHome, {
+    () => createProductionCodexGPTServer(config, productionOptions(stateHome, {
       gitGateRRuntimeV4: { isReady: () => true }
     })),
     /Gate R requires contract 4/
   );
   assert.throws(
-    () => createProductionCodexProServer(config, productionOptions(stateHome, {
+    () => createProductionCodexGPTServer(config, productionOptions(stateHome, {
       gitGateRRuntimeV4: { isReady: () => false }
     })),
     /Gate R requires contract 4/
@@ -213,7 +213,7 @@ test("legacy production construction creates no Phase 3 state or runtime", () =>
     policyEngineMode: "legacy"
   });
   const observations = [];
-  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     observeRuntime: (value) => observations.push(value)
   }));
   assert.equal(observations.length, 1);
@@ -236,11 +236,11 @@ test("one production server composes one runtime set and distinct servers never 
   const config = configFor(workspaceRoot, stateHome);
   const first = [];
   const second = [];
-  const serverA = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const serverA = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_runtime_a"),
     observeRuntime: (value) => first.push(value)
   }));
-  const serverB = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const serverB = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_runtime_b"),
     observeRuntime: (value) => second.push(value)
   }));
@@ -262,7 +262,7 @@ test("production construction disposes runtime state when an observation hook fa
   const config = configFor(workspaceRoot, stateHome);
   let observation;
   assert.throws(
-    () => createProductionCodexProServer(config, productionOptions(stateHome, {
+    () => createProductionCodexGPTServer(config, productionOptions(stateHome, {
       policySessionContextSource: sourceFor(config, "session_observer_failure"),
       observeRuntime: (value) => {
         observation = value;
@@ -281,7 +281,7 @@ test("production construction disposes runtime state when an observation hook fa
 test("failed transport startup disposes the production runtime", () => fixture(async ({ workspaceRoot, stateHome }) => {
   const config = configFor(workspaceRoot, stateHome);
   const observations = [];
-  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_connect_failure"),
     observeRuntime: (value) => observations.push(value)
   }));
@@ -291,7 +291,7 @@ test("failed transport startup disposes the production runtime", () => fixture(a
     close: async () => {}
   };
   await assert.rejects(
-    () => connectProductionCodexProServer(server, transport),
+    () => connectProductionCodexGPTServer(server, transport),
     /transport start failed/
   );
   const observation = observations[0];
@@ -307,7 +307,7 @@ test("production close quiesces new tools and drains an active audited mutation"
 }) => {
   const config = configFor(workspaceRoot, stateHome);
   const observations = [];
-  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_lifecycle_drain"),
     observeRuntime: (value) => observations.push(value)
   }));
@@ -357,7 +357,7 @@ test("client disconnect during an audited mutation leaves a committed or recover
 }) => {
   const config = configFor(workspaceRoot, stateHome);
   const observations = [];
-  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_disconnect_drain"),
     observeRuntime: (value) => observations.push(value)
   }));
@@ -395,7 +395,7 @@ test("workspace close concurrent with an audited mutation cannot strand partial 
 }) => {
   const config = configFor(workspaceRoot, stateHome);
   const observations = [];
-  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_workspace_close_mutation"),
     observeRuntime: (value) => observations.push(value)
   }));
@@ -434,7 +434,7 @@ test("workspace close concurrent with an audited mutation cannot strand partial 
 test("writable atomic contract V1 commits one audited change set even when configured Policy mode is legacy", () => fixture(async ({ workspaceRoot, stateHome }) => {
   const config = configFor(workspaceRoot, stateHome);
   const observations = [];
-  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_atomic_write"),
     observeRuntime: (value) => observations.push(value)
   }));
@@ -463,7 +463,7 @@ test("required audit corruption rejects production construction before a server 
   await fs.mkdir(path.join(stateRoot, "audit"), { recursive: true });
   await fs.writeFile(path.join(stateRoot, "audit", "index.json"), "{not-json\n", "utf8");
   assert.throws(
-    () => createProductionCodexProServer(config, productionOptions(stateHome, {
+    () => createProductionCodexGPTServer(config, productionOptions(stateHome, {
       policySessionContextSource: sourceFor(config, "session_corrupt_audit")
     })),
     /audit.*integrity|integrity.*audit/i
@@ -480,7 +480,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
   const snapshots = {};
   for (const scenario of scenarios) {
     const config = configFor(workspaceRoot, stateHome, scenario);
-    const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+    const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
       policySessionContextSource: sourceFor(config, `session_v1_snapshot_${scenario.id}`)
     }));
     await connect(server, async (client) => {
@@ -499,7 +499,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
       if (scenario.id === "standard") {
         const direct = await client.callTool({ name: "server_config", arguments: {} });
         const wrapped = await client.callTool({
-          name: "codexpro",
+          name: "codexgpt",
           arguments: { action: "server_config", args: {} }
         });
         snapshots.standard.directCallHash = wireHash(
@@ -509,7 +509,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
           normalizedServerConfigCallPayload(wrapped.structuredContent)
         );
         snapshots.standard.supertoolEnvelope = {
-          codexpro_super_action: wrapped.structuredContent.codexpro_super_action,
+          codexgpt_super_action: wrapped.structuredContent.codexgpt_super_action,
           wrapped_tool: wrapped.structuredContent.wrapped_tool
         };
         assert.deepEqual(
@@ -522,7 +522,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
   assert.deepEqual(snapshots, {
     minimal: {
       names: [
-        "codexpro", "server_config", "codexpro_self_test", "close_workspace",
+        "codexgpt", "server_config", "codexgpt_self_test", "close_workspace",
         "open_current_workspace", "open_workspace", "read", "write", "edit",
         "apply_patch", "show_changes"
       ],
@@ -530,7 +530,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
     },
     standard: {
       names: [
-        "codexpro", "server_config", "codexpro_self_test", "load_skill",
+        "codexgpt", "server_config", "codexgpt_self_test", "load_skill",
         "close_workspace", "open_current_workspace", "open_workspace",
         "inspect_workspace", "tree", "search", "read", "write", "edit",
         "apply_patch", "show_changes", "read_handoff", "wait_for_handoff",
@@ -540,13 +540,13 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
       directCallHash: "c14469627df4dfce5cb1f1d24c6c718049c370c09fa30161962c0336ae253b7b",
       supertoolCallHash: "c14469627df4dfce5cb1f1d24c6c718049c370c09fa30161962c0336ae253b7b",
       supertoolEnvelope: {
-        codexpro_super_action: "server_config",
+        codexgpt_super_action: "server_config",
         wrapped_tool: "server_config"
       }
     },
     full: {
       names: [
-        "codexpro", "server_config", "codexpro_self_test", "codexpro_inventory",
+        "codexgpt", "server_config", "codexgpt_self_test", "codexgpt_inventory",
         "load_skill", "list_workspaces", "close_workspace", "open_current_workspace",
         "open_workspace", "workspace_snapshot", "inspect_workspace", "tree", "search",
         "read", "write", "edit", "apply_patch", "bash", "git_status", "git_diff",
@@ -558,7 +558,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
     },
     connection: {
       names: [
-        "server_config", "codexpro_inventory", "load_skill", "list_workspaces",
+        "server_config", "codexgpt_inventory", "load_skill", "list_workspaces",
         "open_current_workspace", "open_workspace", "workspace_snapshot",
         "inspect_workspace", "tree", "search", "read", "git_status", "git_diff",
         "show_changes", "read_handoff", "wait_for_handoff", "codex_context",
@@ -568,7 +568,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
     }
   });
   assert.deepEqual(
-    snapshots.full.names.filter((name) => name !== "codexpro").sort(),
+    snapshots.full.names.filter((name) => name !== "codexgpt").sort(),
     [...CONTRACT_V1_CHILD_TOOLS].sort()
   );
 }));
@@ -580,14 +580,14 @@ test("contract V2 production construction exposes the exact 31-child universe", 
     bashMode: "safe",
     codexSessions: "read"
   });
-  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_v2_complete")
   }));
   await connect(server, async (client) => {
     const listed = await client.listTools();
     const childNames = listed.tools
       .map((tool) => tool.name)
-      .filter((name) => name !== "codexpro")
+      .filter((name) => name !== "codexgpt")
       .sort();
     assert.deepEqual(childNames, [...CONTRACT_V2_CHILD_TOOLS].sort());
   });
@@ -609,7 +609,7 @@ test("contract V3 production registration keeps exact profile projections and th
       bashMode: "safe",
       codexSessions: "read"
     });
-    const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+    const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
       policySessionContextSource: sourceFor(config, `session_v3_${scenario.id}`)
     }));
     await connect(server, async (client) => {
@@ -619,7 +619,7 @@ test("contract V3 production registration keeps exact profile projections and th
       assert.deepEqual(projectedV3.sort(), [...scenario.expectedV3].sort());
       assert.equal(names.includes("bash"), false);
       if (scenario.id === "full") {
-        const childNames = names.filter((name) => name !== "codexpro").sort();
+        const childNames = names.filter((name) => name !== "codexgpt").sort();
         assert.deepEqual(childNames, [...CONTRACT_V3_CHILD_TOOLS].sort());
       }
     });
@@ -632,7 +632,7 @@ test("contract V2 direct and supertool wire paths share move undo and audit beha
     toolMode: "full",
     policyEngineMode: "shadow"
   });
-  const server = createProductionCodexProServer(config, productionOptions(stateHome, {
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
     policySessionContextSource: sourceFor(config, "session_v2_wire")
   }));
   await connect(server, async (client) => {
@@ -658,7 +658,7 @@ test("contract V2 direct and supertool wire paths share move undo and audit beha
 
     const directPreview = await client.callTool({ name: "move_paths", arguments: moveArgs });
     const wrappedPreview = await client.callTool({
-      name: "codexpro",
+      name: "codexgpt",
       arguments: { action: "move_paths", args: moveArgs }
     });
     assert.equal(directPreview.isError, undefined);
@@ -684,7 +684,7 @@ test("contract V2 direct and supertool wire paths share move undo and audit beha
       preview: true
     };
     const wrappedUndoPreview = await client.callTool({
-      name: "codexpro",
+      name: "codexgpt",
       arguments: { action: "undo_change_set", args: undoArgs }
     });
     assert.equal(wrappedUndoPreview.isError, undefined);
@@ -714,7 +714,7 @@ test("contract V2 direct and supertool wire paths share move undo and audit beha
     ));
 
     const wrappedAudit = await client.callTool({
-      name: "codexpro",
+      name: "codexgpt",
       arguments: { action: "query_audit_events", args: { limit: 100 } }
     });
     assert.equal(wrappedAudit.isError, undefined);

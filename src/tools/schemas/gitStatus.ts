@@ -121,8 +121,8 @@ export const gitStatusErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const gitStatusOutputShape = {
-  codexpro_tool: z.literal("git_status"),
-  codexpro_title: z.literal("Git Status"),
+  codexgpt_tool: z.literal("git_status"),
+  codexgpt_title: z.literal("Git Status"),
   ok: z.boolean(),
   data: gitStatusDataSchema.nullable(),
   error: gitStatusErrorSchema.nullable(),
@@ -185,8 +185,8 @@ export function createGitStatusSuccess(
   durationMs = 0
 ): GitStatusStructuredResult {
   return gitStatusOutputSchema.parse({
-    codexpro_tool: "git_status",
-    codexpro_title: "Git Status",
+    codexgpt_tool: "git_status",
+    codexgpt_title: "Git Status",
     ok: true,
     data: gitStatusDataSchema.parse(data),
     error: null,
@@ -199,8 +199,8 @@ export function createGitStatusFailure(
   durationMs = 0
 ): GitStatusStructuredResult {
   return gitStatusOutputSchema.parse({
-    codexpro_tool: "git_status",
-    codexpro_title: "Git Status",
+    codexgpt_tool: "git_status",
+    codexgpt_title: "Git Status",
     ok: false,
     data: null,
     error: {

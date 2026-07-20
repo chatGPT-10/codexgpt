@@ -95,7 +95,7 @@ export function loadOrCreateInstallationState(
 
   const temporaryFile = path.join(
     stateRoot,
-    `.codexpro-install-${installationIdBytes.toString("hex")}.tmp`
+    `.codexgpt-install-${installationIdBytes.toString("hex")}.tmp`
   );
   let fd: number | undefined;
   let published = false;
@@ -164,7 +164,7 @@ export function deriveTransactionSubkey(masterKey: Buffer, label: string): Buffe
     "sha256",
     masterKey,
     Buffer.alloc(0),
-    Buffer.from(`codexpro/phase3/${label}/v1`, "utf8"),
+    Buffer.from(`codexgpt/phase3/${label}/v1`, "utf8"),
     32
   ));
 }

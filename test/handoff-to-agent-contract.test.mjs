@@ -10,7 +10,7 @@ import { tsImport } from "tsx/esm/api";
 
 const schemaModule = await tsImport("../src/tools/schemas/handoffToAgent.ts", import.meta.url).catch(() => null);
 const handoffModule = await tsImport("../src/handoffOps.ts", import.meta.url).catch(() => null);
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { PathGuard } = await tsImport("../src/guard.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 
@@ -159,7 +159,7 @@ async function withTempWorkspace(callback) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "handoff-to-agent-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -257,10 +257,10 @@ test("handoff_to_agent schema exports the exact six-field envelope and thirty-si
 
   const success = createHandoffToAgentSuccess(sampleData(), 7);
   assert.deepEqual(Object.keys(success).sort(), [
-    "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+    "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
   ]);
-  assert.equal(success.codexpro_tool, "handoff_to_agent");
-  assert.equal(success.codexpro_title, "Handoff To Agent");
+  assert.equal(success.codexgpt_tool, "handoff_to_agent");
+  assert.equal(success.codexgpt_title, "Handoff To Agent");
   assert.equal(success.ok, true);
   assert.equal(success.error, null);
   assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
@@ -326,7 +326,7 @@ test("handoff_to_agent descriptor and mode visibility advertise only the direct 
         assert.equal(Boolean(descriptor), expected, `${toolMode}/${writeMode}`);
         if (descriptor) {
           assert.deepEqual(descriptor.outputSchema.required, [
-            "codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"
+            "codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"
           ]);
           assert.equal(descriptor.annotations.destructiveHint, false);
         }
@@ -607,8 +607,8 @@ test("handoff_to_agent rejects mismatched durable log tails", async () => {
 
 test("handoff Tool Card is nested-first and bounded for both direct tools", () => {
   assert.match(toolCardWidgetHtml, /function handoffToAgentResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "handoff_to_agent"/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "handoff_to_codex"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "handoff_to_agent"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "handoff_to_codex"/);
   assert.match(toolCardWidgetHtml, /handoff\.plan_sha256/);
   assert.match(toolCardWidgetHtml, /handoff\.append_applied/);
   assert.match(toolCardWidgetHtml, /truncate\(handoff\.prompt/);
@@ -620,13 +620,13 @@ test("handoff Tool Card is nested-first and bounded for both direct tools", () =
 test("handoff_to_agent supertool preserves the exact nested child envelope", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), { handoffToAgentNow: () => UPDATED_AT }, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "agent_handoff",
         args: { agent: "opencode", plan: "- next" }
       });
-      assert.equal(result.structuredContent.codexpro_tool, "handoff_to_agent");
-      assert.equal(result.structuredContent.codexpro_title, "Handoff To Agent");
-      assert.equal(result.structuredContent.codexpro_super_action, "agent_handoff");
+      assert.equal(result.structuredContent.codexgpt_tool, "handoff_to_agent");
+      assert.equal(result.structuredContent.codexgpt_title, "Handoff To Agent");
+      assert.equal(result.structuredContent.codexgpt_super_action, "agent_handoff");
       assert.equal(result.structuredContent.wrapped_tool, "handoff_to_agent");
       assert.equal(result.structuredContent.ok, true);
       assert.equal(result.structuredContent.data.agent, "opencode");

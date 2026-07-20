@@ -45,7 +45,7 @@
 - `src/policy/types.ts`, `src/policy/schemas.ts`, `src/policy/resources.ts`, `src/policy/audit.ts`, `src/policy/runtime.ts`, `src/policy/integration.ts`, `src/policy/toolPolicy.ts` — add the V2 audit context/resource and wrap handler completion without changing V1 outputs.
 - `src/transactions/engine.ts`, `src/transactions/types.ts`, `src/transactions/index.ts` — expose only the safe pending-commit facts required by the audit participant and recovery correlation.
 - `src/server.ts` and transport construction modules only if required to inject one audit runtime; no contract V1 tool registration changes.
-- `config.example.env`, `CHANGELOG.md`, `SECURITY.md`, `AGENTS.md`, `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, `Memory.md`, and `docs/memory/archive/phase-3.md` — configuration, security boundary, evidence, and current-state reconciliation.
+- `config.example.env`, `CHANGELOG.md`, `SECURITY.md`, `AGENTS.md`, `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, `Memory.md`, and `docs/memory/archive/phase-3.md` — configuration, security boundary, evidence, and current-state reconciliation.
 
 ### New tests and fixtures
 
@@ -72,8 +72,8 @@
 - Modify: `docs/memory/archive/phase-3.md`
 
 **Interfaces:**
-- Consumes: `CodexProConfig`, `PolicyEngineMode`, `FileTransactionMode`, `WriteMode`, and published Phase 3A HEAD `75b8d54`.
-- Produces: `AuditMode = "auto" | "off" | "best_effort" | "required"`, `AuditRetentionConfig`, `CodexProConfig.auditMode`, `CodexProConfig.auditRetention`, `resolveAuditRequirement(config, riskClass, mutating)`, and `assertAuditConfiguration(config, capabilities)`.
+- Consumes: `CodexGPTConfig`, `PolicyEngineMode`, `FileTransactionMode`, `WriteMode`, and published Phase 3A HEAD `75b8d54`.
+- Produces: `AuditMode = "auto" | "off" | "best_effort" | "required"`, `AuditRetentionConfig`, `CodexGPTConfig.auditMode`, `CodexGPTConfig.auditRetention`, `resolveAuditRequirement(config, riskClass, mutating)`, and `assertAuditConfiguration(config, capabilities)`.
 
 - [x] **Step 1: Write failing configuration tests**
 
@@ -81,9 +81,9 @@ Create `test/audit-config.test.mjs` that restores environment variables after ea
 
 ```js
 assert.equal(loadConfig(["--bash", "off"]).auditMode, "auto");
-assert.equal(withEnv("CODEXPRO_AUDIT_MODE", "required", () => loadConfig(["--bash", "off"]).auditMode), "required");
+assert.equal(withEnv("CODEXGPT_AUDIT_MODE", "required", () => loadConfig(["--bash", "off"]).auditMode), "required");
 assert.throws(
-  () => withEnv("CODEXPRO_AUDIT_MODE", "unsafe", () => loadConfig(["--bash", "off"])),
+  () => withEnv("CODEXGPT_AUDIT_MODE", "unsafe", () => loadConfig(["--bash", "off"])),
   /auto, off, best_effort, or required/
 );
 assert.deepEqual(loadConfig(["--bash", "off"]).auditRetention, {
@@ -117,13 +117,13 @@ export interface AuditRetentionConfig {
 }
 ```
 
-Parse `CODEXPRO_AUDIT_MODE`, `CODEXPRO_AUDIT_RETENTION_DAYS`, and `CODEXPRO_AUDIT_RETENTION_BYTES`. Clamp retention to 1–365 days and 1 MiB–2 GiB. Unknown audit mode values throw rather than falling back.
+Parse `CODEXGPT_AUDIT_MODE`, `CODEXGPT_AUDIT_RETENTION_DAYS`, and `CODEXGPT_AUDIT_RETENTION_BYTES`. Clamp retention to 1–365 days and 1 MiB–2 GiB. Unknown audit mode values throw rather than falling back.
 
 Add:
 
 ```ts
 export function resolveAuditRequirement(
-  config: Pick<CodexProConfig, "auditMode" | "policyEngineMode">,
+  config: Pick<CodexGPTConfig, "auditMode" | "policyEngineMode">,
   riskClass: RiskClass,
   mutating: boolean
 ): "disabled" | "best_effort" | "required";
@@ -142,9 +142,9 @@ Add to `config.example.env`:
 ```dotenv
 # Persistent local audit. auto is best-effort for legacy/shadow and required
 # for enforce-mode R2+ mutations. Audit data remains outside workspaces.
-CODEXPRO_AUDIT_MODE=auto
-CODEXPRO_AUDIT_RETENTION_DAYS=30
-CODEXPRO_AUDIT_RETENTION_BYTES=104857600
+CODEXGPT_AUDIT_MODE=auto
+CODEXGPT_AUDIT_RETENTION_DAYS=30
+CODEXGPT_AUDIT_RETENTION_BYTES=104857600
 ```
 
 - [x] **Step 6: Build and run focused tests to confirm GREEN**
@@ -272,7 +272,7 @@ Expected: PASS.
 
 - [x] **Step 1: Write append and concurrency tests**
 
-Create a temporary `CODEXPRO_HOME`/state root. Append authorization and execution events, reopen the store, verify sequence 1/2, `previousMac` continuity, canonical line encoding, synced index metadata, and no event-body duplication in `index.json`.
+Create a temporary `CODEXGPT_HOME`/state root. Append authorization and execution events, reopen the store, verify sequence 1/2, `previousMac` continuity, canonical line encoding, synced index metadata, and no event-body duplication in `index.json`.
 
 Spawn two child processes, each appending 25 administrative events through the real lock. Assert exactly 50 unique contiguous sequences, no interleaved partial lines, and a valid chain.
 
@@ -585,8 +585,8 @@ Expected: PASS.
 - Modify: `src/audit/queryTool.ts`
 - Modify: `src/policy/toolPolicy.ts`
 - Modify: `src/policy/resources.ts`
-- Modify: `src/tools/schemas/codexpro.ts` only to export a future V2 query schema/helper without changing V1 canonical arrays
-- Modify: `src/codexproSupertool.ts` only if a non-registered V2 child adapter can be shared safely
+- Modify: `src/tools/schemas/codexgpt.ts` only to export a future V2 query schema/helper without changing V1 canonical arrays
+- Modify: `src/codexgptSupertool.ts` only if a non-registered V2 child adapter can be shared safely
 - Modify: `test/audit-query.test.mjs`
 - Modify: `Memory.md`
 - Modify: `docs/memory/archive/phase-3.md`
@@ -601,13 +601,13 @@ Instantiate the direct adapter and supertool child adapter explicitly in the tes
 
 - [x] **Step 2: Confirm RED**
 
-Run: `node --test test/audit-query.test.mjs test/codexpro-contract.test.mjs`
+Run: `node --test test/audit-query.test.mjs test/codexgpt-contract.test.mjs`
 
 Expected: FAIL only for missing V2 adapters; V1 contract test remains green.
 
 - [x] **Step 3: Add the dormant V2 schema and policy definition**
 
-Export the strict input/output schemas under V2-specific names. Keep `CANONICAL_CODEXPRO_CHILD_TOOLS` and all V1 enums/unions unchanged. Add a separately exported future policy definition for `query_audit_events` with R1, `audit:read`, and `audit_read`.
+Export the strict input/output schemas under V2-specific names. Keep `CANONICAL_CODEXGPT_CHILD_TOOLS` and all V1 enums/unions unchanged. Add a separately exported future policy definition for `query_audit_events` with R1, `audit:read`, and `audit_read`.
 
 - [x] **Step 4: Share one implementation**
 
@@ -619,7 +619,7 @@ Run: `npm run build`
 
 Expected: PASS.
 
-Run: `node --test test/audit-query.test.mjs test/codexpro-contract.test.mjs test/codexpro-inventory-contract.test.mjs test/policy-integration.test.mjs`
+Run: `node --test test/audit-query.test.mjs test/codexgpt-contract.test.mjs test/codexgpt-inventory-contract.test.mjs test/policy-integration.test.mjs`
 
 Expected: PASS with exact V1 surface unchanged.
 
@@ -632,12 +632,12 @@ Expected: PASS with exact V1 surface unchanged.
 - Modify: `src/selfTestOps.ts`
 - Modify: `src/server.ts` or configuration diagnostics module only as needed for bounded audit diagnostics
 - Create: `test/audit-architecture.test.mjs`
-- Modify: `test/codexpro-self-test-contract.test.mjs`
+- Modify: `test/codexgpt-self-test-contract.test.mjs`
 - Modify: `config.example.env`
 - Modify: `CHANGELOG.md`
 - Modify: `SECURITY.md`
 - Modify: `AGENTS.md`
-- Modify: `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- Modify: `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - Modify: `Memory.md`
 - Modify: `docs/memory/archive/phase-3.md`
 
@@ -658,7 +658,7 @@ Static scans must prove:
 
 - [x] **Step 2: Confirm RED**
 
-Run: `node --test test/audit-architecture.test.mjs test/codexpro-self-test-contract.test.mjs`
+Run: `node --test test/audit-architecture.test.mjs test/codexgpt-self-test-contract.test.mjs`
 
 Expected: FAIL for missing audit probes/architecture module.
 
@@ -676,7 +676,7 @@ Run: `npm run build`
 
 Expected: PASS.
 
-Run: `node --test test/audit-architecture.test.mjs test/codexpro-self-test-contract.test.mjs test/server-config-contract.test.mjs test/package-contents.test.mjs`
+Run: `node --test test/audit-architecture.test.mjs test/codexgpt-self-test-contract.test.mjs test/server-config-contract.test.mjs test/package-contents.test.mjs`
 
 Expected: PASS.
 

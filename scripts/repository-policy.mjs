@@ -111,7 +111,7 @@ for (const script of [
 }
 
 const toolchains = JSON.parse(toolchainText);
-if (toolchains.stableRoot !== "%LOCALAPPDATA%\\CodexPro\\toolchains") failures.push("Toolchain stableRoot must stay outside Temp.");
+if (toolchains.stableRoot !== "%LOCALAPPDATA%\\CodexGPT\\toolchains") failures.push("Toolchain stableRoot must stay outside Temp.");
 for (const [major, version] of [["20", "20.20.2"], ["24", "24.15.0"]]) {
   const entry = toolchains.toolchains?.[major];
   if (entry?.version !== version) failures.push(`Node ${major} must be pinned to ${version}.`);
@@ -119,8 +119,8 @@ for (const [major, version] of [["20", "20.20.2"], ["24", "24.15.0"]]) {
   if (entry?.archive !== `node-v${version}-win-x64.zip`) failures.push(`Node ${major} archive name is not exact.`);
 }
 
-requireText(config, "CODEXPRO_MAX_READ_BYTES, 250_000", "src/config.ts");
-requireText(configExample, "CODEXPRO_MAX_READ_BYTES=250000", "config.example.env");
+requireText(config, "CODEXGPT_MAX_READ_BYTES, 250_000", "src/config.ts");
+requireText(configExample, "CODEXGPT_MAX_READ_BYTES=250000", "config.example.env");
 requireText(configExample, "Raising output limits to work around connector 502 responses is not recommended", "config.example.env");
 requireText(cliEnvironment, "delete env.GH_TOKEN", "src/cliEnvironment.ts");
 requireText(cliEnvironment, "delete env.GITHUB_TOKEN", "src/cliEnvironment.ts");
@@ -150,12 +150,12 @@ for (const marker of [
 const activeDocs = [
   "AGENTS.md",
   "Memory.md",
-  "docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md",
+  "docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md",
   "docs/superpowers/plans/2026-07-15-phase-3d-move-paths-and-acceptance.md"
 ];
 for (const relativePath of activeDocs) {
   const text = await read(relativePath);
-  forbidText(text, "%LOCALAPPDATA%\\Temp\\codexpro-node20-20.20.2", relativePath);
+  forbidText(text, "%LOCALAPPDATA%\\Temp\\codexgpt-node20-20.20.2", relativePath);
 }
 
 if (failures.length > 0) {

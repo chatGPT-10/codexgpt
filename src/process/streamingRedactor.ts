@@ -20,7 +20,7 @@ function firstMatch(value: string): SecretMatch | null {
     { pattern: /\bgithub_pat_[A-Za-z0-9_]{20}/, continues: TOKEN_CHARACTER },
     { pattern: /\bnpm_[A-Za-z0-9_-]{20}/, continues: TOKEN_CHARACTER },
     { pattern: /(Authorization\s*:\s*Bearer\s+)[A-Za-z0-9._~+/=-]{12}/i, prefixGroup: 1, continues: TOKEN_CHARACTER },
-    { pattern: /([?&](?:codexpro_token|token|access_token|auth_token|api[_-]?key)=)[^&\s"'`<>]{8}/i, prefixGroup: 1, continues: QUERY_CHARACTER }
+    { pattern: /([?&](?:codexgpt_token|token|access_token|auth_token|api[_-]?key)=)[^&\s"'`<>]{8}/i, prefixGroup: 1, continues: QUERY_CHARACTER }
   ];
   for (const spec of specs) {
     const match = spec.pattern.exec(value);

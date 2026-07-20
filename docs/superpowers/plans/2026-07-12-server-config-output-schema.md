@@ -8,7 +8,7 @@
 
 **Architecture:** Add shared Phase 1 Zod contracts in `src/tools/schemas/common.ts` and the exact tool-specific schema in `src/tools/schemas/serverConfig.ts`. Keep the existing `src/server.ts` registration architecture, but inject a narrow `serverConfigDataProvider` for tests, attach measured duration at the common wrapper boundary, and update only the `server_config` tool card to read from `structuredContent.data`.
 
-**Tech Stack:** TypeScript 5.8, Zod 3.25, MCP TypeScript SDK 1.17, Node.js 20+, `node:test`, `tsx` loader, existing CodexPro redaction helpers.
+**Tech Stack:** TypeScript 5.8, Zod 3.25, MCP TypeScript SDK 1.17, Node.js 20+, `node:test`, `tsx` loader, existing CodexGPT redaction helpers.
 
 ## Global Constraints
 
@@ -77,13 +77,13 @@ import {
 
 function sampleServerConfigData() {
   return {
-    defaultRoot: "D:\\Dev\\codexpro",
+    defaultRoot: "D:\\Dev\\codexgpt",
     allowedRoots: ["D:\\Dev"],
     host: "127.0.0.1",
     port: 8787,
     widgetDomain: "https://example.invalid",
     authEnabled: true,
-    allowedHosts: ["codexpro.example.invalid"],
+    allowedHosts: ["codexgpt.example.invalid"],
     allowedOrigins: ["https://chatgpt.com"],
     allowQueryToken: true,
     bashMode: "off",
@@ -92,7 +92,7 @@ function sampleServerConfigData() {
     bashSessionId: null,
     requireBashSession: false,
     codexSessions: "off",
-    codexDir: "D:\\Dev\\codexpro\\.codex-test",
+    codexDir: "D:\\Dev\\codexgpt\\.codex-test",
     writeMode: "workspace",
     toolMode: "minimal",
     toolCards: false,
@@ -122,15 +122,15 @@ test("server_config success constructor produces the strict schema-v1 envelope",
   const parsed = serverConfigOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "server_config");
-  assert.equal(parsed.codexpro_title, "Server Config");
+  assert.equal(parsed.codexgpt_tool, "server_config");
+  assert.equal(parsed.codexgpt_title, "Server Config");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.equal(parsed.data.host, "127.0.0.1");
@@ -282,8 +282,8 @@ const internalErrorSchema = toolErrorSchema.extend({
 }).strict();
 
 export const serverConfigOutputShape = {
-  codexpro_tool: z.literal("server_config"),
-  codexpro_title: z.literal("Server Config"),
+  codexgpt_tool: z.literal("server_config"),
+  codexgpt_title: z.literal("Server Config"),
   ok: z.boolean(),
   data: serverConfigDataSchema.nullable(),
   error: internalErrorSchema.nullable(),
@@ -335,8 +335,8 @@ export function createServerConfigSuccess(
   durationMs = 0
 ): ServerConfigStructuredResult {
   return serverConfigOutputSchema.parse({
-    codexpro_tool: "server_config",
-    codexpro_title: "Server Config",
+    codexgpt_tool: "server_config",
+    codexgpt_title: "Server Config",
     ok: true,
     data: serverConfigDataSchema.parse(data),
     error: null,
@@ -349,8 +349,8 @@ export function createServerConfigFailure(
   durationMs = 0
 ): ServerConfigStructuredResult {
   return serverConfigOutputSchema.parse({
-    codexpro_tool: "server_config",
-    codexpro_title: "Server Config",
+    codexgpt_tool: "server_config",
+    codexgpt_title: "Server Config",
     ok: false,
     data: null,
     error: {
@@ -408,7 +408,7 @@ Do not stage or commit until the user explicitly approves the Task 1 diff.
 
 **Interfaces:**
 - Consumes: `serverConfigDataSchema`, `serverConfigOutputShape`, `createServerConfigSuccess`, `createServerConfigFailure`, and `ServerConfigData` from Task 1.
-- Produces: exported `CodexProServerDependencies` with optional `serverConfigDataProvider`.
+- Produces: exported `CodexGPTServerDependencies` with optional `serverConfigDataProvider`.
 - Produces: actual MCP `listTools()` descriptor with `outputSchema` and `callTool()` success/failure results matching the schema.
 
 - [ ] **Step 1: Extend the test with actual MCP registration and calls**
@@ -419,7 +419,7 @@ Add these imports to `test/server-config-contract.test.mjs`:
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createCodexProServer } from "../src/server.ts";
+import { createCodexGPTServer } from "../src/server.ts";
 ```
 
 Add these helpers after `sampleServerConfigData()`:
@@ -469,7 +469,7 @@ function createTestConfig() {
 }
 
 async function withInMemoryClient(dependencies, callback) {
-  const server = createCodexProServer(createTestConfig(), dependencies);
+  const server = createCodexGPTServer(createTestConfig(), dependencies);
   const client = new Client({ name: "server-config-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -499,7 +499,7 @@ test("server_config advertises the exact output schema and returns a valid succe
     assert.equal(descriptor.outputSchema.type, "object");
     assert.deepEqual(
       new Set(descriptor.outputSchema.required),
-      new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+      new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
     );
 
     const result = await client.callTool({ name: "server_config", arguments: {} });
@@ -513,7 +513,7 @@ test("server_config advertises the exact output schema and returns a valid succe
     assert.equal(parsed.meta.schemaVersion, 1);
     assert.ok(parsed.meta.durationMs >= 0);
     assert.deepEqual(parsed.meta.warnings, []);
-    assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("CodexPro Server Config")));
+    assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("CodexGPT Server Config")));
   });
 });
 
@@ -559,7 +559,7 @@ Run:
 node --import tsx --test test/server-config-contract.test.mjs
 ```
 
-Expected result: FAIL because `createCodexProServer` does not accept dependencies and `server_config` does not advertise `outputSchema` or return the new envelope.
+Expected result: FAIL because `createCodexGPTServer` does not accept dependencies and `server_config` does not advertise `outputSchema` or return the new envelope.
 
 - [ ] **Step 3: Import the schema contracts into `src/server.ts`**
 
@@ -580,7 +580,7 @@ import {
 Add below `type CodexToolHandler`:
 
 ```ts
-export interface CodexProServerDependencies {
+export interface CodexGPTServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
 }
 ```
@@ -637,11 +637,11 @@ Old tools remain unchanged because they do not have a structured `meta` object.
 
 - [ ] **Step 6: Add the typed default data builder**
 
-Add immediately before `createCodexProServer`:
+Add immediately before `createCodexGPTServer`:
 
 ```ts
 function buildServerConfigData(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   server: McpServer
 ): ServerConfigData {
   return serverConfigDataSchema.parse({
@@ -685,9 +685,9 @@ function buildServerConfigData(
 Change the signature to:
 
 ```ts
-export function createCodexProServer(
-  config: CodexProConfig,
-  dependencies: CodexProServerDependencies = {}
+export function createCodexGPTServer(
+  config: CodexGPTConfig,
+  dependencies: CodexGPTServerDependencies = {}
 ): McpServer {
 ```
 
@@ -714,7 +714,7 @@ Replace the handler with:
       try {
         const safeConfig = serverConfigDataSchema.parse(await serverConfigDataProvider());
         return textResult(
-          `# CodexPro Server Config\n\n${JSON.stringify(safeConfig, null, 2)}`,
+          `# CodexGPT Server Config\n\n${JSON.stringify(safeConfig, null, 2)}`,
           createServerConfigSuccess(safeConfig)
         );
       } catch (error) {
@@ -817,7 +817,7 @@ Expected result: FAIL only for the new tool-card data-path test.
 Replace the current `server_config` branch with:
 
 ```js
-    if (data?.codexpro_tool === "server_config") {
+    if (data?.codexgpt_tool === "server_config") {
       const config = data?.data ?? {};
       const session = config?.bashSessionId || config?.bash_session_id;
       return "tools " + (config?.toolMode || config?.tool_mode || "-") + ", bash " + (config?.bashMode || config?.bash_mode || "-") + (session ? ", session " + session : "");
@@ -854,7 +854,7 @@ data.writeMode          → config.writeMode
 JSON.stringify(data...) → JSON.stringify(config...)
 ```
 
-Keep `header(data, ...)` unchanged so top-level `codexpro_tool` and `codexpro_title` continue to drive generic card identity.
+Keep `header(data, ...)` unchanged so top-level `codexgpt_tool` and `codexgpt_title` continue to drive generic card identity.
 
 - [ ] **Step 5: Run the narrow tests**
 

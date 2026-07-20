@@ -3,7 +3,7 @@
   "protocolName": "CXP4",
   "protocolVersion": 1,
   "headerLength": 64,
-  "nativeFactoryClass": "CodexPro.Phase4.ProcessHost",
+  "nativeFactoryClass": "CodexGPT.Phase4.ProcessHost",
   "productionPowerShell": "scripts/windows-process-host.ps1",
   "productionCSharp": "scripts/windows-process-host.cs",
   "conPtyWorker": "scripts/windows-conpty-worker.ps1",

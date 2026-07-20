@@ -121,3 +121,34 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 - Rollback is a documentation-only revert of the files listed above. It must not alter temporary directories, run evidence, worktrees, credentials, audit state, managed toolchains, commits, or remote state.
 
 **Next step:** Keep STEP-363 and STEP-364 unstaged, uncommitted, and unpushed until the user explicitly requests publication. Do not start Phase 6 as part of documentation cleanup.
+
+
+## 2026-07-20 — STEP-365: Correct canonical project identity to CodexGPT
+
+**Status:** Implemented on the dedicated rename branch; pending pull-request exact-head CI.
+
+**Goal:** Correct the repository-wide canonical identity from the previous CodexPro naming to CodexGPT without silently rewriting append-only historical records.
+
+**Files changed:** All tracked active text surfaces containing the previous name, plus every active tracked filename containing it. Historical files below `docs/memory/archive/` remain byte-preserved except for this appended correction entry.
+
+**Implementation summary:**
+
+- Renamed the npm package, executable commands, environment-variable namespace, local state and temporary prefixes, MCP tool names, source modules, test files, documentation filenames, URLs, labels, and user-facing instructions to CodexGPT.
+- Renamed active tracked paths atomically with `git mv`, then updated all active textual references so imports, scripts, contracts, fixtures, and documentation remain aligned.
+- Added an active-tree residual-name gate and retained complete Ubuntu/Windows Node 20/24 pull-request CI as the publication gate.
+- This is an intentional breaking identity migration. Existing package names, commands, variables, profile/state directories, and cached MCP descriptors must be recreated or migrated under the CodexGPT namespace.
+
+**Verification:**
+
+- Generation automation passed UTF-8 residual scanning and TypeScript build before committing the branch change.
+- Pull-request CI must pass Repository policy and the Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix; diff integrity is repaired and rechecked on the materialized branch before merge.
+
+**Risks and limitations:**
+
+- The canonical rename intentionally breaks consumers that still invoke the previous npm package, binaries, environment variables, state paths, or MCP tool names.
+- The local checkout directory itself is outside repository version control and is not renamed by this GitHub change.
+- Historical archive entries retain the name that was accurate when those entries were written; this correction entry is the authoritative transition record.
+
+**Rollback:** Revert the STEP-365 commit. Do not partially restore mixed namespaces.
+
+**Next step:** Require the complete runtime matrix, repair only concrete rename regressions, and merge after exact-head success.

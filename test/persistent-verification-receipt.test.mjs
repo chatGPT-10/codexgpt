@@ -12,7 +12,7 @@ import {
   startProcessInputV4Schema
 } from "../dist/tools/schemas/execution.js";
 
-const syntheticWindowsExecutable = "C:\\CodexPro\\node.exe";
+const syntheticWindowsExecutable = "C:\\CodexGPT\\node.exe";
 
 const fullAccessProfile = Object.freeze({
   ambientFilesystem: true,

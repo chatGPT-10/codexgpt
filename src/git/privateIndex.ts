@@ -33,8 +33,8 @@ export async function replaceLiveIndexV4(input: {
 }): Promise<void> {
   const directory = path.dirname(input.liveIndex);
   const nonce = randomBytes(8).toString("hex");
-  const replacement = path.join(directory, `.codexpro-index-${nonce}.new`);
-  const backup = path.join(directory, `.codexpro-index-${nonce}.bak`);
+  const replacement = path.join(directory, `.codexgpt-index-${nonce}.new`);
+  const backup = path.join(directory, `.codexgpt-index-${nonce}.bak`);
   let liveMoved = false;
   try {
     const bytes = await fsp.readFile(input.preparedIndex);

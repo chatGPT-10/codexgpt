@@ -30,7 +30,7 @@ This slice does not:
 - require explicit `workspace_id` when it is currently optional;
 - alter workspace ID generation, default-workspace fallback, ownership, expiry, or close behavior;
 - begin Phase 2 workspace lifecycle work;
-- refactor the global `CodexProError` class or retrofit codes into other tools;
+- refactor the global `CodexGPTError` class or retrofit codes into other tools;
 - create a global error-classification framework;
 - migrate `read`, `search`, `inspect_workspace`, or any other file tool;
 - change path-policy behavior in `PathGuard`;
@@ -56,7 +56,7 @@ Its handler then:
    - `entries`;
    - `truncated`.
 
-`tagToolResult` adds `codexpro_tool` and `codexpro_title` at the structured-result top level.
+`tagToolResult` adds `codexgpt_tool` and `codexgpt_title` at the structured-result top level.
 
 At design time, the tool had no exact `outputSchema`. Failures were handled by the common wrapper and became `isError: true` with readable text plus the legacy structured shape `{ error: string }`.
 
@@ -69,15 +69,15 @@ The tool card then had no dedicated `tree` renderer and fell through to the gene
 Direct `tree.structuredContent` contains exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
 meta
 ```
 
-Tool identity remains at the top level because the CodexPro card and generic result routing use it.
+Tool identity remains at the top level because the CodexGPT card and generic result routing use it.
 
 All tool-specific fields live only under `data`. They are not duplicated at the top level.
 
@@ -87,12 +87,12 @@ A successful result has this shape:
 
 ```json
 {
-  "codexpro_tool": "tree",
-  "codexpro_title": "File Tree",
+  "codexgpt_tool": "tree",
+  "codexgpt_title": "File Tree",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "text": ".\n├── src/\n└── test/",
     "entries": 2,
     "truncated": false
@@ -131,8 +131,8 @@ A failed result has this shape:
 
 ```json
 {
-  "codexpro_tool": "tree",
-  "codexpro_title": "File Tree",
+  "codexgpt_tool": "tree",
+  "codexgpt_title": "File Tree",
   "ok": false,
   "data": null,
   "error": {
@@ -340,7 +340,7 @@ The complete output schema must reject:
 
 ## 8. Local error-classification boundary
 
-The repository's current `CodexProError` contains only a message and has no stable internal code. Refactoring that global class would affect many tools and is outside this slice.
+The repository's current `CodexGPTError` contains only a message and has no stable internal code. Refactoring that global class would affect many tools and is outside this slice.
 
 The approved implementation therefore adds a `tree`-local classification boundary.
 
@@ -353,7 +353,7 @@ Classification order:
 5. If the path guard reports escape, unsafe path form, or symlink/junction boundary rejection, return `PATH_OUTSIDE_WORKSPACE`.
 6. Otherwise return `INTERNAL_ERROR`.
 
-The classifier may recognize the current known `CodexProError` message prefixes only inside this local adapter. Tests must lock those mappings. An unrecognized message must fail closed to `INTERNAL_ERROR`; it must never be guessed into a user-facing code.
+The classifier may recognize the current known `CodexGPTError` message prefixes only inside this local adapter. Tests must lock those mappings. An unrecognized message must fail closed to `INTERNAL_ERROR`; it must never be guessed into a user-facing code.
 
 This message-coupled adapter is an explicit temporary limitation. A future separately approved refactor may add typed internal errors and replace it without changing the advertised `tree` contract.
 
@@ -440,13 +440,13 @@ The handler catches its own errors so the direct `tree` call returns the exact f
 
 ## 12. Constructor-only test seam
 
-To verify an unexpected failure through the real MCP handler, extend `CodexProServerDependencies` with one programmatic `treeResultProvider` seam.
+To verify an unexpected failure through the real MCP handler, extend `CodexGPTServerDependencies` with one programmatic `treeResultProvider` seam.
 
 Its intended shape is equivalent to:
 
 ```ts
 treeResultProvider?: (context: {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: TreeOptions;
@@ -476,8 +476,8 @@ The `tree` descriptor must advertise its exact `outputSchema` from the same Zod 
 The descriptor must require exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
@@ -494,7 +494,7 @@ Add dedicated `tree` handling rather than letting the migrated result fall throu
 
 The card must:
 
-- keep top-level `codexpro_tool` and `codexpro_title` for routing and the header;
+- keep top-level `codexgpt_tool` and `codexgpt_title` for routing and the header;
 - read successful fields from `structuredContent.data`;
 - show a bounded preview of `data.text`;
 - show `data.entries`;
@@ -601,7 +601,7 @@ The focused source assertion must also ensure the new `tree` renderer does not r
 
 Search the repository for direct structured consumers of `tree` output. Migrate only consumers that actually read the direct tool result.
 
-The `codexpro` supertool wrapper may continue wrapping the already-constructed child result because its own schema is not migrated in this slice.
+The `codexgpt` supertool wrapper may continue wrapping the already-constructed child result because its own schema is not migrated in this slice.
 
 ## 17. Verification sequence
 

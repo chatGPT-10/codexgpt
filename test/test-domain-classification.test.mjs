@@ -79,7 +79,7 @@ test("connector-backed local execution fails closed for control and all domains"
   const env = { ...process.env };
   delete env.GITHUB_ACTIONS;
   delete env.CI_CONTROL_DOMAIN;
-  delete env.CODEXPRO_ALLOW_CONTROL_DOMAIN_TESTS;
+  delete env.CODEXGPT_ALLOW_CONTROL_DOMAIN_TESTS;
 
   for (const domain of ["control", "all"]) {
     await assert.rejects(

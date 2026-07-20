@@ -24,10 +24,10 @@ function withEnv(values, action) {
 }
 
 const AUDIT_ENV = {
-  CODEXPRO_AUDIT_MODE: undefined,
-  CODEXPRO_AUDIT_RETENTION_DAYS: undefined,
-  CODEXPRO_AUDIT_RETENTION_BYTES: undefined,
-  CODEXPRO_POLICY_ENGINE: undefined
+  CODEXGPT_AUDIT_MODE: undefined,
+  CODEXGPT_AUDIT_RETENTION_DAYS: undefined,
+  CODEXGPT_AUDIT_RETENTION_BYTES: undefined,
+  CODEXGPT_POLICY_ENGINE: undefined
 };
 
 test("audit configuration defaults to auto with bounded retention", () => {
@@ -42,10 +42,10 @@ test("audit configuration defaults to auto with bounded retention", () => {
 });
 
 test("audit mode is strict and retention stays within fixed bounds", () => {
-  withEnv({ ...AUDIT_ENV, CODEXPRO_AUDIT_MODE: "required" }, () => {
+  withEnv({ ...AUDIT_ENV, CODEXGPT_AUDIT_MODE: "required" }, () => {
     assert.equal(loadConfig(["--bash", "off"]).auditMode, "required");
   });
-  withEnv({ ...AUDIT_ENV, CODEXPRO_AUDIT_MODE: "unsafe" }, () => {
+  withEnv({ ...AUDIT_ENV, CODEXGPT_AUDIT_MODE: "unsafe" }, () => {
     assert.throws(
       () => loadConfig(["--bash", "off"]),
       /auto, off, best_effort, or required/
@@ -53,8 +53,8 @@ test("audit mode is strict and retention stays within fixed bounds", () => {
   });
   withEnv({
     ...AUDIT_ENV,
-    CODEXPRO_AUDIT_RETENTION_DAYS: "0",
-    CODEXPRO_AUDIT_RETENTION_BYTES: "1"
+    CODEXGPT_AUDIT_RETENTION_DAYS: "0",
+    CODEXGPT_AUDIT_RETENTION_BYTES: "1"
   }, () => {
     assert.deepEqual(loadConfig(["--bash", "off"]).auditRetention, {
       maxAgeDays: 1,
@@ -63,8 +63,8 @@ test("audit mode is strict and retention stays within fixed bounds", () => {
   });
   withEnv({
     ...AUDIT_ENV,
-    CODEXPRO_AUDIT_RETENTION_DAYS: "9999",
-    CODEXPRO_AUDIT_RETENTION_BYTES: String(4 * 1024 * 1024 * 1024)
+    CODEXGPT_AUDIT_RETENTION_DAYS: "9999",
+    CODEXGPT_AUDIT_RETENTION_BYTES: String(4 * 1024 * 1024 * 1024)
   }, () => {
     assert.deepEqual(loadConfig(["--bash", "off"]).auditRetention, {
       maxAgeDays: 365,
@@ -99,8 +99,8 @@ test("auto audit is best effort except enforce-mode R2 or higher mutations", () 
 test("invalid required-audit configurations fail closed", () => {
   withEnv({
     ...AUDIT_ENV,
-    CODEXPRO_POLICY_ENGINE: "enforce",
-    CODEXPRO_AUDIT_MODE: "off"
+    CODEXGPT_POLICY_ENGINE: "enforce",
+    CODEXGPT_AUDIT_MODE: "off"
   }, () => {
     assert.throws(() => loadConfig(["--bash", "off"]), /cannot be off/i);
   });

@@ -17,7 +17,7 @@ import {
 } from "../scripts/owned-temp-root.mjs";
 
 async function withBase(callback) {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-owned-temp-test-"));
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-owned-temp-test-"));
   try {
     await callback(base);
   } finally {
@@ -159,7 +159,7 @@ test("sweep distinguishes a reused live PID from the exact process creation iden
     await fs.mkdir(candidate);
     await fs.writeFile(path.join(candidate, OWNED_TEMP_MARKER), `${JSON.stringify({
       schemaVersion: 1,
-      kind: "codexpro-owned-temp",
+      kind: "codexgpt-owned-temp",
       purpose: "pid-reuse",
       rootName,
       pid: process.pid,
@@ -306,21 +306,21 @@ test("nested owned child environments reuse one canonical base instead of nestin
     });
     let inner;
     try {
-      const originalBase = process.env.CODEXPRO_OWNED_TEMP_BASE;
-      process.env.CODEXPRO_OWNED_TEMP_BASE = outer.environment.CODEXPRO_OWNED_TEMP_BASE;
+      const originalBase = process.env.CODEXGPT_OWNED_TEMP_BASE;
+      process.env.CODEXGPT_OWNED_TEMP_BASE = outer.environment.CODEXGPT_OWNED_TEMP_BASE;
       try {
         inner = await createOwnedTempEnvironment("inner-env", {
           hostEnvironment: outer.environment,
           sweep: false
         });
       } finally {
-        if (originalBase === undefined) delete process.env.CODEXPRO_OWNED_TEMP_BASE;
-        else process.env.CODEXPRO_OWNED_TEMP_BASE = originalBase;
+        if (originalBase === undefined) delete process.env.CODEXGPT_OWNED_TEMP_BASE;
+        else process.env.CODEXGPT_OWNED_TEMP_BASE = originalBase;
       }
       assert.equal(path.dirname(outer.rootPath), await fs.realpath(base));
       assert.equal(path.dirname(inner.rootPath), await fs.realpath(base));
       assert.equal(inner.rootPath.startsWith(`${outer.tempPath}${path.sep}`), false);
-      assert.equal(inner.environment.CODEXPRO_OWNED_TEMP_BASE, await fs.realpath(base));
+      assert.equal(inner.environment.CODEXGPT_OWNED_TEMP_BASE, await fs.realpath(base));
     } finally {
       await inner?.cleanup();
       await outer.cleanup();

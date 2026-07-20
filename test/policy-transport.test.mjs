@@ -5,7 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const {
   createHttpPolicySessionSource,
   createStdioPolicySessionSource
@@ -119,14 +119,14 @@ test("server builds the default enforce runtime from a STDIO context source", as
     scopes: policyIdentityScopes(cfg)
   });
   const audits = [];
-  const server = createCodexProServer(cfg, {
+  const server = createCodexGPTServer(cfg, {
     policySessionContextSource: source,
     policyAuditSink: (event) => audits.push(event)
   });
   await withClient(server, async (client) => {
     const read = await client.callTool({ name: "read", arguments: { path: "README.md", end_line: 1 } });
     assert.equal(read.isError, undefined);
-    assert.equal(read.structuredContent.codexpro_tool, "read");
+    assert.equal(read.structuredContent.codexgpt_tool, "read");
 
     const write = await client.callTool({ name: "write", arguments: { path: ".ai-bridge/policy-test.txt", content: "test" } });
     assert.equal(write.isError, true);
@@ -141,7 +141,7 @@ test("server builds the default enforce runtime from a STDIO context source", as
 test("full Bash in enforce mode fails closed when OS sandbox capabilities are unavailable", async () => {
   const cfg = config({ bashMode: "full" });
   const source = createStdioPolicySessionSource({ sessionId: "stdio-bash-test", scopes: policyIdentityScopes(cfg) });
-  const server = createCodexProServer(cfg, { policySessionContextSource: source });
+  const server = createCodexGPTServer(cfg, { policySessionContextSource: source });
   await withClient(server, async (client) => {
     const result = await client.callTool({ name: "bash", arguments: { command: "node --version" } });
     assert.equal(result.isError, true);

@@ -17,7 +17,7 @@ The detailed decision history, RED/GREEN evidence, failed attempts, command outp
 - `git_diff`, `show_changes`, shared Git operations, Git writes, authentication, Cloudflare, profiles, dependencies, shell/process behavior, and Phase 2 remain unchanged.
 - Successful fields retain their existing names and raw Git status-line semantics.
 - Successful fields exist only under `structuredContent.data`.
-- Top-level fields are exactly `codexpro_tool`, `codexpro_title`, `ok`, `data`, `error`, and `meta`.
+- Top-level fields are exactly `codexgpt_tool`, `codexgpt_title`, `ok`, `data`, `error`, and `meta`.
 - Metadata remains exactly `schemaVersion`, `durationMs`, and `warnings`.
 - Readable MCP `content` remains available on success and failure.
 - Failures use `isError: true`.
@@ -180,7 +180,7 @@ Workspace and path details are sanitized and bounded. Unsafe absolute paths use 
 - Direct success fields move from the structured top level to `data`.
 - Direct Git failures become stable failed envelopes instead of clean-looking success objects with `status_error`.
 - Human-readable success content remains the current Git status text.
-- Valid supertool calls retain `codexpro_super_action` and `wrapped_tool` while child fields remain nested.
+- Valid supertool calls retain `codexgpt_super_action` and `wrapped_tool` while child fields remain nested.
 - Safe nonexistent pathspecs remain successful clean results.
 - Successful `root` remains absolute.
 - `changed_files` retains status-line semantics in schema version 1.

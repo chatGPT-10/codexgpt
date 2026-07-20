@@ -26,7 +26,7 @@ The slice will:
 
 The tool answers one question:
 
-> Which exact discovered Skill did CodexPro resolve, and what bounded, safely returned instructions can the caller use?
+> Which exact discovered Skill did CodexGPT resolve, and what bounded, safely returned instructions can the caller use?
 
 A correct answer must prove four independent facts:
 
@@ -61,7 +61,7 @@ Known consumers:
 - `scripts/stress.mjs` reads flat `.structuredContent.text`;
 - protected `scripts/smoke.mjs` and `scripts/http-smoke.mjs` read flat Skill/text fields;
 - the Tool Card subtitle reads a flat Skill and generic rendering may serialize the complete body;
-- the `codexpro` supertool wraps `load_skill` by its registered direct handler.
+- the `codexgpt` supertool wraps `load_skill` by its registered direct handler.
 
 ## 4. Approaches considered
 
@@ -130,8 +130,8 @@ This is the smallest change that makes the public protocol truthful:
 
 ```json
 {
-  "codexpro_tool": "load_skill",
-  "codexpro_title": "Load Skill",
+  "codexgpt_tool": "load_skill",
+  "codexgpt_title": "Load Skill",
   "ok": true,
   "data": {},
   "error": null,
@@ -146,8 +146,8 @@ This is the smallest change that makes the public protocol truthful:
 Top-level fields are exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
@@ -279,7 +279,7 @@ Add:
 
 ```ts
 export interface LoadSkillProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   workspace: Workspace;
   options: {
     name: string;
@@ -398,7 +398,7 @@ Do not edit `scripts/smoke.mjs` or `scripts/http-smoke.mjs`. Extend their compat
 
 ### 14.4 Supertool
 
-Calling `codexpro` with `action: "load_skill"` preserves the child exact envelope and adds only existing wrapper tags. It never flattens `data`.
+Calling `codexgpt` with `action: "load_skill"` preserves the child exact envelope and adds only existing wrapper tags. It never flattens `data`.
 
 ## 15. Security rules
 
@@ -435,7 +435,7 @@ The focused suite covers:
 
 ```text
 node --test test/load-skill-contract.test.mjs
-node --test test/codexpro-inventory-contract.test.mjs test/open-current-workspace-contract.test.mjs test/open-workspace-contract.test.mjs test/workspace-snapshot-contract.test.mjs
+node --test test/codexgpt-inventory-contract.test.mjs test/open-current-workspace-contract.test.mjs test/open-workspace-contract.test.mjs test/workspace-snapshot-contract.test.mjs
 npm run build
 node --test test/*.test.mjs
 npm run smoke
@@ -467,7 +467,7 @@ Durable records:
 
 - `AGENTS.md`
 - `Memory.md`
-- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
 - active Phase 1 archive volume
 - this design and the matching implementation plan

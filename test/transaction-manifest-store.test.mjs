@@ -11,7 +11,7 @@ import {
 } from "../dist/transactions/index.js";
 
 function withTempDirectory(action) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-manifest-store-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-manifest-store-"));
   try {
     return action(root);
   } finally {
@@ -35,7 +35,7 @@ function manifest(generation = 1, state = "preparing") {
       state: "staged",
       relativePath: "src/a.txt",
       comparisonKey: "src/a.txt",
-      stageRelativePath: "src/.codexpro-txn-aaaaaaaaaaaaaaaa.stage",
+      stageRelativePath: "src/.codexgpt-txn-aaaaaaaaaaaaaaaa.stage",
       backupRelativePath: null,
       before: {
         exists: true,

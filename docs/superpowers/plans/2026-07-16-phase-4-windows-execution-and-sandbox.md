@@ -238,8 +238,8 @@ Failure is supported, but it stops the dependent work. No fallback weakens the c
 - `src/audit/types.ts`
 - `src/audit/schemas.ts`
 - `src/audit/store.ts`
-- `scripts/codexpro.mjs`
-- `scripts/codexpro-entry.mjs`
+- `scripts/codexgpt.mjs`
+- `scripts/codexgpt-entry.mjs`
 - package-content tests and `scripts/test-domains.mjs`
 - audit schemas/store/query
 - package/native mutation inventories
@@ -293,9 +293,9 @@ Failure is supported, but it stops the dependent work. No fallback weakens the c
 
 - `src/config.ts`
 - every file under `src/tools/contracts/` affected by versioning
-- `src/tools/schemas/codexpro.ts`
+- `src/tools/schemas/codexgpt.ts`
 - `src/tools/phase3dServer.ts`
-- `src/codexproSupertool.ts`
+- `src/codexgptSupertool.ts`
 - every `toolContractVersion === 2` branch in `src/server.ts`
 - `src/changesets/types.ts`
 - `src/changesets/schemas.ts`
@@ -348,7 +348,7 @@ Failure is supported, but it stops the dependent work. No fallback weakens the c
 - Replace every V2 capability equality with an explicit descriptor/capability predicate, but keep persisted-record dispatch keyed first by `schemaVersion` and then by the exact allowed pair.
 - Add `PersistedAuditEvent = AuditEventV2 | AuditEventV3` only at the store/envelope layer. Keep V2 public schemas untouched; add separate V3 query schemas/projector/cursor codec and filter V3 before V2 matching/paging.
 - Keep V3 nondefault.
-- Keep V1/V2 `CODEXPRO_BASH_MODE` behavior; V3 never maps it.
+- Keep V1/V2 `CODEXGPT_BASH_MODE` behavior; V3 never maps it.
 
 ### Task 4A3 — Add V3 composite policy, capabilities, and semantic authorization facts
 
@@ -431,7 +431,7 @@ Failure is supported, but it stops the dependent work. No fallback weakens the c
 - handle keys include access class/lease and cannot reuse a configured-root handle;
 - lease never changes/persists `allowedRoots` and never survives restart;
 - blocked globs remain anchored at volume/stricter policy root, so opening `.ssh`/`.git` cannot rebase protection away;
-- CodexPro control/audit/identity/state, Codex auth/config, credential/browser stores, device/UNC/mapped/ADS/reserved paths remain blocked;
+- CodexGPT control/audit/identity/state, Codex auth/config, credential/browser stores, device/UNC/mapped/ADS/reserved paths remain blocked;
 - query-token/Bearer identity is bound without exposing token values;
 - expiry/revocation first quarantines process input and terminates bound Job members, without claiming control of a full-access broker escape.
 
@@ -720,7 +720,7 @@ Update:
 - `SECURITY.md`
 - `design.md`
 - `AGENTS.md`
-- `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - `Memory.md`
 - `docs/memory/archive/phase-4.md`
 

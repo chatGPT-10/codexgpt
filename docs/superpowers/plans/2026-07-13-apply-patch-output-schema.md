@@ -6,7 +6,7 @@
 
 **Architecture:** Add one exact schema module and one injectable provider boundary around the existing `applyWorkspacePatch` operation. The direct handler validates the provider result, validates and compares the complete returned path set, classifies internal patch/Git/path failures into fixed public errors, and invalidates analysis only after all success validation passes. A dedicated Tool Card renderer consumes the nested contract while `export_pro_context` remains on the legacy file renderer.
 
-**Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, synchronous Git subprocesses, existing CodexPro path guard, write policy, redaction, diff statistics, Tool Card, and analysis-cache services.
+**Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, synchronous Git subprocesses, existing CodexGPT path guard, write policy, redaction, diff statistics, Tool Card, and analysis-cache services.
 
 **Status:** Complete and published; implementation commit `c761b4e`, CI run `29233787814` passed Ubuntu/Windows Node 20/24.
 
@@ -68,7 +68,7 @@ import { tsImport } from "tsx/esm/api";
 
 const {
   ApplyPatchOperationError,
-  createCodexProServer
+  createCodexGPTServer
 } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
@@ -85,7 +85,7 @@ Add this exact success fixture:
 function sampleApplyPatchData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     paths: ["src/example.ts", "test/example.test.mjs"],
     stdout: "",
     stderr: "",
@@ -119,7 +119,7 @@ const failureCases = [
 
 Assert all of the following:
 
-- success has exact top-level keys `codexpro_tool`, `codexpro_title`, `ok`, `data`, `error`, and `meta`;
+- success has exact top-level keys `codexgpt_tool`, `codexgpt_title`, `ok`, `data`, `error`, and `meta`;
 - success rejects unknown top-level and nested fields;
 - `paths` is non-empty, contains non-empty strings, and rejects duplicates;
 - `additions` and `deletions` are non-negative integers;
@@ -319,8 +319,8 @@ Define the exact envelope and consistency refinement:
 
 ```ts
 export const applyPatchOutputShape = {
-  codexpro_tool: z.literal("apply_patch"),
-  codexpro_title: z.literal("Apply Patch"),
+  codexgpt_tool: z.literal("apply_patch"),
+  codexgpt_title: z.literal("Apply Patch"),
   ok: z.boolean(),
   data: applyPatchDataSchema.nullable(),
   error: applyPatchErrorSchema.nullable(),
@@ -447,14 +447,14 @@ export interface ApplyPatchProviderResult {
 }
 
 export interface ApplyPatchProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   patch: string;
 }
 ```
 
-Extend `CodexProServerDependencies`:
+Extend `CodexGPTServerDependencies`:
 
 ```ts
 applyPatchResultProvider?: (
@@ -510,7 +510,7 @@ type ApplyPatchOperationFailureKind =
   | "check_failed"
   | "apply_failed";
 
-export class ApplyPatchOperationError extends CodexProError {
+export class ApplyPatchOperationError extends CodexGPTError {
   constructor(
     public readonly applyPatchFailureKind: ApplyPatchOperationFailureKind
   ) {
@@ -518,7 +518,7 @@ export class ApplyPatchOperationError extends CodexProError {
   }
 }
 
-class ApplyPatchTargetError extends CodexProError {
+class ApplyPatchTargetError extends CodexGPTError {
   constructor(
     public readonly targetPath: string,
     public readonly targetCause: unknown
@@ -617,9 +617,9 @@ try {
   const workspace = workspaces.getWorkspace(args.workspace_id);
   const patch = String(args.patch ?? "");
   const expectedPaths = patchTouchedPaths(patch);
-  if (!patch.trim()) throw new CodexProError("patch is required.");
+  if (!patch.trim()) throw new CodexGPTError("patch is required.");
   if (!expectedPaths.length) {
-    throw new CodexProError("Patch must include at least one file path.");
+    throw new CodexGPTError("Patch must include at least one file path.");
   }
 
   const result = applyPatchProviderResultSchema.parse(
@@ -632,12 +632,12 @@ try {
       const resolved = guard.resolve(workspace, returnedPath, { forWrite: true });
       assertWriteToolAllowed(config, resolved.relPath);
       if (returnedPath !== resolved.relPath) {
-        throw new CodexProError("Apply patch provider returned a non-normalized path.");
+        throw new CodexGPTError("Apply patch provider returned a non-normalized path.");
       }
       return resolved.relPath;
     });
   } catch {
-    throw new CodexProError("Apply patch provider returned an unsafe or non-normalized path.");
+    throw new CodexGPTError("Apply patch provider returned an unsafe or non-normalized path.");
   }
 
   const expectedSet = new Set(expectedPaths);
@@ -646,7 +646,7 @@ try {
     expectedSet.size !== returnedSet.size ||
     Array.from(expectedSet).some((value) => !returnedSet.has(value))
   ) {
-    throw new CodexProError("Apply patch provider returned a mismatched path set.");
+    throw new CodexGPTError("Apply patch provider returned a mismatched path set.");
   }
 
   const data = applyPatchDataSchema.parse({
@@ -775,9 +775,9 @@ Assert routing becomes exactly:
 
 Update the existing edit/write contract routing assertions so they require this split and continue proving that `edit` and `write` use their dedicated nested renderers.
 
-- [x] **Step 3: Add failing `codexpro` wrapper tests**
+- [x] **Step 3: Add failing `codexgpt` wrapper tests**
 
-Call `codexpro` with `action:"apply_patch"`. Assert:
+Call `codexgpt` with `action:"apply_patch"`. Assert:
 
 - wrapper identity fields remain present;
 - child `ok/data/error/meta` remains unchanged;

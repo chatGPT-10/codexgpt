@@ -25,7 +25,7 @@ import type {
   WorkspaceMutationPreparation
 } from "./types.js";
 
-const PENDING_WORKSPACE_MUTATION = Symbol("codexpro.pending.workspace.mutation");
+const PENDING_WORKSPACE_MUTATION = Symbol("codexgpt.pending.workspace.mutation");
 
 interface InvocationContext {
   pending: Set<PendingWorkspaceMutationImpl>;

@@ -30,7 +30,7 @@ import {
   type ChangeSetOperationV1
 } from "./types.js";
 
-const OWNER_BINDING_LABEL = "codexpro/change-set-owner/v1\0";
+const OWNER_BINDING_LABEL = "codexgpt/change-set-owner/v1\0";
 const DEFAULT_MAX_UNDO_FILE_BYTES = 64 * 1024 * 1024;
 const DEFAULT_UNDO_RETENTION_MS = 24 * 60 * 60_000;
 

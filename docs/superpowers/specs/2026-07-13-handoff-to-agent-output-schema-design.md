@@ -82,8 +82,8 @@ Every handler success and classified failure has exactly:
 
 ```ts
 interface HandoffToAgentOutput {
-  codexpro_tool: "handoff_to_agent";
-  codexpro_title: "Handoff To Agent";
+  codexgpt_tool: "handoff_to_agent";
+  codexgpt_title: "Handoff To Agent";
   ok: boolean;
   data: HandoffToAgentData | null;
   error: HandoffToAgentError | null;
@@ -280,7 +280,7 @@ Provider drift maps to `INTERNAL_ERROR`, not a partially trusted result.
 
 MCP text contains a bounded summary: target, saved plan path, hash, append outcome, both log paths, diff stats, and the prompt. It does not duplicate the complete plan. The diff preview uses an additional bounded excerpt.
 
-The dedicated Tool Card reads nested `data` first and supports historical flat fallback only for `handoff_to_codex` during Slice 23. It shows target/model, plan/hash, append state, diff stats, fixed paths, a bounded prompt, and a bounded diff preview. The direct result sets `codexpro/preserveStructuredContent:true` so exact structured diff and prompt fields are not silently compacted.
+The dedicated Tool Card reads nested `data` first and supports historical flat fallback only for `handoff_to_codex` during Slice 23. It shows target/model, plan/hash, append state, diff stats, fixed paths, a bounded prompt, and a bounded diff preview. The direct result sets `codexgpt/preserveStructuredContent:true` so exact structured diff and prompt fields are not silently compacted.
 
 Protected `scripts/smoke.mjs` remains unchanged. `scripts/smoke-platform-compat.mjs` replaces the one direct flat `agent` read with `data?.agent` and the one legacy free-text oversize regex with the stable `EXISTING_PLAN_TOO_LARGE` code, each using an exact fail-closed count. Native Stress continues to assert the direct supertool wrapper and additionally validates the nested child envelope. HTTP Smoke advertises the tool but consumes no result field, so no HTTP substitution is needed.
 

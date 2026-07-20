@@ -16,7 +16,7 @@ using Microsoft.CSharp;
 using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
 
-namespace CodexPro.Phase4
+namespace CodexGPT.Phase4
 {
     public static class SandboxSpike
     {
@@ -368,13 +368,13 @@ namespace CodexPro.Phase4
 
             public ProbeObjects(string nonce)
             {
-                ApprovalPipeName = "CodexPro.Phase4.Sandbox.Approval." + nonce;
-                ControlPipeName = "CodexPro.Phase4.Sandbox.Control." + nonce;
-                AuditPipeName = "CodexPro.Phase4.Sandbox.Audit." + nonce;
-                MutexName = "Local\\CodexPro.Phase4.Sandbox." + nonce;
-                GlobalMutexName = "Global\\CodexPro.Phase4.Sandbox." + nonce;
-                SectionName = "Local\\CodexPro.Phase4.Sandbox.Section." + nonce;
-                MailslotPath = "\\\\.\\mailslot\\CodexPro.Phase4.Sandbox." + nonce;
+                ApprovalPipeName = "CodexGPT.Phase4.Sandbox.Approval." + nonce;
+                ControlPipeName = "CodexGPT.Phase4.Sandbox.Control." + nonce;
+                AuditPipeName = "CodexGPT.Phase4.Sandbox.Audit." + nonce;
+                MutexName = "Local\\CodexGPT.Phase4.Sandbox." + nonce;
+                GlobalMutexName = "Global\\CodexGPT.Phase4.Sandbox." + nonce;
+                SectionName = "Local\\CodexGPT.Phase4.Sandbox.Section." + nonce;
+                MailslotPath = "\\\\.\\mailslot\\CodexGPT.Phase4.Sandbox." + nonce;
 
                 MutexSecurity mutexSecurity = OwnerOnlyMutexSecurity();
                 bool created;
@@ -438,9 +438,9 @@ namespace CodexPro.Phase4
         {
             string nonce = ValidateProbeNonce(probeNonce);
             VerifyFixtureDigest(repositoryRoot, fixtureDigest);
-            string profileName = "CodexPro.Phase4.Sandbox." + nonce;
-            string protectedRegistryPath = "Software\\Classes\\CodexPro.Phase4B0." + nonce;
-            string phaseRoot = Path.Combine(Path.GetTempPath(), "CodexPro", "phase-4b0");
+            string profileName = "CodexGPT.Phase4.Sandbox." + nonce;
+            string protectedRegistryPath = "Software\\Classes\\CodexGPT.Phase4B0." + nonce;
+            string phaseRoot = Path.Combine(Path.GetTempPath(), "CodexGPT", "phase-4b0");
             string runRoot = Path.Combine(phaseRoot, nonce);
             string probeExecutable = Path.Combine(runRoot, "sandbox-attack-probe.exe");
             string configPath = Path.Combine(runRoot, "probe-config.txt");
@@ -480,7 +480,7 @@ namespace CodexPro.Phase4
                 int createResult = CreateAppContainerProfile(
                     profileName,
                     profileName,
-                    "CodexPro Phase 4B0 Gate S restricted identity",
+                    "CodexGPT Phase 4B0 Gate S restricted identity",
                     IntPtr.Zero,
                     0,
                     out appContainerSid);
@@ -494,7 +494,7 @@ namespace CodexPro.Phase4
                 int collisionResult = CreateAppContainerProfile(
                     profileName,
                     profileName,
-                    "CodexPro Phase 4B0 collision oracle",
+                    "CodexGPT Phase 4B0 collision oracle",
                     IntPtr.Zero,
                     0,
                     out collisionSid);
@@ -763,9 +763,9 @@ namespace CodexPro.Phase4
         public static bool Cleanup(string probeNonce)
         {
             string nonce = ValidateProbeNonce(probeNonce);
-            string profileName = "CodexPro.Phase4.Sandbox." + nonce;
-            string runRoot = Path.Combine(Path.GetTempPath(), "CodexPro", "phase-4b0", nonce);
-            string registryPath = "Software\\Classes\\CodexPro.Phase4B0." + nonce;
+            string profileName = "CodexGPT.Phase4.Sandbox." + nonce;
+            string runRoot = Path.Combine(Path.GetTempPath(), "CodexGPT", "phase-4b0", nonce);
+            string registryPath = "Software\\Classes\\CodexGPT.Phase4B0." + nonce;
             Stopwatch timer = Stopwatch.StartNew();
             do
             {

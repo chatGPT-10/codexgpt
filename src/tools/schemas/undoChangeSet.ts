@@ -111,8 +111,8 @@ export const undoChangeSetErrorSchema = z.object({
 });
 
 export const undoChangeSetOutputShape = {
-  codexpro_tool: z.literal("undo_change_set"),
-  codexpro_title: z.literal("Undo Change Set"),
+  codexgpt_tool: z.literal("undo_change_set"),
+  codexgpt_title: z.literal("Undo Change Set"),
   ok: z.boolean(),
   data: undoChangeSetDataSchema.nullable(),
   error: undoChangeSetErrorSchema.nullable(),
@@ -139,8 +139,8 @@ export function createUndoChangeSetSuccess(
   durationMs = 0
 ): UndoChangeSetStructuredResult {
   return undoChangeSetOutputSchema.parse({
-    codexpro_tool: "undo_change_set",
-    codexpro_title: "Undo Change Set",
+    codexgpt_tool: "undo_change_set",
+    codexgpt_title: "Undo Change Set",
     ok: true,
     data,
     error: null,
@@ -154,8 +154,8 @@ export function createUndoChangeSetFailure(
   durationMs = 0
 ): UndoChangeSetStructuredResult {
   return undoChangeSetOutputSchema.parse({
-    codexpro_tool: "undo_change_set",
-    codexpro_title: "Undo Change Set",
+    codexgpt_tool: "undo_change_set",
+    codexgpt_title: "Undo Change Set",
     ok: false,
     data: null,
     error: {

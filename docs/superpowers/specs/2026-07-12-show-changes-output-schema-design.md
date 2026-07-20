@@ -8,7 +8,7 @@ Status: Published and cross-platform CI-validated
 
 Migrate only the direct `show_changes` MCP tool to the Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, safe optional-analysis degradation, and focused contract tests.
 
-The slice must preserve the current review workflow: staged or unstaged selection, optional path scoping, optional raw diff, `last_shown` checkpoints, untracked-file fingerprinting, change-impact analysis, legacy text content, and `codexpro` supertool wrapping.
+The slice must preserve the current review workflow: staged or unstaged selection, optional path scoping, optional raw diff, `last_shown` checkpoints, untracked-file fingerprinting, change-impact analysis, legacy text content, and `codexgpt` supertool wrapping.
 
 ## 2. Chosen approach
 
@@ -43,7 +43,7 @@ This approach is preferred over retaining the current flat partial-success objec
 - Focused `node:test` contract coverage.
 - Existing smoke/stress compatibility updates where old flat fields are asserted.
 - Direct Tool Card migration to nested `data`, `error`, and `meta`.
-- `codexpro` supertool wrapper compatibility.
+- `codexgpt` supertool wrapper compatibility.
 - `Memory.md`, Phase 1 archive, architecture roadmap, changelog, and `AGENTS.md` documentation-map updates.
 
 ### Out of scope
@@ -62,12 +62,12 @@ The direct tool returns this envelope in `structuredContent`:
 
 ```json
 {
-  "codexpro_tool": "show_changes",
-  "codexpro_title": "Show Changes",
+  "codexgpt_tool": "show_changes",
+  "codexgpt_title": "Show Changes",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "path": "workspace changes",
     "status": "## main...origin/main\n M src/server.ts",
     "changed_files": [" M src/server.ts"],
@@ -192,8 +192,8 @@ Failures return:
 
 ```json
 {
-  "codexpro_tool": "show_changes",
-  "codexpro_title": "Show Changes",
+  "codexgpt_tool": "show_changes",
+  "codexgpt_title": "Show Changes",
   "ok": false,
   "data": null,
   "error": {
@@ -259,7 +259,7 @@ Add these optional server dependencies:
 
 ```ts
 export interface ShowChangesGitProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path?: string;
@@ -267,7 +267,7 @@ export interface ShowChangesGitProviderContext {
 }
 
 export interface ShowChangesAnalysisProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   changedPaths: string[];
@@ -299,10 +299,10 @@ Default providers delegate to current `gitDiffStatus(...)`, `gitDiff(...)`, and 
 
 ## 11. Wrapper compatibility
 
-The `codexpro` supertool action `show_changes` and alias `changes` must continue preserving wrapper metadata while carrying the nested child contract:
+The `codexgpt` supertool action `show_changes` and alias `changes` must continue preserving wrapper metadata while carrying the nested child contract:
 
-- `codexpro_tool: "show_changes"`
-- `codexpro_super_action: "show_changes"`
+- `codexgpt_tool: "show_changes"`
+- `codexgpt_super_action: "show_changes"`
 - `wrapped_tool: "show_changes"`
 - nested `ok`, `data`, `error`, and `meta`
 
@@ -347,7 +347,7 @@ Create `test/show-changes-contract.test.mjs` covering:
 20. Injected Git absence and command-failure mapping for both status and diff providers.
 21. Malformed status/diff provider output and secret-bearing thrown exception redaction.
 22. Direct Tool Card nested-field behavior.
-23. `codexpro` wrapper and `changes` alias compatibility.
+23. `codexgpt` wrapper and `changes` alias compatibility.
 
 Update existing smoke/stress assertions only where they directly access old flat `show_changes` fields.
 

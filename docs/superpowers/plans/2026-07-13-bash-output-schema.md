@@ -6,7 +6,7 @@
 
 **Architecture:** Add one exact schema module and one injectable provider boundary around the existing `runBash` operation. The direct handler resolves the requested workspace and working directory, validates the provider result and its command/cwd/session identity, classifies internal policy/backend/path/start failures into fixed public errors, and preserves non-zero exits as successful process outcomes. A nested Tool Card renderer and updated Smoke/Stress consumers use the exact contract without changing the Bash execution algorithm.
 
-**Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexPro `PathGuard`, Bash policy and redaction services, Tool Card HTML, Git Bash on native Windows, and current Smoke/Stress suites.
+**Tech Stack:** TypeScript, Zod, Node.js `node:test`, MCP SDK in-memory transport, existing CodexGPT `PathGuard`, Bash policy and redaction services, Tool Card HTML, Git Bash on native Windows, and current Smoke/Stress suites.
 
 **Status:** Published through commit `a39b779`; CI run `29239425311` passed Ubuntu/Windows Node 20/24; Phase 2/3/4 remain closed.
 
@@ -19,7 +19,7 @@
 - Do not modify the current Bash allowlist, blocklist, environment policy, executable probe, timeout limits, output redaction, output truncation, direct-child termination, transcript modes, tool availability, or annotations.
 - Preserve exactly eleven intentional success fields only under nested `data`: `workspace_id`, `root`, `command`, `cwd`, `exitCode`, `signal`, `durationMs`, `stdout`, `stderr`, `truncated`, and `bash_session_id`.
 - Do not expose the current internal camelCase `bashSessionId` property publicly.
-- `ok:true` means CodexPro returned a valid process outcome. A non-zero exit code, non-null signal, timeout marker, or truncated output remains `ok:true` when the provider returns a valid result.
+- `ok:true` means CodexGPT returned a valid process outcome. A non-zero exit code, non-null signal, timeout marker, or truncated output remains `ok:true` when the provider returns a valid result.
 - Use exactly eleven fixed non-retryable errors: `WORKSPACE_NOT_FOUND`, `INVALID_ARGUMENT`, `BASH_SESSION_CONFIGURATION_INVALID`, `BASH_SESSION_REQUIRED`, `BASH_SESSION_MISMATCH`, `COMMAND_POLICY_DENIED`, `SHELL_BACKEND_UNAVAILABLE`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `COMMAND_START_FAILED`, and `INTERNAL_ERROR`.
 - Never expose raw failed commands, stdout, stderr, environment variables, executable paths, provided mismatching session ids, unsafe absolute paths, operating-system diagnostics, stack traces, exception names, or secret-looking values in public failures.
 - Preserve the production `runBash` command/session/policy/backend/`cwd` validation order; after the provider returns, independently normalize the requested `cwd` and validate returned command, `cwd`, and optional session id before constructing success data.
@@ -67,7 +67,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   BASH_ERROR_MESSAGES,
@@ -83,7 +83,7 @@ Add this exact success fixture:
 function sampleBashData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     command: "npm run build",
     cwd: ".",
     exitCode: 0,
@@ -118,7 +118,7 @@ const failureCases = [
 
 Assert all of the following:
 
-- success has exact top-level keys `codexpro_tool`, `codexpro_title`, `ok`, `data`, `error`, and `meta`;
+- success has exact top-level keys `codexgpt_tool`, `codexgpt_title`, `ok`, `data`, `error`, and `meta`;
 - success rejects unknown top-level and nested fields;
 - `command` and `cwd` reject empty strings;
 - `exitCode` accepts a non-negative integer or `null` and rejects negative/fractional values;
@@ -336,8 +336,8 @@ Define the exact envelope:
 
 ```ts
 export const bashOutputShape = {
-  codexpro_tool: z.literal("bash"),
-  codexpro_title: z.literal("Bash"),
+  codexgpt_tool: z.literal("bash"),
+  codexgpt_title: z.literal("Bash"),
   ok: z.boolean(),
   data: bashDataSchema.nullable(),
   error: bashErrorSchema.nullable(),
@@ -449,7 +449,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 }
 
 async function withInMemoryClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies);
+  const server = createCodexGPTServer(config, dependencies);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "bash-contract", version: "1.0.0" });
   await server.connect(serverTransport);
@@ -463,7 +463,7 @@ async function withInMemoryClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-bash-contract-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-bash-contract-"));
   try {
     await callback(root);
   } finally {
@@ -546,7 +546,7 @@ Add beside the existing provider contexts:
 
 ```ts
 export interface BashProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   command: string;
@@ -558,7 +558,7 @@ export interface BashProviderContext {
 }
 ```
 
-Extend `CodexProServerDependencies`:
+Extend `CodexGPTServerDependencies`:
 
 ```ts
 bashResultProvider?: (
@@ -615,7 +615,7 @@ function safeBashWorkspaceIdDetail(value: unknown): string {
 function safeBashSessionDetail(value: unknown): string {
   const text = typeof value === "string" ? value.trim() : "";
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(text)) {
-    throw new CodexProError("Configured Bash session id is invalid.");
+    throw new CodexGPTError("Configured Bash session id is invalid.");
   }
   return text;
 }
@@ -648,7 +648,7 @@ Implement the classifier with the exact current internal message prefixes:
 function classifyBashFailure(
   error: unknown,
   args: Record<string, unknown>,
-  config: CodexProConfig
+  config: CodexGPTConfig
 ): BashFailureInput {
   const message = error instanceof Error ? error.message : String(error);
   const filesystemCode = nodeErrorCode(error);
@@ -683,7 +683,7 @@ function classifyBashFailure(
       details: { expected_session_id: safeBashSessionDetail(config.bashSessionId) }
     };
   }
-  if (message.startsWith("Command is blocked in CODEXPRO_BASH_MODE=safe:")) {
+  if (message.startsWith("Command is blocked in CODEXGPT_BASH_MODE=safe:")) {
     return {
       code: "COMMAND_POLICY_DENIED",
       details: { reason: "blocked_pattern" }
@@ -780,17 +780,17 @@ registerCodexTool(
       const expectedCwd = path.relative(workspace.root, resolvedCwd.absPath) || ".";
 
       if (providerResult.command !== command) {
-        throw new CodexProError("Bash provider returned a mismatched command.");
+        throw new CodexGPTError("Bash provider returned a mismatched command.");
       }
       if (providerResult.cwd !== expectedCwd) {
-        throw new CodexProError("Bash provider returned a mismatched working directory.");
+        throw new CodexGPTError("Bash provider returned a mismatched working directory.");
       }
       if (config.bashSessionId) {
         if (providerResult.bashSessionId !== config.bashSessionId) {
-          throw new CodexProError("Bash provider returned a mismatched session id.");
+          throw new CodexGPTError("Bash provider returned a mismatched session id.");
         }
       } else if (providerResult.bashSessionId !== undefined) {
-        throw new CodexProError("Bash provider returned an unexpected session id.");
+        throw new CodexGPTError("Bash provider returned an unexpected session id.");
       }
 
       const data = bashDataSchema.parse({
@@ -883,11 +883,11 @@ Add tests that supply a successful nested envelope and require the rendered widg
 - show truncation and optional session indicators;
 - avoid reading legacy top-level `data.exitCode`, `data.stdout`, or `data.durationMs`.
 
-Add an in-memory `codexpro` wrapper call:
+Add an in-memory `codexgpt` wrapper call:
 
 ```js
 const wrapped = await client.callTool({
-  name: "codexpro",
+  name: "codexgpt",
   arguments: {
     action: "bash",
     args: { workspace_id: workspaceId, command: "pwd" }
@@ -898,8 +898,8 @@ const wrapped = await client.callTool({
 Assert:
 
 ```js
-assert.equal(wrapped.structuredContent.codexpro_tool, "bash");
-assert.equal(wrapped.structuredContent.codexpro_super_action, "bash");
+assert.equal(wrapped.structuredContent.codexgpt_tool, "bash");
+assert.equal(wrapped.structuredContent.codexgpt_super_action, "bash");
 assert.equal(wrapped.structuredContent.wrapped_tool, "bash");
 assert.equal(wrapped.structuredContent.ok, true);
 assert.equal(wrapped.structuredContent.data.exitCode, 0);
@@ -1017,7 +1017,7 @@ blockedNewline.structuredContent.error?.code === "COMMAND_POLICY_DENIED"
 For wrapped failures, preserve wrapper identity and assert the nested code:
 
 ```js
-blockedSuperNewline.structuredContent.codexpro_tool === "bash" &&
+blockedSuperNewline.structuredContent.codexgpt_tool === "bash" &&
 blockedSuperNewline.structuredContent.ok === false &&
 blockedSuperNewline.structuredContent.error?.code === "COMMAND_POLICY_DENIED"
 ```

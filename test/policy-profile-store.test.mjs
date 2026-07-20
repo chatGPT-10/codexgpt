@@ -14,7 +14,7 @@ const {
 } = await tsImport("../src/policy/profileStore.ts", import.meta.url);
 
 function makeHome(documents) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-policy-home-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-policy-home-"));
   const dir = path.join(home, "permissions");
   fs.mkdirSync(dir, { recursive: true });
   for (const [name, document] of Object.entries(documents)) {

@@ -1,5 +1,5 @@
 export { loadConfig } from "../../src/config.js";
-export { createCodexProServer } from "../../src/server.js";
+export { createCodexGPTServer } from "../../src/server.js";
 export { ProcessManagerV3 } from "../../src/process/processManager.js";
 export {
   createAuthorizationFactsV3,

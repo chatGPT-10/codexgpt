@@ -3,7 +3,7 @@ import {
   assertAuditConfiguration,
   assertFileTransactionConfiguration,
   assertToolContractConfiguration,
-  type CodexProConfig
+  type CodexGPTConfig
 } from "./config.js";
 import { PathGuard } from "./guard.js";
 import { LocalApprovalRuntimeV3 } from "./control/runtime.js";
@@ -33,7 +33,7 @@ import {
   ServerMutationLifecycle,
   installServerMutationLifecycle
 } from "./mutations/lifecycle.js";
-import { upgradeCodexProSupertool } from "./codexproSupertool.js";
+import { upgradeCodexGPTSupertool } from "./codexgptSupertool.js";
 import type { PolicySessionContextSource } from "./policy/identity.js";
 import {
   AtomicTransactionEngine,
@@ -48,8 +48,8 @@ import {
   type TransactionStateRootOptions
 } from "./transactions/index.js";
 import {
-  createCodexProServer,
-  type CodexProServerDependencies
+  createCodexGPTServer,
+  type CodexGPTServerDependencies
 } from "./server.js";
 import { contractIncludesV3 } from "./tools/contracts/index.js";
 import {
@@ -93,7 +93,7 @@ import { CandidateVerificationWorkspaceV4 } from "./worktrees/candidateWorkspace
 
 const ATOMIC_MUTATION_TOOL_NAMES = new Set([
   "apply_patch",
-  "codexpro_self_test",
+  "codexgpt_self_test",
   "edit",
   "export_pro_context",
   "handoff_to_agent",
@@ -113,23 +113,23 @@ export interface ProductionRuntimeObservation {
   gitGateRReady: boolean;
 }
 
-export interface ProductionCodexProServerOptions {
+export interface ProductionCodexGPTServerOptions {
   policySessionContextSource?: PolicySessionContextSource;
   stateRootOptions?: TransactionStateRootOptions;
   observeRuntime?: (value: ProductionRuntimeObservation) => void;
   localApprovalRuntimeV3?: LocalApprovalRuntimeV3;
   rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
   gitReadServiceV4?: Pick<GitReadServiceV4, "status" | "diff" | "log" | "branches" | "currentBranchName" | "capabilityRevision">;
-  gitMutationServiceV4?: NonNullable<CodexProServerDependencies["gitMutationServiceV4"]>;
+  gitMutationServiceV4?: NonNullable<CodexGPTServerDependencies["gitMutationServiceV4"]>;
   gitCapabilityEvidenceV4?: GitCapabilityEvidence;
   gitGateRRuntimeV4?: Pick<GitGateRRuntimeV4, "isReady">;
-  taskWorktreeServiceV4?: NonNullable<CodexProServerDependencies["taskWorktreeServiceV4"]>;
-  taskWorktreeAuthorityV4?: NonNullable<CodexProServerDependencies["taskWorktreeAuthorityV4"]>;
+  taskWorktreeServiceV4?: NonNullable<CodexGPTServerDependencies["taskWorktreeServiceV4"]>;
+  taskWorktreeAuthorityV4?: NonNullable<CodexGPTServerDependencies["taskWorktreeAuthorityV4"]>;
   gitBootstrapV4?: ProductionGitBootstrapV4;
 }
 
 interface RuntimeResources {
-  dependencies: CodexProServerDependencies;
+  dependencies: CodexGPTServerDependencies;
   observation: ProductionRuntimeObservation;
   lifecycle: ServerMutationLifecycle;
   startup(): Promise<void>;
@@ -171,8 +171,8 @@ function requireAuditReady(store: PersistentAuditStore): void {
 }
 
 function composeRuntime(
-  config: CodexProConfig,
-  options: ProductionCodexProServerOptions
+  config: CodexGPTConfig,
+  options: ProductionCodexGPTServerOptions
 ): RuntimeResources {
   const lifecycle = new ServerMutationLifecycle();
   let localApprovalRuntimeV3 = options.localApprovalRuntimeV3;
@@ -293,7 +293,7 @@ function composeRuntime(
     return noRuntime(options.policySessionContextSource, lifecycle);
   }
   if (writableAtomic && config.auditMode === "off") {
-    throw new Error("Writable atomic transactions require persistent audit; CODEXPRO_AUDIT_MODE cannot be off.");
+    throw new Error("Writable atomic transactions require persistent audit; CODEXGPT_AUDIT_MODE cannot be off.");
   }
   if ((config.policyEngineMode !== "legacy" || writableAtomic) && !options.policySessionContextSource) {
     throw new Error("Production Policy and atomic audit wiring require a stable session context source.");
@@ -346,7 +346,7 @@ function composeRuntime(
         { recoveryCoordinator: recovery }
       );
     }
-    const dependencies: CodexProServerDependencies = {
+    const dependencies: CodexGPTServerDependencies = {
       policySessionContextSource: options.policySessionContextSource,
       transactionRecoveryCoordinator: recovery,
       localApprovalRuntimeV3,
@@ -960,11 +960,11 @@ function installRuntimeDisposal(server: McpServer, runtime: RuntimeResources): v
   };
 }
 
-export async function disposeProductionCodexProServer(server: McpServer): Promise<void> {
+export async function disposeProductionCodexGPTServer(server: McpServer): Promise<void> {
   await productionDisposers.get(server)?.();
 }
 
-export async function connectProductionCodexProServer(
+export async function connectProductionCodexGPTServer(
   server: McpServer,
   transport: Parameters<McpServer["connect"]>[0]
 ): Promise<void> {
@@ -972,20 +972,20 @@ export async function connectProductionCodexProServer(
     await productionRuntimes.get(server)?.startup();
     await server.connect(transport);
   } catch (error) {
-    await disposeProductionCodexProServer(server);
+    await disposeProductionCodexGPTServer(server);
     throw error;
   }
 }
 
-export function createProductionCodexProServer(
-  config: CodexProConfig,
-  options: ProductionCodexProServerOptions = {}
+export function createProductionCodexGPTServer(
+  config: CodexGPTConfig,
+  options: ProductionCodexGPTServerOptions = {}
 ): McpServer {
   const runtime = composeRuntime(config, options);
   try {
     options.observeRuntime?.(runtime.observation);
-    const server = createCodexProServer(config, runtime.dependencies);
-    upgradeCodexProSupertool(server, config.toolContractVersion);
+    const server = createCodexGPTServer(config, runtime.dependencies);
+    upgradeCodexGPTSupertool(server, config.toolContractVersion);
     installServerMutationLifecycle(server, runtime.lifecycle);
     installRuntimeDisposal(server, runtime);
     return server;

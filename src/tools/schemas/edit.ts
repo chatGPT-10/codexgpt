@@ -178,8 +178,8 @@ export const editErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const editOutputShape = {
-  codexpro_tool: z.literal("edit"),
-  codexpro_title: z.literal("Edit File"),
+  codexgpt_tool: z.literal("edit"),
+  codexgpt_title: z.literal("Edit File"),
   ok: z.boolean(),
   data: editDataSchema.nullable(),
   error: editErrorSchema.nullable(),
@@ -247,8 +247,8 @@ export function createEditSuccess(
   durationMs = 0
 ): EditStructuredResult {
   return editOutputSchema.parse({
-    codexpro_tool: "edit",
-    codexpro_title: "Edit File",
+    codexgpt_tool: "edit",
+    codexgpt_title: "Edit File",
     ok: true,
     data: editDataSchema.parse(data),
     error: null,
@@ -261,8 +261,8 @@ export function createEditFailure(
   durationMs = 0
 ): EditStructuredResult {
   return editOutputSchema.parse({
-    codexpro_tool: "edit",
-    codexpro_title: "Edit File",
+    codexgpt_tool: "edit",
+    codexgpt_title: "Edit File",
     ok: false,
     data: null,
     error: {
@@ -334,8 +334,8 @@ export const editDataSchemaV2 = editDataSchema.extend({
 export const editErrorSchemaV2 = z.union([editErrorSchema, editTransactionErrorSchema]);
 
 export const editOutputShapeV2 = {
-  codexpro_tool: z.literal("edit"),
-  codexpro_title: z.literal("Edit File"),
+  codexgpt_tool: z.literal("edit"),
+  codexgpt_title: z.literal("Edit File"),
   ok: z.boolean(),
   data: editDataSchemaV2.nullable(),
   error: editErrorSchemaV2.nullable(),
@@ -363,8 +363,8 @@ export function createEditSuccessV2(
   durationMs = 0
 ): EditStructuredResultV2 {
   return editOutputSchemaV2.parse({
-    codexpro_tool: "edit",
-    codexpro_title: "Edit File",
+    codexgpt_tool: "edit",
+    codexgpt_title: "Edit File",
     ok: true,
     data: editDataSchemaV2.parse(data),
     error: null,
@@ -380,8 +380,8 @@ export function createEditTransactionFailureV2(
   durationMs = 0
 ): EditStructuredResultV2 {
   return editOutputSchemaV2.parse({
-    codexpro_tool: "edit",
-    codexpro_title: "Edit File",
+    codexgpt_tool: "edit",
+    codexgpt_title: "Edit File",
     ok: false,
     data: null,
     error: {

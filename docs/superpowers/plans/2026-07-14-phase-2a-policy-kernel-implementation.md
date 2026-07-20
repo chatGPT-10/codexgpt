@@ -4,7 +4,7 @@
 
 **Goal:** Implement a versioned, deterministic, fail-closed local Policy Kernel with RequestContext/RequestIdentity, conservative compatibility migration, bounded approvals, safe provenance, transport-aware identity, and a central authorization boundary without implementing Phase 2B workspace lifecycle or a production OS sandbox.
 
-**Architecture:** Add focused modules under `src/policy/` that validate and compile Permission Profile V1 documents into immutable snapshots, normalize tool requests into resource descriptors, evaluate hard policy/scopes/profile/grants deterministically, and return either allow, approval-required, deny, or enforcement-unavailable. Preserve current behavior behind `legacy`, compare decisions in `shadow`, and make `enforce` opt-in; integrate at the registered-tool boundary so direct tools and the `codexpro` supertool share the same policy path.
+**Architecture:** Add focused modules under `src/policy/` that validate and compile Permission Profile V1 documents into immutable snapshots, normalize tool requests into resource descriptors, evaluate hard policy/scopes/profile/grants deterministically, and return either allow, approval-required, deny, or enforcement-unavailable. Preserve current behavior behind `legacy`, compare decisions in `shadow`, and make `enforce` opt-in; integrate at the registered-tool boundary so direct tools and the `codexgpt` supertool share the same policy path.
 
 **Tech Stack:** TypeScript 5.8, Node.js 20+, Zod 3, Node built-ins (`crypto`, `fs`, `path`, `url`, `net`, `async_hooks`), MCP SDK 1.17, native Windows and Ubuntu test matrix.
 
@@ -17,7 +17,7 @@
 - Cloudflare remains DNS/TLS/Tunnel ingress only and is not an authorization or outbound-network enforcement layer.
 - Tool Surface, Policy, Approval, and Sandbox remain separate.
 - Approval cannot exceed hard policy, allowed roots, identity scopes, Permission Profile, or deployment capability ceilings.
-- `CODEXPRO_POLICY_ENGINE` accepts exactly `legacy`, `shadow`, or `enforce`; the migration-cycle default is `legacy`.
+- `CODEXGPT_POLICY_ENGINE` accepts exactly `legacy`, `shadow`, or `enforce`; the migration-cycle default is `legacy`.
 - Existing `toolMode`, `writeMode`, and `bashMode` remain readable for at least one migration cycle.
 - Production policy failures occur before the existing Phase 1 tool result envelope; return an MCP tool-error result with `isError: true`, bounded text, no `structuredContent`, and a non-enumerable internal brand. Do not add policy codes to all twenty-eight Phase 1 output schemas.
 - Query-token and Bearer modes are shared-secret identities, not human subjects.
@@ -69,13 +69,13 @@ Modify:
 - `src/http.ts` — strict admin-profile fields, authentication-mode capture, and session context source.
 - `src/stdio.ts` — process-lifetime STDIO session context source.
 - `src/server.ts` — inject policy runtime and run one registration-finalization wrapper.
-- `src/codexproSupertool.ts` — propagate branded policy failures without converting them into `CHILD_RESULT_INVALID`.
+- `src/codexgptSupertool.ts` — propagate branded policy failures without converting them into `CHILD_RESULT_INVALID`.
 - `src/tools/schemas/serverConfig.ts` — expose safe policy mode/profile/revision/capability summary.
-- `src/selfTestOps.ts` and `src/tools/schemas/codexproSelfTest.ts` — add bounded policy diagnostics without changing source files during probes.
+- `src/selfTestOps.ts` and `src/tools/schemas/codexgptSelfTest.ts` — add bounded policy diagnostics without changing source files during probes.
 - `src/toolCardWidget.ts` — display safe policy mode/revision and enforcement status.
 - `scripts/stress-contract-compat.mjs` — add exact fail-closed Windows-safe policy fixtures; keep `scripts/stress.mjs` unchanged.
 - `config.example.env`, `README.md`, `README_ZH.md`, `SECURITY.md`, `FAQ.md`, `FAQ_ZH.md` — exact migration and security-claim documentation.
-- `Memory.md`, `AGENTS.md`, `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, `docs/memory/archive/policy-kernel-gate.md` — implementation status and verification evidence.
+- `Memory.md`, `AGENTS.md`, `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, `docs/memory/archive/policy-kernel-gate.md` — implementation status and verification evidence.
 
 ---
 
@@ -238,7 +238,7 @@ Use `show_changes` for only the three Task 1 files. Do not stage or commit witho
 - Test: `test/policy-profile-store.test.mjs`
 
 **Interfaces:**
-- Consumes: `permissionProfileDocumentV1Schema`, `codexProHome()`, native realpath, SHA-256.
+- Consumes: `permissionProfileDocumentV1Schema`, `CodexGPTHome()`, native realpath, SHA-256.
 - Produces:
   - `permissionDir(): string`
   - `permissionProfilePath(id: string): string`
@@ -279,11 +279,11 @@ Expected: FAIL because the profile store is absent.
 ```ts
 const PROFILE_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
-export function permissionDir(home = codexProHome()): string {
+export function permissionDir(home = CodexGPTHome()): string {
   return path.join(home, "permissions");
 }
 
-export function permissionProfilePath(id: string, home = codexProHome()): string {
+export function permissionProfilePath(id: string, home = CodexGPTHome()): string {
   if (!PROFILE_ID.test(id)) throw new PolicyConfigError("Invalid permission profile id.");
   return path.join(permissionDir(home), `${id}.json`);
 }
@@ -701,7 +701,7 @@ Confirm no grant can mean “all Bash” or survive a session/policy revision ch
 - Test: `test/policy-identity-context.test.mjs`
 
 **Interfaces:**
-- Consumes: `codexProHome()`, Node `crypto`, transport facts, scopes, profile/snapshot revisions.
+- Consumes: `CodexGPTHome()`, Node `crypto`, transport facts, scopes, profile/snapshot revisions.
 - Produces:
   - `loadOrCreateIdentityKey(options?): Buffer`
   - `credentialRef(rawCredential, key): string`
@@ -746,7 +746,7 @@ Expected: FAIL because identity/context modules are absent.
 ```ts
 const IDENTITY_KEY_BYTES = 32;
 
-export function identityKeyPath(home = codexProHome()): string {
+export function identityKeyPath(home = CodexGPTHome()): string {
   return path.join(home, "policy", "identity-hmac.key");
 }
 
@@ -773,7 +773,7 @@ If concurrent creation wins elsewhere, reopen and validate the existing file. Ne
 ```ts
 export function credentialRef(rawCredential: string, key: Buffer): string {
   const digest = createHmac("sha256", key)
-    .update("codexpro/request-identity/v1\0", "utf8")
+    .update("codexgpt/request-identity/v1\0", "utf8")
     .update(rawCredential, "utf8")
     .digest();
   return `cred_${base32Lower(digest).slice(0, 26)}`;
@@ -835,7 +835,7 @@ Search changed files for `Authorization`, `Cookie`, and synthetic raw secret val
 - Adjacent tests: `test/server-config-contract.test.mjs`, `test/http-security.test.mjs`, `test/cli-hostname-propagation.test.mjs`
 
 **Interfaces:**
-- Consumes: `CodexProConfig`, `WorkspaceProfile`, current blocked globs, current modes.
+- Consumes: `CodexGPTConfig`, `WorkspaceProfile`, current blocked globs, current modes.
 - Produces:
   - `policyEngineMode: "legacy" | "shadow" | "enforce"`
   - `permissionProfileId?: string`
@@ -863,7 +863,7 @@ test("toolMode is absent from permission rules", () => {
 });
 
 test("invalid policy engine value fails closed instead of using legacy", () => {
-  assert.throws(() => loadConfigWith({ CODEXPRO_POLICY_ENGINE: "permit" }), /POLICY_ENGINE/);
+  assert.throws(() => loadConfigWith({ CODEXGPT_POLICY_ENGINE: "permit" }), /POLICY_ENGINE/);
 });
 ```
 
@@ -881,16 +881,16 @@ export type PolicyEngineMode = "legacy" | "shadow" | "enforce";
 function policyEngineModeFrom(value: string | undefined): PolicyEngineMode {
   if (value === undefined || value === "") return "legacy";
   if (value === "legacy" || value === "shadow" || value === "enforce") return value;
-  throw new Error("CODEXPRO_POLICY_ENGINE must be legacy, shadow, or enforce.");
+  throw new Error("CODEXGPT_POLICY_ENGINE must be legacy, shadow, or enforce.");
 }
 ```
 
-Add `policyEngineMode` and optional `permissionProfileId` to `CodexProConfig`, `WorkspaceProfile`, `RuntimeConnection`, admin profile validation, and sanitized profile output. Profile IDs use the exact 1–64 lowercase-safe syntax from Task 2.
+Add `policyEngineMode` and optional `permissionProfileId` to `CodexGPTConfig`, `WorkspaceProfile`, `RuntimeConnection`, admin profile validation, and sanitized profile output. Profile IDs use the exact 1–64 lowercase-safe syntax from Task 2.
 
 - [x] **Step 4: Implement compatibility compilation**
 
 ```ts
-export function compileCompatibilityProfile(config: CodexProConfig): PermissionProfileDocumentV1 {
+export function compileCompatibilityProfile(config: CodexGPTConfig): PermissionProfileDocumentV1 {
   const rules: FilesystemRuleV1[] = compatibilityDenyRules(config.blockedGlobs);
   if (config.writeMode === "handoff") {
     rules.push({ id: "compat.write.handoff", selector: { kind: "subtree", path: config.contextDir }, access: "write" });
@@ -978,7 +978,7 @@ Expected: FAIL because modules are absent.
 export function baselineNodeCapabilityReport(platform: NodeJS.Platform): SandboxCapabilityReportV1 {
   return sandboxCapabilityReportV1Schema.parse({
     schemaVersion: 1,
-    backendId: "codexpro-node-broker",
+    backendId: "codexgpt-node-broker",
     backendVersion: "1",
     platform,
     filesystemReadBoundary: "brokered",
@@ -1061,9 +1061,9 @@ Confirm no capability report claims untested OS isolation.
 - Create: `src/policy/toolPolicy.ts`
 - Create: `src/policy/integration.ts`
 - Modify: `src/server.ts`
-- Modify: `src/codexproSupertool.ts`
+- Modify: `src/codexgptSupertool.ts`
 - Test: `test/policy-integration.test.mjs`
-- Adjacent tests: `test/codexpro-contract.test.mjs`, `test/read-contract.test.mjs`, `test/write-contract.test.mjs`, `test/git-status-contract.test.mjs`, `test/bash-contract.test.mjs`
+- Adjacent tests: `test/codexgpt-contract.test.mjs`, `test/read-contract.test.mjs`, `test/write-contract.test.mjs`, `test/git-status-contract.test.mjs`, `test/bash-contract.test.mjs`
 
 **Interfaces:**
 - Consumes: registered-tool map, `RequestContext`, evaluator, resource builders, grants, capability report.
@@ -1079,7 +1079,7 @@ Confirm no capability report claims untested OS isolation.
 test("enforce denies the same read through direct and supertool paths", async () => {
   await withPolicyClient({ engine: "enforce", profile: denyAllProfile() }, async (client) => {
     const direct = await client.callTool({ name: "read", arguments: { path: "README.md" } });
-    const wrapped = await client.callTool({ name: "codexpro", arguments: { action: "read", args: { path: "README.md" } } });
+    const wrapped = await client.callTool({ name: "codexgpt", arguments: { action: "read", args: { path: "README.md" } } });
     assert.equal(direct.isError, true);
     assert.equal(wrapped.isError, true);
     assert.equal(direct.structuredContent, undefined);
@@ -1093,7 +1093,7 @@ test("legacy mode preserves existing exact tool envelopes", async () => {
   await withPolicyClient({ engine: "legacy" }, async (client) => {
     const result = await client.callTool({ name: "read", arguments: { path: "README.md", end_line: 1 } });
     assert.ok(result.structuredContent);
-    assert.equal(result.structuredContent.codexpro_tool, "read");
+    assert.equal(result.structuredContent.codexgpt_tool, "read");
   });
 });
 
@@ -1135,13 +1135,13 @@ Provide explicit definitions for every registered canonical direct tool. Read-on
 - [x] **Step 4: Implement branded policy failures without changing Phase 1 schemas**
 
 ```ts
-const POLICY_FAILURE = Symbol("codexpro.policy.failure");
+const POLICY_FAILURE = Symbol("codexgpt.policy.failure");
 
 export function createPolicyToolFailure(decision: PolicyDecisionV1): ToolCallResult {
   const result: ToolCallResult = {
     content: [{
       type: "text",
-      text: `CodexPro policy refused this operation.\nCode: ${decision.reasonCode}\nPolicy revision: ${safeId(decision.policyRevision)}`
+      text: `CodexGPT policy refused this operation.\nCode: ${decision.reasonCode}\nPolicy revision: ${safeId(decision.policyRevision)}`
     }],
     isError: true
   };
@@ -1180,7 +1180,7 @@ In `shadow`, always call the original handler and record comparison only. In `le
 
 - [x] **Step 6: Preserve policy failures through the supertool**
 
-Immediately after the child handler returns in `src/codexproSupertool.ts`, add:
+Immediately after the child handler returns in `src/codexgptSupertool.ts`, add:
 
 ```ts
 if (isPolicyToolFailure(childResult)) return childResult;
@@ -1190,11 +1190,11 @@ Import `isPolicyToolFailure` from `./policy/integration.js`. This prevents conve
 
 - [x] **Step 7: Install integration after all direct tools and supertool metadata are registered**
 
-In `createCodexProServer`, build the `PolicyRuntime` from injected dependencies/config and call `installPolicyKernel(server, policyRuntime)` exactly once after tool registration and `upgradeCodexProSupertool`. Do not add per-handler policy branches.
+In `createCodexGPTServer`, build the `PolicyRuntime` from injected dependencies/config and call `installPolicyKernel(server, policyRuntime)` exactly once after tool registration and `upgradeCodexGPTSupertool`. Do not add per-handler policy branches.
 
 - [x] **Step 8: Run focused and adjacent tests**
 
-Run: `node --test test/policy-integration.test.mjs test/codexpro-contract.test.mjs test/read-contract.test.mjs test/write-contract.test.mjs test/git-status-contract.test.mjs test/bash-contract.test.mjs`
+Run: `node --test test/policy-integration.test.mjs test/codexgpt-contract.test.mjs test/read-contract.test.mjs test/write-contract.test.mjs test/git-status-contract.test.mjs test/bash-contract.test.mjs`
 
 Expected: PASS. Legacy Phase 1 envelopes remain exact.
 
@@ -1250,7 +1250,7 @@ Expected: FAIL because transport sources are not wired.
 After a Token match, set a bounded request-local fact:
 
 ```ts
-res.locals.codexproAuthenticationMode = tokenMatches(bearer) ? "bearer" : "query_token";
+res.locals.codexgptAuthenticationMode = tokenMatches(bearer) ? "bearer" : "query_token";
 ```
 
 Do not store the bearer/query value in `locals`. For the accepted configured shared secret, derive `credentialRef` from `config.authToken` and the local identity key only when creating a new MCP server session.
@@ -1259,13 +1259,13 @@ Do not store the bearer/query value in `locals`. For the accepted configured sha
 
 ```ts
 const policySession = createHttpPolicySessionSource({
-  authenticationMode: res.locals.codexproAuthenticationMode,
+  authenticationMode: res.locals.codexgptAuthenticationMode,
   configuredCredential: config.authToken,
   transportSessionId: () => String((transport as { sessionId?: string }).sessionId ?? "pending"),
   scopes: policyIdentityScopes(config)
 });
 
-const server = createCodexProServer(config, {
+const server = createCodexGPTServer(config, {
   ...dependencies,
   policySessionContextSource: policySession
 });
@@ -1280,7 +1280,7 @@ const policySession = createStdioPolicySessionSource({
   sessionId: randomUUID(),
   scopes: policyIdentityScopes(config)
 });
-const server = createCodexProServer(config, { policySessionContextSource: policySession });
+const server = createCodexGPTServer(config, { policySessionContextSource: policySession });
 ```
 
 - [x] **Step 6: Run focused and adjacent tests**
@@ -1304,12 +1304,12 @@ Verify HTTP logs still use `req.path`, not credential-bearing URLs, and no Token
 **Files:**
 - Modify: `src/tools/schemas/serverConfig.ts`
 - Modify: `src/selfTestOps.ts`
-- Modify: `src/tools/schemas/codexproSelfTest.ts`
+- Modify: `src/tools/schemas/codexgptSelfTest.ts`
 - Modify: `src/toolCardWidget.ts`
 - Create: `scripts/policy-windows-spike.mjs`
 - Create: `test/policy-windows-spike.test.mjs`
 - Modify: `scripts/stress-contract-compat.mjs`
-- Adjacent tests: `test/server-config-contract.test.mjs`, `test/codexpro-self-test-contract.test.mjs`
+- Adjacent tests: `test/server-config-contract.test.mjs`, `test/codexgpt-self-test-contract.test.mjs`
 
 **Interfaces:**
 - Consumes: safe runtime summary, capability report, synthetic fixture root.
@@ -1323,7 +1323,7 @@ test("server_config exposes only safe policy summary", () => {
   data.policyEngineMode = "shadow";
   data.permissionProfileId = "compat-v1";
   data.policyRevision = "policy_0123456789abcdef";
-  data.enforcement = { backendId: "codexpro-node-broker", evidenceRevision: "node-broker-v1" };
+  data.enforcement = { backendId: "codexgpt-node-broker", evidenceRevision: "node-broker-v1" };
   const parsed = serverConfigOutputSchema.parse(createServerConfigSuccess(data));
   assert.equal(JSON.stringify(parsed).includes("identity-hmac.key"), false);
 });
@@ -1342,7 +1342,7 @@ test("Windows spike uses synthetic roots and never accesses real user secrets", 
 
 - [x] **Step 3: Run RED tests**
 
-Run: `node --test test/policy-windows-spike.test.mjs test/server-config-contract.test.mjs test/codexpro-self-test-contract.test.mjs`
+Run: `node --test test/policy-windows-spike.test.mjs test/server-config-contract.test.mjs test/codexgpt-self-test-contract.test.mjs`
 
 Expected: FAIL because safe policy fields and spike module are absent.
 
@@ -1392,11 +1392,11 @@ policy_identity
 policy_enforcement
 ```
 
-A failed probe is diagnostic `warn` or `fail` according to existing self-test semantics; it does not write source files. The only optional write remains `.ai-bridge/codexpro-self-test.md`.
+A failed probe is diagnostic `warn` or `fail` according to existing self-test semantics; it does not write source files. The only optional write remains `.ai-bridge/codexgpt-self-test.md`.
 
 - [x] **Step 7: Run focused and adjacent tests**
 
-Run: `node --test test/policy-windows-spike.test.mjs test/server-config-contract.test.mjs test/codexpro-self-test-contract.test.mjs`
+Run: `node --test test/policy-windows-spike.test.mjs test/server-config-contract.test.mjs test/codexgpt-self-test-contract.test.mjs`
 
 Expected: PASS.
 
@@ -1425,7 +1425,7 @@ Confirm no system setting, real credential, registry value, firewall rule, servi
 - Modify: `FAQ_ZH.md`
 - Modify: `AGENTS.md`
 - Modify: `Memory.md`
-- Modify: `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- Modify: `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - Modify: `docs/memory/archive/policy-kernel-gate.md`
 
 **Interfaces:**
@@ -1438,16 +1438,16 @@ Add these examples without real credentials:
 
 ```env
 # Migration-cycle default: current behavior.
-CODEXPRO_POLICY_ENGINE=legacy
+CODEXGPT_POLICY_ENGINE=legacy
 
 # Compute redacted policy comparisons while preserving legacy execution.
-# CODEXPRO_POLICY_ENGINE=shadow
+# CODEXGPT_POLICY_ENGINE=shadow
 
 # Enforce the compiled Policy Kernel. Unsupported enforcement fails closed.
-# CODEXPRO_POLICY_ENGINE=enforce
+# CODEXGPT_POLICY_ENGINE=enforce
 
-# Optional exact local Permission Profile id under ~/.codexpro/permissions/.
-# CODEXPRO_PERMISSION_PROFILE=review
+# Optional exact local Permission Profile id under ~/.codexgpt/permissions/.
+# CODEXGPT_PERMISSION_PROFILE=review
 ```
 
 Document that `toolMode` controls visibility only, shared Tokens are not human identities, safe Bash is not a sandbox, Job Objects do not isolate files/network, and Cloudflare does not control outbound execution.
@@ -1476,7 +1476,7 @@ Expected: all policy tests pass with zero failures.
 
 Run:
 
-`node --test test/path-policy.test.mjs test/http-security.test.mjs test/server-config-contract.test.mjs test/codexpro-contract.test.mjs test/codexpro-self-test-contract.test.mjs test/read-contract.test.mjs test/write-contract.test.mjs test/edit-contract.test.mjs test/apply-patch-contract.test.mjs test/git-status-contract.test.mjs test/git-diff-contract.test.mjs test/bash-contract.test.mjs`
+`node --test test/path-policy.test.mjs test/http-security.test.mjs test/server-config-contract.test.mjs test/codexgpt-contract.test.mjs test/codexgpt-self-test-contract.test.mjs test/read-contract.test.mjs test/write-contract.test.mjs test/edit-contract.test.mjs test/apply-patch-contract.test.mjs test/git-status-contract.test.mjs test/git-diff-contract.test.mjs test/bash-contract.test.mjs`
 
 Expected: all pass; platform-specific established skips remain explicit.
 
@@ -1536,7 +1536,7 @@ Use `show_changes` for the complete exact scope. Do not stage, commit, push, or 
 ## Plan Self-Review Results
 
 - Spec coverage: all approved Gate deliverables map to Tasks 1–12, including identity, profile Schema, hard policy, deterministic composition, approval/grants, enforcement capabilities, resource models, provenance/audit, migration, Windows spike, threat limits, tests, and rollback.
-- Boundary coverage: direct tools and the `codexpro` supertool share the registered-tool wrapper; policy refusal does not mutate the twenty-eight Phase 1 output schemas.
+- Boundary coverage: direct tools and the `codexgpt` supertool share the registered-tool wrapper; policy refusal does not mutate the twenty-eight Phase 1 output schemas.
 - Type consistency: `PolicyEngineMode`, `PolicyOutcome`, `PolicyReasonCode`, `RiskClass`, scope names, resource kinds, and capability names are defined once in Task 1 and reused unchanged.
 - Migration safety: `legacy` remains default, `shadow` cannot change execution, `enforce` fails closed, and compatibility compilation cannot add an allow absent from current supported behavior.
 - Scope safety: Phase 2B, Phase 3 persistence/transactions, Phase 4 process/sandbox implementation, Phase 6 trust, Phase 7 semantic providers, Phase 8 OAuth, and Phase 9 subagents remain excluded.

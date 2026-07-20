@@ -7,7 +7,7 @@
 
 ## 1. Security objective
 
-CodexPro is a self-hosted local development bridge. Cloudflare may provide DNS, TLS, and Tunnel ingress, but local authorization and execution boundaries must remain enforceable on the Windows host.
+CodexGPT is a self-hosted local development bridge. Cloudflare may provide DNS, TLS, and Tunnel ingress, but local authorization and execution boundaries must remain enforceable on the Windows host.
 
 The Windows enforcement objective is:
 
@@ -93,7 +93,7 @@ Every operation declares required capabilities. Examples:
 
 ```text
 Node-hosted bounded file read
-  filesystemReadBoundary may be brokered by the CodexPro process
+  filesystemReadBoundary may be brokered by the CodexGPT process
   no child process required
 
 Opaque Shell verification command
@@ -282,7 +282,7 @@ Cloudflare Tunnel protects inbound exposure and TLS routing. It does not enforce
 
 The spike may evaluate combinations of:
 
-- a brokered file-operation model inside the CodexPro Node process;
+- a brokered file-operation model inside the CodexGPT Node process;
 - restricted Windows access tokens;
 - AppContainer or comparable Windows isolation primitives;
 - Job Objects for process lifecycle;
@@ -414,7 +414,7 @@ Production rollback may disable the backend and narrow affected capabilities. It
 
 ## 18. Security claims explicitly prohibited
 
-Until capability-specific evidence passes, CodexPro must not claim:
+Until capability-specific evidence passes, CodexGPT must not claim:
 
 - complete Windows sandboxing;
 - filesystem isolation from a Job Object;

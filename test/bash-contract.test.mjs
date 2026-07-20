@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { createBashEnvironment } = await tsImport("../src/bashOps.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
@@ -20,7 +20,7 @@ const {
 function sampleBashData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     command: "npm run build",
     cwd: ".",
     exitCode: 0,
@@ -159,15 +159,15 @@ test("bash success constructor produces the strict schema-v1 envelope", () => {
   const parsed = bashOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "bash");
-  assert.equal(parsed.codexpro_title, "Bash");
+  assert.equal(parsed.codexgpt_tool, "bash");
+  assert.equal(parsed.codexgpt_title, "Bash");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleBashData());
@@ -349,7 +349,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 
 async function withInMemoryClient(options, callback) {
   const root = options.root ?? process.cwd();
-  const server = createCodexProServer(
+  const server = createCodexGPTServer(
     createTestConfig(root, options.configOverrides ?? {}),
     options.dependencies ?? {}
   );
@@ -369,7 +369,7 @@ async function withInMemoryClient(options, callback) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-bash-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-bash-contract-"));
   const root = await fs.realpath(created);
   try {
     await fs.mkdir(path.join(root, ".git"), { recursive: true });
@@ -416,7 +416,7 @@ function providerResult(overrides = {}) {
     exitCode: 0,
     signal: null,
     durationMs: 4,
-    stdout: "D:/Dev/codexpro\n",
+    stdout: "D:/Dev/codexgpt\n",
     stderr: "",
     truncated: false,
     ...overrides
@@ -436,7 +436,7 @@ test("bash advertises an exact output schema and returns nested execution data",
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
 
       const result = await client.callTool({
@@ -650,14 +650,14 @@ test("bash Tool Card consumes nested data and stable failures", () => {
   assert.match(toolCardWidgetHtml, /tool === "bash"\) \{\s*root\.innerHTML = renderBash\(data\)/);
 });
 
-test("codexpro wrapper action bash preserves strict success and failure envelopes", async () => {
+test("codexgpt wrapper action bash preserves strict success and failure envelopes", async () => {
   await withTempWorkspace(async (root) => {
     await withInMemoryClient({
       root,
       dependencies: { bashResultProvider: async () => providerResult() }
     }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: {
           action: "bash",
           args: { command: "pwd" }
@@ -665,9 +665,9 @@ test("codexpro wrapper action bash preserves strict success and failure envelope
       });
       const structured = result.structuredContent;
 
-      assert.equal(structured.codexpro_tool, "bash");
-      assert.equal(structured.codexpro_title, "Bash");
-      assert.equal(structured.codexpro_super_action, "bash");
+      assert.equal(structured.codexgpt_tool, "bash");
+      assert.equal(structured.codexgpt_title, "Bash");
+      assert.equal(structured.codexgpt_super_action, "bash");
       assert.equal(structured.wrapped_tool, "bash");
       assert.equal(structured.ok, true);
       assert.equal(structured.error, null);
@@ -686,7 +686,7 @@ test("codexpro wrapper action bash preserves strict success and failure envelope
       }
     }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: {
           action: "bash",
           args: { command: "pwd" }
@@ -695,8 +695,8 @@ test("codexpro wrapper action bash preserves strict success and failure envelope
       const structured = result.structuredContent;
 
       assert.equal(result.isError, true);
-      assert.equal(structured.codexpro_tool, "bash");
-      assert.equal(structured.codexpro_super_action, "bash");
+      assert.equal(structured.codexgpt_tool, "bash");
+      assert.equal(structured.codexgpt_super_action, "bash");
       assert.equal(structured.wrapped_tool, "bash");
       assert.equal(structured.ok, false);
       assert.equal(structured.data, null);

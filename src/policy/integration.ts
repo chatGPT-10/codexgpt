@@ -112,11 +112,11 @@ export interface PolicyRuntime {
     | Promise<PersistedExecutionAuditEvidenceV2 | void>;
 }
 
-const POLICY_FAILURE = Symbol("codexpro.policy.failure");
-const POLICY_WRAPPED_HANDLER = Symbol("codexpro.policy.wrapped-handler");
+const POLICY_FAILURE = Symbol("codexgpt.policy.failure");
+const POLICY_WRAPPED_HANDLER = Symbol("codexgpt.policy.wrapped-handler");
 const installedServers = new WeakSet<object>();
-const AUTHORIZED_RESOURCE = Symbol.for("codexpro.policy.authorized-resource");
-const AUTHORIZATION_V4 = Symbol.for("codexpro.policy.authorization-v4");
+const AUTHORIZED_RESOURCE = Symbol.for("codexgpt.policy.authorized-resource");
+const AUTHORIZATION_V4 = Symbol.for("codexgpt.policy.authorization-v4");
 
 export function authorizedResourceFingerprint(args: object): string | null {
   return (args as Record<symbol, unknown>)[AUTHORIZED_RESOURCE] as string ?? null;
@@ -179,7 +179,7 @@ export function createPolicyToolFailure(
     ? [
         `Approval ID: ${safeId(localApproval.approvalId, "approval-unavailable")}`,
         `Server: ${safeId(localApproval.serverId, "server-unavailable")}`,
-        `Next: codexpro approvals list --server ${safeId(localApproval.serverId, "server-unavailable")}`,
+        `Next: codexgpt approvals list --server ${safeId(localApproval.serverId, "server-unavailable")}`,
         "After a local decision, retry the identical operation."
       ]
     : [];
@@ -187,7 +187,7 @@ export function createPolicyToolFailure(
     content: [{
       type: "text",
       text: [
-        "CodexPro policy refused this operation.",
+        "CodexGPT policy refused this operation.",
         `Code: ${reasonCode}`,
         `Policy revision: ${policyRevision}`,
         ...approvalLines
@@ -220,7 +220,7 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
   const candidate = server as Partial<ServerWithRegisteredTools>;
   const tools = candidate._registeredTools;
   if (!tools || typeof tools !== "object") {
-    throw new Error("CodexPro server does not expose a registered-tool map for Policy Kernel installation.");
+    throw new Error("CodexGPT server does not expose a registered-tool map for Policy Kernel installation.");
   }
   if (installedServers.has(server as object)) {
     throw new Error("Policy Kernel is already installed on this server.");
@@ -231,7 +231,7 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
       [POLICY_WRAPPED_HANDLER]?: true;
     };
     if (
-      toolName === "codexpro" ||
+      toolName === "codexgpt" ||
       entry.enabled === false ||
       registered[POLICY_WRAPPED_HANDLER] === true
     ) continue;

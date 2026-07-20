@@ -196,7 +196,7 @@ test("Gate S projection never maps non-Windows or malformed evidence to full acc
 });
 
 test("Gate S protected-path selection never widens a missing exact target to its parent", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-phase4b0-paths-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-phase4b0-paths-"));
   try {
     const first = path.join(root, "first-exact-target");
     const second = path.join(root, "second-exact-target");

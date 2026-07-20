@@ -14,16 +14,16 @@ const {
 } = await tsImport("../src/profileStore.ts", import.meta.url);
 
 const ENV_KEYS = [
-  "CODEXPRO_ROOT",
-  "CODEXPRO_ALLOWED_ROOTS",
-  "CODEXPRO_ALLOW_HOME",
-  "CODEXPRO_POLICY_ENGINE",
-  "CODEXPRO_PERMISSION_PROFILE",
-  "CODEXPRO_BASH_MODE",
-  "CODEXPRO_WRITE_MODE",
-  "CODEXPRO_TOOL_MODE",
-  "CODEXPRO_BLOCKED_GLOBS",
-  "CODEXPRO_HOME"
+  "CODEXGPT_ROOT",
+  "CODEXGPT_ALLOWED_ROOTS",
+  "CODEXGPT_ALLOW_HOME",
+  "CODEXGPT_POLICY_ENGINE",
+  "CODEXGPT_PERMISSION_PROFILE",
+  "CODEXGPT_BASH_MODE",
+  "CODEXGPT_WRITE_MODE",
+  "CODEXGPT_TOOL_MODE",
+  "CODEXGPT_BLOCKED_GLOBS",
+  "CODEXGPT_HOME"
 ];
 
 function withEnv(values, callback) {
@@ -130,30 +130,30 @@ test("compatibility compiler preserves non-hard blocked globs and excludes hard 
 });
 
 test("loadConfig defaults to legacy and accepts exact shadow/enforce values", () => {
-  withEnv({ CODEXPRO_ROOT: process.cwd() }, () => {
+  withEnv({ CODEXGPT_ROOT: process.cwd() }, () => {
     assert.equal(loadConfig([]).policyEngineMode, "legacy");
   });
-  withEnv({ CODEXPRO_ROOT: process.cwd(), CODEXPRO_POLICY_ENGINE: "shadow" }, () => {
+  withEnv({ CODEXGPT_ROOT: process.cwd(), CODEXGPT_POLICY_ENGINE: "shadow" }, () => {
     assert.equal(loadConfig([]).policyEngineMode, "shadow");
   });
-  withEnv({ CODEXPRO_ROOT: process.cwd(), CODEXPRO_POLICY_ENGINE: "enforce" }, () => {
+  withEnv({ CODEXGPT_ROOT: process.cwd(), CODEXGPT_POLICY_ENGINE: "enforce" }, () => {
     assert.equal(loadConfig([]).policyEngineMode, "enforce");
   });
 });
 
 test("invalid policy engine or permission profile id fails closed", () => {
-  withEnv({ CODEXPRO_ROOT: process.cwd(), CODEXPRO_POLICY_ENGINE: "permit" }, () => {
-    assert.throws(() => loadConfig([]), /CODEXPRO_POLICY_ENGINE/);
+  withEnv({ CODEXGPT_ROOT: process.cwd(), CODEXGPT_POLICY_ENGINE: "permit" }, () => {
+    assert.throws(() => loadConfig([]), /CODEXGPT_POLICY_ENGINE/);
   });
-  withEnv({ CODEXPRO_ROOT: process.cwd(), CODEXPRO_PERMISSION_PROFILE: "../escape" }, () => {
-    assert.throws(() => loadConfig([]), /CODEXPRO_PERMISSION_PROFILE/);
+  withEnv({ CODEXGPT_ROOT: process.cwd(), CODEXGPT_PERMISSION_PROFILE: "../escape" }, () => {
+    assert.throws(() => loadConfig([]), /CODEXGPT_PERMISSION_PROFILE/);
   });
 });
 
 test("runtime profile persists policy mode and permission-profile reference without secret expansion", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-policy-profile-home-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-policy-profile-home-"));
   try {
-    withEnv({ CODEXPRO_HOME: home }, () => {
+    withEnv({ CODEXGPT_HOME: home }, () => {
       saveWorkspaceProfile(process.cwd(), {
         policyEngine: "shadow",
         permissionProfile: "review",

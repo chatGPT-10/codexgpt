@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { CodexProConfig } from "../config.js";
+import type { CodexGPTConfig } from "../config.js";
 import { authorizedResourceFingerprint, type ResourceResolutionResult, type ToolResourceResolver } from "../policy/integration.js";
 import type { ResourceDescriptorV1 } from "../policy/types.js";
 import { semanticDigest } from "../policy/authorizationFacts.js";
@@ -67,7 +67,7 @@ export interface PersistentVerificationResourceFactsV4 {
 }
 
 export interface RunCommandRuntimeV3Options {
-  config: Pick<CodexProConfig, "executionProfile" | "defaultRoot" | "toolContractVersion">;
+  config: Pick<CodexGPTConfig, "executionProfile" | "defaultRoot" | "toolContractVersion">;
   fullAccessProfile: FullAccessProfileV3;
   hostRuntime: Pick<WindowsProcessHostRuntime, "get">;
   contextFingerprint: () => string;
@@ -313,7 +313,7 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
       const schema = this.#options.config.toolContractVersion === 4
         ? runCommandOutputSchemaV4
         : runCommandOutputSchema;
-      const structured = schema.parse({ codexpro_tool: "run_command", codexpro_title: "Run Command", ok: true, data, error: null, meta: createToolMeta(this.#now() - started, [FULL_ACCESS_PROCESS_WARNING_V3]) }) as Record<string, unknown>;
+      const structured = schema.parse({ codexgpt_tool: "run_command", codexgpt_title: "Run Command", ok: true, data, error: null, meta: createToolMeta(this.#now() - started, [FULL_ACCESS_PROCESS_WARNING_V3]) }) as Record<string, unknown>;
       attachExecutionAuditFacts(structured, {
         resultCode: status === "exited" && exitCode === 0 ? "OK" : "COMMAND_FAILED",
         exitCode,
@@ -390,7 +390,7 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
     const schema = this.toolContractVersion === 4
       ? readProcessOutputOutputSchemaV4
       : readProcessOutputOutputSchema;
-    return schema.parse({ codexpro_tool: "read_process_output", codexpro_title: "Read Process Output", ok: true, data, error: null, meta: createToolMeta() }) as Record<string, unknown>;
+    return schema.parse({ codexgpt_tool: "read_process_output", codexgpt_title: "Read Process Output", ok: true, data, error: null, meta: createToolMeta() }) as Record<string, unknown>;
   }
 
   #page(record: TerminalRecord, cursor: { sequence: number; offset: number }, maxBytes: number) {

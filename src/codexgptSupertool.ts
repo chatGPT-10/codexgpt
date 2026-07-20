@@ -2,32 +2,32 @@ import { z } from "zod";
 import type { ToolContractVersion } from "./config.js";
 import { isPolicyToolFailure } from "./policy/integration.js";
 import {
-  CANONICAL_CODEXPRO_CHILD_TOOLS,
-  CANONICAL_CODEXPRO_CHILD_TOOLS_V2,
-  CANONICAL_CODEXPRO_CHILD_TOOLS_V3,
-  CANONICAL_CODEXPRO_CHILD_TOOLS_V4,
-  CODEXPRO_ERROR_MESSAGES,
-  codexproOutputShape,
-  codexproOutputShapeV2,
-  codexproOutputShapeV3,
-  codexproOutputShapeV4,
-  createCodexProFailure,
-  createCodexProFailureV2,
-  createCodexProFailureV3,
-  createCodexProFailureV4,
-  createCodexProListActionsSuccess,
-  createCodexProListActionsSuccessV2,
-  createCodexProListActionsSuccessV3,
-  createCodexProListActionsSuccessV4,
-  resolveCodexProAction,
-  resolveCodexProActionV2,
-  resolveCodexProActionV3,
-  resolveCodexProActionV4,
-  wrapCodexProChildResult,
-  wrapCodexProChildResultV2,
-  wrapCodexProChildResultV3,
-  wrapCodexProChildResultV4
-} from "./tools/schemas/codexpro.js";
+  CANONICAL_CODEXGPT_CHILD_TOOLS,
+  CANONICAL_CODEXGPT_CHILD_TOOLS_V2,
+  CANONICAL_CODEXGPT_CHILD_TOOLS_V3,
+  CANONICAL_CODEXGPT_CHILD_TOOLS_V4,
+  CODEXGPT_ERROR_MESSAGES,
+  codexgptOutputShape,
+  codexgptOutputShapeV2,
+  codexgptOutputShapeV3,
+  codexgptOutputShapeV4,
+  createCodexGPTFailure,
+  createCodexGPTFailureV2,
+  createCodexGPTFailureV3,
+  createCodexGPTFailureV4,
+  createCodexGPTListActionsSuccess,
+  createCodexGPTListActionsSuccessV2,
+  createCodexGPTListActionsSuccessV3,
+  createCodexGPTListActionsSuccessV4,
+  resolveCodexGPTAction,
+  resolveCodexGPTActionV2,
+  resolveCodexGPTActionV3,
+  resolveCodexGPTActionV4,
+  wrapCodexGPTChildResult,
+  wrapCodexGPTChildResultV2,
+  wrapCodexGPTChildResultV3,
+  wrapCodexGPTChildResultV4
+} from "./tools/schemas/codexgpt.js";
 
 interface ToolCallResult {
   content?: Array<{ type: string; text?: string; [key: string]: unknown }>;
@@ -79,23 +79,23 @@ interface SupertoolContract {
   wrap: WrapFactory;
 }
 
-const canonicalToolsV1 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS);
-const canonicalToolsV2 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V2);
-const canonicalToolsV3 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V3);
-const canonicalToolsV4 = new Set<string>(CANONICAL_CODEXPRO_CHILD_TOOLS_V4);
+const canonicalToolsV1 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS);
+const canonicalToolsV2 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V2);
+const canonicalToolsV3 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V3);
+const canonicalToolsV4 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V4);
 const v2OnlyTools = new Set<string>(
-  CANONICAL_CODEXPRO_CHILD_TOOLS_V2.filter((name) => !canonicalToolsV1.has(name))
+  CANONICAL_CODEXGPT_CHILD_TOOLS_V2.filter((name) => !canonicalToolsV1.has(name))
 );
 
-const codexproInputSchema = z.object({
+const codexgptInputSchema = z.object({
   action: z.string().min(1),
   args: z.record(z.unknown()).optional()
 }).strict();
 
-const codexproAdvertisedOutputSchema = z.object(codexproOutputShape).strict();
-const codexproAdvertisedOutputSchemaV2 = z.object(codexproOutputShapeV2).strict();
-const codexproAdvertisedOutputSchemaV3 = z.object(codexproOutputShapeV3).strict();
-const codexproAdvertisedOutputSchemaV4 = z.object(codexproOutputShapeV4).strict();
+const codexgptAdvertisedOutputSchema = z.object(codexgptOutputShape).strict();
+const codexgptAdvertisedOutputSchemaV2 = z.object(codexgptOutputShapeV2).strict();
+const codexgptAdvertisedOutputSchemaV3 = z.object(codexgptOutputShapeV3).strict();
+const codexgptAdvertisedOutputSchemaV4 = z.object(codexgptOutputShapeV4).strict();
 
 function elapsedMs(startedAt: number): number {
   return Math.max(0, Date.now() - startedAt);
@@ -109,41 +109,41 @@ function contractFor(
   if (requestedVersion === 4) {
     return {
       canonicalTools: canonicalToolsV4,
-      outputSchema: codexproAdvertisedOutputSchemaV4,
-      createFailure: createCodexProFailureV4 as unknown as FailureFactory,
-      createList: createCodexProListActionsSuccessV4 as unknown as ListFactory,
-      resolve: resolveCodexProActionV4 as ResolveFactory,
-      wrap: wrapCodexProChildResultV4 as unknown as WrapFactory
+      outputSchema: codexgptAdvertisedOutputSchemaV4,
+      createFailure: createCodexGPTFailureV4 as unknown as FailureFactory,
+      createList: createCodexGPTListActionsSuccessV4 as unknown as ListFactory,
+      resolve: resolveCodexGPTActionV4 as ResolveFactory,
+      wrap: wrapCodexGPTChildResultV4 as unknown as WrapFactory
     };
   }
   if (requestedVersion === 3) {
     return {
       canonicalTools: canonicalToolsV3,
-      outputSchema: codexproAdvertisedOutputSchemaV3,
-      createFailure: createCodexProFailureV3 as unknown as FailureFactory,
-      createList: createCodexProListActionsSuccessV3 as unknown as ListFactory,
-      resolve: resolveCodexProActionV3 as ResolveFactory,
-      wrap: wrapCodexProChildResultV3 as unknown as WrapFactory
+      outputSchema: codexgptAdvertisedOutputSchemaV3,
+      createFailure: createCodexGPTFailureV3 as unknown as FailureFactory,
+      createList: createCodexGPTListActionsSuccessV3 as unknown as ListFactory,
+      resolve: resolveCodexGPTActionV3 as ResolveFactory,
+      wrap: wrapCodexGPTChildResultV3 as unknown as WrapFactory
     };
   }
   const useV2 = requestedVersion === 2 || (requestedVersion === undefined && inferredV2);
   if (useV2) {
     return {
       canonicalTools: canonicalToolsV2,
-      outputSchema: codexproAdvertisedOutputSchemaV2,
-      createFailure: createCodexProFailureV2 as unknown as FailureFactory,
-      createList: createCodexProListActionsSuccessV2 as unknown as ListFactory,
-      resolve: resolveCodexProActionV2 as ResolveFactory,
-      wrap: wrapCodexProChildResultV2 as unknown as WrapFactory
+      outputSchema: codexgptAdvertisedOutputSchemaV2,
+      createFailure: createCodexGPTFailureV2 as unknown as FailureFactory,
+      createList: createCodexGPTListActionsSuccessV2 as unknown as ListFactory,
+      resolve: resolveCodexGPTActionV2 as ResolveFactory,
+      wrap: wrapCodexGPTChildResultV2 as unknown as WrapFactory
     };
   }
   return {
     canonicalTools: canonicalToolsV1,
-    outputSchema: codexproAdvertisedOutputSchema,
-    createFailure: createCodexProFailure as unknown as FailureFactory,
-    createList: createCodexProListActionsSuccess as unknown as ListFactory,
-    resolve: resolveCodexProAction as ResolveFactory,
-    wrap: wrapCodexProChildResult as unknown as WrapFactory
+    outputSchema: codexgptAdvertisedOutputSchema,
+    createFailure: createCodexGPTFailure as unknown as FailureFactory,
+    createList: createCodexGPTListActionsSuccess as unknown as ListFactory,
+    resolve: resolveCodexGPTAction as ResolveFactory,
+    wrap: wrapCodexGPTChildResult as unknown as WrapFactory
   };
 }
 
@@ -159,11 +159,11 @@ function wrapperFailureResult(
     : "INTERNAL_ERROR";
   const message = error && typeof error === "object" && "message" in error && typeof error.message === "string"
     ? error.message
-    : CODEXPRO_ERROR_MESSAGES.INTERNAL_ERROR;
+    : CODEXGPT_ERROR_MESSAGES.INTERNAL_ERROR;
   return {
     content: [{
       type: "text",
-      text: `CodexPro action failed.\nCode: ${code}\n${message}`
+      text: `CodexGPT action failed.\nCode: ${code}\n${message}`
     }],
     structuredContent,
     isError: true
@@ -175,11 +175,11 @@ function registeredCanonicalTools(
   canonicalTools: ReadonlySet<string>
 ): string[] {
   const names = Object.keys(tools).filter(
-    (name) => name !== "codexpro" && tools[name]?.enabled !== false
+    (name) => name !== "codexgpt" && tools[name]?.enabled !== false
   );
   for (const name of names) {
     if (!canonicalTools.has(name)) {
-      throw new Error("Registered tool is outside the closed CodexPro child set.");
+      throw new Error("Registered tool is outside the closed CodexGPT child set.");
     }
   }
   return names.sort();
@@ -187,7 +187,7 @@ function registeredCanonicalTools(
 
 function stripLegacyWrapperFields(value: Record<string, unknown>): Record<string, unknown> {
   const {
-    codexpro_super_action: _action,
+    codexgpt_super_action: _action,
     wrapped_tool: _wrappedTool,
     ...child
   } = value;
@@ -210,27 +210,27 @@ function actionNames(structuredContent: Record<string, unknown>): string[] {
     : [];
 }
 
-export function upgradeCodexProSupertool(
+export function upgradeCodexGPTSupertool(
   server: unknown,
   contractVersion?: ToolContractVersion
 ): void {
   const candidate = server as Partial<ServerWithRegisteredTools>;
   const tools = candidate._registeredTools;
   if (!tools || typeof tools !== "object") {
-    throw new Error("CodexPro server does not expose a registered-tool map.");
+    throw new Error("CodexGPT server does not expose a registered-tool map.");
   }
-  const supertool = tools.codexpro;
+  const supertool = tools.codexgpt;
   if (!supertool) return;
   if (typeof supertool.handler !== "function") {
-    throw new Error("CodexPro supertool registration is unavailable.");
+    throw new Error("CodexGPT supertool registration is unavailable.");
   }
   const contract = contractFor(tools, contractVersion);
 
-  supertool.title = "CodexPro Supertool";
+  supertool.title = "CodexGPT Supertool";
   supertool.description =
-    "Stable closed-world wrapper for already-registered CodexPro tools. " +
+    "Stable closed-world wrapper for already-registered CodexGPT tools. " +
     "Call list_actions first; aliases cannot bypass the current tool, write, Bash, analysis, or Codex Session gates.";
-  supertool.inputSchema = codexproInputSchema;
+  supertool.inputSchema = codexgptInputSchema;
   supertool.outputSchema = contract.outputSchema;
   supertool.annotations = {
     ...(supertool.annotations ?? {}),
@@ -259,7 +259,7 @@ export function upgradeCodexProSupertool(
         return {
           content: [{
             type: "text",
-            text: `Available CodexPro actions (${actionCount(structuredContent)}):\n` +
+            text: `Available CodexGPT actions (${actionCount(structuredContent)}):\n` +
               actionNames(structuredContent).join("\n")
           }],
           structuredContent

@@ -40,7 +40,7 @@ async function freePort() {
 
 test("doctor reports an unavailable Bash executable before command execution", () => {
   const result = runDoctor(["--no-profile"], {
-    CODEXPRO_DOCTOR_BASH_COMMAND: "codexpro-definitely-missing-bash-command"
+    CODEXGPT_DOCTOR_BASH_COMMAND: "codexgpt-definitely-missing-bash-command"
   });
   const output = `${result.stdout}\n${result.stderr}`;
 
@@ -55,7 +55,7 @@ test("doctor reports an unavailable Bash executable before command execution", (
 
 test("doctor does not require a Bash executable when Bash mode is off", () => {
   const result = runDoctor(["--no-bash"], {
-    CODEXPRO_DOCTOR_BASH_COMMAND: "codexpro-definitely-missing-bash-command"
+    CODEXGPT_DOCTOR_BASH_COMMAND: "codexgpt-definitely-missing-bash-command"
   });
   const output = `${result.stdout}\n${result.stderr}`;
 
@@ -64,8 +64,8 @@ test("doctor does not require a Bash executable when Bash mode is off", () => {
 });
 
 test("doctor inherits Bash off from the saved workspace profile", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-doctor-root-"));
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-doctor-home-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-doctor-root-"));
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-doctor-home-"));
 
   try {
     const realRoot = fsSync.realpathSync.native(root);
@@ -81,8 +81,8 @@ test("doctor inherits Bash off from the saved workspace profile", async () => {
     }), "utf8");
 
     const result = runDoctor(["--root", realRoot], {
-      CODEXPRO_HOME: home,
-      CODEXPRO_DOCTOR_BASH_COMMAND: "codexpro-definitely-missing-bash-command"
+      CODEXGPT_HOME: home,
+      CODEXGPT_DOCTOR_BASH_COMMAND: "codexgpt-definitely-missing-bash-command"
     });
     const output = `${result.stdout}\n${result.stderr}`;
 
@@ -96,8 +96,8 @@ test("doctor inherits Bash off from the saved workspace profile", async () => {
 });
 
 test("full doctor --no-profile skips saved profile validation", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-doctor-no-profile-root-"));
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-doctor-no-profile-home-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-doctor-no-profile-root-"));
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-doctor-no-profile-home-"));
 
   try {
     const realRoot = fsSync.realpathSync.native(root);
@@ -119,8 +119,8 @@ test("full doctor --no-profile skips saved profile validation", async () => {
       "--tunnel", "none",
       "--no-bash"
     ], {
-      CODEXPRO_HOME: home,
-      CODEXPRO_DOCTOR_BASH_COMMAND: "codexpro-definitely-missing-bash-command"
+      CODEXGPT_HOME: home,
+      CODEXGPT_DOCTOR_BASH_COMMAND: "codexgpt-definitely-missing-bash-command"
     });
     const output = `${result.stdout}\n${result.stderr}`;
 
@@ -145,7 +145,7 @@ test("full doctor preserves the caller workspace when --root is omitted", async 
     cwd: callerRoot,
     env: {
       ...process.env,
-      CODEXPRO_DOCTOR_BASH_COMMAND: "codexpro-definitely-missing-bash-command"
+      CODEXGPT_DOCTOR_BASH_COMMAND: "codexgpt-definitely-missing-bash-command"
     },
     encoding: "utf8",
     windowsHide: true

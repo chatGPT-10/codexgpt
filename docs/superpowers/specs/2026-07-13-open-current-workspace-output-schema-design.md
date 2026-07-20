@@ -6,7 +6,7 @@ Status: Published and cross-platform CI-validated; implementation `d887849`, fin
 
 ## 1. Goal
 
-Migrate only the direct `open_current_workspace` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexpro` wrapper compatibility.
+Migrate only the direct `open_current_workspace` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexgpt` wrapper compatibility.
 
 The slice preserves the current configured-default-workspace workflow, deterministic workspace identifier, optional compact tree, optional workspace/global skill discovery, root AGENTS discovery, Git status and recent-commit human summary, current tool-mode registration, and existing Windows path and allowed-root policies.
 
@@ -14,7 +14,7 @@ This slice stabilizes the protocol around the existing workspace-opening impleme
 
 ## 2. Why `open_current_workspace` is the recommended next slice
 
-The first eleven Phase 1 slices stabilize configuration plus the core inspect, search, edit, Git-review, patch, and verification path. `open_current_workspace` is now the highest-value unmigrated direct tool because the server instructions require it at the start of every normal CodexPro session, and it is exposed in minimal, standard, and full tool modes.
+The first eleven Phase 1 slices stabilize configuration plus the core inspect, search, edit, Git-review, patch, and verification path. `open_current_workspace` is now the highest-value unmigrated direct tool because the server instructions require it at the start of every normal CodexGPT session, and it is exposed in minimal, standard, and full tool modes.
 
 Stabilizing it now gives every new session a trustworthy entry contract before lower-frequency inventory, handoff, snapshot, or optional Codex-session tools are migrated.
 
@@ -61,7 +61,7 @@ This is rejected because `list_workspaces` is full-mode only and `read_handoff` 
 - Stable safe public failure codes and fixed messages.
 - Existing human-readable workspace summary, including recent commits in MCP text only.
 - Dedicated nested-envelope handling in the shared workspace Tool Card renderer without changing unmigrated workspace tools.
-- `codexpro` supertool `open` alias compatibility.
+- `codexgpt` supertool `open` alias compatibility.
 - Focused `node:test` contract coverage.
 - Smoke, HTTP Smoke, and Stress updates only where they inspect the old flat structured result.
 - Documentation, changelog, project memory, and active Phase 1 archive updates during implementation.
@@ -80,7 +80,7 @@ This is rejected because `list_workspaces` is full-mode only and `read_handoff` 
 
 ## 4. Result semantics
 
-`ok` answers whether CodexPro opened the configured default root and produced a valid, internally consistent workspace summary.
+`ok` answers whether CodexGPT opened the configured default root and produced a valid, internally consistent workspace summary.
 
 - `ok: true`: the default workspace was opened and all structured fields passed strict validation.
 - `ok: false`: the configured default root could not be opened safely, or the summary/provider result could not be trusted.
@@ -93,12 +93,12 @@ Optional tree and skill discovery are request-controlled data, not separate tool
 
 ```json
 {
-  "codexpro_tool": "open_current_workspace",
-  "codexpro_title": "Open Current Workspace",
+  "codexgpt_tool": "open_current_workspace",
+  "codexgpt_title": "Open Current Workspace",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "agents_loaded": true,
     "agents_path": "AGENTS.md",
     "skills": ["brainstorming"],
@@ -188,7 +188,7 @@ Add:
 
 ```ts
 export interface OpenCurrentWorkspaceSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: {
@@ -200,7 +200,7 @@ export interface OpenCurrentWorkspaceSummaryProviderContext {
 }
 ```
 
-Extend `CodexProServerDependencies` with:
+Extend `CodexGPTServerDependencies` with:
 
 ```ts
 openCurrentWorkspaceSummaryProvider?: (
@@ -248,8 +248,8 @@ Malformed provider results or any identity, path, count, inclusion, or cross-fie
 
 ```json
 {
-  "codexpro_tool": "open_current_workspace",
-  "codexpro_title": "Open Current Workspace",
+  "codexgpt_tool": "open_current_workspace",
+  "codexgpt_title": "Open Current Workspace",
   "ok": false,
   "data": null,
   "error": {
@@ -309,7 +309,7 @@ The direct handler catches every failure and maps it as follows:
 - filesystem open/realpath failures with expected access or transient operating-system codes such as `EACCES`, `EPERM`, or `EBUSY`, when no more specific classification applies -> `WORKSPACE_OPEN_FAILED`;
 - malformed provider data, workspace/root mismatch, unsafe or non-normalized AGENTS path, skill-name/count mismatch, request-inclusion mismatch, unexpected summary exception, and unclassified conditions -> `INTERNAL_ERROR`.
 
-Classification may inspect current internal `CodexProError` prefixes and Node error codes, but only fixed public messages and strict details leave the handler. This slice does not create a project-wide typed workspace error hierarchy or modify `WorkspaceManager` and `workspaceSummary` algorithms.
+Classification may inspect current internal `CodexGPTError` prefixes and Node error codes, but only fixed public messages and strict details leave the handler. This slice does not create a project-wide typed workspace error hierarchy or modify `WorkspaceManager` and `workspaceSummary` algorithms.
 
 ## 10. Handler flow
 
@@ -337,7 +337,7 @@ Successful MCP text remains the current workspace summary:
 # Workspace
 
 Workspace: ws_...
-Root: D:\Dev\codexpro
+Root: D:\Dev\codexgpt
 Bash mode: full
 Write mode: workspace
 Tool mode: standard
@@ -377,7 +377,7 @@ The shared workspace Tool Card currently reads flat fields for `open_current_wor
 - update the subtitle logic using the same compatibility normalization;
 - preserve bounded tree, skill, root, workspace-id, mode, AGENTS, and Git-status rendering.
 
-The `codexpro` supertool `open` alias continues to preserve the child structured result and adds only wrapper identity fields. It must not flatten `data`, overwrite `ok/error/meta`, or restore legacy top-level workspace fields.
+The `codexgpt` supertool `open` alias continues to preserve the child structured result and adds only wrapper identity fields. It must not flatten `data`, overwrite `ok/error/meta`, or restore legacy top-level workspace fields.
 
 ## 13. Contract tests
 
@@ -406,7 +406,7 @@ Add `test/open-current-workspace-contract.test.mjs` covering at least:
 21. human success content retains Git status/recent commits and optional tree behavior;
 22. failure content contains only the fixed code and message;
 23. Tool Card renders the nested direct result while unmigrated workspace cards remain compatible;
-24. the `codexpro` `open` alias preserves the nested child envelope.
+24. the `codexgpt` `open` alias preserves the nested child envelope.
 
 Update existing Smoke, HTTP Smoke, and Stress assertions from flat fields such as `structuredContent.root`, `tool_mode`, `skills`, and `skill_inventory` to `structuredContent.data.*` only for direct or wrapped `open_current_workspace` results.
 

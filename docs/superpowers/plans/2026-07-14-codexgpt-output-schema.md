@@ -1,8 +1,8 @@
-# `codexpro` Supertool Output Schema Implementation Plan
+# `codexgpt` Supertool Output Schema Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give the final Phase 1 advertised tool, `codexpro`, an exact schema-v1 contract while preserving transparent child-tool semantics and every effective registration gate.
+**Goal:** Give the final Phase 1 advertised tool, `codexgpt`, an exact schema-v1 contract while preserving transparent child-tool semantics and every effective registration gate.
 
 **Architecture:** Add one focused schema contract module for canonical actions, aliases, child output-schema lookup, constructors, and wrapped-child validation, plus one isolated runtime upgrader for the MCP SDK registration seam. Keep `src/server.ts` changes to one import and one post-registration upgrade call; derive `list_actions` and dispatch availability from the same live enabled direct-handler map.
 
@@ -21,25 +21,25 @@
 
 ## File map
 
-- Create `src/tools/schemas/codexpro.ts`: canonical tool/action identifiers, aliases, exact child schema map, wrapper schemas, constructors, and validation helpers.
-- Create `test/codexpro-contract.test.mjs`: focused pure-schema, descriptor, routing, alias, gate, failure, Tool Card, compatibility, and source-integrity tests.
-- Create `src/codexproSupertool.ts`: isolate the MCP SDK registered-tool seam, advertise the exact wrapper descriptor, derive enabled actions, validate child input/output, invoke the live registered target handler directly, and preserve child results.
+- Create `src/tools/schemas/codexgpt.ts`: canonical tool/action identifiers, aliases, exact child schema map, wrapper schemas, constructors, and validation helpers.
+- Create `test/codexgpt-contract.test.mjs`: focused pure-schema, descriptor, routing, alias, gate, failure, Tool Card, compatibility, and source-integrity tests.
+- Create `src/codexgptSupertool.ts`: isolate the MCP SDK registered-tool seam, advertise the exact wrapper descriptor, derive enabled actions, validate child input/output, invoke the live registered target handler directly, and preserve child results.
 - Modify `src/server.ts`: import and invoke the runtime upgrader only after all direct tools are registered.
 - Modify `src/toolCardWidget.ts`: render wrapper-owned action inventory and stable wrapper failures while preserving child renderers.
 - Modify `scripts/smoke-platform-compat.mjs`: exact count-locked in-memory migration of protected flat `actions` consumers.
 - Create `scripts/stress-contract-compat.mjs` and modify `package.json`: migrate the protected secret-fixture Stress source in memory without weakening content protection.
-- Modify `CHANGELOG.md`, `Memory.md`, `AGENTS.md`, `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`, `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, and `docs/memory/archive/phase-1-part-9.md`: reconcile Slice 28 and Phase 1 local completion.
+- Modify `CHANGELOG.md`, `Memory.md`, `AGENTS.md`, `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`, `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, and `docs/memory/archive/phase-1-part-9.md`: reconcile Slice 28 and Phase 1 local completion.
 
 ---
 
 ### Task 1: Lock inventory and executable RED baseline
 
 **Files:**
-- Create: `test/codexpro-contract.test.mjs`
+- Create: `test/codexgpt-contract.test.mjs`
 - Read: `src/server.ts`, child schema modules, current Smoke/Stress consumers
 
 **Interfaces:**
-- Consumes: `createCodexProServer(config, dependencies)` and MCP `tools/list`/`tools/call`.
+- Consumes: `createCodexGPTServer(config, dependencies)` and MCP `tools/list`/`tools/call`.
 - Produces: a focused failing suite whose groups map one-to-one to Tasks 2–5.
 
 - [x] **Step 1: Add test helpers**
@@ -51,15 +51,15 @@ Create a native `node:test` file with `createTestConfig`, in-memory MCP client s
 Assert the future module exports:
 
 ```text
-CODEXPRO_ACTION_ALIASES
-CODEXPRO_ERROR_MESSAGES
-CANONICAL_CODEXPRO_CHILD_TOOLS
-codexproOutputSchema
-codexproOutputShape
-createCodexProListActionsSuccess
-createCodexProFailure
-resolveCodexProAction
-wrapCodexProChildResult
+CODEXGPT_ACTION_ALIASES
+CODEXGPT_ERROR_MESSAGES
+CANONICAL_CODEXGPT_CHILD_TOOLS
+codexgptOutputSchema
+codexgptOutputShape
+createCodexGPTListActionsSuccess
+createCodexGPTFailure
+resolveCodexGPTAction
+wrapCodexGPTChildResult
 ```
 
 Cover sorted/unique actions, count equality, no recursive target, fixed failure details, strict additional-field rejection, alias resolution, and malformed child rejection.
@@ -77,7 +77,7 @@ Cover Tool Card routing, protected Smoke source hashes/unchanged content, exact 
 Run:
 
 ```text
-node --test test/codexpro-contract.test.mjs
+node --test test/codexgpt-contract.test.mjs
 ```
 
 Expected: failures caused by the missing schema module, flat `list_actions`, absent advertised output schema, legacy wrapper failures, and unmigrated consumers.
@@ -87,25 +87,25 @@ Expected: failures caused by the missing schema module, flat `list_actions`, abs
 ### Task 2: Implement the exact schema and pure wrapper helpers
 
 **Files:**
-- Create: `src/tools/schemas/codexpro.ts`
-- Test: `test/codexpro-contract.test.mjs`
+- Create: `src/tools/schemas/codexgpt.ts`
+- Test: `test/codexgpt-contract.test.mjs`
 
 **Interfaces:**
 - Consumes: every child module's exported `*OutputShape` and `*OutputSchema`, plus `createToolMeta`, `toolErrorSchema`, and `toolMetaSchema`.
 - Produces:
-  - `CanonicalCodexProChildTool`;
-  - `CodexProAction`;
-  - `CODEXPRO_ACTION_ALIASES`;
-  - `CANONICAL_CODEXPRO_CHILD_TOOLS`;
-  - `resolveCodexProAction(action)`;
-  - `createCodexProListActionsSuccess(actions, durationMs)`;
-  - `createCodexProFailure(failure, durationMs)`;
-  - `wrapCodexProChildResult(action, wrappedTool, childStructuredContent)`;
-  - `codexproOutputShape` and `codexproOutputSchema`.
+  - `CanonicalCodexGPTChildTool`;
+  - `CodexGPTAction`;
+  - `CODEXGPT_ACTION_ALIASES`;
+  - `CANONICAL_CODEXGPT_CHILD_TOOLS`;
+  - `resolveCodexGPTAction(action)`;
+  - `createCodexGPTListActionsSuccess(actions, durationMs)`;
+  - `createCodexGPTFailure(failure, durationMs)`;
+  - `wrapCodexGPTChildResult(action, wrappedTool, childStructuredContent)`;
+  - `codexgptOutputShape` and `codexgptOutputSchema`.
 
 - [x] **Step 1: Define canonical tools and aliases**
 
-Use frozen literal data. Canonical tools are all Phase 1 direct tools except `codexpro`; aliases are exactly the eight approved mappings.
+Use frozen literal data. Canonical tools are all Phase 1 direct tools except `codexgpt`; aliases are exactly the eight approved mappings.
 
 - [x] **Step 2: Define wrapper-owned data and error schemas**
 
@@ -116,7 +116,7 @@ Implement strict `list_actions` data, fixed errors, six-field envelope, and cros
 For each canonical child, combine its exported exact output shape with:
 
 ```text
-codexpro_super_action
+codexgpt_super_action
 wrapped_tool
 ```
 
@@ -131,7 +131,7 @@ Normalize public action strings to bounded control-safe one-line values only for
 Run:
 
 ```text
-node --test --test-name-pattern="schema|constructor|alias|wrapped child" test/codexpro-contract.test.mjs
+node --test --test-name-pattern="schema|constructor|alias|wrapped child" test/codexgpt-contract.test.mjs
 npm run build
 ```
 
@@ -142,9 +142,9 @@ Expected: pure-contract group and Build pass; MCP/consumer groups remain RED.
 ### Task 3: Migrate server registration and dispatch
 
 **Files:**
-- Create: `src/codexproSupertool.ts`
+- Create: `src/codexgptSupertool.ts`
 - Modify: `src/server.ts`
-- Test: `test/codexpro-contract.test.mjs`
+- Test: `test/codexgpt-contract.test.mjs`
 
 **Interfaces:**
 - Consumes: Task 2 exports and the server's existing registered direct-handler/input-schema map.
@@ -154,13 +154,13 @@ Expected: pure-contract group and Build pass; MCP/consumer groups remain RED.
 
 Run the descriptor/routing subset before source edits and confirm expected RED behavior.
 
-- [x] **Step 2: Advertise `codexproOutputShape`**
+- [x] **Step 2: Advertise `codexgptOutputShape`**
 
 Keep the existing input and annotations. Add the exact output shape to registration.
 
 - [x] **Step 3: Derive `list_actions` from registered canonical handlers**
 
-Exclude `codexpro` and any entry with `enabled=false`; sort canonical names; do not list aliases.
+Exclude `codexgpt` and any entry with `enabled=false`; sort canonical names; do not list aliases.
 
 - [x] **Step 4: Resolve and gate canonical/alias dispatch**
 
@@ -172,14 +172,14 @@ Convert the direct-handler/MCP validation family into `ACTION_ARGUMENTS_INVALID`
 
 - [x] **Step 6: Validate and wrap child results**
 
-Use `wrapCodexProChildResult`; preserve `content` and `isError`; map malformed child structured content to `CHILD_RESULT_INVALID`.
+Use `wrapCodexGPTChildResult`; preserve `content` and `isError`; map malformed child structured content to `CHILD_RESULT_INVALID`.
 
 - [x] **Step 7: Run focused MCP tests and Build**
 
 Run:
 
 ```text
-node --test --test-name-pattern="descriptor|list_actions|canonical|alias|disabled|arguments|child result" test/codexpro-contract.test.mjs
+node --test --test-name-pattern="descriptor|list_actions|canonical|alias|disabled|arguments|child result" test/codexgpt-contract.test.mjs
 npm run build
 ```
 
@@ -194,7 +194,7 @@ Expected: server behavior group passes; consumer/source group remains RED.
 - Modify: `scripts/smoke-platform-compat.mjs`
 - Create: `scripts/stress-contract-compat.mjs`
 - Modify: `package.json`
-- Test: `test/codexpro-contract.test.mjs`
+- Test: `test/codexgpt-contract.test.mjs`
 
 **Interfaces:**
 - Consumes: wrapper-owned six-field envelope and transparent child result.
@@ -202,7 +202,7 @@ Expected: server behavior group passes; consumer/source group remains RED.
 
 - [x] **Step 1: Add wrapper-owned Card renderer**
 
-Render `data.action_count`, a bounded preview of `data.actions`, and fixed error code/message. Do not intercept child results because they retain the child's `codexpro_tool`.
+Render `data.action_count`, a bounded preview of `data.actions`, and fixed error code/message. Do not intercept child results because they retain the child's `codexgpt_tool`.
 
 - [x] **Step 2: Migrate protected main Smoke in memory**
 
@@ -217,7 +217,7 @@ Transform only the exact protected Stress consumers in memory to use `data.actio
 Run:
 
 ```text
-node --test test/codexpro-contract.test.mjs
+node --test test/codexgpt-contract.test.mjs
 npm run build
 node scripts/smoke-platform-compat.mjs
 node scripts/http-smoke-compat.mjs
@@ -231,7 +231,7 @@ Expected: focused suite, protected compatibility, native Stress, and Build pass.
 ### Task 5: Adversarial hardening
 
 **Files:**
-- Modify as required: `src/tools/schemas/codexpro.ts`, `src/codexproSupertool.ts`, `src/server.ts`, `test/codexpro-contract.test.mjs`
+- Modify as required: `src/tools/schemas/codexgpt.ts`, `src/codexgptSupertool.ts`, `src/server.ts`, `test/codexgpt-contract.test.mjs`
 
 **Interfaces:**
 - Consumes: complete focused implementation.
@@ -243,13 +243,13 @@ Cover at least:
 
 ```text
 alias target absent from registered map
-child codexpro_tool differs from wrapped_tool
+child codexgpt_tool differs from wrapped_tool
 child output contains wrapper fields already
 child output has extra or legacy flat fields
 unsorted/duplicate/recursive list action input
 control characters and very long unknown action
 malformed child output containing private diagnostics
-attempted action "codexpro"
+attempted action "codexgpt"
 legacy wrapper delegation instead of direct invocation of the registered target handler
 ```
 
@@ -258,7 +258,7 @@ legacy wrapper delegation instead of direct invocation of the registered target 
 Run:
 
 ```text
-node --test --test-name-pattern="hardening|drift|control|recursive|registered target handler" test/codexpro-contract.test.mjs
+node --test --test-name-pattern="hardening|drift|control|recursive|registered target handler" test/codexgpt-contract.test.mjs
 ```
 
 Expected: deliberate new tests fail for the intended missing safeguards.
@@ -272,8 +272,8 @@ Keep fixes inside the wrapper schema/router boundary. Do not weaken child schema
 Run:
 
 ```text
-node --test test/codexpro-contract.test.mjs
-node --test test/server-config-contract.test.mjs test/codexpro-self-test-contract.test.mjs test/codexpro-inventory-contract.test.mjs test/codex-sessions-contract.test.mjs test/read-codex-session-contract.test.mjs
+node --test test/codexgpt-contract.test.mjs
+node --test test/server-config-contract.test.mjs test/codexgpt-self-test-contract.test.mjs test/codexgpt-inventory-contract.test.mjs test/codex-sessions-contract.test.mjs test/read-codex-session-contract.test.mjs
 npm run build
 ```
 
@@ -332,7 +332,7 @@ Use `show_changes` once for final review. Fix defects through a new failing regr
 - Modify: `Memory.md`
 - Modify: `AGENTS.md`
 - Modify: `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
-- Modify: `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- Modify: `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - Modify: `docs/memory/archive/phase-1-part-9.md`
 - Modify: this plan checklist
 
@@ -362,7 +362,7 @@ Do not stage, commit, push, or run exact-head CI in this task. Report the exact 
 
 ## Final local evidence
 
-- Focused `codexpro`: 13/13 pass.
+- Focused `codexgpt`: 13/13 pass.
 - Adjacent aggregation: 87/87 pass.
 - Complete regression: 456/456 pass.
 - TypeScript Build: pass.

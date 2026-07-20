@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { loadConfig, assertToolContractConfiguration } from "../dist/config.js";
-import { createCodexProServer } from "../dist/server.js";
+import { createCodexGPTServer } from "../dist/server.js";
 import * as contracts from "../dist/tools/contracts/index.js";
 
 function withEnv(changes, action) {
@@ -23,10 +23,10 @@ function withEnv(changes, action) {
 
 function config(changes = {}, argv = ["--bash", "off", "--write", "off"]) {
   return withEnv({
-    CODEXPRO_TOOL_CONTRACT_VERSION: undefined,
-    CODEXPRO_FILE_TRANSACTIONS: undefined,
-    CODEXPRO_AUDIT_MODE: undefined,
-    CODEXPRO_POLICY_ENGINE: undefined,
+    CODEXGPT_TOOL_CONTRACT_VERSION: undefined,
+    CODEXGPT_FILE_TRANSACTIONS: undefined,
+    CODEXGPT_AUDIT_MODE: undefined,
+    CODEXGPT_POLICY_ENGINE: undefined,
     ...changes
   }, () => loadConfig(argv));
 }
@@ -54,11 +54,11 @@ const V3_ADDITIONS = Object.freeze([
 
 test("contract V3 parses explicitly while V1 remains the default", () => {
   assert.equal(config().toolContractVersion, 1);
-  assert.equal(config({ CODEXPRO_TOOL_CONTRACT_VERSION: "3" }).toolContractVersion, 3);
+  assert.equal(config({ CODEXGPT_TOOL_CONTRACT_VERSION: "3" }).toolContractVersion, 3);
   assert.equal(config({}, ["--bash", "off", "--write", "off", "--tool-contract-version", "3"]).toolContractVersion, 3);
   assert.throws(
-    () => config({ CODEXPRO_TOOL_CONTRACT_VERSION: "5" }),
-    /CODEXPRO_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4/
+    () => config({ CODEXGPT_TOOL_CONTRACT_VERSION: "5" }),
+    /CODEXGPT_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4/
   );
 });
 
@@ -96,10 +96,10 @@ test("V3 profile projection is descriptor-driven and keeps inherited V2 capabili
 
 test("V3 startup fails closed unless enforce, required durable audit, stable session, atomic readers, and migration gate exist", () => {
   const valid = config({
-    CODEXPRO_TOOL_CONTRACT_VERSION: "3",
-    CODEXPRO_FILE_TRANSACTIONS: "atomic",
-    CODEXPRO_AUDIT_MODE: "required",
-    CODEXPRO_POLICY_ENGINE: "enforce"
+    CODEXGPT_TOOL_CONTRACT_VERSION: "3",
+    CODEXGPT_FILE_TRANSACTIONS: "atomic",
+    CODEXGPT_AUDIT_MODE: "required",
+    CODEXGPT_POLICY_ENGINE: "enforce"
   });
   assert.doesNotThrow(() => assertToolContractConfiguration(valid, COMPLETE_V3_CAPABILITIES));
 
@@ -143,18 +143,18 @@ test("legacy shadow and best-effort V3 startup fail before any registered handle
     }
   };
   const cases = [
-    { CODEXPRO_POLICY_ENGINE: "legacy", CODEXPRO_AUDIT_MODE: "required" },
-    { CODEXPRO_POLICY_ENGINE: "shadow", CODEXPRO_AUDIT_MODE: "required" },
-    { CODEXPRO_POLICY_ENGINE: "enforce", CODEXPRO_AUDIT_MODE: "best_effort" }
+    { CODEXGPT_POLICY_ENGINE: "legacy", CODEXGPT_AUDIT_MODE: "required" },
+    { CODEXGPT_POLICY_ENGINE: "shadow", CODEXGPT_AUDIT_MODE: "required" },
+    { CODEXGPT_POLICY_ENGINE: "enforce", CODEXGPT_AUDIT_MODE: "best_effort" }
   ];
   for (const overrides of cases) {
     const invalid = config({
-      CODEXPRO_TOOL_CONTRACT_VERSION: "3",
-      CODEXPRO_FILE_TRANSACTIONS: "atomic",
+      CODEXGPT_TOOL_CONTRACT_VERSION: "3",
+      CODEXGPT_FILE_TRANSACTIONS: "atomic",
       ...overrides
     });
     assert.throws(
-      () => createCodexProServer(invalid, dependencies),
+      () => createCodexGPTServer(invalid, dependencies),
       /Policy Kernel enforce|required durable audit/i
     );
   }
@@ -168,10 +168,10 @@ test("V3 minimal and connection-test projections add no new authority and skip V
     movePathsAvailable: true
   };
   const minimal = config({
-    CODEXPRO_TOOL_CONTRACT_VERSION: "3",
-    CODEXPRO_FILE_TRANSACTIONS: "atomic",
-    CODEXPRO_AUDIT_MODE: "required",
-    CODEXPRO_POLICY_ENGINE: "legacy"
+    CODEXGPT_TOOL_CONTRACT_VERSION: "3",
+    CODEXGPT_FILE_TRANSACTIONS: "atomic",
+    CODEXGPT_AUDIT_MODE: "required",
+    CODEXGPT_POLICY_ENGINE: "legacy"
   }, ["--bash", "off", "--write", "off", "--tool-mode", "minimal"]);
   assert.doesNotThrow(() => assertToolContractConfiguration(minimal, baseCapabilities));
 

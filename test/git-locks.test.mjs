@@ -7,7 +7,7 @@ import { GitLockManager } from "../dist/git/locks.js";
 import { ProcessInstanceRegistry } from "../dist/transactions/workspaceLock.js";
 
 async function withState(callback) {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-locks-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-locks-"));
   const registry = new ProcessInstanceRegistry(stateRoot, { pid: 4242, now: () => 1_700_000_000_000, randomBytes: (size) => Buffer.alloc(size, 1) });
   try {
     await callback({ stateRoot, registry });

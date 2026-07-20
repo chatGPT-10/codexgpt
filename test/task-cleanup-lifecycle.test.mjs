@@ -96,7 +96,7 @@ function tempProbeSource(exitCode = 0) {
 }
 
 test("the generic cleanup runner removes its complete owned TEMP tree on success and failure", async () => {
-  const baseRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-run-"));
+  const baseRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-run-"));
   try {
     for (const expectedExit of [0, 7]) {
       const result = spawnSync(process.execPath, [
@@ -126,7 +126,7 @@ test("the generic cleanup runner removes its complete owned TEMP tree on success
 });
 
 test("the generic cleanup runner removes owned TEMP after a termination signal", async () => {
-  const baseRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-signal-"));
+  const baseRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-signal-"));
   try {
     const source = [
       "const fs = require('node:fs');",
@@ -173,7 +173,7 @@ test("the generic cleanup runner removes owned TEMP after a termination signal",
       } catch {
         // The child may already have exited with its force-terminated parent.
       }
-      const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-signal-runs-"));
+      const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-signal-runs-"));
       try {
         const report = JSON.parse((await executeLongRunner([
           "clean",
@@ -197,8 +197,8 @@ test("the generic cleanup runner removes owned TEMP after a termination signal",
 });
 
 test("detached tasks use an owned TEMP tree and remove it before terminal completion", async () => {
-  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-long-runs-"));
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-long-temp-"));
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-long-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-long-temp-"));
   try {
     const started = JSON.parse((await executeLongRunner([
       "start",
@@ -227,8 +227,8 @@ test("detached tasks use an owned TEMP tree and remove it before terminal comple
 });
 
 test("terminal detached-run evidence is automatically pruned to the configured retention count", async () => {
-  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-retention-"));
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-retention-temp-"));
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-retention-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-retention-temp-"));
   try {
     let latestRunId;
     for (let index = 0; index < 3; index += 1) {
@@ -262,8 +262,8 @@ test("terminal detached-run evidence is automatically pruned to the configured r
 });
 
 test("cleanup prunes terminal legacy run evidence only after direct-child and terminal validation", async () => {
-  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-legacy-runs-"));
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-legacy-temp-"));
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-legacy-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-legacy-temp-"));
   try {
     const runId = "2020-01-01T00-00-00-000Z-legacy-cleanup-aaaaaaaa";
     const directory = path.join(runRoot, runId);
@@ -313,8 +313,8 @@ test("cleanup prunes terminal legacy run evidence only after direct-child and te
 });
 
 test("cleanup preserves malformed legacy metadata instead of exiting or escaping the run root", async () => {
-  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-invalid-runs-"));
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-invalid-temp-"));
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-invalid-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-invalid-temp-"));
   try {
     const entryName = "2020-01-01T00-00-00-000Z-invalid-cleanup-bbbbbbbb";
     const directory = path.join(runRoot, entryName);
@@ -365,8 +365,8 @@ test("cleanup preserves malformed legacy metadata instead of exiting or escaping
 });
 
 test("cleanup binds terminal metadata to its containing run directory", async () => {
-  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-bound-runs-"));
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-bound-temp-"));
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-bound-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-bound-temp-"));
   try {
     const victimRunId = "2021-01-01T00-00-00-000Z-victim-cleanup-cccccccc";
     const attackerEntry = "2020-01-01T00-00-00-000Z-attacker-cleanup-dddddddd";
@@ -426,8 +426,8 @@ test("cleanup binds terminal metadata to its containing run directory", async ()
 });
 
 test("the detached worker rejects a tampered command digest before spawning", async () => {
-  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-digest-runs-"));
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-digest-temp-"));
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-digest-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-digest-temp-"));
   try {
     const runId = "digest-probe";
     const directory = path.join(runRoot, runId);
@@ -460,8 +460,8 @@ test("the detached worker rejects a tampered command digest before spawning", as
 });
 
 test("cleanup recovers a terminal run left in its verified prune claim after an interruption", async () => {
-  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-claim-runs-"));
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-claim-temp-"));
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-claim-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-claim-temp-"));
   try {
     const started = JSON.parse((await executeLongRunner([
       "start",
@@ -478,7 +478,7 @@ test("cleanup recovers a terminal run left in its verified prune claim after an 
     const terminal = await waitForTerminal(runRoot, started.runId);
     assert.equal(terminal.result.exitCode, 0);
 
-    const claimed = path.join(runRoot, `.codexpro-run-prune-${"a".repeat(32)}`);
+    const claimed = path.join(runRoot, `.codexgpt-run-prune-${"a".repeat(32)}`);
     await fs.rename(started.directory, claimed);
     const report = JSON.parse((await executeLongRunner([
       "clean",
@@ -498,14 +498,14 @@ test("cleanup recovers a terminal run left in its verified prune claim after an 
   }
 });
 
-test("the cleanup command removes only exact stale CodexPro-owned roots from the selected TEMP base", async () => {
-  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-command-runs-"));
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-clean-command-temp-"));
+test("the cleanup command removes only exact stale CodexGPT-owned roots from the selected TEMP base", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-command-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-command-temp-"));
   try {
     const abandoned = await createAbandonedOwnedRoot(tempRoot);
     const foreign = path.join(tempRoot, "foreign-application-temp");
     await fs.mkdir(foreign);
-    await fs.writeFile(path.join(foreign, "keep.txt"), "not CodexPro-owned", "utf8");
+    await fs.writeFile(path.join(foreign, "keep.txt"), "not CodexGPT-owned", "utf8");
 
     const report = JSON.parse((await executeLongRunner([
       "clean",
@@ -518,7 +518,7 @@ test("the cleanup command removes only exact stale CodexPro-owned roots from the
     assert.equal(report.staleTemporaryState.removed, 1);
     assert.equal(report.staleTemporaryState.active, 0);
     await assert.rejects(() => fs.lstat(abandoned), { code: "ENOENT" });
-    assert.equal(await fs.readFile(path.join(foreign, "keep.txt"), "utf8"), "not CodexPro-owned");
+    assert.equal(await fs.readFile(path.join(foreign, "keep.txt"), "utf8"), "not CodexGPT-owned");
   } finally {
     await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

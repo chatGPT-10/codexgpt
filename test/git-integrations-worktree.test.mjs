@@ -92,7 +92,7 @@ test("Gate X uses only private checkout hydration for an approved fast-forward m
     const task = fixture.store.read(created.task.task_worktree_id);
     await fs.writeFile(
       path.join(task.privateState.worktreePath, ".gitattributes"),
-      "tracked.txt filter=codexpro\n",
+      "tracked.txt filter=codexgpt\n",
       "utf8"
     );
     runGit(task.privateState.worktreePath, ["add", ".gitattributes"]);
@@ -102,7 +102,7 @@ test("Gate X uses only private checkout hydration for an approved fast-forward m
     const canary = path.resolve("fixtures", "git-canary-child.mjs");
     runGit(fixture.workspace.root, [
       "config",
-      "filter.codexpro.smudge",
+      "filter.codexgpt.smudge",
       `${quote(process.execPath)} ${quote(canary)} ${quote(marker)} checkout`
     ]);
 
@@ -216,10 +216,10 @@ test("Gate X performs divergent custom-driver planning only in object quarantine
     ].join("\n"), { mode: 0o755 });
     runGit(fixture.workspace.root, [
       "config",
-      "merge.codexpro.driver",
+      "merge.codexgpt.driver",
       `${quote(process.execPath)} ${quote(driver)} ${quote(marker)} %A %B`
     ]);
-    runGit(fixture.workspace.root, ["config", "merge.default", "codexpro"]);
+    runGit(fixture.workspace.root, ["config", "merge.default", "codexgpt"]);
 
     const prepareStatus = await integrationStatus(fixture);
     const reviewed = await approvedMerge(fixture, {

@@ -66,7 +66,7 @@ function Invoke-IdentityProbe {
 using System;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
-public static class CodexProSandboxChildIdentity {
+public static class CodexGPTSandboxChildIdentity {
   private const uint TOKEN_QUERY = 0x0008;
   private const int TokenRestrictedSids = 11;
   private const int TokenIntegrityLevel = 25;
@@ -104,7 +104,7 @@ public static class CodexProSandboxChildIdentity {
   }
 }
 "@
-  $identity = [CodexProSandboxChildIdentity]::Read()
+  $identity = [CodexGPTSandboxChildIdentity]::Read()
   Write-ProbeResult ([ordered]@{
     status = "identity"
     classification = "identity"
@@ -131,22 +131,22 @@ function Invoke-Action {
       Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
-public static class CodexProSandboxTokenProbe {
+public static class CodexGPTSandboxTokenProbe {
   [DllImport("kernel32.dll", SetLastError=true)] public static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
   [DllImport("advapi32.dll", SetLastError=true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
   [DllImport("kernel32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool CloseHandle(IntPtr handle);
 }
 "@
-      $process = [CodexProSandboxTokenProbe]::OpenProcess(0x1000, $false, $ParentPid)
+      $process = [CodexGPTSandboxTokenProbe]::OpenProcess(0x1000, $false, $ParentPid)
       if ($process -eq [IntPtr]::Zero) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
       try {
         $token = [IntPtr]::Zero
-        if (-not [CodexProSandboxTokenProbe]::OpenProcessToken($process, 0x0008, [ref]$token)) {
+        if (-not [CodexGPTSandboxTokenProbe]::OpenProcessToken($process, 0x0008, [ref]$token)) {
           throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error())
         }
-        [void][CodexProSandboxTokenProbe]::CloseHandle($token)
+        [void][CodexGPTSandboxTokenProbe]::CloseHandle($token)
       } finally {
-        [void][CodexProSandboxTokenProbe]::CloseHandle($process)
+        [void][CodexGPTSandboxTokenProbe]::CloseHandle($process)
       }
     }
     "unrelated-section" {
@@ -173,7 +173,7 @@ public static class CodexProSandboxTokenProbe {
     "crash-tree" {
       $child = Start-Process -FilePath (Join-Path $env:SystemRoot "System32\cmd.exe") -ArgumentList "/d", "/s", "/c", "ping 127.0.0.1 -n 30 >nul" -WindowStyle Hidden -PassThru
       [System.IO.File]::WriteAllText(($OutputPath + ".childpid"), [string]$child.Id, [System.Text.Encoding]::ASCII)
-      [Environment]::FailFast("CODEXPRO_SANDBOX_CRASH_PROBE")
+      [Environment]::FailFast("CODEXGPT_SANDBOX_CRASH_PROBE")
     }
     default { throw "UNKNOWN_SANDBOX_PROBE_$Probe" }
   }

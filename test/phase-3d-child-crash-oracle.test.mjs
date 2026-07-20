@@ -80,7 +80,7 @@ async function transactionArtifacts(directory) {
   const visit = async (current) => {
     for (const entry of await fsp.readdir(current, { withFileTypes: true })) {
       const absolute = path.join(current, entry.name);
-      if (entry.name.startsWith(".codexpro-txn-")) result.push(absolute);
+      if (entry.name.startsWith(".codexgpt-txn-")) result.push(absolute);
       if (entry.isDirectory() && !entry.isSymbolicLink()) await visit(absolute);
     }
   };
@@ -89,7 +89,7 @@ async function transactionArtifacts(directory) {
 }
 
 async function runFaultOracle(faultPoint, expected) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-phase3d-child-crash-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-phase3d-child-crash-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");
@@ -167,7 +167,7 @@ test("real child-process crashes satisfy the deterministic move state oracle", a
 });
 
 async function runPostDecisionOracle(faultPoint, mode) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-phase3d-post-decision-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-phase3d-post-decision-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");

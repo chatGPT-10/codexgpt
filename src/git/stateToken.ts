@@ -95,7 +95,7 @@ export class GitStateTokenService {
     }
     const nonce = randomBytes(32);
     const mac = createHmac("sha256", this.#key)
-      .update("codexpro.git.state.v1\0")
+      .update("codexgpt.git.state.v1\0")
       .update(nonce)
       .digest();
     const token = `gst_${Buffer.concat([nonce, mac]).toString("base64url")}`;
@@ -144,7 +144,7 @@ export class GitStateTokenService {
     const nonce = decoded.subarray(0, 32);
     const actualMac = decoded.subarray(32);
     const expectedMac = createHmac("sha256", this.#key)
-      .update("codexpro.git.state.v1\0")
+      .update("codexgpt.git.state.v1\0")
       .update(nonce)
       .digest();
     if (!timingSafeEqual(actualMac, expectedMac)) throw stateError("GIT_STATE_TOKEN_INVALID");

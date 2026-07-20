@@ -6,7 +6,7 @@ Status: Published and cross-platform CI-validated
 
 ## 1. Goal
 
-Migrate only the direct `write` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexpro` wrapper compatibility.
+Migrate only the direct `write` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexgpt` wrapper compatibility.
 
 The slice preserves current file creation and overwrite behavior, write limits, secret-content blocking, path policy, diff generation, analysis-cache invalidation, human-readable content, Windows behavior, and existing smoke/stress coverage.
 
@@ -37,7 +37,7 @@ This is preferred over migrating all write tools together or beginning the later
 - Existing `create_dirs` and `overwrite` behavior.
 - Existing analysis-cache invalidation when the returned diff reports a change.
 - Direct Tool Card nested-envelope rendering.
-- `codexpro` wrapper compatibility.
+- `codexgpt` wrapper compatibility.
 - Focused `node:test` contract coverage.
 - Smoke/stress compatibility updates only where old flat fields are inspected.
 - Documentation, changelog, project memory, and Phase 1 archive updates.
@@ -52,12 +52,12 @@ This is preferred over migrating all write tools together or beginning the later
 
 ```json
 {
-  "codexpro_tool": "write",
-  "codexpro_title": "Write File",
+  "codexgpt_tool": "write",
+  "codexgpt_title": "Write File",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "path": "src/example.ts",
     "existed": true,
     "bytes": 123,
@@ -93,8 +93,8 @@ Unknown fields are rejected. No new public `changed` field is added.
 
 ```json
 {
-  "codexpro_tool": "write",
-  "codexpro_title": "Write File",
+  "codexgpt_tool": "write",
+  "codexgpt_title": "Write File",
   "ok": false,
   "data": null,
   "error": {
@@ -166,7 +166,7 @@ Unsafe path details become `[unsafe path omitted]`. Raw exceptions, stack traces
 
 ```ts
 export interface WriteProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   path: string;
@@ -192,7 +192,7 @@ writeResultProvider?: (
 
 ## 9. Wrapper and Tool Card compatibility
 
-The `codexpro` supertool action `write` preserves wrapper metadata and carries the child envelope. No legacy flat `path`, `bytes`, `sha256`, `additions`, `deletions`, or `diff` fields remain at wrapper top level.
+The `codexgpt` supertool action `write` preserves wrapper metadata and carries the child envelope. No legacy flat `path`, `bytes`, `sha256`, `additions`, `deletions`, or `diff` fields remain at wrapper top level.
 
 Add a dedicated `renderWrite` consumer that:
 
@@ -217,7 +217,7 @@ Create `test/write-contract.test.mjs` covering:
 7. Analysis-cache invalidation only for changed writes.
 8. Human-readable content and `isError` behavior.
 9. Dedicated Tool Card nested-field behavior.
-10. `codexpro` wrapper compatibility.
+10. `codexgpt` wrapper compatibility.
 
 Run focused contracts, the complete `node:test` suite, build, smoke, native-Windows stress, and diff check.
 

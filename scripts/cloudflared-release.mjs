@@ -52,7 +52,7 @@ export function cloudflaredAsset(platform = process.platform, arch = process.arc
   if (!asset) {
     throw new Error(
       `Verified cloudflared installation is not supported on ${platform}/${arch}. ` +
-      "Install cloudflared manually and pass its path to CodexPro."
+      "Install cloudflared manually and pass its path to CodexGPT."
     );
   }
   return asset;

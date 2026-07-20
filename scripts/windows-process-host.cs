@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using Microsoft.Win32.SafeHandles;
 
-namespace CodexPro.Phase4
+namespace CodexGPT.Phase4
 {
     public static class ProcessHost
     {

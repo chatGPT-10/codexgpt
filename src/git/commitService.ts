@@ -171,11 +171,11 @@ async function createShadowGitDirectory(input: {
   const shadowGitDir = path.join(input.privateRoot, "shadow.git");
   const privateIndex = path.join(input.privateRoot, "index");
   const quarantineRoot = path.join(input.privateRoot, "objects");
-  const shadowRefFile = path.join(shadowGitDir, "refs", "heads", "codexpro-integration");
+  const shadowRefFile = path.join(shadowGitDir, "refs", "heads", "codexgpt-integration");
   await fsp.mkdir(path.dirname(shadowRefFile), { recursive: true, mode: 0o700 });
   await fsp.mkdir(quarantineRoot, { mode: 0o700 });
   await fsp.writeFile(privateIndex, input.indexBytes, { flag: "wx", mode: 0o600 });
-  await fsp.writeFile(path.join(shadowGitDir, "HEAD"), "ref: refs/heads/codexpro-integration\n", {
+  await fsp.writeFile(path.join(shadowGitDir, "HEAD"), "ref: refs/heads/codexgpt-integration\n", {
     flag: "wx",
     mode: 0o600
   });

@@ -82,15 +82,15 @@ Current direct behavior in `src/server.ts` and `src/workspaceOps.ts`:
 Top-level fields are exactly:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
 meta
 ```
 
-`codexpro_tool` is `read_handoff`; `codexpro_title` is `Read Handoff`.
+`codexgpt_tool` is `read_handoff`; `codexgpt_title` is `Read Handoff`.
 
 ## 6. Exact success data
 
@@ -243,7 +243,7 @@ Add:
 
 ```ts
 interface ReadHandoffProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   limits: { maxFileBytes: number; maxTotalBytes: number };
@@ -286,7 +286,7 @@ The dedicated Tool Card:
 - Protected main Smoke has exactly one flat `handoffContext.structuredContent.files` read. Its compatibility loader performs one exact fail-closed replacement to nested `data?.files`.
 - Protected HTTP Smoke does not consume direct `read_handoff` structured fields and needs no substitution.
 - Current Stress has no direct `read_handoff` structured consumer.
-- `codexpro` action `read_handoff` preserves the complete child envelope and adds only existing wrapper tags.
+- `codexgpt` action `read_handoff` preserves the complete child envelope and adds only existing wrapper tags.
 
 ## 13. Focused tests
 

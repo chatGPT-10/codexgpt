@@ -278,7 +278,7 @@ export class GitStashServiceV4 {
     const commit = await runGitRequired(this.context.options.executor, repository, [
       "commit-tree", selectedTreeOid, "-p", review.baseOid
     ], {
-      stdin: Buffer.from("CodexPro private stash\n", "utf8"),
+      stdin: Buffer.from("CodexGPT private stash\n", "utf8"),
       identity: {
         authorName: localIdentity.name,
         authorEmail: localIdentity.email,
@@ -289,7 +289,7 @@ export class GitStashServiceV4 {
     });
     const refOid = commit.stdout.toString("ascii").trim();
     const stashId = `stash_${randomBytes(16).toString("hex")}`;
-    const ref = `refs/codexpro/stash/${stashId.slice(6)}`;
+    const ref = `refs/codexgpt/stash/${stashId.slice(6)}`;
     const zero = "0".repeat(refOid.length);
     await fsp.writeFile(resetIndex, liveIndexContent);
     for (const entry of review.entries) {

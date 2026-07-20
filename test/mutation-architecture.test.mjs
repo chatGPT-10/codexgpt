@@ -90,7 +90,7 @@ const FILESYSTEM_MODULES = new Set(["fs", "fs/promises", "node:fs", "node:fs/pro
 // Keep empty until the RED inventory has exposed every current direct writer.
 const REVIEWED_ALLOWLIST = Object.freeze({
   "scripts/atomic-file.mjs": Object.freeze({
-    purpose: "Atomic JSON replacement for exact CodexPro-owned runner evidence and managed toolchain manifests outside authorized workspaces.",
+    purpose: "Atomic JSON replacement for exact CodexGPT-owned runner evidence and managed toolchain manifests outside authorized workspaces.",
     occurrences: Object.freeze([
       "open:e54c87ef386f",
       "writeFile:07f0c29a7b9b",
@@ -372,7 +372,7 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "150:7:renameSync:662f5f5db2f5"
     ])
   }),
-  "scripts/codexpro.mjs": Object.freeze({
+  "scripts/codexgpt.mjs": Object.freeze({
     purpose: "CLI profile, managed binary, runtime marker, and ephemeral tunnel state outside authorized workspaces.",
     occurrences: Object.freeze([
       "663:3:rmSync:67965deb6791",
@@ -851,7 +851,7 @@ test("legacy workspace writers are unreachable from the atomic default server pa
   assert.equal(count('if (config.fileTransactions !== "atomic") return writePreparedAgentHandoff(context);'), 2);
   assert.match(
     server,
-    /config\.fileTransactions !== "atomic"\s+\? defaultCodexProSelfTestProvider\s+: async/
+    /config\.fileTransactions !== "atomic"\s+\? defaultCodexGPTSelfTestProvider\s+: async/
   );
 
   assert.match(REVIEWED_ALLOWLIST["src/fsOps.ts"].purpose, /^Legacy-mode-only /);

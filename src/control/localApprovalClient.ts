@@ -102,7 +102,7 @@ export function defaultLocalControlStateBaseRoot(
 ): string {
   const localAppData = env.LOCALAPPDATA?.trim();
   const base = localAppData ? path.resolve(localAppData) : path.join(path.resolve(homeDirectory), "AppData", "Local");
-  return path.join(base, "CodexPro", "control");
+  return path.join(base, "CodexGPT", "control");
 }
 
 async function readLocalControlState(
@@ -154,7 +154,7 @@ async function readLocalControlState(
     !/^[a-f0-9]{64}$/.test(String(state.keyDigest ?? "")) ||
     !Number.isSafeInteger(state.pid) || Number(state.pid) <= 0 ||
     typeof state.processCreationTime !== "string" ||
-    state.pipePath !== `\\\\.\\pipe\\codexpro-control-${exactServerId}`
+    state.pipePath !== `\\\\.\\pipe\\codexgpt-control-${exactServerId}`
   ) throw controlError("CONTROL_STATE_INVALID");
   const liveCreationTime = await creationTime(Number(state.pid));
   if (!liveCreationTime || liveCreationTime !== state.processCreationTime) throw controlError("CONTROL_SERVER_STALE");

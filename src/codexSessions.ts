@@ -3,8 +3,8 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import type { CodexProConfig } from "./config.js";
-import { CodexProError } from "./guard.js";
+import type { CodexGPTConfig } from "./config.js";
+import { CodexGPTError } from "./guard.js";
 import { redactSensitiveText } from "./redact.js";
 import {
   compareCodexSessions,
@@ -71,7 +71,7 @@ export type CodexSessionReadOperationCode =
   | "SESSION_READ_FAILED";
 
 const CODEX_SESSION_READ_OPERATION_ERROR = Symbol.for(
-  "codexpro.CodexSessionReadOperationError"
+  "codexgpt.CodexSessionReadOperationError"
 );
 
 export class CodexSessionReadOperationError extends Error {
@@ -97,21 +97,21 @@ export function isCodexSessionReadOperationError(
   );
 }
 
-export function codexSessionDirectory(config: CodexProConfig): string {
+export function codexSessionDirectory(config: CodexGPTConfig): string {
   return path.resolve(config.codexDir || path.join(os.homedir(), ".codex"));
 }
 
-export function codexSessionRoots(config: CodexProConfig): [string, string] {
+export function codexSessionRoots(config: CodexGPTConfig): [string, string] {
   const root = codexSessionDirectory(config);
   return [path.join(root, "sessions"), path.join(root, "archived_sessions")];
 }
 
-function ensureEnabled(config: CodexProConfig, read = false): void {
+function ensureEnabled(config: CodexGPTConfig, read = false): void {
   if (config.codexSessions === "off") {
-    throw new CodexProError("Codex session tools are disabled. Start with --codex-sessions metadata or --codex-sessions read to opt in.");
+    throw new CodexGPTError("Codex session tools are disabled. Start with --codex-sessions metadata or --codex-sessions read to opt in.");
   }
   if (read && config.codexSessions !== "read") {
-    throw new CodexProError("Reading Codex session transcripts is disabled. Start with --codex-sessions read to opt in.");
+    throw new CodexGPTError("Reading Codex session transcripts is disabled. Start with --codex-sessions read to opt in.");
   }
 }
 
@@ -299,7 +299,7 @@ function codexRequestHeadingPayload(line: string): string | null {
   return suffix.replace(/^[:：\-—\s]+/, "").trim();
 }
 
-function extractCodexPromptFromIdeContext(text: string): string | undefined {
+function extractCodexGPTmptFromIdeContext(text: string): string | undefined {
   const trimmed = text.trim();
   if (!trimmed.startsWith(CODEX_IDE_CONTEXT_PREFIX)) return undefined;
   const lines = trimmed.replace(/\r\n/g, "\n").split("\n");
@@ -320,7 +320,7 @@ function extractCodexPromptFromIdeContext(text: string): string | undefined {
 function titleCandidateFromUserMessage(text: string): string | undefined {
   const trimmed = text.trim();
   if (!trimmed || trimmed.startsWith("# AGENTS.md") || trimmed.startsWith("<environment_context>")) return undefined;
-  if (trimmed.startsWith(CODEX_IDE_CONTEXT_PREFIX)) return extractCodexPromptFromIdeContext(trimmed);
+  if (trimmed.startsWith(CODEX_IDE_CONTEXT_PREFIX)) return extractCodexGPTmptFromIdeContext(trimmed);
   return trimmed;
 }
 
@@ -417,7 +417,7 @@ interface CodexSessionIndex {
 }
 
 async function collectSessionMetas(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   scanFileLimit: number = CODEX_SESSION_SCAN_FILE_LIMIT,
   scanDepthLimit: number = CODEX_SESSION_SCAN_DEPTH_LIMIT
 ): Promise<CodexSessionIndex> {
@@ -466,7 +466,7 @@ async function collectSessionMetas(
 }
 
 export async function listCodexSessions(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   options: {
     maxSessions?: number;
     query?: string;
@@ -544,7 +544,7 @@ function readOperationError(
 }
 
 async function canonicalHistoryRoots(
-  config: CodexProConfig
+  config: CodexGPTConfig
 ): Promise<[string, string]> {
   const roots = codexSessionRoots(config);
   const canonical: string[] = [];
@@ -580,7 +580,7 @@ async function canonicalSessionReadPath(
 }
 
 async function resolveSessionSource(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   sessionId: string | undefined,
   sourcePath: string | undefined,
   scanFileLimit: number,
@@ -618,7 +618,7 @@ async function resolveSessionSource(
     return { session: meta, readPath };
   }
 
-  if (!sessionId) throw new CodexProError("session_id or source_path is required.");
+  if (!sessionId) throw new CodexGPTError("session_id or source_path is required.");
   const index = await collectSessionMetas(
     config,
     scanFileLimit,
@@ -936,7 +936,7 @@ function attachLegacyReadAccessors(
 }
 
 export async function readCodexSession(
-  config: CodexProConfig,
+  config: CodexGPTConfig,
   options: ReadCodexSessionOptions = {}
 ): Promise<CodexSessionReadResult> {
   const sessionId = typeof options.sessionId === "string"

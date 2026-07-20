@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport("../src/tools/schemas/openWorkspace.ts", import.meta.url).catch(() => null);
 const {
@@ -96,15 +96,15 @@ test("open_workspace success constructor produces the strict schema-v1 envelope"
   const parsed = openWorkspaceOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "open_workspace");
-  assert.equal(parsed.codexpro_title, "Open Workspace");
+  assert.equal(parsed.codexgpt_tool, "open_workspace");
+  assert.equal(parsed.codexgpt_title, "Open Workspace");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleWorkspaceData());
@@ -156,8 +156,8 @@ test("open_workspace schema rejects malformed, flat, inconsistent, and additiona
 
   assert.throws(() => openWorkspaceOutputSchema.parse({ ...success, workspace_id: "legacy-flat" }));
   assert.throws(() => openWorkspaceOutputSchema.parse({ ...success, extra: true }));
-  assert.throws(() => openWorkspaceOutputSchema.parse({ ...success, codexpro_tool: "open_current_workspace" }));
-  assert.throws(() => openWorkspaceOutputSchema.parse({ ...success, codexpro_title: "Open Current Workspace" }));
+  assert.throws(() => openWorkspaceOutputSchema.parse({ ...success, codexgpt_tool: "open_current_workspace" }));
+  assert.throws(() => openWorkspaceOutputSchema.parse({ ...success, codexgpt_title: "Open Current Workspace" }));
   assert.throws(() => openWorkspaceOutputSchema.parse({ ...success, data: null }));
   assert.throws(() => openWorkspaceOutputSchema.parse({ ...success, error: failure.error }));
   assert.throws(() => openWorkspaceOutputSchema.parse({ ...failure, data: sampleWorkspaceData() }));
@@ -247,7 +247,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "open-workspace-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -259,7 +259,7 @@ async function withConfigClient(config, dependencies, callback) {
 }
 
 async function withTempWorkspace(callback) {
-  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-open-workspace-contract-"));
+  const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-open-workspace-contract-"));
   const root = await fs.realpath(created);
   try {
     await fs.writeFile(path.join(root, "AGENTS.md"), "# Test instructions\n", "utf8");
@@ -351,7 +351,7 @@ test("open_workspace advertises an exact output schema in every tool mode", asyn
         assert.equal(descriptor.outputSchema.type, "object");
         assert.deepEqual(
           new Set(descriptor.outputSchema.required),
-          new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+          new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
         );
       });
     }
@@ -464,8 +464,8 @@ test("open_workspace resolves trimmed root/path aliases deterministically", asyn
 });
 
 test("open_workspace rejects differing effective aliases without leaking either root", async () => {
-  const first = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-open-alias-first-"));
-  const second = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-open-alias-second-"));
+  const first = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-open-alias-first-"));
+  const second = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-open-alias-second-"));
   try {
     const root = await fs.realpath(first);
     const other = await fs.realpath(second);
@@ -529,8 +529,8 @@ test("open_workspace returns stable safe root-stage failures", async () => {
     });
   });
 
-  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-open-outside-"));
-  const allowedDir = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-open-allowed-"));
+  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-open-outside-"));
+  const allowedDir = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-open-allowed-"));
   try {
     const outside = await fs.realpath(outsideDir);
     const allowed = await fs.realpath(allowedDir);
@@ -647,14 +647,14 @@ test("Smoke compatibility migrates protected direct workspace consumers in memor
   assert.match(source, /opened\.structuredContent\.data\?\.workspace_id/);
   assert.match(source, /openedByPath\.structuredContent\.data\?\.workspace_id/);
   assert.match(source, /expectedCount/);
-  assert.match(source, /sourceURL=codexpro-smoke-compat\.mjs/);
+  assert.match(source, /sourceURL=codexgpt-smoke-compat\.mjs/);
   assert.match(source, /data:text\/javascript;base64/);
   assert.doesNotMatch(source, /await import\(['"]\.\/smoke\.mjs['"]\)/);
 });
 
 test("HTTP Smoke compatibility uses a bounded source label for transformed failures", async () => {
   const source = await fs.readFile(new URL("../scripts/http-smoke-compat.mjs", import.meta.url), "utf8");
-  assert.match(source, /sourceURL=codexpro-http-smoke-compat\.mjs/);
+  assert.match(source, /sourceURL=codexgpt-http-smoke-compat\.mjs/);
   assert.match(source, /data:text\/javascript;base64/);
 });
 
@@ -669,19 +669,19 @@ test("open_workspace Tool Card consumes nested direct-open data and retains flat
   assert.match(toolCardWidgetHtml, /workspace\.root/);
 });
 
-test("codexpro direct open_workspace action preserves strict success and failure envelopes", async () => {
+test("codexgpt direct open_workspace action preserves strict success and failure envelopes", async () => {
   await withTempWorkspace(async (root) => {
     await withConfigClient(createTestConfig(root), {
       openWorkspaceSummaryProvider: async (context) => emptySummary(context)
     }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: { action: "open_workspace", args: { root, include_tree: false } }
       });
       const structured = result.structuredContent;
-      assert.equal(structured.codexpro_tool, "open_workspace");
-      assert.equal(structured.codexpro_title, "Open Workspace");
-      assert.equal(structured.codexpro_super_action, "open_workspace");
+      assert.equal(structured.codexgpt_tool, "open_workspace");
+      assert.equal(structured.codexgpt_title, "Open Workspace");
+      assert.equal(structured.codexgpt_super_action, "open_workspace");
       assert.equal(structured.wrapped_tool, "open_workspace");
       assert.equal(structured.ok, true);
       assert.equal(structured.data.root, root);
@@ -691,13 +691,13 @@ test("codexpro direct open_workspace action preserves strict success and failure
 
     await withConfigClient(createTestConfig(root), {}, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: { action: "open_workspace", args: { root, path: path.join(root, "other") } }
       });
       const structured = result.structuredContent;
       assert.equal(result.isError, true);
-      assert.equal(structured.codexpro_tool, "open_workspace");
-      assert.equal(structured.codexpro_super_action, "open_workspace");
+      assert.equal(structured.codexgpt_tool, "open_workspace");
+      assert.equal(structured.codexgpt_super_action, "open_workspace");
       assert.equal(structured.wrapped_tool, "open_workspace");
       assert.equal(structured.ok, false);
       assert.equal(structured.data, null);

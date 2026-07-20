@@ -157,8 +157,8 @@ export const bashErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const bashOutputShape = {
-  codexpro_tool: z.literal("bash"),
-  codexpro_title: z.literal("Bash"),
+  codexgpt_tool: z.literal("bash"),
+  codexgpt_title: z.literal("Bash"),
   ok: z.boolean(),
   data: bashDataSchema.nullable(),
   error: bashErrorSchema.nullable(),
@@ -223,8 +223,8 @@ export function createBashSuccess(
   durationMs = 0
 ): BashStructuredResult {
   return bashOutputSchema.parse({
-    codexpro_tool: "bash",
-    codexpro_title: "Bash",
+    codexgpt_tool: "bash",
+    codexgpt_title: "Bash",
     ok: true,
     data: bashDataSchema.parse(data),
     error: null,
@@ -237,8 +237,8 @@ export function createBashFailure(
   durationMs = 0
 ): BashStructuredResult {
   return bashOutputSchema.parse({
-    codexpro_tool: "bash",
-    codexpro_title: "Bash",
+    codexgpt_tool: "bash",
+    codexgpt_title: "Bash",
     ok: false,
     data: null,
     error: {

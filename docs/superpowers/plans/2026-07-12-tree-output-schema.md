@@ -8,7 +8,7 @@
 
 **Architecture:** Add a tool-specific Zod contract in `src/tools/schemas/tree.ts`, then integrate it into the existing `tree` registration without changing global error behavior. A local classifier maps current workspace/path/filesystem failures into the approved public contract, while a constructor-only `treeResultProvider` seam verifies unexpected failures through the real MCP handler. A dedicated tool-card renderer reads only the nested `data` shape.
 
-**Tech Stack:** TypeScript 5.8, Zod 3.25, MCP TypeScript SDK 1.17, Node.js 20+, `node:test`, `tsx/esm/api`, existing CodexPro path guards and redaction helpers.
+**Tech Stack:** TypeScript 5.8, Zod 3.25, MCP TypeScript SDK 1.17, Node.js 20+, `node:test`, `tsx/esm/api`, existing CodexGPT path guards and redaction helpers.
 
 ## Global Constraints
 
@@ -18,7 +18,7 @@
 - Keep all five successful fields only under `structuredContent.data`; do not duplicate them at the top level.
 - Preserve readable MCP `content` on success.
 - Preserve MCP `isError: true` and readable safe `content` on failure.
-- The top-level result is exactly `codexpro_tool`, `codexpro_title`, `ok`, `data`, `error`, and `meta`.
+- The top-level result is exactly `codexgpt_tool`, `codexgpt_title`, `ok`, `data`, `error`, and `meta`.
 - Metadata is exactly `schemaVersion`, `durationMs`, and `warnings`; do not add `requestId`.
 - The only error codes are `WORKSPACE_NOT_FOUND`, `PATH_OUTSIDE_WORKSPACE`, `PATH_BLOCKED`, `FILE_NOT_FOUND`, `NOT_A_DIRECTORY`, and `INTERNAL_ERROR`.
 - Every approved error uses `retryable: false`.
@@ -28,7 +28,7 @@
 - Do not return raw exception messages, stack traces, tokens, secrets, environment values, or internal absolute paths.
 - Preserve current optional `workspace_id` and default-workspace fallback behavior.
 - Do not add workspace close, expiry, ownership, session binding, or random session IDs; those remain Phase 2 work.
-- Do not refactor the global `CodexProError` class or change path-policy behavior.
+- Do not refactor the global `CodexGPTError` class or change path-policy behavior.
 - Do not change authentication, Cloudflare, profiles, shell, process, Git, dependencies, or public configuration.
 - Do not fix the separate native-Windows Stress fixture containing `visible:123:file.txt`.
 - No environment variable, CLI flag, hidden MCP argument, HTTP route, or public test switch may expose the injected failure seam.
@@ -97,7 +97,7 @@ const {
 function sampleTreeData() {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     text: ".\n├── src/\n└── test/",
     entries: 2,
     truncated: false
@@ -142,15 +142,15 @@ test("tree success constructor produces the strict schema-v1 envelope", () => {
   const parsed = treeOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "tree");
-  assert.equal(parsed.codexpro_title, "File Tree");
+  assert.equal(parsed.codexgpt_tool, "tree");
+  assert.equal(parsed.codexgpt_title, "File Tree");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleTreeData());
@@ -319,8 +319,8 @@ export const treeErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const treeOutputShape = {
-  codexpro_tool: z.literal("tree"),
-  codexpro_title: z.literal("File Tree"),
+  codexgpt_tool: z.literal("tree"),
+  codexgpt_title: z.literal("File Tree"),
   ok: z.boolean(),
   data: treeDataSchema.nullable(),
   error: treeErrorSchema.nullable(),
@@ -380,8 +380,8 @@ export function createTreeSuccess(
   durationMs = 0
 ): TreeStructuredResult {
   return treeOutputSchema.parse({
-    codexpro_tool: "tree",
-    codexpro_title: "File Tree",
+    codexgpt_tool: "tree",
+    codexgpt_title: "File Tree",
     ok: true,
     data: treeDataSchema.parse(data),
     error: null,
@@ -394,8 +394,8 @@ export function createTreeFailure(
   durationMs = 0
 ): TreeStructuredResult {
   return treeOutputSchema.parse({
-    codexpro_tool: "tree",
-    codexpro_title: "File Tree",
+    codexgpt_tool: "tree",
+    codexgpt_title: "File Tree",
     ok: false,
     data: null,
     error: {
@@ -462,7 +462,7 @@ Expected state: no staged files. Stop for user approval before Task 2.
 
 **Interfaces:**
 - Consumes: all Task 1 exports.
-- Consumes: existing `TreeOptions`, `TreeResult`, `repoTree`, `Workspace`, `PathGuard`, and `CodexProConfig`.
+- Consumes: existing `TreeOptions`, `TreeResult`, `repoTree`, `Workspace`, `PathGuard`, and `CodexGPTConfig`.
 - Produces: constructor-only `treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>`.
 - Produces: a direct `tree` MCP result that uses the approved exact envelope for success and every handled failure.
 - Does not alter the legacy wrapper behavior for any other tool.
@@ -479,7 +479,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const {
   TREE_ERROR_MESSAGES,
   createTreeFailure,
@@ -531,7 +531,7 @@ function createTestConfig() {
 }
 
 async function withInMemoryClient(dependencies, callback) {
-  const server = createCodexProServer(createTestConfig(), dependencies);
+  const server = createCodexGPTServer(createTestConfig(), dependencies);
   const client = new Client({ name: "tree-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -582,7 +582,7 @@ test("tree advertises the exact output schema and returns a valid real success e
     assert.equal(descriptor.outputSchema.type, "object");
     assert.deepEqual(
       new Set(descriptor.outputSchema.required),
-      new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+      new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
     );
 
     const result = await client.callTool({
@@ -729,11 +729,11 @@ import {
 } from "./tools/schemas/tree.js";
 ```
 
-Add this type immediately before `CodexProServerDependencies`:
+Add this type immediately before `CodexGPTServerDependencies`:
 
 ```ts
 export interface TreeProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: TreeOptions;
@@ -743,7 +743,7 @@ export interface TreeProviderContext {
 Change the dependency interface to:
 
 ```ts
-export interface CodexProServerDependencies {
+export interface CodexGPTServerDependencies {
   serverConfigDataProvider?: () => ServerConfigData | Promise<ServerConfigData>;
   treeResultProvider?: (context: TreeProviderContext) => Promise<TreeResult>;
 }
@@ -854,7 +854,7 @@ function classifyTreeFailure(error: unknown, args: Record<string, unknown>): Tre
 
 This adapter remains local to `tree`. Do not move it into `guard.ts` or apply it to another tool.
 
-- [x] **Step 5: Bind the production provider inside `createCodexProServer`**
+- [x] **Step 5: Bind the production provider inside `createCodexGPTServer`**
 
 Immediately after the existing `serverConfigDataProvider` binding, add:
 
@@ -962,17 +962,17 @@ Expected result: exit code 0.
 
 - [x] **Step 10: Perform a targeted internal-consumer check**
 
-Use CodexPro `search` for all of these patterns:
+Use CodexGPT `search` for all of these patterns:
 
 ```text
 name: "tree"
 structuredContent.tree
 structuredContent.entries
 structuredContent.truncated
-codexpro_tool === "tree"
+codexgpt_tool === "tree"
 ```
 
-Expected finding: the direct tool registration and Tool Card routing are the only relevant consumers. Do not alter the `codexpro` supertool wrapper because it is not migrated in this slice.
+Expected finding: the direct tool registration and Tool Card routing are the only relevant consumers. Do not alter the `codexgpt` supertool wrapper because it is not migrated in this slice.
 
 - [x] **Step 11: Record Task 2 in both Memory layers**
 
@@ -1024,7 +1024,7 @@ test("tree tool card reads successful fields only from nested data", () => {
   const renderer = rendererMatch[0];
   assert.match(
     toolCardWidgetHtml,
-    /if \(data\?\.codexpro_tool === "tree"\) \{\s*if \(data\?\.ok === false\)[\s\S]*?const tree = data\?\.data \?\? \{\};/
+    /if \(data\?\.codexgpt_tool === "tree"\) \{\s*if \(data\?\.ok === false\)[\s\S]*?const tree = data\?\.data \?\? \{\};/
   );
   assert.match(renderer, /const tree = data\?\.data \?\? \{\};/);
   assert.match(renderer, /tree\.text/);
@@ -1050,7 +1050,7 @@ Expected result: 11 tests pass and the new Tool Card test fails because `renderT
 Insert this branch in `subtitleFor(data)` immediately before the `workspace_snapshot` branch:
 
 ```js
-    if (data?.codexpro_tool === "tree") {
+    if (data?.codexgpt_tool === "tree") {
       if (data?.ok === false) return data?.error?.code || "File tree unavailable";
       const tree = data?.data ?? {};
       return tree.root || "File tree";
@@ -1251,17 +1251,17 @@ Expected result: JSON summary, no conflict marker, no secret-like value, and Mem
 
 - [x] **Step 10: Verify no stale direct top-level `tree` consumers remain**
 
-Use CodexPro `search` for:
+Use CodexGPT `search` for:
 
 ```text
 structuredContent.text
 structuredContent.entries
 structuredContent.truncated
-codexpro_tool === "tree"
+codexgpt_tool === "tree"
 renderTree(data)
 ```
 
-Inspect every match. Direct `tree` consumers must read tool fields from `structuredContent.data`. Top-level `codexpro_tool`, `codexpro_title`, `ok`, `error`, and `meta` remain valid.
+Inspect every match. Direct `tree` consumers must read tool fields from `structuredContent.data`. Top-level `codexgpt_tool`, `codexgpt_title`, `ok`, `error`, and `meta` remain valid.
 
 - [x] **Step 11: Review the complete intended file set**
 

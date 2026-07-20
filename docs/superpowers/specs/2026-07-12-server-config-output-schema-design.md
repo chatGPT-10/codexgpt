@@ -23,7 +23,7 @@ This slice must prove the full path:
 This slice does not:
 
 - migrate any tool other than `server_config`;
-- retrofit stable error codes into all existing `CodexProError` uses;
+- retrofit stable error codes into all existing `CodexGPTError` uses;
 - introduce request identity or cross-transport tracing;
 - add OAuth, scopes, audit logging, workspace lifecycle, shell changes, or process management;
 - add an environment variable, CLI flag, hidden MCP argument, HTTP route, or production test mode for forced failures;
@@ -37,8 +37,8 @@ This slice does not:
 
 Current structured output places configuration fields directly at the top level after `tagToolResult` adds:
 
-- `codexpro_tool`;
-- `codexpro_title`.
+- `codexgpt_tool`;
+- `codexgpt_title`.
 
 The tool currently has no exact `outputSchema`. Errors are converted to `isError: true` with a text message and a non-stable `{ error: string }` structured object.
 
@@ -49,15 +49,15 @@ The tool currently has no exact `outputSchema`. Errors are converted to `isError
 `server_config.structuredContent` will contain exactly these contract groups:
 
 ```text
-codexpro_tool
-codexpro_title
+codexgpt_tool
+codexgpt_title
 ok
 data
 error
 meta
 ```
 
-Tool identity remains at the top level because existing CodexPro cards and generic result presentation use it to select rendering behavior.
+Tool identity remains at the top level because existing CodexGPT cards and generic result presentation use it to select rendering behavior.
 
 Tool-specific configuration fields move under `data` and are not duplicated at the top level.
 
@@ -67,8 +67,8 @@ A successful result has:
 
 ```json
 {
-  "codexpro_tool": "server_config",
-  "codexpro_title": "Server Config",
+  "codexgpt_tool": "server_config",
+  "codexgpt_title": "Server Config",
   "ok": true,
   "data": {
     "defaultRoot": "...",
@@ -92,8 +92,8 @@ A failure has:
 
 ```json
 {
-  "codexpro_tool": "server_config",
-  "codexpro_title": "Server Config",
+  "codexgpt_tool": "server_config",
+  "codexgpt_title": "Server Config",
   "ok": false,
   "data": null,
   "error": {
@@ -232,7 +232,7 @@ Fallback SDK compatibility in `registerToolCompat` must continue to work. The de
 
 ## 10. Tool card compatibility
 
-The CodexPro tool card currently reads `server_config` fields from the structured result top level.
+The CodexGPT tool card currently reads `server_config` fields from the structured result top level.
 
 It must change only for `server_config` so it reads from:
 

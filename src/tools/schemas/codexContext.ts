@@ -296,8 +296,8 @@ export const codexContextErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const codexContextOutputShape = {
-  codexpro_tool: z.literal("codex_context"),
-  codexpro_title: z.literal("Codex Context"),
+  codexgpt_tool: z.literal("codex_context"),
+  codexgpt_title: z.literal("Codex Context"),
   ok: z.boolean(),
   data: codexContextDataSchema.nullable(),
   error: codexContextErrorSchema.nullable(),
@@ -348,8 +348,8 @@ export function createCodexContextSuccess(
 ): CodexContextStructuredResult {
   const parsedData = codexContextDataSchema.parse(data);
   return codexContextOutputSchema.parse({
-    codexpro_tool: "codex_context",
-    codexpro_title: "Codex Context",
+    codexgpt_tool: "codex_context",
+    codexgpt_title: "Codex Context",
     ok: true,
     data: parsedData,
     error: null,
@@ -362,8 +362,8 @@ export function createCodexContextFailure(
   durationMs = 0
 ): CodexContextStructuredResult {
   return codexContextOutputSchema.parse({
-    codexpro_tool: "codex_context",
-    codexpro_title: "Codex Context",
+    codexgpt_tool: "codex_context",
+    codexgpt_title: "Codex Context",
     ok: false,
     data: null,
     error: {

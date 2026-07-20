@@ -8,7 +8,7 @@ import { GitReviewTokenServiceV4 } from "../dist/git/reviewToken.js";
 import { MergePlanStoreV4 } from "../dist/worktrees/mergePlanStore.js";
 
 test("review tokens and merge plans survive restart and remain one-use", async () => {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-review-plan-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-review-plan-"));
   const masterKey = Buffer.alloc(32, 21);
   const tokenKey = Buffer.alloc(32, 22);
   const now = Date.now();
@@ -79,7 +79,7 @@ test("review tokens and merge plans survive restart and remain one-use", async (
 });
 
 test("durable Git review records retain configured-size rollback facts", async () => {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-large-review-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-large-review-"));
   const masterKey = Buffer.alloc(32, 31);
   const tokenKey = Buffer.alloc(32, 32);
   const now = Date.now();
@@ -109,7 +109,7 @@ test("durable Git review records retain configured-size rollback facts", async (
 });
 
 test("merge plans written before integration-mode binding fail closed after restart", async () => {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-legacy-merge-plan-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-legacy-merge-plan-"));
   const masterKey = Buffer.alloc(32, 23);
   const now = Date.now();
   const mergePlanId = `merge_${"6".repeat(32)}`;

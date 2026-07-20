@@ -10,7 +10,7 @@ using System.Text;
 using System.Web.Script.Serialization;
 using Microsoft.Win32.SafeHandles;
 
-namespace CodexPro.Phase4
+namespace CodexGPT.Phase4
 {
     public static class LocalControlSpike
     {
@@ -216,9 +216,9 @@ namespace CodexPro.Phase4
             byte[] key = Convert.FromBase64String(bootstrap.bootstrapKey);
             if (key.Length != 32) Fail("LOCAL_CONTROL_KEY_INVALID");
             string currentSid = WindowsIdentity.GetCurrent().User.Value;
-            string pipeName = "codexpro-control-" + bootstrap.serverId;
+            string pipeName = "codexgpt-control-" + bootstrap.serverId;
             string pipePath = "\\\\.\\pipe\\" + pipeName;
-            string ownedJobName = "Local\\codexpro-control-owned-" + bootstrap.serverId;
+            string ownedJobName = "Local\\codexgpt-control-owned-" + bootstrap.serverId;
             string stateRoot = Path.GetFullPath(bootstrap.stateRoot);
             string statePath = Path.Combine(stateRoot, bootstrap.serverId + ".json");
             PrepareStateRoot(stateRoot, currentSid);

@@ -15,7 +15,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const sourcePath = path.join(repositoryRoot, "scripts", "windows-local-control-spike.mjs");
 
 async function temporaryRoot(t) {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-control-state-test-"));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-control-state-test-"));
   t.after(async () => fsp.rm(root, { recursive: true, force: true }));
   return root;
 }
@@ -30,7 +30,7 @@ async function stateRecord(serverId, overrides = {}) {
     keyDigest: createHash("sha256").update(randomBytes(32)).digest("hex"),
     pid: process.pid,
     processCreationTime: creation,
-    pipePath: `\\\\.\\pipe\\codexpro-control-${serverId}`,
+    pipePath: `\\\\.\\pipe\\codexgpt-control-${serverId}`,
     ...overrides
   };
 }
@@ -69,7 +69,7 @@ test("local control state binds PID creation time, nonce, server id, and exact p
     ["CONTROL_SERVER_STALE", { processCreationTime: "2000-01-01T00:00:00.0000000Z" }],
     ["CONTROL_STATE_INVALID", { nonce: "not-a-nonce" }],
     ["CONTROL_STATE_MISMATCH", { serverId: randomBytes(16).toString("hex") }],
-    ["CONTROL_STATE_INVALID", { pipePath: "\\\\.\\pipe\\codexpro-control-wrong" }]
+    ["CONTROL_STATE_INVALID", { pipePath: "\\\\.\\pipe\\codexgpt-control-wrong" }]
   ];
   for (const [expected, override] of variants) {
     const root = await temporaryRoot(t);

@@ -288,8 +288,8 @@ export const codexSessionsErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const codexSessionsOutputShape = {
-  codexpro_tool: z.literal("codex_sessions"),
-  codexpro_title: z.literal("Codex Sessions"),
+  codexgpt_tool: z.literal("codex_sessions"),
+  codexgpt_title: z.literal("Codex Sessions"),
   ok: z.boolean(),
   data: codexSessionsDataSchema.nullable(),
   error: codexSessionsErrorSchema.nullable(),
@@ -382,8 +382,8 @@ export function createCodexSessionsSuccess(
 ): CodexSessionsStructuredResult {
   const parsedData = codexSessionsDataSchema.parse(data);
   return codexSessionsOutputSchema.parse({
-    codexpro_tool: "codex_sessions",
-    codexpro_title: "Codex Sessions",
+    codexgpt_tool: "codex_sessions",
+    codexgpt_title: "Codex Sessions",
     ok: true,
     data: parsedData,
     error: null,
@@ -396,8 +396,8 @@ export function createCodexSessionsFailure(
   durationMs = 0
 ): CodexSessionsStructuredResult {
   return codexSessionsOutputSchema.parse({
-    codexpro_tool: "codex_sessions",
-    codexpro_title: "Codex Sessions",
+    codexgpt_tool: "codex_sessions",
+    codexgpt_title: "Codex Sessions",
     ok: false,
     data: null,
     error: {

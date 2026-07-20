@@ -13,8 +13,8 @@
 - Native Windows is primary; WSL, Git, PowerShell, Shell, and external services are not transaction dependencies.
 - Contract V1 remains the exact current 28-child-tool surface and exact current schemas for one migration release.
 - Contract V2 is never advertised or constructible as a partial public contract. Its final 31-tool activation is a Phase 3D gate.
-- `CODEXPRO_TOOL_CONTRACT_VERSION` defaults to `1`, is selected once at server construction, and accepts only `1|2`.
-- Writable contract V2 requires `CODEXPRO_FILE_TRANSACTIONS=atomic`, a usable Phase 3 state root, and valid persistent audit configuration for the selected policy mode.
+- `CODEXGPT_TOOL_CONTRACT_VERSION` defaults to `1`, is selected once at server construction, and accepts only `1|2`.
+- Writable contract V2 requires `CODEXGPT_FILE_TRANSACTIONS=atomic`, a usable Phase 3 state root, and valid persistent audit configuration for the selected policy mode.
 - Atomic mode never uses direct workspace `writeFile`, `appendFile`, replacing `rename`, destructive `unlink`, or a legacy fallback.
 - Every visible mutation has one transaction ID and one change-set ID internally, including contract V1 mutations whose output hides them.
 - Required audit authorization is durable before mutation. Required terminal execution evidence, the audit participant, and the change-set participant commit before public success.
@@ -59,11 +59,11 @@ This preserves both phase ownership and the stronger invariant that every advert
 
 - `src/config.ts` — tool-contract version and bounded change-set retention configuration.
 - `src/server.ts` — server-owned mutation runtime, provider injection, pending-commit wrapper, V1/V2 registration, undo/query handlers, and exact mode visibility.
-- `src/codexproSupertool.ts` and `src/tools/schemas/codexpro.ts` — one selected canonical set and version-specific child schema map.
+- `src/codexgptSupertool.ts` and `src/tools/schemas/codexgpt.ts` — one selected canonical set and version-specific child schema map.
 - `src/policy/toolPolicy.ts`, `src/policy/resources.ts`, `src/policy/integration.ts`, and related policy types/schemas — injected resource resolver and undo batch descriptor without storage logic in the pure evaluator.
 - `src/fsOps.ts`, `src/handoffOps.ts`, `src/proContext.ts`, and the patch path in `src/server.ts` — prepare exact complete-file transaction operations rather than mutate directly in atomic mode.
-- `scripts/pro-apply.mjs` and `scripts/codexpro.mjs` — use the built mutation service for supported workspace writers; leave app-state and external installer/runtime writes explicitly classified.
-- `src/tools/schemas/write.ts`, `edit.ts`, `applyPatch.ts`, `exportProContext.ts`, `handoffToAgent.ts`, `handoffToCodex.ts`, and `codexproSelfTest.ts` — version-specific V2 schemas while retaining exported V1 aliases.
+- `scripts/pro-apply.mjs` and `scripts/codexgpt.mjs` — use the built mutation service for supported workspace writers; leave app-state and external installer/runtime writes explicitly classified.
+- `src/tools/schemas/write.ts`, `edit.ts`, `applyPatch.ts`, `exportProContext.ts`, `handoffToAgent.ts`, `handoffToCodex.ts`, and `codexgptSelfTest.ts` — version-specific V2 schemas while retaining exported V1 aliases.
 - `config.example.env`, `README.md`, `README_ZH.md`, `SECURITY.md`, `CHANGELOG.md`, `AGENTS.md`, the master plan, `Memory.md`, and the active Phase 3 archive — exact configuration, security, migration, evidence, rollback, and next action.
 
 ### New focused tests and fixtures
@@ -86,8 +86,8 @@ This preserves both phase ownership and the stronger invariant that every advert
 
 **Files:**
 - Modify: `src/config.ts`
-- Modify: `src/tools/schemas/codexpro.ts`
-- Modify: `src/codexproSupertool.ts`
+- Modify: `src/tools/schemas/codexgpt.ts`
+- Modify: `src/codexgptSupertool.ts`
 - Modify: `src/server.ts`
 - Modify: `src/audit/lock.ts` (publication-gate repair discovered during Task 1)
 - Create: `test/transaction-contract-version.test.mjs`
@@ -97,9 +97,9 @@ This preserves both phase ownership and the stronger invariant that every advert
 - Modify: `docs/memory/archive/phase-3-part-2.md`
 
 **Interfaces:**
-- Produces `ToolContractVersion = 1 | 2`, `CodexProConfig.toolContractVersion`, `CANONICAL_CODEXPRO_CHILD_TOOLS_V1`, `CANONICAL_CODEXPRO_CHILD_TOOLS_V2`, `canonicalCodexProChildTools(version)`, and `assertToolContractConfiguration(...)`.
-- Keeps `CANONICAL_CODEXPRO_CHILD_TOOLS` as an exact V1 compatibility alias.
-- V2 constant contains all 31 names, but `createCodexProServer()` rejects V2 with `CONTRACT_V2_INCOMPLETE` until the injected capability says `movePaths: true`.
+- Produces `ToolContractVersion = 1 | 2`, `CodexGPTConfig.toolContractVersion`, `CANONICAL_CODEXGPT_CHILD_TOOLS_V1`, `CANONICAL_CODEXGPT_CHILD_TOOLS_V2`, `canonicalCodexGPTChildTools(version)`, and `assertToolContractConfiguration(...)`.
+- Keeps `CANONICAL_CODEXGPT_CHILD_TOOLS` as an exact V1 compatibility alias.
+- V2 constant contains all 31 names, but `createCodexGPTServer()` rejects V2 with `CONTRACT_V2_INCOMPLETE` until the injected capability says `movePaths: true`.
 
 - [x] **Step 1: Write RED tests**
 
@@ -107,7 +107,7 @@ Assert default/explicit/invalid parsing, exact V1 28 names, exact V2 31 names, V
 
 - [x] **Step 2: Confirm RED**
 
-Run: `npm run build && node --test test/transaction-contract-version.test.mjs test/codexpro-contract.test.mjs`
+Run: `npm run build && node --test test/transaction-contract-version.test.mjs test/codexgpt-contract.test.mjs`
 
 Expected: focused test fails because versioned configuration and canonical sets do not exist; existing V1 contract test passes.
 
@@ -122,7 +122,7 @@ function toolContractVersionFrom(value: string | undefined): ToolContractVersion
   const normalized = value?.trim();
   if (!normalized || normalized === "1") return 1;
   if (normalized === "2") return 2;
-  throw new Error("CODEXPRO_TOOL_CONTRACT_VERSION must be 1 or 2.");
+  throw new Error("CODEXGPT_TOOL_CONTRACT_VERSION must be 1 or 2.");
 }
 ```
 
@@ -130,7 +130,7 @@ Derive all selected arrays and maps from `config.toolContractVersion`. Do not ad
 
 - [x] **Step 4: Confirm GREEN and V1 compatibility**
 
-Run: `npm run build && node --test test/transaction-contract-version.test.mjs test/codexpro-contract.test.mjs test/transaction-config-and-path-policy.test.mjs test/audit-architecture.test.mjs`
+Run: `npm run build && node --test test/transaction-contract-version.test.mjs test/codexgpt-contract.test.mjs test/transaction-config-and-path-policy.test.mjs test/audit-architecture.test.mjs`
 
 Expected: all pass; V2 is defined but cannot start; V1 remains exact.
 
@@ -306,7 +306,7 @@ Run focused tests, patch smoke compatibility, Build, neat-freak, commit `feat: m
 - Modify: `src/proContext.ts`
 - Modify: `src/server.ts`
 - Modify: `scripts/pro-apply.mjs`
-- Modify: supported workspace-writer sections of `scripts/codexpro.mjs`
+- Modify: supported workspace-writer sections of `scripts/codexgpt.mjs`
 - Modify: affected V2 tool schemas
 - Create: `test/bridge-writer-transaction.test.mjs`
 - Create: `test/pro-apply-transaction.test.mjs`
@@ -315,7 +315,7 @@ Run focused tests, patch smoke compatibility, Build, neat-freak, commit `feat: m
 - `ensureAiBridge` produces one bounded scaffold operation plan.
 - Handoff plan/status/diff/state/log files are one multi-file transaction; JSONL updates are complete-file replacements.
 - Pro-context export is one transaction.
-- Self-test mutates only `.ai-bridge/codexpro-self-test.md` and requests non-retained change-set material.
+- Self-test mutates only `.ai-bridge/codexgpt-self-test.md` and requests non-retained change-set material.
 - `pro-apply` imports the built mutation service and performs plan plus both logs in one transaction.
 
 - [x] **Step 1: Write RED all-or-nothing tests**
@@ -328,7 +328,7 @@ Run: `npm run build && node --test test/bridge-writer-transaction.test.mjs test/
 
 - [x] **Step 3: Implement one shared operation builder**
 
-Read bounded existing logs, construct complete after bytes, and send all operations through `WorkspaceMutationRuntime`. Classify app-state writes in `scripts/codexpro.mjs` separately; do not route profile, credential reference, process state, installer, or transaction state through workspace mutations.
+Read bounded existing logs, construct complete after bytes, and send all operations through `WorkspaceMutationRuntime`. Classify app-state writes in `scripts/codexgpt.mjs` separately; do not route profile, credential reference, process state, installer, or transaction state through workspace mutations.
 
 - [x] **Step 4: Verify and publish**
 
@@ -372,7 +372,7 @@ Run the inventory test, full writer tests, Build, `git diff --check`, secret/aud
 - Modify: `src/policy/toolPolicy.ts`
 - Modify: `src/policy/integration.ts`
 - Modify: `src/server.ts`
-- Modify: `src/tools/schemas/codexpro.ts`
+- Modify: `src/tools/schemas/codexgpt.ts`
 - Create: `test/undo-change-set.test.mjs`
 
 **Interfaces:**
@@ -441,7 +441,7 @@ Run all Phase 3A–3C focused tests and the relevant production-wiring checks. D
 - Modify: `CHANGELOG.md`
 - Modify: `config.example.env`
 - Modify: `AGENTS.md`
-- Modify: `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- Modify: `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - Modify: `Memory.md`
 - Modify: `docs/memory/archive/phase-3-part-4.md`
 
@@ -459,7 +459,7 @@ npm pack --dry-run --json
 git diff --check
 ```
 
-Also run Node 20 focused concurrency/crash loops, static mutation/reserved-artifact/secret/audit-redaction/protected-source gates, and exact intended-file review. The complete execute/watch/loop lifecycle Smoke must run in an independent process such as GitHub Actions rather than through the CodexPro process carrying the control channel; local acceptance uses its syntax, environment-isolation architecture gate, complete regression coverage, and the other seven Smoke sections.
+Also run Node 20 focused concurrency/crash loops, static mutation/reserved-artifact/secret/audit-redaction/protected-source gates, and exact intended-file review. The complete execute/watch/loop lifecycle Smoke must run in an independent process such as GitHub Actions rather than through the CodexGPT process carrying the control channel; local acceptance uses its syntax, environment-isolation architecture gate, complete regression coverage, and the other seven Smoke sections.
 
 - [x] **Step 2: Perform Phase 3C neat-freak reconciliation**
 

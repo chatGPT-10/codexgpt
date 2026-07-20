@@ -5,7 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   createServerConfigFailure,
@@ -15,13 +15,13 @@ const {
 
 function sampleServerConfigData() {
   return {
-    defaultRoot: "D:\\Dev\\codexpro",
+    defaultRoot: "D:\\Dev\\codexgpt",
     allowedRoots: ["D:\\Dev"],
     host: "127.0.0.1",
     port: 8787,
     widgetDomain: "https://example.invalid",
     authEnabled: true,
-    allowedHosts: ["codexpro.example.invalid"],
+    allowedHosts: ["codexgpt.example.invalid"],
     allowedOrigins: ["https://chatgpt.com"],
     allowQueryToken: true,
     bashMode: "off",
@@ -30,7 +30,7 @@ function sampleServerConfigData() {
     bashSessionId: null,
     requireBashSession: false,
     codexSessions: "off",
-    codexDir: "D:\\Dev\\codexpro\\.codex-test",
+    codexDir: "D:\\Dev\\codexgpt\\.codex-test",
     writeMode: "workspace",
     toolMode: "minimal",
     policyEngineMode: "shadow",
@@ -40,7 +40,7 @@ function sampleServerConfigData() {
     grantRevision: "grant-revision-0",
     enforcement: {
       active: true,
-      backendId: "codexpro-node-broker",
+      backendId: "codexgpt-node-broker",
       evidenceRevision: "node-broker-v1",
       missingCapabilities: []
     },
@@ -110,7 +110,7 @@ function createTestConfig() {
 }
 
 async function withInMemoryClient(dependencies, callback) {
-  const server = createCodexProServer(createTestConfig(), dependencies);
+  const server = createCodexGPTServer(createTestConfig(), dependencies);
   const client = new Client({ name: "server-config-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -131,21 +131,21 @@ test("server_config success constructor produces the strict schema-v1 envelope",
   const parsed = serverConfigOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "server_config");
-  assert.equal(parsed.codexpro_title, "Server Config");
+  assert.equal(parsed.codexgpt_tool, "server_config");
+  assert.equal(parsed.codexgpt_title, "Server Config");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.equal(parsed.data.host, "127.0.0.1");
   assert.equal(parsed.data.policyEngineMode, "shadow");
   assert.equal(parsed.data.permissionProfileId, "compat-v1");
-  assert.equal(parsed.data.enforcement.backendId, "codexpro-node-broker");
+  assert.equal(parsed.data.enforcement.backendId, "codexgpt-node-broker");
   assert.equal(JSON.stringify(parsed).includes("identity-hmac.key"), false);
   assert.equal("host" in parsed, false);
   assert.deepEqual(parsed.meta, {
@@ -199,7 +199,7 @@ test("server_config advertises the exact output schema and returns a valid succe
     assert.equal(descriptor.outputSchema.type, "object");
     assert.deepEqual(
       new Set(descriptor.outputSchema.required),
-      new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+      new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
     );
 
     const result = await client.callTool({ name: "server_config", arguments: {} });
@@ -213,7 +213,7 @@ test("server_config advertises the exact output schema and returns a valid succe
     assert.equal(parsed.meta.schemaVersion, 1);
     assert.ok(parsed.meta.durationMs >= 0);
     assert.deepEqual(parsed.meta.warnings, []);
-    assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("CodexPro Server Config")));
+    assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("CodexGPT Server Config")));
   });
 });
 

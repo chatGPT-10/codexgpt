@@ -87,7 +87,7 @@ test("verification receipt reservations enforce an exact category set and one-us
 });
 
 test("verification receipts survive a same-binary restart when durable state is configured", async () => {
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-receipt-restart-"));
+  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-receipt-restart-"));
   const masterKey = Buffer.alloc(32, 14);
   const tokenKey = Buffer.alloc(32, 15);
   const now = Date.now();

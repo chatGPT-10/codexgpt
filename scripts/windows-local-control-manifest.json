@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "protocolName": "codexpro-local-control",
+  "protocolName": "codexgpt-local-control",
   "protocolVersion": 1,
   "maximumMessageBytes": 65536,
-  "nativeFactoryClass": "CodexPro.Phase4.LocalControlSpike",
+  "nativeFactoryClass": "CodexGPT.Phase4.LocalControlSpike",
   "productionPowerShell": "scripts/windows-local-control.ps1",
   "productionCSharp": "scripts/windows-local-control.cs",
   "gateA0CSharp": "scripts/windows-local-control-spike.cs",

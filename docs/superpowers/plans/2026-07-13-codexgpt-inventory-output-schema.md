@@ -1,10 +1,10 @@
-# Direct `codexpro_inventory` Output Schema Implementation Plan
+# Direct `codexgpt_inventory` Output Schema Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 > **Execution status:** All six tasks and local verification gates are complete. Publication remains blocked on explicit staging/commit/push approval and exact-head CI.
 
-**Goal:** Publish an exact, bounded, redacted schema-v1 contract for direct full-mode `codexpro_inventory` without introducing Phase 2 or Phase 6 behavior.
+**Goal:** Publish an exact, bounded, redacted schema-v1 contract for direct full-mode `codexgpt_inventory` without introducing Phase 2 or Phase 6 behavior.
 
 **Architecture:** Keep discovery in `src/capabilitiesOps.ts`, add one strict tool-owned schema module, inject the domain provider only for tests, and construct all public identity/options/counts/text inside the direct handler. Migrate only proven consumers to nested `data`; retain historical flat Tool Card fallback and leave protected Smoke sources unchanged unless exact current evidence requires a fail-closed compatibility substitution.
 
@@ -12,16 +12,16 @@
 
 ## Global Constraints
 
-- Work in `D:\Dev\codexpro` and preserve all pre-existing user changes.
+- Work in `D:\Dev\codexgpt` and preserve all pre-existing user changes.
 - Native Windows remains the primary platform; WSL must not become mandatory.
 - Use TDD: focused test must fail for the expected missing-contract reason before production code is written.
-- Direct `codexpro_inventory` remains read-only and full-mode only.
-- Success uses exactly `codexpro_tool`, `codexpro_title`, `ok`, `data`, `error`, and `meta` at the top level.
-- Success data has exactly the sixteen fields approved in `docs/superpowers/specs/2026-07-13-codexpro-inventory-output-schema-design.md`.
+- Direct `codexgpt_inventory` remains read-only and full-mode only.
+- Success uses exactly `codexgpt_tool`, `codexgpt_title`, `ok`, `data`, `error`, and `meta` at the top level.
+- Success data has exactly the sixteen fields approved in `docs/superpowers/specs/2026-07-13-codexgpt-inventory-output-schema-design.md`.
 - Do not expose MCP URLs, commands, arguments, environment values, headers, tokens, credentials, or raw config paths.
 - Do not introduce Skill trust, permission, version, hash, enabled state, Hook, Sandbox, OAuth, workspace lifecycle, or dependency changes.
 - Do not edit protected `scripts/smoke.mjs` or `scripts/http-smoke.mjs` unless a current exact flat consumer is proven; use an exact-count fail-closed compatibility loader if needed.
-- `scripts/codexpro-entry.mjs` remains the supported public CLI entry.
+- `scripts/codexgpt-entry.mjs` remains the supported public CLI entry.
 - Staging, commit, push, deployment, and external-state changes require separate explicit user approval.
 - After each meaningful STEP, update `Memory.md`, append the active Phase 1 archive, and enforce its 80% rollover rule.
 
@@ -31,7 +31,7 @@
 
 **Files:**
 
-- Create: `test/codexpro-inventory-contract.test.mjs`
+- Create: `test/codexgpt-inventory-contract.test.mjs`
 - Inspect: `src/server.ts`
 - Inspect: `src/capabilitiesOps.ts`
 - Inspect: `src/toolCardWidget.ts`
@@ -39,7 +39,7 @@
 
 **Interfaces:**
 
-- Consumes: current `createCodexProServer(config, dependencies)` and MCP in-memory transport.
+- Consumes: current `createCodexGPTServer(config, dependencies)` and MCP in-memory transport.
 - Produces: an executable focused contract whose initial failures prove the schema, provider boundary, nested handler, failure classification, and consumers are absent.
 
 - [x] **Step 1: Create common test helpers**
@@ -56,10 +56,10 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const schemaModule = await tsImport(
-  "../src/tools/schemas/codexproInventory.ts",
+  "../src/tools/schemas/codexgptInventory.ts",
   import.meta.url
 ).catch(() => null);
 ```
@@ -71,17 +71,17 @@ Add `createTestConfig`, `withConfigClient`, `withTempWorkspace`, `callTool`, `re
 Create tests with these exact names:
 
 ```text
-codexpro_inventory schema exports exact constructors and creates empty and populated success
-codexpro_inventory schema derives exact bounded warnings
-codexpro_inventory schema creates all exact stable failures
-codexpro_inventory schema rejects flat malformed inconsistent duplicate unsafe and additional fields
+codexgpt_inventory schema exports exact constructors and creates empty and populated success
+codexgpt_inventory schema derives exact bounded warnings
+codexgpt_inventory schema creates all exact stable failures
+codexgpt_inventory schema rejects flat malformed inconsistent duplicate unsafe and additional fields
 ```
 
 Assertions must cover:
 
 ```js
 assert.deepEqual(Object.keys(success).sort(), [
-  "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+  "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
 ]);
 assert.deepEqual(Object.keys(success.data).sort(), [
   "bash_mode", "include_global_skills", "include_mcp_servers",
@@ -120,10 +120,10 @@ For provider privacy, inject values containing a private temp root and `private-
 Run:
 
 ```powershell
-node --test test/codexpro-inventory-contract.test.mjs
+node --test test/codexgpt-inventory-contract.test.mjs
 ```
 
-Expected: the test file executes, schema/provider/handler/consumer tests fail because `codexproInventory.ts`, the dependency boundary, exact nested handler, and nested consumers do not exist. Record exact pass/fail totals. A syntax/import harness error is not an acceptable RED; fix the test until failures are behavioral.
+Expected: the test file executes, schema/provider/handler/consumer tests fail because `codexgptInventory.ts`, the dependency boundary, exact nested handler, and nested consumers do not exist. Record exact pass/fail totals. A syntax/import harness error is not an acceptable RED; fix the test until failures are behavioral.
 
 - [x] **Step 5: Review the RED scope**
 
@@ -133,7 +133,7 @@ Confirm the test does not demand:
 - MCP connectivity or secret config values;
 - workspace lifecycle;
 - edits to protected Smoke sources;
-- public `codexpro_self_test` changes.
+- public `codexgpt_self_test` changes.
 
 Do not stage or commit.
 
@@ -143,29 +143,29 @@ Do not stage or commit.
 
 **Files:**
 
-- Create: `src/tools/schemas/codexproInventory.ts`
-- Test: `test/codexpro-inventory-contract.test.mjs`
+- Create: `src/tools/schemas/codexgptInventory.ts`
+- Test: `test/codexgpt-inventory-contract.test.mjs`
 
 **Interfaces:**
 
 - Consumes: `createToolMeta` and `toolMetaSchema` from `src/tools/schemas/common.ts`.
-- Produces: `codexproInventoryOutputShape`, `codexproInventoryOutputSchema`, `codexproInventoryDataSchema`, `codexproInventoryProviderSchema`, exact constants, success/failure constructors, and public TypeScript types.
+- Produces: `codexgptInventoryOutputShape`, `codexgptInventoryOutputSchema`, `codexgptInventoryDataSchema`, `codexgptInventoryProviderSchema`, exact constants, success/failure constructors, and public TypeScript types.
 
 - [x] **Step 1: Define constants and exact item schemas**
 
 Implement:
 
 ```ts
-export const CODEXPRO_INVENTORY_MCP_SERVER_LIMIT = 120 as const;
-export const CODEXPRO_INVENTORY_SKILLS_TRUNCATED_WARNING =
+export const CODEXGPT_INVENTORY_MCP_SERVER_LIMIT = 120 as const;
+export const CODEXGPT_INVENTORY_SKILLS_TRUNCATED_WARNING =
   "Skill inventory reached the requested max_skills limit.";
-export const CODEXPRO_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING =
+export const CODEXGPT_INVENTORY_MCP_SERVERS_TRUNCATED_WARNING =
   "MCP server inventory reached the fixed 120-server limit.";
 
-export const CODEXPRO_INVENTORY_ERROR_MESSAGES = {
+export const CODEXGPT_INVENTORY_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not open.",
-  INVENTORY_DISCOVERY_FAILED: "The CodexPro capability inventory could not be collected.",
-  INTERNAL_ERROR: "The CodexPro capability inventory failed because of an internal error."
+  INVENTORY_DISCOVERY_FAILED: "The CodexGPT capability inventory could not be collected.",
+  INTERNAL_ERROR: "The CodexGPT capability inventory failed because of an internal error."
 } as const;
 ```
 
@@ -193,7 +193,7 @@ ok/data/error consistency
 Use fixed details schemas:
 
 ```ts
-type CodexProInventoryFailureInput =
+type CodexGPTInventoryFailureInput =
   | {
       code: "WORKSPACE_NOT_FOUND";
       details: {
@@ -206,14 +206,14 @@ type CodexProInventoryFailureInput =
 
 - [x] **Step 3: Add exact constructors**
 
-`createCodexProInventorySuccess(data, durationMs)` derives warnings from the two truncation booleans in fixed order and parses the entire result. `createCodexProInventoryFailure(failure, durationMs)` always emits empty warnings and fixed non-retryable errors.
+`createCodexGPTInventorySuccess(data, durationMs)` derives warnings from the two truncation booleans in fixed order and parses the entire result. `createCodexGPTInventoryFailure(failure, durationMs)` always emits empty warnings and fixed non-retryable errors.
 
 - [x] **Step 4: Run schema-focused tests**
 
 Run:
 
 ```powershell
-node --test --test-name-pattern="schema" test/codexpro-inventory-contract.test.mjs
+node --test --test-name-pattern="schema" test/codexgpt-inventory-contract.test.mjs
 npm run build
 ```
 
@@ -228,7 +228,7 @@ Do not stage or commit.
 **Files:**
 
 - Modify: `src/capabilitiesOps.ts`
-- Test: `test/codexpro-inventory-contract.test.mjs`
+- Test: `test/codexgpt-inventory-contract.test.mjs`
 
 **Interfaces:**
 
@@ -236,7 +236,7 @@ Do not stage or commit.
 - Produces:
 
 ```ts
-export interface CodexProInventoryResult {
+export interface CodexGPTInventoryResult {
   skills: SkillInventoryItem[];
   skillsTruncated: boolean;
   mcpServers: McpServerInventoryItem[];
@@ -276,14 +276,14 @@ Export the domain limit as `120`. Deduplicate and sort names from the four fixed
 
 - [x] **Step 4: Return the new domain result**
 
-Change `codexproInventory` to return arrays and truncation booleans only. Remove provider-generated human text. Preserve existing arrays for `codexpro_self_test`.
+Change `codexgptInventory` to return arrays and truncation booleans only. Remove provider-generated human text. Preserve existing arrays for `codexgpt_self_test`.
 
 - [x] **Step 5: Run domain-focused RED/GREEN**
 
 Run:
 
 ```powershell
-node --test --test-name-pattern="real bounded|effective include" test/codexpro-inventory-contract.test.mjs
+node --test --test-name-pattern="real bounded|effective include" test/codexgpt-inventory-contract.test.mjs
 node --test test/open-current-workspace-contract.test.mjs test/open-workspace-contract.test.mjs test/workspace-snapshot-contract.test.mjs
 npm run build
 ```
@@ -299,24 +299,24 @@ Do not stage or commit.
 **Files:**
 
 - Modify: `src/server.ts`
-- Test: `test/codexpro-inventory-contract.test.mjs`
+- Test: `test/codexgpt-inventory-contract.test.mjs`
 
 **Interfaces:**
 
-- Consumes: `CodexProInventoryResult`, the schema exports, `WorkspaceManager`, active config, and existing `textResult` redaction.
-- Produces: exact direct MCP success/failure behavior and `codexproInventoryProvider` dependency injection.
+- Consumes: `CodexGPTInventoryResult`, the schema exports, `WorkspaceManager`, active config, and existing `textResult` redaction.
+- Produces: exact direct MCP success/failure behavior and `codexgptInventoryProvider` dependency injection.
 
 - [x] **Step 1: Import schema and domain types**
 
-Add explicit imports for all schema constructors/constants/types and import `CodexProInventoryResult` as a type. Do not create a shared generic error refactor.
+Add explicit imports for all schema constructors/constants/types and import `CodexGPTInventoryResult` as a type. Do not create a shared generic error refactor.
 
 - [x] **Step 2: Add the dependency context**
 
 Add:
 
 ```ts
-export interface CodexProInventoryProviderContext {
-  config: CodexProConfig;
+export interface CodexGPTInventoryProviderContext {
+  config: CodexGPTConfig;
   workspace: Workspace;
   options: {
     includeGlobalSkills: boolean;
@@ -326,11 +326,11 @@ export interface CodexProInventoryProviderContext {
 }
 ```
 
-Extend `CodexProServerDependencies` with the approved provider and initialize its production default beside the other providers.
+Extend `CodexGPTServerDependencies` with the approved provider and initialize its production default beside the other providers.
 
 - [x] **Step 3: Add safe failure/text helpers**
 
-Implement a bounded workspace-id helper, workspace failure classifier, fixed failure text, deterministic source-count builder, and human text builder. Text must consume validated `CodexProInventoryData`, not raw provider output.
+Implement a bounded workspace-id helper, workspace failure classifier, fixed failure text, deterministic source-count builder, and human text builder. Text must consume validated `CodexGPTInventoryData`, not raw provider output.
 
 - [x] **Step 4: Replace the direct handler in four stages**
 
@@ -346,7 +346,7 @@ resolve workspace
 → create success and human text
 ```
 
-Add `outputSchema: codexproInventoryOutputShape` to the descriptor. Remove flat structured fields and `widget_uri`.
+Add `outputSchema: codexgptInventoryOutputShape` to the descriptor. Remove flat structured fields and `widget_uri`.
 
 Catch stages exactly as the design specifies and attach `isError: true` for failures.
 
@@ -355,7 +355,7 @@ Catch stages exactly as the design specifies and attach `isError: true` for fail
 Run:
 
 ```powershell
-node --test --test-name-pattern="descriptor|provider|workspace|effective|supertool" test/codexpro-inventory-contract.test.mjs
+node --test --test-name-pattern="descriptor|provider|workspace|effective|supertool" test/codexgpt-inventory-contract.test.mjs
 npm run build
 ```
 
@@ -371,7 +371,7 @@ Do not stage or commit.
 
 - Modify: `src/toolCardWidget.ts`
 - Modify: `scripts/stress.mjs`
-- Test: `test/codexpro-inventory-contract.test.mjs`
+- Test: `test/codexgpt-inventory-contract.test.mjs`
 - Verify unchanged: `scripts/smoke.mjs`
 - Verify unchanged: `scripts/http-smoke.mjs`
 
@@ -387,7 +387,7 @@ Implement:
 ```js
 function inventoryResultData(data) {
   const nested =
-    data?.codexpro_tool === "codexpro_inventory" &&
+    data?.codexgpt_tool === "codexgpt_inventory" &&
     data?.data &&
     typeof data.data === "object";
   return nested ? data.data : (data ?? {});
@@ -402,14 +402,14 @@ Change only the four audited flat data reads to `structuredContent.data?.…`. I
 
 - [x] **Step 3: Prove protected sources did not need edits**
 
-Use focused test assertions and Git diff to confirm protected main/HTTP Smoke only check `codexpro_tool` identity for inventory. Do not alter them.
+Use focused test assertions and Git diff to confirm protected main/HTTP Smoke only check `codexgpt_tool` identity for inventory. Do not alter them.
 
 - [x] **Step 4: Run focused and adjacent consumers**
 
 Run:
 
 ```powershell
-node --test test/codexpro-inventory-contract.test.mjs
+node --test test/codexgpt-inventory-contract.test.mjs
 node scripts/stress.mjs
 node scripts/http-smoke-compat.mjs
 node scripts/smoke-platform-compat.mjs
@@ -429,7 +429,7 @@ Do not stage or commit.
 - Modify: `AGENTS.md`
 - Modify: `Memory.md`
 - Modify: active Phase 1 archive volume(s)
-- Modify: `docs/CODEXPRO_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- Modify: `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
 - Review all Slice 17 files
 
 **Interfaces:**
@@ -440,7 +440,7 @@ Do not stage or commit.
 - [x] **Step 1: Run narrow and adjacent tests**
 
 ```powershell
-node --test test/codexpro-inventory-contract.test.mjs
+node --test test/codexgpt-inventory-contract.test.mjs
 node --test test/open-current-workspace-contract.test.mjs test/open-workspace-contract.test.mjs test/workspace-snapshot-contract.test.mjs test/inspect-workspace-contract.test.mjs
 ```
 

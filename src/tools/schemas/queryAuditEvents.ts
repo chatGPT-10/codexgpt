@@ -70,8 +70,8 @@ export const queryAuditEventsErrorSchema = z.object({
 });
 
 export const queryAuditEventsOutputShape = {
-  codexpro_tool: z.literal("query_audit_events"),
-  codexpro_title: z.literal("Query Audit Events"),
+  codexgpt_tool: z.literal("query_audit_events"),
+  codexgpt_title: z.literal("Query Audit Events"),
   ok: z.boolean(),
   data: queryAuditEventsDataSchema.nullable(),
   error: queryAuditEventsErrorSchema.nullable(),
@@ -123,8 +123,8 @@ export function createQueryAuditEventsSuccess(
   durationMs = 0
 ): QueryAuditEventsStructuredResult {
   return queryAuditEventsOutputSchema.parse({
-    codexpro_tool: "query_audit_events",
-    codexpro_title: "Query Audit Events",
+    codexgpt_tool: "query_audit_events",
+    codexgpt_title: "Query Audit Events",
     ok: true,
     data,
     error: null,
@@ -137,8 +137,8 @@ export function createQueryAuditEventsFailure(
   durationMs = 0
 ): QueryAuditEventsStructuredResult {
   return queryAuditEventsOutputSchema.parse({
-    codexpro_tool: "query_audit_events",
-    codexpro_title: "Query Audit Events",
+    codexgpt_tool: "query_audit_events",
+    codexgpt_title: "Query Audit Events",
     ok: false,
     data: null,
     error: {
@@ -152,8 +152,8 @@ export function createQueryAuditEventsFailure(
 }
 
 export const queryAuditEventsOutputShapeV3 = {
-  codexpro_tool: z.literal("query_audit_events"),
-  codexpro_title: z.literal("Query Audit Events"),
+  codexgpt_tool: z.literal("query_audit_events"),
+  codexgpt_title: z.literal("Query Audit Events"),
   ok: z.boolean(),
   data: queryAuditEventsDataSchemaV3.nullable(),
   error: queryAuditEventsErrorSchema.nullable(),
@@ -180,8 +180,8 @@ export function createQueryAuditEventsSuccessV3(
   durationMs = 0
 ): QueryAuditEventsStructuredResultV3 {
   return queryAuditEventsOutputSchemaV3.parse({
-    codexpro_tool: "query_audit_events",
-    codexpro_title: "Query Audit Events",
+    codexgpt_tool: "query_audit_events",
+    codexgpt_title: "Query Audit Events",
     ok: true,
     data,
     error: null,
@@ -194,8 +194,8 @@ export function createQueryAuditEventsFailureV3(
   durationMs = 0
 ): QueryAuditEventsStructuredResultV3 {
   return queryAuditEventsOutputSchemaV3.parse({
-    codexpro_tool: "query_audit_events",
-    codexpro_title: "Query Audit Events",
+    codexgpt_tool: "query_audit_events",
+    codexgpt_title: "Query Audit Events",
     ok: false,
     data: null,
     error: {
@@ -209,8 +209,8 @@ export function createQueryAuditEventsFailureV3(
 }
 
 export const queryAuditEventsOutputShapeV4 = {
-  codexpro_tool: z.literal("query_audit_events"),
-  codexpro_title: z.literal("Query Audit Events"),
+  codexgpt_tool: z.literal("query_audit_events"),
+  codexgpt_title: z.literal("Query Audit Events"),
   ok: z.boolean(),
   data: queryAuditEventsDataSchemaV4.nullable(),
   error: queryAuditEventsErrorSchema.nullable(),
@@ -232,8 +232,8 @@ export const queryAuditEventsOutputSchemaV4 = queryAuditEventsOutputBaseSchemaV4
 
 export function createQueryAuditEventsUnavailableV4(durationMs = 0) {
   return queryAuditEventsOutputSchemaV4.parse({
-    codexpro_tool: "query_audit_events",
-    codexpro_title: "Query Audit Events",
+    codexgpt_tool: "query_audit_events",
+    codexgpt_title: "Query Audit Events",
     ok: false,
     data: null,
     error: {

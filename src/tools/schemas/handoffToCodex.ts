@@ -92,8 +92,8 @@ export const handoffToCodexErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const handoffToCodexOutputShape = {
-  codexpro_tool: z.literal("handoff_to_codex"),
-  codexpro_title: z.literal("Handoff To Codex"),
+  codexgpt_tool: z.literal("handoff_to_codex"),
+  codexgpt_title: z.literal("Handoff To Codex"),
   ok: z.boolean(),
   data: handoffToCodexDataSchema.nullable(),
   error: handoffToCodexErrorSchema.nullable(),
@@ -154,8 +154,8 @@ export function createHandoffToCodexSuccess(
 ): HandoffToCodexStructuredResult {
   const parsedData = handoffToCodexDataSchema.parse(data);
   return handoffToCodexOutputSchema.parse({
-    codexpro_tool: "handoff_to_codex",
-    codexpro_title: "Handoff To Codex",
+    codexgpt_tool: "handoff_to_codex",
+    codexgpt_title: "Handoff To Codex",
     ok: true,
     data: parsedData,
     error: null,
@@ -168,8 +168,8 @@ export function createHandoffToCodexFailure(
   durationMs = 0
 ): HandoffToCodexStructuredResult {
   return handoffToCodexOutputSchema.parse({
-    codexpro_tool: "handoff_to_codex",
-    codexpro_title: "Handoff To Codex",
+    codexgpt_tool: "handoff_to_codex",
+    codexgpt_title: "Handoff To Codex",
     ok: false,
     data: null,
     error: {

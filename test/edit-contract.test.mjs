@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   EDIT_ERROR_MESSAGES,
@@ -19,7 +19,7 @@ const {
 function sampleEditData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "src/example.ts",
     replacements: 1,
     bytes: 24,
@@ -109,15 +109,15 @@ test("edit success constructor produces the strict schema-v1 envelope", () => {
   const parsed = editOutputSchema.parse(result);
 
   assert.deepEqual(Object.keys(parsed).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(parsed.codexpro_tool, "edit");
-  assert.equal(parsed.codexpro_title, "Edit File");
+  assert.equal(parsed.codexgpt_tool, "edit");
+  assert.equal(parsed.codexgpt_title, "Edit File");
   assert.equal(parsed.ok, true);
   assert.equal(parsed.error, null);
   assert.deepEqual(parsed.data, sampleEditData());
@@ -255,7 +255,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 
 async function withInMemoryClient(options, callback) {
   const root = options.root ?? process.cwd();
-  const server = createCodexProServer(
+  const server = createCodexGPTServer(
     createTestConfig(root, options.configOverrides ?? {}),
     options.dependencies ?? {}
   );
@@ -275,7 +275,7 @@ async function withInMemoryClient(options, callback) {
 }
 
 async function withTempWorkspace(files, callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-edit-contract-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-edit-contract-"));
   try {
     for (const [relativePath, content] of Object.entries(files)) {
       const absolutePath = path.join(root, relativePath);
@@ -321,7 +321,7 @@ test("edit advertises an exact output schema and performs one replacement", asyn
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
 
       const result = await client.callTool({
@@ -687,11 +687,11 @@ test("edit Tool Card consumes nested data and error while adjacent tools use ded
   );
 });
 
-test("codexpro wrapper action edit preserves strict success and failure envelopes", async () => {
+test("codexgpt wrapper action edit preserves strict success and failure envelopes", async () => {
   await withTempWorkspace({ "example.txt": "before\n" }, async (root) => {
     await withInMemoryClient({ root }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: {
           action: "edit",
           args: { path: "example.txt", old_text: "before", new_text: "after" }
@@ -699,9 +699,9 @@ test("codexpro wrapper action edit preserves strict success and failure envelope
       });
       const structured = result.structuredContent;
 
-      assert.equal(structured.codexpro_tool, "edit");
-      assert.equal(structured.codexpro_title, "Edit File");
-      assert.equal(structured.codexpro_super_action, "edit");
+      assert.equal(structured.codexgpt_tool, "edit");
+      assert.equal(structured.codexgpt_title, "Edit File");
+      assert.equal(structured.codexgpt_super_action, "edit");
       assert.equal(structured.wrapped_tool, "edit");
       assert.equal(structured.ok, true);
       assert.equal(structured.error, null);
@@ -721,15 +721,15 @@ test("codexpro wrapper action edit preserves strict success and failure envelope
       }
     }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: {
           action: "edit",
           args: { path: "example.txt", old_text: "after", new_text: "final" }
         }
       });
       const structured = result.structuredContent;
-      assert.equal(structured.codexpro_tool, "edit");
-      assert.equal(structured.codexpro_super_action, "edit");
+      assert.equal(structured.codexgpt_tool, "edit");
+      assert.equal(structured.codexgpt_super_action, "edit");
       assert.equal(structured.wrapped_tool, "edit");
       assert.equal(structured.ok, false);
       assert.equal(structured.error.code, "EDIT_FAILED");

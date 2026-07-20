@@ -1,5 +1,5 @@
-export const TOOL_CARD_URI = "ui://widget/codexpro-tool-card-v9.html";
-export const TOOL_CARD_LEGACY_URIS = ["ui://widget/codexpro-tool-card-v8.html"];
+export const TOOL_CARD_URI = "ui://widget/codexgpt-tool-card-v9.html";
+export const TOOL_CARD_LEGACY_URIS = ["ui://widget/codexgpt-tool-card-v8.html"];
 export const TOOL_CARD_MIME_TYPE = "text/html;profile=mcp-app";
 
 export const toolCardWidgetHtml = String.raw`
@@ -10,7 +10,7 @@ export const toolCardWidgetHtml = String.raw`
     <header class="head">
       <span class="glyph">C</span>
       <div class="headline">
-        <div class="title">CodexPro</div>
+        <div class="title">CodexGPT</div>
         <div class="subtitle">Waiting for tool result...</div>
       </div>
       <span class="pill info">waiting</span>
@@ -391,13 +391,13 @@ export const toolCardWidgetHtml = String.raw`
     max-width: 78%;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(148, 163, 184, 0.12), rgba(148, 163, 184, 0.22), rgba(148, 163, 184, 0.12));
-    animation: codexpro-sheen 1.55s ease-in-out infinite;
+    animation: codexgpt-sheen 1.55s ease-in-out infinite;
   }
 
   .skeleton span:nth-child(2) { max-width: 52%; animation-delay: 0.12s; }
   .skeleton span:nth-child(3) { max-width: 66%; animation-delay: 0.24s; }
 
-  @keyframes codexpro-sheen {
+  @keyframes codexgpt-sheen {
     0%, 100% { opacity: 0.46; transform: translateX(0); }
     50% { opacity: 1; transform: translateX(2px); }
   }
@@ -450,8 +450,8 @@ export const toolCardWidgetHtml = String.raw`
   function titleFor(tool) {
     const titles = {
       server_config: "Server config",
-      codexpro_self_test: "Self-test",
-      codexpro_inventory: "Inventory",
+      codexgpt_self_test: "Self-test",
+      codexgpt_inventory: "Inventory",
       codex_sessions: "Codex sessions",
       read_codex_session: "Codex transcript",
       load_skill: "Skill",
@@ -477,13 +477,13 @@ export const toolCardWidgetHtml = String.raw`
       search: "Search",
       read: "Read file"
     };
-    return titles[tool] || "CodexPro";
+    return titles[tool] || "CodexGPT";
   }
 
   function iconFor(tool) {
     if (tool === "server_config") return "S";
-    if (tool === "codexpro_self_test") return "T";
-    if (tool === "codexpro_inventory") return "I";
+    if (tool === "codexgpt_self_test") return "T";
+    if (tool === "codexgpt_inventory") return "I";
     if (tool === "codex_sessions") return "C";
     if (tool === "read_codex_session") return "R";
     if (tool === "load_skill") return "L";
@@ -511,9 +511,9 @@ export const toolCardWidgetHtml = String.raw`
 
   function workspaceResultData(data) {
     const isWorkspaceResult =
-      data?.codexpro_tool === "open_current_workspace" ||
-      data?.codexpro_tool === "open_workspace" ||
-      data?.codexpro_tool === "workspace_snapshot";
+      data?.codexgpt_tool === "open_current_workspace" ||
+      data?.codexgpt_tool === "open_workspace" ||
+      data?.codexgpt_tool === "workspace_snapshot";
     return isWorkspaceResult && data?.data && typeof data.data === "object"
       ? data.data
       : (data ?? {});
@@ -521,7 +521,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function listWorkspacesResultData(data) {
     const nested =
-      data?.codexpro_tool === "list_workspaces" &&
+      data?.codexgpt_tool === "list_workspaces" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : (data ?? {});
@@ -529,7 +529,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function inspectWorkspaceResultData(data) {
     const nested =
-      data?.codexpro_tool === "inspect_workspace" &&
+      data?.codexgpt_tool === "inspect_workspace" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : (data ?? {});
@@ -537,7 +537,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function selfTestResultData(data) {
     const nested =
-      data?.codexpro_tool === "codexpro_self_test" &&
+      data?.codexgpt_tool === "codexgpt_self_test" &&
       data?.ok === true &&
       data?.data &&
       typeof data.data === "object";
@@ -546,7 +546,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function inventoryResultData(data) {
     const nested =
-      data?.codexpro_tool === "codexpro_inventory" &&
+      data?.codexgpt_tool === "codexgpt_inventory" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : (data ?? {});
@@ -554,7 +554,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function loadSkillResultData(data) {
     const nested =
-      data?.codexpro_tool === "load_skill" &&
+      data?.codexgpt_tool === "load_skill" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : (data ?? {});
@@ -562,7 +562,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function codexSessionsResultData(data) {
     const nested =
-      data?.codexpro_tool === "codex_sessions" &&
+      data?.codexgpt_tool === "codex_sessions" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : {};
@@ -570,7 +570,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function readCodexSessionResultData(data) {
     const nested =
-      data?.codexpro_tool === "read_codex_session" &&
+      data?.codexgpt_tool === "read_codex_session" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : {};
@@ -578,7 +578,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function readHandoffResultData(data) {
     const nested =
-      data?.codexpro_tool === "read_handoff" &&
+      data?.codexgpt_tool === "read_handoff" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : (data ?? {});
@@ -586,7 +586,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function waitForHandoffResultData(data) {
     const nested =
-      data?.codexpro_tool === "wait_for_handoff" &&
+      data?.codexgpt_tool === "wait_for_handoff" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : (data ?? {});
@@ -594,7 +594,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function codexContextResultData(data) {
     const nested =
-      data?.codexpro_tool === "codex_context" &&
+      data?.codexgpt_tool === "codex_context" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : (data ?? {});
@@ -602,7 +602,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function exportProContextResultData(data) {
     const nested =
-      data?.codexpro_tool === "export_pro_context" &&
+      data?.codexgpt_tool === "export_pro_context" &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : (data ?? {});
@@ -610,20 +610,20 @@ export const toolCardWidgetHtml = String.raw`
 
   function handoffToAgentResultData(data) {
     const nested =
-      (data?.codexpro_tool === "handoff_to_agent" ||
-        data?.codexpro_tool === "handoff_to_codex") &&
+      (data?.codexgpt_tool === "handoff_to_agent" ||
+        data?.codexgpt_tool === "handoff_to_codex") &&
       data?.data &&
       typeof data.data === "object";
     return nested ? data.data : {};
   }
 
   function subtitleFor(data) {
-    if (data?.codexpro_tool === "open_current_workspace" || data?.codexpro_tool === "open_workspace") {
+    if (data?.codexgpt_tool === "open_current_workspace" || data?.codexgpt_tool === "open_workspace") {
       if (data?.ok === false) return data?.error?.code || "Workspace unavailable";
       const workspace = workspaceResultData(data);
       return workspace.root || "Workspace opened";
     }
-    if (data?.codexpro_tool === "show_changes") {
+    if (data?.codexgpt_tool === "show_changes") {
       const review = data?.data ?? {};
       const error = data?.error ?? {};
       if (data?.ok === false) return error.code || "Git state unavailable";
@@ -631,55 +631,55 @@ export const toolCardWidgetHtml = String.raw`
       if (!count && !review.changed) return "Workspace is clean";
       return count === 1 ? "1 changed file" : count + " changed files";
     }
-    if (data?.codexpro_tool === "codexpro_self_test") {
+    if (data?.codexgpt_tool === "codexgpt_self_test") {
       if (data?.ok === false) return data?.error?.code || "Self-test unavailable";
       const selfTest = selfTestResultData(data);
       return selfTest.status ? "Status " + selfTest.status : "Local diagnostic";
     }
-    if (data?.codexpro_tool === "codexpro_inventory") {
+    if (data?.codexgpt_tool === "codexgpt_inventory") {
       if (data?.ok === false) return data?.error?.code || "Inventory unavailable";
       const inventory = inventoryResultData(data);
       const limited = inventory.skills_truncated || inventory.mcp_servers_truncated ? " (limited)" : "";
       return (inventory.skill_count ?? 0) + " skills, " + (inventory.mcp_server_count ?? 0) + " MCP servers" + limited;
     }
-    if (data?.codexpro_tool === "codex_sessions") {
+    if (data?.codexgpt_tool === "codex_sessions") {
       if (data?.ok === false) return data?.error?.code || "Session index unavailable";
       const sessions = codexSessionsResultData(data);
       const limited = sessions.output_limited ? " (limited)" : "";
       return (sessions.session_count ?? 0) + " of " + (sessions.total_found ?? 0) + " matching sessions" + limited;
     }
-    if (data?.codexpro_tool === "read_codex_session") {
+    if (data?.codexgpt_tool === "read_codex_session") {
       if (data?.ok === false) return data?.error?.code || "Transcript unavailable";
       const transcript = readCodexSessionResultData(data);
       const limited = transcript.output_limited ? " (limited)" : "";
       return (transcript.message_count ?? 0) + " transcript messages" + limited;
     }
-    if (data?.codexpro_tool === "list_workspaces") {
+    if (data?.codexgpt_tool === "list_workspaces") {
       if (data?.ok === false) return data?.error?.code || "Workspace list unavailable";
       const listed = listWorkspacesResultData(data);
       return (listed?.count ?? 0) + " open workspaces";
     }
-    if (data?.codexpro_tool === "server_config") {
+    if (data?.codexgpt_tool === "server_config") {
       const config = data?.data ?? {};
       const session = config?.bashSessionId || config?.bash_session_id;
       return "tools " + (config?.toolMode || config?.tool_mode || "-") + ", bash " + (config?.bashMode || config?.bash_mode || "-") + ", policy " + (config?.policyEngineMode || "legacy") + (session ? ", session " + session : "");
     }
-    if (data?.codexpro_tool === "tree") {
+    if (data?.codexgpt_tool === "tree") {
       if (data?.ok === false) return data?.error?.code || "File tree unavailable";
       const tree = data?.data ?? {};
       return tree.root || "File tree";
     }
-    if (data?.codexpro_tool === "read") {
+    if (data?.codexgpt_tool === "read") {
       if (data?.ok === false) return data?.error?.code || "File unavailable";
       const file = data?.data ?? {};
       return file.path || "Read file";
     }
-    if (data?.codexpro_tool === "workspace_snapshot") {
+    if (data?.codexgpt_tool === "workspace_snapshot") {
       if (data?.ok === false) return data?.error?.code || "Workspace snapshot unavailable";
       const workspace = workspaceResultData(data);
       return workspace.root || "Workspace snapshot";
     }
-    if (data?.codexpro_tool === "inspect_workspace") {
+    if (data?.codexgpt_tool === "inspect_workspace") {
       if (data?.ok === false) return data?.error?.code || "Workspace analysis unavailable";
       const analysis = inspectWorkspaceResultData(data);
       const coverage = analysis?.coverage || {};
@@ -688,7 +688,7 @@ export const toolCardWidgetHtml = String.raw`
         (coverage.symbolCount ?? coverage.symbol_count ?? 0) +
         " symbols";
     }
-    if (data?.codexpro_tool === "git_status") {
+    if (data?.codexgpt_tool === "git_status") {
       if (data?.ok === false) return data?.error?.code || "Git status unavailable";
       const statusData = data?.data ?? {};
       const count = Array.isArray(statusData.changed_files)
@@ -696,35 +696,35 @@ export const toolCardWidgetHtml = String.raw`
         : 0;
       return count ? count + " changed entries" : "Working tree clean";
     }
-    if (data?.codexpro_tool === "codex_context") {
+    if (data?.codexgpt_tool === "codex_context") {
       if (data?.ok === false) return data?.error?.code || "Codex context unavailable";
       const context = codexContextResultData(data);
       return (context?.agents_files?.length ?? 0) + " AGENTS, " + (context?.ai_context_files?.length ?? 0) + " bridge files";
     }
-    if (data?.codexpro_tool === "export_pro_context") {
+    if (data?.codexgpt_tool === "export_pro_context") {
       if (data?.ok === false) return data?.error?.code || "Pro context export unavailable";
       const context = exportProContextResultData(data);
       return (context?.file_count ?? context?.files_included?.length ?? 0) +
         " files exported to " + (context?.path || "context bundle");
     }
-    if (data?.codexpro_tool === "read_handoff") {
+    if (data?.codexgpt_tool === "read_handoff") {
       if (data?.ok === false) return data?.error?.code || "Handoff unavailable";
       const handoff = readHandoffResultData(data);
       return (handoff?.file_count ?? handoff?.files?.length ?? 0) + " bridge files";
     }
-    if (data?.codexpro_tool === "wait_for_handoff") {
+    if (data?.codexgpt_tool === "wait_for_handoff") {
       if (data?.ok === false) return data?.error?.code || "Handoff wait unavailable";
       const wait = waitForHandoffResultData(data);
       return wait.awaited_terminal
         ? "Terminal run " + (wait.state || "ready")
         : "Waiting: " + (wait.state || "unknown");
     }
-    if (data?.codexpro_tool === "load_skill") {
+    if (data?.codexgpt_tool === "load_skill") {
       if (data?.ok === false) return data?.error?.code || "Skill unavailable";
       const skillData = loadSkillResultData(data);
       return skillData?.skill?.name || "Skill instructions";
     }
-    if (data?.codexpro_tool === "handoff_to_agent" || data?.codexpro_tool === "handoff_to_codex") {
+    if (data?.codexgpt_tool === "handoff_to_agent" || data?.codexgpt_tool === "handoff_to_codex") {
       if (data?.ok === false) return data?.error?.code || "Handoff unavailable";
       const handoff = handoffToAgentResultData(data);
       return handoff.agent_name || handoff.plan_path || "Handoff";
@@ -741,7 +741,7 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function header(data, pills) {
-    const tool = data?.codexpro_tool;
+    const tool = data?.codexgpt_tool;
     return [
       '<div class="rail"></div>',
       '<header class="head">',
@@ -1100,7 +1100,7 @@ export const toolCardWidgetHtml = String.raw`
     const aiContextText = aiContextFiles.length
       ? '<div class="file-list">' + aiContextRows + '</div>' + (aiContextFiles.length > 12 ? '<div class="empty">+' + esc(aiContextFiles.length - 12) + ' more context files</div>' : "")
       : '<div class="empty">No readable AI handoff files.</div>';
-    const aiContextSection = data?.codexpro_tool === "workspace_snapshot"
+    const aiContextSection = data?.codexgpt_tool === "workspace_snapshot"
       ? fold("AI handoff", aiContextFiles.length + " files", aiContextText, false)
       : "";
     const tree = workspace.tree ? codebox("tree", esc(previewLines(workspace.tree, 18)), "") : "";
@@ -1838,14 +1838,14 @@ export const toolCardWidgetHtml = String.raw`
       '</div></article>';
   }
 
-  function renderCodexPro(data) {
+  function renderCodexGPT(data) {
     const result = data?.data ?? {};
     const error = data?.error ?? {};
     if (data?.ok === false) {
       return '<article class="card">' +
         header(data, pill(error.code || "error", "bad")) +
         '<div class="body"><div class="empty">' +
-        esc(error.message || "CodexPro action unavailable.") +
+        esc(error.message || "CodexGPT action unavailable.") +
         '</div></div></article>';
     }
 
@@ -1864,7 +1864,7 @@ export const toolCardWidgetHtml = String.raw`
   }
 
   function renderGeneric(data) {
-    const keys = Object.keys(data || {}).filter((key) => !key.startsWith("codexpro_"));
+    const keys = Object.keys(data || {}).filter((key) => !key.startsWith("codexgpt_"));
     const metrics = keys.slice(0, 3).map((key) => metric(key, typeof data[key] === "object" ? JSON.stringify(data[key]) : data[key])).join("");
     return '<article class="card">' + header(data, pill("structured", "info")) +
       '<div class="body">' + (metrics ? '<div class="metrics">' + metrics + '</div>' : '') +
@@ -1875,7 +1875,7 @@ export const toolCardWidgetHtml = String.raw`
   function isPlaceholderPayload(data) {
     if (!data || typeof data !== "object") return true;
     const keys = Object.keys(data);
-    return !keys.length || (keys.length === 1 && data.codexpro_tool === "codexpro");
+    return !keys.length || (keys.length === 1 && data.codexgpt_tool === "codexgpt");
   }
 
   function renderPending() {
@@ -1884,7 +1884,7 @@ export const toolCardWidgetHtml = String.raw`
       '<div class="rail"></div>',
       '<header class="head">',
       '<span class="glyph">C</span>',
-      '<div class="headline"><div class="title">CodexPro</div><div class="subtitle">Waiting for tool result...</div></div>',
+      '<div class="headline"><div class="title">CodexGPT</div><div class="subtitle">Waiting for tool result...</div></div>',
       '<span class="pill info">waiting</span>',
       '</header>',
       '<div class="skeleton"><span></span><span></span><span></span></div>',
@@ -1897,14 +1897,14 @@ export const toolCardWidgetHtml = String.raw`
       renderPending();
       return;
     }
-    const tool = data.codexpro_tool;
-    if (data?.codexpro_tool === "codexpro") {
-      root.innerHTML = renderCodexPro(data);
+    const tool = data.codexgpt_tool;
+    if (data?.codexgpt_tool === "codexgpt") {
+      root.innerHTML = renderCodexGPT(data);
     } else if (tool === "server_config") {
       root.innerHTML = renderServerConfig(data);
-    } else if (tool === "codexpro_self_test") {
+    } else if (tool === "codexgpt_self_test") {
       root.innerHTML = renderSelfTest(data);
-    } else if (tool === "codexpro_inventory") {
+    } else if (tool === "codexgpt_inventory") {
       root.innerHTML = renderInventory(data);
     } else if (tool === "codex_sessions") {
       root.innerHTML = renderCodexSessions(data);
@@ -1959,7 +1959,7 @@ export const toolCardWidgetHtml = String.raw`
 
   function extractStructuredContent(value) {
     if (!value || typeof value !== "object") return {};
-    if (value.codexpro_tool || value.codexpro_title) return value;
+    if (value.codexgpt_tool || value.codexgpt_title) return value;
     const candidates = [
       value.structuredContent,
       value.toolOutput?.structuredContent,

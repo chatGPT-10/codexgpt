@@ -392,8 +392,8 @@ export const readHandoffErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const readHandoffOutputShape = {
-  codexpro_tool: z.literal("read_handoff"),
-  codexpro_title: z.literal("Read Handoff"),
+  codexgpt_tool: z.literal("read_handoff"),
+  codexgpt_title: z.literal("Read Handoff"),
   ok: z.boolean(),
   data: readHandoffDataSchema.nullable(),
   error: readHandoffErrorSchema.nullable(),
@@ -492,8 +492,8 @@ export function createReadHandoffSuccess(
 ): ReadHandoffStructuredResult {
   const parsedData = readHandoffDataSchema.parse(data);
   return readHandoffOutputSchema.parse({
-    codexpro_tool: "read_handoff",
-    codexpro_title: "Read Handoff",
+    codexgpt_tool: "read_handoff",
+    codexgpt_title: "Read Handoff",
     ok: true,
     data: parsedData,
     error: null,
@@ -506,8 +506,8 @@ export function createReadHandoffFailure(
   durationMs = 0
 ): ReadHandoffStructuredResult {
   return readHandoffOutputSchema.parse({
-    codexpro_tool: "read_handoff",
-    codexpro_title: "Read Handoff",
+    codexgpt_tool: "read_handoff",
+    codexgpt_title: "Read Handoff",
     ok: false,
     data: null,
     error: {

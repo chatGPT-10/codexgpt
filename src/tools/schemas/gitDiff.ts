@@ -129,8 +129,8 @@ export const gitDiffErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const gitDiffOutputShape = {
-  codexpro_tool: z.literal("git_diff"),
-  codexpro_title: z.literal("Git Diff"),
+  codexgpt_tool: z.literal("git_diff"),
+  codexgpt_title: z.literal("Git Diff"),
   ok: z.boolean(),
   data: gitDiffDataSchema.nullable(),
   error: gitDiffErrorSchema.nullable(),
@@ -191,8 +191,8 @@ export function createGitDiffSuccess(
   durationMs = 0
 ): GitDiffStructuredResult {
   return gitDiffOutputSchema.parse({
-    codexpro_tool: "git_diff",
-    codexpro_title: "Git Diff",
+    codexgpt_tool: "git_diff",
+    codexgpt_title: "Git Diff",
     ok: true,
     data: gitDiffDataSchema.parse(data),
     error: null,
@@ -205,8 +205,8 @@ export function createGitDiffFailure(
   durationMs = 0
 ): GitDiffStructuredResult {
   return gitDiffOutputSchema.parse({
-    codexpro_tool: "git_diff",
-    codexpro_title: "Git Diff",
+    codexgpt_tool: "git_diff",
+    codexgpt_title: "Git Diff",
     ok: false,
     data: null,
     error: {

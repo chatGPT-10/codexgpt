@@ -433,8 +433,8 @@ export const waitForHandoffErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const waitForHandoffOutputShape = {
-  codexpro_tool: z.literal("wait_for_handoff"),
-  codexpro_title: z.literal("Wait For Handoff"),
+  codexgpt_tool: z.literal("wait_for_handoff"),
+  codexgpt_title: z.literal("Wait For Handoff"),
   ok: z.boolean(),
   data: waitForHandoffDataSchema.nullable(),
   error: waitForHandoffErrorSchema.nullable(),
@@ -498,8 +498,8 @@ export function createWaitForHandoffSuccess(
 ): WaitForHandoffOutput {
   const parsedData = waitForHandoffDataSchema.parse(data);
   return waitForHandoffOutputSchema.parse({
-    codexpro_tool: "wait_for_handoff",
-    codexpro_title: "Wait For Handoff",
+    codexgpt_tool: "wait_for_handoff",
+    codexgpt_title: "Wait For Handoff",
     ok: true,
     data: parsedData,
     error: null,
@@ -513,8 +513,8 @@ export function createWaitForHandoffFailure(
 ): WaitForHandoffOutput {
   const retryable = failure.code === "HANDOFF_STATE_INVALID";
   return waitForHandoffOutputSchema.parse({
-    codexpro_tool: "wait_for_handoff",
-    codexpro_title: "Wait For Handoff",
+    codexgpt_tool: "wait_for_handoff",
+    codexgpt_title: "Wait For Handoff",
     ok: false,
     data: null,
     error: {

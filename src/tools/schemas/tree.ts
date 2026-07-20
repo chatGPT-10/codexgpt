@@ -80,8 +80,8 @@ export const treeErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const treeOutputShape = {
-  codexpro_tool: z.literal("tree"),
-  codexpro_title: z.literal("File Tree"),
+  codexgpt_tool: z.literal("tree"),
+  codexgpt_title: z.literal("File Tree"),
   ok: z.boolean(),
   data: treeDataSchema.nullable(),
   error: treeErrorSchema.nullable(),
@@ -141,8 +141,8 @@ export function createTreeSuccess(
   durationMs = 0
 ): TreeStructuredResult {
   return treeOutputSchema.parse({
-    codexpro_tool: "tree",
-    codexpro_title: "File Tree",
+    codexgpt_tool: "tree",
+    codexgpt_title: "File Tree",
     ok: true,
     data: treeDataSchema.parse(data),
     error: null,
@@ -155,8 +155,8 @@ export function createTreeFailure(
   durationMs = 0
 ): TreeStructuredResult {
   return treeOutputSchema.parse({
-    codexpro_tool: "tree",
-    codexpro_title: "File Tree",
+    codexgpt_tool: "tree",
+    codexgpt_title: "File Tree",
     ok: false,
     data: null,
     error: {

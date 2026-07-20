@@ -10,7 +10,7 @@ const repositoryRootDefault = path.resolve(scriptDirectory, "..");
 const manifestPathDefault = path.join(scriptDirectory, "git-execution-manifest-v1.json");
 const ZERO_SHA1 = "0".repeat(40);
 const ZERO_SHA256 = "0".repeat(64);
-const SAFE_REF = /^refs\/codexpro\/gate-g0\/[A-Za-z0-9._/-]{1,160}$/;
+const SAFE_REF = /^refs\/codexgpt\/gate-g0\/[A-Za-z0-9._/-]{1,160}$/;
 const SAFE_RELATIVE_PATH = /^(?!\/)(?![A-Za-z]:)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\0)[^\\]{1,512}$/;
 const SERVICE_PATH_AUTHORITIES = new WeakSet();
 const SECRET_PATTERNS = [
@@ -91,7 +91,7 @@ function requireRelativePath(value) {
 function validateManifest(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw gitError("GIT_MANIFEST_INVALID");
   const requiredStrings = {
-    capabilityName: "codexpro-git-execution",
+    capabilityName: "codexgpt-git-execution",
     commandTransport: "direct_argv",
     executionIsolation: "none",
     repositoryIntegrations: "disabled",
@@ -464,10 +464,10 @@ export function buildSafeGitInvocation(input) {
     throw gitError("GIT_CUSTOM_MERGE_DRIVER_UNSUPPORTED");
   }
   if (operationShape.commitIdentity) {
-    environment.GIT_AUTHOR_NAME = "CodexPro Gate G0";
-    environment.GIT_AUTHOR_EMAIL = "gate-g0@codexpro.invalid";
-    environment.GIT_COMMITTER_NAME = "CodexPro Gate G0";
-    environment.GIT_COMMITTER_EMAIL = "gate-g0@codexpro.invalid";
+    environment.GIT_AUTHOR_NAME = "CodexGPT Gate G0";
+    environment.GIT_AUTHOR_EMAIL = "gate-g0@codexgpt.invalid";
+    environment.GIT_COMMITTER_NAME = "CodexGPT Gate G0";
+    environment.GIT_COMMITTER_EMAIL = "gate-g0@codexgpt.invalid";
     environment.GIT_AUTHOR_DATE = "2000-01-01T00:00:00Z";
     environment.GIT_COMMITTER_DATE = "2000-01-01T00:00:00Z";
   }
@@ -714,7 +714,7 @@ export async function runGitCapabilityProbe(options = {}) {
   if (!options.host || typeof options.host.request !== "function") throw gitError("GIT_HOST_REQUIRED");
   const manifest = await loadGitExecutionManifest({ manifestPath: options.manifestPath });
   const binding = await resolveGitExecutable({ gitPath: options.gitPath, platform: "win32", programFiles: options.programFiles, localAppData: options.localAppData });
-  const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-git-g0-"));
+  const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-g0-"));
   const workTree = path.join(tempRoot, "repository");
   const home = path.join(tempRoot, "home");
   const hooks = path.join(tempRoot, "empty-hooks");
@@ -773,7 +773,7 @@ export async function runGitCapabilityProbe(options = {}) {
     parseSingleOid(rawBlobResult.stdout, objectFormat);
 
     const base = await createCommit(context, { parent: null, additions: [["base.txt", "base\n"]], message: "base" });
-    const ref = "refs/codexpro/gate-g0/probe";
+    const ref = "refs/codexgpt/gate-g0/probe";
     await runOperation(context, { kind: "update_ref_expected_old", ref, newOid: base.commit, oldOid: objectFormat === "sha1" ? ZERO_SHA1 : ZERO_SHA256 });
     const left = await createCommit(context, { parent: base.commit, additions: [["left.txt", "left\n"]], message: "left" });
     const right = await createCommit(context, { parent: base.commit, additions: [["right.txt", "right\n"]], message: "right" });

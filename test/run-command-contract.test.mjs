@@ -11,7 +11,7 @@ const { withAuthorizedResourceBinding } = await tsImport("../src/policy/integrat
 const fullAccessProfile = { ambientFilesystem: true, ambientCredentials: true, ambientRegistry: true, unrestrictedNetwork: true, requireBlockedPathEnforcement: false, requireCredentialIsolation: false, requireRegistryIsolation: false, requireDeviceIsolation: false, requireNetworkEnforcement: false, requireSandbox: false };
 
 test("run_command preserves argv, reports truthful ambient authority, redacts known patterns, and retains terminal output", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "codexpro-run-command-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "codexgpt-run-command-"));
   const executable = "C:\\Tools\\fake.exe";
   const requests = [];
   const runtime = new RunCommandRuntimeV3({

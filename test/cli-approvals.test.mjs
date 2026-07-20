@@ -57,8 +57,8 @@ function summary(suffix) {
 }
 
 windowsOnly("public CLI requires exact server routing and safely lists, watches, approves, denies, and controls processes", async (t) => {
-  const localAppData = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-cli-control-"));
-  const stateBaseRoot = path.join(localAppData, "CodexPro", "control");
+  const localAppData = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-cli-control-"));
+  const stateBaseRoot = path.join(localAppData, "CodexGPT", "control");
   const serverId = localControlServerId();
   const approvals = new PendingApprovalStore();
   const grants = new SessionGrantStore();
@@ -80,7 +80,7 @@ windowsOnly("public CLI requires exact server routing and safely lists, watches,
     await fsp.rm(localAppData, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
-  const entry = path.resolve("scripts", "codexpro-entry.mjs");
+  const entry = path.resolve("scripts", "codexgpt-entry.mjs");
   const environment = {
     ...process.env,
     LOCALAPPDATA: localAppData,

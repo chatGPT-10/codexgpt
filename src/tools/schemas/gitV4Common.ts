@@ -191,8 +191,8 @@ export function defineGitV4Tool<Name extends string, Data extends z.ZodTypeAny>(
   dataSchema: Data
 ) {
   const outputShape = {
-    codexpro_tool: z.literal(name),
-    codexpro_title: z.literal(title),
+    codexgpt_tool: z.literal(name),
+    codexgpt_title: z.literal(title),
     ok: z.boolean(),
     data: dataSchema.nullable(),
     error: gitV4ErrorSchema.nullable(),
@@ -212,8 +212,8 @@ export function defineGitV4Tool<Name extends string, Data extends z.ZodTypeAny>(
     retryable: boolean;
     nextAction: z.infer<typeof gitV4NextActionSchema>;
   }, durationMs = 0) => outputSchema.parse({
-    codexpro_tool: name,
-    codexpro_title: title,
+    codexgpt_tool: name,
+    codexgpt_title: title,
     ok: false,
     data: null,
     error: {
@@ -229,8 +229,8 @@ export function defineGitV4Tool<Name extends string, Data extends z.ZodTypeAny>(
     outputSchema,
     success(data: z.infer<Data>, durationMs = 0) {
       return outputSchema.parse({
-        codexpro_tool: name,
-        codexpro_title: title,
+        codexgpt_tool: name,
+        codexgpt_title: title,
         ok: true,
         data,
         error: null,

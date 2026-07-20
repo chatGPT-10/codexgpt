@@ -136,8 +136,8 @@ export const writeErrorSchema = z.discriminatedUnion("code", [
 ]);
 
 export const writeOutputShape = {
-  codexpro_tool: z.literal("write"),
-  codexpro_title: z.literal("Write File"),
+  codexgpt_tool: z.literal("write"),
+  codexgpt_title: z.literal("Write File"),
   ok: z.boolean(),
   data: writeDataSchema.nullable(),
   error: writeErrorSchema.nullable(),
@@ -202,8 +202,8 @@ export function createWriteSuccess(
   durationMs = 0
 ): WriteStructuredResult {
   return writeOutputSchema.parse({
-    codexpro_tool: "write",
-    codexpro_title: "Write File",
+    codexgpt_tool: "write",
+    codexgpt_title: "Write File",
     ok: true,
     data: writeDataSchema.parse(data),
     error: null,
@@ -216,8 +216,8 @@ export function createWriteFailure(
   durationMs = 0
 ): WriteStructuredResult {
   return writeOutputSchema.parse({
-    codexpro_tool: "write",
-    codexpro_title: "Write File",
+    codexgpt_tool: "write",
+    codexgpt_title: "Write File",
     ok: false,
     data: null,
     error: {
@@ -289,8 +289,8 @@ export const writeDataSchemaV2 = writeDataSchema.extend({
 export const writeErrorSchemaV2 = z.union([writeErrorSchema, writeTransactionErrorSchema]);
 
 export const writeOutputShapeV2 = {
-  codexpro_tool: z.literal("write"),
-  codexpro_title: z.literal("Write File"),
+  codexgpt_tool: z.literal("write"),
+  codexgpt_title: z.literal("Write File"),
   ok: z.boolean(),
   data: writeDataSchemaV2.nullable(),
   error: writeErrorSchemaV2.nullable(),
@@ -318,8 +318,8 @@ export function createWriteSuccessV2(
   durationMs = 0
 ): WriteStructuredResultV2 {
   return writeOutputSchemaV2.parse({
-    codexpro_tool: "write",
-    codexpro_title: "Write File",
+    codexgpt_tool: "write",
+    codexgpt_title: "Write File",
     ok: true,
     data: writeDataSchemaV2.parse(data),
     error: null,
@@ -335,8 +335,8 @@ export function createWriteTransactionFailureV2(
   durationMs = 0
 ): WriteStructuredResultV2 {
   return writeOutputSchemaV2.parse({
-    codexpro_tool: "write",
-    codexpro_title: "Write File",
+    codexgpt_tool: "write",
+    codexgpt_title: "Write File",
     ok: false,
     data: null,
     error: {

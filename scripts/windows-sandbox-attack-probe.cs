@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
 
-namespace CodexPro.Phase4
+namespace CodexGPT.Phase4
 {
     internal static class SandboxAttackProbe
     {

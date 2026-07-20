@@ -15,7 +15,7 @@ Migrate only the direct `workspace_snapshot` MCP tool to the established Phase 1
 - explicit provider boundaries;
 - focused contract tests;
 - nested Tool Card compatibility;
-- `codexpro` supertool compatibility;
+- `codexgpt` supertool compatibility;
 - fail-closed in-memory migration for the protected Smoke consumers.
 
 This slice stabilizes the existing snapshot protocol. It does not redesign workspace identity, add ownership or expiry, add `close_workspace`, change allowed roots, migrate `list_workspaces` or `inspect_workspace`, create `.ai-bridge` files, or begin Phase 2.
@@ -124,7 +124,7 @@ The migration preserves the inputs, defaults, full-mode-only availability, text 
 - Test-only dependency injection for summary and AI-context providers.
 - Provider output validation and normalization.
 - Nested Tool Card rendering plus historical flat fallback.
-- `codexpro` supertool direct action and `snapshot` alias compatibility.
+- `codexgpt` supertool direct action and `snapshot` alias compatibility.
 - Exact fail-closed in-memory migration of protected Smoke and HTTP Smoke consumers.
 - Focused, adjacent, complete, build, smoke, stress, package, and diff verification.
 - Design, plan, CHANGELOG, AGENTS map, `Memory.md`, and active Phase 1 archive records.
@@ -151,8 +151,8 @@ The top-level result is the established strict Phase 1 envelope:
 
 ```json
 {
-  "codexpro_tool": "workspace_snapshot",
-  "codexpro_title": "Workspace Snapshot",
+  "codexgpt_tool": "workspace_snapshot",
+  "codexgpt_title": "Workspace Snapshot",
   "ok": true,
   "data": {},
   "error": null,
@@ -236,8 +236,8 @@ All public failures use:
 
 ```json
 {
-  "codexpro_tool": "workspace_snapshot",
-  "codexpro_title": "Workspace Snapshot",
+  "codexgpt_tool": "workspace_snapshot",
+  "codexgpt_title": "Workspace Snapshot",
   "ok": false,
   "data": null,
   "error": {
@@ -292,23 +292,23 @@ An explicit workspace ID may be returned only after bounded one-line sanitizatio
 
 ## 8. Provider boundaries
 
-Add two dependencies to `CodexProServerDependencies`.
+Add two dependencies to `CodexGPTServerDependencies`.
 
 ```ts
 export interface WorkspaceSnapshotSummaryProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   options: WorkspaceSnapshotSummaryOptions;
 }
 
 export interface WorkspaceSnapshotAiContextProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
 }
 
-export interface CodexProServerDependencies {
+export interface CodexGPTServerDependencies {
   workspaceSnapshotSummaryProvider?: (
     context: WorkspaceSnapshotSummaryProviderContext
   ) => WorkspaceSummary | Promise<WorkspaceSummary>;
@@ -432,7 +432,7 @@ Contract tests must prove:
 - absent in `minimal`;
 - absent in `standard`;
 - present in `full`;
-- the full-mode descriptor advertises an object `outputSchema` requiring exactly `codexpro_tool`, `codexpro_title`, `ok`, `data`, `error`, and `meta`.
+- the full-mode descriptor advertises an object `outputSchema` requiring exactly `codexgpt_tool`, `codexgpt_title`, `ok`, `data`, `error`, and `meta`.
 
 No tool-mode membership changes belong to this slice.
 
@@ -453,15 +453,15 @@ The Tool Card must never display raw provider diagnostics.
 
 ## 14. Supertool compatibility
 
-The `codexpro` wrapper already maps alias `snapshot` to `workspace_snapshot`.
+The `codexgpt` wrapper already maps alias `snapshot` to `workspace_snapshot`.
 
 Tests must prove, in full mode:
 
 - `action: "workspace_snapshot"` returns the strict nested success/failure envelope;
 - `action: "snapshot"` resolves to the same tool;
 - wrapper tags remain:
-  - `codexpro_tool: "workspace_snapshot"`;
-  - `codexpro_super_action: "workspace_snapshot"`;
+  - `codexgpt_tool: "workspace_snapshot"`;
+  - `codexgpt_super_action: "workspace_snapshot"`;
   - `wrapped_tool: "workspace_snapshot"`;
 - no flat data fields are reintroduced.
 
@@ -618,7 +618,7 @@ Run in this order:
    ```text
    git diff --check
    ```
-9. Review current changes with CodexPro `show_changes`.
+9. Review current changes with CodexGPT `show_changes`.
 10. Run `neat-freak`, reconcile records, and repeat affected gates.
 11. Stop before staging, commit, push, or Phase 2 until explicit approval.
 

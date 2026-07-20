@@ -6,7 +6,7 @@ import test from "node:test";
 import { admitManagedWorktreeRoot } from "../dist/worktrees/root.js";
 
 test("managed worktree root is canonical, fixed-volume, and disjoint from protected roots", async () => {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-worktree-root-"));
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-worktree-root-"));
   try {
     const managed = path.join(base, "managed");
     const protectedRoot = path.join(base, "protected");

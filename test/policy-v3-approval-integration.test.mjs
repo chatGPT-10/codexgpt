@@ -69,8 +69,8 @@ function config(root) {
 }
 
 test("V3 default policy runtime issues durable pending state and atomically reserves one exact retry", async (t) => {
-  const workspaceRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-v3-policy-workspace-")));
-  const stateRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-v3-policy-state-")));
+  const workspaceRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-v3-policy-workspace-")));
+  const stateRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-v3-policy-state-")));
   const registry = new ProcessInstanceRegistry(stateRoot);
   const auditStore = PersistentAuditStore.open({
     stateRoot,

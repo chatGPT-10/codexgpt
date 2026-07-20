@@ -6,7 +6,7 @@ Status: Published through commit `a39b779`; CI run `29239425311` passed Ubuntu/W
 
 ## 1. Goal
 
-Migrate only the direct `bash` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexpro` wrapper compatibility.
+Migrate only the direct `bash` MCP tool to the established Phase 1 schema-v1 result envelope with an exact advertised `outputSchema`, strict success data, stable public errors, focused contract tests, Tool Card compatibility, and `codexgpt` wrapper compatibility.
 
 The slice preserves the current synchronous Bash verification workflow, safe/full policy behavior, optional session guard, workspace-relative `cwd`, timeout bounds, output redaction and truncation, compact/full human transcript modes, Git Bash compatibility on native Windows, current tool registration rules, and existing Smoke/Stress coverage.
 
@@ -61,7 +61,7 @@ This is rejected because it is Phase 4 work, changes behavior and permissions, r
 - Stable safe public failure codes and messages.
 - Existing compact and full human-readable Bash transcript behavior.
 - Dedicated nested-envelope Tool Card rendering.
-- `codexpro` supertool wrapper compatibility.
+- `codexgpt` supertool wrapper compatibility.
 - Focused `node:test` contract coverage.
 - Smoke and Stress updates only where they inspect the old flat structured result.
 - Documentation, changelog, project memory, and active Phase 1 archive updates during implementation.
@@ -85,10 +85,10 @@ The direct `bash` tool has two distinct outcome layers.
 
 ### Tool-level outcome
 
-`ok` answers whether CodexPro successfully validated the request, started the configured Bash backend, and produced a valid bounded process result.
+`ok` answers whether CodexGPT successfully validated the request, started the configured Bash backend, and produced a valid bounded process result.
 
 - `ok: true`: the tool operation completed and returned a trustworthy process outcome.
-- `ok: false`: CodexPro could not perform the tool operation because of workspace, argument, session, policy, backend, path, start, or internal failure.
+- `ok: false`: CodexGPT could not perform the tool operation because of workspace, argument, session, policy, backend, path, start, or internal failure.
 
 ### Command-level outcome
 
@@ -102,12 +102,12 @@ A command currently terminated by timeout or output pressure also remains `ok: t
 
 ```json
 {
-  "codexpro_tool": "bash",
-  "codexpro_title": "Bash",
+  "codexgpt_tool": "bash",
+  "codexgpt_title": "Bash",
   "ok": true,
   "data": {
     "workspace_id": "ws_...",
-    "root": "D:\\Dev\\codexpro",
+    "root": "D:\\Dev\\codexgpt",
     "command": "npm run build",
     "cwd": ".",
     "exitCode": 0,
@@ -153,7 +153,7 @@ Add:
 
 ```ts
 export interface BashProviderContext {
-  config: CodexProConfig;
+  config: CodexGPTConfig;
   guard: PathGuard;
   workspace: Workspace;
   command: string;
@@ -165,7 +165,7 @@ export interface BashProviderContext {
 }
 ```
 
-Extend `CodexProServerDependencies` with:
+Extend `CodexGPTServerDependencies` with:
 
 ```ts
 bashResultProvider?: (
@@ -217,8 +217,8 @@ Malformed provider results or mismatched command, `cwd`, or session values becom
 
 ```json
 {
-  "codexpro_tool": "bash",
-  "codexpro_title": "Bash",
+  "codexgpt_tool": "bash",
+  "codexgpt_title": "Bash",
   "ok": false,
   "data": null,
   "error": {
@@ -306,7 +306,7 @@ The direct handler catches every failure and maps it as follows:
 - provider or spawn rejection with `ENOENT`, `EACCES`, or `EPERM`, when not already classified as backend unavailable -> `COMMAND_START_FAILED`;
 - malformed provider data, command/working-directory/session mismatch, unexpected exceptions, and unclassified conditions -> `INTERNAL_ERROR`.
 
-Classification may inspect the current internal `CodexProError` message prefixes and Node error codes, but only fixed public messages and strict bounded details leave the handler. This slice does not create a project-wide typed error hierarchy or change `src/bashOps.ts` policy algorithms.
+Classification may inspect the current internal `CodexGPTError` message prefixes and Node error codes, but only fixed public messages and strict bounded details leave the handler. This slice does not create a project-wide typed error hierarchy or change `src/bashOps.ts` policy algorithms.
 
 ## 9. Handler flow
 
@@ -342,7 +342,7 @@ Exit: 0
 Duration: 1842 ms
 Output: stdout 4 lines, stderr 0 lines.
 
-Raw stdout/stderr are in the structured CodexPro card. Start with `--bash-transcript full` to print raw output in chat.
+Raw stdout/stderr are in the structured CodexGPT card. Start with `--bash-transcript full` to print raw output in chat.
 ```
 
 ### Full transcript
@@ -380,7 +380,7 @@ Failure cards show only the stable error code and fixed public message.
 
 The Tool Card distinction between a successful command and a failed command is presentation only. It must not reinterpret envelope `ok`.
 
-The `codexpro` supertool continues to preserve the child structured result and adds only wrapper identity fields. It must not flatten `data`, overwrite `ok/error/meta`, or restore legacy top-level Bash fields.
+The `codexgpt` supertool continues to preserve the child structured result and adds only wrapper identity fields. It must not flatten `data`, overwrite `ok/error/meta`, or restore legacy top-level Bash fields.
 
 ## 12. Contract tests
 
@@ -408,7 +408,7 @@ Add `test/bash-contract.test.mjs` covering at least:
 20. returned command, `cwd`, or session mismatch becomes `INTERNAL_ERROR`;
 21. no accidental public `bashSessionId` field remains;
 22. Tool Card reads nested success and failure data;
-23. `codexpro` wrapping preserves the nested direct contract.
+23. `codexgpt` wrapping preserves the nested direct contract.
 
 Existing Smoke and Stress tests remain authoritative for:
 

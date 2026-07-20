@@ -27,7 +27,7 @@ import { installPolicyKernel } from "../dist/policy/integration.js";
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 
 async function fixture(action, options = {}) {
-  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-mutation-runtime-"));
+  const raw = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-mutation-runtime-"));
   const root = await fsp.realpath(raw);
   const stateRoot = path.join(root, "state");
   const workspaceRoot = path.join(root, "workspace");

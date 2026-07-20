@@ -55,8 +55,8 @@ Create fixtures for changed, clean, checkpoint-hit, stats-only, untracked-only, 
 const parsed = showChangesOutputSchema.parse(
   createShowChangesSuccess(changedShowChangesData(), 7)
 );
-assert.equal(parsed.codexpro_tool, "show_changes");
-assert.equal(parsed.codexpro_title, "Show Changes");
+assert.equal(parsed.codexgpt_tool, "show_changes");
+assert.equal(parsed.codexgpt_title, "Show Changes");
 assert.equal(parsed.ok, true);
 assert.deepEqual(parsed.data, changedShowChangesData());
 assert.equal(parsed.error, null);
@@ -187,7 +187,7 @@ const descriptor = (await client.listTools()).tools.find(
 assert.ok(descriptor.outputSchema);
 assert.deepEqual(
   new Set(descriptor.outputSchema.required),
-  new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+  new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
 );
 ```
 
@@ -221,7 +221,7 @@ Expected: FAIL because `show_changes` has no `outputSchema`, still returns flat 
 
 - [ ] **Step 3: Add imports, provider seams, defaults, and failure helpers**
 
-Import the new schema API and `ChangeAnalysis` type. Add defaults inside `createCodexProServer`:
+Import the new schema API and `ChangeAnalysis` type. Add defaults inside `createCodexGPTServer`:
 
 ```ts
 const showChangesStatusProvider = dependencies.showChangesStatusProvider ??
@@ -298,7 +298,7 @@ git commit -m "feat(schema): migrate show_changes output"
 
 **Interfaces:**
 - Direct card reads `data`, `error`, and `meta` only.
-- Supertool wrapper retains `codexpro_super_action` and `wrapped_tool` while child fields remain nested.
+- Supertool wrapper retains `codexgpt_super_action` and `wrapped_tool` while child fields remain nested.
 - Smoke/stress helpers unwrap direct `show_changes` data before assertions.
 
 - [ ] **Step 1: Add failing card and wrapper tests**
@@ -307,12 +307,12 @@ Assert the card source contains nested-envelope reads for `show_changes` and no 
 
 ```js
 await client.callTool({
-  name: "codexpro",
+  name: "codexgpt",
   arguments: { action: "show_changes", args: { workspace_id } }
 });
 
 await client.callTool({
-  name: "codexpro",
+  name: "codexgpt",
   arguments: { action: "changes", args: { workspace_id } }
 });
 ```

@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const sessionModule = await tsImport("../src/codexSessions.ts", import.meta.url);
 const schemaModule = await tsImport(
@@ -145,7 +145,7 @@ async function withTempWorkspace(callback) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "read-codex-session-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -335,10 +335,10 @@ test("read_codex_session schema exports the exact envelope and twenty-field succ
 
     const success = createReadCodexSessionSuccess(sampleData(root), 7);
     assert.deepEqual(Object.keys(success).sort(), [
-      "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+      "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
     ]);
-    assert.equal(success.codexpro_tool, "read_codex_session");
-    assert.equal(success.codexpro_title, "Read Codex Session");
+    assert.equal(success.codexgpt_tool, "read_codex_session");
+    assert.equal(success.codexgpt_title, "Read Codex Session");
     assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
     assert.deepEqual(Object.keys(success.data.session).sort(), SESSION_KEYS);
     assert.deepEqual(Object.keys(success.data.messages[0]).sort(), MESSAGE_KEYS);
@@ -445,9 +445,9 @@ test("read_codex_session remains read-opt-in across tool modes and advertises th
           assert.equal(descriptor.inputSchema.properties.max_total_bytes.minimum, 4000);
           assert.equal(descriptor.inputSchema.properties.max_total_bytes.maximum, 400000);
           assert.deepEqual(descriptor.outputSchema.required.sort(), [
-            "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+            "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
           ]);
-          assert.equal(descriptor._meta?.["codexpro/preserveStructuredContent"], true);
+          assert.equal(descriptor._meta?.["codexgpt/preserveStructuredContent"], true);
           assert.equal(descriptor.annotations?.readOnlyHint, true);
         });
       }
@@ -810,7 +810,7 @@ test("read_codex_session human text and Tool Card use bounded nested transcript 
     /function renderReadCodexSession\(data\) \{[\s\S]*?\n  \}/
   )?.[0] ?? "";
   assert.match(toolCardWidgetHtml, /read_codex_session: "Codex transcript"/);
-  assert.match(helper, /data\?\.codexpro_tool === "read_codex_session"/);
+  assert.match(helper, /data\?\.codexgpt_tool === "read_codex_session"/);
   assert.match(helper, /return nested \? data\.data : \{\}/);
   assert.match(renderer, /messages\.slice\(0, 8\)/);
   assert.match(renderer, /truncate\([^,]+, 600\)/);

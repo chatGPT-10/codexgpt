@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   SHOW_CHANGES_ANALYSIS_WARNING,
@@ -74,7 +74,7 @@ function exactAnalysis(overrides = {}) {
 function changedShowChangesData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "workspace changes",
     status: "## main...origin/main\n M src/server.ts",
     changed_files: [" M src/server.ts"],
@@ -102,7 +102,7 @@ function changedShowChangesData(overrides = {}) {
 function cleanShowChangesData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "workspace changes",
     status: "## main...origin/main",
     changed_files: [],
@@ -197,15 +197,15 @@ test("show_changes success constructor produces the strict schema-v1 envelope", 
     );
 
     assert.deepEqual(Object.keys(parsed).sort(), [
-      "codexpro_title",
-      "codexpro_tool",
+      "codexgpt_title",
+      "codexgpt_tool",
       "data",
       "error",
       "meta",
       "ok"
     ]);
-    assert.equal(parsed.codexpro_tool, "show_changes");
-    assert.equal(parsed.codexpro_title, "Show Changes");
+    assert.equal(parsed.codexgpt_tool, "show_changes");
+    assert.equal(parsed.codexgpt_title, "Show Changes");
     assert.equal(parsed.ok, true);
     assert.deepEqual(parsed.data, expectedData);
     assert.equal(parsed.error, null);
@@ -436,7 +436,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 
 async function withInMemoryClient(options, callback) {
   const root = options.root ?? process.cwd();
-  const server = createCodexProServer(
+  const server = createCodexGPTServer(
     createTestConfig(root, options.configOverrides ?? {}),
     options.dependencies ?? {}
   );
@@ -470,7 +470,7 @@ function runFixtureGit(root, args) {
 }
 
 async function withTempDirectory(callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-show-changes-contract-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-show-changes-contract-"));
   try {
     return await callback(await fs.realpath(root));
   } finally {
@@ -547,7 +547,7 @@ test("show_changes advertises the exact output schema and returns a valid clean 
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
 
       const result = await client.callTool({
@@ -843,7 +843,7 @@ test("show_changes classifies injected status and diff provider failures without
 
 test("show_changes tool card reads direct results only from data, error, and meta", () => {
   const subtitleMatch = toolCardWidgetHtml.match(
-    /if \(data\?\.codexpro_tool === "show_changes"\) \{[\s\S]*?\n    \}/
+    /if \(data\?\.codexgpt_tool === "show_changes"\) \{[\s\S]*?\n    \}/
   );
   assert.ok(subtitleMatch, "show_changes subtitle branch must exist");
   assert.match(subtitleMatch[0], /const review = data\?\.data \?\? \{\};/);
@@ -877,14 +877,14 @@ test("show_changes tool card reads direct results only from data, error, and met
   );
 });
 
-test("codexpro show_changes action and changes alias preserve wrapper metadata and nested child contract", async () => {
+test("codexgpt show_changes action and changes alias preserve wrapper metadata and nested child contract", async () => {
   await withTempGitRepository(async (root) => {
     await fs.appendFile(path.join(root, "demo.txt"), "beta\n", "utf8");
 
     await withInMemoryClient({ root, configOverrides: { analysisEnabled: false } }, async (client) => {
       for (const action of ["show_changes", "changes"]) {
         const result = await client.callTool({
-          name: "codexpro",
+          name: "codexgpt",
           arguments: {
             action,
             args: { path: "demo.txt", mark_reviewed: false }
@@ -892,8 +892,8 @@ test("codexpro show_changes action and changes alias preserve wrapper metadata a
         });
         const structured = result.structuredContent;
 
-        assert.equal(structured.codexpro_tool, "show_changes");
-        assert.equal(structured.codexpro_super_action, action);
+        assert.equal(structured.codexgpt_tool, "show_changes");
+        assert.equal(structured.codexgpt_super_action, action);
         assert.equal(structured.wrapped_tool, "show_changes");
         assert.equal(structured.ok, true);
         assert.equal(structured.error, null);

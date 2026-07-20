@@ -67,7 +67,7 @@ function lifecycle(label, timestamp, transition = "requested") {
 }
 
 function fixture() {
-  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-v3-audit-"));
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-v3-audit-"));
   const registry = new ProcessInstanceRegistry(stateRoot);
   const now = { value: Date.UTC(2026, 6, 16, 12) };
   const store = PersistentAuditStore.open({

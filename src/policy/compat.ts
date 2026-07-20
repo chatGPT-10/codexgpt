@@ -1,4 +1,4 @@
-import type { CodexProConfig } from "../config.js";
+import type { CodexGPTConfig } from "../config.js";
 import { permissionProfileDocumentV1Schema, permissionProfileDocumentV3Schema } from "./schemas.js";
 import type { FilesystemRuleV1, PermissionProfileDocumentV1, PermissionProfileDocumentV3 } from "./types.js";
 
@@ -36,7 +36,7 @@ function compatibilityDenyRules(blockedGlobs: readonly string[]): FilesystemRule
   return rules;
 }
 
-export function compileCompatibilityProfile(config: CodexProConfig): PermissionProfileDocumentV1 {
+export function compileCompatibilityProfile(config: CodexGPTConfig): PermissionProfileDocumentV1 {
   const rules = compatibilityDenyRules(config.blockedGlobs);
   if (config.writeMode === "handoff") {
     rules.push({
@@ -86,7 +86,7 @@ export function compileCompatibilityProfile(config: CodexProConfig): PermissionP
   });
 }
 
-export function compileCompatibilityProfileV3(config: CodexProConfig): PermissionProfileDocumentV3 {
+export function compileCompatibilityProfileV3(config: CodexGPTConfig): PermissionProfileDocumentV3 {
   const v1 = compileCompatibilityProfile(config);
   const { schemaVersion: _schemaVersion, ...base } = v1;
   return permissionProfileDocumentV3Schema.parse({

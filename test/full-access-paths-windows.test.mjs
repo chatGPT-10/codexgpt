@@ -13,13 +13,13 @@ test("Windows confirmed roots reject device, UNC, ADS, reserved, and protected s
   }
   const policy = new ProtectedRootPolicy({
     platform: "win32",
-    protectedRoots: ["C:\\Users\\Noah\\.codex", "C:\\Users\\Noah\\AppData\\Local\\CodexPro"]
+    protectedRoots: ["C:\\Users\\Noah\\.codex", "C:\\Users\\Noah\\AppData\\Local\\CodexGPT"]
   });
   for (const value of [
     "C:\\Users\\Noah\\.ssh\\id_ed25519",
     "C:\\Users\\Noah\\.git\\config",
     "C:\\Users\\Noah\\.codex\\auth.json",
-    "C:\\Users\\Noah\\AppData\\Local\\CodexPro\\state.json",
+    "C:\\Users\\Noah\\AppData\\Local\\CodexGPT\\state.json",
     "C:\\Windows\\System32\\config\\SAM"
   ]) assert.equal(policy.classify(value).blocked, true, value);
   assert.equal(policy.classify("C:\\Users\\Noah\\Documents\\note.txt").blocked, false);
@@ -61,7 +61,7 @@ test("WorkspaceManager resolves, lists, and closes process-local confirmed roots
 
 test("PathGuard enforces read-only and hard-link rules for confirmed roots", (t) => {
   if (process.platform !== "win32") return t.skip("Windows hard-link contract");
-  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexpro-confirmed-root-")));
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-confirmed-root-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const source = path.join(root, "source.txt");
   const linked = path.join(root, "linked.txt");

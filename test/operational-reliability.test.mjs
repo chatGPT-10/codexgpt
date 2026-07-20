@@ -88,7 +88,7 @@ test("detached runner derives only missing Windows user application-data paths",
 });
 
 test("detached runner rejects duplicate kinds and records an exact completed result", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-test-"));
   try {
     const started = await execute(runnerScript, [
       "start",
@@ -149,7 +149,7 @@ test("Windows exact stop retries transient taskkill failure without widening the
 });
 
 test("detached runner rejects secret-looking command arguments before persisting metadata", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-runner-secret-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-secret-test-"));
   const token = ["gh", "p_", "c".repeat(28)].join("");
   try {
     await assert.rejects(
@@ -172,7 +172,7 @@ test("detached runner rejects secret-looking command arguments before persisting
 });
 
 test("bounded failure summary redacts token-shaped output and preserves the first assertion", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-summary-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-summary-test-"));
   const token = ["gh", "p_", "a".repeat(28)].join("");
   try {
     await assert.rejects(
@@ -200,7 +200,7 @@ test("bounded failure summary redacts token-shaped output and preserves the firs
 });
 
 test("bounded summary launches npm through the active Node runtime on Windows", { skip: process.platform !== "win32" }, async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-summary-npm-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-summary-npm-test-"));
   try {
     const { stdout } = await execute(summaryScript, [
       "--label", "npm-version",
@@ -218,7 +218,7 @@ test("bounded summary launches npm through the active Node runtime on Windows", 
 });
 
 test("toolchain status is deterministic and keeps managed runtimes outside Temp", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-toolchain-status-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-toolchain-status-"));
   try {
     const { stdout } = await execute(toolchainScript, ["status", "--root", root]);
     const status = JSON.parse(stdout);

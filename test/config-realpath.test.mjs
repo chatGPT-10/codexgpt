@@ -7,7 +7,7 @@ import test from 'node:test';
 import { loadConfig } from '../dist/config.js';
 
 test('configured root uses the canonical native real path', async () => {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-config-root-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-config-root-'));
   try {
     const expected = await fs.realpath(tmp);
     const config = loadConfig(['--root', tmp, '--bash', 'off', '--write', 'off']);
@@ -18,7 +18,7 @@ test('configured root uses the canonical native real path', async () => {
 });
 
 test('configured Codex directory uses the canonical native real path when it exists', async () => {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'codexpro-config-codex-dir-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-config-codex-dir-'));
   const codexDir = path.join(tmp, '.codex');
   await fs.mkdir(codexDir);
   try {

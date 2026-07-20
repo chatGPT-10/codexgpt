@@ -1,18 +1,18 @@
-# CodexPro 总体实施计划
+# CodexGPT 总体实施计划
 
 > 版本：2.2
 > 生效日期：2026-07-13
 > 最近核对：2026-07-19
 > 状态：当前权威实施路线
-> 工作区：`D:\Dev\codexpro`
-> 基线版本：`codexpro@0.28.6`
+> 工作区：`D:\Dev\codexgpt`
+> 基线版本：`codexgpt@0.28.6`
 > 当前阶段：Phase 1–4 已关闭；reduced Phase 4 以 trusted-code execution 收口，诊断性 4B0 保持 blocked，`workspace` 与 Task 4B1–4B6 延期；Phase 5 本地闭环完成，等待一次性发布与 closure-SHA exact-head CI
 >
 > 下一门禁：Phase 5 closure SHA 的 terminal exact-head CI；成功前不得进入 Phase 6，也不得跳过配对设计、TDD、审计或阶段发布门
 >
 > 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
 
-本文件取代下载目录中的 `codexpro_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
+本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
 ---
 
@@ -58,7 +58,7 @@
 
 ## 1. 第一性目标
 
-CodexPro 要解决的不是“增加更多 MCP 工具”，而是：
+CodexGPT 要解决的不是“增加更多 MCP 工具”，而是：
 
 > 让 ChatGPT 能够通过用户自己的安全入口，可靠地操作用户明确授权的本地项目，同时让每一次能力扩大都可解释、可限制、可验证、可审计、可回滚。
 
@@ -70,7 +70,7 @@ ChatGPT Web
 mcp.<user-domain>
   → Cloudflare DNS / TLS / Tunnel
 127.0.0.1:8787
-  → customized CodexPro
+  → customized CodexGPT
   → explicitly authorized local workspaces
 ```
 
@@ -106,16 +106,16 @@ mcp.<user-domain>
 | Phase 5–8 | 已批准；Phase 5 closure candidate | Phase 5A/5B、Gate X 对抗修复、文档对齐、Node 20/24 ordinary、Windows control、Smoke、package 与静态门已通过；单次发布和 closure SHA exact-head success 后才进入 Phase 6 |
 | Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
-Phase 0.5 已验证的外部入口事实：公开 `https://codexpro.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexPro，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
+Phase 0.5 已验证的外部入口事实：公开 `https://codexgpt.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexGPT，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
 
 ### 2.2 当前认证和入口事实
 
-1. `scripts/codexpro-entry.mjs` 是受支持的公开 CLI 入口。
-2. 直接运行 `node scripts/codexpro.mjs` 会绕过入口层保护，不是受支持的公开启动方式。
-3. 当 `CODEXPRO_ALLOW_QUERY_TOKEN` 未设置时，受支持 CLI 使用面向 ChatGPT Web 的个人 query-token 兼容流程。
+1. `scripts/codexgpt-entry.mjs` 是受支持的公开 CLI 入口。
+2. 直接运行 `node scripts/codexgpt.mjs` 会绕过入口层保护，不是受支持的公开启动方式。
+3. 当 `CODEXGPT_ALLOW_QUERY_TOKEN` 未设置时，受支持 CLI 使用面向 ChatGPT Web 的个人 query-token 兼容流程。
 4. CLI 可以为此流程打印和复制含凭据的 Server URL，并必须提示 ChatGPT 配置为 `Authentication: None / No Authentication`。
 5. 完整 Server URL 是秘密，可能通过历史记录、剪贴板、截图、日志或转发链接泄露。
-6. `CODEXPRO_ALLOW_QUERY_TOKEN=0` 只适用于能主动发送 `Authorization: Bearer` 的兼容客户端。
+6. `CODEXGPT_ALLOW_QUERY_TOKEN=0` 只适用于能主动发送 `Authorization: Bearer` 的兼容客户端。
 7. 服务端 Bearer 支持仍保留，但文档不能声称 ChatGPT Web 支持手工静态 Bearer 配置。
 8. OAuth 2.1 是后续标准化方向；2026-07-14 的 Phase 8 显式授权已满足“计划存在不能代替实施批准”的门槛，但启用前仍须通过 Phase 8 的身份、迁移、回滚与安全验收。
 9. 非 loopback 和 Tunnel 模式必须在没有认证时 fail closed；Host 和 Origin 校验必须在本地执行。
@@ -173,7 +173,7 @@ warnings
 
 ### 2.5 Phase 1 本地完成、纳入统一发布批次的 Slice 17–24
 
-`codexpro_inventory`、`load_skill`、`read_handoff`、`wait_for_handoff`、`codex_context`、`export_pro_context`、`handoff_to_agent` 和 `handoff_to_codex` 已完成设计、TDD 实现、消费者迁移、结果后审查、全部本地门禁和逐工具 `neat-freak` 对账。Slice 17–28 在本地连续实施；全部 12 个工具完成前保持未 staged、未 commit、未 push，目标完成后统一发布并以 Ubuntu/Windows Node 20/24 精确头 CI 验收。
+`codexgpt_inventory`、`load_skill`、`read_handoff`、`wait_for_handoff`、`codex_context`、`export_pro_context`、`handoff_to_agent` 和 `handoff_to_codex` 已完成设计、TDD 实现、消费者迁移、结果后审查、全部本地门禁和逐工具 `neat-freak` 对账。Slice 17–28 在本地连续实施；全部 12 个工具完成前保持未 staged、未 commit、未 push，目标完成后统一发布并以 Ubuntu/Windows Node 20/24 精确头 CI 验收。
 
 ### 2.6 Phase 1 尚余 4 个支持面
 
@@ -185,8 +185,8 @@ warnings
 |---:|---|---|
 | 25 | `codex_sessions` | 固定按配置启用的本地会话索引契约 |
 | 26 | `read_codex_session` | 依赖会话索引、路径限制和有界读取 |
-| 27 | `codexpro_self_test` | 聚合自检应在被检查能力稳定后迁移 |
-| 28 | `codexpro` | 最后迁移 supertool，避免包装尚未稳定的子工具 |
+| 27 | `codexgpt_self_test` | 聚合自检应在被检查能力稳定后迁移 |
+| 28 | `codexgpt` | 最后迁移 supertool，避免包装尚未稳定的子工具 |
 
 如某个切片设计审查发现更小的硬前置，可以调整相邻顺序，但必须在 `Memory.md` 记录原因；不得因此越过 Phase 1 或开始 Policy Kernel 实现。
 
@@ -513,7 +513,7 @@ Authorization / Cookie
 
 ### 5.2 借鉴矩阵
 
-| 优先级 | 借鉴内容 | 进入位置 | CodexPro 的处理 |
+| 优先级 | 借鉴内容 | 进入位置 | CodexGPT 的处理 |
 |---:|---|---|---|
 | 1 | Permission Profile | Policy Gate、Phase 2A、Phase 8 | 采用分层思想，建立自己的版本化 Schema，不照抄 beta 配置 |
 | 2 | Sandbox 与 Approval 分离 | Policy Gate、Phase 2A、Phase 4B | 成为不可绕过的架构原则，沙箱不可用时 fail closed |
@@ -527,7 +527,7 @@ Authorization / Cookie
 
 - 不加入 OpenAI、Anthropic、Ollama 等模型 Provider。
 - 不加入 Claude Code、Kimi、Qwen、DeepSeek 或 SWE-agent Harness。
-- 不把 CodexPro 扩张为通用 Agent Runtime。
+- 不把 CodexGPT 扩张为通用 Agent Runtime。
 - 不依赖项目方运营的云端 MCP relay。
 - 不让 Skill、Hook、Semantic Provider 或 Worktree 绕过统一政策。
 - 不把 Worktree、字符串命令过滤或 Job Object 描述为安全沙箱。
@@ -579,7 +579,7 @@ local modifications
 - 不接 Serena/LSP。
 - 不实现 OAuth 或 Subagents。
 
-### 6.4 `codexpro_inventory` 已执行的切片约束
+### 6.4 `codexgpt_inventory` 已执行的切片约束
 
 第 17 个切片已按以下边界完成本地实现：
 
@@ -587,7 +587,7 @@ local modifications
 2. 对部分发现、输出截断、返回数量和总数量给出显式有界语义。
 3. 不返回 MCP URL、环境变量值、Header、Token、凭据或不必要的绝对敏感路径。
 4. 对 provider/发现失败使用固定安全错误或明确的安全降级，不透传原始异常。
-5. 审查 `codexpro_self_test` 等消费者，但不提前迁移聚合包装工具。
+5. 审查 `codexgpt_self_test` 等消费者，但不提前迁移聚合包装工具。
 
 ### 6.5 Phase 1 完成条件
 
@@ -758,7 +758,7 @@ workspaceId
 Phase 2B 已完成设计、TDD 实现、本地验收、`neat-freak` 对账和发布。实现与对账提交 `2fb622d` 已推送到 `main`，exact-head CI run `29332007110` 在 Ubuntu/Windows Node 20/24 四个任务上全部成功：
 
 - `workspaceKey` 仅作 manager 内部 canonical-root 去重；公开 `workspaceId` 改为随机 `ws_<32 hex>` 会话句柄。
-- 每个 `createCodexProServer()` 拥有独立 `WorkspaceManager`；HTTP transport session 和 STDIO 进程会话不再共享 inventory 或授权句柄。
+- 每个 `createCodexGPTServer()` 拥有独立 `WorkspaceManager`；HTTP transport session 和 STDIO 进程会话不再共享 inventory 或授权句柄。
 - 核心 `getWorkspace(id)` 已严格要求 ID；一个兼容周期的省略-ID 行为只由显式 `resolveWorkspace()` 边界承接。
 - 已实现 sliding TTL、close、transport revoke、policy-revision revoke 和有界 tombstone。
 - `close_workspace` 成为第 28 个 canonical child tool，正常 minimal/standard/full 可用，direct/supertool 共用 handler，connection-test 中隐藏。
@@ -796,7 +796,7 @@ Phase 3A/3B/3C 详细 TDD 实施计划：
 - [`2026-07-14-phase-3c-mutator-migration-and-undo.md`](superpowers/plans/2026-07-14-phase-3c-mutator-migration-and-undo.md)
 - Phase 3A 共九个任务，实施记录为 STEP-265 至 STEP-273；已发布到本地与远端 `main` commit `75b8d54`。
 - Phase 3B 共十个任务，已发布于 `00cb917`；child fixture 和跨平台 protected-source hash 修复分别发布于 `70b1060` 与 `c5b0226`。
-- Phase 3C 已完成全部受支持 writer 的生产迁移。`legacy` 仍是兼容默认值；显式选择 `atomic` 后，V1 writer 通过统一 transaction/audit/change-set runtime 提交且不回退直接写入。可写 atomic 配置必须有持久终态审计，`CODEXPRO_AUDIT_MODE=off` 在工具注册前失败关闭。
+- Phase 3C 已完成全部受支持 writer 的生产迁移。`legacy` 仍是兼容默认值；显式选择 `atomic` 后，V1 writer 通过统一 transaction/audit/change-set runtime 提交且不回退直接写入。可写 atomic 配置必须有持久终态审计，`CODEXGPT_AUDIT_MODE=off` 在工具注册前失败关闭。
 - Phase 3B 本地验收：聚焦审计测试 36/36；相邻 Policy/transaction/lifecycle/HTTP/contract 回归 172 项中 171 pass/0 fail/1 既有平台 skip；完整回归 626 项中 625 pass/0 fail/1 既有平台 skip；TypeScript Build、八段 Smoke、原生 Windows Stress、237 文件 package dry-run、精确 28 工具 V1、审计架构与敏感字段检查均通过。
 - Phase 3C production composition 已按 MCP server 生命周期注入独立的 registry、recovery、persistent audit、change-set 和 mutation runtime；atomic V1 与 non-legacy Policy 配置会按需启用持久审计。V1 仍不注册 `query_audit_events` 或 `undo_change_set`，两者与完整 V2 表面继续由 Phase 3D 激活门控制。
 - STEP-277 以“私有临时文件完整写入并同步，再通过同卷 hard link no-clobber 发布”修复 Windows Node 20 首次状态竞态；commit `88bd4b9` 的 run `29369658101` 已在 Ubuntu/Windows Node 20/24 全部通过 Build、Regression、Smoke 与 Package。
@@ -807,7 +807,7 @@ Phase 3A/3B/3C 详细 TDD 实施计划：
 
 - 控制 journal、审计和 change-set 元数据位于工作区外的本机应用状态目录；不进入 Git，不保存工作区绝对路径或文件全文。
 - 使用安装级随机主密钥，通过 HKDF/HMAC 派生持久工作区引用、审计完整性密钥和 change-set 加密密钥。
-- 文件 stage、rollback backup 和 move 中转位于目标文件同卷的保留随机名称；所有 `.codexpro-txn-*` 路径对公共工具硬阻断。
+- 文件 stage、rollback backup 和 move 中转位于目标文件同卷的保留随机名称；所有 `.codexgpt-txn-*` 路径对公共工具硬阻断。
 - V1 后端使用 Node 原生文件 API 与硬链接，不依赖 PowerShell、WSL、Git、Worktree 或项目方云服务；不支持硬链接的卷返回 `ATOMIC_BACKEND_UNAVAILABLE`，不静默回退为直接写入。
 - 单文件替换具有原子可见性。多文件事务在正常失败时同步回滚；进程崩溃后在工作区重新可用前确定性恢复。不得宣传为数据库级跨文件瞬时原子提交。
 - 每个事务在最后可行时刻重新验证 containment、普通文件身份、存在性和 SHA-256；漂移返回 `FILE_VERSION_CONFLICT`。
@@ -824,7 +824,7 @@ Phase 3A/3B/3C 详细 TDD 实施计划：
 
 ### 10.4 工具契约、迁移与 undo
 
-- `CODEXPRO_TOOL_CONTRACT_VERSION=1|2`；初始默认保持 V1。V1 的 28 个工具和精确输出契约保持不变。
+- `CODEXGPT_TOOL_CONTRACT_VERSION=1|2`；初始默认保持 V1。V1 的 28 个工具和精确输出契约保持不变。
 - V2 为 31 个工具：V1 加 `query_audit_events`、`undo_change_set`、`move_paths`。V2 只有在原子事务和有效审计配置下才能启动。
 - V2 `write`/`edit` 增加可选 `expected_sha256`，成功结果增加标准 transaction 对象和 before hash。
 - 不仅迁移 `write`/`edit`，还必须迁移 `apply_patch`、handoff、Pro-context、`.ai-bridge` scaffold/log、自测 probe、`scripts/pro-apply.mjs` 及静态清单发现的全部工作区 writer。
@@ -1253,7 +1253,7 @@ focused contract tests
 - Policy Kernel 设计门全部通过后连续实施 Phase 2A–Phase 5；用户于 2026-07-14 将同一授权模型扩展到 Phase 8，并授权每个已验证子部分自行 stage、使用英文 commit、push。每一部分仍须先通过自身设计、TDD、验证、`neat-freak` 和精确头 CI。
 - Permission、Approval、Sandbox、Tool Surface 分层。
 - Skills 延迟加载不重建，只在 Phase 6 补信任和权限。
-- Open Interpreter 只借鉴与 CodexPro 边界一致的设计和测试方法。
+- Open Interpreter 只借鉴与 CodexGPT 边界一致的设计和测试方法。
 - 不引入模型 Provider/Harness，不转型为通用 Agent Runtime。
 - OAuth 2.1 作为 Phase 8 已获实现授权；真实凭据不得进入测试、日志或仓库，迁移必须可回滚并经过独立安全门。
 - Subagents 继续延后。
@@ -1311,7 +1311,7 @@ Phase 1 Slice 16 inspect_workspace
   → implementation and publication record complete
   → exact-head Ubuntu/Windows Node 20/24 CI passed
 
-Phase 1 Slice 17 codexpro_inventory
+Phase 1 Slice 17 codexgpt_inventory
   → exact-contract design complete
   → six-task TDD plan complete
   → focused 13/13, adjacent 74/74, complete 276/276 passed
@@ -1387,13 +1387,13 @@ Phase 1 Slice 26 read_codex_session
   → four deliberate hardening REDs fixed; focused 20/20 and adjacent Slice 25–26 40/40 pass
   → complete regression 428/428, Build, all eight Smoke sections, native-Windows Stress, 153-file package dry-run, exact 65-path scope, static gates, and per-tool neat-freak pass
   → Slices 17–26 are locally complete, reviewed, neat-freak reconciled, unstaged, uncommitted, unpushed, and unpublished
-Phase 1 Slice 27 codexpro_self_test
+Phase 1 Slice 27 codexgpt_self_test
   → fresh inventory, exact-contract design, and seven-task uninterrupted TDD plan complete
   → executable baseline established with 12 expected failures; schema, Provider, handler, fixed-artifact probe, Tool Card, compatibility, and Stress migration completed RED-first
   → raw-read verification, recognized legacy-scaffold migration, and status/reason/truncation semantic drift hardened with deliberate REDs
   → focused 15/15, adjacent 104/104, complete 443/443, Build, all eight Smoke sections, native-Windows Stress, 157-file package dry-run, static gates, and per-tool neat-freak pass
   → Slices 17–27 are locally complete, reviewed, neat-freak reconciled, unstaged, uncommitted, unpushed, and unpublished
-Phase 1 Slice 28 codexpro
+Phase 1 Slice 28 codexgpt
   → fresh inventory, Approach C exact-contract design, and seven-task uninterrupted TDD plan complete
   → executable RED baseline covered schema, descriptor, live registration, aliases, child-envelope preservation, stable failures, Tool Card, protected compatibility, and Stress
   → deliberate hardening fixed the intentionally supertool-free connection-test surface, explicit enabled=false action exposure, and legacy-wrapper delegation instead of direct registered target-handler dispatch

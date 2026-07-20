@@ -119,7 +119,7 @@ export class VerificationReceiptServiceV4 {
     if (this.#activeCount(now) >= 256) throw new Error("GIT_SCAN_LIMIT");
     const nonce = randomBytes(32);
     const mac = createHmac("sha256", this.key)
-      .update("codexpro.verification.v4\0")
+      .update("codexgpt.verification.v4\0")
       .update(nonce)
       .digest();
     const token = `verify_${Buffer.concat([nonce, mac]).toString("base64url")}`;
@@ -236,7 +236,7 @@ export class VerificationReceiptServiceV4 {
     const bytes = Buffer.from(token.slice(7), "base64url");
     if (bytes.length !== 64) throw receiptError();
     const mac = createHmac("sha256", this.key)
-      .update("codexpro.verification.v4\0")
+      .update("codexgpt.verification.v4\0")
       .update(bytes.subarray(0, 32))
       .digest();
     if (!timingSafeEqual(mac, bytes.subarray(32))) throw receiptError();

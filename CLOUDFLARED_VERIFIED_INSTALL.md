@@ -1,6 +1,6 @@
 # Verified Cloudflared Installation
 
-CodexPro's repository-managed Cloudflare start paths use a pinned, SHA-256-verified Cloudflared binary. This includes default/start, `stable`, explicit Cloudflare tunnel starts, and `connection-test` whenever its effective tunnel is `cloudflare` or `cloudflare-named`.
+CodexGPT's repository-managed Cloudflare start paths use a pinned, SHA-256-verified Cloudflared binary. This includes default/start, `stable`, explicit Cloudflare tunnel starts, and `connection-test` whenever its effective tunnel is `cloudflare` or `cloudflare-named`.
 
 ## Install
 
@@ -20,13 +20,13 @@ The installer:
 The installed path is:
 
 ```text
-~/.codexpro/bin/cloudflared
+~/.codexgpt/bin/cloudflared
 ```
 
 On Windows it is:
 
 ```text
-%USERPROFILE%\.codexpro\bin\cloudflared.exe
+%USERPROFILE%\.codexgpt\bin\cloudflared.exe
 ```
 
 ## Status
@@ -45,7 +45,7 @@ npm run cloudflared:upgrade
 
 `upgrade` reinstalls the version pinned in `scripts/cloudflared-release.mjs`. Updating to a new upstream release requires a reviewed source change that updates the version and every platform checksum from Cloudflare's official release page. Do not switch the installer back to a floating `latest` URL.
 
-## Start CodexPro with Cloudflare
+## Start CodexGPT with Cloudflare
 
 ```bash
 npm run connect:cloudflare
@@ -53,7 +53,7 @@ npm run connect:chatgpt
 npm run connect:stable -- --hostname mcp.example.com
 ```
 
-These scripts run the verified installer in `ensure` mode first, then pass both the exact managed `--cloudflared <path>` and `--no-install-cloudflared` to CodexPro. This prevents a different binary from being selected through `PATH` and prevents fallback to the legacy unverified automatic downloader.
+These scripts run the verified installer in `ensure` mode first, then pass both the exact managed `--cloudflared <path>` and `--no-install-cloudflared` to CodexGPT. This prevents a different binary from being selected through `PATH` and prevents fallback to the legacy unverified automatic downloader.
 
 ## Manual installation
 

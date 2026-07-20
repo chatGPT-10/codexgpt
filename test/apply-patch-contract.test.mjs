@@ -9,7 +9,7 @@ import { tsImport } from "tsx/esm/api";
 
 const {
   ApplyPatchOperationError,
-  createCodexProServer
+  createCodexGPTServer
 } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
@@ -25,13 +25,13 @@ void path;
 void Client;
 void InMemoryTransport;
 void ApplyPatchOperationError;
-void createCodexProServer;
+void createCodexGPTServer;
 void toolCardWidgetHtml;
 
 function sampleApplyPatchData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     paths: ["src/example.ts", "test/example.test.mjs"],
     stdout: "",
     stderr: "",
@@ -62,15 +62,15 @@ test("apply_patch success constructor returns the exact nested schema-v1 envelop
   const result = createApplyPatchSuccess(sampleApplyPatchData(), 7);
 
   assert.deepEqual(Object.keys(result).sort(), [
-    "codexpro_title",
-    "codexpro_tool",
+    "codexgpt_title",
+    "codexgpt_tool",
     "data",
     "error",
     "meta",
     "ok"
   ]);
-  assert.equal(result.codexpro_tool, "apply_patch");
-  assert.equal(result.codexpro_title, "Apply Patch");
+  assert.equal(result.codexgpt_tool, "apply_patch");
+  assert.equal(result.codexgpt_title, "Apply Patch");
   assert.equal(result.ok, true);
   assert.deepEqual(result.data, sampleApplyPatchData());
   assert.equal(result.error, null);
@@ -104,8 +104,8 @@ test("apply_patch success data is strict and rejects invalid path, stats, change
 test("apply_patch failure constructors accept every approved fixed error", () => {
   for (const [code, details] of failureCases) {
     const result = createApplyPatchFailure({ code, details }, 3);
-    assert.equal(result.codexpro_tool, "apply_patch");
-    assert.equal(result.codexpro_title, "Apply Patch");
+    assert.equal(result.codexgpt_tool, "apply_patch");
+    assert.equal(result.codexgpt_title, "Apply Patch");
     assert.equal(result.ok, false);
     assert.equal(result.data, null);
     assert.equal(result.error.code, code);
@@ -184,7 +184,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 
 async function withInMemoryClient(options, callback) {
   const root = options.root ?? process.cwd();
-  const server = createCodexProServer(
+  const server = createCodexGPTServer(
     createTestConfig(root, options.configOverrides ?? {}),
     options.dependencies ?? {}
   );
@@ -204,7 +204,7 @@ async function withInMemoryClient(options, callback) {
 }
 
 async function withTempWorkspace(files, callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-apply-patch-contract-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-apply-patch-contract-"));
   try {
     for (const [relativePath, content] of Object.entries(files)) {
       const absolutePath = path.join(root, relativePath);
@@ -269,7 +269,7 @@ test("apply_patch advertises an exact output schema and applies a real patch", a
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
 
       const patch = singleFilePatch();
@@ -714,11 +714,11 @@ test("apply_patch and export_pro_context use dedicated Tool Card renderers", () 
   );
 });
 
-test("codexpro wrapper action apply_patch preserves strict success and failure envelopes", async () => {
+test("codexgpt wrapper action apply_patch preserves strict success and failure envelopes", async () => {
   await withTempWorkspace({ "demo.txt": "before\n" }, async (root) => {
     await withInMemoryClient({ root }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: {
           action: "apply_patch",
           args: { patch: singleFilePatch() }
@@ -726,9 +726,9 @@ test("codexpro wrapper action apply_patch preserves strict success and failure e
       });
       const structured = result.structuredContent;
 
-      assert.equal(structured.codexpro_tool, "apply_patch");
-      assert.equal(structured.codexpro_title, "Apply Patch");
-      assert.equal(structured.codexpro_super_action, "apply_patch");
+      assert.equal(structured.codexgpt_tool, "apply_patch");
+      assert.equal(structured.codexgpt_title, "Apply Patch");
+      assert.equal(structured.codexgpt_super_action, "apply_patch");
       assert.equal(structured.wrapped_tool, "apply_patch");
       assert.equal(structured.ok, true);
       assert.equal(structured.error, null);
@@ -748,15 +748,15 @@ test("codexpro wrapper action apply_patch preserves strict success and failure e
       }
     }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: {
           action: "apply_patch",
           args: { patch: singleFilePatch("demo.txt", "after", "final") }
         }
       });
       const structured = result.structuredContent;
-      assert.equal(structured.codexpro_tool, "apply_patch");
-      assert.equal(structured.codexpro_super_action, "apply_patch");
+      assert.equal(structured.codexgpt_tool, "apply_patch");
+      assert.equal(structured.codexgpt_super_action, "apply_patch");
       assert.equal(structured.wrapped_tool, "apply_patch");
       assert.equal(structured.ok, false);
       assert.equal(structured.error.code, "INTERNAL_ERROR");

@@ -5,29 +5,29 @@ import { loadConfig } from "./config.js";
 import { createStdioPolicySessionSource } from "./policy/identity.js";
 import { policyIdentityScopes } from "./policy/runtime.js";
 import {
-  connectProductionCodexProServer,
-  createProductionCodexProServer
+  connectProductionCodexGPTServer,
+  createProductionCodexGPTServer
 } from "./productionRuntime.js";
 import { createProductionGitBootstrapV4 } from "./git/productionBootstrap.js";
 import { resolveTransactionStateRoot } from "./transactions/stateRoot.js";
 
-const CODEXPRO_VERSION = "0.28.6";
+const CODEXGPT_VERSION = "0.28.6";
 
 function printHelp(): void {
-  console.log(`CodexPro MCP stdio server
+  console.log(`CodexGPT MCP stdio server
 
 Usage:
-  codexpro-mcp --root /path/to/repo [--allow-root /path]
-  codexpro-mcp --version
-  codexpro-mcp --help
+  codexgpt-mcp --root /path/to/repo [--allow-root /path]
+  codexgpt-mcp --version
+  codexgpt-mcp --help
 
-Most users should run: codexpro start`);
+Most users should run: codexgpt start`);
 }
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   if (argv.includes("--version") || argv.includes("-v") || argv[0] === "version") {
-    console.log(CODEXPRO_VERSION);
+    console.log(CODEXGPT_VERSION);
     return;
   }
   if (argv.includes("--help") || argv[0] === "help") {
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  process.env.CODEXPRO_ALLOW_NO_HTTP_TOKEN ??= "1";
+  process.env.CODEXGPT_ALLOW_NO_HTTP_TOKEN ??= "1";
   const config = loadConfig();
   const needsSessionContext =
     config.toolContractVersion === 4 ||
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
   });
   let server;
   try {
-    server = createProductionCodexProServer(config, {
+    server = createProductionCodexGPTServer(config, {
       policySessionContextSource,
       gitBootstrapV4: gitBootstrapV4 ?? undefined
     });
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     throw error;
   }
   const transport = new StdioServerTransport();
-  await connectProductionCodexProServer(server, transport);
+  await connectProductionCodexGPTServer(server, transport);
 }
 
 main().catch((error) => {

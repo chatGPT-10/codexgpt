@@ -9,7 +9,7 @@ dist/
 .playwright-cli/
 .worktrees/
 output/
-CODEXPRO_MCP_REPORT.md
+CODEXGPT_MCP_REPORT.md
 *.local.md
 *.local.json
 *.log

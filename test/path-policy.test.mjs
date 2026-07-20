@@ -84,8 +84,8 @@ test("Windows-only syntax restrictions do not change Linux path syntax", () => {
 });
 
 test("Windows junctions cannot escape the workspace for reads or writes", { skip: process.platform !== "win32" }, async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-junction-root-"));
-  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-junction-outside-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-junction-root-"));
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-junction-outside-"));
   const link = path.join(root, "outside-junction");
   await fs.writeFile(path.join(outside, "secret.txt"), "outside", "utf8");
   try {
@@ -110,8 +110,8 @@ test("Windows junctions cannot escape the workspace for reads or writes", { skip
 });
 
 test("Windows dangling symlink write targets are rejected", { skip: process.platform !== "win32" }, async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-dangling-root-"));
-  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-dangling-outside-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-dangling-root-"));
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-dangling-outside-"));
   const link = path.join(root, "dangling.txt");
   try {
     try {
@@ -134,7 +134,7 @@ test("Windows dangling symlink write targets are rejected", { skip: process.plat
 });
 
 test("cross-drive paths cannot resolve inside a Windows workspace", { skip: process.platform !== "win32" }, async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-path-policy-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-path-policy-"));
   try {
     const rootDrive = path.parse(root).root.slice(0, 1).toUpperCase();
     const otherDrive = rootDrive === "Z" ? "Y" : "Z";

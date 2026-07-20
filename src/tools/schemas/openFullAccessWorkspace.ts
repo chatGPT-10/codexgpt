@@ -52,8 +52,8 @@ const openFullAccessWorkspaceErrorSchema = z.object({
 });
 
 export const openFullAccessWorkspaceOutputShape = {
-  codexpro_tool: z.literal("open_full_access_workspace"),
-  codexpro_title: z.literal("Open Full Access Workspace"),
+  codexgpt_tool: z.literal("open_full_access_workspace"),
+  codexgpt_title: z.literal("Open Full Access Workspace"),
   ok: z.boolean(),
   data: fullAccessWorkspaceDataV1Schema.nullable(),
   error: openFullAccessWorkspaceErrorSchema.nullable(),
@@ -78,8 +78,8 @@ export function createOpenFullAccessWorkspaceSuccess(
   durationMs = 0
 ): OpenFullAccessWorkspaceStructuredResult {
   return openFullAccessWorkspaceOutputSchema.parse({
-    codexpro_tool: "open_full_access_workspace",
-    codexpro_title: "Open Full Access Workspace",
+    codexgpt_tool: "open_full_access_workspace",
+    codexgpt_title: "Open Full Access Workspace",
     ok: true,
     data,
     error: null,
@@ -93,8 +93,8 @@ export function createOpenFullAccessWorkspaceFailure(
   durationMs = 0
 ): OpenFullAccessWorkspaceStructuredResult {
   return openFullAccessWorkspaceOutputSchema.parse({
-    codexpro_tool: "open_full_access_workspace",
-    codexpro_title: "Open Full Access Workspace",
+    codexgpt_tool: "open_full_access_workspace",
+    codexgpt_title: "Open Full Access Workspace",
     ok: false,
     data: null,
     error: {

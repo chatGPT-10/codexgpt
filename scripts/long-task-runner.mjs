@@ -17,7 +17,7 @@ export const MAX_LOG_LIMIT_BYTES = 8 * 1024 * 1024;
 export const DEFAULT_RUN_RETENTION_COUNT = 20;
 export const DEFAULT_RUN_RETENTION_DAYS = 14;
 
-const RUN_PRUNE_CLAIM_PATTERN = /^\.codexpro-run-prune-[a-f0-9]{32}$/u;
+const RUN_PRUNE_CLAIM_PATTERN = /^\.codexgpt-run-prune-[a-f0-9]{32}$/u;
 
 export function createDetachedRunnerEnvironment({ hostEnv = process.env, platform = process.platform } = {}) {
   const environment = { ...hostEnv };
@@ -487,7 +487,7 @@ async function removeTerminalRun(root, state) {
   if (!identityEquals(statIdentity(stable), expectedIdentity)) {
     throw new Error(`Run directory identity changed during pruning: ${state.runId}`);
   }
-  const claimed = path.join(root, `.codexpro-run-prune-${randomBytes(16).toString("hex")}`);
+  const claimed = path.join(root, `.codexgpt-run-prune-${randomBytes(16).toString("hex")}`);
   await fsp.rename(directory, claimed);
   const claimedLexical = await fsp.lstat(claimed, { bigint: true });
   if (!claimedLexical.isDirectory() || claimedLexical.isSymbolicLink() || !identityEquals(statIdentity(claimedLexical), expectedIdentity)) {

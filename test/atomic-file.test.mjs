@@ -6,7 +6,7 @@ import test from "node:test";
 import { writeJsonAtomicFile } from "../scripts/atomic-file.mjs";
 
 test("an atomic JSON rename failure removes its exact adjacent temporary file", async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-atomic-file-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-atomic-file-"));
   try {
     const target = path.join(directory, "state.json");
     await fs.writeFile(target, "{\"old\":true}\n", "utf8");
@@ -32,7 +32,7 @@ test("an atomic JSON rename failure removes its exact adjacent temporary file", 
 });
 
 test("atomic JSON writes replace the target without leaving adjacent temporary files", async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-atomic-file-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-atomic-file-"));
   try {
     const target = path.join(directory, "state.json");
     await fs.writeFile(target, "{\"old\":true}\n", "utf8");

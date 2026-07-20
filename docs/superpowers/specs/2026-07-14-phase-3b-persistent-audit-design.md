@@ -282,7 +282,7 @@ A completion record that was persisted before a process crash is idempotently re
 
 ## 8. Audit modes
 
-`CODEXPRO_AUDIT_MODE` accepts:
+`CODEXGPT_AUDIT_MODE` accepts:
 
 - `auto`;
 - `off`;
@@ -413,7 +413,7 @@ Server diagnostics expose only:
 - retention policy;
 - bounded failure code.
 
-`codexpro_self_test` gains fixed checks for:
+`codexgpt_self_test` gains fixed checks for:
 
 - state directory availability;
 - installation key availability;

@@ -16,7 +16,7 @@ import {
 } from "../dist/transactions/index.js";
 
 async function fixture(action) {
-  const root = await fsp.realpath(await fsp.mkdtemp(path.join(os.tmpdir(), "codexpro-pro-apply-")));
+  const root = await fsp.realpath(await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-pro-apply-")));
   const workspaceRoot = path.join(root, "workspace");
   await fsp.mkdir(workspaceRoot);
   try {
@@ -33,8 +33,8 @@ test("pro-apply commits scaffold, plan, and both logs atomically and append pres
   await fsp.writeFile(secondPlan, "# Second Plan\n\nDo another thing.\n");
   const env = {
     ...process.env,
-    CODEXPRO_HOME: path.join(root, "codex-home"),
-    CODEXPRO_AUDIT_MODE: "required"
+    CODEXGPT_HOME: path.join(root, "codex-home"),
+    CODEXGPT_AUDIT_MODE: "required"
   };
   const first = spawnSync(process.execPath, [
     "scripts/pro-apply.mjs",

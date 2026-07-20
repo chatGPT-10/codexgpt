@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   GIT_DIFF_ERROR_MESSAGES,
@@ -20,7 +20,7 @@ const {
 function changedGitDiffData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "workspace diff",
     staged: false,
     include_diff: true,
@@ -43,7 +43,7 @@ function changedGitDiffData(overrides = {}) {
 function cleanGitDiffData(overrides = {}) {
   return {
     workspace_id: "ws_0123456789abcdef",
-    root: "D:\\Dev\\codexpro",
+    root: "D:\\Dev\\codexgpt",
     path: "workspace diff",
     staged: false,
     include_diff: true,
@@ -109,15 +109,15 @@ test("git_diff success constructor produces the strict schema-v1 envelope", () =
     const parsed = gitDiffOutputSchema.parse(createGitDiffSuccess(expectedData, 7));
 
     assert.deepEqual(Object.keys(parsed).sort(), [
-      "codexpro_title",
-      "codexpro_tool",
+      "codexgpt_title",
+      "codexgpt_tool",
       "data",
       "error",
       "meta",
       "ok"
     ]);
-    assert.equal(parsed.codexpro_tool, "git_diff");
-    assert.equal(parsed.codexpro_title, "Git Diff");
+    assert.equal(parsed.codexgpt_tool, "git_diff");
+    assert.equal(parsed.codexgpt_title, "Git Diff");
     assert.equal(parsed.ok, true);
     assert.deepEqual(parsed.data, expectedData);
     assert.equal(parsed.error, null);
@@ -273,7 +273,7 @@ function createTestConfig(root = process.cwd(), overrides = {}) {
 
 async function withInMemoryClient(options, callback) {
   const root = options.root ?? process.cwd();
-  const server = createCodexProServer(
+  const server = createCodexGPTServer(
     createTestConfig(root, options.configOverrides ?? {}),
     options.dependencies ?? {}
   );
@@ -307,7 +307,7 @@ function runFixtureGit(root, args) {
 }
 
 async function withTempDirectory(callback) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexpro-git-diff-contract-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-diff-contract-"));
   try {
     return await callback(await fs.realpath(root));
   } finally {
@@ -360,7 +360,7 @@ test("git_diff advertises the exact output schema and returns a valid clean repo
       assert.equal(descriptor.outputSchema.type, "object");
       assert.deepEqual(
         new Set(descriptor.outputSchema.required),
-        new Set(["codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"])
+        new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"])
       );
 
       const result = await client.callTool({ name: "git_diff", arguments: {} });
@@ -637,19 +637,19 @@ test("git_diff tool card reads direct success and failure only from nested data 
   assert.doesNotMatch(changesRenderer[0], /data\.(?:diff|additions)/);
 });
 
-test("codexpro action git_diff preserves wrapper metadata and nested child contract", async () => {
+test("codexgpt action git_diff preserves wrapper metadata and nested child contract", async () => {
   await withTempGitRepository(async (root) => {
     await fs.appendFile(path.join(root, "demo.txt"), "beta\n", "utf8");
 
     await withInMemoryClient({ root }, async (client) => {
       const result = await client.callTool({
-        name: "codexpro",
+        name: "codexgpt",
         arguments: { action: "git_diff", args: { path: "demo.txt" } }
       });
       const structured = result.structuredContent;
 
-      assert.equal(structured.codexpro_tool, "git_diff");
-      assert.equal(structured.codexpro_super_action, "git_diff");
+      assert.equal(structured.codexgpt_tool, "git_diff");
+      assert.equal(structured.codexgpt_super_action, "git_diff");
       assert.equal(structured.wrapped_tool, "git_diff");
       assert.equal(structured.ok, true);
       assert.equal(structured.error, null);

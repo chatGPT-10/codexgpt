@@ -9,7 +9,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
-const { createCodexProServer } = await tsImport("../src/server.ts", import.meta.url);
+const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const { PathGuard } = await tsImport("../src/guard.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const proContextModule = await tsImport("../src/proContext.ts", import.meta.url);
@@ -152,7 +152,7 @@ function createTestConfig(root, overrides = {}) {
 }
 
 async function withConfigClient(config, dependencies, callback) {
-  const server = createCodexProServer(config, dependencies ?? {});
+  const server = createCodexGPTServer(config, dependencies ?? {});
   const client = new Client({ name: "export-pro-context-contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -189,7 +189,7 @@ function countOccurrences(text, needle) {
 }
 
 function sampleData(overrides = {}) {
-  const artifact = overrides.__artifact ?? "# CodexPro Context Bundle\n";
+  const artifact = overrides.__artifact ?? "# CodexGPT Context Bundle\n";
   const bytes = Buffer.byteLength(artifact, "utf8");
   return {
     workspace_id: "ws_0123456789abcdef01234567",
@@ -198,7 +198,7 @@ function sampleData(overrides = {}) {
     tool_mode: "full",
     write_mode: "workspace",
     bash_mode: "off",
-    title: "CodexPro Context Bundle",
+    title: "CodexGPT Context Bundle",
     include_important_files: false,
     include_changed_files: false,
     include_diff: false,
@@ -240,7 +240,7 @@ function sampleData(overrides = {}) {
 
 function preparedRequest(overrides = {}) {
   return {
-    title: "CodexPro Context Bundle",
+    title: "CodexGPT Context Bundle",
     selectedPaths: ["demo.txt"],
     extraGlobs: [],
     includeImportantFiles: false,
@@ -258,7 +258,7 @@ function preparedRequest(overrides = {}) {
 
 function providerResult(context, overrides = {}) {
   const request = context?.request ?? preparedRequest();
-  const sourceMarkdown = overrides.sourceMarkdown ?? "# CodexPro Context Bundle\n\nProvider artifact.\n";
+  const sourceMarkdown = overrides.sourceMarkdown ?? "# CodexGPT Context Bundle\n\nProvider artifact.\n";
   const markdown = overrides.markdown ?? sourceMarkdown;
   const filesIncluded = overrides.filesIncluded ?? ["demo.txt"];
   const filesSkipped = overrides.filesSkipped ?? [];
@@ -328,8 +328,8 @@ function assertFailure(result, code, details) {
   assert.equal(result.isError, true, JSON.stringify(result));
   const parsed = parseResult(result);
   assert.deepEqual(parsed, {
-    codexpro_tool: "export_pro_context",
-    codexpro_title: "Export Pro Context",
+    codexgpt_tool: "export_pro_context",
+    codexgpt_title: "Export Pro Context",
     ok: false,
     data: null,
     error: {
@@ -364,10 +364,10 @@ test("export_pro_context schema exports the exact six-field envelope and forty-t
 
   const success = createExportProContextSuccess(sampleData(), 9);
   assert.deepEqual(Object.keys(success).sort(), [
-    "codexpro_title", "codexpro_tool", "data", "error", "meta", "ok"
+    "codexgpt_title", "codexgpt_tool", "data", "error", "meta", "ok"
   ]);
-  assert.equal(success.codexpro_tool, "export_pro_context");
-  assert.equal(success.codexpro_title, "Export Pro Context");
+  assert.equal(success.codexgpt_tool, "export_pro_context");
+  assert.equal(success.codexgpt_title, "Export Pro Context");
   assert.equal(success.ok, true);
   assert.equal(success.error, null);
   assert.deepEqual(Object.keys(success.data).sort(), DATA_KEYS);
@@ -455,13 +455,13 @@ test("export_pro_context is standard/full write time-varying and advertises exac
         const descriptor = (await client.listTools()).tools.find((tool) => tool.name === "export_pro_context");
         assert.ok(descriptor?.outputSchema);
         assert.deepEqual(new Set(descriptor.outputSchema.required), new Set([
-          "codexpro_tool", "codexpro_title", "ok", "data", "error", "meta"
+          "codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"
         ]));
         assert.equal(descriptor.annotations?.readOnlyHint, false);
         assert.equal(descriptor.annotations?.destructiveHint, false);
         assert.equal(descriptor.annotations?.idempotentHint, false);
         assert.equal(descriptor.annotations?.openWorldHint, false);
-        assert.equal(descriptor._meta?.["codexpro/preserveStructuredContent"], true);
+        assert.equal(descriptor._meta?.["codexgpt/preserveStructuredContent"], true);
       });
     }
     await withConfigClient(createTestConfig(root, { connectionTest: true }), {}, async (client) => {
@@ -765,8 +765,8 @@ test("export_pro_context includes the destination of a quoted Unicode Git rename
     const newName = "新名.txt";
     await fs.writeFile(path.join(root, oldName), "renamed\n", "utf8");
     runGit(root, ["init", "--quiet"]);
-    runGit(root, ["config", "user.name", "CodexPro Test"]);
-    runGit(root, ["config", "user.email", "codexpro-test@example.invalid"]);
+    runGit(root, ["config", "user.name", "CodexGPT Test"]);
+    runGit(root, ["config", "user.email", "codexgpt-test@example.invalid"]);
     runGit(root, ["config", "core.quotepath", "true"]);
     runGit(root, ["add", "--", oldName]);
     runGit(root, ["commit", "--quiet", "-m", "add unicode file"]);
@@ -832,7 +832,7 @@ test("export_pro_context provider validates independent diff and bundle truncati
 
 test("export_pro_context Tool Card is nested-first dedicated bounded and retains a flat fallback", () => {
   assert.match(toolCardWidgetHtml, /function exportProContextResultData\(data\)/);
-  assert.match(toolCardWidgetHtml, /data\?\.codexpro_tool === "export_pro_context"/);
+  assert.match(toolCardWidgetHtml, /data\?\.codexgpt_tool === "export_pro_context"/);
   assert.match(toolCardWidgetHtml, /function renderExportProContext\(data\)/);
   assert.match(toolCardWidgetHtml, /context\.files_included/);
   assert.match(toolCardWidgetHtml, /context\.files_skipped/);
@@ -880,7 +880,7 @@ test("export_pro_context supertool preserves the exact nested child envelope", a
     await withConfigClient(createTestConfig(root), {
       exportProContextProvider: async (context) => writeProviderResult(context)
     }, async (client) => {
-      const result = await callTool(client, "codexpro", {
+      const result = await callTool(client, "codexgpt", {
         action: "pro_export",
         args: {
           selected_paths: ["demo.txt"],
@@ -890,9 +890,9 @@ test("export_pro_context supertool preserves the exact nested child envelope", a
           include_ai_bridge: false
         }
       });
-      assert.equal(result.structuredContent.codexpro_tool, "export_pro_context");
-      assert.equal(result.structuredContent.codexpro_title, "Export Pro Context");
-      assert.equal(result.structuredContent.codexpro_super_action, "pro_export");
+      assert.equal(result.structuredContent.codexgpt_tool, "export_pro_context");
+      assert.equal(result.structuredContent.codexgpt_title, "Export Pro Context");
+      assert.equal(result.structuredContent.codexgpt_super_action, "pro_export");
       assert.equal(result.structuredContent.wrapped_tool, "export_pro_context");
       assert.equal(result.structuredContent.ok, true);
       assert.equal(result.structuredContent.data.path, ".ai-bridge/pro-context.md");

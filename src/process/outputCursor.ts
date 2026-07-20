@@ -15,7 +15,7 @@ export interface OutputCursorCodecOptions {
   randomBytes?: (size: number) => Buffer;
 }
 
-const AAD = Buffer.from("codexpro-output-cursor-v1", "utf8");
+const AAD = Buffer.from("codexgpt-output-cursor-v1", "utf8");
 
 function safeState(value: OutputCursorStateV1): OutputCursorStateV1 {
   if (!/^process_[a-f0-9]{32}$/.test(value.processId)) throw new Error("Output cursor process is invalid.");

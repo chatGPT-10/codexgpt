@@ -68,7 +68,7 @@ test("Windows external cwd keeps a reviewed task ready and returns TASK_WORKTREE
       ["show-ref", "--verify", item.privateState.branchRef]
     );
     assert.equal(branch.status, 0);
-    const residue = (await fs.readdir(fixture.root.root)).filter((name) => name.includes("codexpro-removing"));
+    const residue = (await fs.readdir(fixture.root.root)).filter((name) => name.includes("codexgpt-removing"));
     assert.deepEqual(residue, []);
   });
 });

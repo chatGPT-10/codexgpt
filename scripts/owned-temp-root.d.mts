@@ -1,6 +1,6 @@
 export interface OwnedTempMarkerV1 {
   readonly schemaVersion: 1;
-  readonly kind: "codexpro-owned-temp";
+  readonly kind: "codexgpt-owned-temp";
   readonly purpose: string;
   readonly rootName: string;
   readonly pid: number;
