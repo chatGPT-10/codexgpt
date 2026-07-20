@@ -9,20 +9,20 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Date: 2026-07-20.
 - Package: `codexgpt@0.28.6`; repository: `chatGPT-10/codexgpt`; primary platform: native Windows; WSL remains optional.
 - Phase 0 through complete Phase 3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head CI run `29603060944`. Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
-- Pull request #4 remains open and unmerged. Published head `956f54e13e402dea89ce64dbb39eafc73f3e31f9` contains STEP-367 through STEP-376; the local branch adds the reviewed STEP-377 documentation reconciliation and STEP-378 lifecycle correction pending one publication commit.
-- Exact-head CI run `29762977209` passed Repository policy, Ubuntu Node 20/24, and Windows Node 20, but Windows Node 24 failed two ordinary lifecycle regressions after the worker aborted terminal publication and its prior observation lease expired.
+- Pull request #4 passed exact-head CI run `29773470293` at `b85286def95592cf5fa7ce552adcc1043106e5af`, was updated with the final lifecycle model, and was squash-merged to `main` as `afed823dc8a8cca187d7678cb4e33895de158c57`.
+- Main push CI run `29774932378` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24, but Windows Node 20 failed one lifecycle test while waiting only for an optional `finalizing` lease.
 - STEP-378 makes `finalizing` lease refresh best-effort so an observational write failure cannot suppress authoritative `result.json`; initial running-lease publication, exact stop identity, directory validation, and terminal precedence remain unchanged.
-- The pull-request description remains stale until the correction head and exact verification evidence are published.
+- STEP-379 corrects the stale test oracle: delayed finalization is valid when observed through either an exact `finalizing` lease or the authoritative result that supersedes it. The scoped STEP-379/380 closure is contained in the current atomic change set; publication and exact-head main CI remain pending.
 
 ## Approved execution boundary
 
-Do not merge pull request #4, enter Phase 6, or claim closure until the Windows Node 24 failure is diagnosed, a corrected unchanged exact head passes the complete Ubuntu/Windows Node 20/24 matrix, and the resulting `main` push CI passes. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive data/history changes, production deployment, credential handling, and silent scope expansion remain excluded.
+Do not enter Phase 6 or claim closure until the STEP-379 correction is published to `main`, the resulting exact main push passes the complete Ubuntu/Windows Node 20/24 matrix, and the local checkout is confirmed clean at that successful `origin/main`. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive data/history changes, production deployment, credential handling, and silent scope expansion remain excluded.
 
 ## Active decisions and constraints
 
 - Keep CodexGPT self-hosted. Cloudflare is limited to DNS, TLS, and Tunnel; authorization, Host/Origin checks, path enforcement, and secret handling remain local.
 - Native Windows is primary. Git Bash remains the temporary Bash backend; PowerShell support is a core requirement.
-- Preserve managed Node `v20.20.2` and `v24.15.0` under `%LOCALAPPDATA%\CodexGPT\toolchains\`; cleanup requires explicit approval.
+- Preserve verified Node `v20.20.2` and `v24.15.0` toolchains. This checkout still uses the retained legacy `%LOCALAPPDATA%\CodexPro\toolchains\` root explicitly; migration to the manager's default `CodexGPT` root is outside STEP-379/380 and requires separate approval.
 - `scripts/codexgpt-entry.mjs` is the supported public CLI entry. Direct `scripts/codexgpt.mjs` launch is unsupported.
 - The ChatGPT Web compatibility flow uses the query token when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; `CODEXGPT_ALLOW_QUERY_TOKEN=0` is for compatible Bearer clients, not manual ChatGPT Web Bearer configuration.
 - V1/V2/V3/V4 tool counts remain 28/31/39/51. `full_access` is ambient trusted-code authority, not isolation; `workspace` has no fallback; Gate S and Task 4B0 remain blocked diagnostics.
@@ -43,7 +43,10 @@ Do not merge pull request #4, enter Phase 6, or claim closure until the Windows 
 - STEP-373 through STEP-376 local verification passed runner suites 33/33 and Windows process-host control 10/10 on both managed Node majors; cleanup/process-identity passed five consecutive Node 24 runs at 20/20.
 - STEP-378 deterministic regression failed before the fix and passed afterward; affected cleanup, identity, operational, mutation, and atomic suites passed 36/36 on native Node 20 and Node 24.
 - STEP-378 complete ordinary regression passed on both Node majors: 1,104 tests, 1,102 passed, zero failed, and two established skips per major. Workspace-contained TEMP required `GIT_CEILING_DIRECTORIES` at the repository root to preserve non-repository test semantics.
-- Exact-head run `29762977209` is diagnosed failure evidence, not merge authority. A new exact correction head must pass the complete matrix.
+- Exact-head PR run `29773470293` passed the complete matrix and authorized the unchanged squash merge.
+- Main push run `29774932378` is diagnosed failure evidence: its sole failure was the Windows Node 20 test waiting exclusively for optional `finalizing` lease publication; production behavior remained covered by the adjacent forced lease-failure regression.
+- STEP-379 lifecycle verification passed 15/15 on managed Node 20 and Node 24; Node 20 also passed three earlier consecutive 15/15 stress runs, and the final exact-evidence publication rerun passed 15/15 on both majors.
+- STEP-379 final local publication gates passed: diff integrity, TypeScript build, repository policy, 529-entry package dry-run, 119-file Markdown link audit with `BROKEN_COUNT|0`, exact three-file scope, and added-line secret review.
 
 ## Known limitations
 
@@ -59,14 +62,16 @@ Do not merge pull request #4, enter Phase 6, or claim closure until the Windows 
 
 ## Open items
 
-1. Complete final build, policy, package, and diff gates; publish one scoped STEP-377/378 correction commit.
-2. Update pull request #4 to the actual correction head, renewable lifecycle-lease model, diagnosed failure, and verification evidence.
-3. Require the complete exact-head matrix, squash-merge only if the head is unchanged, verify the resulting `main` push CI, then synchronize the operator checkout.
+1. Publish and validate the atomic STEP-379/380 closure head directly on `main` without rewriting history.
+2. Bind the new 40-character head to its exact `main` CI run and require the complete Ubuntu/Windows Node 20/24 matrix.
+3. Verify the successful exact head, then confirm `D:\Dev\codexpro` is clean and exactly synchronized with `origin/main`.
 4. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret Git/worktree mechanisms or lifecycle leases as a sandbox.
 5. Do not enter Phase 6 as part of this repair.
 
 ## Recent summaries
 
+- **STEP-380 - Neat-freak reconciliation:** align the handoff with completed local STEP-379 verification, audit project rules and Markdown references, and preserve the three-file uncommitted correction boundary.
+- **STEP-379 - Align finalization test oracle:** accept either an exact optional `finalizing` lease or the authoritative result that supersedes it, while retaining stale and nonzero-exit failures.
 - **STEP-378 - Preserve terminal publication after lease-refresh failure:** keep lifecycle lease writes observational, add a deterministic pre-fix failure regression, and replace a fixed path-replacement cleanup delay with exact worker-exit observation.
 - **STEP-377 - Neat-freak reconciliation:** compress the project-memory index below its practical size target, record exact PR/CI state, add the lifecycle-lease invariant to project rules, and remove relative-time wording from active specifications.
 - **STEP-376 - Remove fixed terminal override:** route the final lifecycle integration call through the common lease-bound observation helper.

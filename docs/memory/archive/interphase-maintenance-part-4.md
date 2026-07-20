@@ -122,3 +122,92 @@ This append-only volume continues interphase maintenance after the closed Part 3
 **Rollback:** Revert the STEP-378 production and test changes. This restores the known condition where a finalizing lease-refresh failure can suppress `result.json` and become stale after lease expiry.
 
 **Next step:** Complete final build, policy, package, and diff gates; publish one scoped correction head; update pull request #4; require the exact-head matrix; squash-merge only on unchanged head; require the resulting `main` push matrix; then synchronize `D:\Dev\codexpro` to `main`.
+
+## 2026-07-20 — STEP-379: Align delayed-finalization test observation with authoritative result precedence
+
+**Status:** Implemented and locally verified on `main`; pending one direct main correction push and the resulting exact-head matrix.
+
+**Goal:** Correct the sole failure from post-merge main CI run `29774932378` without changing production lifecycle behavior or weakening stale detection.
+
+**Files changed:**
+
+- `test/task-cleanup-lifecycle.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance-part-4.md`
+
+**Failure evidence and root cause:**
+
+- Pull request head `b85286def95592cf5fa7ce552adcc1043106e5af` passed exact-head run `29773470293` across Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package.
+- Pull request #4 was squash-merged unchanged as `afed823dc8a8cca187d7678cb4e33895de158c57`.
+- Main push run `29774932378` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24. Windows Node 20 failed only `worker advances its exact lifecycle lease before delayed retention completes` after 66.68 seconds while waiting for `worker-lease.json` phase `finalizing`.
+- STEP-378 intentionally made finalizing lease refresh best-effort because the lease is observational and `result.json` is authoritative. The test retained the obsolete assumption that every valid completion must expose the optional finalizing lease before result publication.
+
+**Implementation:**
+
+- Added one bounded finalization observer that accepts only an active `finalizing` lease proven by the production `workerLeaseActive(...)` evidence binding, or authoritative `result.json` for the current run with `exitCode = 0`.
+- Renamed the regression to state the actual invariant: worker finalization remains observable through an exact lease or authoritative result.
+- A stopped record, mismatched result ID, or nonzero result fails immediately. Missing or temporarily malformed JSON is retried only inside the lease-bound window; all other I/O errors remain visible.
+- When a finalizing lease is observed, status must remain `terminal_publication_in_progress` or already be a successful completed result. When result wins the race, its run ID and zero exit code are verified.
+- The existing forced lease-refresh-failure regression remains adjacent and proves that result publication succeeds when the lease path cannot be updated.
+- Production code, lease duration, renewal cadence, stop authority, directory identity, retention behavior, and terminal precedence are unchanged.
+
+**Verification:**
+
+- Native Windows Node 20 complete lifecycle file: 15/15 passed, followed by three consecutive additional passes at 15/15 each.
+- Native Windows Node 24 complete lifecycle file: 15/15 passed.
+- After final review tightened lease evidence matching, the exact retained toolchain matrix at explicit legacy root `%LOCALAPPDATA%\CodexPro\toolchains\` passed 15/15 on Node 20.20.2 and 15/15 on Node 24.15.0.
+- Final publication gates passed: `git diff --check`; `npm run build`; `npm run policy:check` with `Repository operational policy: PASS`; `npm pack --dry-run --json` with 529 entries and no test, `.ai-bridge`, credential, or local-path payload; and a 119-file Markdown audit with `BROKEN_COUNT|0`.
+- Final scope remained exactly `Memory.md`, `docs/memory/archive/interphase-maintenance-part-4.md`, and `test/task-cleanup-lifecycle.test.mjs`; the added-line secret scan found only descriptive words, not authentication material.
+- The corrected delayed-finalization regression completed in approximately 10.6–10.9 seconds rather than waiting for the 60-second lease bound.
+
+**Adversarial review:**
+
+- The correction does not accept `stale`, stopped, malformed, foreign, mismatched, expired, or nonzero terminal states.
+- It does not turn a timeout into success; the observer remains bounded by `WORKER_LEASE_MS` and throws if neither valid lease nor result appears.
+- Foreign, mismatched, expired, or structurally incomplete leases cannot satisfy `workerLeaseActive(...)`; malformed JSON can only delay observation until timeout or valid replacement.
+- Result-first acceptance follows the production authority order introduced by STEP-378 rather than weakening the lifecycle contract.
+- A normal finalizing lease receives the same schema, run, worker identity, timestamp, expiry, and phase checks as production state evaluation.
+
+**Rollback:** Revert STEP-379 test and memory changes. This restores the obsolete lease-only oracle and can reproduce the Windows Node 20 CI failure even when authoritative completion is valid.
+
+**Next step:** Publish the resulting atomic closure commit to `main` without force, bind its exact CI run, and require the complete matrix before final synchronization.
+
+## 2026-07-20 — STEP-380: Neat-freak reconciliation after STEP-379 local verification
+
+**Status:** Completed locally as a documentation and handoff cleanup; STEP-379 remains uncommitted and unpushed.
+
+**Goal:** Reconcile project memory and rules with the actual post-merge repair state without widening the three-file correction scope or changing runtime behavior.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance-part-4.md`
+
+**Implementation:**
+
+- Corrected the open-item list so completed Node 20/24 lifecycle verification is no longer presented as pending.
+- Recorded the exact local boundary: `main` remains at `afed823dc8a8cca187d7678cb4e33895de158c57`, and the STEP-379 test plus memory/archive changes are uncommitted and unpushed.
+- Added the completed STEP-379 verification evidence to the concise index and retained final build, policy, package, diff, scope, and secret checks as the next gate.
+- Audited user-facing README/security/network documentation and made no changes because STEP-379 modifies only a test oracle; authentication, Cloudflare Tunnel, Host/Origin enforcement, CLI behavior, and package usage are unchanged.
+- Preserved all pre-existing user changes and did not stage, commit, push, delete, rename, or modify external state.
+
+**Verification:**
+
+- Tracked Markdown inventory: 119 files; relative-link audit reported `BROKEN_COUNT|0`.
+- Active Markdown relative-time scan outside append-only archives returned zero matches.
+- Active old-name review found the intentional checkout path `D:\Dev\codexpro` and the separately retained verified toolchain root `%LOCALAPPDATA%\CodexPro\toolchains\`; no user-facing product namespace or package payload was changed.
+- Required rule references for the public entry, toolchain manager, test-domain runner, master plan, and Phase 4/5 design documents all exist.
+- `npm run policy:check` passed with `Repository operational policy: PASS`; `git diff --check` passed.
+- Secret-looking added-line scan returned no matches.
+- Before this cleanup, `AGENTS.md` was 149 lines / 15,788 bytes, `Memory.md` was 94 lines / 12,585 bytes, and this active archive was 111 lines / 13,715 bytes. After cleanup, `Memory.md` is 96 lines / 13,081 bytes and the active archive is 136 lines / 16,682 bytes; both remain below project limits.
+
+**Adversarial review:**
+
+- No completed CI gate was promoted to success: main run `29774932378` remains failed until a new STEP-379 main push matrix passes.
+- The cleanup does not reinterpret the optional finalizing lease as authority; `result.json` and `stopped.json` remain terminal truth, while stop still requires exact live process identity.
+- `AGENTS.md` is slightly above the neat-freak skill's approximate 15-KB soft target but contains active project rules rather than historical narrative; automatic trimming would risk removing enforced constraints, so it was left unchanged.
+- The append-only archive was extended rather than rewriting historical STEP-376 through STEP-379 status text.
+
+**Rollback:** Revert only the STEP-380 memory/archive edits. The STEP-379 test correction and all runtime behavior remain unchanged.
+
+**Next step:** Publish the resulting atomic closure commit to `main` without force and bind its exact CI run.

@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import {
   pruneTerminalRuns,
   waitForTerminalPublication,
+  workerLeaseActive,
   WORKER_LEASE_MS
 } from "../scripts/long-task-runner.mjs";
 
@@ -64,6 +65,39 @@ async function waitForJson(target, predicate, deadlineMs = WORKER_LEASE_MS) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`Timed out waiting for matching JSON at ${target}.`);
+}
+
+async function readObservationJson(target) {
+  try {
+    return JSON.parse(await fs.readFile(target, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT" || error instanceof SyntaxError) return undefined;
+    throw error;
+  }
+}
+
+async function waitForFinalizationObservation(directory, runId, deadlineMs = WORKER_LEASE_MS) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    const [metadata, evidence, lease, result, stopped] = await Promise.all([
+      readObservationJson(path.join(directory, "metadata.json")),
+      readObservationJson(path.join(directory, "worker-evidence.json")),
+      readObservationJson(path.join(directory, "worker-lease.json")),
+      readObservationJson(path.join(directory, "result.json")),
+      readObservationJson(path.join(directory, "stopped.json"))
+    ]);
+    if (stopped) throw new Error(`Run ${runId} stopped before successful finalization.`);
+    if (result) {
+      if (result.runId !== runId) throw new Error(`Run ${runId} published a mismatched result.`);
+      if (result.exitCode !== 0) throw new Error(`Run ${runId} exited with code ${result.exitCode}.`);
+      return { type: "result", result };
+    }
+    if (lease?.phase === "finalizing" && workerLeaseActive(metadata, evidence, lease)) {
+      return { type: "lease", lease };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for exact finalizing lease or successful result in ${directory}.`);
 }
 
 test("terminal publication grace tolerates delayed Windows result visibility", async () => {
@@ -138,7 +172,7 @@ test("terminal result publication survives a failed observational lease refresh"
   }
 });
 
-test("worker advances its exact lifecycle lease before delayed retention completes", async () => {
+test("worker finalization remains observable through an exact lease or authoritative result", async () => {
   const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-runs-"));
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-temp-"));
   const blockerRunId = "2020-01-01T00-00-00-000Z-finalization-blocker-aaaaaaaa";
@@ -183,16 +217,25 @@ test("worker advances its exact lifecycle lease before delayed retention complet
       "process.exit(0)"
     ])).stdout);
     const directory = path.join(runRoot, started.runId);
-    await waitForJson(path.join(directory, "worker-lease.json"), (lease) => lease.phase === "finalizing");
-    await assert.rejects(() => fs.access(path.join(directory, "result.json")), { code: "ENOENT" });
-
-    const state = JSON.parse((await executeLongRunner([
-      "status",
-      "--root", runRoot,
-      "--run", started.runId
-    ])).stdout);
-    assert.equal(state.status, "running");
-    assert.deepEqual(state.identity, { owned: false, reason: "terminal_publication_in_progress" });
+    const observation = await waitForFinalizationObservation(directory, started.runId);
+    if (observation.type === "lease") {
+      assert.equal(observation.lease.runId, started.runId);
+      assert.equal(observation.lease.phase, "finalizing");
+      const state = JSON.parse((await executeLongRunner([
+        "status",
+        "--root", runRoot,
+        "--run", started.runId
+      ])).stdout);
+      if (state.status === "running") {
+        assert.deepEqual(state.identity, { owned: false, reason: "terminal_publication_in_progress" });
+      } else {
+        assert.equal(state.status, "completed");
+        assert.equal(state.result.exitCode, 0);
+      }
+    } else {
+      assert.equal(observation.result.runId, started.runId);
+      assert.equal(observation.result.exitCode, 0);
+    }
 
     const terminal = await waitForTerminal(runRoot, started.runId);
     assert.equal(terminal.result.exitCode, 0);
