@@ -1,0 +1,267 @@
+diff --git a/scripts/long-task-runner.mjs b/scripts/long-task-runner.mjs
+--- a/scripts/long-task-runner.mjs
++++ b/scripts/long-task-runner.mjs
+@@ -18,6 +18,7 @@ export const MAX_LOG_LIMIT_BYTES = 8 * 1024 * 1024;
+ export const DEFAULT_RUN_RETENTION_COUNT = 20;
+ export const DEFAULT_RUN_RETENTION_DAYS = 14;
++export const TERMINAL_PUBLICATION_LEASE_MS = 60_000;
+ 
+ const RUN_PRUNE_CLAIM_PATTERN = /^\.codexgpt-run-prune-[a-f0-9]{32}$/u;
+ 
+@@ -257,6 +258,19 @@ function workerEvidenceMatches(metadata, evidence) {
+     evidence.workerCreationTime === metadata.workerCreationTime);
+ }
+ 
++export function terminalPublicationLeaseActive(metadata, evidence, finalizing, nowMs = Date.now()) {
++  if (!workerEvidenceMatches(metadata, evidence) || !workerEvidenceMatches(metadata, finalizing)) return false;
++  const publishedAt = Date.parse(finalizing.publishedAt);
++  const expiresAt = Date.parse(finalizing.expiresAt);
++  return Number.isFinite(publishedAt) &&
++    Number.isFinite(expiresAt) &&
++    publishedAt <= nowMs + 5_000 &&
++    expiresAt >= nowMs &&
++    expiresAt > publishedAt &&
++    expiresAt - publishedAt <= TERMINAL_PUBLICATION_LEASE_MS;
++}
++
+ export async function verifyWorkerIdentity(metadata, evidence, options = {}) {
+   if (!metadata || metadata.schemaVersion !== RUNNER_SCHEMA_VERSION) return { owned: false, reason: "unsupported_metadata" };
+   if (!evidence || evidence.schemaVersion !== RUNNER_SCHEMA_VERSION) return { owned: false, reason: "missing_worker_evidence" };
+@@ -285,10 +299,11 @@ async function readRunFiles(directory) {
+   }
+   await verifyDirectoryWithoutLinks(directory, metadata.directoryIdentity);
+-  const [result, stopped, evidence] = await Promise.all([
++  const [result, stopped, evidence, finalizing] = await Promise.all([
+     readJson(path.join(directory, "result.json")),
+     readJson(path.join(directory, "stopped.json")),
+-    readJson(path.join(directory, "worker-evidence.json"))
++    readJson(path.join(directory, "worker-evidence.json")),
++    readJson(path.join(directory, "finalizing.json"))
+   ]);
+   if (result && result.runId !== expectedRunId) {
+     throw new Error("Run result id does not match its containing directory.");
+@@ -296,7 +311,10 @@ async function readRunFiles(directory) {
+   if (stopped && stopped.runId !== expectedRunId) {
+     throw new Error("Run stop record id does not match its containing directory.");
+   }
+-  return { metadata, result, stopped, evidence };
++  if (finalizing && finalizing.runId !== expectedRunId) {
++    throw new Error("Run finalization record id does not match its containing directory.");
++  }
++  return { metadata, result, stopped, evidence, finalizing };
+ }
+ 
+ export async function waitForTerminalPublication(directory, deadlineMs = 5_000) {
+@@ -311,10 +329,10 @@ export async function waitForTerminalPublication(directory, deadlineMs = 5_000) {
+   return { result: undefined, stopped: undefined };
+ }
+ 
+-async function runState(directory) {
++export async function runState(directory) {
+   const files = await readRunFiles(directory);
+   if (!files) return undefined;
+-  const { metadata, result, stopped, evidence } = files;
++  const { metadata, result, stopped, evidence, finalizing } = files;
+   let status;
+   let identity;
+   if (stopped) {
+@@ -323,6 +341,9 @@ async function runState(directory) {
+   } else if (result) {
+     status = "completed";
+     identity = { owned: false, reason: "result_recorded" };
++  } else if (terminalPublicationLeaseActive(metadata, evidence, finalizing)) {
++    status = "running";
++    identity = { owned: false, reason: "terminal_publication_in_progress" };
+   } else {
+     identity = await verifyWorkerIdentity(metadata, evidence);
+     if (identity.owned || identity.reason === "process_identity_unavailable") {
+@@ -615,6 +636,15 @@ async function worker() {
+     publishedAt: new Date().toISOString()
+   };
+   await writeJsonAtomic(directory, "worker-evidence.json", evidence);
++  const publishTerminalLease = async () => {
++    const publishedAtMs = Date.now();
++    await writeJsonAtomic(directory, "finalizing.json", {
++      ...evidence,
++      publishedAt: new Date(publishedAtMs).toISOString(),
++      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS).toISOString()
++    });
++  };
+ 
+   const stdoutTail = new BoundedTail(command.logLimitBytes);
+   const stderrTail = new BoundedTail(command.logLimitBytes);
+@@ -658,6 +688,7 @@ async function worker() {
+         child.once("error", (error) => finish({ code: 127, signal: null, error: error.stack ?? error.message }));
+         child.once("close", (code, signal) => finish({ code: code ?? 1, signal, error: null }));
+       });
++    await publishTerminalLease();
+   } finally {
+     if (taskTemp) {
+       try {
+@@ -686,6 +717,7 @@ async function worker() {
+     fsp.writeFile(stdoutPath, stdoutTail.bytes()),
+     fsp.writeFile(stderrPath, stderrTail.bytes())
+   ]);
++  await publishTerminalLease();
+   let retention;
+   try {
+     retention = await pruneTerminalRuns(path.dirname(directory), {
+diff --git a/test/runner-process-identity.test.mjs b/test/runner-process-identity.test.mjs
+--- a/test/runner-process-identity.test.mjs
++++ b/test/runner-process-identity.test.mjs
+@@ -6,7 +6,13 @@ import path from "node:path";
+ import test from "node:test";
+ import { fileURLToPath } from "node:url";
+ import { promisify } from "node:util";
+-import { processCreationTime, verifyWorkerIdentity } from "../scripts/long-task-runner.mjs";
++import {
++  processCreationTime,
++  runState,
++  TERMINAL_PUBLICATION_LEASE_MS,
++  terminalPublicationLeaseActive,
++  verifyWorkerIdentity
++} from "../scripts/long-task-runner.mjs";
+ 
+ const execFileAsync = promisify(execFile);
+ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+@@ -72,6 +78,61 @@ test("exact evidence distinguishes temporary identity unavailability from a dead worker", async () => {
+   assert.deepEqual(dead, { owned: false, reason: "process_identity_mismatch" });
+ });
+ 
++test("an exact bounded finalization lease keeps terminal publication observable without ownership", async () => {
++  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalizing-"));
++  const runId = "finalizing-run";
++  const directory = path.join(root, runId);
++  try {
++    await fs.mkdir(directory);
++    const stat = await fs.stat(directory, { bigint: true });
++    const metadata = {
++      schemaVersion: 2,
++      runId,
++      kind: "finalizing",
++      workerPid: 999999,
++      workerNonce: "a".repeat(64),
++      workerCreationTime: "linux:1",
++      workerCommandDigest: "b".repeat(64),
++      commandDigest: "c".repeat(64),
++      startedAt: new Date().toISOString(),
++      directory,
++      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) }
++    };
++    const evidence = {
++      schemaVersion: 2,
++      runId,
++      workerPid: metadata.workerPid,
++      workerNonce: metadata.workerNonce,
++      workerCreationTime: metadata.workerCreationTime,
++      workerCommandDigest: metadata.workerCommandDigest,
++      commandDigest: metadata.commandDigest,
++      publishedAt: metadata.startedAt
++    };
++    const publishedAtMs = Date.now();
++    const finalizing = {
++      ...evidence,
++      publishedAt: new Date(publishedAtMs).toISOString(),
++      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS).toISOString()
++    };
++    await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify(metadata)}\n`, "utf8");
++    await fs.writeFile(path.join(directory, "worker-evidence.json"), `${JSON.stringify(evidence)}\n`, "utf8");
++    await fs.writeFile(path.join(directory, "finalizing.json"), `${JSON.stringify(finalizing)}\n`, "utf8");
++
++    assert.equal(terminalPublicationLeaseActive(metadata, evidence, finalizing, publishedAtMs), true);
++    assert.equal(terminalPublicationLeaseActive(metadata, evidence, {
++      ...finalizing,
++      expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS + 1).toISOString()
++    }, publishedAtMs), false);
++
++    const state = await runState(directory);
++    assert.equal(state.status, "running");
++    assert.deepEqual(state.identity, { owned: false, reason: "terminal_publication_in_progress" });
++  } finally {
++    await fs.rm(root, { recursive: true, force: true });
++  }
++});
++
+ test("worker evidence mismatch makes a live PID stale and never blocks a same-kind retry", async () => {
+   const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-runner-identity-"));
+   let first;
+diff --git a/Memory.md b/Memory.md
+--- a/Memory.md
++++ b/Memory.md
+@@ -13,7 +13,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
+ - Primary platform: native Windows; WSL remains optional.
+ - Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
+ - Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
+-- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape identified by CI #113/#115. STEP-368 added bounded terminal-publication tolerance, STEP-369 removed retention self-observation, and STEP-370 distinguishes a live exact-evidence worker with temporarily unavailable creation-time lookup from a dead or reused PID. The combined repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
++- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape. STEP-368 through STEP-371 repair detached-run terminal observation: bounded publication tolerance, no retention self-observation, live-unavailable identity separation, and an exact bounded finalization lease. The combined repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
+ 
+ ## Approved execution boundary
+ 
+@@ -60,7 +60,7 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
+ - STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
+ - STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior.
+ - Post-merge CI run 113 initially failed only Ubuntu Node 20 because an immutable Gate X integration test observed both reviewed and drifted filter execution. STEP-366 removed the original executable keys from the copied private config, but post-merge CI #115 reproduced the drift. Process ancestry proved the remaining source was an ordinary original-repository `git write-tree` after the review window. STEP-367 moves old-tree calculation, private add, and new-tree calculation into the same private materialized snapshot bundle, returns object-format-validated tree OIDs, and removes ordinary write-tree from the Gate X stage path. Build, policy, diff integrity, the 521-entry package dry-run, 25/25 affected tests, and five consecutive exact regression runs passed.
+-- PR CI #119 exposed false `stale` detached runs on Windows Node 24. STEP-368 added exact-evidence terminal-publication tolerance; CI #122 then exposed retention self-observation on Ubuntu Node 20, repaired by STEP-369. CI #124 passed policy and Ubuntu Node 20 regression but Ubuntu Node 24 still classified one live finalizing worker as stale when creation-time lookup was temporarily unavailable. STEP-370 returns `running` with unowned `process_identity_unavailable` only when exact persisted evidence matches and the PID is still alive; stop re-verifies exact ownership before any signal. Dead, reused, mismatched, or foreign identities remain stale. Node 20/24 affected suites passed 30/30 and the cleanup/process-identity files passed five consecutive Node 24 runs at 17/17.
++- PR CI #119, #122, and #124 progressively exposed terminal-publication, retention self-observation, and live identity-lookup ambiguity. CI #125 passed policy and both Ubuntu matrices but Windows Node 24 still observed two post-child/pre-result windows after the worker was no longer externally observable. STEP-371 writes an exact metadata/evidence-bound 60-second finalization lease immediately after child completion and renews it before retention; state reports unowned `terminal_publication_in_progress` until result publication or bounded lease expiry. Dead or forged records cannot extend the lease beyond the fixed bound. Node 20/24 affected suites passed 31/31 and cleanup/process-identity passed five consecutive Node 24 runs at 18/18.
+ 
+ ## Known limitations
+ 
+@@ -79,12 +79,13 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
+ 
+ ## Open items
+ 
+-1. Publish STEP-370 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
++1. Publish STEP-371 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
+ 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
+ 3. Do not enter Phase 6 as part of this CI repair.
+ 
+ ## Recent summaries
+ 
++- **STEP-371 - Exact bounded finalization lease:** publish a metadata/evidence-bound lease after child completion so cleanup and retention cannot be misclassified as stale before `result.json`.
+ - **STEP-370 - Separate live identity unavailability from stale identity:** keep exact-evidence live workers observable as unowned-running while preserving fail-closed stop authorization.
+ - **STEP-369 - Exclude preserved run before retention scan:** prevent a detached worker from evaluating its own nonterminal state while preparing its terminal retention report.
+ - **STEP-368 - Detached-run terminal publication grace:** add bounded tolerance for exact worker evidence awaiting terminal state publication; superseded in root-cause completeness by STEP-369.
+diff --git a/docs/memory/archive/interphase-maintenance-part-3.md b/docs/memory/archive/interphase-maintenance-part-3.md
+--- a/docs/memory/archive/interphase-maintenance-part-3.md
++++ b/docs/memory/archive/interphase-maintenance-part-3.md
+@@ -117,3 +117,40 @@ This append-only continuation starts at STEP-368. Earlier interphase records rem
+ **Rollback:** Revert STEP-370 to collapse unavailable and mismatched identity again. That restores the false-stale behavior under transient lookup failure.
+ 
+ **Next step:** Push the exact corrected head, require the complete Ubuntu/Windows Node 20/24 matrix, squash-merge only if the PR head remains unchanged, then require the resulting `main` push CI to pass.
++
++## 2026-07-20 — STEP-371: Publish an exact bounded finalization lease
++
++**Status:** Implemented after CI #125 exposed a post-child/pre-result window not covered by external process observation; pending exact-head and post-merge CI.
++
++**Goal:** Represent terminal publication as durable bounded state instead of inferring it only from process visibility.
++
++**Failure evidence:**
++
++- Run `29748908778` passed Repository policy and both Ubuntu matrices. Windows Node 24 failed terminal retention and interrupted prune-claim recovery after 6–7 second false-stale observations.
++- The worker had completed its child but had not yet published `result.json`; external PID and creation-time observation was insufficient to represent cleanup, log publication, and retention finalization reliably under full Windows load.
++
++**Implementation summary:**
++
++- After child completion, the worker atomically writes `finalizing.json`, bound to the same run ID, PID, nonce, creation time, command digest, and worker-command digest as exact metadata and worker evidence.
++- The record carries a fixed maximum 60-second lease and is renewed after temporary cleanup/log publication immediately before retention.
++- `runState` checks the exact lease before process observation and reports `running` with `owned=false` and reason `terminal_publication_in_progress` until `result.json`, `stopped.json`, or lease expiry.
++- Validation rejects future-skewed, expired, non-positive, overlong, mismatched, malformed, or foreign finalization records. Result and stop records retain precedence.
++- Added direct state coverage proving a dead/unobservable PID with a valid exact lease remains non-authorizing running state, while an overlong lease is rejected.
++
++**Verification:**
++
++- Node 24 affected cleanup, process-identity, operational, and mutation suites passed 31/31.
++- Native Windows Node 20 passed the same 31/31.
++- Cleanup plus process-identity passed five consecutive Node 24 runs, 18/18 each.
++- The new finalization-state regression completes without process lookup and records `identity.owned=false`.
++
++**Adversarial review:**
++
++- The lease cannot authorize stop: it never sets ownership, and the stop path independently re-verifies exact process identity before signaling.
++- A crashed worker can block a same-kind retry only until the fixed lease expires; arbitrary expiry extension is rejected.
++- Mismatched worker evidence prevents lease activation, so tampered evidence remains immediately stale.
++- The record is written only after child completion and therefore does not weaken task execution identity or allow a foreign running task to masquerade as the reviewed worker.
++
++**Rollback:** Revert STEP-371 to remove `finalizing.json` handling. That restores dependence on externally observable process identity during post-child finalization.
++
++**Next step:** Push the exact head, require the complete matrix, squash-merge only on unchanged head, then require the resulting `main` push CI to pass.
