@@ -6,6 +6,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import {
+  pruneTerminalRuns,
+  waitForTerminalPublication,
+  WORKER_LEASE_MS
+} from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,7 +27,7 @@ async function executeLongRunner(args, options = {}) {
   });
 }
 
-async function waitForTerminal(root, runId, deadlineMs = 15_000) {
+async function waitForTerminal(root, runId, deadlineMs = WORKER_LEASE_MS + 30_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const state = JSON.parse((await executeLongRunner(["status", "--root", root, "--run", runId])).stdout);
@@ -32,6 +37,226 @@ async function waitForTerminal(root, runId, deadlineMs = 15_000) {
   }
   throw new Error(`Run ${runId} did not become terminal.`);
 }
+
+async function waitForPath(target, deadlineMs = 10_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    try {
+      await fs.access(target);
+      return;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for ${target}.`);
+}
+
+async function waitForJson(target, predicate, deadlineMs = WORKER_LEASE_MS) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    try {
+      const value = JSON.parse(await fs.readFile(target, "utf8"));
+      if (predicate(value)) return value;
+    } catch (error) {
+      if (error?.code !== "ENOENT" && !(error instanceof SyntaxError)) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for matching JSON at ${target}.`);
+}
+
+test("terminal publication grace tolerates delayed Windows result visibility", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-terminal-publication-"));
+  const result = { schemaVersion: 2, runId: "delayed-result" };
+  let publishError;
+  const publish = new Promise((resolve) => {
+    setTimeout(async () => {
+      try {
+        const pending = path.join(directory, "result.json.pending");
+        await fs.writeFile(pending, `${JSON.stringify(result)}\n`, "utf8");
+        await fs.rename(pending, path.join(directory, "result.json"));
+      } catch (error) {
+        publishError = error;
+      } finally {
+        resolve();
+      }
+    }, 2_000);
+  });
+
+  try {
+    const terminal = await waitForTerminalPublication(directory);
+    await publish;
+    if (publishError) throw publishError;
+    assert.deepEqual(terminal.result, result);
+    assert.equal(terminal.stopped, undefined);
+  } finally {
+    await publish;
+    await fs.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("terminal result publication survives a failed observational lease refresh", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-lease-refresh-failure-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-lease-refresh-failure-temp-"));
+  const releasePath = path.join(runRoot, "release-worker");
+  try {
+    const source = [
+      "const fs = require('node:fs');",
+      `const release = ${JSON.stringify(releasePath)};`,
+      "const timer = setInterval(() => {",
+      "  if (!fs.existsSync(release)) return;",
+      "  clearInterval(timer);",
+      "}, 25);"
+    ].join("");
+    const started = JSON.parse((await executeLongRunner([
+      "start",
+      "--root", runRoot,
+      "--temp-root", tempRoot,
+      "--kind", "lease-refresh-failure",
+      "--",
+      process.execPath,
+      "-e",
+      source
+    ])).stdout);
+    const directory = path.join(runRoot, started.runId);
+    const leasePath = path.join(directory, "worker-lease.json");
+    await waitForJson(leasePath, (lease) => lease.phase === "running");
+    await fs.rm(leasePath);
+    await fs.mkdir(leasePath);
+    await fs.writeFile(releasePath, "go\n", "utf8");
+
+    const result = await waitForJson(
+      path.join(directory, "result.json"),
+      (value) => value.runId === started.runId,
+      10_000
+    );
+    assert.equal(result.exitCode, 0);
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("worker advances its exact lifecycle lease before delayed retention completes", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-temp-"));
+  const blockerRunId = "2020-01-01T00-00-00-000Z-finalization-blocker-aaaaaaaa";
+  const blockerDirectory = path.join(runRoot, blockerRunId);
+  try {
+    await fs.mkdir(blockerDirectory);
+    const stat = await fs.stat(blockerDirectory, { bigint: true });
+    const blockerMetadata = {
+      schemaVersion: 2,
+      runId: blockerRunId,
+      kind: "finalization-blocker",
+      workerPid: 999999,
+      workerNonce: "a".repeat(64),
+      workerCreationTime: "linux:1",
+      workerCommandDigest: "b".repeat(64),
+      commandDigest: "c".repeat(64),
+      startedAt: "2020-01-01T00:00:00.000Z",
+      directory: blockerDirectory,
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) }
+    };
+    const blockerEvidence = {
+      schemaVersion: 2,
+      runId: blockerRunId,
+      workerPid: blockerMetadata.workerPid,
+      workerNonce: blockerMetadata.workerNonce,
+      workerCreationTime: blockerMetadata.workerCreationTime,
+      workerCommandDigest: blockerMetadata.workerCommandDigest,
+      commandDigest: blockerMetadata.commandDigest,
+      publishedAt: blockerMetadata.startedAt
+    };
+    await fs.writeFile(path.join(blockerDirectory, "metadata.json"), `${JSON.stringify(blockerMetadata)}\n`, "utf8");
+    await fs.writeFile(path.join(blockerDirectory, "worker-evidence.json"), `${JSON.stringify(blockerEvidence)}\n`, "utf8");
+
+    const started = JSON.parse((await executeLongRunner([
+      "start",
+      "--root", runRoot,
+      "--temp-root", tempRoot,
+      "--kind", "finalization-lease",
+      "--",
+      process.execPath,
+      "-e",
+      "process.exit(0)"
+    ])).stdout);
+    const directory = path.join(runRoot, started.runId);
+    await waitForJson(path.join(directory, "worker-lease.json"), (lease) => lease.phase === "finalizing");
+    await assert.rejects(() => fs.access(path.join(directory, "result.json")), { code: "ENOENT" });
+
+    const state = JSON.parse((await executeLongRunner([
+      "status",
+      "--root", runRoot,
+      "--run", started.runId
+    ])).stdout);
+    assert.equal(state.status, "running");
+    assert.deepEqual(state.identity, { owned: false, reason: "terminal_publication_in_progress" });
+
+    const terminal = await waitForTerminal(runRoot, started.runId);
+    assert.equal(terminal.result.exitCode, 0);
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("retention excludes the preserved in-progress run before state evaluation", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-preserved-run-"));
+  const runId = "2026-07-20T00-00-00-000Z-preserved-run-aaaaaaaa";
+  const directory = path.join(root, runId);
+  try {
+    await fs.mkdir(directory);
+    const stat = await fs.stat(directory, { bigint: true });
+    const metadata = {
+      schemaVersion: 2,
+      runId,
+      kind: "preserved-run",
+      workerPid: 999999,
+      workerNonce: "a".repeat(64),
+      workerCreationTime: "linux:1",
+      workerCommandDigest: "b".repeat(64),
+      commandDigest: "c".repeat(64),
+      startedAt: "2026-07-20T00:00:00.000Z",
+      directory,
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) },
+      command: [process.execPath, "-e", ""],
+      cwd: repositoryRoot,
+      logLimitBytes: 4096,
+      retentionCount: 1,
+      retentionDays: 14,
+      host: os.hostname()
+    };
+    const evidence = {
+      schemaVersion: 2,
+      runId,
+      workerPid: metadata.workerPid,
+      workerNonce: metadata.workerNonce,
+      workerCreationTime: metadata.workerCreationTime,
+      commandDigest: metadata.commandDigest,
+      workerCommandDigest: metadata.workerCommandDigest,
+      publishedAt: metadata.startedAt
+    };
+    await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify(metadata)}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "worker-evidence.json"), `${JSON.stringify(evidence)}\n`, "utf8");
+
+    const startedAt = performance.now();
+    const report = await pruneTerminalRuns(root, {
+      keepCount: 1,
+      maxAgeDays: 14,
+      preserveRunId: runId
+    });
+    const elapsedMs = performance.now() - startedAt;
+
+    assert.ok(elapsedMs < 1_000, `Preserved run evaluation took ${elapsedMs}ms.`);
+    assert.equal(report.scanned, 0);
+    assert.equal(report.failed, 0);
+    assert.deepEqual((await fs.readdir(root)).sort(), [runId]);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
 
 async function waitForDirectoryCount(root, expected, deadlineMs = 5_000) {
   const deadline = Date.now() + deadlineMs;

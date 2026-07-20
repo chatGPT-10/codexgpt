@@ -1,7 +1,11 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type { AuthorizationAuditEventV4 } from "../audit/types.js";
-import type { GitApprovedIntegrationRequest, GitCommandExecutor, GitExecutionResult } from "./execution.js";
+import type {
+  GitApprovedIntegrationExecutionResult,
+  GitApprovedIntegrationRequest,
+  GitCommandExecutor
+} from "./execution.js";
 import { runGitRequired, sha256Git } from "./mutationContext.js";
 import type { GitRepositoryIdentity } from "./repositoryIdentity.js";
 import type { GitReviewTokenServiceV4 } from "./reviewToken.js";
@@ -77,7 +81,7 @@ const INTEGRATION_IMPLEMENTATION_REVISION = sha256Git(JSON.stringify({
   configIncludes: "rejected",
   externalAttributesFile: "rejected",
   signingSelectors: "explicit-effective-program-and-key-v1",
-  executionBundle: "stable-config-and-executable-snapshot-v2",
+  executionBundle: "stable-config-and-executable-snapshot-v3",
   executionIsolation: "none"
 }));
 
@@ -752,7 +756,7 @@ export class GitIntegrationGateV4 {
     semanticStateDigest: string;
     expectedToolName: "git_stage" | "git_commit" | "merge_task_worktree";
     expectedCanonicalAction: "stage" | "commit" | "task_merge_prepare_review" | "task_merge_prepare_finalize" | "task_merge_execute";
-  }): Promise<{ result: GitExecutionResult; identities: GitIntegrationIdentityV4[] }> {
+  }): Promise<GitApprovedIntegrationExecutionResult & { identities: GitIntegrationIdentityV4[] }> {
     if (
       !this.options.enabled ||
       !input.authorization ||
@@ -789,9 +793,9 @@ export class GitIntegrationGateV4 {
     this.options.reviews.consume<GitIntegrationReviewFactsV4>(input.reviewToken, "git_integration");
     const materialized = await this.#materialize(current, input.request);
     try {
-      const result = await this.options.executor.runApprovedIntegration(input.repository, materialized.request);
+      const execution = await this.options.executor.runApprovedIntegration(input.repository, materialized.request);
       return {
-        result,
+        ...execution,
         identities: current.identities.map(({ kind, configKeyDigest, executableDigest, contentDigest }) => ({
           kind,
           configKeyDigest,

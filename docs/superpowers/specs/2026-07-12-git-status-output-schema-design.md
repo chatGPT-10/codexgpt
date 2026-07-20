@@ -557,7 +557,7 @@ Rules:
 The direct `git_status` handler becomes:
 
 1. resolve the workspace;
-2. derive the optional string path exactly as today;
+2. derive the optional string path exactly as in the pre-slice implementation;
 3. call `gitStatusResultProvider`;
 4. inspect the returned string for recognized Git failure forms;
 5. if it is a failure, classify and return `createGitStatusFailure` with `isError: true`;

@@ -46,6 +46,12 @@ export interface GitExecutionOptions {
   }>;
 }
 
+export interface GitApprovedIntegrationExecutionResult {
+  result: GitExecutionResult;
+  stageOldTreeOid?: string;
+  stageTreeOid?: string;
+}
+
 export interface GitCommandExecutor {
   readonly capabilityRevision: string;
   createPrivateDirectory?(prefix: string): Promise<string>;
@@ -58,7 +64,7 @@ export interface GitCommandExecutor {
   runApprovedIntegration?(
     repository: GitRepositoryExecutionIdentity,
     request: GitMaterializedIntegrationRequest
-  ): Promise<GitExecutionResult>;
+  ): Promise<GitApprovedIntegrationExecutionResult>;
 }
 
 export type GitApprovedIntegrationRequest =
@@ -135,10 +141,10 @@ const MAX_ARGUMENT_TOTAL_BYTES = 65_536;
 const MAX_STDIN_BYTES = 131_072;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const IMPLEMENTATION_REVISION = createHash("sha256").update(JSON.stringify({
-  schemaVersion: 3,
+  schemaVersion: 4,
   fixedConfig: FIXED_CONFIG,
   approvedIntegrationFixedConfig: APPROVED_INTEGRATION_FIXED_CONFIG,
-  approvedIntegrationOperations: ["stage-private", "commit-shadow", "merge-tree-quarantine", "checkout-private"],
+  approvedIntegrationOperations: ["stage-private-old-add-new-trees", "commit-shadow", "merge-tree-quarantine", "checkout-private"],
   limits: {
     arguments: MAX_ARGUMENTS,
     argumentBytes: MAX_ARGUMENT_BYTES,
@@ -392,7 +398,7 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
   async runApprovedIntegration(
     repository: GitRepositoryExecutionIdentity,
     request: GitMaterializedIntegrationRequest
-  ): Promise<GitExecutionResult> {
+  ): Promise<GitApprovedIntegrationExecutionResult> {
     if (this.#disposed) throw gitError("GIT_CAPABILITY_UNAVAILABLE");
     await verifyGitExecutableBinding(this.#binding, "win32");
     let requested: string[];
@@ -468,39 +474,68 @@ export class WindowsHostGitExecutor implements GitCommandExecutor {
       ...integrationConfigOverrides,
       `core.hooksPath=${hooksPath}`
     ];
-    const arguments_ = [
-      ...repositoryArgs,
-      ...approvedConfig.flatMap((entry) => ["-c", entry]),
-      ...validateArguments(requested)
-    ];
-    validateArguments(arguments_);
     const client = await this.#hostRuntime.get();
     const environment = cleanWindowsEnvironment(this.#home, this.#tempRoot);
     delete environment.GIT_LFS_SKIP_SMUDGE;
-    const { body } = await client.request("run", {
-      executable: this.#binding.realPath,
-      arguments: arguments_,
-      cwd: repository.worktreeRoot,
-      environment: {
-        ...environment,
-        ...(privateIndexPath ? { GIT_INDEX_FILE: privateIndexPath } : {}),
-        ...(objectDirectoryPath ? {
-          GIT_OBJECT_DIRECTORY: objectDirectoryPath,
-        } : {}),
-        GIT_ALTERNATE_OBJECT_DIRECTORIES: path.join(repository.commonDir, "objects")
-      },
-      stdinBase64: stdin.toString("base64"),
-      timeoutMs: 120_000,
-      stdoutLimitBytes: MAX_OUTPUT_BYTES,
-      stderrLimitBytes: MAX_OUTPUT_BYTES
-    }, { timeoutMs: 130_000 });
+    const runApproved = async (
+      command: readonly string[],
+      commandStdin: Buffer,
+      stdoutLimitBytes = MAX_OUTPUT_BYTES
+    ): Promise<GitExecutionResult> => {
+      const arguments_ = [
+        ...repositoryArgs,
+        ...approvedConfig.flatMap((entry) => ["-c", entry]),
+        ...validateArguments(command)
+      ];
+      validateArguments(arguments_);
+      const { body } = await client.request("run", {
+        executable: this.#binding.realPath,
+        arguments: arguments_,
+        cwd: repository.worktreeRoot,
+        environment: {
+          ...environment,
+          ...(privateIndexPath ? { GIT_INDEX_FILE: privateIndexPath } : {}),
+          ...(objectDirectoryPath ? { GIT_OBJECT_DIRECTORY: objectDirectoryPath } : {}),
+          GIT_ALTERNATE_OBJECT_DIRECTORIES: path.join(repository.commonDir, "objects")
+        },
+        stdinBase64: commandStdin.toString("base64"),
+        timeoutMs: 120_000,
+        stdoutLimitBytes,
+        stderrLimitBytes: MAX_OUTPUT_BYTES
+      }, { timeoutMs: 130_000 });
+      return {
+        status: typeof body.exitCode === "number" ? body.exitCode : 1,
+        stdout: Buffer.from(typeof body.stdoutBase64 === "string" ? body.stdoutBase64 : "", "base64"),
+        stderr: Buffer.from(typeof body.stderrBase64 === "string" ? body.stderrBase64 : "", "base64"),
+        stdoutTruncated: body.stdoutTruncated === true,
+        stderrTruncated: body.stderrTruncated === true,
+        timedOut: body.timedOut === true
+      };
+    };
+    const succeeds = (result: GitExecutionResult): boolean =>
+      result.status === 0 &&
+      !result.timedOut &&
+      !result.stdoutTruncated &&
+      !result.stderrTruncated;
+    if (request.operation !== "stage") return { result: await runApproved(requested, stdin) };
+    const readTreeOid = (result: GitExecutionResult): string => {
+      const treeText = result.stdout.toString("ascii");
+      const expected = repository.objectFormat === "sha1"
+        ? /^[a-f0-9]{40}\r?\n?$/u
+        : /^[a-f0-9]{64}\r?\n?$/u;
+      if (!expected.test(treeText)) throw gitError("GIT_COMMAND_FAILED");
+      return treeText.trim();
+    };
+    const oldTree = await runApproved(["write-tree"], Buffer.alloc(0), 256);
+    if (!succeeds(oldTree)) return { result: oldTree };
+    const primary = await runApproved(requested, stdin);
+    if (!succeeds(primary)) return { result: primary };
+    const newTree = await runApproved(["write-tree"], Buffer.alloc(0), 256);
+    if (!succeeds(newTree)) return { result: newTree };
     return {
-      status: typeof body.exitCode === "number" ? body.exitCode : 1,
-      stdout: Buffer.from(typeof body.stdoutBase64 === "string" ? body.stdoutBase64 : "", "base64"),
-      stderr: Buffer.from(typeof body.stderrBase64 === "string" ? body.stderrBase64 : "", "base64"),
-      stdoutTruncated: body.stdoutTruncated === true,
-      stderrTruncated: body.stderrTruncated === true,
-      timedOut: body.timedOut === true
+      result: newTree,
+      stageOldTreeOid: readTreeOid(oldTree),
+      stageTreeOid: readTreeOid(newTree)
     };
   }
 

@@ -362,9 +362,17 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
       runGit(fixture.root, ["add", ".gitattributes"]);
       runGit(fixture.root, ["commit", "-m", "snapshot attributes"]);
       await fs.writeFile(path.join(fixture.root, "tracked.txt"), "snapshot content\n", "utf8");
+      const baseRun = fixture.executor.run.bind(fixture.executor);
       const baseExecute = fixture.executor.runApprovedIntegration.bind(fixture.executor);
+      let immutableWindowStarted = false;
       const executor = {
         ...fixture.executor,
+        async run(repository, args, options) {
+          if (immutableWindowStarted && args[0] === "write-tree") {
+            throw new Error("UNAPPROVED_WRITE_TREE_AFTER_REVIEW");
+          }
+          return baseRun(repository, args, options);
+        },
         async runApprovedIntegration(repository, request) {
           const retainedCommand = runGit(fixture.root, [
             "config",
@@ -374,8 +382,15 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
             "filter.snapshot.clean"
           ], undefined, { allowFailure: true });
           assert.equal(retainedCommand.status, 1);
+          assert.equal(request.integrationConfigOverrides.some((entry) => entry.includes(script)), false);
+          await fs.rm(marker, { force: true });
+          immutableWindowStarted = true;
           await fs.writeFile(script, source("drifted"), "utf8");
-          return baseExecute(repository, request);
+          const execution = await baseExecute(repository, request);
+          assert.match(execution.stageOldTreeOid, /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u);
+          assert.match(execution.stageTreeOid, /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u);
+          assert.notEqual(execution.stageOldTreeOid, execution.stageTreeOid);
+          return execution;
         }
       };
       const gate = new GitIntegrationGateV4({ executor, reviews, enabled: true });

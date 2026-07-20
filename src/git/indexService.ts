@@ -469,12 +469,6 @@ export class GitIndexServiceV4 {
     if (repository.splitIndex) throw gitMutationError("GIT_SPLIT_INDEX_UNSUPPORTED");
     const selected = new Set(input.paths);
     const stagedPaths = await scanPaths(this.context, repository, input.workspace, input.guard, input.paths);
-    const oldTree = (await runGitRequired(
-      this.context.options.executor,
-      repository,
-      ["write-tree"],
-      { stdoutLimitBytes: 256 }
-    )).stdout.toString("ascii").trim();
     const initialHead = await boundHead(this.context, repository);
     const headOid = initialHead.oid;
     const privateRoot = await this.context.options.executor.createPrivateDirectory?.("git-integration-stage");
@@ -522,13 +516,9 @@ export class GitIndexServiceV4 {
         input.paths,
         quarantineRoot
       );
-      const newTree = (await runGitRequired(
-        this.context.options.executor,
-        repository,
-        ["write-tree"],
-        { privateIndexPath: privateIndex, objectDirectoryPath: quarantineRoot, stdoutLimitBytes: 256 }
-      )).stdout.toString("ascii").trim();
-      if (newTree === oldTree) throw gitMutationError("GIT_STATE_CHANGED");
+      const oldTree = executed.stageOldTreeOid;
+      const newTree = executed.stageTreeOid;
+      if (!oldTree || !newTree || newTree === oldTree) throw gitMutationError("GIT_STATE_CHANGED");
       const rescanned = await scanPaths(this.context, repository, input.workspace, input.guard, input.paths);
       if (rescanned.some((entry, index) =>
         entry.path !== stagedPaths[index]?.path ||

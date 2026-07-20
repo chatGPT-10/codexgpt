@@ -6,7 +6,14 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { processCreationTime } from "../scripts/long-task-runner.mjs";
+import {
+  processCreationTime,
+  runState,
+  WORKER_LEASE_MS,
+  workerLeaseActive,
+  verifyWorkerIdentity,
+  waitForTerminalPublication
+} from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -23,7 +30,7 @@ async function execute(args, options = {}) {
   });
 }
 
-async function waitForCompletion(root, runId, deadlineMs = 15_000) {
+async function waitForCompletion(root, runId, deadlineMs = WORKER_LEASE_MS + 30_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const state = JSON.parse((await execute(["status", "--root", root, "--run", runId])).stdout);
@@ -33,10 +40,176 @@ async function waitForCompletion(root, runId, deadlineMs = 15_000) {
   throw new Error(`Run ${runId} did not become terminal.`);
 }
 
+async function waitForProcessExit(pid, deadlineMs = 10_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") return;
+      if (error?.code !== "EPERM") throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Process ${pid} did not exit.`);
+}
+
 test("process creation identity is available for the current process", async () => {
   const created = await processCreationTime(process.pid);
   assert.equal(typeof created, "string");
   assert.ok(created.length > 0);
+});
+
+test("exact evidence distinguishes temporary identity unavailability from a dead worker", async () => {
+  const metadata = {
+    schemaVersion: 2,
+    runId: "identity-unavailable",
+    workerPid: 4242,
+    workerNonce: "a".repeat(64),
+    workerCreationTime: "linux:123",
+    workerCommandDigest: "b".repeat(64),
+    commandDigest: "c".repeat(64)
+  };
+  const evidence = {
+    schemaVersion: 2,
+    runId: metadata.runId,
+    workerPid: metadata.workerPid,
+    workerNonce: metadata.workerNonce,
+    workerCreationTime: metadata.workerCreationTime,
+    workerCommandDigest: metadata.workerCommandDigest,
+    commandDigest: metadata.commandDigest
+  };
+
+  const unavailable = await verifyWorkerIdentity(metadata, evidence, {
+    processCreationTime: async () => undefined,
+    processIsAlive: () => true
+  });
+  assert.deepEqual(unavailable, { owned: false, reason: "process_identity_unavailable" });
+
+  const dead = await verifyWorkerIdentity(metadata, evidence, {
+    processCreationTime: async () => undefined,
+    processIsAlive: () => false
+  });
+  assert.deepEqual(dead, { owned: false, reason: "process_identity_mismatch" });
+});
+
+test("an exact bounded worker lease keeps finalization observable without ownership", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalizing-"));
+  const runId = "finalizing-run";
+  const directory = path.join(root, runId);
+  try {
+    await fs.mkdir(directory);
+    const stat = await fs.stat(directory, { bigint: true });
+    const metadata = {
+      schemaVersion: 2,
+      runId,
+      kind: "finalizing",
+      workerPid: 999999,
+      workerNonce: "a".repeat(64),
+      workerCreationTime: "linux:1",
+      workerCommandDigest: "b".repeat(64),
+      commandDigest: "c".repeat(64),
+      startedAt: new Date().toISOString(),
+      directory,
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) }
+    };
+    const evidence = {
+      schemaVersion: 2,
+      runId,
+      workerPid: metadata.workerPid,
+      workerNonce: metadata.workerNonce,
+      workerCreationTime: metadata.workerCreationTime,
+      workerCommandDigest: metadata.workerCommandDigest,
+      commandDigest: metadata.commandDigest,
+      publishedAt: metadata.startedAt
+    };
+    const publishedAtMs = Date.now();
+    const lease = {
+      ...evidence,
+      phase: "running",
+      publishedAt: new Date(publishedAtMs).toISOString(),
+      expiresAt: new Date(publishedAtMs + WORKER_LEASE_MS).toISOString()
+    };
+    await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify(metadata)}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "worker-evidence.json"), `${JSON.stringify(evidence)}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "worker-lease.json"), `${JSON.stringify(lease)}\n`, "utf8");
+
+    assert.equal(workerLeaseActive(metadata, evidence, lease, publishedAtMs), true);
+    assert.equal(workerLeaseActive(metadata, evidence, {
+      ...lease,
+      expiresAt: new Date(publishedAtMs + WORKER_LEASE_MS + 1).toISOString()
+    }, publishedAtMs), false);
+
+    const runningState = await runState(directory);
+    assert.equal(runningState.status, "running");
+    assert.deepEqual(runningState.identity, { owned: false, reason: "worker_lease_active" });
+
+    const finalizingLease = { ...lease, phase: "finalizing" };
+    await fs.writeFile(path.join(directory, "worker-lease.json"), `${JSON.stringify(finalizingLease)}\n`, "utf8");
+    const finalizingState = await runState(directory);
+    assert.equal(finalizingState.status, "running");
+    assert.deepEqual(finalizingState.identity, { owned: false, reason: "terminal_publication_in_progress" });
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("terminal observation notices an exact worker lease published during its bounded wait", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalizing-wait-"));
+  const metadata = {
+    schemaVersion: 2,
+    runId: "finalizing-wait",
+    workerPid: 999999,
+    workerNonce: "d".repeat(64),
+    workerCreationTime: "linux:2",
+    workerCommandDigest: "e".repeat(64),
+    commandDigest: "f".repeat(64)
+  };
+  const evidence = {
+    schemaVersion: 2,
+    runId: metadata.runId,
+    workerPid: metadata.workerPid,
+    workerNonce: metadata.workerNonce,
+    workerCreationTime: metadata.workerCreationTime,
+    workerCommandDigest: metadata.workerCommandDigest,
+    commandDigest: metadata.commandDigest
+  };
+  const publishedAtMs = Date.now();
+  const lease = {
+    ...evidence,
+    phase: "finalizing",
+    publishedAt: new Date(publishedAtMs).toISOString(),
+    expiresAt: new Date(publishedAtMs + WORKER_LEASE_MS).toISOString()
+  };
+  let publishError;
+  const publish = new Promise((resolve) => {
+    setTimeout(async () => {
+      try {
+        const pending = path.join(directory, "worker-lease.json.pending");
+        await fs.writeFile(pending, `${JSON.stringify(lease)}\n`, "utf8");
+        await fs.rename(pending, path.join(directory, "worker-lease.json"));
+      } catch (error) {
+        publishError = error;
+      } finally {
+        resolve();
+      }
+    }, 200);
+  });
+
+  try {
+    const startedAt = performance.now();
+    const observed = await waitForTerminalPublication(directory, 2_000, { metadata, evidence });
+    const elapsedMs = performance.now() - startedAt;
+    await publish;
+    if (publishError) throw publishError;
+    assert.ok(elapsedMs < 1_000, `Lease observation took ${elapsedMs}ms.`);
+    assert.deepEqual(observed.lease, lease);
+    assert.equal(observed.result, undefined);
+    assert.equal(observed.stopped, undefined);
+  } finally {
+    await publish;
+    await fs.rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("worker evidence mismatch makes a live PID stale and never blocks a same-kind retry", async () => {
@@ -109,8 +282,8 @@ test("replacing a run directory is detected before status trusts replacement met
       execute(["status", "--root", root, "--run", started.runId]),
       (error) => error.code === 1 && /directory identity changed/.test(error.stderr)
     );
-    await new Promise((resolve) => setTimeout(resolve, 1600));
+    await waitForProcessExit(started.workerPid);
   } finally {
-    await fs.rm(root, { recursive: true, force: true });
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });

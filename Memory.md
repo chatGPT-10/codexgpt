@@ -7,97 +7,81 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 ## Current state
 
 - Date: 2026-07-20.
-- Workspace checkout path is operator-managed; publication target: `main`; package: `codexgpt@0.28.6`.
-- GitHub repository and `origin`: `chatGPT-10/codexgpt` over HTTPS.
-- Canonical project identity is CodexGPT: package, CLI, environment variables, state directories, MCP tools, source paths, tests, and active documentation use the CodexGPT name.
-- Primary platform: native Windows; WSL remains optional.
-- Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
-- Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
-- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-366 repairs the Gate X private integration bundle after post-merge CI run 113 exposed an intermittent duplicate-command path; the focused repair is locally verified and pending exact-head pull-request CI.
+- Package: `codexgpt@0.28.6`; repository: `chatGPT-10/codexgpt`; primary platform: native Windows; WSL remains optional.
+- Phase 0 through complete Phase 3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head CI run `29603060944`. Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
+- Pull request #4 remains open and unmerged. Published head `956f54e13e402dea89ce64dbb39eafc73f3e31f9` contains STEP-367 through STEP-376; the local branch adds the reviewed STEP-377 documentation reconciliation and STEP-378 lifecycle correction pending one publication commit.
+- Exact-head CI run `29762977209` passed Repository policy, Ubuntu Node 20/24, and Windows Node 20, but Windows Node 24 failed two ordinary lifecycle regressions after the worker aborted terminal publication and its prior observation lease expired.
+- STEP-378 makes `finalizing` lease refresh best-effort so an observational write failure cannot suppress authoritative `result.json`; initial running-lease publication, exact stop identity, directory validation, and terminal precedence remain unchanged.
+- The pull-request description remains stale until the correction head and exact verification evidence are published.
 
 ## Approved execution boundary
 
-Implementation through Phase 8 remains authorized with recommended defaults. Keep the current interphase work unstaged and unpushed until the user explicitly requests publication; do not start Phase 6. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive data/history changes, production deployment, credential handling, and silent scope expansion remain excluded.
+Do not merge pull request #4, enter Phase 6, or claim closure until the Windows Node 24 failure is diagnosed, a corrected unchanged exact head passes the complete Ubuntu/Windows Node 20/24 matrix, and the resulting `main` push CI passes. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive data/history changes, production deployment, credential handling, and silent scope expansion remain excluded.
 
 ## Active decisions and constraints
 
-- Keep CodexGPT self-hosted. Cloudflare is limited to DNS, TLS, and Tunnel; authorization and path enforcement remain local.
-- Native Windows is primary. Git Bash is the temporary execution backend; native PowerShell remains required future work.
-- Preserve the verified managed Node `v20.20.2` and `v24.15.0` runtimes under `%LOCALAPPDATA%\CodexGPT\toolchains\`; cleanup requires explicit user approval.
-- Node test-loader rules: use one test-only integration barrel, load leaf implementations before shared servers, and keep executable TypeScript import barrels under package-excluded `fixtures/ts-imports/`; these avoid Node 20 loader deadlocks and Node 24 recursive test discovery.
-- Safe Bash is a command-policy filter, not an operating-system sandbox.
-- `scripts/codexgpt-entry.mjs` is the supported public CLI entry; direct `scripts/codexgpt.mjs` launch is unsupported.
-- The public CLI defaults to the personal ChatGPT query-token flow when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; `CODEXGPT_ALLOW_QUERY_TOKEN=0` is only for compatible non-ChatGPT Bearer clients.
-- Server-side Bearer support must not be documented as manual static-Bearer support in ChatGPT Web. OAuth 2.1 remains reserved for Phase 8 and requires its dedicated identity, migration, rollback, and security gates.
-- Policy Kernel uses an immutable compiled snapshot and pure deterministic evaluator. Tool Surface, Policy, Approval, and Sandbox remain separate; grants cannot exceed hard policy, identity scopes, Permission Profile, allowed roots, or demonstrated capabilities.
-- `CODEXGPT_POLICY_ENGINE=legacy` remains the migration default; `shadow` is observational and `enforce` is fail-closed. V1/V2 never create approvals; V3 composite scopes keep `process:manage` from starting code.
-- Public `workspace_id` values are random session-scoped handles. Core lookup requires an explicit ID; omitted-ID compatibility exists only at the named session-local resolver.
-- Keep `scripts/smoke.mjs` and `scripts/http-smoke.mjs` protected and unchanged. Compatibility loaders use exact fail-closed in-memory substitutions.
-- `CODEXGPT_FILE_TRANSACTIONS=legacy` remains the compatibility default. Selecting `atomic` routes supported workspace writers through the transaction runtime with no direct-write fallback; writable atomic V1 requires terminal persistent audit.
-- Phase 3 state stays outside workspaces and Git; its participant recovery, V1/V2 readers, stable file identity, move undo, hard-link fail-closed behavior, and recovery freeze remain Phase 4 compatibility gates.
-- Phase 4 V3 is exact 39: V2 minus `bash`, plus eight typed execution/process tools and `open_full_access_workspace`; V1/V2 wire and pending-approval behavior remain frozen.
-- Phase 4 separates brokered `confirmed_roots`, ambient **Full access (ask first)**, and unavailable `workspace`. Full access is trusted-code authority, not filesystem, credential, registry, network, or broker isolation.
-- V3 confirmed-root files require hard-link count 1 and never mutate `allowedRoots`. Generic V3 mutation records remain schema 1/contract 3; move records remain schema 2/contract 3; same-binary V2 rollback retains both readers.
-- V3 lifecycle uses strict `AuditEventV3` inside the existing MAC-chained envelope. V2 audit wire stays exact and filters V3 before V2 paging; V3 has a separate V2/V3 projection and cursor, while V2-compatible authorization/execution evidence remains queryable after rollback.
-- Phase 5 V4 is opt-in exact 51 and preserves V1=28/V2=31/V3=39. Gate R binds expected-old mutations and durable approval; Gate X exposes only four typed local Git operations, with bounded verified object promotion before private-index installation. It accepts no caller-selected command or remote/credential/force/config mutation and remains ambient current-user `full_access`, not isolation.
-- Phase 4 authority defaults to configured roots with execution/dependencies off; nondefault values are V3-only and capability changes revoke dependent state. Gate S remains blocked diagnostic evidence, and `workspace` stays unavailable with no `full_access` fallback.
-- With `inheritEnv=false`, Windows Bash preserves or derives only bounded user/configuration paths required for normal CLI and keyring discovery. Do not copy `GH_TOKEN` or arbitrary API variables into the child; `CODEXGPT_INHERIT_ENV=1` is explicit full-environment opt-in for trusted repositories only.
-- Mutation inventory binds each direct primitive to path, syscall, semantic digest, and reviewed purpose; atomic production paths cannot fall back to legacy writers.
-- CI evidence is exact-HEAD-bound, compact, and stored only below ignored `.ai-bridge/`. Manifest assets stay LF-pinned; Windows paths use `path.win32`; POSIX lookup passes candidates only as quoted positional data and never uses `shell: true` with argv.
-- `scripts/test-domains.mjs` is authoritative: isolated complete regression uses `all`, connector-backed local work uses `ordinary`, and Windows control runs serialize. Long runs use the identity-bound detached runner; destructive stop oracles remain control-domain only.
-- Verification is impact-scoped, not ritualized: during repair loops run the failing reproducer, new regression, and directly affected gates; rerun complete local ordinary/control/Smoke only when the change invalidates that evidence or touches shared runtime/security boundaries. Documentation or evidence-only edits do not invalidate unrelated runtime results. Every final runtime-relevant pushed SHA still requires terminal exact-head CI.
-- Focused tests and local tasks use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>`. Supported launchers create sibling marked roots under one canonical TEMP base and clean them after completion. Detached evidence defaults to 20 terminal runs/14 days; `npm run task:cleanup` deletes only verified dead-owner roots and terminal evidence, fails nonzero when incomplete, and never removes unmarked or persistent project state.
-- Gate N uses the manifest-bound PowerShell/C# `CXP4` host with creation-time Job/handle-list ownership, clean environment, exact image identity, bounded output and deadlines. Capability remains `job_object_members_only`; broker escape resistance remains `none`; ConPTY success accepts exit 0 or exact `STATUS_CONTROL_C_EXIT` only with all required evidence.
-- `SystemDrive`, `SystemRoot`, `WINDIR`, `ProgramData`, `ComSpec`, minimal `PATH=System32;Windows`, and `PATHEXT` are fixed system values in clean native child environments; caller values cannot override them.
-- The master implementation plan is the sequencing authority. Complete isolated regression uses `node scripts/test-domains.mjs run --domain all`; connector-backed local regression uses `--domain ordinary`. There is no `npm test` script.
+- Keep CodexGPT self-hosted. Cloudflare is limited to DNS, TLS, and Tunnel; authorization, Host/Origin checks, path enforcement, and secret handling remain local.
+- Native Windows is primary. Git Bash remains the temporary Bash backend; PowerShell support is a core requirement.
+- Preserve managed Node `v20.20.2` and `v24.15.0` under `%LOCALAPPDATA%\CodexGPT\toolchains\`; cleanup requires explicit approval.
+- `scripts/codexgpt-entry.mjs` is the supported public CLI entry. Direct `scripts/codexgpt.mjs` launch is unsupported.
+- The ChatGPT Web compatibility flow uses the query token when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; `CODEXGPT_ALLOW_QUERY_TOKEN=0` is for compatible Bearer clients, not manual ChatGPT Web Bearer configuration.
+- V1/V2/V3/V4 tool counts remain 28/31/39/51. `full_access` is ambient trusted-code authority, not isolation; `workspace` has no fallback; Gate S and Task 4B0 remain blocked diagnostics.
+- Gate X accepts only the four typed local Git operations. Old/new tree derivation and private staging remain inside one reviewed materialized integration bundle; no caller-selected command, remote, credential, force, or config mutation is allowed.
+- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry.
+- `scripts/test-domains.mjs` is authoritative. Connector-backed local regression uses `ordinary`; destructive control/all execution requires CI or a proven independent native terminal. There is no `npm test` script.
+- Focused tests and tasks use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>`. Cleanup deletes only exact verified dead-owner temporary roots and terminal run evidence.
+- Mutation inventory is fail-closed and binds direct filesystem primitives to repository path, syscall type, and semantic call identity. Atomic production paths cannot fall back to legacy writers.
+- With `inheritEnv=false`, Windows child environments preserve only bounded required user/system paths; do not copy `GH_TOKEN` or arbitrary API variables. `CODEXGPT_INHERIT_ENV=1` is trusted-repository opt-in.
+- `scripts/smoke.mjs` and `scripts/http-smoke.mjs` remain protected; compatibility loaders use exact fail-closed in-memory substitutions.
+- Runtime-relevant pushed SHAs require the complete exact-head matrix. Documentation-only changes require repository policy and document integrity checks.
 
 ## Verification evidence
 
-- Phase 3 closure heads passed exact-head runs `29441752493` and `29443158835`; reduced Phase 4 closed at `d19e65b` with run `29603060944`. Both covered policy plus Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package.
-- Phase 5 design, Gate G0/R/X implementation, portability repairs, failed closure diagnostics, and final local closure are retained in STEP-323 and STEP-344 through STEP-362. Closure head `9aa76b9` passed exact-head run `29698209894` across the complete matrix.
-- STEP-363 adversarial focused run `2026-07-19T19-49-04-795Z-interphase-cleanup-adversarial-focused-38f5ac3f` passed 61/61 on each managed Node major. Ordinary run `2026-07-19T19-18-17-116Z-interphase-cleanup-ordinary-final-2-d1a614a7` passed 1,096 tests per major with zero failures and two established skips.
-- STEP-363 cleanup removed 157 obsolete terminal runs with zero failures; the final explicit scan retained 20 runs and found zero owned-temp candidates, invalid paths, failed deletions, or interrupted claims. Build, policy, diff, mutation inventory, and the 521-entry package dry-run passed.
-- STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
-- STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior.
-- Post-merge CI run 113 initially failed only Ubuntu Node 20 because an immutable Gate X integration test observed both reviewed and drifted filter execution. Attempt 2 passed, confirming intermittency. STEP-366 removes executable integration keys and inherited hooks selection from the copied private config, verifies absence, advances the review implementation revision, and passed build, policy, diff integrity, 17/17 focused approval/integration/mutation tests, 4/4 worktree integration tests, 2/2 SHA-256 tests, and five consecutive exact reproducer runs.
+- Phase 3 closure heads passed runs `29441752493` and `29443158835`; reduced Phase 4 passed `29603060944`; Phase 5 passed `29698209894`.
+- STEP-363 local ordinary regression passed 1,096 tests per managed Node major with zero failures and two established skips; cleanup removed 157 obsolete terminal runs without invalid paths or deletion failures.
+- STEP-367 local verification passed build, policy, diff integrity, the 521-entry package dry-run, 25/25 affected tests, and five consecutive immutable-snapshot reproducer runs.
+- STEP-373 through STEP-376 local verification passed runner suites 33/33 and Windows process-host control 10/10 on both managed Node majors; cleanup/process-identity passed five consecutive Node 24 runs at 20/20.
+- STEP-378 deterministic regression failed before the fix and passed afterward; affected cleanup, identity, operational, mutation, and atomic suites passed 36/36 on native Node 20 and Node 24.
+- STEP-378 complete ordinary regression passed on both Node majors: 1,104 tests, 1,102 passed, zero failed, and two established skips per major. Workspace-contained TEMP required `GIT_CEILING_DIRECTORIES` at the repository root to preserve non-repository test semantics.
+- Exact-head run `29762977209` is diagnosed failure evidence, not merge authority. A new exact correction head must pass the complete matrix.
 
 ## Known limitations
 
-- Phase 2A has no user-facing approval issuance surface. Phase 4A adds a V3-only exact local approval path for eligible ambient-authority execution; it is not OS isolation.
-- Workspace lifecycle state is intentionally process-local. OAuth owner identity and lifecycle persistence remain out of scope.
-- Operational rollback must retain V2 readers, participant reconciliation, and recovery evidence.
-- External processes remain outside CodexGPT's workspace lock. Open-handle identity checks reduce path-replacement TOCTOU but cannot provide an OS-wide write lock, serializable namespace visibility to arbitrary readers, or absolute power-loss durability when directory sync is unsupported.
-- Environment narrowing is defense in depth, not credential isolation; same-user child processes may access account-readable files and system keyrings.
+- Phase 2A has no user-facing approval issuance surface. Phase 4A local approval is not OS isolation.
+- Workspace lifecycle state is process-local; OAuth owner identity and lifecycle persistence remain out of scope.
+- External processes remain outside CodexGPT's workspace lock. Open-handle checks reduce path-replacement races but do not create an OS-wide lock or absolute power-loss durability.
+- Environment narrowing is defense in depth, not credential isolation; same-user children may access account-readable files and system keyrings.
 - Safe Bash timeout does not reliably terminate every Windows descendant process.
-- Confirmed-root modules retain an injected identity oracle. `full_access` and ConPTY are ambient-authority features; only owned Job members are lifecycle-controlled. Task 4B0 remains blocked evidence and activates no sandbox behavior.
-- Protected main/HTTP Smoke compatibility depends on exact source strings; drift fails closed and requires a same-change compatibility update.
-- V2 remains explicit rather than default. Rolling configuration back to V1 hides V2 tools but must retain V2 readers and recovery.
-- Atomic `apply_patch` is bounded UTF-8 create/replace/delete only and fails closed for binary, symlink, rename/copy, and mode changes.
+- `full_access`, confirmed roots, and ConPTY remain ambient-authority features; only owned Job members are lifecycle-controlled.
+- Atomic `apply_patch` supports bounded UTF-8 create/replace/delete only and fails closed for binary, symlink, rename/copy, and mode changes.
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
 
 ## Open items
 
-1. Publish STEP-366 through a focused pull request and require the complete runtime matrix before merge.
-2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
-3. Do not enter Phase 6 as part of this CI repair.
+1. Complete final build, policy, package, and diff gates; publish one scoped STEP-377/378 correction commit.
+2. Update pull request #4 to the actual correction head, renewable lifecycle-lease model, diagnosed failure, and verification evidence.
+3. Require the complete exact-head matrix, squash-merge only if the head is unchanged, verify the resulting `main` push CI, then synchronize the operator checkout.
+4. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret Git/worktree mechanisms or lifecycle leases as a sandbox.
+5. Do not enter Phase 6 as part of this repair.
 
 ## Recent summaries
 
-- **STEP-366 - Gate X private-config isolation:** remove original executable integration commands from the copied private Git config, verify their absence, and execute only reviewed materialized snapshots.
-- **STEP-365 - Canonical CodexGPT rename:** replace the previous project name across active package, CLI, environment, state, tool, source, test, and documentation surfaces; preserve append-only historical archives and record the correction here.
-
-- **STEP-364 - Neat-freak reconciliation:** align rules, contributor/security guidance, Chinese developer docs, changelog, archive labels, and concise project memory with STEP-363.
-- **STEP-363 - Automatic owned temporary cleanup:** add cleanup-backed focused/task launchers, detached TEMP isolation, bounded terminal-run retention, legacy/claim recovery, and safe dead-owner cleanup.
-- **STEP-362 - Bound transient Windows fixture cleanup:** add finite `EPERM` retries and establish impact-scoped verification.
-- **STEP-361 - Promote the complete Gate X object closure:** promote every verified loose object before private-index installation and prove the live tree.
-- **STEP-360 - Repair failed Phase 5 exact-head closure:** restore authoritative `all`, repair portability, and close the runner publication race.
+- **STEP-378 - Preserve terminal publication after lease-refresh failure:** keep lifecycle lease writes observational, add a deterministic pre-fix failure regression, and replace a fixed path-replacement cleanup delay with exact worker-exit observation.
+- **STEP-377 - Neat-freak reconciliation:** compress the project-memory index below its practical size target, record exact PR/CI state, add the lifecycle-lease invariant to project rules, and remove relative-time wording from active specifications.
+- **STEP-376 - Remove fixed terminal override:** route the final lifecycle integration call through the common lease-bound observation helper.
+- **STEP-375 - Lease-bound test observation:** use lease expiry, not a shorter arbitrary deadline, as the test oracle for a lost detached worker.
+- **STEP-374 - Deterministic private-stdin command-line proof:** query the current PowerShell command line in-process instead of through timing-sensitive CIM.
+- **STEP-373 - Renewable worker lifecycle lease:** persist exact non-authorizing running/finalizing state so temporary OS-process observation gaps cannot create false stale runs.
+- **STEP-367 - Gate X private tree derivation:** compute both old and new approved stage trees inside one private immutable integration bundle and reject ordinary post-review `write-tree`.
 
 ## Archives
 
 - [Closed Phase 0 and Phase 0.5 history — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
 - [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
-- [Active interphase maintenance Part 2 — STEP-363 onward](docs/memory/archive/interphase-maintenance-part-2.md)
+- [Closed interphase maintenance Part 2 — STEP-363 through STEP-367](docs/memory/archive/interphase-maintenance-part-2.md)
+- [Closed interphase maintenance Part 3 — STEP-368 through STEP-375](docs/memory/archive/interphase-maintenance-part-3.md)
+- [Active interphase maintenance Part 4 — STEP-376 onward](docs/memory/archive/interphase-maintenance-part-4.md)
 - [Phase 1 Volume 1 — STEP-073 through STEP-139](docs/memory/archive/phase-1.md)
 - [Closed Phase 1 Volume 2 — STEP-140 through STEP-151](docs/memory/archive/phase-1-part-2.md)
 - [Closed Phase 1 Volume 3 — STEP-152 through STEP-165](docs/memory/archive/phase-1-part-3.md)

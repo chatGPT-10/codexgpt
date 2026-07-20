@@ -161,20 +161,43 @@ export async function withGitMutationRepository(callback, options = {}) {
           env.GIT_INDEX_FILE = request.privateIndexPath;
         }
         env.GIT_ALTERNATE_OBJECT_DIRECTORIES = path.join(repository.commonDir, "objects");
-        const result = spawnSync("git", [`--git-dir=${gitDir}`, `--work-tree=${repository.worktreeRoot}`, ...args], {
-          cwd: repository.worktreeRoot,
-          input,
-          encoding: null,
-          maxBuffer: 32 * 1024 * 1024,
-          env
-        });
+        const execute = (commandArgs, commandInput, maxBuffer = 32 * 1024 * 1024) => {
+          const result = spawnSync("git", [`--git-dir=${gitDir}`, `--work-tree=${repository.worktreeRoot}`, ...commandArgs], {
+            cwd: repository.worktreeRoot,
+            input: commandInput,
+            encoding: null,
+            maxBuffer,
+            env
+          });
+          return {
+            status: result.status ?? 1,
+            stdout: result.stdout ?? Buffer.alloc(0),
+            stderr: result.stderr ?? Buffer.alloc(0),
+            stdoutTruncated: false,
+            stderrTruncated: false,
+            timedOut: false
+          };
+        };
+        if (request.operation !== "stage") return { result: execute(args, input) };
+        const readTreeOid = (result) => {
+          const treeText = result.stdout.toString("ascii");
+          const expected = repository.objectFormat === "sha1"
+            ? /^[a-f0-9]{40}\r?\n?$/u
+            : /^[a-f0-9]{64}\r?\n?$/u;
+          if (!expected.test(treeText)) throw new Error("GIT_COMMAND_FAILED");
+          return treeText.trim();
+        };
+        const writeTreeArgs = ["--literal-pathspecs", ...integrationConfig, "write-tree"];
+        const oldTree = execute(writeTreeArgs, undefined, 256);
+        if (oldTree.status !== 0) return { result: oldTree };
+        const primary = execute(args, input);
+        if (primary.status !== 0) return { result: primary };
+        const newTree = execute(writeTreeArgs, undefined, 256);
+        if (newTree.status !== 0) return { result: newTree };
         return {
-          status: result.status ?? 1,
-          stdout: result.stdout ?? Buffer.alloc(0),
-          stderr: result.stderr ?? Buffer.alloc(0),
-          stdoutTruncated: false,
-          stderrTruncated: false,
-          timedOut: false
+          result: newTree,
+          stageOldTreeOid: readTreeOid(oldTree),
+          stageTreeOid: readTreeOid(newTree)
         };
       }
     };
