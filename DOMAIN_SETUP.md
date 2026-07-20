@@ -141,7 +141,7 @@ Server URL: paste the complete copied URL
 Authentication: No Authentication / None
 ```
 
-The current personal compatibility flow authenticates through the query credential in the complete Server URL. Do not remove the query string, share it, publish it, commit it, or place it in issue reports.
+The current personal compatibility flow authenticates through the query credential in the complete Server URL. Do not remove the query string, share it, publish it, commit it, or place it in issue reports. Treat browser history, clipboard contents, screenshots, logs, and copied links as possible exposure paths.
 
 ## Option B: dashboard-managed tunnel token
 
