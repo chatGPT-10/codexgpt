@@ -419,7 +419,11 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
       assert.equal(staged.normalization, "approved_full_access");
       const executions = (await fs.readFile(marker, "utf8")).trim().split(/\r?\n/u).map((line) => JSON.parse(line));
       assert.ok(executions.length >= 1);
-      assert.deepEqual(new Set(executions.map((entry) => entry.label)), new Set(["reviewed"]), executions);
+      assert.deepEqual(
+        new Set(executions.map((entry) => entry.label)),
+        new Set(["reviewed"]),
+        JSON.stringify(executions, null, 2)
+      );
       assert.match(await fs.readFile(script, "utf8"), /drifted/u);
     } finally {
       reviews.dispose();
