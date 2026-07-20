@@ -12,7 +12,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Pull request #4 passed exact-head CI run `29773470293` at `b85286def95592cf5fa7ce552adcc1043106e5af`, was updated with the final lifecycle model, and was squash-merged to `main` as `afed823dc8a8cca187d7678cb4e33895de158c57`.
 - Main push CI run `29774932378` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24, but Windows Node 20 failed one lifecycle test while waiting only for an optional `finalizing` lease.
 - STEP-378 makes `finalizing` lease refresh best-effort so an observational write failure cannot suppress authoritative `result.json`; initial running-lease publication, exact stop identity, directory validation, and terminal precedence remain unchanged.
-- STEP-379 corrects the stale test oracle: delayed finalization is valid when observed through either an exact `finalizing` lease or the authoritative result that supersedes it. The scoped STEP-379/380 closure is contained in the current atomic change set; publication and exact-head main CI remain pending.
+- STEP-379/380 was published to `main` as `d8edadc4eb8fca917b06d669e8fa0e3627d237cb`. Exact-head run `29778608848` passed Repository policy, Ubuntu Node 20/24, and Windows Node 20; Windows Node 24 failed one ConPTY control request at an invalid equal inner/outer 60-second deadline and then one detached lifecycle test became stale. The STEP-379 exact finalization observer itself passed.
 
 ## Approved execution boundary
 
@@ -46,7 +46,9 @@ Do not enter Phase 6 or claim closure until the STEP-379 correction is published
 - Exact-head PR run `29773470293` passed the complete matrix and authorized the unchanged squash merge.
 - Main push run `29774932378` is diagnosed failure evidence: its sole failure was the Windows Node 20 test waiting exclusively for optional `finalizing` lease publication; production behavior remained covered by the adjacent forced lease-failure regression.
 - STEP-379 lifecycle verification passed 15/15 on managed Node 20 and Node 24; Node 20 also passed three earlier consecutive 15/15 stress runs, and the final exact-evidence publication rerun passed 15/15 on both majors.
-- STEP-379 final local publication gates passed: diff integrity, TypeScript build, repository policy, 529-entry package dry-run, 119-file Markdown link audit with `BROKEN_COUNT|0`, exact three-file scope, and added-line secret review.
+- STEP-379 initial publication gates passed: diff integrity, TypeScript build, repository policy, 529-entry package dry-run, 119-file Markdown link audit with `BROKEN_COUNT|0`, exact three-file scope, and added-line secret review.
+- Run `29778608848` bounded evidence proved the first failure was `HOST_REQUEST_TIMEOUT` in the cold ConPTY close-fatal control path. The inner worker remained bounded at 60 seconds but the outer RPC had no budget for up to 20 seconds of Job/output cleanup. The follow-up keeps the 60-second worker limit, hard-bounds termination and output drain at 10 seconds each, assigns an 85-second outer RPC budget, and rejects real worker timeout as `CONPTY_WORKER_TIMED_OUT` instead of false close-fatal success.
+- Follow-up local regression passed 21/21 affected manifest/protocol/package/domain tests and 15/15 lifecycle tests on each verified Node major.
 
 ## Known limitations
 
@@ -62,7 +64,7 @@ Do not enter Phase 6 or claim closure until the STEP-379 correction is published
 
 ## Open items
 
-1. Publish and validate the atomic STEP-379/380 closure head directly on `main` without rewriting history.
+1. Complete final gates for the diagnosed ConPTY deadline follow-up, create a new linear commit, and push `main` without rewriting history.
 2. Bind the new 40-character head to its exact `main` CI run and require the complete Ubuntu/Windows Node 20/24 matrix.
 3. Verify the successful exact head, then confirm `D:\Dev\codexpro` is clean and exactly synchronized with `origin/main`.
 4. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret Git/worktree mechanisms or lifecycle leases as a sandbox.
@@ -70,8 +72,8 @@ Do not enter Phase 6 or claim closure until the STEP-379 correction is published
 
 ## Recent summaries
 
-- **STEP-380 - Neat-freak reconciliation:** align the handoff with completed local STEP-379 verification, audit project rules and Markdown references, and preserve the three-file uncommitted correction boundary.
-- **STEP-379 - Align finalization test oracle:** accept either an exact optional `finalizing` lease or the authoritative result that supersedes it, while retaining stale and nonzero-exit failures.
+- **STEP-380 - Publication reconciliation:** publish the scoped STEP-379 oracle correction, bind exact-head CI, and diagnose the Windows Node 24 ConPTY deadline failure without rerun.
+- **STEP-379 - Align finalization test oracle:** accept either an exact optional `finalizing` lease or the authoritative result that supersedes it, while retaining stale and nonzero-exit failures; the observer passed in run `29778608848`.
 - **STEP-378 - Preserve terminal publication after lease-refresh failure:** keep lifecycle lease writes observational, add a deterministic pre-fix failure regression, and replace a fixed path-replacement cleanup delay with exact worker-exit observation.
 - **STEP-377 - Neat-freak reconciliation:** compress the project-memory index below its practical size target, record exact PR/CI state, add the lifecycle-lease invariant to project rules, and remove relative-time wording from active specifications.
 - **STEP-376 - Remove fixed terminal override:** route the final lifecycle integration call through the common lease-bound observation helper.

@@ -227,6 +227,9 @@ test("ConPTY probe uses one manifest-bound Node child and retains bounded failur
   assert.doesNotMatch(source, /failed\["outputBase64"\]/, "failure diagnostics must not expose terminal output");
 
   assert.match(source, /new byte\[0\],\s*60000,\s*32768,\s*4096/);
+  assert.match(source, /ErrorResult\(worker\.TimedOut \? "CONPTY_WORKER_TIMED_OUT" : "HOST_FATAL_CONPTY_CLOSE"\)/);
+  assert.match(source, /WaitForSingleObject\(processInfo\.hProcess, 10000\) != WaitObject0\) throw new InvalidDataException\("PROCESS_TERMINATION_TIMEOUT"\)/);
+  assert.match(source, /!Task\.WaitAll\(new Task\[\] \{ stdoutTask, stderrTask \}, 10000\)\) throw new InvalidDataException\("PROCESS_OUTPUT_DRAIN_TIMEOUT"\)/);
 
   const [client, spike] = await Promise.all([
     fs.readFile(path.join(repositoryRoot, "src", "process", "windowsHostClient.ts"), "utf8"),
@@ -235,7 +238,7 @@ test("ConPTY probe uses one manifest-bound Node child and retains bounded failur
   assert.match(client, /const DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS = 60_000;/);
   assert.match(client, /options\.startupTimeoutMs \?\? DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS/);
   assert.match(spike, /const DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS = 60_000;/);
-  assert.match(spike, /const CONPTY_CONTROL_REQUEST_TIMEOUT_MS = 60_000;/);
+  assert.match(spike, /const CONPTY_CONTROL_REQUEST_TIMEOUT_MS = 85_000;/);
   assert.match(spike, /HELLO_TIMEOUT"\)\);\s*}, DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS/);
   assert.match(spike, /conpty_close_hang_probe[\s\S]*timeoutMs: CONPTY_CONTROL_REQUEST_TIMEOUT_MS/);
 });

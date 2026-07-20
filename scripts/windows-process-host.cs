@@ -940,14 +940,14 @@ namespace CodexGPT.Phase4
                 4096);
             if (simulateCloseHang && !worker.Ok && worker.StdoutTotalBytes == 0)
             {
-                Dictionary<string, object> fatalClose = ErrorResult("HOST_FATAL_CONPTY_CLOSE");
-                fatalClose["workerExitCode"] = (long)worker.ExitCode;
-                fatalClose["workerTimedOut"] = worker.TimedOut;
-                fatalClose["workerJobAssignedAtCreation"] = worker.JobAssignedAtCreation;
-                fatalClose["workerExactHandleList"] = worker.ExactHandleList;
-                fatalClose["workerImageIdentityVerified"] = worker.ImageIdentityVerified;
-                fatalClose["workerElapsedMilliseconds"] = worker.ElapsedMilliseconds;
-                return fatalClose;
+                Dictionary<string, object> isolatedFailure = ErrorResult(worker.TimedOut ? "CONPTY_WORKER_TIMED_OUT" : "HOST_FATAL_CONPTY_CLOSE");
+                isolatedFailure["workerExitCode"] = (long)worker.ExitCode;
+                isolatedFailure["workerTimedOut"] = worker.TimedOut;
+                isolatedFailure["workerJobAssignedAtCreation"] = worker.JobAssignedAtCreation;
+                isolatedFailure["workerExactHandleList"] = worker.ExactHandleList;
+                isolatedFailure["workerImageIdentityVerified"] = worker.ImageIdentityVerified;
+                isolatedFailure["workerElapsedMilliseconds"] = worker.ElapsedMilliseconds;
+                return isolatedFailure;
             }
             Dictionary<string, object> result;
             try { result = ParseStrictObject(worker.Stdout ?? new byte[0]); }
@@ -1648,12 +1648,12 @@ namespace CodexGPT.Phase4
                 if (timedOut || canceled)
                 {
                     HostLifetime.ReleaseJob(jobRegistration, ref job);
-                    WaitForSingleObject(processInfo.hProcess, 10000);
+                    if (WaitForSingleObject(processInfo.hProcess, 10000) != WaitObject0) throw new InvalidDataException("PROCESS_TERMINATION_TIMEOUT");
                 }
                 uint exitCode;
                 if (!GetExitCodeProcess(processInfo.hProcess, out exitCode)) ThrowLastWin32("EXIT_CODE_FAILED");
                 if (!timedOut && !canceled) HostLifetime.ReleaseJob(jobRegistration, ref job);
-                Task.WaitAll(new Task[] { stdoutTask, stderrTask }, 10000);
+                if (!Task.WaitAll(new Task[] { stdoutTask, stderrTask }, 10000)) throw new InvalidDataException("PROCESS_OUTPUT_DRAIN_TIMEOUT");
                 BoundedReadResult stdout = stdoutTask.Result;
                 BoundedReadResult stderr = stderrTask.Result;
                 timer.Stop();

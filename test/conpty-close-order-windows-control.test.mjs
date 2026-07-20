@@ -10,6 +10,8 @@ const { RunCommandRuntimeV3 } = await tsImport("../src/process/runCommand.ts", i
 const { WindowsProcessHostRuntime } = await tsImport("../src/process/windowsHostClient.ts", import.meta.url);
 const { WindowsPersistentProcessBackendV3 } = await tsImport("../src/process/windowsPersistentBackend.ts", import.meta.url);
 
+const CONPTY_WORKER_RPC_TIMEOUT_MS = 85_000;
+
 const profile = {
   ambientFilesystem: true,
   ambientCredentials: true,
@@ -54,8 +56,10 @@ test("persistent ConPTY keeps close fatality isolated and supports UTF-8 input, 
       nodeExecutable: process.execPath,
       probeScript: path.resolve("scripts/windows-conpty-probe-child.mjs")
     };
-    const hung = (await client.request("conpty_close_hang_probe", probeInput, { timeoutMs: 60_000 })).body;
-    assert.equal(hung.code, "HOST_FATAL_CONPTY_CLOSE");
+    const hung = (await client.request("conpty_close_hang_probe", probeInput, { timeoutMs: CONPTY_WORKER_RPC_TIMEOUT_MS })).body;
+    assert.equal(hung.code, "HOST_FATAL_CONPTY_CLOSE", JSON.stringify(hung));
+    assert.equal(hung.workerTimedOut, false, JSON.stringify(hung));
+    assert.ok(hung.workerElapsedMilliseconds >= 5_000 && hung.workerElapsedMilliseconds < 60_000, JSON.stringify(hung));
 
     const started = await manager.start({
       command: { kind: "powershell", script: "Write-Output 'CXP4_INTERACTIVE_INITIAL_你好'", edition: "windows" },

@@ -211,3 +211,65 @@ This append-only volume continues interphase maintenance after the closed Part 3
 **Rollback:** Revert only the STEP-380 memory/archive edits. The STEP-379 test correction and all runtime behavior remain unchanged.
 
 **Next step:** Publish the resulting atomic closure commit to `main` without force and bind its exact CI run.
+
+## 2026-07-20 — STEP-379/380 publication follow-up: separate ConPTY worker and RPC deadlines
+
+**Status:** Diagnosed and locally verified after failed exact-head run `29778608848`; pending one new linear main commit and replacement exact-head matrix.
+
+**Goal:** Fix the first shared Windows Node 24 failure without rerunning a failed head, extending the 60-second ConPTY worker business deadline, or accepting a timed-out worker as successful close-fatal evidence.
+
+**Failure evidence:**
+
+- Commit `d8edadc4eb8fca917b06d669e8fa0e3627d237cb` was pushed directly to `main` and bound to CI run `29778608848`.
+- Repository policy, Ubuntu Node 20/24, and Windows Node 20 passed. Windows Node 24 Regression failed; Smoke and Package were correctly skipped.
+- The first `not ok` was `persistent ConPTY keeps close fatality isolated and supports UTF-8 input, resize, ETX, and exact cleanup` with `HOST_REQUEST_TIMEOUT` after approximately 78.5 seconds.
+- The later `detached tasks use an owned TEMP tree and remove it before terminal completion` failure observed `stale` after approximately 66 seconds. The STEP-379 regression `worker finalization remains observable through an exact lease or authoritative result` passed in the same job in approximately 11.1 seconds.
+- The bounded artifact `ci-failure-windows-node-24` contained 1,217 tests: 1,213 passed, two failed, and two established skips. A second comprehensive ClosePseudoConsole control test later in the same serialized job passed in approximately 12.0 seconds.
+
+**Root cause:**
+
+- `RunConPtyProbe(...)` gives its isolated worker a strict 60-second `RunOwnedProcess(...)` deadline.
+- A timeout path may then spend up to 10 seconds closing the Job-owned process and up to 10 seconds draining bounded output before the host can emit the RPC response.
+- The production control test, the comprehensive control test, and `windows-process-host-spike.mjs` also used exactly 60 seconds as the outer request deadline. The outer transport could therefore kill the host before the inner bounded operation returned its terminal evidence.
+- The close-hang classifier also mapped any failed worker with zero stdout to `HOST_FATAL_CONPTY_CLOSE`, including a true worker timeout. That could convert an exceeded business deadline into false expected evidence once the outer race was removed.
+
+**Implementation:**
+
+- Kept the isolated ConPTY worker deadline at 60 seconds.
+- Hard-bounded post-timeout Job termination and output drain at 10 seconds each; ignored wait results can no longer fall through to unbounded `.Result` waits.
+- Set the outer ConPTY control RPC budget to 85 seconds: 60 seconds for the worker, 10 seconds for Job shutdown, 10 seconds for output drain, and five seconds for response framing/scheduling.
+- Added exact assertions that the close-hang worker did not time out and completed between the 5-second close watchdog and the unchanged 60-second worker deadline.
+- Changed native failure classification so a real worker timeout returns `CONPTY_WORKER_TIMED_OUT`; only a non-timeout zero-output worker failure may represent `HOST_FATAL_CONPTY_CLOSE`.
+- Updated the manifest-bound C# digest and the protocol source contract. Production process lifetimes, close watchdog, worker deadline, Job ownership, output caps, and lifecycle leases are unchanged.
+
+**Files changed:**
+
+- `scripts/windows-process-host.cs`
+- `scripts/windows-process-host-manifest.json`
+- `scripts/windows-process-host-spike.mjs`
+- `test/conpty-close-order-windows-control.test.mjs`
+- `test/windows-process-host-control.test.mjs`
+- `test/windows-process-host-protocol.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance-part-4.md`
+
+**Local verification:**
+
+- `git diff --check`, TypeScript build, and repository policy passed; policy reported `Repository operational policy: PASS`.
+- Package dry-run retained 529 entries and contained no test tree, `.ai-bridge`, credential, secret, or `node_modules` path.
+- Verified Node 20.20.2 and Node 24.15.0 each passed 21/21 affected manifest, native architecture, protocol, ConPTY contract, backend discovery, package, and test-domain checks.
+- Verified Node 20.20.2 and Node 24.15.0 each passed the complete lifecycle file at 15/15, including the detached owned-TEMP test and the STEP-379 exact finalization observer.
+- Tracked Markdown audit covered 119 files with `BROKEN_COUNT|0`; added-line authentication-material scan reported zero hits.
+- `Memory.md` remained at 119 lines / 14,347 bytes. This archive remained below the 48,000-byte rollover threshold derived from the configured 60-KB direct-read limit.
+- Real control/all-domain execution remains reserved for isolated CI under the repository control-domain rule.
+
+**Adversarial review:**
+
+- The 85-second value is an outer transport budget, not a longer worker business deadline. `workerTimedOut === false` remains mandatory.
+- A cold worker that exceeds 60 seconds now fails with explicit `CONPTY_WORKER_TIMED_OUT`; it cannot pass as close-fatal evidence.
+- No retry, rerun, lease extension, lifecycle success fallback, skipped control assertion, or production timeout relaxation was added.
+- The later lifecycle stale failure is treated as a possible cascade from the first host/control failure until replacement CI proves otherwise; no unrelated lifecycle change was made because its modified oracle passed and both local Node majors passed 15/15.
+
+**Rollback:** Revert this follow-up commit. That restores the equal 60-second inner/outer deadline race and the ambiguous timeout classification.
+
+**Next step:** Run final diff/build/policy/package/document/scope checks, create a new linear commit, push `main` without force, bind the replacement exact-head CI, and require the complete matrix before synchronization.

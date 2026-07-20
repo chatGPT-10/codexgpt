@@ -18,7 +18,7 @@ const TAG_OFFSET = 48;
 const TAG_LENGTH = PROCESS_HOST_PROTOCOL.tagLength;
 const MAX_PAYLOAD = PROCESS_HOST_PROTOCOL.maxFramePayloadBytes;
 const DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS = 60_000;
-const CONPTY_CONTROL_REQUEST_TIMEOUT_MS = 60_000;
+const CONPTY_CONTROL_REQUEST_TIMEOUT_MS = 85_000;
 
 export function conPtyProbeInput() {
   return Object.freeze({
