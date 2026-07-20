@@ -1,245 +1,273 @@
-# CodexPro Domain Setup
+# CodexPro: Windows + Cloudflare Tunnel + Custom Domain
 
-This guide explains how to use a Namecheap domain, Cloudflare, or ngrok so CodexPro can keep a stable ChatGPT connector URL.
-
-There are two different products hiding behind the phrase "one URL":
-
-- Personal stable URL: one developer runs CodexPro locally and keeps a stable URL such as `https://mcp.example.space/mcp`.
-- Hosted relay for all users: every user gets a stable CodexPro URL without managing Cloudflare. This requires a hosted service that routes each ChatGPT request to the correct user's local agent.
-
-The personal stable URL works now. The hosted relay is the product architecture to build before public launch.
-
-## What A Domain Can And Cannot Do
-
-A DNS hostname points traffic to one Cloudflare tunnel, load balancer, or hosted service. It cannot automatically discover every user's laptop.
-
-For public users, one shared domain needs one of these designs:
-
-- Per-user tunnel hostnames, such as `alice.mcp.example.space` and `bob.mcp.example.space`, each routed to that user's tunnel.
-- A hosted relay at `mcp.example.space` where each local CodexPro agent opens an outbound connection and authenticates. ChatGPT calls the relay URL, and the relay forwards each request to the right connected local agent.
-
-The hosted relay is the clean end-user experience:
+This guide describes the preferred self-hosted deployment for CodexPro:
 
 ```text
-User terminal
-  codexpro start --root .
-  opens outbound session to your relay
-
-ChatGPT connector
-  https://mcp.example.space/<workspace-id>/mcp
-
-Relay
-  authenticates request
-  forwards MCP traffic to the correct user's local CodexPro agent
+ChatGPT
+  -> HTTPS
+mcp.example.com
+  -> Cloudflare DNS / TLS / Tunnel
+127.0.0.1:8787
+  -> CodexPro
+  -> one local repository
 ```
 
-That is how you make the setup feel like one URL for everyone.
+The design does not require WSL or a third-party Remote MCP relay. Cloudflare provides DNS, TLS, and inbound tunnel transport only. Authorization and workspace policy remain enforced by CodexPro on the Windows machine.
 
-## Recommended Domain Layout
+## Security properties
 
-Use subdomains instead of the apex domain:
+The recommended deployment has these properties:
 
-```text
-codexpro.example.space       marketing/docs site
-app.example.space            future dashboard/login
-mcp.example.space            hosted relay entrypoint
-local.example.space          optional private dogfood tunnel
-```
+- CodexPro listens on `127.0.0.1`, not a LAN or public interface.
+- `cloudflared` creates an outbound connection to Cloudflare.
+- TCP port 8787 is not opened on the router or exposed directly through Windows Firewall.
+- ChatGPT uses a stable HTTPS hostname such as `mcp.example.com`.
+- The `/mcp` endpoint requires a CodexPro token.
+- The Cloudflare Tunnel credential and CodexPro MCP token are separate secrets.
+- The ingress configuration has a final deny rule.
+- Logs and screenshots must not contain the complete tokenized Server URL.
 
-For your current dogfood setup, use:
+Cloudflare Tunnel does not replace CodexPro authorization, permission profiles, local approvals, or operating-system isolation. Safe Bash is a command filter, not a sandbox.
 
-```text
-local.example.space
-```
+## Requirements
 
-For the future public product, use:
+- A domain managed by Cloudflare DNS
+- Windows 10 or Windows 11
+- Node.js 20+
+- CodexPro installed globally
+- `cloudflared` installed by CodexPro or available on `PATH`
 
-```text
-mcp.example.space
-```
-
-## One-Time Namecheap And Cloudflare Setup
-
-1. Add your apex domain to Cloudflare.
-
-   In Cloudflare Dashboard, go to Domains, choose "Onboard a domain", enter your domain such as `example.space`, choose a plan, and review imported DNS records.
-
-2. Change Namecheap nameservers.
-
-   In Namecheap, open Domain List, choose Manage for the domain, set Nameservers to Custom nameservers, enter the two Cloudflare nameservers, and save.
-
-3. Wait for activation.
-
-   Namecheap says nameserver propagation can take up to 24-48 hours in rare cases. Cloudflare will show the domain as active once the nameservers are picked up.
-
-4. Preserve email records.
-
-   If the domain receives email, make sure MX, SPF, DKIM, and DMARC records exist in Cloudflare before relying on the domain.
-
-## Personal Stable Tunnel
-
-Install or bootstrap `cloudflared`:
-
-```bash
+```powershell
+npm install -g codexpro
 codexpro install-cloudflared
+codexpro doctor
 ```
 
-That installs the official Cloudflare binary into `~/.codexpro/bin` on supported macOS, Windows, and Linux machines. You can also install `cloudflared` manually and keep it on PATH.
+CodexPro installs the verified `cloudflared.exe` under `%USERPROFILE%\.codexpro\bin` for the supported default path.
 
-Authenticate:
+## Option A: locally managed named tunnel
 
-```bash
-~/.codexpro/bin/cloudflared tunnel login
+This path stores a tunnel credentials JSON file on the local machine.
+
+### 1. Authenticate Cloudflare
+
+```powershell
+cloudflared tunnel login
 ```
 
-Create a named tunnel:
+A browser opens. Select the Cloudflare zone that contains your domain.
 
-```bash
-~/.codexpro/bin/cloudflared tunnel create codexpro-local
-~/.codexpro/bin/cloudflared tunnel route dns codexpro-local local.example.space
+### 2. Create the tunnel
+
+```powershell
+cloudflared tunnel create codexpro
 ```
 
-Start CodexPro with that stable hostname:
+Record the tunnel UUID printed by `cloudflared`.
 
-```bash
-codexpro stable \
-  --root /absolute/path/to/your/repo \
-  --hostname local.example.space \
-  --tunnel-name codexpro-local \
-  --token replace-with-a-long-stable-token \
+### 3. Route DNS
+
+```powershell
+cloudflared tunnel route dns codexpro mcp.example.com
+```
+
+Use a dedicated subdomain. Do not use the apex domain for the MCP endpoint.
+
+### 4. Create the Cloudflare configuration
+
+Create `%USERPROFILE%\.cloudflared\config.yml`:
+
+```yaml
+tunnel: YOUR-TUNNEL-UUID
+credentials-file: C:\Users\YOUR-NAME\.cloudflared\YOUR-TUNNEL-UUID.json
+
+ingress:
+  - hostname: mcp.example.com
+    service: http://127.0.0.1:8787
+    originRequest:
+      httpHostHeader: mcp.example.com
+      connectTimeout: 10s
+      noHappyEyeballs: false
+  - service: http_status:404
+```
+
+The final `http_status:404` rule is mandatory. It prevents unmatched hostnames from being forwarded to the local service.
+
+Validate the configuration:
+
+```powershell
+cloudflared tunnel ingress validate
+cloudflared tunnel ingress rule https://mcp.example.com/mcp
+```
+
+### 5. Start CodexPro
+
+Generate a long random CodexPro token. One PowerShell option is:
+
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+$token = [Convert]::ToHexString($bytes).ToLowerInvariant()
+```
+
+Start the stable endpoint:
+
+```powershell
+codexpro stable `
+  --root D:\Dev\your-repo `
+  --hostname mcp.example.com `
+  --tunnel-name codexpro `
+  --cloudflare-config "$env:USERPROFILE\.cloudflared\config.yml" `
+  --token $token `
   --bash safe
 ```
 
-Add this once in ChatGPT Developer Mode using the supported personal query-token compatibility flow:
+CodexPro binds the origin to loopback by default. Do not pass `--host 0.0.0.0` for this deployment.
+
+### 6. Add the connection to ChatGPT
+
+CodexPro prints and copies a complete URL similar to:
+
+```text
+https://mcp.example.com/mcp?codexpro_token=...
+```
+
+In ChatGPT Developer Mode, create the Plugin/App connection with:
 
 ```text
 Name: CodexPro
 Connection: Server URL
-Server URL: paste the exact complete URL copied by CodexPro, including codexpro_token
-Authentication: None / No Authentication
+Server URL: paste the complete copied URL
+Authentication: No Authentication / None
 ```
 
-Do not remove the query string. Treat the complete URL as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. This guide does not claim ChatGPT Web supports manual static-Bearer configuration; OAuth 2.1 is deferred.
+The current personal compatibility flow authenticates through the query credential in the complete Server URL. Do not remove the query string, share it, publish it, commit it, or place it in issue reports. Treat browser history, clipboard contents, screenshots, logs, and copied links as possible exposure paths.
 
-After that, restart only the terminal command. You do not need to edit the ChatGPT connector unless you change the hostname or rotate the CodexPro token, in which case replace the complete Server URL.
+## Option B: dashboard-managed tunnel token
 
-## Dashboard-Managed Tunnel Token
+Cloudflare can also provide a connector token from the dashboard. Store that token in a local file rather than a command line or saved CodexPro profile.
 
-If you create the tunnel in the Cloudflare dashboard, save the connector token locally:
+Create the secret file:
 
-```bash
-mkdir -p ~/.codexpro
-chmod 700 ~/.codexpro
-$EDITOR ~/.codexpro/cloudflare-tunnel-token
-chmod 600 ~/.codexpro/cloudflare-tunnel-token
+```powershell
+$dir = Join-Path $env:USERPROFILE ".codexpro"
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+notepad (Join-Path $dir "cloudflare-tunnel-token")
 ```
 
-Then run:
+Put only the Cloudflare connector token in the file. Then start:
 
-```bash
-codexpro stable \
-  --root /absolute/path/to/your/repo \
-  --hostname local.example.space \
-  --cloudflare-token-file ~/.codexpro/cloudflare-tunnel-token \
-  --token replace-with-a-long-stable-token \
+```powershell
+codexpro stable `
+  --root D:\Dev\your-repo `
+  --hostname mcp.example.com `
+  --cloudflare-token-file "$env:USERPROFILE\.codexpro\cloudflare-tunnel-token" `
+  --token <long-random-codexpro-token> `
   --bash safe
 ```
 
-Do not confuse these two tokens:
+Do not confuse the credentials:
 
 ```text
-Cloudflare tunnel token  lets cloudflared connect your machine to Cloudflare.
-CodexPro MCP token       protects the /mcp endpoint that ChatGPT calls.
+Cloudflare Tunnel credential  authorizes cloudflared to connect the machine to Cloudflare.
+CodexPro MCP token            authorizes requests reaching the local /mcp endpoint.
 ```
 
-## Ngrok Free Dev Domain
+## Host-header and DNS-rebinding controls
 
-Ngrok is the simpler personal stable URL for most users. A free ngrok account includes a dev domain, which can be saved once in CodexPro and reused every time the local server restarts.
+Use all of these controls together:
 
-One-time setup:
+1. Keep CodexPro bound to `127.0.0.1`.
+2. Configure one exact Cloudflare ingress hostname.
+3. Add the final `http_status:404` ingress rule.
+4. Set `originRequest.httpHostHeader` to the expected public hostname.
+5. Do not create wildcard DNS records pointing at the tunnel.
+6. Do not allow arbitrary user-supplied hostnames in wrapper scripts or saved profiles.
+7. Keep the CodexPro token mandatory even when Cloudflare Access is also used.
 
-```bash
-brew install ngrok
-ngrok config add-authtoken <your-ngrok-token>
+Cloudflare Access may be useful as an additional layer, but it must be tested against the ChatGPT connector flow before being made mandatory. It does not replace the CodexPro token or local authorization.
+
+## Token rotation
+
+### Rotate the CodexPro token
+
+1. Stop CodexPro.
+2. Generate a new random token.
+3. Restart CodexPro with the new `--token` value.
+4. Replace the complete Server URL in ChatGPT.
+5. Remove the old URL from notes, browser history where practical, screenshots, clipboard managers, and shell history.
+
+A stable hostname does not make the old token valid after rotation.
+
+### Rotate the Cloudflare Tunnel credential
+
+Rotate or recreate the tunnel credential through Cloudflare, update the local credentials JSON or token file, and restart `cloudflared`/CodexPro. This does not rotate the CodexPro MCP token.
+
+## Logging rules
+
+- Do not use the complete tokenized URL in documentation, screenshots, issues, PR descriptions, or shell transcripts.
+- Prefer `codexpro doctor` and redacted status output for diagnostics.
+- Enable `--log-requests` only for bounded troubleshooting; supported output is redacted, but logs should still be treated as sensitive.
+- Never enable shell tracing around commands containing tokens.
+- Prefer token files for persistent Cloudflare connector credentials.
+- Do not store raw tunnel tokens in workspace profiles or Git repositories.
+
+## Windows Firewall and router
+
+No inbound firewall or router rule is required. Confirm that port 8787 is loopback-only:
+
+```powershell
+Get-NetTCPConnection -LocalPort 8787 -State Listen |
+  Select-Object LocalAddress, LocalPort, OwningProcess
 ```
 
-Find your assigned dev domain in the ngrok dashboard under Universal Gateway -> Domains, for example:
+The expected local address is `127.0.0.1` or `::1`. A listener on `0.0.0.0`, a LAN address, or `[::]` is outside the recommended deployment.
+
+## Verification
+
+Run local diagnostics:
+
+```powershell
+codexpro doctor
+```
+
+Check the tunnel:
+
+```powershell
+cloudflared tunnel info codexpro
+cloudflared tunnel ingress validate
+```
+
+Test the public health endpoint without printing the MCP token:
+
+```powershell
+Invoke-WebRequest https://mcp.example.com/healthz
+```
+
+Then use `codexpro connection-test --root D:\Dev\your-repo` when ChatGPT cannot create or call the connection. Connection-test disables writes, Bash, and tool cards while preserving request-arrival diagnostics.
+
+## Operational checklist
+
+Before daily use:
+
+- The intended repository path is correct.
+- CodexPro is bound to loopback.
+- The named tunnel uses the exact hostname.
+- The final ingress deny rule is present.
+- The complete ChatGPT Server URL contains the current CodexPro token.
+- Bash mode matches the repository trust level.
+- `--no-bash` is used for untrusted repositories.
+- Advanced V3/V4 contracts are enabled only with their required policy, audit, permission-profile, and local-approval controls.
+
+## Other URL modes
+
+CodexPro also supports:
 
 ```text
-your-domain.ngrok-free.dev
+codexpro start --tunnel cloudflare                 disposable quick tunnel
+codexpro ngrok --hostname name.ngrok-free.dev      stable ngrok hostname
+codexpro tailscale --hostname device.tailnet.ts.net
+codexpro start --tunnel none                       local-only HTTP
 ```
 
-Daily startup:
-
-```bash
-codexpro ngrok \
-  --root /absolute/path/to/your/repo \
-  --hostname your-domain.ngrok-free.dev \
-  --token replace-with-a-long-stable-token \
-  --bash safe
-```
-
-Add this once in ChatGPT Developer Mode:
-
-```text
-Name: CodexPro
-Connection: Server URL
-Server URL: paste the exact complete URL copied by CodexPro, including codexpro_token
-Authentication: None / No Authentication
-```
-
-Use the complete copied URL even though the hostname is stable. The query-token credential changes if you rotate the CodexPro token, so replace the ChatGPT Server URL after rotation.
-
-CodexPro starts the local MCP server, runs `ngrok http http://127.0.0.1:8787 --url https://your-domain.ngrok-free.dev`, waits for `/healthz`, copies the Server URL, and keeps both processes alive until you quit.
-
-## Product Plan For All Users
-
-For open-source users, support three modes:
-
-```text
-1. Local-only stdio/HTTP
-   No public URL. Best for clients that can launch local MCP commands.
-
-2. Bring-your-own tunnel
-   User owns Cloudflare/ngrok/domain. Good for power users and contributors.
-
-3. CodexPro hosted relay
-   Best public UX. User runs one local command and gets a stable connector URL from your service.
-```
-
-The hosted relay needs:
-
-- User auth and device registration.
-- Per-device or per-workspace MCP URLs.
-- Local agent outbound WebSocket or HTTP/2 session to the relay.
-- Per-session CodexPro token rotation.
-- Audit log of tool names, durations, and file paths, without source contents by default.
-- Strict write modes: `workspace` by default for agent mode, `handoff` when the user chooses planning-only mode.
-- Workspace root allowlist enforced locally, not only at the relay.
-- Revocation from the dashboard.
-
-## Latency And Cost
-
-For your own named tunnel, latency should be similar to the current quick tunnel. The domain itself does not add meaningful latency; traffic still goes through Cloudflare Tunnel.
-
-For the hosted relay, there is one extra hop:
-
-```text
-ChatGPT -> Cloudflare/relay -> user's local CodexPro agent
-```
-
-That is usually fine for planning and file operations. The bigger speed win is reducing tool calls and response payloads:
-
-- Start with `open_current_workspace` and `include_tree=false`.
-- Use targeted `read`, `search`, and `codex_context`.
-- Show widget cards only for high-signal write/edit/diff results.
-- Keep `server_config`, inventory, tree, read, and search compact.
-
-For cost, the domain renewal is separate. Cloudflare DNS and basic tunnel usage can be enough for dogfooding. A public relay will eventually cost real hosting/traffic/observability money, even if it starts small on Cloudflare Workers, Durable Objects, or a small server.
-
-## Sources
-
-- Cloudflare domain onboarding: https://developers.cloudflare.com/fundamentals/manage-domains/add-site/
-- Namecheap Cloudflare nameserver setup: https://www.namecheap.com/support/knowledgebase/article.aspx/9607/2210/how-to-set-up-dns-records-for-your-domain-in-a-cloudflare-account/
-- Cloudflare locally-managed tunnel: https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/local-management/create-local-tunnel/
-- Cloudflare Tunnel overview: https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/
+For the stated self-hosted Windows requirement, the named Cloudflare Tunnel with a custom subdomain is the preferred path.
