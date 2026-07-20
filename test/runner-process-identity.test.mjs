@@ -11,7 +11,8 @@ import {
   runState,
   TERMINAL_PUBLICATION_LEASE_MS,
   terminalPublicationLeaseActive,
-  verifyWorkerIdentity
+  verifyWorkerIdentity,
+  waitForTerminalPublication
 } from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -129,6 +130,61 @@ test("an exact bounded finalization lease keeps terminal publication observable 
     assert.deepEqual(state.identity, { owned: false, reason: "terminal_publication_in_progress" });
   } finally {
     await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("terminal observation notices an exact lease published during its bounded wait", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalizing-wait-"));
+  const metadata = {
+    schemaVersion: 2,
+    runId: "finalizing-wait",
+    workerPid: 999999,
+    workerNonce: "d".repeat(64),
+    workerCreationTime: "linux:2",
+    workerCommandDigest: "e".repeat(64),
+    commandDigest: "f".repeat(64)
+  };
+  const evidence = {
+    schemaVersion: 2,
+    runId: metadata.runId,
+    workerPid: metadata.workerPid,
+    workerNonce: metadata.workerNonce,
+    workerCreationTime: metadata.workerCreationTime,
+    workerCommandDigest: metadata.workerCommandDigest,
+    commandDigest: metadata.commandDigest
+  };
+  const publishedAtMs = Date.now();
+  const finalizing = {
+    ...evidence,
+    publishedAt: new Date(publishedAtMs).toISOString(),
+    expiresAt: new Date(publishedAtMs + TERMINAL_PUBLICATION_LEASE_MS).toISOString()
+  };
+  let publishError;
+  const publish = new Promise((resolve) => {
+    setTimeout(async () => {
+      try {
+        await fs.writeFile(path.join(directory, "finalizing.json"), `${JSON.stringify(finalizing)}\n`, "utf8");
+      } catch (error) {
+        publishError = error;
+      } finally {
+        resolve();
+      }
+    }, 200);
+  });
+
+  try {
+    const startedAt = performance.now();
+    const observed = await waitForTerminalPublication(directory, 2_000, { metadata, evidence });
+    const elapsedMs = performance.now() - startedAt;
+    await publish;
+    if (publishError) throw publishError;
+    assert.ok(elapsedMs < 1_000, `Lease observation took ${elapsedMs}ms.`);
+    assert.deepEqual(observed.finalizing, finalizing);
+    assert.equal(observed.result, undefined);
+    assert.equal(observed.stopped, undefined);
+  } finally {
+    await publish;
+    await fs.rm(directory, { recursive: true, force: true });
   }
 });
 

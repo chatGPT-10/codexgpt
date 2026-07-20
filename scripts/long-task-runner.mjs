@@ -312,17 +312,22 @@ async function readRunFiles(directory) {
   return { metadata, result, stopped, evidence, finalizing };
 }
 
-export async function waitForTerminalPublication(directory, deadlineMs = 5_000) {
+export async function waitForTerminalPublication(directory, deadlineMs = 5_000, observation = {}) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
-    const [result, stopped] = await Promise.all([
+    const [result, stopped, finalizing] = await Promise.all([
       readJson(path.join(directory, "result.json")),
-      readJson(path.join(directory, "stopped.json"))
+      readJson(path.join(directory, "stopped.json")),
+      readJson(path.join(directory, "finalizing.json"))
     ]);
-    if (result || stopped) return { result, stopped };
+    if (
+      result ||
+      stopped ||
+      terminalPublicationLeaseActive(observation.metadata, observation.evidence, finalizing)
+    ) return { result, stopped, finalizing };
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  return { result: undefined, stopped: undefined };
+  return { result: undefined, stopped: undefined, finalizing: undefined };
 }
 
 export async function runState(directory) {
@@ -347,10 +352,11 @@ export async function runState(directory) {
     } else {
       const exactEvidence = workerEvidenceMatches(metadata, evidence);
       const terminal = exactEvidence
-        ? await waitForTerminalPublication(directory)
+        ? await waitForTerminalPublication(directory, 5_000, { metadata, evidence })
         : {
             result: await readJson(path.join(directory, "result.json")),
-            stopped: await readJson(path.join(directory, "stopped.json"))
+            stopped: await readJson(path.join(directory, "stopped.json")),
+            finalizing: undefined
           };
       if (terminal.stopped) {
         status = "stopped";
@@ -359,6 +365,10 @@ export async function runState(directory) {
       if (terminal.result) {
         status = "completed";
         return { ...metadata, status, identity: { owned: false, reason: "result_recorded" }, result: terminal.result, stopped: null };
+      }
+      if (terminalPublicationLeaseActive(metadata, evidence, terminal.finalizing)) {
+        status = "running";
+        return { ...metadata, status, identity: { owned: false, reason: "terminal_publication_in_progress" }, result: null, stopped: null };
       }
       status = "stale";
     }

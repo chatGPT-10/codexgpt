@@ -156,3 +156,38 @@ This append-only continuation starts at STEP-368. Earlier interphase records rem
 **Rollback:** Revert STEP-371 to remove `finalizing.json` handling. That restores dependence on externally observable process identity during post-child finalization.
 
 **Next step:** Push the exact head, require the complete matrix, squash-merge only on unchanged head, then require the resulting `main` push CI to pass.
+
+## 2026-07-20 — STEP-372: Observe finalization published during the bounded terminal wait
+
+**Status:** Implemented after exact-head CI #134 invalidated the completeness of STEP-371; pending a new exact-head and post-merge matrix.
+
+**Goal:** Ensure a status observation that begins immediately before `finalizing.json` publication notices the exact lease when it appears, rather than returning stale after the existing bounded wait.
+
+**Failure evidence:**
+
+- Exact-head run `29758033578` on `2adcb6f3a3100c0cf09d879cf932e132b29557bb` passed Repository policy and complete Ubuntu Node 20/24 jobs. Windows Node 24 failed only `cleanup recovers a terminal run left in its verified prune claim after an interruption` after 6.8 seconds; the bounded artifact recorded `actual: stale`.
+- `runState` read no lease, transient process observation led it into `waitForTerminalPublication`, and the worker then published a valid lease. The wait polled only `result.json` and `stopped.json`, so it ignored the newly durable finalization state and returned stale when the five-second window ended.
+
+**Implementation summary:**
+
+- `waitForTerminalPublication` now also reads `finalizing.json`, but accepts it only when caller-supplied metadata and worker evidence exactly activate the existing bounded lease validator.
+- `runState` supplies the already authenticated exact metadata/evidence and returns unowned `terminal_publication_in_progress` when the lease appears during the wait.
+- Result and stop records retain precedence. Invalid, overlong, expired, malformed, or mismatched finalization records do not end the wait and cannot authorize ownership or stop.
+- Added a deterministic regression that begins the bounded observation with no terminal record, publishes an exact lease after 200 ms, and requires observation in under one second. The pre-fix helper waits to its deadline and returns no lease.
+
+**Verification:**
+
+- Native Windows Node 24 affected cleanup, process-identity, operational, and mutation suites passed 33/33.
+- Native Windows Node 20 passed the same 33/33.
+- Cleanup plus process-identity passed five consecutive Node 24 runs, 20/20 each.
+- The exact regression observed the delayed lease in approximately 221 ms on both managed Node majors.
+
+**Adversarial review:**
+
+- The new path uses the same schema, run ID, PID, nonce, creation-time, command-digest, worker-command-digest, timestamp, and maximum-duration checks as STEP-371.
+- No new persisted field, environment switch, retry, timeout extension, process authority, deletion authority, or stop authority was added.
+- Result and stopped records are checked before finalization, so terminal truth cannot be downgraded to running.
+
+**Rollback:** Revert STEP-372 only to restore the observation gap while retaining the STEP-371 lease format.
+
+**Next step:** Re-run the affected suites and repository gates, publish one ordinary correction commit, require the complete exact-head matrix, then squash-merge only if that head remains unchanged and the resulting `main` push matrix passes.
