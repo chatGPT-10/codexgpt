@@ -5,7 +5,7 @@
 <h1 align="center">CodexPro</h1>
 
 <p align="center">
-  Local coding tools for ChatGPT, scoped to one repo.
+  Windows-first, self-hosted MCP tools that connect ChatGPT to one local repository.
 </p>
 
 <p align="center">
@@ -15,389 +15,302 @@
   <a href="https://rebel0789.github.io/codexpro/"><img alt="Website" src="https://img.shields.io/badge/site-GitHub%20Pages-67e8f9?style=flat-square"></a>
 </p>
 
-## Install
+<p align="center">
+  <a href="README_ZH.md">中文</a> ·
+  <a href="DOMAIN_SETUP.md">Cloudflare domain setup</a> ·
+  <a href="SECURITY.md">Security</a> ·
+  <a href="FAQ.md">FAQ</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-Requirements:
+## What CodexPro is
 
-- Node.js 20+
-- A ChatGPT account with Apps / Developer Mode access
-- One HTTPS route to your local machine when connecting ChatGPT from the web
+CodexPro runs an MCP server on your machine and scopes it to a repository you choose. A compatible ChatGPT Developer Mode app can then inspect files, search code, make guarded edits, review Git changes, run bounded verification commands, and write handoff plans under `.ai-bridge`.
 
-Install the CLI:
+The intended deployment is fully self-hosted:
 
-```bash
-npm install -g codexpro
+```text
+ChatGPT
+  -> HTTPS
+mcp.example.com
+  -> Cloudflare DNS / TLS / Tunnel
+127.0.0.1:8787
+  -> CodexPro
+  -> one local repository
 ```
 
-Run setup inside the repo you want ChatGPT to work on:
+Cloudflare is only the network edge. CodexPro remains local, the origin port stays bound to loopback, and no third-party MCP relay is required.
 
-```bash
-cd /path/to/your/repo
+CodexPro is not a hosted coding service, model proxy, quota bypass, account pool, or operating-system sandbox.
+
+## Current project status
+
+- Package metadata is currently `codexpro@0.28.6`; `main` contains unreleased changes that may be ahead of npm.
+- Native Windows is a primary supported environment. WSL is not required. PowerShell is supported; Git Bash remains useful for Bash-oriented workflows.
+- The default public tool contract remains V1. Contracts V2, V3, and V4 are explicit opt-in advanced surfaces.
+- Phase 5, including typed local Git and managed task worktrees, closed on the full Ubuntu/Windows Node 20/24 validation matrix. Advanced features still retain their documented fail-closed and no-sandbox boundaries.
+
+Check the npm badge before installing. Use a source checkout when you specifically need unreleased `main` behavior.
+
+## Requirements
+
+- Windows 10/11, macOS, or Linux
+- Node.js 20 or newer
+- Git for Git-aware workflows
+- A ChatGPT account and model surface that exposes Apps / Developer Mode actions
+- A public HTTPS route when ChatGPT Web must reach the local MCP server
+
+For the preferred Windows path, install Node.js and Git for Windows. PowerShell is sufficient for normal setup; WSL is optional.
+
+## Quick start
+
+### 1. Install the CLI
+
+```powershell
+npm install -g codexpro
+codexpro --version
+```
+
+### 2. Run guided setup inside the target repository
+
+```powershell
+Set-Location D:\Dev\your-repo
 codexpro setup
 ```
 
-CodexPro prints and copies a Server URL that contains a `codexpro_token` query credential. In ChatGPT, open:
+Setup saves a per-workspace profile and prints/copies a complete Server URL containing a `codexpro_token` query credential.
+
+### 3. Create the ChatGPT connection
+
+In ChatGPT, enable Developer Mode, then create a Plugin/App connection using a Server URL. UI labels can change, but the current flow is generally:
 
 ```text
 Settings -> Security and login -> Developer mode: on
-Settings -> Plugins -> Create
+Settings -> Plugins / Apps -> Create
 ```
 
-Paste the complete copied Server URL, including its query string, and choose `Authentication: No Authentication / None`. This is the supported personal ChatGPT query-token compatibility flow; OAuth 2.1 remains deferred.
-
-Treat the complete URL as a password-equivalent secret. It can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it.
-
-Daily use from the same repo:
-
-```bash
-codexpro start
-```
-
-## What It Does
-
-CodexPro starts a local MCP server for the current workspace. ChatGPT can then:
-
-- read files and inspect the repo
-- search code
-- make scoped edits with `write`, `edit`, or guarded `apply_patch`
-- run safe verification commands through `bash`
-- review changed files with `show_changes`
-- write handoff plans under `.ai-bridge`
-- export a selected context bundle for model surfaces that cannot call tools
-
-CodexPro is not a hosted service, model proxy, quota bypass, account pool, or OS sandbox.
-It connects your own ChatGPT session to your own local repo through the official Developer Mode / MCP app path.
-
-## Repository Analysis
-
-CodexPro builds a bounded repository map from local manifests, source declarations, imports, tests, and Git state. It provides:
-
-- `inspect_workspace` for languages, project types, entrypoints, areas, symbols, and relationships
-- optional structured `search` intents: `text`, `symbol`, `references`, and `impact`
-- affected-area, risk, related-test, and focused-command recommendations in `show_changes`
-- matching read-only terminal views:
-
-```bash
-codexpro inspect --root /path/to/repo
-codexpro review --root /path/to/repo
-codexpro inspect --root /path/to/repo --json
-```
-
-The analysis is deterministic and local. It uses confidence labels instead of claiming compiler precision, stays within configured file/byte/symbol limits, and falls back to normal lexical search and Git review when analysis is incomplete.
-
-Set `CODEXPRO_ANALYSIS=0` to disable repository analysis without changing the rest of the connector.
-
-## Normal Commands
-
-```bash
-codexpro setup
-codexpro start
-codexpro start --root /path/to/repo
-codexpro doctor
-codexpro connection-test --root /path/to/repo
-codexpro settings
-codexpro inspect
-codexpro review
-```
-
-Useful modes:
-
-```bash
-codexpro start --no-bash
-codexpro start --tool-mode minimal
-codexpro start --tool-mode full
-codexpro start --mode handoff
-codexpro start --mode pro
-```
-
-If ChatGPT cannot create the plugin, run `codexpro connection-test`. It keeps
-the normal read, tree, search, and skill tools, disables writes, bash, and tool
-cards, and logs whether a request reached the local MCP endpoint.
-
-Tool cards are opt in:
-
-```bash
-CODEXPRO_TOOL_CARDS=1 codexpro start
-```
-
-## Public URL Options
-
-ChatGPT web needs a public HTTPS Server URL. CodexPro supports:
-
-- Fast demo URL: `codexpro start --tunnel cloudflare`
-- Stable ngrok domain: `codexpro ngrok --hostname your-domain.ngrok-free.dev`
-- Stable Cloudflare route: `codexpro stable --hostname codexpro.example.com --tunnel-name codexpro`
-- Tailscale Funnel: `codexpro tailscale --hostname your-device.your-tailnet.ts.net`
-- Local only: `codexpro start --tunnel none`
-
-Cloudflare quick tunnels honor `HTTPS_PROXY`, `ALL_PROXY`, or `HTTP_PROXY` when those env vars are set.
-
-Stable modes should use a stable CodexPro token:
-
-```bash
-codexpro tailscale \
-  --hostname your-device.your-tailnet.ts.net \
-  --token keep-this-token-stable
-```
-
-Tailscale Funnel must already be allowed for your tailnet. It requires MagicDNS, HTTPS certificates, and Funnel policy support. CodexPro runs:
-
-```bash
-tailscale funnel http://127.0.0.1:8787
-```
-
-Then use the complete Server URL copied by CodexPro. It includes the `codexpro_token` query credential; do not remove the query string. In ChatGPT choose `Authentication: No Authentication / None`.
-
-## Policy Kernel Migration
-
-Phase 2A adds a local Policy Kernel with three explicit rollout modes:
-
-- `CODEXPRO_POLICY_ENGINE=legacy` is the migration-cycle default and preserves the existing execution path.
-- `CODEXPRO_POLICY_ENGINE=shadow` executes the legacy path while producing only redacted comparison facts.
-- `CODEXPRO_POLICY_ENGINE=enforce` makes the compiled Policy Kernel authoritative and fails closed when policy, identity, approval, or enforcement facts are unavailable.
-
-An optional `CODEXPRO_PERMISSION_PROFILE=<id>` selects a strict JSON document at `~/.codexpro/permissions/<id>.json`. Runtime profiles and Permission Profiles are separate: `toolMode` controls discovery only, while filesystem, Git, Shell, Process, and Network ceilings come from identity scopes, hard policy, the selected Permission Profile, bounded session grants, and demonstrated enforcement capabilities.
-
-Contracts V1 and V2 intentionally retain their original behavior and never create pending approvals. Explicit Contract V3 adds a local-only approval CLI for confirmed roots and trusted-code process execution; it does not expose an MCP approval tool and does not treat the remote client as proof of a human decision. Safe Bash remains a command filter rather than an OS sandbox. Cloudflare Tunnel protects inbound routing; it does not enforce local authorization or outbound network access.
-
-Rollback during the migration cycle is limited to the reviewed `legacy` behavior, the generated compatibility profile, or a narrower read-only profile. Policy-loading failure never falls through to unguarded execution.
-
-## Atomic Transactions and Persistent Audit
-
-Phase 3 connects the transaction, change-set, persistent-audit, recovery, and move backends to the real HTTP and STDIO server lifecycle:
-
-- `CODEXPRO_FILE_TRANSACTIONS=legacy|atomic`; `legacy` remains the compatibility default. With `atomic`, supported workspace writers prepare one guarded transaction and never fall back to a direct write.
-- Writable atomic V1 requires persistent terminal audit, and the same requirement applies to explicit V2. `CODEXPRO_AUDIT_MODE=off` is rejected; audit or participant failure reconciles or rolls the visible file changes back instead of returning an unaudited success.
-- `CODEXPRO_AUDIT_MODE=auto|off|best_effort|required`; `auto` is the default, and `off` is also rejected with Policy `enforce`.
-- `CODEXPRO_AUDIT_RETENTION_DAYS` defaults to 30 days and `CODEXPRO_AUDIT_RETENTION_BYTES` defaults to 100 MiB for closed segments.
-- Audit, authenticated change-set, and transaction state stay outside workspaces and Git. They exclude raw file contents, complete diffs, command output, credentials, and canonical workspace roots.
-
-Contract V1 remains the default exact 28-tool public surface. Explicit contract V2 (`CODEXPRO_TOOL_CONTRACT_VERSION=2`) requires atomic transactions and persistent audit and defines exactly 31 child tools. Standard/full mode adds `move_paths` and `undo_change_set`; full mode also adds `query_audit_events`. Minimal and connection-test surfaces expose none of the three additions. `move_paths` is limited to 64 hash-guarded ordinary files inside one workspace and one volume, never overwrites an unrelated target, and treats preview as validation rather than a promise that the later hard-link operation will succeed. See [SECURITY.md](SECURITY.md) for recovery, integrity, retention, owner-binding, undo, and trust-boundary details.
-
-## Typed Local Git and Managed Task Worktrees (Contract V4)
-
-Contract V4 is opt-in and defines exactly 51 tools. It preserves V1/V2/V3, adds typed local-only Git reads and mutations, and adds owner-bound managed task worktrees. The supported STDIO and HTTP launch paths probe one exact Git executable and finish Gate R recovery before accepting a transport connection.
-
-```powershell
-$env:CODEXPRO_TOOL_CONTRACT_VERSION = "4"
-$env:CODEXPRO_FILE_TRANSACTIONS = "atomic"
-$env:CODEXPRO_AUDIT_MODE = "required"
-$env:CODEXPRO_POLICY_ENGINE = "enforce"
-$env:CODEXPRO_TOOL_MODE = "full"
-$env:CODEXPRO_PERMISSION_PROFILE = "trusted-local" # must grant the exact V4 Git/worktree scopes
-$env:CODEXPRO_GIT_MODE = "local"                   # use "read" to disable all Git mutations
-$env:CODEXPRO_GIT_INTEGRATIONS = "off"
-$env:CODEXPRO_TASK_WORKTREE_ROOT = "D:\CodexProTasks"
-codexpro start --root D:\Dev\your-repo --write workspace --bash off
-```
-
-The safe Git capsule fixes executable identity, arguments, environment, prompts, network/lazy fetch, and repository integrations. It is an execution-policy boundary running as the current Windows user, not an OS sandbox. CodexPro locks coordinate only CodexPro-owned operations; unrelated Git processes can still race and cause a fail-closed state or manual recovery.
-
-Task creation first returns an immutable review and creates no branch, administrative directory, or task root. The approved retry creates a generated `codex/*` branch and raw-materializes exact local Git blobs beneath the configured managed root. Task workspace handles are session-local; the owner-bound task record, branch, commits, private stashes, and audit may survive restart. `remove_task_worktree` removes only a proven-clean checkout and its exact CodexPro registration; it retains the branch, commits, and private stashes.
-
-Merge preparation never updates the live target. Fast-forward preparation is effect-free. A divergent merge is computed and scanned in quarantine, then a fresh candidate-bound local approval is required before immutable objects and one app-owned candidate ref are promoted. Execute revalidates the exact plan, task/target/candidate OIDs, clean checkout or twice-proved unchecked-out target, normalization facts, and one-use approval before file/index/ref CAS. Candidate checks and preparation are not proof that live-target execution will still succeed.
-
-`CODEXPRO_GIT_INTEGRATIONS=off` is the supported default and executes no hooks, filters, signing programs, merge helpers, fsmonitor, editors, pagers, credential helpers, or remote commands. Repositories that require those programs fail with an integration/normalization error; separately approved ambient integration execution is not silently substituted. Typed V4 tools expose no remote, credential, force, branch-delete, reset, clean, GC, shared-stash-stack, or caller-selected arbitrary Git-command operation.
-
-Gate X can be selected only with `CODEXPRO_GIT_INTEGRATIONS=approved_full_access`, local Git mutation mode, and the explicit `full_access` execution profile. A fresh exact R3 approval binds the repository/worktree, Git executable, discovered integration identities, semantic state, tool, and canonical action. The runtime can then invoke only four fixed typed builders: private-index stage, shadow-Git-dir commit, quarantined object-only merge, or private-destination checkout. The caller cannot provide a Git command, subcommand, argument vector, remote action, credential action, force option, or configuration mutation. These subprocesses still have ambient current-user `full_access`; the approval card and public result explicitly report that there is no filesystem, credential, registry, network, or broker isolation.
-
-Rolling configuration back to V3 hides the V4 tools but does not delete persistent tasks, `codex/*` branches, private stashes, candidate recovery state, or audit records. Use the same binary's cleanup/recovery paths before removing state.
-
-## Trusted-Code Windows Execution (Contract V3)
-
-Contract V3 is opt-in and defines exactly 39 tools: it inherits the non-`bash` V2 surface and adds `open_full_access_workspace`, `run_command`, `start_process`, and six typed process-management tools. It requires atomic transactions, durable audit, Policy Kernel `enforce`, a stable session identity, and the local approval runtime.
-
-A minimal Windows PowerShell activation for a trusted repository is:
-
-```powershell
-$env:CODEXPRO_FILE_TRANSACTIONS = "atomic"
-$env:CODEXPRO_AUDIT_MODE = "required"
-$env:CODEXPRO_POLICY_ENGINE = "enforce"
-$env:CODEXPRO_TOOL_CONTRACT_VERSION = "3"
-$env:CODEXPRO_TOOL_MODE = "full"
-$env:CODEXPRO_PERMISSION_PROFILE = "trusted-local"
-$env:CODEXPRO_EXECUTION_PROFILE = "full_access"
-$env:CODEXPRO_LOCAL_FILE_ACCESS = "confirmed_roots" # optional
-codexpro start --root D:\Dev\your-repo --write workspace --bash off
-```
-
-Create `%USERPROFILE%\.codexpro\permissions\trusted-local.json` first. The following profile explicitly acknowledges ambient current-user authority; replace the root with an exact directory you intend to use:
-
-```json
-{
-  "schemaVersion": 3,
-  "id": "trusted-local",
-  "description": "Trusted repositories on this Windows account",
-  "workspaceRoots": ["D:\\Dev\\your-repo"],
-  "shell": { "mode": "execute", "requireSandbox": false },
-  "process": { "manage": true, "persistent": true, "requireSandbox": false },
-  "network": {
-    "enabled": true,
-    "rules": [],
-    "allowLoopback": true,
-    "allowPrivate": true,
-    "allowLinkLocal": true,
-    "requireEnforcement": false
-  },
-  "fullAccess": {
-    "ambientFilesystem": true,
-    "ambientCredentials": true,
-    "ambientRegistry": true,
-    "unrestrictedNetwork": true,
-    "requireBlockedPathEnforcement": false,
-    "requireCredentialIsolation": false,
-    "requireRegistryIsolation": false,
-    "requireDeviceIsolation": false,
-    "requireNetworkEnforcement": false,
-    "requireSandbox": false
-  }
-}
-```
-
-When ChatGPT requests a V3 R3 action, CodexPro returns an approval ID and local server ID. Review and approve it from a separate local terminal, then retry the identical tool call:
-
-```powershell
-codexpro approvals list --server <server_id>
-codexpro approvals approve <approval_id> --server <server_id>
-# or: codexpro approvals deny <approval_id> --server <server_id>
-```
-
-Persistent processes remain locally inspectable and terminable even when the remote client is unavailable:
-
-```powershell
-codexpro processes list --server <server_id>
-codexpro processes terminate <process_id> --server <server_id>
-```
-
-`full_access` is for code you trust. It runs with the ambient authority of the current Windows user and does **not** isolate files, credentials, registry, devices, COM/WMI/service brokers, or network access. Job Objects control only recorded Job members; ConPTY provides terminal I/O, not isolation; output redaction recognizes known patterns but is not DLP. The reserved `workspace` execution profile remains unavailable and never falls back to `full_access`.
-
-## Workspace Sessions
-
-A `workspace_id` is a random opaque handle owned by one MCP server session, not a hash of the repository path. Reopening the same root inside one active session reuses that handle; another HTTP transport session or STDIO server process receives a different handle and cannot use or list the first session's workspaces.
-
-Call `close_workspace` to invalidate a handle immediately. Idle handles expire after `CODEXPRO_WORKSPACE_TTL_MS`; when unset, the value follows `CODEXPRO_HTTP_SESSION_TTL_MS`, normally 30 minutes, and successful use refreshes the idle deadline.
-
-For one compatibility cycle, tools that omit `workspace_id` still resolve only the current session's configured default root. This compatibility path does not restore cross-session sharing.
-
-## Safety Defaults
-
-- Public tunnel mode requires a CodexPro HTTP token.
-- The supported public CLI defaults to the personal ChatGPT query-token compatibility flow; set `CODEXPRO_ALLOW_QUERY_TOKEN=0` only for advanced compatible clients that can send Bearer headers.
-- Generic writes are hidden unless `CODEXPRO_WRITE_MODE=workspace`.
-- Safe bash blocks broad shell patterns and secret/build/cache paths.
-- By default, Bash receives a narrow child environment rather than arbitrary parent variables. On Windows, CodexPro derives `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, and `GH_CONFIG_DIR` so tools such as GitHub CLI can reuse their config and OS keyring, while `GH_TOKEN` and unrelated API variables are not copied.
-- `CODEXPRO_INHERIT_ENV=1` opts into the full parent environment and should be used only for trusted local repositories.
-- Contract V3 defaults to execution `off`; enable `full_access` only with an explicit V3 Permission Profile and local one-use approvals. The reserved `workspace` sandbox profile remains unavailable.
-- `apply_patch` is workspace-scoped and rejects blocked paths, symlink patches, and secret-looking patch content.
-- `show_changes` keeps a review checkpoint so repeated unchanged reviews collapse.
-- Tool-card metadata is off unless `CODEXPRO_TOOL_CARDS=1`.
-
-Read [SECURITY.md](SECURITY.md) before exposing CodexPro through any tunnel.
-
-## RAM And ChatGPT Memory
-
-CodexPro can reduce what it sends to ChatGPT. Current local fixes:
-
-- binary-file checks scan with a reusable 64 KiB buffer instead of allocating the whole file
-- ChatGPT tool-card structured payloads are compacted only for card output, not for normal tool data
-- bash chat transcripts stay compact by default
-
-That helps avoid oversized MCP/card payloads. It does not force Chrome, ChatGPT, or an old browser iframe to release memory that the client already holds. If the browser tab has already grown, reload the ChatGPT page or restart the browser.
-
-## Repo Context
-
-CodexPro uses explicit files, not hidden chat memory:
+Use:
 
 ```text
-AGENTS.md
-.ai-bridge/current-plan.md
-.ai-bridge/agent-status.md
-.ai-bridge/decisions.md
-.ai-bridge/open-questions.md
-.ai-bridge/execution-log.jsonl
+Name: CodexPro
+Connection: Server URL
+Server URL: paste the complete URL copied by CodexPro
+Authentication: No Authentication / None
 ```
 
-For non-tool model surfaces:
+Do not remove the `codexpro_token` query string. The complete URL is password-equivalent and can leak through browser history, clipboard contents, screenshots, logs, or copied links.
 
-```bash
-codexpro start --mode pro
+### 4. Daily start
+
+From the same repository:
+
+```powershell
+codexpro start
 ```
 
-Or from a local checkout:
+Keep the CodexPro process running while ChatGPT uses the connection.
 
-```bash
-codexpro pro-bundle --root /path/to/repo --copy
-codexpro pro-apply --root /path/to/repo --file plan.md
+## Recommended stable setup: your domain + Cloudflare Tunnel
+
+Use a named Cloudflare Tunnel for a stable hostname such as `mcp.example.com`.
+
+One-time setup:
+
+```powershell
+codexpro install-cloudflared
+cloudflared tunnel login
+cloudflared tunnel create codexpro
+cloudflared tunnel route dns codexpro mcp.example.com
 ```
 
-## Handoff
+Start CodexPro with the named tunnel:
 
-ChatGPT can write a plan without executing a local agent:
-
-```bash
-codexpro start --mode handoff
+```powershell
+codexpro stable `
+  --root D:\Dev\your-repo `
+  --hostname mcp.example.com `
+  --tunnel-name codexpro `
+  --token <long-random-codexpro-token> `
+  --bash safe
 ```
 
-Then you run execution locally:
+This keeps the local listener on `127.0.0.1:8787`; `cloudflared` makes an outbound tunnel connection. Do not open port 8787 on the router or Windows Firewall.
 
-```bash
+For an exact Windows configuration file, token separation, ingress validation, rotation, and Host-header/DNS-rebinding controls, read [DOMAIN_SETUP.md](DOMAIN_SETUP.md).
+
+## Common operating modes
+
+### Normal coding
+
+```powershell
+codexpro start
+```
+
+The standard surface supports repository reads, search, scoped writes/edits, guarded patches, Git review, and safe verification.
+
+Disable all ChatGPT-triggered shell commands:
+
+```powershell
+codexpro start --no-bash
+```
+
+Require Bash calls to target this exact local server label:
+
+```powershell
+codexpro start --bash-session main --require-bash-session
+```
+
+### Handoff mode
+
+ChatGPT writes a plan but does not directly edit source files:
+
+```powershell
+codexpro start --mode handoff --no-bash
+```
+
+The plan is stored at `.ai-bridge/current-plan.md`. Execute it locally only after review:
+
+```powershell
+codexpro execute-handoff --agent codex --dry-run
 codexpro execute-handoff --agent codex --yes
-codexpro watch-handoff --agent codex --yes
 ```
 
-`handoff_to_agent` is planning-only over MCP. CodexPro does not expose arbitrary local agent execution as a remote ChatGPT tool.
+Remote MCP tools do not directly launch Codex, OpenCode, Pi, or arbitrary local agents.
+
+### Pro/context fallback
+
+For a model surface that cannot call MCP tools:
+
+```powershell
+codexpro pro-bundle --root D:\Dev\your-repo --copy
+```
+
+This writes `.ai-bridge/pro-context.md`, which can be supplied to a planning-only model. Apply a reviewed plan with:
+
+```powershell
+codexpro pro-apply --root D:\Dev\your-repo --file plan.md
+```
+
+### Read-only connection diagnostics
+
+```powershell
+codexpro connection-test --root D:\Dev\your-repo
+```
+
+This keeps the read/search surface, disables writes and Bash, and logs whether requests reach the local MCP endpoint.
+
+## Main commands
+
+```text
+codexpro setup
+codexpro start
+codexpro stable --hostname mcp.example.com --tunnel-name codexpro
+codexpro doctor
+codexpro connection-test --root <repo>
+codexpro settings
+codexpro inspect --root <repo>
+codexpro review --root <repo>
+```
+
+Useful surface controls:
+
+```text
+--no-bash
+--tool-mode minimal
+--tool-mode standard
+--tool-mode full
+--mode handoff
+--mode pro
+--tunnel none
+```
+
+## Security model
+
+Default safety properties include:
+
+- Public tunnel mode requires a CodexPro HTTP token.
+- The public CLI uses the complete query-token Server URL for personal ChatGPT compatibility.
+- The local HTTP listener defaults to `127.0.0.1`.
+- Generic source writes are exposed only in workspace write mode.
+- Safe Bash blocks broad shell patterns and sensitive/build/cache paths.
+- `.env`, private keys, `.git`, dependency trees, generated directories, path escapes, and symlink escapes are guarded.
+- Token-like values are redacted from supported status and log surfaces.
+- Contract V3 `full_access` and Contract V4 integration execution are ambient current-user authority, not isolation.
+
+Use `--no-bash` for untrusted repositories. Review [SECURITY.md](SECURITY.md) before exposing CodexPro through any tunnel or enabling advanced contracts.
+
+## Advanced contracts
+
+The default path is intentionally simpler. Advanced versions are explicit:
+
+- **V1**: default 28-tool contract.
+- **V2**: atomic transactions, durable audit, move/undo, and bounded audit queries.
+- **V3**: trusted-code Windows process execution and confirmed-root admission with separate local one-use approvals.
+- **V4**: typed local Git operations and owner-bound managed task worktrees.
+
+V3 and V4 require enforce-mode policy, persistent audit, atomic state, strict permission profiles, and local approval support. They do not provide an OS sandbox, credential isolation, or unrestricted remote Git commands. See [SECURITY.md](SECURITY.md) for the exact boundaries.
+
+## Token rotation
+
+To rotate the CodexPro MCP token:
+
+1. Stop CodexPro.
+2. Start it with a new long random value passed to `--token`.
+3. Replace the complete Server URL in ChatGPT, including the new `codexpro_token` query string.
+4. Remove old URLs from notes, screenshots, shell history, and password managers where applicable.
+
+The Cloudflare Tunnel credential and the CodexPro MCP token are different secrets. Rotating one does not rotate the other.
 
 ## Troubleshooting
 
-Run:
+Run the preflight first:
 
-```bash
+```powershell
 codexpro doctor
 ```
 
-Common fixes:
+Common cases:
 
-- Quick tunnel URL changed: rerun `codexpro start` and update the ChatGPT app Server URL.
-- Stable URL does not respond: check the tunnel provider first, then confirm the ChatGPT app still uses the complete copied URL including `codexpro_token`.
-- ChatGPT cannot call tools in one model/chat: switch to a ChatGPT surface that supports Developer Mode app actions.
-- Local port is busy: start another repo with `--port 8788`.
-- Tool list looks stale: recreate the ChatGPT app entry or rotate the CodexPro token and replace the app's complete Server URL.
+- **Quick-tunnel URL changed:** restart CodexPro and replace the ChatGPT Server URL.
+- **Stable hostname does not respond:** verify the named tunnel and DNS route, then confirm the app still uses the complete tokenized URL.
+- **One ChatGPT model cannot call tools:** use a model/chat surface that supports Developer Mode app actions, or use `pro-bundle`.
+- **Port 8787 is busy:** use another port, for example `--port 8788`, and update the tunnel origin.
+- **Tool list is stale:** recreate the ChatGPT connection or rotate the token and replace the complete Server URL.
 
 ## Development
 
-```bash
+```powershell
 npm install
 npm run build
 npm run smoke
 npm run stress
 ```
 
-Supported test and task launchers isolate `TEMP` / `TMP` / `TMPDIR` inside a marked CodexPro-owned directory and remove that complete tree when the command finishes:
+Use cleanup-backed focused tests and local tasks:
 
-```bash
+```powershell
 npm run test:focused -- test/example.test.mjs
 npm run task:run -- node scripts/example.mjs
-npm run task:runner -- start --kind example -- node scripts/example.mjs
 npm run task:cleanup
 ```
 
-The detached runner automatically retains at most the newest 20 terminal runs and removes terminal evidence older than 14 days. Override those bounds with `--retention-count` and `--retention-days`. `task:cleanup` also sweeps dead-owner roots under the selected operating-system temporary directory and exits nonzero when validation or deletion is incomplete. It deletes only exact `codexpro-owned-v1-*` roots with a valid ownership marker; it does not delete unmarked temporary files, managed task worktrees, candidates, recovery state, credentials, or managed toolchains. A force-terminated Windows process cannot execute JavaScript cleanup, so the next supported task or `task:cleanup` performs the exact stale-owner recovery.
+Release checks:
 
-Useful release checks:
-
-```bash
+```powershell
+npm run policy:check
 npm run build
 npm run smoke
-CODEXPRO_TOOL_CARDS=1 npm run smoke
 npm audit --audit-level=high
 npm pack --dry-run
 git diff --check
 ```
 
-## Docs
+## Documentation
 
 - [Website](https://rebel0789.github.io/codexpro/)
+- [Chinese README](README_ZH.md)
+- [Cloudflare domain setup](DOMAIN_SETUP.md)
+- [Security policy](SECURITY.md)
 - [FAQ](FAQ.md)
-- [Security](SECURITY.md)
-- [Stable URL guide](DOMAIN_SETUP.md)
 - [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
