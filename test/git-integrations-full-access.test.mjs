@@ -352,8 +352,14 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
       const source = (label) => [
         "import fs from 'node:fs';",
         "let parentCommand = null;",
-        "try { parentCommand = fs.readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').replaceAll('\\0', ' ').trim(); } catch {}",
-        `fs.appendFileSync(process.argv[2], JSON.stringify({ label: ${JSON.stringify(label)}, parentCommand, argv: process.argv }) + '\\n');`,
+        "let grandparentCommand = null;",
+        "try {",
+        "  parentCommand = fs.readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').replaceAll('\\0', ' ').trim();",
+        "  const stat = fs.readFileSync(`/proc/${process.ppid}/stat`, 'utf8');",
+        "  const fields = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\\s+/);",
+        "  grandparentCommand = fs.readFileSync(`/proc/${fields[1]}/cmdline`, 'utf8').replaceAll('\\0', ' ').trim();",
+        "} catch {}",
+        `fs.appendFileSync(process.argv[2], JSON.stringify({ label: ${JSON.stringify(label)}, parentCommand, grandparentCommand, argv: process.argv }) + '\\n');`,
         "process.stdin.pipe(process.stdout);",
         ""
       ].join("\n");
