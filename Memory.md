@@ -13,7 +13,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
 - Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
-- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape. STEP-368 through STEP-373 repair detached-run observation by replacing timing inference with one exact, renewable, non-authorizing worker lifecycle lease covering both running and finalizing phases. STEP-374 removes an unrelated WMI timing dependency from the Windows private-stdin control proof. STEP-375 binds test observation deadlines to lifecycle-lease expiry instead of an undersized fixed wall-clock guess. The combined repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
+- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-367 closes the remaining Gate X post-review `write-tree` escape. STEP-368 through STEP-373 repair detached-run observation by replacing timing inference with one exact, renewable, non-authorizing worker lifecycle lease covering both running and finalizing phases. STEP-374 removes an unrelated WMI timing dependency from the Windows private-stdin control proof. STEP-375 binds test observation deadlines to lifecycle-lease expiry instead of an undersized fixed wall-clock guess. STEP-376 removes the final call-site override that still forced a 20-second terminal bound. The combined repairs are locally verified and pending a new exact-head matrix plus post-merge `main` CI.
 
 ## Approved execution boundary
 
@@ -79,12 +79,13 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 
 ## Open items
 
-1. Publish STEP-373 through STEP-375 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
+1. Publish STEP-373 through STEP-376 on the existing Gate X repair pull request, require the complete runtime matrix on the exact new head, then verify the resulting `main` push CI.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
 3. Do not enter Phase 6 as part of this CI repair.
 
 ## Recent summaries
 
+- **STEP-376 - Remove fixed terminal override:** route the final lifecycle integration call through the common lease-bound observation helper.
 - **STEP-375 - Lease-bound test observation:** use lease expiry, not a shorter arbitrary deadline, as the test oracle for a lost detached worker.
 - **STEP-374 - Deterministic private-stdin command-line proof:** query the current PowerShell command line in-process instead of through timing-sensitive CIM.
 - **STEP-373 - Renewable worker lifecycle lease:** persist exact non-authorizing running/finalizing state so temporary OS-process observation gaps cannot create false stale runs.
@@ -109,6 +110,7 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
 - [Closed interphase maintenance Part 2 — STEP-363 through STEP-367](docs/memory/archive/interphase-maintenance-part-2.md)
 - [Closed interphase maintenance Part 3 — STEP-368 through STEP-375](docs/memory/archive/interphase-maintenance-part-3.md)
+- [Active interphase maintenance Part 4 — STEP-376 onward](docs/memory/archive/interphase-maintenance-part-4.md)
 - [Phase 1 Volume 1 — STEP-073 through STEP-139](docs/memory/archive/phase-1.md)
 - [Closed Phase 1 Volume 2 — STEP-140 through STEP-151](docs/memory/archive/phase-1-part-2.md)
 - [Closed Phase 1 Volume 3 — STEP-152 through STEP-165](docs/memory/archive/phase-1-part-3.md)

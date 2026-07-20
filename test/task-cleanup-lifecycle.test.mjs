@@ -152,7 +152,7 @@ test("worker advances its exact lifecycle lease before delayed retention complet
     assert.equal(state.status, "running");
     assert.deepEqual(state.identity, { owned: false, reason: "terminal_publication_in_progress" });
 
-    const terminal = await waitForTerminal(runRoot, started.runId, 20_000);
+    const terminal = await waitForTerminal(runRoot, started.runId);
     assert.equal(terminal.result.exitCode, 0);
   } finally {
     await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
