@@ -199,3 +199,40 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 **Rollback:** Revert STEP-366 as one unit. Do not retain the strengthened test while restoring duplicate executable keys, and do not restore the previous implementation revision independently.
 
 **Next step:** Publish the focused repair through a dedicated pull request and require Repository policy plus the complete Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix before merge.
+
+
+## 2026-07-20 — STEP-367: Seal the Gate X test execution environment
+
+**Status:** Implemented in an isolated worktree; pending exact-head CI.
+
+**Goal:** Close the remaining intermittent Gate X test path exposed by post-merge CI run 115 without changing production behavior.
+
+**Files changed:** `fixtures/git-v4-test-helper.mjs`, `test/git-integrations-full-access.test.mjs`, `Memory.md`, and this archive.
+
+**Implementation summary:**
+
+- PR 3 merged STEP-366 at `ea998230f63b782b6c3e64e773f1f38f89a3546e` after exact-head PR run 114 passed the complete matrix.
+- Post-merge run 115 again observed both `reviewed` and `drifted` in the Ubuntu Node 20 immutable-snapshot test even though the regression proved the copied private config no longer contained `filter.snapshot.clean`.
+- The remaining unsealed route was the test executor: approved Git integration processes inherited the complete parent environment while ordinary fixture Git operations used a bounded environment. Ambient `GIT_*` configuration and repository-routing variables could therefore bypass the private-config proof in CI.
+- Replaced all fixture Git process environments with one bounded builder that preserves only required OS, user-path, and temporary-directory variables, fixes system/global Git config to the null device, and supplies only explicitly authorized Git variables.
+- Strengthened the immutable-snapshot regression by poisoning the parent environment with a `filter.snapshot.process` command before approved execution. The approved operation must ignore that ambient configuration and execute only the reviewed materialized clean filter.
+- Preserved the Windows SSH signing control by retaining the bounded Windows system and user configuration paths required by the copied `ssh-keygen.exe` signer.
+
+**Verification:**
+
+- TypeScript build passed.
+- The poisoned-environment immutable-snapshot test passed on managed Node `v20.20.2` and `v24.15.0`.
+- The immutable-snapshot plus SSH-signing controls passed on both managed Node majors.
+- The focused approval/integration/mutation suite passed 17/17 on each managed Node major.
+- `npm run policy:check` and `git diff --check` passed.
+- Run 115 also failed Windows Node 24 in three unrelated long-running control/cleanup timing tests (`CONTROL_READY_TIMEOUT`, a nonterminal runner observation, and a stale prune-claim observation). Those failures did not touch Gate X or the changed fixture and are being rerun to distinguish load noise from a separate defect.
+
+**Risks and limitations:**
+
+- This step changes test infrastructure only; production Gate X behavior remains the STEP-366 private-config isolation already merged.
+- The fixture environment intentionally retains bounded Windows paths needed by Git and OpenSSH controls; arbitrary parent variables and unapproved `GIT_*` variables are excluded.
+- A complete exact-head matrix is still required because the original failure appeared only under Ubuntu runtime-default concurrency.
+
+**Rollback:** Revert STEP-367 as one unit. Restoring full parent-environment inheritance would also invalidate the poisoned-environment regression.
+
+**Next step:** Publish the fixture hardening in a focused pull request, require the complete matrix, then verify the resulting main-branch push CI before closure.

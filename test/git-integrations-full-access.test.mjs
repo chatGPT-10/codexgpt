@@ -399,19 +399,35 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
         guard: fixture.guard,
         paths: ["tracked.txt"]
       });
-      const staged = await index.stageApproved({
-        workspace: fixture.workspace,
-        guard: fixture.guard,
-        stateToken: status.state_token,
-        paths: ["tracked.txt"],
-        integrationReviewToken: status.integration_review_token,
-        authorization: authorization({
-          toolName: "git_stage",
-          canonicalAction: "stage",
-          workspaceId: fixture.workspace.id,
-          repositoryId: status.repository_id
-        })
-      });
+      const inheritedGitConfig = new Map([
+        ["GIT_CONFIG_COUNT", process.env.GIT_CONFIG_COUNT],
+        ["GIT_CONFIG_KEY_0", process.env.GIT_CONFIG_KEY_0],
+        ["GIT_CONFIG_VALUE_0", process.env.GIT_CONFIG_VALUE_0]
+      ]);
+      process.env.GIT_CONFIG_COUNT = "1";
+      process.env.GIT_CONFIG_KEY_0 = "filter.snapshot.process";
+      process.env.GIT_CONFIG_VALUE_0 = filterCommand;
+      let staged;
+      try {
+        staged = await index.stageApproved({
+          workspace: fixture.workspace,
+          guard: fixture.guard,
+          stateToken: status.state_token,
+          paths: ["tracked.txt"],
+          integrationReviewToken: status.integration_review_token,
+          authorization: authorization({
+            toolName: "git_stage",
+            canonicalAction: "stage",
+            workspaceId: fixture.workspace.id,
+            repositoryId: status.repository_id
+          })
+        });
+      } finally {
+        for (const [key, value] of inheritedGitConfig) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
       assert.equal(staged.normalization, "approved_full_access");
       const executions = (await fs.readFile(marker, "utf8")).trim().split(/\r?\n/u);
       assert.ok(executions.length >= 1);
