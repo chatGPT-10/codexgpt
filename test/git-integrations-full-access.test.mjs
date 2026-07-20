@@ -348,6 +348,7 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
     const reviews = new GitReviewTokenServiceV4({ key: Buffer.alloc(32, 80) });
     try {
       const script = path.join(fixture.root, "reviewed-filter.mjs");
+      const ambientScript = path.join(fixture.root, "ambient-filter.mjs");
       const marker = path.join(fixture.root, "snapshot-marker.txt");
       const source = (label) => [
         "import fs from 'node:fs';",
@@ -355,8 +356,12 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
         "process.stdin.pipe(process.stdout);",
         ""
       ].join("\n");
-      await fs.writeFile(script, source("reviewed"), "utf8");
+      await Promise.all([
+        fs.writeFile(script, source("reviewed"), "utf8"),
+        fs.writeFile(ambientScript, source("ambient"), "utf8")
+      ]);
       const filterCommand = `${quote(process.execPath)} ${quote(script)} ${quote(marker)}`;
+      const ambientFilterCommand = `${quote(process.execPath)} ${quote(ambientScript)} ${quote(marker)}`;
       runGit(fixture.root, ["config", "filter.snapshot.clean", filterCommand]);
       await fs.writeFile(path.join(fixture.root, ".gitattributes"), "tracked.txt filter=snapshot\n", "utf8");
       runGit(fixture.root, ["add", ".gitattributes"]);
@@ -399,6 +404,27 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
         guard: fixture.guard,
         paths: ["tracked.txt"]
       });
+      const inheritedGitConfig = new Map([
+        ["GIT_CONFIG_COUNT", process.env.GIT_CONFIG_COUNT],
+        ["GIT_CONFIG_KEY_0", process.env.GIT_CONFIG_KEY_0],
+        ["GIT_CONFIG_VALUE_0", process.env.GIT_CONFIG_VALUE_0]
+      ]);
+      process.env.GIT_CONFIG_COUNT = "1";
+      process.env.GIT_CONFIG_KEY_0 = "filter.snapshot.process";
+      process.env.GIT_CONFIG_VALUE_0 = ambientFilterCommand;
+      try {
+        const hiddenAmbientFilter = runGit(fixture.root, [
+          "config",
+          "--get-all",
+          "filter.snapshot.process"
+        ], undefined, { allowFailure: true });
+        assert.equal(hiddenAmbientFilter.status, 1);
+      } finally {
+        for (const [key, value] of inheritedGitConfig) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
       const staged = await index.stageApproved({
         workspace: fixture.workspace,
         guard: fixture.guard,
@@ -417,6 +443,7 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
       assert.ok(executions.length >= 1);
       assert.deepEqual(new Set(executions), new Set(["reviewed"]));
       assert.match(await fs.readFile(script, "utf8"), /drifted/u);
+      assert.match(await fs.readFile(ambientScript, "utf8"), /ambient/u);
     } finally {
       reviews.dispose();
     }

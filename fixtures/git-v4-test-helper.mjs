@@ -12,20 +12,54 @@ import { GitIndexTokenServiceV4 } from "../dist/git/indexService.js";
 import { AtomicTransactionEngine, ProcessInstanceRegistry } from "../dist/transactions/index.js";
 import { GitFileTransactionV4 } from "../dist/git/fileTransaction.js";
 
+const GIT_ENV_PASSTHROUGH = Object.freeze([
+  "SystemDrive",
+  "SystemRoot",
+  "WINDIR",
+  "ProgramData",
+  "ComSpec",
+  "PATH",
+  "PATHEXT",
+  "HOME",
+  "USERPROFILE",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "TEMP",
+  "TMP",
+  "TMPDIR"
+]);
+
+function cleanGitEnvironment(overrides = {}) {
+  const environment = {};
+  for (const key of GIT_ENV_PASSTHROUGH) {
+    if (typeof process.env[key] === "string") environment[key] = process.env[key];
+  }
+  return {
+    ...environment,
+    NO_COLOR: "1",
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_CONFIG_SYSTEM: process.platform === "win32" ? "NUL" : "/dev/null",
+    GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null",
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_NO_LAZY_FETCH: "1",
+    GIT_NO_REPLACE_OBJECTS: "1",
+    GIT_ALLOW_PROTOCOL: "",
+    GIT_PROTOCOL_FROM_USER: "0",
+    GIT_OPTIONAL_LOCKS: "0",
+    GIT_LFS_SKIP_SMUDGE: "1",
+    ...overrides
+  };
+}
+
 export function runGit(root, args, input, options = {}) {
   const result = spawnSync("git", args, {
     cwd: root,
     input,
     encoding: null,
     maxBuffer: 32 * 1024 * 1024,
-    env: {
-      ...process.env,
-      NO_COLOR: "1",
-      GIT_TERMINAL_PROMPT: "0",
-      GIT_NO_LAZY_FETCH: "1",
-      GIT_NO_REPLACE_OBJECTS: "1",
-      ...options.env
-    }
+    env: cleanGitEnvironment(options.env)
   });
   if (options.allowFailure !== true) {
     assert.equal(result.status, 0, (result.stderr ?? Buffer.alloc(0)).toString("utf8"));
@@ -69,15 +103,7 @@ export async function withGitMutationRepository(callback, options = {}) {
           ? [`--git-dir=${repository.gitDir}`, `--work-tree=${repository.worktreeRoot}`]
           : [];
         const env = {
-          SystemRoot: process.env.SystemRoot,
-          WINDIR: process.env.WINDIR,
-          PATH: process.env.PATH,
-          NO_COLOR: "1",
-          GIT_CONFIG_NOSYSTEM: "1",
-          GIT_TERMINAL_PROMPT: "0",
-          GIT_NO_LAZY_FETCH: "1",
-          GIT_NO_REPLACE_OBJECTS: "1",
-          GIT_OPTIONAL_LOCKS: "0",
+          ...cleanGitEnvironment(),
           ...(options.privateIndexPath ? { GIT_INDEX_FILE: options.privateIndexPath } : {}),
           ...(options.objectDirectoryPath ? { GIT_OBJECT_DIRECTORY: options.objectDirectoryPath } : {}),
           ...(options.objectDirectoryPath && repository
@@ -129,16 +155,7 @@ export async function withGitMutationRepository(callback, options = {}) {
           ...(request.integrationConfigOverrides ?? []),
           `core.hooksPath=${request.hooksPath}`
         ].flatMap((entry) => ["-c", entry]);
-        const env = {
-          ...process.env,
-          NO_COLOR: "1",
-          GIT_CONFIG_NOSYSTEM: "1",
-          GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null",
-          GIT_TERMINAL_PROMPT: "0",
-          GIT_NO_LAZY_FETCH: "1",
-          GIT_NO_REPLACE_OBJECTS: "1",
-          GIT_OPTIONAL_LOCKS: "0"
-        };
+        const env = cleanGitEnvironment();
         if (request.operation === "stage") {
           args = ["--literal-pathspecs", ...integrationConfig, "add", "--pathspec-from-file=-", "--pathspec-file-nul"];
           input = Buffer.from(`${request.paths.join("\0")}\0`, "utf8");

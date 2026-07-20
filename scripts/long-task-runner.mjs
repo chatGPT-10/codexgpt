@@ -7,7 +7,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeJsonAtomicFile } from "./atomic-file.mjs";
 import { createOwnedTempEnvironment, sweepStaleOwnedTempRoots } from "./owned-temp-root.mjs";
-import { processCreationTime } from "./process-identity.mjs";
+import { processCreationTime, processIsAlive } from "./process-identity.mjs";
 
 export { processCreationTime } from "./process-identity.mjs";
 
@@ -255,15 +255,20 @@ function workerEvidenceMatches(metadata, evidence) {
     evidence.workerCreationTime === metadata.workerCreationTime);
 }
 
-async function verifyWorkerIdentity(metadata, evidence) {
+export async function verifyWorkerIdentity(metadata, evidence, options = {}) {
   if (!metadata || metadata.schemaVersion !== RUNNER_SCHEMA_VERSION) return { owned: false, reason: "unsupported_metadata" };
   if (!evidence || evidence.schemaVersion !== RUNNER_SCHEMA_VERSION) return { owned: false, reason: "missing_worker_evidence" };
   if (!workerEvidenceMatches(metadata, evidence)) return { owned: false, reason: "worker_evidence_mismatch" };
-  const currentCreationTime = await processCreationTime(metadata.workerPid);
-  if (!currentCreationTime || currentCreationTime !== metadata.workerCreationTime) {
-    return { owned: false, reason: "process_identity_mismatch" };
+  const creationTimeFor = options.creationTimeFor ?? processCreationTime;
+  const isAlive = options.isAlive ?? processIsAlive;
+  const currentCreationTime = await creationTimeFor(metadata.workerPid);
+  if (currentCreationTime === metadata.workerCreationTime) {
+    return { owned: true, reason: "exact_worker_identity" };
   }
-  return { owned: true, reason: "exact_worker_identity" };
+  if (!currentCreationTime && isAlive(metadata.workerPid)) {
+    return { owned: true, reason: "process_identity_unavailable" };
+  }
+  return { owned: false, reason: "process_identity_mismatch" };
 }
 
 async function readRunFiles(directory) {

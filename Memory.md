@@ -13,7 +13,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Primary platform: native Windows; WSL remains optional.
 - Phase 0 through complete Phase 3 are closed; exact historical commits, runs, and rollback evidence remain in the linked archives.
 - Reduced Phase 4 is closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf`; exact-head run `29603060944` passed policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package. `full_access` remains trusted-code authority; 4B0 is blocked and `workspace`/Tasks 4B1–4B6 remain deferred.
-- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-366 repairs the Gate X private integration bundle after post-merge CI run 113 exposed an intermittent duplicate-command path; the focused repair is locally verified and pending exact-head pull-request CI.
+- Phase 5 is closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e`; exact-head run `29698209894` passed the complete policy and Ubuntu/Windows Node 20/24 matrix. STEP-366 merged at `ea998230f63b782b6c3e64e773f1f38f89a3546e`; STEP-367 seals the ambient Git child environment, STEP-368 keeps live but temporarily unverifiable runner identities conservatively owned, and STEP-369 separates child-environment proof from Gate X execution. The amended repair is pending final exact-head CI.
 
 ## Approved execution boundary
 
@@ -59,7 +59,10 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 - STEP-363 cleanup removed 157 obsolete terminal runs with zero failures; the final explicit scan retained 20 runs and found zero owned-temp candidates, invalid paths, failed deletions, or interrupted claims. Build, policy, diff, mutation inventory, and the 521-entry package dry-run passed.
 - STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.
 - STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior.
-- Post-merge CI run 113 initially failed only Ubuntu Node 20 because an immutable Gate X integration test observed both reviewed and drifted filter execution. Attempt 2 passed, confirming intermittency. STEP-366 removes executable integration keys and inherited hooks selection from the copied private config, verifies absence, advances the review implementation revision, and passed build, policy, diff integrity, 17/17 focused approval/integration/mutation tests, 4/4 worktree integration tests, 2/2 SHA-256 tests, and five consecutive exact reproducer runs.
+- Post-merge CI run 113 initially failed only Ubuntu Node 20 because an immutable Gate X integration test observed both reviewed and drifted filter execution. STEP-366 removed executable integration keys and inherited hooks selection from the copied private config; PR run 114 passed the complete matrix and PR 3 merged at `ea998230f63b782b6c3e64e773f1f38f89a3546e`.
+- Post-merge run 115 repeated the Ubuntu Node 20 marker failure even though the private-config absence assertion passed, isolating the remaining route to the fixture's inherited parent environment. STEP-367 replaces fixture Git environments with a bounded builder. PR run 120 passed Ubuntu Node 20/24 completely, proving the natural hosted-runner Gate X path was sealed.
+- PR run 120 repeated the Windows Node 24 retention failure: a live worker with exact evidence was classified stale when bounded PowerShell creation-time lookup transiently returned no value. STEP-368 treats unavailable identity plus a live PID as conservatively owned while preserving exact identity requirements for stop/cleanup; operational runner suites passed 23/23 on both managed Node majors.
+- PR run 121 exposed an over-constrained regression that kept an artificial `filter.snapshot.process` poison active through approved execution. STEP-369 limits that poison to an isolated child-environment probe, restores the parent environment before Gate X, and passed the complete 21/21 Gate X integration set on both managed Node majors.
 
 ## Known limitations
 
@@ -78,12 +81,15 @@ Implementation through Phase 8 remains authorized with recommended defaults. Kee
 
 ## Open items
 
-1. Publish STEP-366 through a focused pull request and require the complete runtime matrix before merge.
+1. Publish the amended STEP-367/368/369 PR head, require the complete runtime matrix, and verify the resulting main-branch push CI.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret blocked 4B0 evidence or any Git/worktree mechanism as a sandbox.
 3. Do not enter Phase 6 as part of this CI repair.
 
 ## Recent summaries
 
+- **STEP-369 - Separate environment proof:** verify ambient Git config is absent in an isolated spawned child, restore parent state, then test Gate X snapshot drift independently.
+- **STEP-368 - Conservative runner identity:** keep exact-evidence live workers occupied when Windows creation-time lookup is temporarily unavailable; destructive operations still require exact identity.
+- **STEP-367 - Gate X fixture environment sealing:** remove ambient parent `GIT_*` configuration from fixture Git child processes while retaining bounded Windows Git/OpenSSH paths.
 - **STEP-366 - Gate X private-config isolation:** remove original executable integration commands from the copied private Git config, verify their absence, and execute only reviewed materialized snapshots.
 - **STEP-365 - Canonical CodexGPT rename:** replace the previous project name across active package, CLI, environment, state, tool, source, test, and documentation surfaces; preserve append-only historical archives and record the correction here.
 

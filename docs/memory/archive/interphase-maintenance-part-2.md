@@ -199,3 +199,107 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 **Rollback:** Revert STEP-366 as one unit. Do not retain the strengthened test while restoring duplicate executable keys, and do not restore the previous implementation revision independently.
 
 **Next step:** Publish the focused repair through a dedicated pull request and require Repository policy plus the complete Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix before merge.
+
+
+## 2026-07-20 — STEP-367: Seal the Gate X test execution environment
+
+**Status:** Implemented in an isolated worktree; pending exact-head CI.
+
+**Goal:** Close the remaining intermittent Gate X test path exposed by post-merge CI run 115 without changing production behavior.
+
+**Files changed:** `fixtures/git-v4-test-helper.mjs`, `test/git-integrations-full-access.test.mjs`, `Memory.md`, and this archive.
+
+**Implementation summary:**
+
+- PR 3 merged STEP-366 at `ea998230f63b782b6c3e64e773f1f38f89a3546e` after exact-head PR run 114 passed the complete matrix.
+- Post-merge run 115 again observed both `reviewed` and `drifted` in the Ubuntu Node 20 immutable-snapshot test even though the regression proved the copied private config no longer contained `filter.snapshot.clean`.
+- The remaining unsealed route was the test executor: approved Git integration processes inherited the complete parent environment while ordinary fixture Git operations used a bounded environment. Ambient `GIT_*` configuration and repository-routing variables could therefore bypass the private-config proof in CI.
+- Replaced all fixture Git process environments with one bounded builder that preserves only required OS, user-path, and temporary-directory variables, fixes system/global Git config to the null device, and supplies only explicitly authorized Git variables.
+- Strengthened the immutable-snapshot regression by poisoning the parent environment with a `filter.snapshot.process` command before approved execution. The approved operation must ignore that ambient configuration and execute only the reviewed materialized clean filter.
+- Preserved the Windows SSH signing control by retaining the bounded Windows system and user configuration paths required by the copied `ssh-keygen.exe` signer.
+
+**Verification:**
+
+- TypeScript build passed.
+- The poisoned-environment immutable-snapshot test passed on managed Node `v20.20.2` and `v24.15.0`.
+- The immutable-snapshot plus SSH-signing controls passed on both managed Node majors.
+- The focused approval/integration/mutation suite passed 17/17 on each managed Node major.
+- `npm run policy:check` and `git diff --check` passed.
+- Run 115 also failed Windows Node 24 in three unrelated long-running control/cleanup timing tests (`CONTROL_READY_TIMEOUT`, a nonterminal runner observation, and a stale prune-claim observation). Those failures did not touch Gate X or the changed fixture and are being rerun to distinguish load noise from a separate defect.
+
+**Risks and limitations:**
+
+- This step changes test infrastructure only; production Gate X behavior remains the STEP-366 private-config isolation already merged.
+- The fixture environment intentionally retains bounded Windows paths needed by Git and OpenSSH controls; arbitrary parent variables and unapproved `GIT_*` variables are excluded.
+- A complete exact-head matrix is still required because the original failure appeared only under Ubuntu runtime-default concurrency.
+
+**Rollback:** Revert STEP-367 as one unit. Restoring full parent-environment inheritance would also invalidate the poisoned-environment regression.
+
+**Next step:** Publish the fixture hardening in a focused pull request, require the complete matrix, then verify the resulting main-branch push CI before closure.
+
+
+## 2026-07-20 — STEP-368: Keep unverifiable live runner identities conservatively owned
+
+**Status:** Implemented on the active CI-repair branch; pending exact-head CI.
+
+**Goal:** Repair the repeated Windows Node 24 retention failure without weakening exact worker ownership or cleanup boundaries.
+
+**Files changed:** `scripts/long-task-runner.mjs`, `test/runner-process-identity.test.mjs`, `Memory.md`, and this archive.
+
+**Implementation summary:**
+
+- PR run 120 proved STEP-367 fixed the original Ubuntu Node 20 Gate X failure: Regression, Smoke, and Package all passed on Ubuntu Node 20 and Node 24.
+- Windows Node 24 again failed `terminal detached-run evidence is automatically pruned to the configured retention count` because status briefly reported an exact-evidence worker as `stale` while the worker was still alive and finalizing retention.
+- Root cause: Windows process creation-time lookup launches bounded PowerShell. Under runner load it can transiently return no value even when the PID is live. `verifyWorkerIdentity` treated an unavailable lookup as an identity mismatch, which contradicted the fail-closed rule that unknown liveness or unverifiable PID reuse remains busy.
+- `verifyWorkerIdentity` now distinguishes three states: exact creation-time match is owned; unavailable creation time plus a live PID is conservatively owned with reason `process_identity_unavailable`; a dead PID or explicit creation-time mismatch is not owned.
+- Stop and destructive cleanup paths remain unchanged and still require exact creation-time identity before termination or removal. The conservative state can delay a retry but cannot widen authority.
+- Added a deterministic unit test covering both the live-unverifiable and dead-unverifiable branches.
+
+**Verification:**
+
+- Managed Node `v24.15.0`: runner identity plus complete task cleanup lifecycle passed 15/15.
+- Managed Node `v20.20.2` and `v24.15.0`: operational reliability, runner identity, and task cleanup lifecycle passed 23/23 on each major.
+- TypeScript build, `npm run policy:check`, and `git diff --check` passed.
+- The final branch still requires the complete Ubuntu/Windows Node 20/24 matrix because the failure depends on hosted Windows process-query load.
+
+**Risks and limitations:**
+
+- A live PID whose creation time cannot currently be verified is reported as occupied. This may postpone same-kind retries during a Windows management-query outage, which is the intentional fail-closed behavior.
+- An exact creation-time mismatch remains stale; evidence mismatch remains stale; destructive stop still refuses unverifiable identity.
+- This change does not increase wait deadlines or mask terminal publication errors.
+
+**Rollback:** Revert STEP-368 as one unit. Do not restore the previous unavailable-equals-mismatch behavior without also accepting unsafe retry classification under transient Windows identity-query failure.
+
+**Next step:** Push the amended PR head, require a fresh complete matrix, then verify the post-merge main push matrix.
+
+
+## 2026-07-20 — STEP-369: Separate Git child-environment isolation from Gate X execution
+
+**Status:** Implemented on the active CI-repair branch; pending exact-head CI.
+
+**Goal:** Correct an over-constrained STEP-367 regression while retaining a deterministic proof that fixture Git children do not inherit ambient Git configuration.
+
+**Files changed:** `test/git-integrations-full-access.test.mjs`, `Memory.md`, and this archive.
+
+**Correction to STEP-367:**
+
+- STEP-367 recorded that the parent `GIT_CONFIG_*` poison remained active through the approved Gate X stage. PR run 121 showed this combined two distinct contracts and caused the test itself to install an unreviewed `filter.snapshot.process` sibling while the approved operation was in flight.
+- Git process filters have precedence semantics in which a configured `process` driver can supersede reviewed `clean`/`smudge` commands. Attempting to neutralize that sibling with additional command-scoped values disabled legitimate reviewed filters and broke stage and checkout integration controls. That attempted production change was discarded before commit.
+- The corrected test now injects the ambient process filter only around an isolated fixture `runGit` config probe, proves the spawned Git child cannot observe it, restores the parent environment, and then separately tests Gate X immutable snapshot execution against on-disk script drift.
+- This preserves the intended STEP-367 fix—bounded child process environments—without claiming that arbitrary in-process environment mutation after review is a supported Gate X input.
+
+**Verification:**
+
+- Managed Node `v20.20.2` and `v24.15.0`: Gate X approval, full-access integration, worktree integration, and mutation architecture passed 21/21 on each major.
+- The exact immutable-snapshot test passed on both managed Node majors.
+- The discarded sibling-neutralization experiment failed four integration controls locally and was not committed or pushed.
+- Final build, policy, diff integrity, runner identity, and cleanup gates remain required on the amended head.
+
+**Risks and limitations:**
+
+- The fixture proves child-process environment isolation at the spawn boundary. It does not promise resilience to arbitrary mutation of the parent Node process environment during an approved operation.
+- Production Gate X still relies on the clean production executor environment plus STEP-366 private-config sanitization and immutable executable snapshots.
+
+**Rollback:** Revert STEP-369 together with the corrected test only if the invalid process-wide poison expectation is intentionally restored; do not reintroduce the discarded filter-sibling override logic.
+
+**Next step:** Commit and push the corrected regression, require a fresh complete PR matrix, then verify the post-merge main matrix.
