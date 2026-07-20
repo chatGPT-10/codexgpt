@@ -351,15 +351,7 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
       const marker = path.join(fixture.root, "snapshot-marker.txt");
       const source = (label) => [
         "import fs from 'node:fs';",
-        "let parentCommand = null;",
-        "let grandparentCommand = null;",
-        "try {",
-        "  parentCommand = fs.readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').replaceAll('\\0', ' ').trim();",
-        "  const stat = fs.readFileSync(`/proc/${process.ppid}/stat`, 'utf8');",
-        "  const fields = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\\s+/);",
-        "  grandparentCommand = fs.readFileSync(`/proc/${fields[1]}/cmdline`, 'utf8').replaceAll('\\0', ' ').trim();",
-        "} catch {}",
-        `fs.appendFileSync(process.argv[2], JSON.stringify({ label: ${JSON.stringify(label)}, parentCommand, grandparentCommand, argv: process.argv }) + '\\n');`,
+        `fs.appendFileSync(process.argv[2], ${JSON.stringify(`${label}\n`)});`,
         "process.stdin.pipe(process.stdout);",
         ""
       ].join("\n");
@@ -370,9 +362,17 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
       runGit(fixture.root, ["add", ".gitattributes"]);
       runGit(fixture.root, ["commit", "-m", "snapshot attributes"]);
       await fs.writeFile(path.join(fixture.root, "tracked.txt"), "snapshot content\n", "utf8");
+      const baseRun = fixture.executor.run.bind(fixture.executor);
       const baseExecute = fixture.executor.runApprovedIntegration.bind(fixture.executor);
+      let immutableWindowStarted = false;
       const executor = {
         ...fixture.executor,
+        async run(repository, args, options) {
+          if (immutableWindowStarted && args[0] === "write-tree") {
+            throw new Error("UNAPPROVED_WRITE_TREE_AFTER_REVIEW");
+          }
+          return baseRun(repository, args, options);
+        },
         async runApprovedIntegration(repository, request) {
           const retainedCommand = runGit(fixture.root, [
             "config",
@@ -384,8 +384,13 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
           assert.equal(retainedCommand.status, 1);
           assert.equal(request.integrationConfigOverrides.some((entry) => entry.includes(script)), false);
           await fs.rm(marker, { force: true });
+          immutableWindowStarted = true;
           await fs.writeFile(script, source("drifted"), "utf8");
-          return baseExecute(repository, request);
+          const execution = await baseExecute(repository, request);
+          assert.match(execution.stageOldTreeOid, /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u);
+          assert.match(execution.stageTreeOid, /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u);
+          assert.notEqual(execution.stageOldTreeOid, execution.stageTreeOid);
+          return execution;
         }
       };
       const gate = new GitIntegrationGateV4({ executor, reviews, enabled: true });
@@ -423,13 +428,9 @@ test("Gate X executes an immutable integration snapshot across final revalidatio
         })
       });
       assert.equal(staged.normalization, "approved_full_access");
-      const executions = (await fs.readFile(marker, "utf8")).trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+      const executions = (await fs.readFile(marker, "utf8")).trim().split(/\r?\n/u);
       assert.ok(executions.length >= 1);
-      assert.deepEqual(
-        new Set(executions.map((entry) => entry.label)),
-        new Set(["reviewed"]),
-        JSON.stringify(executions, null, 2)
-      );
+      assert.deepEqual(new Set(executions), new Set(["reviewed"]));
       assert.match(await fs.readFile(script, "utf8"), /drifted/u);
     } finally {
       reviews.dispose();

@@ -199,3 +199,43 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 **Rollback:** Revert STEP-366 as one unit. Do not retain the strengthened test while restoring duplicate executable keys, and do not restore the previous implementation revision independently.
 
 **Next step:** Publish the focused repair through a dedicated pull request and require Repository policy plus the complete Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix before merge.
+
+
+## 2026-07-20 — STEP-367: Keep Gate X write-tree inside the immutable integration bundle
+
+**Status:** Implemented on the diagnostic repair branch; pending exact-head pull-request and post-merge CI.
+
+**Goal:** Close the remaining CI #113/#115 immutable-snapshot escape by preventing any ordinary repository Git command from executing reviewed integrations after the source executable can drift.
+
+**Files changed:** `src/git/execution.ts`, `src/git/integrations.ts`, `src/git/indexService.ts`, `fixtures/git-v4-test-helper.mjs`, `test/git-execution-windows-control.test.mjs`, `test/git-integrations-full-access.test.mjs`, `Memory.md`, and this archive.
+
+**Root cause:**
+
+- STEP-366 correctly removed the original filter command from the copied private Git config, but post-merge CI #115 still observed both `reviewed` and `drifted` filter executions.
+- Bounded diagnostic reruns recorded the process ancestry. The reviewed execution came from the private snapshot `git add`; the drifted execution came from a subsequent ordinary `git write-tree` against the original repository Git directory.
+- On Linux, `write-tree` may refresh index entries and invoke clean filters. That command ran after Gate X had revalidated and after the test changed the original filter script, so it escaped the immutable materialized bundle.
+
+**Implementation summary:**
+
+- The approved integration executor now performs private old-tree calculation, private `git add`, and private new-tree calculation sequentially with the same private Git directory, private index, object quarantine, reviewed config overrides, and materialized executable snapshots.
+- The executor returns typed, object-format-specific validated old/new stage tree OIDs. `GitIndexServiceV4` consumes those OIDs and no longer invokes ordinary `write-tree` outside Gate X execution.
+- Advanced both Git executor and integration-bundle implementation revisions so previously minted capability/review facts fail closed.
+- Updated the fixture executor and native Windows control contract for the structured result.
+- Strengthened the immutable-snapshot regression to reject any ordinary `write-tree` after the review window starts, prove the original command is absent from the private config and overrides, and require the private stage tree OID.
+
+**Verification:**
+
+- The deterministic regression failed against the pre-fix implementation with an ordinary post-review `write-tree`.
+- `npm run build` passed.
+- The affected Windows host, Gate X, worktree, SHA-256, approval, and mutation suites passed 25/25.
+- The exact immutable-snapshot regression passed five consecutive runs after the fix.
+- `npm run policy:check`, `git diff --check`, and the 521-entry package dry-run passed.
+
+**Risks and limitations:**
+
+- Gate X remains ambient current-user `full_access`; this change closes a Git integration snapshot boundary but does not add OS isolation.
+- The approved stage now performs three bounded native-host Git requests instead of one. Any failure is terminal and fails closed before live-index installation.
+
+**Rollback:** Revert STEP-367 as one unit. Do not restore the ordinary post-review `write-tree` independently, and do not retain the structured stage-tree contract without its private executor implementation.
+
+**Next step:** Replace the diagnostic draft PR with this runtime fix, require the complete exact-head matrix, merge only on the reviewed head, then require the resulting `main` push CI to pass because the original defect surfaced post-merge.

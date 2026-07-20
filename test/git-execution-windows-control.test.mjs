@@ -135,7 +135,10 @@ windowsOnly("the real Windows host carries large Git output and a typed Gate X p
     integrationConfigOverrides: [],
     hooksPath
   });
-  assert.equal(staged.status, 0, staged.stderr.toString("utf8"));
+  assert.equal(staged.result.status, 0, staged.result.stderr.toString("utf8"));
+  assert.match(staged.stageOldTreeOid, /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u);
+  assert.match(staged.stageTreeOid, /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u);
+  assert.notEqual(staged.stageOldTreeOid, staged.stageTreeOid);
   assert.notDeepEqual(await fs.readFile(privateIndexPath), liveIndexBefore);
   assert.deepEqual(await fs.readFile(path.join(gitDir, "index")), liveIndexBefore);
 });
