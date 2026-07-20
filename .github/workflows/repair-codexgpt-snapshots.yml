@@ -1,0 +1,101 @@
+name: One-time CodexGPT snapshot repair
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    name: Materialize reviewed snapshot repairs
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.ref == 'chore/rename-codexgpt-20260720' && github.actor != 'github-actions[bot]'
+    env:
+      TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply reviewed snapshot hashes
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          function replaceAllExact(file, oldText, newText, expectedCount = 1) {
+            const text = fs.readFileSync(file, 'utf8');
+            const count = text.split(oldText).length - 1;
+            if (count === 0 && text.includes(newText)) return;
+            if (count !== expectedCount) {
+              throw new Error(`${file}: expected ${expectedCount} occurrences of ${oldText}, found ${count}`);
+            }
+            fs.writeFileSync(file, text.split(oldText).join(newText), 'utf8');
+          }
+
+          const production = 'test/production-runtime-integration.test.mjs';
+          replaceAllExact(production, 'd37652c6a92d642739be2b0e04122aa95b11029ac0722f5a62b730195e8de9d3', '821e302337d5cf9558bf07d81b47b95bdeac640d9bafd1033db255d8cf6b4785');
+          replaceAllExact(production, '5a29174c8ea440c2ec40f37216e8683561388bddb74da97664f67fa121c125db', '4160c3ce78bcd89008f5326c2b51e81dde638c97c2141cdd56dbd8863760653d');
+          replaceAllExact(production, 'c14469627df4dfce5cb1f1d24c6c718049c370c09fa30161962c0336ae253b7b', '4b9f283f897448d722dbd348389adb86c1acb2b4e2f0c88b8db250cbd1ec95d3', 2);
+          replaceAllExact(production, 'd5ea2a275c78efc8450e20ee7ab1e16c51520328b4768802c927d6bcbb873a47', '41b423fb1d9ee6d45a48dfee97d08c4ab39f493b6df9d8ae53d034c64a1446dc');
+          replaceAllExact(production, '71f390fbea9c93f790237c6fa61e9b2c072df836550a9d3fd5c653940a093eee', 'f3a4748732a1fd144c2f74b01762cb64f82211877e619e994dccb114f856ce8e');
+
+          const architecture = 'test/transaction-architecture.test.mjs';
+          replaceAllExact(architecture, '0234c92e88072c9e5d73f2fbb663131f7e68572f2c80d7a89f9601392111fbae', '56d1abb61b259572b9dfaf700baf6c59b8ce0cff8c6ff94f336324982c573bad');
+          replaceAllExact(architecture, 'b61f925c562dadea6c4ce3c1fad56edb286be1ffee81c2bcadb46196cfe660f4', 'c384f36ffcb95ee93a0b356a984c8f70f3e0a3be7cdb68526033c31ab0d7978e');
+
+          const archivePath = 'docs/memory/archive/interphase-maintenance-part-2.md';
+          const archiveBullet = '- The first final-head Ubuntu Node 24 regression exposed only frozen V1 descriptor/call hashes and protected Smoke source hashes that still represented the previous namespace. Updated those exact hashes from observed canonical CodexGPT descriptors, normalized server-config payloads, and LF-normalized protected sources; tool names, counts, envelopes, and runtime behavior remained unchanged.';
+          let archive = fs.readFileSync(archivePath, 'utf8');
+          if (!archive.includes(archiveBullet)) {
+            archive = `${archive.trimEnd()}\n${archiveBullet}\n`;
+            fs.writeFileSync(archivePath, archive, 'utf8');
+          }
+
+          const memoryPath = 'Memory.md';
+          const memoryBullet = '- STEP-365 first exact-head regression identified only frozen V1 descriptor/call and protected Smoke source hashes from the previous namespace; reviewed CodexGPT hashes were updated without changing tool sets, envelopes, counts, or runtime behavior. Final exact-head matrix remains required.';
+          let memory = fs.readFileSync(memoryPath, 'utf8');
+          if (!memory.includes(memoryBullet)) {
+            const anchor = '- STEP-365 local adversarial verification passed active-name residual scanning, TypeScript build, repository policy, 63/63 focused naming/security/native-host/mutation/package contracts, isolated settings Smoke, diff integrity, and the 521-entry `codexgpt@0.28.6` package dry-run. One combined local Smoke attempt reached six successful components before a settings-status timeout; the isolated settings rerun passed, while the complete Ubuntu/Windows Node 20/24 exact-head matrix remains the publication authority.';
+            if (!memory.includes(anchor)) throw new Error('STEP-365 memory anchor missing');
+            memory = memory.replace(anchor, `${anchor}\n${memoryBullet}`);
+            fs.writeFileSync(memoryPath, memory, 'utf8');
+          }
+          NODE
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Policy
+        run: npm run policy:check
+
+      - name: Snapshot contracts
+        run: node --test test/production-runtime-integration.test.mjs test/transaction-architecture.test.mjs
+
+      - name: Diff integrity
+        run: git diff --check
+
+      - name: Commit repairs
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Memory.md docs/memory/archive/interphase-maintenance-part-2.md test/production-runtime-integration.test.mjs test/transaction-architecture.test.mjs
+          git diff --cached --quiet && { echo "No snapshot changes produced"; exit 1; }
+          git commit -m "fix: refresh CodexGPT contract snapshots"
+          git push origin "HEAD:${TARGET_BRANCH}"
