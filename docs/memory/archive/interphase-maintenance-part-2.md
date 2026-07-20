@@ -236,3 +236,38 @@ This append-only archive records maintenance after Phase 5 formally closed and b
 **Rollback:** Revert STEP-367 as one unit. Restoring full parent-environment inheritance would also invalidate the poisoned-environment regression.
 
 **Next step:** Publish the fixture hardening in a focused pull request, require the complete matrix, then verify the resulting main-branch push CI before closure.
+
+
+## 2026-07-20 — STEP-368: Keep unverifiable live runner identities conservatively owned
+
+**Status:** Implemented on the active CI-repair branch; pending exact-head CI.
+
+**Goal:** Repair the repeated Windows Node 24 retention failure without weakening exact worker ownership or cleanup boundaries.
+
+**Files changed:** `scripts/long-task-runner.mjs`, `test/runner-process-identity.test.mjs`, `Memory.md`, and this archive.
+
+**Implementation summary:**
+
+- PR run 120 proved STEP-367 fixed the original Ubuntu Node 20 Gate X failure: Regression, Smoke, and Package all passed on Ubuntu Node 20 and Node 24.
+- Windows Node 24 again failed `terminal detached-run evidence is automatically pruned to the configured retention count` because status briefly reported an exact-evidence worker as `stale` while the worker was still alive and finalizing retention.
+- Root cause: Windows process creation-time lookup launches bounded PowerShell. Under runner load it can transiently return no value even when the PID is live. `verifyWorkerIdentity` treated an unavailable lookup as an identity mismatch, which contradicted the fail-closed rule that unknown liveness or unverifiable PID reuse remains busy.
+- `verifyWorkerIdentity` now distinguishes three states: exact creation-time match is owned; unavailable creation time plus a live PID is conservatively owned with reason `process_identity_unavailable`; a dead PID or explicit creation-time mismatch is not owned.
+- Stop and destructive cleanup paths remain unchanged and still require exact creation-time identity before termination or removal. The conservative state can delay a retry but cannot widen authority.
+- Added a deterministic unit test covering both the live-unverifiable and dead-unverifiable branches.
+
+**Verification:**
+
+- Managed Node `v24.15.0`: runner identity plus complete task cleanup lifecycle passed 15/15.
+- Managed Node `v20.20.2` and `v24.15.0`: operational reliability, runner identity, and task cleanup lifecycle passed 23/23 on each major.
+- TypeScript build, `npm run policy:check`, and `git diff --check` passed.
+- The final branch still requires the complete Ubuntu/Windows Node 20/24 matrix because the failure depends on hosted Windows process-query load.
+
+**Risks and limitations:**
+
+- A live PID whose creation time cannot currently be verified is reported as occupied. This may postpone same-kind retries during a Windows management-query outage, which is the intentional fail-closed behavior.
+- An exact creation-time mismatch remains stale; evidence mismatch remains stale; destructive stop still refuses unverifiable identity.
+- This change does not increase wait deadlines or mask terminal publication errors.
+
+**Rollback:** Revert STEP-368 as one unit. Do not restore the previous unavailable-equals-mismatch behavior without also accepting unsafe retry classification under transient Windows identity-query failure.
+
+**Next step:** Push the amended PR head, require a fresh complete matrix, then verify the post-merge main push matrix.
