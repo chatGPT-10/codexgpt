@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: apply-step371
@@ -23,7 +24,11 @@ jobs:
           ref: fix/gate-x-execution-window-20260720
           fetch-depth: 0
       - name: Apply exact patch and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euxo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/issues/4/comments" -f body="STEP-371 patch workflow started at $GITHUB_SHA."
           git apply --check .github/step371.patch
           git apply .github/step371.patch
           rm .github/step371.patch .github/workflows/apply-step371.yml
@@ -32,3 +37,4 @@ jobs:
           git add -A
           git commit -m "fix: publish detached runner finalization lease"
           git push origin HEAD:fix/gate-x-execution-window-20260720
+          gh api "repos/$GITHUB_REPOSITORY/issues/4/comments" -f body="STEP-371 patch workflow published successfully."
