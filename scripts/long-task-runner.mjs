@@ -723,7 +723,8 @@ async function worker() {
         child.once("error", (error) => finish({ code: 127, signal: null, error: error.stack ?? error.message }));
         child.once("close", (code, signal) => finish({ code: code ?? 1, signal, error: null }));
       });
-    await publishWorkerLease("finalizing");
+    // Lease refresh is observational; failure must not suppress terminal result publication.
+    await publishWorkerLease("finalizing").catch(() => {});
   } finally {
     if (taskTemp) {
       try {
@@ -750,7 +751,7 @@ async function worker() {
     fsp.writeFile(stdoutPath, stdoutTail.bytes()),
     fsp.writeFile(stderrPath, stderrTail.bytes())
   ]);
-  await publishWorkerLease("finalizing");
+  await publishWorkerLease("finalizing").catch(() => {});
   let retention;
   try {
     retention = await pruneTerminalRuns(path.dirname(directory), {

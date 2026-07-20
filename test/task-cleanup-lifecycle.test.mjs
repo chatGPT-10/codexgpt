@@ -96,6 +96,48 @@ test("terminal publication grace tolerates delayed Windows result visibility", a
   }
 });
 
+test("terminal result publication survives a failed observational lease refresh", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-lease-refresh-failure-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-lease-refresh-failure-temp-"));
+  const releasePath = path.join(runRoot, "release-worker");
+  try {
+    const source = [
+      "const fs = require('node:fs');",
+      `const release = ${JSON.stringify(releasePath)};`,
+      "const timer = setInterval(() => {",
+      "  if (!fs.existsSync(release)) return;",
+      "  clearInterval(timer);",
+      "}, 25);"
+    ].join("");
+    const started = JSON.parse((await executeLongRunner([
+      "start",
+      "--root", runRoot,
+      "--temp-root", tempRoot,
+      "--kind", "lease-refresh-failure",
+      "--",
+      process.execPath,
+      "-e",
+      source
+    ])).stdout);
+    const directory = path.join(runRoot, started.runId);
+    const leasePath = path.join(directory, "worker-lease.json");
+    await waitForJson(leasePath, (lease) => lease.phase === "running");
+    await fs.rm(leasePath);
+    await fs.mkdir(leasePath);
+    await fs.writeFile(releasePath, "go\n", "utf8");
+
+    const result = await waitForJson(
+      path.join(directory, "result.json"),
+      (value) => value.runId === started.runId,
+      10_000
+    );
+    assert.equal(result.exitCode, 0);
+  } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
 test("worker advances its exact lifecycle lease before delayed retention completes", async () => {
   const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-runs-"));
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-temp-"));

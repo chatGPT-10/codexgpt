@@ -40,6 +40,20 @@ async function waitForCompletion(root, runId, deadlineMs = WORKER_LEASE_MS + 30_
   throw new Error(`Run ${runId} did not become terminal.`);
 }
 
+async function waitForProcessExit(pid, deadlineMs = 10_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") return;
+      if (error?.code !== "EPERM") throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Process ${pid} did not exit.`);
+}
+
 test("process creation identity is available for the current process", async () => {
   const created = await processCreationTime(process.pid);
   assert.equal(typeof created, "string");
@@ -268,8 +282,8 @@ test("replacing a run directory is detected before status trusts replacement met
       execute(["status", "--root", root, "--run", started.runId]),
       (error) => error.code === 1 && /directory identity changed/.test(error.stderr)
     );
-    await new Promise((resolve) => setTimeout(resolve, 1600));
+    await waitForProcessExit(started.workerPid);
   } finally {
-    await fs.rm(root, { recursive: true, force: true });
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
