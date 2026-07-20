@@ -6,7 +6,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { pruneTerminalRuns, waitForTerminalPublication } from "../scripts/long-task-runner.mjs";
+import {
+  pruneTerminalRuns,
+  waitForTerminalPublication,
+  WORKER_LEASE_MS
+} from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -23,7 +27,7 @@ async function executeLongRunner(args, options = {}) {
   });
 }
 
-async function waitForTerminal(root, runId, deadlineMs = 30_000) {
+async function waitForTerminal(root, runId, deadlineMs = WORKER_LEASE_MS + 30_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const state = JSON.parse((await executeLongRunner(["status", "--root", root, "--run", runId])).stdout);
@@ -48,7 +52,7 @@ async function waitForPath(target, deadlineMs = 10_000) {
   throw new Error(`Timed out waiting for ${target}.`);
 }
 
-async function waitForJson(target, predicate, deadlineMs = 10_000) {
+async function waitForJson(target, predicate, deadlineMs = WORKER_LEASE_MS) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     try {

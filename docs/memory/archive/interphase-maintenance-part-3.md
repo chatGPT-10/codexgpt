@@ -263,3 +263,43 @@ This append-only continuation starts at STEP-368. Earlier interphase records rem
 **Rollback:** Revert STEP-374 to restore the intermittent empty-CIM oracle.
 
 **Next step:** Run final repository gates, publish the exact combined correction head, require the complete matrix, squash-merge only on unchanged head, then require the resulting `main` push matrix to pass.
+
+## 2026-07-20 — STEP-375: Bind test observation to lifecycle-lease expiry
+
+**Status:** Implemented after exact-head CI #136 showed correct live-state reporting but insufficient test wall-clock bounds; pending a new exact-head and post-merge matrix.
+
+**Goal:** Fail tests when a detached worker's authentic lease expires, not merely because a heavily loaded Windows runner exceeds an unrelated 10- or 30-second observation guess.
+
+**Failure evidence:**
+
+- Exact-head run `29761293686` on `e29f2aad4dd978b798a4a49dbdcb82e1906ea409` passed Repository policy and complete Ubuntu Node 20/24 jobs.
+- Windows Node 24 no longer produced false `stale`. It failed because one test did not observe phase `finalizing` within 10 seconds and a retention test did not observe terminal state within 30 seconds, while the lifecycle lease continued to represent the worker as live.
+- The failures therefore invalidated only the test deadlines, not the STEP-373 state model.
+
+**Implementation summary:**
+
+- Test-only JSON phase observation now allows one `WORKER_LEASE_MS` interval.
+- Test-only terminal observation now allows `WORKER_LEASE_MS + 30_000`.
+- The same-kind retry helper uses the same terminal bound.
+- The delayed-lease regression now publishes through temporary-file plus atomic rename, matching production and preventing the observer from reading test-authored partial JSON.
+- A crashed or non-renewing worker still fails earlier when its 60-second lease expires and status becomes stale. No production wait, command timeout, lease duration, renewal frequency, or process authority changed.
+
+**Verification:**
+
+- Native Windows Node 24 cleanup plus process-identity suites passed 20/20.
+- Native Windows Node 20 passed the same 20/20.
+- The Node 20 delayed-lease regression additionally reproduced and then eliminated the test-only partial-JSON read by using atomic publication.
+
+**Adversarial review:**
+
+- The bound is derived from the production stale-state contract rather than selected to exceed a single observed CI duration.
+- Successful fast runs do not become slower because polling returns as soon as phase or terminal state appears.
+- The tests still fail closed on stale state; they do not accept timeout as success and do not skip Windows behavior.
+
+**Rollback:** Revert STEP-375 to restore observation bounds shorter than the lifecycle lease and the resulting scheduler-dependent false failures.
+
+**Next step:** Complete final local gates, publish one correction head, require the complete matrix, squash-merge only on unchanged head, then require the resulting `main` push matrix to pass.
+
+## Volume closure
+
+This volume is closed after STEP-375 because it reached the configured direct-read threshold. Keep it append-only and record any subsequent interphase maintenance in `interphase-maintenance-part-4.md`.

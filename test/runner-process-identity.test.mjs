@@ -30,7 +30,7 @@ async function execute(args, options = {}) {
   });
 }
 
-async function waitForCompletion(root, runId, deadlineMs = 30_000) {
+async function waitForCompletion(root, runId, deadlineMs = WORKER_LEASE_MS + 30_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const state = JSON.parse((await execute(["status", "--root", root, "--run", runId])).stdout);
@@ -171,7 +171,9 @@ test("terminal observation notices an exact worker lease published during its bo
   const publish = new Promise((resolve) => {
     setTimeout(async () => {
       try {
-        await fs.writeFile(path.join(directory, "worker-lease.json"), `${JSON.stringify(lease)}\n`, "utf8");
+        const pending = path.join(directory, "worker-lease.json.pending");
+        await fs.writeFile(pending, `${JSON.stringify(lease)}\n`, "utf8");
+        await fs.rename(pending, path.join(directory, "worker-lease.json"));
       } catch (error) {
         publishError = error;
       } finally {
