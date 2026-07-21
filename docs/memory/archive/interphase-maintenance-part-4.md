@@ -273,3 +273,48 @@ This append-only volume continues interphase maintenance after the closed Part 3
 **Rollback:** Revert this follow-up commit. That restores the equal 60-second inner/outer deadline race and the ambiguous timeout classification.
 
 **Next step:** Run final diff/build/policy/package/document/scope checks, create a new linear commit, push `main` without force, bind the replacement exact-head CI, and require the complete matrix before synchronization.
+
+## 2026-07-21 — STEP-381: Neat-freak closure reconciliation after successful exact-head CI
+
+**Status:** Completed as a documentation-only reconciliation and approved for publication. Phase 6 remains frozen.
+
+**Goal:** Replace stale publication and phase-boundary text with the verified final state after STEP-379/380 and its ConPTY deadline follow-up, while preserving append-only history and avoiding unrelated user-facing documentation changes.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/memory/archive/interphase-maintenance-part-4.md`
+
+**Implementation:**
+
+- Updated the active project boundary from “Phase 5 pending publication” to Phases 1–5 closed, with Phase 6 explicitly frozen by the current user instruction.
+- Corrected the active workspace path to `D:\Dev\codexpro` and recorded that this checkout intentionally uses the verified legacy `%LOCALAPPDATA%\CodexPro\toolchains` root until a separately approved migration.
+- Replaced completed release/CI/synchronization items in `Memory.md` with the verified runtime closure head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4`, successful run `29780813295`, the pre-reconciliation local/remote synchronization fact, one registered worktree, and ignored-only `.ai-bridge` evidence.
+- Preserved failed run `29778608848` only as diagnosed historical evidence; it is not presented as closure authority.
+- Audited README, security, deployment, design, and changelog surfaces and made no changes because the follow-up altered only an internal control deadline hierarchy, failure classification, tests, and manifest identity. Public CLI, authentication, Cloudflare, workspace, and package usage are unchanged.
+- Left historical baseline/spec/plan path examples unchanged where they describe their original implementation context rather than the active checkout.
+
+**Verification:**
+
+- Initial Git state was clean on `main`; local HEAD and `origin/main` both resolved to `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4`, and `git worktree list --porcelain` showed only `D:/Dev/codexpro`.
+- GitHub run `29780813295` was re-read as workflow `CI`, status `completed`, conclusion `success`, and exact head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4`; Repository policy and Ubuntu/Windows Node 20/24 jobs all succeeded.
+- `git diff --check` passed and `npm run policy:check` returned `Repository operational policy: PASS`.
+- Repository Markdown inventory remained 119 files; relative-link audit returned `BROKEN_COUNT|0`.
+- Active non-archive Markdown relative-time scan and stale Phase 5 publication-state scan both returned zero matches.
+- Added-line credential-pattern scan returned `SECRET_HIT_COUNT|0`.
+- Before this entry, `AGENTS.md` was 201 lines / 16,024 bytes, `Memory.md` was 121 lines / 14,721 bytes, and the active archive was 275 lines / 24,080 bytes. `Memory.md` remains below its 150-line / 18-KB practical target; the active archive remains below the 48,000-byte rollover threshold.
+
+**Adversarial review:**
+
+- The failed first main run remains visible as evidence and is not rewritten into success; only replacement exact-head run `29780813295` authorizes closure.
+- The 85-second ConPTY RPC budget is not described as a longer 60-second worker business deadline.
+- Historical Phase 6–8 conditional authorization is not silently deleted, but the newer explicit Phase 6 freeze is stated as the controlling execution boundary.
+- `AGENTS.md` remains a rule file: only current operational boundaries were changed, with no STEP narrative or duplicated implementation history added.
+- No production source, test, workflow, package metadata, public docs, credentials, branches, worktrees, or external deployment state were changed.
+- Final review removed the self-invalidating claim that the runtime closure SHA would remain the current checkout HEAD after publishing this documentation-only commit.
+
+**Rollback:** Revert the STEP-381 documentation changes only. Runtime head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` and successful CI evidence remain unchanged.
+
+**Next step:** Publish the approved documentation-only commit, require the documentation/policy CI gate, and keep Phase 6 frozen.

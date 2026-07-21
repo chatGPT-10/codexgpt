@@ -6,17 +6,17 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-20.
+- Date: 2026-07-21.
 - Package: `codexgpt@0.28.6`; repository: `chatGPT-10/codexgpt`; primary platform: native Windows; WSL remains optional.
-- Phase 0 through complete Phase 3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head CI run `29603060944`. Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
-- Pull request #4 passed exact-head CI run `29773470293` at `b85286def95592cf5fa7ce552adcc1043106e5af`, was updated with the final lifecycle model, and was squash-merged to `main` as `afed823dc8a8cca187d7678cb4e33895de158c57`.
-- Main push CI run `29774932378` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24, but Windows Node 20 failed one lifecycle test while waiting only for an optional `finalizing` lease.
-- STEP-378 makes `finalizing` lease refresh best-effort so an observational write failure cannot suppress authoritative `result.json`; initial running-lease publication, exact stop identity, directory validation, and terminal precedence remain unchanged.
-- STEP-379/380 was published to `main` as `d8edadc4eb8fca917b06d669e8fa0e3627d237cb`. Exact-head run `29778608848` passed Repository policy, Ubuntu Node 20/24, and Windows Node 20; Windows Node 24 failed one ConPTY control request at an invalid equal inner/outer 60-second deadline and then one detached lifecycle test became stale. The STEP-379 exact finalization observer itself passed.
+- Phases 0–3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head run `29603060944`; Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
+- Pull request #4 passed exact-head run `29773470293` at `b85286def95592cf5fa7ce552adcc1043106e5af` and was squash-merged to `main` as `afed823dc8a8cca187d7678cb4e33895de158c57`.
+- STEP-379/380 was published as `d8edadc4eb8fca917b06d669e8fa0e3627d237cb`; failed run `29778608848` is retained only as diagnosed evidence for the invalid equal ConPTY worker/RPC deadline.
+- Follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` preserves the 60-second worker deadline, hard-bounds shutdown/drain cleanup, and passed exact-head CI run `29780813295` across Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package.
+- `D:\Dev\codexpro` has one registered worktree. Before the STEP-381 documentation reconciliation, local `main` and `origin/main` were synchronized at runtime closure head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4`; `.ai-bridge` contained only ignored local evidence.
 
 ## Approved execution boundary
 
-Do not enter Phase 6 or claim closure until the STEP-379 correction is published to `main`, the resulting exact main push passes the complete Ubuntu/Windows Node 20/24 matrix, and the local checkout is confirmed clean at that successful `origin/main`. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive data/history changes, production deployment, credential handling, and silent scope expansion remain excluded.
+STEP-379/380 publication and exact-head closure are complete. Phase 6 remains frozen by the current user instruction; do not begin it until explicitly resumed. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive data/history changes, production deployment, credential handling, and silent scope expansion remain excluded.
 
 ## Active decisions and constraints
 
@@ -49,6 +49,8 @@ Do not enter Phase 6 or claim closure until the STEP-379 correction is published
 - STEP-379 initial publication gates passed: diff integrity, TypeScript build, repository policy, 529-entry package dry-run, 119-file Markdown link audit with `BROKEN_COUNT|0`, exact three-file scope, and added-line secret review.
 - Run `29778608848` bounded evidence proved the first failure was `HOST_REQUEST_TIMEOUT` in the cold ConPTY close-fatal control path. The inner worker remained bounded at 60 seconds but the outer RPC had no budget for up to 20 seconds of Job/output cleanup. The follow-up keeps the 60-second worker limit, hard-bounds termination and output drain at 10 seconds each, assigns an 85-second outer RPC budget, and rejects real worker timeout as `CONPTY_WORKER_TIMED_OUT` instead of false close-fatal success.
 - Follow-up local regression passed 21/21 affected manifest/protocol/package/domain tests and 15/15 lifecycle tests on each verified Node major.
+- Exact-head run `29780813295` verified head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` with status `completed`, conclusion `success`, and every non-skipped job successful; bounded failure-evidence uploads were correctly skipped in successful jobs.
+- Final synchronization confirmed a clean checkout, exact local/remote head equality, one registered worktree, and ignored-only `.ai-bridge` evidence.
 
 ## Known limitations
 
@@ -64,16 +66,16 @@ Do not enter Phase 6 or claim closure until the STEP-379 correction is published
 
 ## Open items
 
-1. Complete final gates for the diagnosed ConPTY deadline follow-up, create a new linear commit, and push `main` without rewriting history.
-2. Bind the new 40-character head to its exact `main` CI run and require the complete Ubuntu/Windows Node 20/24 matrix.
-3. Verify the successful exact head, then confirm `D:\Dev\codexpro` is clean and exactly synchronized with `origin/main`.
-4. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret Git/worktree mechanisms or lifecycle leases as a sandbox.
-5. Do not enter Phase 6 as part of this repair.
+1. Keep Phase 6 frozen until the user explicitly resumes it; the prior conditional Phase 6–8 authorization does not override the current pause.
+2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret Git/worktree mechanisms, ConPTY, or lifecycle leases as a sandbox.
+3. Treat migration from `%LOCALAPPDATA%\CodexPro\toolchains` to the default `CodexGPT` toolchain root as separate unplanned maintenance requiring approval.
+4. For any future runtime-relevant head, require the complete exact-head Ubuntu/Windows Node 20/24 matrix before closure.
 
 ## Recent summaries
 
-- **STEP-380 - Publication reconciliation:** publish the scoped STEP-379 oracle correction, bind exact-head CI, and diagnose the Windows Node 24 ConPTY deadline failure without rerun.
-- **STEP-379 - Align finalization test oracle:** accept either an exact optional `finalizing` lease or the authoritative result that supersedes it, while retaining stale and nonzero-exit failures; the observer passed in run `29778608848`.
+- **STEP-381 - Neat-freak closure reconciliation:** record successful follow-up head/run, remove completed release work from open items, align the master plan and project rules with closed Phase 5 and frozen Phase 6, and preserve the clean single-worktree boundary.
+- **STEP-380 - Publication and deadline follow-up:** publish the STEP-379 oracle correction, diagnose the Windows Node 24 ConPTY deadline race without blind rerun, and close replacement head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` with successful run `29780813295`.
+- **STEP-379 - Align finalization test oracle:** accept either an exact optional `finalizing` lease or the authoritative result that supersedes it, while retaining stale and nonzero-exit failures.
 - **STEP-378 - Preserve terminal publication after lease-refresh failure:** keep lifecycle lease writes observational, add a deterministic pre-fix failure regression, and replace a fixed path-replacement cleanup delay with exact worker-exit observation.
 - **STEP-377 - Neat-freak reconciliation:** compress the project-memory index below its practical size target, record exact PR/CI state, add the lifecycle-lease invariant to project rules, and remove relative-time wording from active specifications.
 - **STEP-376 - Remove fixed terminal override:** route the final lifecycle integration call through the common lease-bound observation helper.

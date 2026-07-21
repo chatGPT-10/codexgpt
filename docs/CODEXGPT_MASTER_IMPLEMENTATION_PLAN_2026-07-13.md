@@ -2,15 +2,15 @@
 
 > 版本：2.2
 > 生效日期：2026-07-13
-> 核对日期：2026-07-19
+> 核对日期：2026-07-21
 > 状态：当前权威实施路线
-> 工作区：`D:\Dev\codexgpt`
+> 工作区：`D:\Dev\codexpro`
 > 基线版本：`codexgpt@0.28.6`
-> 当前阶段：Phase 1–4 已关闭；reduced Phase 4 以 trusted-code execution 收口，诊断性 4B0 保持 blocked，`workspace` 与 Task 4B1–4B6 延期；Phase 5 本地闭环完成，等待一次性发布与 closure-SHA exact-head CI
+> 当前阶段：Phase 1–5 已关闭；reduced Phase 4 的诊断性 4B0 保持 blocked，`workspace` 与 Task 4B1–4B6 延期；STEP-379/380 follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` 已通过 exact-head CI run `29780813295`
 >
-> 下一门禁：Phase 5 closure SHA 的 terminal exact-head CI；成功前不得进入 Phase 6，也不得跳过配对设计、TDD、审计或阶段发布门
+> 下一门禁：Phase 6 按当前用户边界冻结；只有收到新的显式授权后才恢复配对设计、TDD、审计和阶段发布流程
 >
-> 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5；2026-07-14 扩展为按推荐选项连续实施并分段发布至 Phase 8
+> 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5 已完成；2026-07-14 对 Phase 6–8 的条件授权仍保留为历史边界，但当前 Phase 6 冻结指令优先
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
@@ -40,7 +40,7 @@
 
 ### 0.3 本文件不是什么
 
-当前任务已获连续执行至 Phase 8 的条件授权，但连续执行不等于跳过质量门。每个工具切片和每个安全子系统仍必须单独经历：
+2026-07-14 曾记录连续执行至 Phase 8 的条件授权，但当前用户边界明确冻结 Phase 6。恢复后也不等于跳过质量门；每个工具切片和每个安全子系统仍必须单独经历：
 
 ```text
 设计草稿
@@ -103,7 +103,8 @@ mcp.<user-domain>
 | Phase 2B | 正式关闭 | 工作区生命周期实现与替换 CI 已通过 Ubuntu/Windows Node 20/24 四矩阵 |
 | Phase 3 | 正式关闭 | runtime head `2df4a1f` 与 documentation closure head `3a04064` 均通过 Ubuntu/Windows Node 20/24 Build、Regression、完整 Smoke 与 Package |
 | Phase 4 | 正式关闭 | closure head `d19e65b` 通过 exact-head run `29603060944` 的 repository policy 与 Ubuntu/Windows Node 20/24 完整矩阵；4B0 保留 blocked 诊断，`workspace` 与 Task 4B1–4B6 延期 |
-| Phase 5–8 | 已批准；Phase 5 closure candidate | Phase 5A/5B、Gate X 对抗修复、文档对齐、Node 20/24 ordinary、Windows control、Smoke、package 与静态门已通过；单次发布和 closure SHA exact-head success 后才进入 Phase 6 |
+| Phase 5 | 正式关闭 | closure head `9aa76b92d7894a2f013b2d6478897907c4010a7e` 通过 exact-head run `29698209894`；后续 Gate X 修复经 PR #4 合并到 `main`，STEP-379/380 follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` 通过 run `29780813295` 的完整矩阵 |
+| Phase 6–8 | 条件授权保留；当前冻结 | 2026-07-14 的条件授权未撤销，但当前用户指令暂停 Phase 6；不得把历史授权解释为自动进入下一阶段 |
 | Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
 Phase 0.5 已验证的外部入口事实：公开 `https://codexgpt.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexGPT，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。

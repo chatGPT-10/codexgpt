@@ -137,7 +137,7 @@ Memory rules:
 
 The following rules are mandatory and are enforced by `npm run policy:check` plus CI contract tests:
 
-- Use `scripts/toolchain-manager.mjs` and the verified `%LOCALAPPDATA%\CodexGPT\toolchains` manifest for exact Windows Node 20/24 reproduction. Temporary runtimes are migration sources only; platform-sensitive changes require both pinned majors before publication.
+- Use `scripts/toolchain-manager.mjs` and a verified manifest for exact Windows Node 20/24 reproduction. This checkout currently uses the retained legacy `%LOCALAPPDATA%\CodexPro\toolchains` root explicitly; migration to the default `%LOCALAPPDATA%\CodexGPT\toolchains` root requires separate approval. Temporary runtimes are migration sources only; platform-sensitive changes require both pinned majors before publication.
 - `scripts/test-domains.mjs` is authoritative. Run `ordinary` through `scripts/long-task-runner.mjs`; run `control`/`all` only in CI or a proven independent native terminal. Retain bounded run evidence, prove no same-kind run is active before retrying, and stop only an exact owned run ID—never all `node.exe` processes.
 - Detached-run liveness uses exact renewable `worker-lease.json` evidence for `running` and `finalizing`. The lease is observational only, never authorizes stop or deletion, and tests must not declare failure before the bounded lease can expire.
 - Use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>` for focused tests and local tasks. They and detached tasks isolate `TEMP`/`TMP`/`TMPDIR` in marked owned roots; detached evidence defaults to 20 terminal runs and 14 days. `npm run task:cleanup` may delete only verified dead-owner `codexgpt-owned-v1-*` roots and terminal run evidence, never unmarked temporary entries or persistent worktree, candidate, recovery, credential, audit, or toolchain state.
@@ -196,6 +196,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phases 1–4 are closed. Phase 4's 4B0 stays blocked/non-production; `workspace` and Tasks 4B1–4B6 stay deferred. Preserve managed Node toolchains; use `Memory.md` for evidence and next action.
+Phases 1–5 are closed. Phase 4's 4B0 stays blocked/non-production; `workspace` and Tasks 4B1–4B6 stay deferred. Preserve verified Node toolchains; use `Memory.md` for current evidence and next action.
 
-Implementation through Phase 8 is authorized using recommended defaults, scoped staging, English commits, and one push per phase. Complete Phase 5 local closure, publish it once, and require terminal exact-head success before Phase 6. Do not bypass gates or weaken the deferred sandbox claim. Excluded: destructive data/history changes, production deployment, credential disclosure, and silent scope expansion.
+The 2026-07-14 conditional authorization through Phase 8 remains recorded, but the current user boundary freezes Phase 6. Do not begin Phase 6 until the user explicitly resumes it. When resumed, keep recommended defaults, scoped staging, English commits, one push per phase, and terminal exact-head CI. Do not bypass gates or weaken the deferred sandbox claim. Excluded: destructive data/history changes, production deployment, credential disclosure, and silent scope expansion.
