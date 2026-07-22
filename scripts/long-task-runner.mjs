@@ -676,7 +676,8 @@ async function worker() {
     });
     return leaseWrite;
   };
-  await publishWorkerLease("running");
+  // The initial lease is observational too; failure must not prevent task execution or terminal publication.
+  await publishWorkerLease("running").catch(() => {});
   const leaseTimer = setInterval(() => {
     void publishWorkerLease().catch(() => {});
   }, WORKER_LEASE_RENEW_MS);

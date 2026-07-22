@@ -15,7 +15,8 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - `D:\Dev\codexpro` has one registered worktree. Before the STEP-381 documentation reconciliation, local `main` and `origin/main` were synchronized at runtime closure head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4`; `.ai-bridge` contained only ignored local evidence.
 - STEP-382 was committed and pushed as `19bf635f32cc84eabd6eac91892e01fd3d9d515f`; exact-head run `29906441541` exposed Node 24 detached-run lease starvation on Ubuntu and Windows while Node 20 passed.
 - STEP-383 was committed and pushed as `3f2c962f8aa6754490e6b3393e5ca60a5451cc0e`. Exact-head run `29910197587` proved the synchronous lease path fixed Ubuntu Node 24, but Windows Node 20/24 still produced false stale state when transient replacement sharing conflicts exhausted a lease refresh.
-- STEP-384 adds a bounded 500 ms retry window only for `EACCES`, `EBUSY`, and `EPERM` during synchronous lease replacement. The repair is verified locally and awaits publication/exact-head CI.
+- STEP-384 was published as `c917a6bdb1c0dceddf62ba23bbf01d4bae9cfd53`. Exact-head run `29913227391` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24; Windows Node 20 exposed that the first `running` lease publication still aborted the worker after a persistent replacement conflict.
+- STEP-385 makes the initial lease observational like later refresh/finalizing writes. Deterministic regression, Node 20/24 focused suites, build, policy, 529-entry package dry-run, diff integrity, and complete local ordinary regression passed; publication and replacement exact-head CI remain pending.
 
 ## Approved execution boundary
 
@@ -30,7 +31,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - The ChatGPT Web compatibility flow uses the query token when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; public startup logs hide it by default and require an explicit local `u`/Create App action to display it. `CODEXGPT_ALLOW_QUERY_TOKEN=0` is for compatible Bearer clients, not manual ChatGPT Web Bearer configuration.
 - V1/V2/V3/V4 tool counts remain 28/31/39/51. `full_access` is ambient trusted-code authority, not isolation; `workspace` has no fallback; Gate S and Task 4B0 remain blocked diagnostics.
 - Gate X accepts only the four typed local Git operations. Old/new tree derivation and private staging remain inside one reviewed materialized integration bundle; no caller-selected command, remote, credential, force, or config mutation is allowed.
-- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry. Lease persistence is synchronous and atomic, with bounded retries only for transient Windows replacement-sharing failures, so cleanup/retention pressure cannot manufacture stale state.
+- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. Every lease publication, including the first, is observational and cannot suppress task execution or authoritative result publication. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry. Lease persistence is synchronous and atomic, with bounded retries only for transient Windows replacement-sharing failures.
 - `scripts/test-domains.mjs` is authoritative. Connector-backed local regression uses `ordinary`; destructive control/all execution requires CI or a proven independent native terminal. There is no `npm test` script.
 - Focused tests and tasks use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>`. Cleanup deletes only exact verified dead-owner temporary roots and terminal run evidence.
 - Mutation inventory is fail-closed and binds direct filesystem primitives to repository path, syscall type, and semantic call identity. Atomic production paths cannot fall back to legacy writers.
@@ -41,8 +42,6 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 ## Verification evidence
 
 - Phase 3 closure heads passed runs `29441752493` and `29443158835`; reduced Phase 4 passed `29603060944`; Phase 5 passed `29698209894`.
-- STEP-363 local ordinary regression passed 1,096 tests per managed Node major with zero failures and two established skips; cleanup removed 157 obsolete terminal runs without invalid paths or deletion failures.
-- STEP-367 local verification passed build, policy, diff integrity, the 521-entry package dry-run, 25/25 affected tests, and five consecutive immutable-snapshot reproducer runs.
 - STEP-373 through STEP-376 local verification passed runner suites 33/33 and Windows process-host control 10/10 on both managed Node majors; cleanup/process-identity passed five consecutive Node 24 runs at 20/20.
 - STEP-378 deterministic regression failed before the fix and passed afterward; affected cleanup, identity, operational, mutation, and atomic suites passed 36/36 on native Node 20 and Node 24.
 - STEP-378 complete ordinary regression passed on both Node majors: 1,104 tests, 1,102 passed, zero failed, and two established skips per major. Workspace-contained TEMP required `GIT_CEILING_DIRECTORIES` at the repository root to preserve non-repository test semantics.
@@ -50,13 +49,14 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - Main push run `29774932378` is diagnosed failure evidence: its sole failure was the Windows Node 20 test waiting exclusively for optional `finalizing` lease publication; production behavior remained covered by the adjacent forced lease-failure regression.
 - STEP-379 lifecycle verification passed 15/15 on managed Node 20 and Node 24; Node 20 also passed three earlier consecutive 15/15 stress runs, and the final exact-evidence publication rerun passed 15/15 on both majors.
 - STEP-379 initial publication gates passed: diff integrity, TypeScript build, repository policy, 529-entry package dry-run, 119-file Markdown link audit with `BROKEN_COUNT|0`, exact three-file scope, and added-line secret review.
-- Run `29778608848` bounded evidence proved the first failure was `HOST_REQUEST_TIMEOUT` in the cold ConPTY close-fatal control path. The inner worker remained bounded at 60 seconds but the outer RPC had no budget for up to 20 seconds of Job/output cleanup. The follow-up keeps the 60-second worker limit, hard-bounds termination and output drain at 10 seconds each, assigns an 85-second outer RPC budget, and rejects real worker timeout as `CONPTY_WORKER_TIMED_OUT` instead of false close-fatal success.
+- Run `29778608848` diagnosed the ConPTY failure as an outer RPC budget shorter than the bounded worker plus cleanup path; the follow-up preserved the 60-second worker limit and added bounded cleanup/RPC headroom without masking real worker timeout.
 - Follow-up local regression passed 21/21 affected manifest/protocol/package/domain tests and 15/15 lifecycle tests on each verified Node major.
 - Exact-head run `29780813295` verified head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` with status `completed`, conclusion `success`, and every non-skipped job successful; bounded failure-evidence uploads were correctly skipped in successful jobs.
 - Final synchronization confirmed a clean checkout, exact local/remote head equality, one registered worktree, and ignored-only `.ai-bridge` evidence.
 - STEP-382 TDD regressions passed 19/19 on verified Node 20.20.2 and 19/19 on Node 24.15.0; builds passed on both. Exact detached ordinary run `2026-07-22T08-29-16-832Z-step382-ubuntu-install-regression-ordinary-76566a78` passed 1,105/1,107 with zero failures and two established skips per major, with complete untruncated stdout and zero stderr. Package dry-run retained 529 files.
 - STEP-383 affected lifecycle/atomic/mutation tests passed 30/30 on each verified Node major. Exact detached ordinary run `2026-07-22T09-33-21-984Z-step383-node24-ci-repair-ordinary-55fdc886` passed 1,107/1,109 with zero failures and two established skips per major, cleaned temporary state, retained complete stdout, and produced zero stderr.
 - STEP-384 affected tests passed 31/31 on each verified Node major. Exact detached ordinary run `2026-07-22T10-21-21-141Z-step384-windows-lease-retry-ordinary-bc0425da` passed 1,108/1,110 with zero failures and two established skips per major, cleaned temporary state, retained complete stdout, and produced zero stderr.
+- STEP-385 deterministic regression failed before the fix because evidence was published but the child never started, then passed after making the first lease observational. Verified Node 20.20.2 and Node 24.15.0 each passed 32/32 affected tests. Exact detached ordinary run `2026-07-22T11-19-34-671Z-step385-initial-lease-observational-ordinary-34b24faa` passed 1,109/1,111 with zero failures and two established skips per major, exit code 0, cleaned temporary state, complete stdout, and zero stderr.
 
 ## Known limitations
 
@@ -79,6 +79,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 
 ## Recent summaries
 
+- **STEP-385 - Keep the initial lease observational:** a permanently blocked first lease write no longer aborts the worker before task execution and authoritative terminal publication.
 - **STEP-384 - Retry transient Windows lease replacement:** retain the synchronous atomic lease path and add a bounded retry window for Windows sharing violations without extending lease duration or weakening stale detection.
 - **STEP-383 - Preserve Node 24 runner leases under CI pressure:** move the small observational lease to synchronous atomic replacement so cleanup/retention filesystem congestion cannot create false stale runs.
 - **STEP-382 - Ubuntu install hardening:** execute the public CLI through npm symlinks, keep managed Cloudflared immutable during tunnel runs, hide public credential URLs from automatic logs, and preserve explicit local reveal/copy actions.
@@ -86,11 +87,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - **STEP-380 - Publication and deadline follow-up:** publish the STEP-379 oracle correction, diagnose the Windows Node 24 ConPTY deadline race without blind rerun, and close replacement head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` with successful run `29780813295`.
 - **STEP-379 - Align finalization test oracle:** accept either an exact optional `finalizing` lease or the authoritative result that supersedes it, while retaining stale and nonzero-exit failures.
 - **STEP-378 - Preserve terminal publication after lease-refresh failure:** keep lifecycle lease writes observational, add a deterministic pre-fix failure regression, and replace a fixed path-replacement cleanup delay with exact worker-exit observation.
-- **STEP-377 - Neat-freak reconciliation:** compress the project-memory index below its practical size target, record exact PR/CI state, add the lifecycle-lease invariant to project rules, and remove relative-time wording from active specifications.
-- **STEP-376 - Remove fixed terminal override:** route the final lifecycle integration call through the common lease-bound observation helper.
-- **STEP-375 - Lease-bound test observation:** use lease expiry, not a shorter arbitrary deadline, as the test oracle for a lost detached worker.
-- **STEP-374 - Deterministic private-stdin command-line proof:** query the current PowerShell command line in-process instead of through timing-sensitive CIM.
-- **STEP-373 - Renewable worker lifecycle lease:** persist exact non-authorizing running/finalizing state so temporary OS-process observation gaps cannot create false stale runs.
+- **STEP-373–377 - Lifecycle lease hardening:** add renewable non-authorizing leases, lease-bound observation, deterministic process identity proof, and aligned project records.
 - **STEP-367 - Gate X private tree derivation:** compute both old and new approved stage trees inside one private immutable integration bundle and reject ordinary post-review `write-tree`.
 
 ## Archives
@@ -99,7 +96,8 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
 - [Closed interphase maintenance Part 2 — STEP-363 through STEP-367](docs/memory/archive/interphase-maintenance-part-2.md)
 - [Closed interphase maintenance Part 3 — STEP-368 through STEP-375](docs/memory/archive/interphase-maintenance-part-3.md)
-- [Active interphase maintenance Part 4 — STEP-376 onward](docs/memory/archive/interphase-maintenance-part-4.md)
+- [Closed interphase maintenance Part 4 — STEP-376 through STEP-384](docs/memory/archive/interphase-maintenance-part-4.md)
+- [Active interphase maintenance Part 5 — STEP-385 onward](docs/memory/archive/interphase-maintenance-part-5.md)
 - [Phase 1 Volume 1 — STEP-073 through STEP-139](docs/memory/archive/phase-1.md)
 - [Closed Phase 1 Volume 2 — STEP-140 through STEP-151](docs/memory/archive/phase-1-part-2.md)
 - [Closed Phase 1 Volume 3 — STEP-152 through STEP-165](docs/memory/archive/phase-1-part-3.md)

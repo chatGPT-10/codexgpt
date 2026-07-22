@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile, spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -167,6 +168,101 @@ test("terminal result publication survives a failed observational lease refresh"
     );
     assert.equal(result.exitCode, 0);
   } finally {
+    await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("initial observational lease failure does not suppress task execution or terminal result", async () => {
+  const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-initial-lease-failure-runs-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-initial-lease-failure-temp-"));
+  const runId = "initial-lease-failure";
+  const directory = path.join(runRoot, runId);
+  const releasePath = path.join(runRoot, "release-child");
+  const childStartedPath = path.join(runRoot, "child-started");
+  let workerProcess;
+  let workerExit;
+  try {
+    await fs.mkdir(directory);
+    const stat = await fs.stat(directory, { bigint: true });
+    const source = [
+      "const fs = require('node:fs');",
+      `const started = ${JSON.stringify(childStartedPath)};`,
+      `const release = ${JSON.stringify(releasePath)};`,
+      "fs.writeFileSync(started, 'started\\n');",
+      "const timeout = setTimeout(() => process.exit(98), 5000);",
+      "const timer = setInterval(() => {",
+      "  if (!fs.existsSync(release)) return;",
+      "  clearInterval(timer);",
+      "  clearTimeout(timeout);",
+      "  process.exitCode = 7;",
+      "}, 25);"
+    ].join("");
+    const command = {
+      schemaVersion: 2,
+      runId,
+      kind: "initial-lease-failure",
+      cwd: repositoryRoot,
+      argv: [process.execPath, "-e", source],
+      workerNonce: "a".repeat(64),
+      commandDigest: "",
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) },
+      tempRoot,
+      logLimitBytes: 4096,
+      retentionCount: 20,
+      retentionDays: 14
+    };
+    command.commandDigest = createHash("sha256").update(JSON.stringify({
+      cwd: command.cwd,
+      argv: command.argv,
+      tempRoot: command.tempRoot,
+      logLimitBytes: command.logLimitBytes,
+      retentionCount: command.retentionCount,
+      retentionDays: command.retentionDays
+    })).digest("hex");
+    await fs.writeFile(path.join(directory, "command.json"), `${JSON.stringify(command, null, 2)}\n`, "utf8");
+    await fs.mkdir(path.join(directory, "worker-lease.json"));
+
+    workerProcess = spawn(process.execPath, [longRunner, "__worker", "--run-dir", directory], {
+      cwd: repositoryRoot,
+      stdio: ["ignore", "ignore", "pipe"],
+      windowsHide: true
+    });
+    let workerStderr = "";
+    workerProcess.stderr.setEncoding("utf8");
+    workerProcess.stderr.on("data", (chunk) => {
+      workerStderr += chunk;
+    });
+    workerExit = new Promise((resolve, reject) => {
+      workerProcess.once("error", reject);
+      workerProcess.once("close", (code, signal) => resolve({ code, signal }));
+    });
+
+    await waitForPath(path.join(directory, "worker-evidence.json"), 5_000);
+    await waitForPath(childStartedPath, 3_000);
+    assert.equal(workerProcess.exitCode, null, `Worker exited before task release: ${workerStderr}`);
+
+    await fs.writeFile(releasePath, "go\n", "utf8");
+    const exited = await workerExit;
+    assert.deepEqual(exited, { code: 7, signal: null }, workerStderr);
+
+    const result = JSON.parse(await fs.readFile(path.join(directory, "result.json"), "utf8"));
+    assert.equal(result.runId, runId);
+    assert.equal(result.exitCode, 7);
+    assert.equal(result.signal, null);
+    assert.equal(result.error, null);
+    assert.equal(result.temporaryState.cleaned, true);
+    assert.equal(await fs.readFile(childStartedPath, "utf8"), "started\n");
+    assert.equal((await fs.stat(path.join(directory, "worker-lease.json"))).isDirectory(), true);
+  } finally {
+    if (workerProcess?.exitCode === null) {
+      await fs.writeFile(releasePath, "go\n", "utf8").catch(() => {});
+      await Promise.race([
+        workerExit?.catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, 6_000))
+      ]);
+      if (workerProcess.exitCode === null) workerProcess.kill("SIGKILL");
+    }
     await fs.rm(runRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     await fs.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
