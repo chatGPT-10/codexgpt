@@ -7,10 +7,22 @@ function sameIdentity(left, right) {
   return left.dev === right.dev && left.ino === right.ino;
 }
 
-const SYNC_RENAME_RETRY_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
-const SYNC_RENAME_RETRIES = 20;
-const SYNC_RENAME_RETRY_DELAY_MS = 25;
+const RENAME_RETRY_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
+const RENAME_RETRIES = 20;
+const RENAME_RETRY_DELAY_MS = 25;
 const syncWaitBuffer = new Int32Array(new SharedArrayBuffer(4));
+
+async function renameAtomic(source, target, rename) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await rename(source, target);
+      return;
+    } catch (error) {
+      if (!RENAME_RETRY_CODES.has(error?.code) || attempt >= RENAME_RETRIES) throw error;
+      await new Promise((resolve) => setTimeout(resolve, RENAME_RETRY_DELAY_MS));
+    }
+  }
+}
 
 function renameAtomicSync(source, target, rename) {
   for (let attempt = 0; ; attempt += 1) {
@@ -18,8 +30,8 @@ function renameAtomicSync(source, target, rename) {
       rename(source, target);
       return;
     } catch (error) {
-      if (!SYNC_RENAME_RETRY_CODES.has(error?.code) || attempt >= SYNC_RENAME_RETRIES) throw error;
-      Atomics.wait(syncWaitBuffer, 0, 0, SYNC_RENAME_RETRY_DELAY_MS);
+      if (!RENAME_RETRY_CODES.has(error?.code) || attempt >= RENAME_RETRIES) throw error;
+      Atomics.wait(syncWaitBuffer, 0, 0, RENAME_RETRY_DELAY_MS);
     }
   }
 }
@@ -88,7 +100,7 @@ export async function writeJsonAtomicFile(targetPath, value, options = {}) {
     await handle.sync();
     await handle.close();
     handle = undefined;
-    await rename(temporary, target);
+    await renameAtomic(temporary, target, rename);
   } catch (error) {
     errors.push(error);
   }

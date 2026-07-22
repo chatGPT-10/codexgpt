@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Retried asynchronous atomic JSON replacement for bounded transient Windows sharing conflicts, preventing authoritative detached-run result publication from silently failing and later appearing stale under CI pressure.
 - Kept the initial detached-run worker lease observational so a permanently blocked first lease write cannot abort task execution, cleanup, retention, or authoritative result publication; added deterministic coverage that preserves the task's real exit code.
 - Kept detached-run worker leases renewable under Node 24 CI filesystem pressure by publishing the small observational lease through a synchronous atomic replacement with bounded retries for transient Windows sharing violations, while preserving asynchronous result publication, temporary-state cleanup, retention, and exact mutation inventory review.
 - Fixed Linux global CLI launches through npm-created symlinks, disabled in-place Cloudflared self-updates for managed tunnel processes, and stopped public startup logs from automatically echoing credential-bearing Server URLs when clipboard integration is unavailable.

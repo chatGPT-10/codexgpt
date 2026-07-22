@@ -32,6 +32,31 @@ test("an atomic JSON rename failure removes its exact adjacent temporary file", 
   }
 });
 
+test("asynchronous atomic JSON replacement retries transient sharing failures", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-atomic-file-async-"));
+  try {
+    const target = path.join(directory, "state.json");
+    await fs.writeFile(target, "{\"old\":true}\n", "utf8");
+    let attempts = 0;
+    await writeJsonAtomicFile(target, { next: true }, {
+      rename: async (source, destination) => {
+        attempts += 1;
+        if (attempts < 3) {
+          const error = new Error("injected sharing violation");
+          error.code = "EPERM";
+          throw error;
+        }
+        await fs.rename(source, destination);
+      }
+    });
+    assert.equal(attempts, 3);
+    assert.deepEqual(JSON.parse(await fs.readFile(target, "utf8")), { next: true });
+    assert.deepEqual(await fs.readdir(directory), ["state.json"]);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("synchronous atomic JSON writes replace the target without leaving adjacent temporary files", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-atomic-file-sync-"));
   try {

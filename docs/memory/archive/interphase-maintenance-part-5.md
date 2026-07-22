@@ -108,3 +108,62 @@ This append-only volume continues interphase maintenance after the closed Part 4
 **Rollback:** Revert STEP-387 to restore the scheduler-dependent detached-run setup before prune-claim recovery. Production runtime behavior is unaffected either way.
 
 **Next step:** Commit and push only the lifecycle test and this archive entry, bind the replacement 40-character HEAD to a fresh full Ubuntu/Windows Node 20/24 CI run, and require every non-skipped job to succeed before Gate G6-0 can pass.
+
+## 2026-07-22 — STEP-388: Retry transient asynchronous atomic replacements
+
+**Status:** Implementation and complete local verification finished; commit, push, and replacement exact-head CI remain pending. Phase 6 runtime remains blocked on a green current-base Gate G6-0.
+
+**Goal:** Prevent transient Windows replacement-sharing conflicts during asynchronous atomic JSON publication from terminating a detached worker before authoritative `result.json` becomes durable.
+
+**Files changed:**
+
+- `CHANGELOG.md`
+- `docs/memory/archive/interphase-maintenance-part-5.md`
+- `scripts/atomic-file.mjs`
+- `test/atomic-file.test.mjs`
+
+**Failure evidence:**
+
+- STEP-387 was published as `53adffc5b8c78704abece8da0bb888a35beab4ab`.
+- Exact-head run `29920749402` passed Repository policy and complete Ubuntu Node 20/24 jobs. Windows Node 20 failed `worker evidence mismatch makes a live PID stale and never blocks a same-kind retry` after approximately 93.57 seconds and `terminal detached-run evidence is automatically pruned to the configured retention count` after approximately 67.59 seconds.
+- Both failures started real detached workers successfully, then observed no authoritative terminal record before the authentic lease expired. The claim-recovery fixture introduced by STEP-387 passed on Windows Node 20 in approximately 91 ms.
+- The shared unprotected boundary was asynchronous atomic JSON replacement: unlike synchronous lease replacement, `writeJsonAtomicFile` attempted one rename only. A transient `EPERM`, `EACCES`, or `EBUSY` while replacing `result.json` could therefore reject the worker's top-level async path; detached stderr is intentionally ignored, so observers later saw only stale state.
+
+**Implementation:**
+
+- Added one bounded asynchronous rename helper and reused the existing fixed retry policy: `EPERM`, `EACCES`, and `EBUSY`; 20 retries; 25 ms delay.
+- Synchronous and asynchronous atomic replacements now share the same retry code set, retry count, and delay constants.
+- Non-retryable errors still fail immediately. Exhausted transient failures still fail closed, and the exact adjacent temporary file is still identity-checked and removed.
+- No lease duration, stale classification, process identity, terminal ordering, cleanup authority, test skip, platform branch, or CI-only path changed.
+
+**Deterministic regression:**
+
+- Added an async atomic replacement test whose injected rename returns `EPERM` twice and succeeds on the third attempt.
+- Before the production change, the test rejected on the first `EPERM`. After the change, it proves three attempts, exact final JSON bytes, and no adjacent temporary residue.
+- Existing permanent async rename-failure coverage still proves bounded exhaustion preserves the old target and removes the exact temporary file.
+
+**Verification:**
+
+- Verified Node `v20.20.2` and Node `v24.15.0` each passed 28/28 atomic-file, process-identity, and cleanup-lifecycle tests.
+- Both managed Node majors passed the five-test mutation architecture inventory.
+- The two Windows Node 20 CI failures passed five consecutive focused stress runs after the repair.
+- Exact detached ordinary run `2026-07-22T13-08-28-930Z-step388-async-atomic-retry-b2665083` completed with exit code 0, cleaned temporary state, zero retention failures, complete untruncated stdout, and zero stderr.
+- Node 20 and Node 24 each passed 1,110 of 1,112 ordinary tests with zero failures and two established skips.
+- TypeScript build passed on both managed Node majors, repository policy passed, the package dry-run retained 529 files, and scoped `git diff --check` passed.
+
+**Adversarial review:**
+
+- The retry does not convert failure into success: only the same atomic rename is repeated, and the new target is accepted only when rename completes.
+- The retry budget is fixed at at most 21 total attempts and approximately 500 ms of delay, so permanent sharing conflicts remain bounded and fail closed.
+- The temporary file remains the same identity-verified object across retries; no new file, fallback copy, direct overwrite, or target clobber path is introduced.
+- Applying the same bounded policy to all async atomic JSON publications also protects `worker-evidence.json`, `child.json`, `metadata.json`, and `stopped.json` without adding separate per-file mechanisms.
+- No multi-agent provider was available in the workspace; the completed diff received a manual adversarial review against retry exhaustion, non-retryable errors, temporary identity drift, cleanup behavior, terminal authority, and scope isolation.
+
+**Risks and limitations:**
+
+- The CI artifact cannot expose the detached worker's discarded stderr, so the exact failing rename is inferred from the common terminal boundary and deterministic injected reproduction rather than directly logged from the failed hosted worker.
+- A conflict lasting beyond the fixed retry budget still prevents publication and eventually produces stale state; extending the budget further would require new evidence.
+
+**Rollback:** Revert STEP-388. This restores single-attempt asynchronous rename behavior while leaving the STEP-387 fixture isolation unchanged.
+
+**Next step:** Commit and push only the four STEP-388 files, bind the new exact 40-character HEAD to a fresh full Ubuntu/Windows Node 20/24 CI run, and require every non-skipped job to succeed before Gate G6-0 can pass.
