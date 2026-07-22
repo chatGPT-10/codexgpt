@@ -7,6 +7,23 @@ function sameIdentity(left, right) {
   return left.dev === right.dev && left.ino === right.ino;
 }
 
+const SYNC_RENAME_RETRY_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
+const SYNC_RENAME_RETRIES = 20;
+const SYNC_RENAME_RETRY_DELAY_MS = 25;
+const syncWaitBuffer = new Int32Array(new SharedArrayBuffer(4));
+
+function renameAtomicSync(source, target, rename) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      rename(source, target);
+      return;
+    } catch (error) {
+      if (!SYNC_RENAME_RETRY_CODES.has(error?.code) || attempt >= SYNC_RENAME_RETRIES) throw error;
+      Atomics.wait(syncWaitBuffer, 0, 0, SYNC_RENAME_RETRY_DELAY_MS);
+    }
+  }
+}
+
 export function writeJsonAtomicFileSync(targetPath, value, options = {}) {
   const target = path.resolve(targetPath);
   const temporary = `${target}.${process.pid}.${randomBytes(12).toString("hex")}.tmp`;
@@ -21,7 +38,7 @@ export function writeJsonAtomicFileSync(targetPath, value, options = {}) {
     fs.fsyncSync(descriptor);
     fs.closeSync(descriptor);
     descriptor = undefined;
-    rename(temporary, target);
+    renameAtomicSync(temporary, target, rename);
   } catch (error) {
     errors.push(error);
   }

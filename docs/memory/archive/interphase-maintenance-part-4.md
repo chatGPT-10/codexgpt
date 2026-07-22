@@ -437,3 +437,58 @@ This append-only volume continues interphase maintenance after the closed Part 3
 **Rollback:** Revert STEP-383. This restores asynchronous lease publication and the Node 24 CI false-stale race under filesystem pressure.
 
 **Next step:** Commit and push the repair under the user's explicit instruction, bind the new exact HEAD to CI, diagnose any first remaining failure, and require every non-skipped matrix job to pass before closure.
+
+## 2026-07-22 — STEP-384: Retry transient Windows worker-lease replacement conflicts
+
+**Status:** Implementation and local verification completed; publication and replacement exact-head CI remain pending. Phase 6 remains frozen.
+
+**Goal:** Remove the remaining Windows false-stale failures from exact-head run `29910197587` without extending lease duration, weakening stale detection, retrying arbitrary errors, or changing terminal result ordering.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance-part-4.md`
+- `scripts/atomic-file.mjs`
+- `test/atomic-file.test.mjs`
+
+**Diagnosis:**
+
+- STEP-383 head `3f2c962f8aa6754490e6b3393e5ca60a5451cc0e` triggered exact-head run `29910197587`.
+- Repository policy and both Ubuntu Node 20/24 jobs passed completely, proving the synchronous lease path removed the shared asynchronous filesystem-queue starvation.
+- Windows Node 24 still classified a short retention run as stale after approximately 66 seconds. Windows Node 20 similarly classified the short run used by prune-claim recovery as stale.
+- Both failures occurred at one lease-expiry boundary and only on Windows. The remaining platform-specific mechanism was atomic rename replacement of `worker-lease.json`, which can transiently return `EACCES`, `EBUSY`, or `EPERM` while another process, security scanner, or status reader holds a conflicting file handle.
+- The observational lease publisher intentionally swallowed write failure so result publication could continue. A sequence of transient rename failures could therefore leave an old lease until it expired, even though the worker remained alive and continued cleanup or retention.
+
+**Implementation:**
+
+- Added an exact synchronous rename helper that retries only `EACCES`, `EBUSY`, and `EPERM`.
+- The retry budget is fixed at 20 retries with 25 ms waits, for a maximum additional replacement window of approximately 500 ms.
+- Non-transient errors such as `EXDEV` fail immediately and preserve the existing exact temporary cleanup behavior.
+- The lease duration remains 60 seconds and renewal remains every 15 seconds. No retry affects worker identity, stale classification, stop authority, result publication, cleanup, or retention.
+- Added a deterministic regression where two injected `EPERM` replacements fail and the third succeeds, plus retained a permanent non-retryable rename-failure cleanup regression using `EXDEV`.
+
+**Verification:**
+
+- Current-runtime affected suite passed 31/31.
+- Verified Node `v20.20.2` and Node `v24.15.0` each passed 31/31 atomic-file, lifecycle, process-identity, and mutation-inventory tests.
+- Exact detached ordinary run `2026-07-22T10-21-21-141Z-step384-windows-lease-retry-ordinary-bc0425da` completed with exit code 0, cleaned its temporary state, retained complete untruncated stdout, and produced zero stderr.
+- Node 20 passed 1,108 of 1,110 tests with zero failures and two established skips; Node 24 produced the same counts.
+
+**Adversarial review:**
+
+- The retry set is closed and matches transient Windows replacement-sharing failures only. It does not retry malformed paths, cross-volume replacement, identity changes, or unknown errors.
+- The retry window is much smaller than the 15-second renewal interval and does not extend the 60-second lease.
+- The dedicated worker may block for at most the bounded retry window; no general application or workspace mutation uses this path.
+- Terminal success remains after owned-TEMP cleanup, log persistence, and retention. The change cannot create early `completed` state.
+- No CI-only branch, Node-version branch, test skip, timeout relaxation, lease extension, or evidence-matching change was introduced.
+
+**Risks and limitations:**
+
+- A persistent sharing conflict longer than the bounded window still causes that lease refresh to fail. Subsequent 15-second renewals can retry; persistent inability to replace the file remains visible as stale rather than being hidden indefinitely.
+- Complete Ubuntu/Windows Node 20/24 Regression, Smoke, and Package jobs remain the publication authority.
+
+**Rollback:** Revert STEP-384. This restores immediate failure on transient Windows atomic-rename sharing conflicts and the false-stale CI race.
+
+**Next step:** Commit and push STEP-384 under the user's explicit instruction, bind the new exact HEAD to CI, and continue diagnosis until every non-skipped matrix job succeeds.

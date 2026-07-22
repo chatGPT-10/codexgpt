@@ -14,7 +14,8 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` preserves the 60-second worker deadline, hard-bounds shutdown/drain cleanup, and passed exact-head CI run `29780813295` across Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package.
 - `D:\Dev\codexpro` has one registered worktree. Before the STEP-381 documentation reconciliation, local `main` and `origin/main` were synchronized at runtime closure head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4`; `.ai-bridge` contained only ignored local evidence.
 - STEP-382 was committed and pushed as `19bf635f32cc84eabd6eac91892e01fd3d9d515f`; exact-head run `29906441541` exposed Node 24 detached-run lease starvation on Ubuntu and Windows while Node 20 passed.
-- STEP-383 locally repairs that CI-only lifecycle race by publishing the small observational worker lease through synchronous atomic replacement, independent of asynchronous cleanup/retention queue pressure. The repair is verified locally and awaits publication/exact-head CI.
+- STEP-383 was committed and pushed as `3f2c962f8aa6754490e6b3393e5ca60a5451cc0e`. Exact-head run `29910197587` proved the synchronous lease path fixed Ubuntu Node 24, but Windows Node 20/24 still produced false stale state when transient replacement sharing conflicts exhausted a lease refresh.
+- STEP-384 adds a bounded 500 ms retry window only for `EACCES`, `EBUSY`, and `EPERM` during synchronous lease replacement. The repair is verified locally and awaits publication/exact-head CI.
 
 ## Approved execution boundary
 
@@ -29,7 +30,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - The ChatGPT Web compatibility flow uses the query token when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; public startup logs hide it by default and require an explicit local `u`/Create App action to display it. `CODEXGPT_ALLOW_QUERY_TOKEN=0` is for compatible Bearer clients, not manual ChatGPT Web Bearer configuration.
 - V1/V2/V3/V4 tool counts remain 28/31/39/51. `full_access` is ambient trusted-code authority, not isolation; `workspace` has no fallback; Gate S and Task 4B0 remain blocked diagnostics.
 - Gate X accepts only the four typed local Git operations. Old/new tree derivation and private staging remain inside one reviewed materialized integration bundle; no caller-selected command, remote, credential, force, or config mutation is allowed.
-- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry. Lease persistence is synchronous and atomic so asynchronous cleanup/retention queue pressure cannot manufacture stale state.
+- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry. Lease persistence is synchronous and atomic, with bounded retries only for transient Windows replacement-sharing failures, so cleanup/retention pressure cannot manufacture stale state.
 - `scripts/test-domains.mjs` is authoritative. Connector-backed local regression uses `ordinary`; destructive control/all execution requires CI or a proven independent native terminal. There is no `npm test` script.
 - Focused tests and tasks use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>`. Cleanup deletes only exact verified dead-owner temporary roots and terminal run evidence.
 - Mutation inventory is fail-closed and binds direct filesystem primitives to repository path, syscall type, and semantic call identity. Atomic production paths cannot fall back to legacy writers.
@@ -55,6 +56,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - Final synchronization confirmed a clean checkout, exact local/remote head equality, one registered worktree, and ignored-only `.ai-bridge` evidence.
 - STEP-382 TDD regressions passed 19/19 on verified Node 20.20.2 and 19/19 on Node 24.15.0; builds passed on both. Exact detached ordinary run `2026-07-22T08-29-16-832Z-step382-ubuntu-install-regression-ordinary-76566a78` passed 1,105/1,107 with zero failures and two established skips per major, with complete untruncated stdout and zero stderr. Package dry-run retained 529 files.
 - STEP-383 affected lifecycle/atomic/mutation tests passed 30/30 on each verified Node major. Exact detached ordinary run `2026-07-22T09-33-21-984Z-step383-node24-ci-repair-ordinary-55fdc886` passed 1,107/1,109 with zero failures and two established skips per major, cleaned temporary state, retained complete stdout, and produced zero stderr.
+- STEP-384 affected tests passed 31/31 on each verified Node major. Exact detached ordinary run `2026-07-22T10-21-21-141Z-step384-windows-lease-retry-ordinary-bc0425da` passed 1,108/1,110 with zero failures and two established skips per major, cleaned temporary state, retained complete stdout, and produced zero stderr.
 
 ## Known limitations
 
@@ -77,6 +79,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 
 ## Recent summaries
 
+- **STEP-384 - Retry transient Windows lease replacement:** retain the synchronous atomic lease path and add a bounded retry window for Windows sharing violations without extending lease duration or weakening stale detection.
 - **STEP-383 - Preserve Node 24 runner leases under CI pressure:** move the small observational lease to synchronous atomic replacement so cleanup/retention filesystem congestion cannot create false stale runs.
 - **STEP-382 - Ubuntu install hardening:** execute the public CLI through npm symlinks, keep managed Cloudflared immutable during tunnel runs, hide public credential URLs from automatic logs, and preserve explicit local reveal/copy actions.
 - **STEP-381 - Neat-freak closure reconciliation:** record successful follow-up head/run, remove completed release work from open items, align the master plan and project rules with closed Phase 5 and frozen Phase 6, and preserve the clean single-worktree boundary.

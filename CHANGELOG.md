@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Kept detached-run worker leases renewable under Node 24 CI filesystem pressure by publishing the small observational lease through a synchronous atomic replacement, while preserving asynchronous result publication, temporary-state cleanup, retention, and exact mutation inventory review.
+- Kept detached-run worker leases renewable under Node 24 CI filesystem pressure by publishing the small observational lease through a synchronous atomic replacement with bounded retries for transient Windows sharing violations, while preserving asynchronous result publication, temporary-state cleanup, retention, and exact mutation inventory review.
 - Fixed Linux global CLI launches through npm-created symlinks, disabled in-place Cloudflared self-updates for managed tunnel processes, and stopped public startup logs from automatically echoing credential-bearing Server URLs when clipboard integration is unavailable.
 - **Breaking:** Renamed every canonical package, CLI, environment-variable, local-state, MCP-tool, source-path, test, and active-documentation surface to CodexGPT. Existing installations must adopt the new package, commands, variables, and state paths.
 
