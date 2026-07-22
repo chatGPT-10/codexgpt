@@ -93,8 +93,11 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     purpose: "Atomic JSON replacement for exact CodexGPT-owned runner evidence and managed toolchain manifests outside authorized workspaces.",
     occurrences: Object.freeze([
       "open:e54c87ef386f",
+      "openSync:670d040735ed",
       "writeFile:07f0c29a7b9b",
-      "unlink:fb0ff75e2d15"
+      "writeFileSync:9ccf524371ed",
+      "unlink:fb0ff75e2d15",
+      "unlinkSync:df049ccb6d88"
     ])
   }),
   "scripts/ci-change-classifier.mjs": Object.freeze({

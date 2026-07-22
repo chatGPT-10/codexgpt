@@ -5,7 +5,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { writeJsonAtomicFile } from "./atomic-file.mjs";
+import { writeJsonAtomicFile, writeJsonAtomicFileSync } from "./atomic-file.mjs";
 import { createOwnedTempEnvironment, sweepStaleOwnedTempRoots } from "./owned-temp-root.mjs";
 import { processCreationTime, processIsAlive } from "./process-identity.mjs";
 
@@ -667,7 +667,7 @@ async function worker() {
     leasePhase = phase;
     leaseWrite = leaseWrite.catch(() => {}).then(async () => {
       const publishedAtMs = Date.now();
-      await writeJsonAtomic(directory, "worker-lease.json", {
+      writeJsonAtomicFileSync(path.join(directory, "worker-lease.json"), {
         ...evidence,
         phase: leasePhase,
         publishedAt: new Date(publishedAtMs).toISOString(),

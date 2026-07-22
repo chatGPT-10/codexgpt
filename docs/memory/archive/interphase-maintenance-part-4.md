@@ -380,3 +380,60 @@ This append-only volume continues interphase maintenance after the closed Part 3
 **Rollback:** Revert the STEP-382 source, test, documentation, and memory changes. This restores the Linux symlink launch failure, permits Cloudflared self-update, and resumes automatic credential-URL output when clipboard integration is unavailable.
 
 **Next step:** Review the final diff, commit only after user approval, push only after separate approval, and require the complete exact-head Ubuntu/Windows Node 20/24 CI matrix before treating the runtime change as published.
+
+## 2026-07-22 — STEP-383: Preserve detached-run leases under Node 24 CI filesystem pressure
+
+**Status:** Implementation and local verification completed; publication and replacement exact-head CI remain pending. Phase 6 remains frozen.
+
+**Goal:** Repair the Node 24-only CI failures from exact-head run `29906441541` without extending lease duration, weakening stale detection, skipping lifecycle assertions, or publishing terminal success before temporary-state cleanup and retention complete.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance-part-4.md`
+- `scripts/atomic-file.mjs`
+- `scripts/long-task-runner.mjs`
+- `test/atomic-file.test.mjs`
+- `test/mutation-architecture.test.mjs`
+
+**Diagnosis:**
+
+- STEP-382 head `19bf635f32cc84eabd6eac91892e01fd3d9d515f` triggered exact-head run `29906441541`. Ubuntu and Windows Node 24 Regression failed in detached-run lifecycle tests while the corresponding Node 20 jobs passed.
+- Ubuntu Node 24 reported three correlated failures: evidence-mismatch completion never became terminal, finalization produced neither an exact lease nor result within the bounded observation window, and a short terminal run became stale before retention verification. Windows Node 24 reported the same evidence-mismatch timeout.
+- The worker published `result.json` only after owned-TEMP cleanup, bounded log persistence, and retention. The renewable lease used the same asynchronous filesystem queue. Under full Node 24 CI pressure, cleanup/retention and lease writes could queue together long enough for the last lease to expire, manufacturing `stale` even though the worker remained alive and was still finalizing.
+- Isolated Node 24 lifecycle tests passed, confirming a full-suite resource-pressure race rather than a deterministic functional failure in Cloudflare or Ubuntu CLI behavior.
+
+**Implementation:**
+
+- Added `writeJsonAtomicFileSync()` beside the existing asynchronous atomic helper. It retains exclusive adjacent temporary creation, exact temporary identity, durable file sync, atomic rename, bounded cleanup, and aggregate error behavior.
+- Routed only `worker-lease.json` publication through the synchronous atomic helper. Result, command, metadata, logs, cleanup, and retention remain on their existing paths.
+- Preserved the 60-second lease duration and 15-second renewal interval. The lease remains observational and non-authorizing; stop/delete authority still requires exact live process identity.
+- Registered the three new direct mutation calls by exact semantic digest in the fail-closed mutation inventory; no directory, filename-pattern, or scanner exemption was added.
+- Added synchronous atomic replacement and rename-failure cleanup regressions.
+
+**Verification:**
+
+- The first affected run passed 29 tests and failed only the expected mutation inventory gate, which listed the exact new `openSync`, `writeFileSync`, and `unlinkSync` calls. After exact digest review, the affected suite passed.
+- Verified Node `v20.20.2` and Node `v24.15.0` each passed 30/30 atomic-file, lifecycle, process-identity, and mutation-inventory tests.
+- TypeScript build, repository policy, `git diff --check`, and the 529-entry package dry-run passed.
+- Exact detached ordinary run `2026-07-22T09-33-21-984Z-step383-node24-ci-repair-ordinary-55fdc886` completed with exit code 0, cleaned its temporary state, retained complete untruncated stdout, and produced zero stderr.
+- Node 20 passed 1,107 of 1,109 tests with zero failures and two established skips; Node 24 produced the same counts.
+
+**Adversarial review:**
+
+- Terminal success is not published early. Temporary-state cleanup, bounded log writes, and retention still precede `result.json`.
+- The synchronous operation is a small bounded JSON lease replacement in a dedicated worker process, not a synchronous conversion of general runner state or workspace mutation.
+- Atomic temp identity and no-clobber creation remain enforced; rename failure removes only the exact adjacent temporary object.
+- Lease renewal remains unable to authorize stop, deletion, cleanup, or success. A crashed worker still becomes stale after expiry.
+- No timeout extension, test skip, retry loop, CI-only branch, Node-version special case, or weakening of evidence matching was introduced.
+
+**Risks and limitations:**
+
+- Synchronous lease persistence briefly blocks the dedicated detached worker event loop, but the payload is small and bounded; it avoids dependence on a congested libuv filesystem queue.
+- Complete control-domain, Smoke, Package, and cross-platform exact-head validation remain CI authority; connector-backed local execution ran only the ordinary domain.
+
+**Rollback:** Revert STEP-383. This restores asynchronous lease publication and the Node 24 CI false-stale race under filesystem pressure.
+
+**Next step:** Commit and push the repair under the user's explicit instruction, bind the new exact HEAD to CI, diagnose any first remaining failure, and require every non-skipped matrix job to pass before closure.
