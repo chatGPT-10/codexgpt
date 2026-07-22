@@ -201,6 +201,7 @@ The HMAC chain detects accidental damage and untrusted modification that does no
 - Public tunnel mode and non-loopback binds fail closed if `CODEXGPT_HTTP_TOKEN` is missing.
 - The supported public `codexgpt` entry uses the personal query-token compatibility flow for ChatGPT Web when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset.
 - The copied Server URL contains `codexgpt_token`; select `Authentication: None / No Authentication` in ChatGPT for this personal compatibility flow.
+- Public startup logs keep the credential-bearing Server URL hidden by default. Display it only through an explicit local action such as pressing `u` or printing the Create App fields.
 - Treat that URL as a password-equivalent secret. It can leak through browser history, clipboard contents, screenshots, logs, and copied links.
 - Set `CODEXGPT_ALLOW_QUERY_TOKEN=0` only for compatible clients that can send an `Authorization: Bearer` header. Server-side Bearer support remains available for compatible clients, but ChatGPT Web manual static-Bearer setup is not claimed or documented.
 - Direct unsupported server launches still keep query authentication disabled unless `CODEXGPT_ALLOW_QUERY_TOKEN=1` is explicit.

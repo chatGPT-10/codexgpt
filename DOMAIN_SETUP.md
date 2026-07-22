@@ -126,11 +126,13 @@ CodexGPT binds the origin to loopback by default. Do not pass `--host 0.0.0.0` f
 
 ### 6. Add the connection to ChatGPT
 
-CodexGPT prints and copies a complete URL similar to:
+CodexGPT attempts to copy a complete URL similar to the following, but keeps the credential-bearing URL out of startup logs by default:
 
 ```text
 https://mcp.example.com/mcp?codexgpt_token=...
 ```
+
+If clipboard integration is unavailable, press `u` in the CodexGPT terminal to display the secret URL explicitly.
 
 In ChatGPT Developer Mode, create the Plugin/App connection with:
 

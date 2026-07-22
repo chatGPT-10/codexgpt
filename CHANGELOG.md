@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed Linux global CLI launches through npm-created symlinks, disabled in-place Cloudflared self-updates for managed tunnel processes, and stopped public startup logs from automatically echoing credential-bearing Server URLs when clipboard integration is unavailable.
 - **Breaking:** Renamed every canonical package, CLI, environment-variable, local-state, MCP-tool, source-path, test, and active-documentation surface to CodexGPT. Existing installations must adopt the new package, commands, variables, and state paths.
 
 - Added cleanup-backed focused-test and local-task launchers, exact owned `TEMP`/`TMP`/`TMPDIR` isolation with stale-owner recovery, and bounded detached-run evidence retention. Cleanup removes only marker/identity-verified dead-owner roots and verified terminal evidence, and fails closed on malformed or incomplete state.

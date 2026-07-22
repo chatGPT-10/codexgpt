@@ -30,6 +30,14 @@ if (active) {
           '  2. Use the token-free Server URL above in a compatible MCP client and configure Authorization: Bearer with the token shown below.'
         )
         .replace(
+          '  2. Paste the copied Server URL and choose Authentication: No Authentication.',
+          '  2. Use the copied token-free Server URL in a compatible MCP client and configure Authorization: Bearer with the token shown below.'
+        )
+        .replace(
+          '  2. Press u to show the secret Server URL, then paste it and choose Authentication: No Authentication.',
+          '  2. Press u to show the token-free Server URL, then use it in a compatible MCP client with Authorization: Bearer.'
+        )
+        .replace(
           '  POST /mcp -> 401 The full Server URL, including codexgpt_token, was not used.',
           '  POST /mcp -> 401 The Authorization: Bearer header was missing or invalid.'
         )
@@ -38,8 +46,12 @@ if (active) {
           'Next: use the token-free Server URL only with a compatible MCP client that can send Authorization: Bearer; not ChatGPT Web.'
         )
         .replace(
-          'Keys: Enter open | c copy | o status | h help | q quit',
-          'Keys: c copy | h help | q quit'
+          'Next: press u to show the secret Server URL, then open ChatGPT and choose Authentication: None.',
+          'Next: press u to show the token-free Server URL, then use it only with a compatible MCP client that can send Authorization: Bearer; not ChatGPT Web.'
+        )
+        .replace(
+          'Keys: Enter open | c copy | u show URL | o status | h help | q quit',
+          'Keys: c copy | u show URL | h help | q quit'
         );
     });
 

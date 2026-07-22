@@ -6,13 +6,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-21.
+- Date: 2026-07-22.
 - Package: `codexgpt@0.28.6`; repository: `chatGPT-10/codexgpt`; primary platform: native Windows; WSL remains optional.
 - Phases 0–3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head run `29603060944`; Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
 - Pull request #4 passed exact-head run `29773470293` at `b85286def95592cf5fa7ce552adcc1043106e5af` and was squash-merged to `main` as `afed823dc8a8cca187d7678cb4e33895de158c57`.
 - STEP-379/380 was published as `d8edadc4eb8fca917b06d669e8fa0e3627d237cb`; failed run `29778608848` is retained only as diagnosed evidence for the invalid equal ConPTY worker/RPC deadline.
 - Follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` preserves the 60-second worker deadline, hard-bounds shutdown/drain cleanup, and passed exact-head CI run `29780813295` across Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package.
 - `D:\Dev\codexpro` has one registered worktree. Before the STEP-381 documentation reconciliation, local `main` and `origin/main` were synchronized at runtime closure head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4`; `.ai-bridge` contained only ignored local evidence.
+- STEP-382 locally fixes Linux npm-symlink CLI execution, disables managed Cloudflared self-update, and hides credential-bearing public Server URLs from automatic startup logs. The change is verified but remains uncommitted and unpushed.
 
 ## Approved execution boundary
 
@@ -24,7 +25,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - Native Windows is primary. Git Bash remains the temporary Bash backend; PowerShell support is a core requirement.
 - Preserve verified Node `v20.20.2` and `v24.15.0` toolchains. This checkout still uses the retained legacy `%LOCALAPPDATA%\CodexPro\toolchains\` root explicitly; migration to the manager's default `CodexGPT` root is outside STEP-379/380 and requires separate approval.
 - `scripts/codexgpt-entry.mjs` is the supported public CLI entry. Direct `scripts/codexgpt.mjs` launch is unsupported.
-- The ChatGPT Web compatibility flow uses the query token when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; `CODEXGPT_ALLOW_QUERY_TOKEN=0` is for compatible Bearer clients, not manual ChatGPT Web Bearer configuration.
+- The ChatGPT Web compatibility flow uses the query token when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; public startup logs hide it by default and require an explicit local `u`/Create App action to display it. `CODEXGPT_ALLOW_QUERY_TOKEN=0` is for compatible Bearer clients, not manual ChatGPT Web Bearer configuration.
 - V1/V2/V3/V4 tool counts remain 28/31/39/51. `full_access` is ambient trusted-code authority, not isolation; `workspace` has no fallback; Gate S and Task 4B0 remain blocked diagnostics.
 - Gate X accepts only the four typed local Git operations. Old/new tree derivation and private staging remain inside one reviewed materialized integration bundle; no caller-selected command, remote, credential, force, or config mutation is allowed.
 - Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry.
@@ -51,6 +52,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - Follow-up local regression passed 21/21 affected manifest/protocol/package/domain tests and 15/15 lifecycle tests on each verified Node major.
 - Exact-head run `29780813295` verified head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` with status `completed`, conclusion `success`, and every non-skipped job successful; bounded failure-evidence uploads were correctly skipped in successful jobs.
 - Final synchronization confirmed a clean checkout, exact local/remote head equality, one registered worktree, and ignored-only `.ai-bridge` evidence.
+- STEP-382 TDD regressions passed 19/19 on verified Node 20.20.2 and 19/19 on Node 24.15.0; builds passed on both. Exact detached ordinary run `2026-07-22T08-29-16-832Z-step382-ubuntu-install-regression-ordinary-76566a78` passed 1,105/1,107 with zero failures and two established skips per major, with complete untruncated stdout and zero stderr. Package dry-run retained 529 files.
 
 ## Known limitations
 
@@ -73,6 +75,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 
 ## Recent summaries
 
+- **STEP-382 - Ubuntu install hardening:** execute the public CLI through npm symlinks, keep managed Cloudflared immutable during tunnel runs, hide public credential URLs from automatic logs, and preserve explicit local reveal/copy actions.
 - **STEP-381 - Neat-freak closure reconciliation:** record successful follow-up head/run, remove completed release work from open items, align the master plan and project rules with closed Phase 5 and frozen Phase 6, and preserve the clean single-worktree boundary.
 - **STEP-380 - Publication and deadline follow-up:** publish the STEP-379 oracle correction, diagnose the Windows Node 24 ConPTY deadline race without blind rerun, and close replacement head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` with successful run `29780813295`.
 - **STEP-379 - Align finalization test oracle:** accept either an exact optional `finalizing` lease or the authoritative result that supersedes it, while retaining stale and nonzero-exit failures.

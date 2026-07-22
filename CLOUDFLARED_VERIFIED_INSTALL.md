@@ -53,7 +53,9 @@ npm run connect:chatgpt
 npm run connect:stable -- --hostname mcp.example.com
 ```
 
-These scripts run the verified installer in `ensure` mode first, then pass both the exact managed `--cloudflared <path>` and `--no-install-cloudflared` to CodexGPT. This prevents a different binary from being selected through `PATH` and prevents fallback to the legacy unverified automatic downloader.
+These scripts run the verified installer in `ensure` mode first, then pass both the exact managed `--cloudflared <path>` and `--no-install-cloudflared` to CodexGPT. Tunnel child processes also receive `--no-autoupdate`, so Cloudflared cannot replace the reviewed pinned binary in place. This prevents a different binary from being selected through `PATH`, prevents fallback to the legacy unverified automatic downloader, and keeps version changes bound to the reviewed release manifest.
+
+Cloudflared may still report that a newer upstream version exists. For the managed binary, that warning is informational; update the pin and checksums through a reviewed source change instead of allowing in-place self-update.
 
 ## Manual installation
 

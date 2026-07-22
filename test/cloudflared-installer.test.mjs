@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 import {
   CLOUDFLARED_RELEASE,
   cloudflaredAsset,
@@ -131,5 +133,48 @@ test("SHA-256 verification accepts exact content and rejects mismatches", () => 
   assert.throws(
     () => assertSha256(buffer, "0".repeat(64), "fixture"),
     /SHA-256 verification failed/
+  );
+});
+
+test("public CLI entry executes through an npm-style symlink", async (t) => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-cli-symlink-"));
+  const shimPath = path.join(tempRoot, "codexgpt");
+  const entryPath = path.resolve("scripts", "codexgpt-entry.mjs");
+  const packageVersion = JSON.parse(await fs.readFile(path.resolve("package.json"), "utf8")).version;
+
+  try {
+    try {
+      await fs.symlink(entryPath, shimPath, process.platform === "win32" ? "file" : undefined);
+    } catch (error) {
+      if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) {
+        t.skip(`symlinks unavailable: ${error.code}`);
+        return;
+      }
+      throw error;
+    }
+
+    const entry = await import("../scripts/codexgpt-entry.mjs");
+    assert.equal(entry.isMainInvocation(pathToFileURL(entryPath).href, shimPath), true);
+
+    const result = spawnSync(process.execPath, [shimPath, "--version"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      shell: false
+    });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), packageVersion);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("managed cloudflared tunnel arguments disable self-update", async () => {
+  const installer = await import("../scripts/cloudflared-installer.mjs");
+  assert.equal(typeof installer.cloudflaredTunnelArgs, "function");
+  assert.deepEqual(
+    installer.cloudflaredTunnelArgs("--config", "/tmp/config.yml", "run", "codexgpt"),
+    ["tunnel", "--no-autoupdate", "--config", "/tmp/config.yml", "run", "codexgpt"]
   );
 });

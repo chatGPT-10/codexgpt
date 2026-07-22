@@ -5,9 +5,23 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+
+function canonicalInvocationPath(input, platform = process.platform) {
+  const resolved = path.resolve(input);
+  let canonical = resolved;
+  try {
+    canonical = fs.realpathSync.native(resolved);
+  } catch {}
+  return platform === "win32" ? canonical.toLowerCase() : canonical;
+}
+
+export function isMainInvocation(metaUrl, argvPath = process.argv[1], platform = process.platform) {
+  if (!argvPath) return false;
+  return canonicalInvocationPath(fileURLToPath(metaUrl), platform) === canonicalInvocationPath(argvPath, platform);
+}
 
 function optionValue(argv, name) {
   const inline = argv.find((value) => value.startsWith(`--${name}=`));
@@ -189,8 +203,7 @@ async function main() {
   exitFrom(runNodeScript("codexgpt.mjs", forwarded, connectorAuthOutputEnvironment(forwarded, launchEnv)));
 }
 
-const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
-if (isMain) {
+if (isMainInvocation(import.meta.url)) {
   main().catch((error) => {
     console.error(`[codexgpt] ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

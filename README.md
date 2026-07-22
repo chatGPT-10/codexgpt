@@ -78,7 +78,7 @@ Set-Location D:\Dev\your-repo
 codexgpt setup
 ```
 
-Setup saves a per-workspace profile and prints/copies a complete Server URL containing a `codexgpt_token` query credential.
+Setup saves a per-workspace profile and attempts to copy the complete Server URL containing a `codexgpt_token` query credential. Startup logs keep that secret URL hidden; press `u` in the CodexGPT terminal only when you explicitly need to display it.
 
 ### 3. Create the ChatGPT connection
 

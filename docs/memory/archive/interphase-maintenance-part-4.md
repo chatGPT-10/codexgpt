@@ -318,3 +318,65 @@ This append-only volume continues interphase maintenance after the closed Part 3
 **Rollback:** Revert the STEP-381 documentation changes only. Runtime head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` and successful CI evidence remain unchanged.
 
 **Next step:** Publish the approved documentation-only commit, require the documentation/policy CI gate, and keep Phase 6 frozen.
+
+## 2026-07-22 — STEP-382: Harden Ubuntu global install and managed connector startup
+
+**Status:** Implementation and local verification completed; changes remain uncommitted and unpushed. Phase 6 remains frozen.
+
+**Goal:** Correct the concrete failures exposed by a real Ubuntu source/global installation without widening architecture or permissions: make the public CLI execute through npm-created symlinks, keep the reviewed Cloudflared binary immutable while running, and prevent routine startup logs from disclosing the credential-bearing Server URL.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `CLOUDFLARED_VERIFIED_INSTALL.md`
+- `DOMAIN_SETUP.md`
+- `README.md`
+- `README_ZH.md`
+- `SECURITY.md`
+- `scripts/cloudflared-installer.mjs`
+- `scripts/codexgpt-entry.mjs`
+- `scripts/codexgpt.mjs`
+- `scripts/connector-auth-output-shim.cjs`
+- `test/auth-documentation.test.mjs`
+- `test/cloudflared-installer.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance-part-4.md`
+
+**Implementation:**
+
+- Replaced the public entry's lexical `import.meta.url`/`process.argv[1]` comparison with native-realpath canonical invocation matching. This preserves import safety while allowing the npm global symlink used on Linux to execute `codexgpt --version`, `doctor`, and normal commands.
+- Added a single `cloudflaredTunnelArgs()` constructor and routed quick, proxy-assisted quick, and named tunnel starts through it with `--no-autoupdate`. The exact managed binary and its reviewed SHA-256 pin can no longer be replaced in place by Cloudflared's own update cycle.
+- Kept credential-bearing public HTTPS Server URLs out of automatic startup output on both clipboard success and clipboard failure. The terminal now directs the local user to explicit `u` or Create App field actions; local HTTP compatibility output remains unchanged.
+- Updated the explicit Bearer-output shim so its advanced non-ChatGPT guidance still matches the revised hidden-URL messages.
+- Updated security, installation, Cloudflare, English, Chinese, changelog, and active project-rule surfaces to describe the actual behavior and preserve the URL-secret warning.
+- Added deterministic regressions for npm-style symlink execution, managed Cloudflared no-autoupdate arguments, and absence of the secret URL from automatic public startup branches.
+
+**TDD and verification:**
+
+- The first focused Cloudflared test run failed because `cloudflaredTunnelArgs` did not exist; the first startup-output test failed because both public clipboard branches still referenced `serverUrl`. Both passed after the respective implementations.
+- Current-runtime focused suite passed 19/19: `test/cloudflared-installer.test.mjs`, `test/connector-auth-output.test.mjs`, and `test/auth-documentation.test.mjs`.
+- The same focused suite passed 19/19 on verified Node `v20.20.2` and 19/19 on verified Node `v24.15.0` using the retained explicit `%LOCALAPPDATA%\CodexPro\toolchains` root.
+- TypeScript build passed on the current runtime and on both verified Node majors.
+- Exact detached ordinary run `2026-07-22T08-29-16-832Z-step382-ubuntu-install-regression-ordinary-76566a78` completed with exit code 0 and no stderr. Node 20 passed 1,105 of 1,107 tests with zero failures and two established skips; Node 24 produced the same counts. The run cleaned its temporary state and retained complete untruncated stdout evidence.
+- `npm pack --dry-run --json --silent` reported `codexgpt@0.28.6`, 529 packaged files, and 6,483,037 unpacked bytes.
+- `git diff --check` passed and `npm run policy:check` returned `Repository operational policy: PASS` before the final documentation/memory reconciliation; both were rerun after all edits.
+
+**Adversarial review:**
+
+- The CLI fix canonicalizes only the two invocation identities and does not make imported modules execute. Missing-path fallback remains lexical and fail-safe; Windows comparison is case-insensitive after native realpath resolution.
+- `--no-autoupdate` applies only to Cloudflared tunnel child processes. Installation and reviewed upgrades still occur through the pinned manifest/checksum path; no floating `latest` runtime selection or PATH fallback was introduced.
+- Startup secrecy is default-deny for public HTTPS logs but not absolute concealment: explicit `u`, `p`, clipboard, browser history, and copied links remain deliberate exposure surfaces and are documented as password-equivalent.
+- The local HTTP branch was intentionally not changed because it is a separate compatibility surface; public tunnel authentication and Host/Origin enforcement remain unchanged.
+- No token, credential, private key, production deployment state, tunnel configuration, branch, commit, or remote repository state was modified.
+- Multi-agent providers were unavailable in this workspace, so the adversarial pass used independent source/diff inspection plus cross-version focused and complete ordinary suites rather than claiming a multi-agent result.
+
+**Risks and limitations:**
+
+- A noninteractive public launch cannot press `u`; automation should obtain the URL from an explicitly controlled secret/profile workflow rather than rely on startup logs.
+- Cloudflared may still print that a newer upstream release exists. That warning is informational for the managed binary; the reviewed pin and platform checksums remain the upgrade authority.
+- Complete Ubuntu/macOS and package CI remain required before publication because the primary local verification host was native Windows, even though the Linux symlink behavior is covered by an npm-style filesystem symlink regression.
+
+**Rollback:** Revert the STEP-382 source, test, documentation, and memory changes. This restores the Linux symlink launch failure, permits Cloudflared self-update, and resumes automatic credential-URL output when clipboard integration is unavailable.
+
+**Next step:** Review the final diff, commit only after user approval, push only after separate approval, and require the complete exact-head Ubuntu/Windows Node 20/24 CI matrix before treating the runtime change as published.

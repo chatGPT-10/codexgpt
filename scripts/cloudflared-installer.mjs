@@ -13,6 +13,10 @@ import { createOwnedTempRootSync } from "./owned-temp-root.mjs";
 
 const MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024;
 
+export function cloudflaredTunnelArgs(...args) {
+  return ["tunnel", "--no-autoupdate", ...args];
+}
+
 export function sha256Buffer(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }

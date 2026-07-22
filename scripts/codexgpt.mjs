@@ -8,6 +8,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { cloudflaredTunnelArgs } from './cloudflared-installer.mjs';
 import { boundedTextArtifact, trimUtf8Bytes } from './output-bounds.mjs';
 import { createOwnedTempRootSync } from './owned-temp-root.mjs';
 
@@ -2843,10 +2844,9 @@ function printConnectorBlock(endpoint, token, options = {}) {
   console.log(`  Connector  ${publicHttps ? 'public HTTPS' : 'local HTTP'}`);
   if (copied.ok) {
     console.log(`  URL        copied with ${copied.command}`);
-    console.log(`  Server URL ${serverUrl}`);
+    console.log('  Secret URL hidden; press u to show it explicitly');
   } else if (shouldCopy) {
-    console.log('  URL        copy failed; copy manually:');
-    console.log(serverUrl);
+    console.log('  URL        clipboard unavailable; press u to show the secret URL');
   } else if (options.copyUrl === false && publicHttps) {
     console.log('  URL        not copied; press c to copy or u to show');
   } else if (!publicHttps) {
@@ -2860,7 +2860,13 @@ function printConnectorBlock(endpoint, token, options = {}) {
   if (options.connectionTest) {
     console.log(paint('bold', 'Connection test'));
     console.log('  1. In ChatGPT, open Settings -> Plugins and create a development plugin.');
-    console.log('  2. Paste the Server URL above and choose Authentication: No Authentication.');
+    if (publicHttps) {
+      console.log(copied.ok
+        ? '  2. Paste the copied Server URL and choose Authentication: No Authentication.'
+        : '  2. Press u to show the secret Server URL, then paste it and choose Authentication: No Authentication.');
+    } else {
+      console.log('  2. Paste the Server URL above and choose Authentication: No Authentication.');
+    }
     console.log('  3. Watch this terminal for: [CodexGPT] POST /mcp received');
     console.log('');
     console.log('  No POST /mcp     ChatGPT or the tunnel did not reach CodexGPT.');
@@ -2868,8 +2874,12 @@ function printConnectorBlock(endpoint, token, options = {}) {
     console.log('  POST /mcp -> 2xx The MCP connection reached CodexGPT successfully.');
     console.log('');
   }
-  console.log('Next: press Enter to open ChatGPT, paste the copied Server URL, choose Authentication: None.');
-  console.log('Keys: Enter open | c copy | o status | h help | q quit');
+  if (publicHttps && !copied.ok) {
+    console.log('Next: press u to show the secret Server URL, then open ChatGPT and choose Authentication: None.');
+  } else {
+    console.log('Next: press Enter to open ChatGPT, paste the copied Server URL, choose Authentication: None.');
+  }
+  console.log('Keys: Enter open | c copy | u show URL | o status | h help | q quit');
   return { ...details, copied, opened, mode, toolMode: options.toolMode ?? 'standard' };
 }
 
@@ -3795,11 +3805,14 @@ function runControlPanel(details, cleanup = cleanupChildren) {
       const normalized = key.toLowerCase();
       if (key === '\r' || key === '\n') {
         const opened = openUrl(details.chatgptSettingsUrl);
-        console.log(opened ? '\nOpened ChatGPT connector settings. The Server URL is already copied; paste it into Server URL.' : '\nCould not open ChatGPT automatically.');
+        const pasteHint = details.copied?.ok
+          ? 'The Server URL is already copied; paste it into Server URL.'
+          : 'Press u to show the secret Server URL.';
+        console.log(opened ? `\nOpened ChatGPT connector settings. ${pasteHint}` : `\nCould not open ChatGPT automatically. ${pasteHint}`);
         writeControlPrompt();
       } else if (normalized === 'c') {
         const copied = copyToClipboard(details.serverUrl);
-        console.log(copied.ok ? `\nServer URL copied with ${copied.command}.` : '\nCould not copy automatically.');
+        console.log(copied.ok ? `\nServer URL copied with ${copied.command}.` : '\nCould not copy automatically. Press u to show the secret Server URL.');
         writeControlPrompt();
       } else if (normalized === 'u') {
         console.log(`\n${details.serverUrl}`);
@@ -4346,7 +4359,7 @@ async function main() {
       const { credentialsPath, cleanup: removeCredentials } = writeQuickTunnelCredentials(quickTunnel);
       cleanupTunnelCredentials = removeCredentials;
       try {
-        cloudflared = spawnLogged('cloudflared', cloudflaredPath, ['tunnel', '--url', localBase, '--credentials-file', credentialsPath, 'run', quickTunnel.id], { cwd: root, env: process.env, verbose: verboseLogs });
+        cloudflared = spawnLogged('cloudflared', cloudflaredPath, cloudflaredTunnelArgs('--url', localBase, '--credentials-file', credentialsPath, 'run', quickTunnel.id), { cwd: root, env: process.env, verbose: verboseLogs });
       } catch (error) {
         removeCredentials();
         throw error;
@@ -4356,7 +4369,7 @@ async function main() {
       await waitForTunnelStartup(cloudflared, 'cloudflared');
       publicBase = `https://${quickTunnel.hostname}`;
     } else {
-      cloudflared = spawnLogged('cloudflared', cloudflaredPath, ['tunnel', '--url', localBase], { cwd: root, env: process.env, verbose: verboseLogs });
+      cloudflared = spawnLogged('cloudflared', cloudflaredPath, cloudflaredTunnelArgs('--url', localBase), { cwd: root, env: process.env, verbose: verboseLogs });
       publicBase = await waitForCloudflareUrl(cloudflared);
     }
     const details = printConnectorBlock(`${publicBase}/mcp`, token, {
@@ -4385,7 +4398,7 @@ async function main() {
   const cloudflareTokenFile = resolveConfigPath(root, optionValue(args, profile, 'cloudflareTokenFile', ['CLOUDFLARE_TUNNEL_TOKEN_FILE', 'CODEXGPT_CLOUDFLARE_TUNNEL_TOKEN_FILE'], ''));
   const cloudflareToken = optionValue(args, profile, 'cloudflareToken', ['CLOUDFLARE_TUNNEL_TOKEN', 'CODEXGPT_CLOUDFLARE_TUNNEL_TOKEN'], '');
 
-  const cloudflaredArgs = ['tunnel'];
+  const cloudflaredArgs = cloudflaredTunnelArgs();
   if (cloudflareConfig) {
     cloudflaredArgs.push('--config', cloudflareConfig, 'run');
     if (tunnelName) cloudflaredArgs.push(tunnelName);

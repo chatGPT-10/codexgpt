@@ -104,3 +104,16 @@ test("explicit Bearer opt-out is described only for compatible non-ChatGPT clien
   assert.match(shim, /compatible MCP client/i);
   assert.match(shim, /not ChatGPT Web/i);
 });
+
+test("public connector startup hides the credential URL until an explicit user action", () => {
+  const source = read("scripts/codexgpt.mjs");
+  const publicOutput = source.match(
+    /if \(copied\.ok\) \{([\s\S]*?)\} else if \(shouldCopy\) \{([\s\S]*?)\} else if \(options\.copyUrl === false && publicHttps\)/
+  );
+
+  assert.ok(publicOutput, "public URL output branches must remain structurally reviewable");
+  assert.doesNotMatch(publicOutput[1], /serverUrl/, "successful clipboard copy must not echo the secret URL into logs");
+  assert.doesNotMatch(publicOutput[2], /serverUrl/, "clipboard failure must not echo the secret URL into logs");
+  assert.match(publicOutput[1], /press u/i);
+  assert.match(publicOutput[2], /press u/i);
+});

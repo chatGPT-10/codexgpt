@@ -50,7 +50,7 @@ cd /path/to/your/repo
 codexgpt setup
 ```
 
-CodexGPT 会自动复制包含 `codexgpt_token` query 凭据的完整 ChatGPT Server URL。先到 `Settings -> Security and login` 打开 Developer mode，再到 `Settings -> Plugins` 创建连接，粘贴完整 URL，并选择 `Authentication: No Authentication / None`。
+CodexGPT 会尝试复制包含 `codexgpt_token` query 凭据的完整 ChatGPT Server URL，但启动日志默认隐藏这个秘密 URL。剪贴板不可用时，在 CodexGPT 终端按 `u` 显式显示。先到 `Settings -> Security and login` 打开 Developer mode，再到 `Settings -> Plugins` 创建连接，粘贴完整 URL，并选择 `Authentication: No Authentication / None`。
 
 当前支持的个人 ChatGPT 兼容方案使用这个 URL-token 流程，OAuth 2.1 仍延后实现。请把完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交这个 URL。
 
@@ -554,6 +554,7 @@ codexgpt watch-handoff --agent opencode --model provider/model --yes
 ```text
 Enter  打开 ChatGPT connector 设置
 c      再次复制 Server URL
+u      显式显示秘密 Server URL
 o      打开本地 admin dashboard
 h      显示帮助
 q      停止 CodexGPT

@@ -78,7 +78,7 @@ Memory rules:
 - `scripts/codexgpt-entry.mjs` is the supported public CLI entry.
 - Direct `node scripts/codexgpt.mjs` invocation bypasses entry-layer protections and is not the supported public launch path.
 - The supported public CLI uses the personal query-token compatibility flow for ChatGPT Web when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset.
-- The CLI may print and copy the credential-bearing Server URL for that flow and must instruct `Authentication: None / No Authentication`.
+- The CLI may copy the credential-bearing Server URL for that flow and must instruct `Authentication: None / No Authentication`; public startup logs keep it hidden unless the user explicitly presses `u` or requests the Create App fields.
 - Treat the URL as a secret: it may leak through browser history, clipboard contents, screenshots, logs, and copied links.
 - `CODEXGPT_ALLOW_QUERY_TOKEN=0` explicitly disables URL credentials for advanced compatible clients that can send an `Authorization: Bearer` header.
 - Server-side Bearer support remains available for compatible clients, but documentation must not claim ChatGPT Web supports manual static-Bearer configuration.
