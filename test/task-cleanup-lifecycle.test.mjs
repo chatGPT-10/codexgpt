@@ -827,23 +827,50 @@ test("cleanup recovers a terminal run left in its verified prune claim after an 
   const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-claim-runs-"));
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-clean-claim-temp-"));
   try {
-    const started = JSON.parse((await executeLongRunner([
-      "start",
-      "--root", runRoot,
-      "--temp-root", tempRoot,
-      "--retention-count", "20",
-      "--retention-days", "36500",
-      "--kind", "claim-recovery",
-      "--",
-      process.execPath,
-      "-e",
-      "console.log('claim-recovery')"
-    ])).stdout);
-    const terminal = await waitForTerminal(runRoot, started.runId);
-    assert.equal(terminal.result.exitCode, 0);
+    const runId = "2026-07-22T00-00-00-000Z-claim-recovery-eeeeeeee";
+    const directory = path.join(runRoot, runId);
+    const startedAt = "2026-07-22T00:00:00.000Z";
+    await fs.mkdir(directory);
+    const stat = await fs.stat(directory, { bigint: true });
+    const stdoutPath = path.join(directory, "stdout.log");
+    const stderrPath = path.join(directory, "stderr.log");
+    await fs.writeFile(stdoutPath, "claim-recovery\n", "utf8");
+    await fs.writeFile(stderrPath, "", "utf8");
+    await fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify({
+      schemaVersion: 2,
+      runId,
+      kind: "claim-recovery",
+      workerPid: 999999,
+      workerNonce: "a".repeat(64),
+      workerCreationTime: "linux:1",
+      workerCommandDigest: "b".repeat(64),
+      commandDigest: "c".repeat(64),
+      startedAt,
+      directory,
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) },
+      command: [process.execPath, "-e", "console.log('claim-recovery')"],
+      cwd: repositoryRoot,
+      logLimitBytes: 4096,
+      retentionCount: 20,
+      retentionDays: 36500,
+      host: os.hostname()
+    })}\n`, "utf8");
+    await fs.writeFile(path.join(directory, "result.json"), `${JSON.stringify({
+      schemaVersion: 2,
+      runId,
+      kind: "claim-recovery",
+      startedAt,
+      completedAt: "2026-07-22T00:00:01.000Z",
+      exitCode: 0,
+      signal: null,
+      error: null,
+      temporaryState: { cleaned: true },
+      stdoutPath,
+      stderrPath
+    })}\n`, "utf8");
 
     const claimed = path.join(runRoot, `.codexgpt-run-prune-${"a".repeat(32)}`);
-    await fs.rename(started.directory, claimed);
+    await fs.rename(directory, claimed);
     const report = JSON.parse((await executeLongRunner([
       "clean",
       "--root", runRoot,

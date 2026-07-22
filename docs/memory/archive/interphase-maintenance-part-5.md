@@ -68,3 +68,43 @@ This append-only volume continues interphase maintenance after the closed Part 4
 **Rollback:** Revert STEP-385. This restores mandatory first-lease publication and the Windows Node 20 path where a persistent observational write failure can abort the worker before task execution and terminal result publication.
 
 **Next step:** After explicit user approval, commit and push the five-file STEP-385 change, bind the new exact 40-character HEAD to a fresh full Ubuntu/Windows Node 20/24 CI run, and require every non-skipped job to succeed. Do not rerun the failed job from run `29913227391` against the old head.
+
+## 2026-07-22 — STEP-387: Isolate verified prune-claim recovery from detached-run setup
+
+**Status:** Test correction and complete local verification finished; commit, push, and replacement exact-head CI remain pending. Phase 6 runtime remains blocked on a green current-base Gate G6-0.
+
+**Goal:** Make the prune-claim interruption recovery test exercise only its claimed-directory recovery contract instead of depending on an unrelated detached worker reaching terminal state under full-suite scheduler pressure.
+
+**Failure evidence:**
+
+- STEP-385 was published as `e33966db4c5b6e5b0ad3a656cfc11aa3a2fb497e`.
+- Exact-head run `29916845738` passed Repository policy, Ubuntu Node 20, and Windows Node 20/24. Ubuntu Node 24 failed only `cleanup recovers a terminal run left in its verified prune claim after an interruption`.
+- The failure occurred after approximately 65.17 seconds in `waitForTerminal`: the setup run became `stale` after lease expiry and the bounded terminal-publication wait. The test had not yet renamed the run directory into a prune claim or invoked cleanup, so the claimed-directory recovery behavior was never exercised.
+- Dedicated lifecycle tests immediately preceding this test passed in the same job, including persistent initial/refresh lease-failure coverage, finalization observation, owned-TEMP cleanup, and retention.
+
+**Implementation:**
+
+- Replaced the real detached-run setup with a complete direct-child schema-v2 terminal fixture containing exact directory identity, bounded worker identity fields, command metadata, stdout/stderr files, and authoritative `result.json`.
+- The test then atomically renames that verified terminal directory to the exact `.codexgpt-run-prune-<32 hex>` shape and invokes the real cleanup command.
+- Assertions remain fail-closed: exactly one claimed directory must be removed, no claim recovery may fail, the claimed path must be absent, and the run root must be empty.
+- No production source, lease duration, stale classification, timeout, retry, skip, platform branch, or cleanup authority changed.
+
+**Verification:**
+
+- Verified Node `v20.20.2` and Node `v24.15.0` each passed 27/27 affected lifecycle, process-identity, and atomic-file tests.
+- Both managed Node majors passed the five-test mutation architecture inventory.
+- Exact detached ordinary run `2026-07-22T12-16-49-660Z-step386-claim-recovery-fixture-3d030141` completed with exit code 0, cleaned temporary state, zero retention failures, complete untruncated stdout, and zero stderr.
+- Node 20 and Node 24 each passed 1,109 of 1,111 ordinary tests with zero failures and two established skips.
+- TypeScript build passed on both managed Node majors, repository policy passed, the package dry-run retained 529 files, and `git diff --check` passed.
+
+**Adversarial review:**
+
+- The fixture still traverses the production claim-recovery path and its direct-child, canonical-path, directory-identity, terminal-record, and exact claim-name checks.
+- Directory identity is captured before rename and must remain valid after the claim transition, preserving the interruption model under test.
+- Removing the detached worker does not reduce lifecycle coverage because dedicated integration tests retain exact worker startup, running/finalizing lease, task execution, cleanup, retention, and result-publication assertions.
+- The correction removes one unrelated failure source rather than accepting `stale`, extending a deadline, skipping a platform, or weakening cleanup validation.
+- Concurrent Phase 6 edits in `AGENTS.md`, `Memory.md`, the master plan, roadmap, and two new design/plan files are separately owned and intentionally excluded from this change.
+
+**Rollback:** Revert STEP-387 to restore the scheduler-dependent detached-run setup before prune-claim recovery. Production runtime behavior is unaffected either way.
+
+**Next step:** Commit and push only the lifecycle test and this archive entry, bind the replacement 40-character HEAD to a fresh full Ubuntu/Windows Node 20/24 CI run, and require every non-skipped job to succeed before Gate G6-0 can pass.
