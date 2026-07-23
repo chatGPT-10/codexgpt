@@ -308,37 +308,7 @@ test("initial observational lease failure does not suppress task execution or te
 test("worker finalization remains observable through an exact lease or authoritative result", async () => {
   const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-runs-"));
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-finalization-lease-temp-"));
-  const blockerRunId = "2020-01-01T00-00-00-000Z-finalization-blocker-aaaaaaaa";
-  const blockerDirectory = path.join(runRoot, blockerRunId);
   try {
-    await fs.mkdir(blockerDirectory);
-    const stat = await fs.stat(blockerDirectory, { bigint: true });
-    const blockerMetadata = {
-      schemaVersion: 2,
-      runId: blockerRunId,
-      kind: "finalization-blocker",
-      workerPid: 999999,
-      workerNonce: "a".repeat(64),
-      workerCreationTime: "linux:1",
-      workerCommandDigest: "b".repeat(64),
-      commandDigest: "c".repeat(64),
-      startedAt: "2020-01-01T00:00:00.000Z",
-      directory: blockerDirectory,
-      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) }
-    };
-    const blockerEvidence = {
-      schemaVersion: 2,
-      runId: blockerRunId,
-      workerPid: blockerMetadata.workerPid,
-      workerNonce: blockerMetadata.workerNonce,
-      workerCreationTime: blockerMetadata.workerCreationTime,
-      workerCommandDigest: blockerMetadata.workerCommandDigest,
-      commandDigest: blockerMetadata.commandDigest,
-      publishedAt: blockerMetadata.startedAt
-    };
-    await fs.writeFile(path.join(blockerDirectory, "metadata.json"), `${JSON.stringify(blockerMetadata)}\n`, "utf8");
-    await fs.writeFile(path.join(blockerDirectory, "worker-evidence.json"), `${JSON.stringify(blockerEvidence)}\n`, "utf8");
-
     const started = JSON.parse((await executeLongRunner([
       "start",
       "--root", runRoot,

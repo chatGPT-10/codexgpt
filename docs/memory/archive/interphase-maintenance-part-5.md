@@ -365,3 +365,40 @@ Size clarification: 27,342 bytes was measured immediately before this addendum; 
 **Rollback:** Revert only the STEP-405 test and record updates. This restores the former 60-second observation deadline and implicit fixture exit behavior.
 
 **Next step:** Run final policy/scope checks, create one English repair commit, push normally, and require a new exact-head CI matrix to pass before calling publication successful.
+
+## 2026-07-23 — STEP-406: Remove synthetic finalization timing from the Windows regression
+
+**Status:** Local repair complete; republishing for a new exact-head matrix is authorized.
+
+**Goal:** Repair the first and only failed gate from exact-head run 30042788160 without changing the production long-task runner, its exact identity checks, leases, cleanup, retention, or stale-state behavior.
+
+**Failure evidence:**
+
+- Published head 8c07ba9d9975e76fab8ea93bfaef3d705d1ee808 reached CI run 30042788160.
+- Repository policy, Ubuntu Node 20/24, and Windows Node 24 passed. Windows Node 20 Regression failed only worker finalization remains observable through an exact lease or authoritative result after its complete 90-second observation window saw neither a finalizing lease nor a result.
+- The compact failure evidence is under ignored .ai-bridge/step405-ci-failure-summary.json and GitHub artifact 8578320181. No secret was added to the repository.
+
+**Implementation:**
+
+- Removed the test-only fabricated stale run, including its fake PID, nonce, process creation time, and identity files. That state is not a real worker and forces pruneTerminalRuns to wait for terminal publication before the actual worker may write result.json.
+- The integration test still starts a real detached worker, accepts only its exact finalizing lease or successful authoritative result, checks the finalizing status identity when that window is observed, and requires its terminal result to have exit code zero.
+- Neighboring tests retain the deliberate initial-lease and renewal-publication failure paths. No production file changed.
+
+**Verification:**
+
+- `node scripts/toolchain-manager.mjs matrix --major all --root C:\\Users\\Administrator\\AppData\\Local\\CodexPro\\toolchains -- npm run test:focused -- test/task-cleanup-lifecycle.test.mjs` passed 17/17 on Node 20.20.2 and 17/17 on Node 24.15.0.
+- `npm run policy:check` passed after the test and project-record updates.
+- `git diff --check` passed; only informational LF-to-CRLF warnings were emitted.
+
+**Adversarial review:**
+
+- Independent behavior and scope reviews found no blocker. They confirmed that the real-worker integration still proves the allowed authoritative-result path, while deterministic finalizing-lease identity coverage remains in test/runner-process-identity.test.mjs.
+
+**Decisions, risks, and limitations:**
+
+- The test no longer artificially lengthens the finalizing window. This is intentional: result.json is an allowed authoritative observation and is less timing-sensitive on Windows. The test continues to assert the finalizing path if it is actually observable.
+- Local dual-major verification is not publication closure. The pushed runtime-relevant SHA must still pass the full exact-head Ubuntu/Windows Node 20/24 matrix.
+
+**Rollback:** Revert only the STEP-406 test and record updates. This restores the synthetic stale-run timing fixture and its CI flakiness.
+
+**Next step:** Run policy, whitespace, secret, and intended-scope checks; create one English repair commit; push normally; and require a new exact-head CI matrix to pass before calling publication successful.
