@@ -613,3 +613,50 @@ The STEP-386 historical roadmap and paired design were revalidated and required 
 **Rollback:** Revert the referenced-timer change, deterministic regression, and STEP-398 documentation together. Rollback reintroduces the proven terminal-publication race and must not be used as a reliability fix. Do not widen lease authority, weaken stale detection, force push, or rewrite history.
 
 **Next step:** Complete final Markdown, secret, relative-time, protected-Smoke, and staged-boundary checks; create one concise English commit; push normally to `main`; and require terminal exact-head success across the complete matrix. On success that exact published head closes Phase 6; do not create an evidence-only follow-up commit or begin Phase 7.
+
+## 2026-07-23 — STEP-400: Stabilize Windows runner completion observation
+
+**Status:** Complete locally. Exact-head run `30023834082` for `0cb612f8c05353fb421aff37792967b5a4298e9b` passed Repository policy and Ubuntu Node 20/24 but failed Windows Node 20/24 Regression in two test observation helpers. The bounded repair and final local Node 20/24 gates pass; formal Phase 6 closure still requires a replacement published exact head to pass the complete matrix.
+
+**Goal:** Remove test-observer deadlines and process-spawn overhead that can reject a valid detached worker before the production lease boundary, without weakening stale, stopped, failed-result, process-identity, cleanup, or lease-authority checks.
+
+**Files changed:**
+
+- `test/runner-process-identity.test.mjs`
+- `test/task-cleanup-lifecycle.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/phase-6.md`
+
+**Observed failures and implementation:**
+
+- Windows Node 24 failed `worker evidence mismatch makes a live PID stale and never blocks a same-kind retry` after its helper repeatedly spawned the public `status` CLI while waiting for terminal state. The helper now calls the same production `runState(directory)` state machine directly, requires a state on every poll, and fails immediately if it observes `stale`; the final assertion still requires an authoritative zero-exit result.
+- Windows Node 20 failed `terminal result publication survives a failed observational lease refresh` because that test overrode the shared wait helper with a fixed ten-second deadline. The override was removed, restoring the shared `WORKER_LEASE_MS` bound. The test still accepts only a matching authoritative result and requires exit code zero.
+- The first complete rerun, ordinary r4, reached an unrelated Gate X `GIT_RECOVERY_REQUIRED` after approximately 30 minutes. No Gate X code or assertion was changed. The identical complete ordinary r5 rerun passed that test and the entire matrix, so r4 is retained as a materially relevant failed attempt rather than treated as evidence for these two fixes.
+
+**Verification:**
+
+- Exact-head run `30023834082`: Repository policy and Ubuntu Node 20/24 passed; Windows Node 20/24 failed only the two observation helpers described above.
+- Managed Node 20.20.2 and Node 24.15.0 focused lifecycle tests passed 23/23 on each major.
+- Authoritative detached ordinary run `2026-07-23T17-19-46-820Z-phase6-final-ordinary-r5-ecacf4e4` completed with exit code zero, empty stderr, cleaned temporary state, and zero retention failures:
+  - Node 20.20.2: 1,177 tests, 1,175 passed, zero failed, two established skips.
+  - Node 24.15.0: 1,177 tests, 1,175 passed, zero failed, two established skips.
+- Managed Node 20.20.2 and Node 24.15.0 builds passed.
+- Detached Smoke run `2026-07-23T18-08-44-935Z-phase6-final-smoke-r4-13954d38` completed with exit code zero, empty stderr, cleaned temporary state, zero retention failures, and all eight Smoke sections passing on both managed majors.
+- Mutation, package-content, and operational-policy focused checks passed 7/7. `npm run policy:check`, `git diff --check`, the added-line high-confidence secret scan, and production-file scope check passed.
+
+**Adversarial review:**
+
+- Three independent reviews found no production authority, lease, stop, cleanup, path, credential, Policy, Approval, or Audit expansion; the production and package trees are unchanged.
+- Review confirmed the Node 20 change matches the production lease boundary and cannot accept stale, stopped, mismatched, or nonzero results.
+- Review classified the Node 24 change as reducing observer-created Windows process pressure rather than a deterministic production lifecycle change. Managed Node 24 focused and complete ordinary runs pass, but replacement exact-head CI remains the required proof and no closure claim is allowed before it succeeds.
+- Review required Phase 7 documents and mixed project-record edits to remain outside the Phase 6 staging boundary.
+
+**Decisions, risks, and limitations:**
+
+- The public `status` CLI remains covered by dedicated status and replacement-boundary tests; this lifecycle helper tests the underlying production state machine without creating a new process for every poll.
+- A valid run may now consume the existing bounded lease-aware wait instead of an unrelated ten-second fixture SLA. Neither production timeouts nor external interfaces changed.
+- The worktree contains separately owned Phase 7 design and record edits. They must remain unstaged and uncommitted in the Phase 6 repair.
+
+**Rollback:** Revert the two test-helper changes and this STEP together. Rollback restores the exact Windows CI false-failure conditions and must not be used to weaken production lease or stale-state behavior.
+
+**Next step:** Stage only the two repaired tests and this Phase 6 archive entry, create the authorized concise English commit, push normally to `main`, and require the replacement exact head to pass Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package. Do not stage Phase 7 records or create a later evidence-only commit.

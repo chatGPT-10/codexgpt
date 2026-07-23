@@ -32,9 +32,12 @@ async function execute(args, options = {}) {
 
 async function waitForCompletion(root, runId, deadlineMs = WORKER_LEASE_MS + 30_000) {
   const deadline = Date.now() + deadlineMs;
+  const directory = path.join(root, runId);
   while (Date.now() < deadline) {
-    const state = JSON.parse((await execute(["status", "--root", root, "--run", runId])).stdout);
+    const state = await runState(directory);
+    assert.ok(state);
     if (state.status === "completed" || state.status === "stopped") return state;
+    assert.notEqual(state.status, "stale");
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`Run ${runId} did not become terminal.`);

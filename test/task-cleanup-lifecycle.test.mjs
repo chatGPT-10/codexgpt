@@ -195,8 +195,7 @@ test("terminal result publication survives a failed observational lease refresh"
 
     const result = await waitForJson(
       path.join(directory, "result.json"),
-      (value) => value.runId === started.runId,
-      10_000
+      (value) => value.runId === started.runId
     );
     assert.equal(result.exitCode, 0);
   } finally {
