@@ -551,3 +551,65 @@ The STEP-386 historical roadmap and paired design were revalidated and required 
 **Rollback:** Revert the STEP-397 helper deadline and its documentation together. Do not restore a deadline shorter than the post-call lease-expiry boundary, weaken exact lease/result validation, change production lease authority, force push, or rewrite history.
 
 **Next step:** Complete final static/package/document gates, stage the reviewed STEP-397 scope, create one concise English commit, push normally, and require terminal exact-head success across the complete matrix. On success that exact published head closes Phase 6; do not create an evidence-only follow-up commit or begin Phase 7.
+
+## 2026-07-23 — STEP-398: Keep detached workers alive through authoritative publication
+
+**Status:** Complete locally. Exact-head run `30015004010` for `63732355657e0e426d7c29dd21e52ac216be28f0` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24. Windows Node 20 exposed one production detached-worker lifecycle defect. The user's Phase 6 closure authorization remains active under the existing exclusions.
+
+**Goal:** Prevent a detached runner from exiting after its child task completes but before `result.json` and retention evidence are authoritatively published, without widening lease authority, stop authority, or timeout bounds.
+
+**Files changed:**
+
+- `scripts/long-task-runner.mjs`
+- `test/task-cleanup-lifecycle.test.mjs`
+- `CHANGELOG.md`
+- `Memory.md`
+- `docs/memory/archive/phase-6.md`
+
+**Observed failure and root cause:**
+
+- Windows Node 20 failed only `terminal detached-run evidence is automatically pruned to the configured retention count` after approximately 66.7 seconds. `waitForTerminal` observed `stale` instead of an authoritative completed result.
+- The test command itself was a short successful Node process. The worker had no remaining referenced event-loop handle after the child emitted `close`, because `startWorkerLeaseRenewal` called `unref()` on its renewal timer.
+- An unreferenced timer can run while another handle keeps the process alive, but cannot keep the detached worker alive by itself. Under Windows Node 20 CI pressure the worker could therefore terminate between child completion and asynchronous TEMP cleanup, log writes, retention, and `result.json` publication.
+- The last valid lease then expired after 60 seconds, producing a genuine stale state. This was not another test-oracle deadline mismatch.
+
+**Implementation:**
+
+- Removed `timer?.unref?.()` from `startWorkerLeaseRenewal`.
+- The renewal timer is now the worker's explicit lifecycle handle from startup through authoritative terminal publication.
+- Existing `stopLeaseRenewal()` remains unchanged and is called in the `result.json` publication `finally` block, so successful or failed result publication still clears the timer deterministically.
+- Added a deterministic regression assertion proving the renewal scheduler never calls a supplied timer's `unref()` method while preserving the existing 15-second success cadence, one-second retry cadence, and exact stop behavior.
+- No lease duration, renewal interval, retry interval, lease schema, process identity, stop authorization, retention selection, path policy, credential handling, Policy, Approval, Audit, or external interface changed.
+
+**TDD and verification:**
+
+- Exact-head run `30015004010` supplied the integration RED state: Windows Node 20 produced a genuine stale run before terminal evidence publication.
+- The deterministic timer test also reproduced the direct cause before the production edit: the injected timer's `unref()` counter was one instead of zero.
+- Managed Node 20.20.2 and Node 24.15.0 each passed the affected lifecycle, runner-log, mutation, and operational set at 32/32.
+- Managed Node 20.20.2 passed the exact failed retention test in ten consecutive isolated rounds.
+- Managed Node 20.20.2 and Node 24.15.0 builds passed.
+- Authoritative detached ordinary run `2026-07-23T14-41-41-946Z-phase6-final-ordinary-r3-bcb87de9` completed with exit code 0, empty stderr, cleaned temporary state, and zero retention failures:
+  - Node 20.20.2: 1,177 tests, 1,175 passed, zero failed, two established skips.
+  - Node 24.15.0: 1,177 tests, 1,175 passed, zero failed, two established skips.
+- During that run, the exact lease continued renewing after the child command transitioned between managed majors, directly confirming the referenced timer kept the detached worker observable.
+- Authoritative detached Smoke run `2026-07-23T15-55-33-034Z-phase6-final-smoke-r3-c52297e7` completed with exit code 0, empty stderr, cleaned temporary state, zero retention failures, and all eight analysis, CLI, MCP, HTTP, Pro, doctor, settings, and handoff sections passing on both majors.
+- Final authentication/package/mutation/operational tests passed 21/21. Repository policy and `git diff --check` passed.
+- Package dry-run contains 549 files, 1,205,505 packed bytes and 6,696,902 unpacked bytes, with 18 compiled guidance files and no tests, `.ai-bridge`, or memory archive.
+
+**Adversarial review:**
+
+- No external agent provider was available. Manual lifecycle review confirmed the timer now holds only process liveness, not execution or stop authority; the exact lease remains observational and expires normally after a crash.
+- Manual terminal-path review confirmed `stopLeaseRenewal()` still runs only after the result write attempt completes, including publication failure through the existing `finally` block.
+- Manual failure-mode review confirmed a permanently failing lease write still retries on the bounded one-second cadence and cannot suppress child execution, cleanup, retention, or result publication.
+- Manual compatibility review confirmed the fix uses standard Node timer reference semantics and applies identically to Windows, Linux, Node 20, and Node 24.
+
+**Risks and limitations:**
+
+- A worker blocked forever before result publication now remains alive rather than exiting when only the renewal timer remains. This is intentional: it preserves observable liveness and exact stop eligibility instead of manufacturing stale evidence. Existing external stop and process-identity rules remain the recovery path.
+- A process crash or forced termination still stops renewal; the unchanged 60-second lease expiry then transitions the run to stale.
+- Formal Phase 6 closure still requires one exact published head to pass Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package gates.
+- Existing Phase 6 and platform limitations remain unchanged.
+
+**Rollback:** Revert the referenced-timer change, deterministic regression, and STEP-398 documentation together. Rollback reintroduces the proven terminal-publication race and must not be used as a reliability fix. Do not widen lease authority, weaken stale detection, force push, or rewrite history.
+
+**Next step:** Complete final Markdown, secret, relative-time, protected-Smoke, and staged-boundary checks; create one concise English commit; push normally to `main`; and require terminal exact-head success across the complete matrix. On success that exact published head closes Phase 6; do not create an evidence-only follow-up commit or begin Phase 7.

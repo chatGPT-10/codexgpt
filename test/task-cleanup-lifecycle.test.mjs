@@ -136,6 +136,7 @@ test("worker lease renewal retries promptly after a transient publication failur
   const scheduled = [];
   const callbacks = [];
   let attempts = 0;
+  let unrefCalls = 0;
   const stop = startWorkerLeaseRenewal({
     publish: async () => {
       attempts += 1;
@@ -146,12 +147,13 @@ test("worker lease renewal retries promptly after a transient publication failur
     setTimer: (callback, delay) => {
       scheduled.push(delay);
       callbacks.push(callback);
-      return { unref() {} };
+      return { unref() { unrefCalls += 1; } };
     },
     clearTimer: () => {}
   });
   try {
     assert.deepEqual(scheduled, [15_000]);
+    assert.equal(unrefCalls, 0);
     await callbacks.shift()();
     assert.deepEqual(scheduled, [15_000, 1_000]);
     await callbacks.shift()();

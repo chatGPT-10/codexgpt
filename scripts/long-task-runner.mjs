@@ -39,7 +39,6 @@ export function startWorkerLeaseRenewal(options) {
       }
       if (!stopped) schedule(succeeded ? renewMs : retryMs);
     }, delay);
-    timer?.unref?.();
   };
 
   schedule(renewMs);
