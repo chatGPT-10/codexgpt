@@ -48,9 +48,24 @@ CodexGPT is not a hosted coding service, model proxy, quota bypass, account pool
 - Package metadata is currently `codexgpt@0.28.6`; `main` contains unreleased changes that may be ahead of npm.
 - Native Windows is a primary supported environment. WSL is not required. PowerShell is supported; Git Bash remains useful for Bash-oriented workflows.
 - The default public tool contract remains V1. Contracts V2, V3, and V4 are explicit opt-in advanced surfaces.
-- Phase 5, including typed local Git and managed task worktrees, closed on the full Ubuntu/Windows Node 20/24 validation matrix. Advanced features still retain their documented fail-closed and no-sandbox boundaries.
+- Phases 5 and 6 are closed on full Ubuntu/Windows Node 20/24 validation matrices. Project guidance now defaults to `standard`; typed local Git, managed task worktrees, and guidance/Skill reads retain their documented fail-closed and no-sandbox boundaries.
 
 Check the npm badge before installing. Use a source checkout when you specifically need unreleased `main` behavior.
+
+For an existing source checkout, keep the public entry layer by using the repository scripts:
+
+```powershell
+Set-Location D:\Dev\codexpro
+npm install
+npm run build
+npm run connect:setup -- --root D:\Dev\your-repo
+```
+
+Daily start from that source checkout:
+
+```powershell
+npm run connect -- --root D:\Dev\your-repo
+```
 
 ## Requirements
 

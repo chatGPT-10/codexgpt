@@ -1,11 +1,11 @@
 # Phase 6 Project Guidance and Skills TDD Plan
 
-**Status:** runtime, live ChatGPT acceptance, default activation, full local closure, and publication authorization complete; exact-head closure remains open
+**Status:** closed at `31631676fe254962a9a4f14d6e025e3edba82b8d`; exact-head run `30033293444` passed Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package
 **Date:** 2026-07-23
 **Design:** [Phase 6 Project Guidance and Skills Usability Design](../specs/2026-07-22-phase-6-project-guidance-and-skills-design.md)
 **Primary goal:** make the default ChatGPT workflow load real project guidance and relevant Skills before acting, with standard path/privacy boundaries and no new execution authority
 
-**Implementation status (2026-07-23):** The `standard` runtime, compatibility branches, diagnostics, transport integration, and post-runtime adversarial repairs are implemented and locally verified. Real ChatGPT root, nested, target-Skill, subtree-switch, write, and verification journeys passed through the supported public entry. The previously created legacy App had already been deleted, so the user explicitly approved the documented one-time **Scan Tools** or App recreation path instead of claiming transparent cached-snapshot compatibility. Omitted standard/full modes now use ready `standard`; omitted minimal preserves exact legacy compatibility, and explicit `legacy` remains the one-restart rollback. Final managed Node 20/24 ordinary, build, protected Smoke, package, policy, documentation, dependency, and integrity gates passed. The user authorized one staging, English commit, push, and exact-head closure attempt; only terminal exact-head CI remains open.
+**Implementation status (2026-07-23):** The `standard` runtime, compatibility branches, diagnostics, transport integration, and post-runtime adversarial repairs are implemented and verified. Real ChatGPT root, nested, target-Skill, subtree-switch, write, and verification journeys passed through the supported public entry. The previously created legacy App had already been deleted, so the supported upgrade path is one **Scan Tools** refresh or App recreation instead of a transparent cached-snapshot claim. Omitted standard/full modes now use ready `standard`; omitted minimal preserves exact legacy compatibility, and explicit `legacy` remains the one-restart rollback. Managed Node 20/24 ordinary, build, protected Smoke, package, policy, documentation, dependency, and integrity gates passed locally; published head `31631676fe254962a9a4f14d6e025e3edba82b8d` then passed exact-head run `30033293444` across Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
 
 ## 1. Deliverable
 
@@ -113,7 +113,7 @@ Gate failure blocks dependents. It never falls back to a weaker reader, hidden g
 4. Noah explicitly authorizes runtime implementation and the direct `yaml` production dependency.
 5. Git status is understood and all pre-existing user changes are preserved.
 
-**Current evidence (2026-07-23):** runtime base `d2a5af0b7dee30d3a507ebaaac9876911f4ebf2c` passed exact-head CI run `29925944942` across Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package. Before implementation, no conflicting ordinary run was active and Noah authorized the runtime plus the audited exact `yaml@2.9.0` dependency. The implemented runtime passed post-implementation review, real ChatGPT root/nested, target-Skill, subtree-switch, write, and verification journeys, and omitted mode now defaults to ready `standard`. The deleted legacy App is covered by the user-approved one-time **Scan Tools** or recreation upgrade path. Publication is authorized; exact-head closure evidence remains pending.
+**Current evidence (2026-07-23):** runtime base `d2a5af0b7dee30d3a507ebaaac9876911f4ebf2c` passed exact-head CI run `29925944942` across Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package. Before implementation, no conflicting ordinary run was active and Noah authorized the runtime plus the audited exact `yaml@2.9.0` dependency. The implemented runtime passed post-implementation review, real ChatGPT root/nested, target-Skill, subtree-switch, write, and verification journeys, and omitted mode now defaults to ready `standard`. The deleted legacy App is covered by the one-time **Scan Tools** or recreation upgrade path. Closure head `31631676fe254962a9a4f14d6e025e3edba82b8d` passed exact-head run `30033293444`; Phase 6 implementation and publication authority is exhausted.
 
 **Add:**
 
@@ -804,6 +804,6 @@ Before calling Phase 6 implemented:
 [x] Complete managed Node 20/24 ordinary, Smoke, build, package, and policy gates pass
 [x] Documentation, Memory, and Phase 6 archive match the activated runtime
 [x] Explicit publication approval is recorded
-[ ] Exact-head Ubuntu/Windows Node 20/24 CI succeeds
-[x] Phase 7 remains unstarted
+[x] Exact-head Ubuntu/Windows Node 20/24 CI succeeds
+[x] Phase 7 runtime and dependencies remain unstarted
 ```

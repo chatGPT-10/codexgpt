@@ -54,7 +54,7 @@ Usage:
   codexgpt pro-apply --root /path/to/repo --file plan.md
   codexgpt install-cloudflared
   npm run connect -- --root /path/to/repo
-  node scripts/codexgpt.mjs --root /path/to/repo --tunnel cloudflare
+  node scripts/codexgpt-entry.mjs --root /path/to/repo --tunnel cloudflare
 
 Options:
   --root <dir>              Workspace root. Default: current directory.

@@ -480,7 +480,7 @@ Do not expose push, force push, remote mutation, credential mutation, or force d
 
 ### Phase 6 — Project guidance and Agent Skills usability
 
-Historical outline only. The exact Phase 6 boundary and TDD sequence are superseded by the adversarially reviewed 2026-07-22 [design](superpowers/specs/2026-07-22-phase-6-project-guidance-and-skills-design.md) and [plan](superpowers/plans/2026-07-22-phase-6-project-guidance-and-skills.md). The standard runtime, live ChatGPT acceptance, default activation, complete local closure gates, and publication authorization are complete; explicit `legacy` remains the rollback, and only the exact-head publication CI gate remains open.
+Historical outline only. The exact Phase 6 boundary and TDD sequence are superseded by the adversarially reviewed 2026-07-22 [design](superpowers/specs/2026-07-22-phase-6-project-guidance-and-skills-design.md) and [plan](superpowers/plans/2026-07-22-phase-6-project-guidance-and-skills.md). Phase 6 is closed at `31631676fe254962a9a4f14d6e025e3edba82b8d` by successful exact-head run `30033293444`; explicit `legacy` remains the rollback.
 
 Phase 6 now prioritizes the working ChatGPT path: workspace open returns actual root AGENTS text and bounded root Skill metadata; `codex_context(target_path)` in the standard profile returns the exact root-to-target instruction chain and target-scoped Skill catalog; `load_skill` keeps bodies and resources lazy; actual file, process, and Git actions remain under existing typed tools and Policy/Approval/Audit.
 
@@ -488,13 +488,13 @@ The former mandatory version/trust/permission/content-hash manifest and generic 
 
 ### Phase 7 — Semantic providers
 
-- expand the provider interface;
-- keep the built-in lexical fallback;
-- add a Serena adapter;
-- optionally add an LSP adapter;
-- support definitions, references, diagnostics, rename preview, and WorkspaceEdit preview;
-- reject provider paths outside the workspace;
-- route every edit through the atomic edit service.
+Historical outline only. The exact Phase 7 boundary and sequence are superseded by the 2026-07-23 [design](superpowers/specs/2026-07-23-phase-7-semantic-providers-design.md) and [TDD plan](superpowers/plans/2026-07-23-phase-7-semantic-providers.md).
+
+The current design prioritizes a runnable first path: a zero-setup owned-worker JavaScript/TypeScript engine that understands symbol-only requests and real in-workspace declaration/config data; one inherited-runtime V5 `semantic` tool; honest lexical fallback; and a complete server-owned identity/hash/edit rename plan whose approval facts and lock-held preconditions flow through the existing Phase 3 atomic transaction.
+
+Phase 7 Core closes independently after live ChatGPT and exact-head success. Serena retrieval is a separately authorized Phase 7B extension; direct stdio LSP is Phase 7C only when a concrete language need remains. CodexGPT exposes no protocol-level Provider mutation, while external same-user processes truthfully retain `execution_isolation: none`, `filesystem_isolation: none`, and `network_isolation: none`.
+
+Phase 7 Core runtime and its exact TypeScript dependency remain unapproved pending a fresh G7-0 authorization. Serena/LSP dependencies or installations require their later extension-specific approvals.
 
 ### Phase 8 — OAuth and Cloudflare hardening
 

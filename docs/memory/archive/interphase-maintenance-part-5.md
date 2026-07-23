@@ -174,3 +174,162 @@ This append-only volume continues interphase maintenance after the closed Part 4
 - Exact-head CI run `29925944942` completed with conclusion `success`; Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package all passed, and bounded failure-evidence uploads were correctly skipped.
 - Local `main`, `origin/main`, and the GitHub run head resolve to the same 40-character SHA.
 - This closes the runtime-base exact-head prerequisite of Phase 6 Gate G6-0. It does not authorize Phase 6 runtime implementation or the YAML production dependency, and a fresh no-conflicting-run check remains mandatory immediately before Task 6A0.
+
+## 2026-07-23 — STEP-402: Reconcile Phase 6 closure knowledge and audit project rules
+
+**Status:** Complete locally. Documentation and project memory now consistently treat Phase 6 as closed at `31631676fe254962a9a4f14d6e025e3edba82b8d` by exact-head run `30033293444`. No staging, commit, push, runtime, dependency, Provider installation, release, or deployment was performed.
+
+**Goal:** Remove stale open-gate claims after formal Phase 6 closure, align the Phase 7 design baseline and next legal action, and mechanically audit project rules, paths, links, memory size, and user-facing launch guidance without overwriting separately owned work.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `Memory.md`
+- `README.md`
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/memory/archive/interphase-maintenance-part-5.md`
+- `docs/memory/archive/phase-6-part-2.md`
+- `docs/superpowers/plans/2026-07-22-phase-6-project-guidance-and-skills.md`
+- `docs/superpowers/specs/2026-07-22-phase-6-project-guidance-and-skills-design.md`
+- `docs/superpowers/plans/2026-07-23-phase-7-semantic-providers.md`
+- `docs/superpowers/specs/2026-07-23-phase-7-semantic-providers-design.md`
+
+**Implementation:**
+
+- Updated the active README status and changelog to include the closed Phase 6 guidance surface and the final Windows runner-observation stabilization.
+- Changed the Phase 6 paired plan/spec status, evidence, compatibility baseline, and completion checklist from pending to exact-head closed.
+- Changed the Phase 7 paired plan/spec compatibility baseline and next legal action to start from the closed Phase 6 head and require fresh G7-0 authorization.
+- Removed the stale STEP-398 `closure remains open` summary from `Memory.md`, retained only current recent summaries, and recorded this reconciliation as STEP-402.
+- Corrected the active-rule summary from closed Phases 1–5 to closed Phases 1–6 without adding mechanism or history to the rule file.
+
+**Verification:**
+
+- Enumerated 127 project Markdown files outside ignored/generated trees; the relative Markdown link audit found zero broken targets.
+- All 19 repository paths directly named by active technical rules exist.
+- `D:\Codex\home\AGENTS.md` and `C:\Users\Administrator\.codex\AGENTS.md` are byte-identical; no parent workspace rule file exists between `D:\Dev\codexpro` and `D:\`.
+- `.gitignore` covers `.env`, `.env.*`, `.ai-bridge/`, generated output, and local JSON/Markdown/log artifacts; Git tracks no `.env`, PEM, or key file.
+- `Memory.md` remains below the project soft and hard limits. Repository documentation is larger than the project memory archive, so no memory/docs size inversion exists.
+- Active status and relative-time scans, repository policy, documentation/package tests, whitespace checks, added-line secret scan, and final scope checks are required after this archive entry.
+
+**Adversarial review:** Pending against this completed synchronization result; supported findings must be repaired before final handoff.
+
+**Decisions, risks, and limitations:**
+
+- `AGENTS.md` exceeds the neat-freak 15 KB soft guideline but remains below 300 lines and contains active security/operational boundaries rather than historical narration. Broad compression would increase the chance of deleting a required fail-closed rule, so this pass does not trade correctness for a soft byte target.
+- The supported public-entry rule and README use `scripts/codexgpt-entry.mjs`, but the runtime `--help` output still advertises direct `node scripts/codexgpt.mjs`. That is a user-facing runtime change, not a pure knowledge edit, and requires explicit authorization plus a regression test.
+- Closed append-only archives and historical implementation steps retain their original point-in-time facts. Only active status surfaces were corrected.
+
+**Rollback:** Revert only the STEP-402 documentation and memory edits. Do not rewrite the closed Phase 6 archives, remove Phase 7 design work, or change runtime behavior as documentation rollback.
+
+**Next step:** Complete post-edit documentation/policy verification and multi-agent adversarial review. After that, obtain an explicit user decision before repairing the public CLI help drift or beginning Phase 7 Core runtime work.
+
+### STEP-402 completion correction
+
+This correction is append-only. The original `Files changed` list combined prior STEP-401 closure-record files with files actually touched by STEP-402. STEP-402 itself changed `AGENTS.md`, `CHANGELOG.md`, `Memory.md`, `README.md`, `README_ZH.md`, the master plan, this interphase archive, the Phase 6 paired plan/spec, and the existing Phase 7 paired plan/spec. The roadmap was modified by STEP-401, while `docs/memory/archive/phase-6-part-2.md` contains only the STEP-401 closure record.
+
+Post-edit verification completed:
+
+- `npm run policy:check` passed.
+- `npm run test:focused -- test/authentication-docs.test.mjs test/package-contents.test.mjs test/operational-policy.test.mjs` passed 2/2 executed tests.
+- `git diff --check` passed with only Git's informational LF-to-CRLF warnings.
+- The relative Markdown link audit passed 127 files with zero broken targets.
+- Active-status and relative-time scans found no remaining stale Phase 6 open-gate claim after the repairs below.
+- The added-line high-confidence secret scan passed; no staged files, runtime/source changes, dependencies, credentials, or external state changes were introduced.
+
+Three independent read-only adversarial reviews found and this pass repaired:
+
+- stale Phase 6/Phase 7 status wording in the Phase 6 checklist and master plan;
+- four obsolete Phase 8 authorization claims that conflicted with the current execution boundary;
+- one stale master-plan statement that still blocked the already completed G6-M/G6-U default flip;
+- a circular Phase 6 compatibility baseline, restored to its historical closed Phase 1–5 implementation baseline;
+- missing English/Chinese source-checkout launch instructions and Chinese current-status parity;
+- the untracked public CLI help drift is now an explicit `Memory.md` open item because fixing runtime help and adding its regression test require fresh authorization.
+
+The final review found no reason to rewrite append-only historical point-in-time facts. STEP-402 is complete locally. The next authorized action remains documentation handoff only; runtime help repair, Phase 7 Core implementation, staging, commit, push, publication, release, and deployment all require fresh user authorization.
+
+## 2026-07-23 — STEP-403: Keep public CLI help on the supported entry
+
+**Status:** Complete locally under Noah's bounded maintenance authorization. The public help no longer recommends bypassing entry-layer protections. No staging, commit, push, publication, release, deployment, dependency, credential, or Phase 7 runtime action was performed.
+
+**Goal:** Make the source-checkout help path match the project's actual public-entry boundary and prevent equivalent direct-inner-CLI guidance or npm bin drift from returning.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `Memory.md`
+- `scripts/codexgpt.mjs`
+- `test/public-cli-help.test.mjs`
+- `docs/memory/archive/interphase-maintenance-part-5.md`
+
+**Implementation:**
+
+- Replaced the help example `node scripts/codexgpt.mjs ...` with `node scripts/codexgpt-entry.mjs ...`; no launch, authentication, tunnel, or command-routing behavior changed.
+- Added a runtime regression that executes the real public entry with `--help`, requires a source-checkout example through `codexgpt-entry.mjs`, rejects quoted/unquoted direct inner launches with Windows or POSIX separators, and binds `package.json`'s public `codexgpt` bin to the entry script.
+- Closed the STEP-402 open item and recorded that this maintenance authorization is exhausted.
+
+**TDD evidence:**
+
+- Before the production edit, `npm run test:focused -- test/public-cli-help.test.mjs` failed 0/1 because the required entry example was absent and the output still contained the direct inner-CLI command.
+- After the one-line production edit, the same command passed 1/1.
+
+**Verification:**
+
+- `node scripts/toolchain-manager.mjs matrix --major all --root C:\Users\Administrator\AppData\Local\CodexPro\toolchains -- npm run test:focused -- test/public-cli-help.test.mjs test/auth-documentation.test.mjs test/package-contents.test.mjs test/mutation-architecture.test.mjs` passed 14/14 on Node `20.20.2` and 14/14 on Node `24.15.0`.
+- `node scripts/toolchain-manager.mjs matrix --major all --root C:\Users\Administrator\AppData\Local\CodexPro\toolchains -- npm run build` passed on both managed majors.
+- Detached run `2026-07-23T19-11-40-017Z-step403-cli-help-smoke-8c295cb3` completed with exit code 0, cleaned temporary state, zero retention failures, complete untruncated stdout, and zero stderr. Node 20 and Node 24 each passed analysis, analysis CLI, main, HTTP, pro CLI, doctor, settings, and handoff Smoke domains.
+- The first connector-bound dual-major Smoke invocation exceeded its 240-second request timeout while the exact process tree remained active and later exited naturally; it produced no retained terminal result, so it is not counted as verification. The retry used the required detached runner and authoritative terminal evidence.
+- Repository policy, whitespace, added-line secret, staging, and final scope checks are recorded after this entry.
+
+**Adversarial review:**
+
+- Three independent read-only reviews found no blocking behavior, authorization, platform, mutation-inventory, or worktree-scope issue.
+- Review strengthened the permanent regression to cover optional quotes, `./` or `.\`, both path separators, and the published npm bin mapping. The positive assertion now binds entry identity and required options without fixing the path placeholder.
+- The changed script line contains no filesystem mutation primitive, so the mutation inventory remains unchanged and its focused gate passes.
+
+**Decisions, risks, and limitations:**
+
+- This fixes user guidance, not execution isolation; direct manual invocation of the inner script remains technically possible and unsupported.
+- Local dual-major verification is not publication closure. Any pushed runtime-relevant SHA still requires the complete exact-head Ubuntu/Windows Node 20/24 matrix.
+
+**Rollback:** Revert the one help line, the focused regression, and the STEP-403 project-record updates together. This restores the known guidance defect without affecting runtime command routing.
+
+**Next step:** Obtain fresh authorization before staging, committing, pushing, publishing, beginning Phase 7 Core runtime work, or changing any dependency.
+
+### STEP-403 final verification addendum
+
+- `npm run policy:check` passed.
+- `npm run test:focused -- test/public-cli-help.test.mjs test/auth-documentation.test.mjs test/package-contents.test.mjs test/mutation-architecture.test.mjs` passed 14/14.
+- `git diff --check` passed with only informational LF-to-CRLF warnings.
+- The high-confidence added-line secret scan passed.
+- `Memory.md` is 117 lines and 15,209 bytes; the active interphase archive is 27,342 bytes and does not require rollover.
+- Final scope inspection found only the intended STEP-403 runtime/test/record additions alongside the pre-existing STEP-401/402 and Phase 7 design documentation work. No file is staged.
+
+Size clarification: 27,342 bytes was measured immediately before this addendum; the appended evidence remains below the configured rollover threshold.
+
+## 2026-07-23 — STEP-404: Authorize and prepare the audited publication batch
+
+**Status:** Pre-publication preparation complete. Noah authorized ordinary staging, English commits, pushes, and exact-head CI repair/retry cycles for the existing audited batch. The exact published SHA and terminal CI result must be taken from Git/GitHub evidence; no evidence-only repository commit may be created afterward.
+
+**Goal:** Publish the reconciled Phase 6 closure/project records, Phase 7 design/TDD records, and STEP-403 public-help repair as one reviewed batch, then repair only the first root cause of any exact-head CI failure until the terminal matrix passes.
+
+**Files in the authorized batch:** the existing STEP-401/402 project records, Phase 7 paired design/archive files, `scripts/codexgpt.mjs`, `test/public-cli-help.test.mjs`, and their README/changelog/rule/memory updates. No Phase 7 runtime, dependency, Provider, credential, npm registry, deployment, or destructive-history change is included.
+
+**Pre-publication verification:**
+
+- `npm run policy:check` passed.
+- `npm pack --dry-run` passed and retained 549 package files; `bin.codexgpt` maps to `scripts/codexgpt-entry.mjs`.
+- Managed Node `20.20.2` and `24.15.0` each passed `npm run build`.
+- Earlier STEP-403 managed Node focused and Smoke evidence remains current for the only runtime/test change.
+- Three independent read-only reviews found no code, scope, secret, package, or documentation blocker. One review confirmed npm registry publication cannot proceed on this machine because `npm whoami` returned `ENEEDAUTH`; no credential was requested, created, or stored.
+
+**Decisions and limitations:**
+
+- This is a single combined commit because all files reconcile the same released Phase 6 state, make the Phase 7 design handoff current, and remove the public-entry help contradiction. The final runtime-relevant head will receive one complete exact-head matrix rather than splitting evidence across intermediate heads.
+- Git publication and exact-head CI are authorized. npm registry publication remains environment-blocked by absent authentication and must not be simulated with repository credentials.
+
+**Rollback:** Revert the resulting published commit normally if the exact-head matrix exposes a regression. Do not force-push or rewrite history.
+
+**Next step:** Stage the reviewed batch, create an English commit, push normally to `origin/main`, locate and verify its exact-head CI run, and repair/retry only if a gate fails.

@@ -31,6 +31,11 @@
   <a href="SECURITY.md">安全说明</a>
 </p>
 
+## 当前项目状态
+
+- 包元数据当前为 `codexgpt@0.28.6`，`main` 包含尚未发布到 npm 的改动。
+- Phase 5 和 Phase 6 已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。项目指导默认使用 `standard`；这些能力仍保留文档规定的 fail-closed 与非沙箱边界。
+
 ## 安装
 
 CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 账号。OpenAI 当前文档列出的 web 端 Developer Mode 账号范围包括 Pro、Plus、Business、Enterprise 和 Education。
@@ -42,6 +47,21 @@ npm install -g codexgpt
 ```
 
 GitHub `main` 文档可能早于 npm 发布；用 `npm install -g codexgpt` 前请看 npm badge/version，未发布的 `main` 行为请用下面的 source checkout 方式。
+
+已有 source checkout 时，使用仓库脚本以保留公开入口层：
+
+```powershell
+Set-Location D:\Dev\codexpro
+npm install
+npm run build
+npm run connect:setup -- --root D:\Dev\your-repo
+```
+
+之后从该 source checkout 日常启动：
+
+```powershell
+npm run connect -- --root D:\Dev\your-repo
+```
 
 进入你想让 ChatGPT 工作的仓库，然后运行 setup：
 

@@ -9,19 +9,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Date: 2026-07-23.
 - Package: `codexgpt@0.28.6`; repository: `chatGPT-10/codexgpt`; primary platform: native Windows; WSL remains optional.
 - Phases 0–3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head run `29603060944`; Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
-- Phase 6 was first published at `efb53118331868686703d28b5ddea55611836b54`; exact-head run `29990618309` exposed Ubuntu guidance-path compatibility and Windows Node 24 guidance-mutation/runner-retention failures.
-- STEP-395 published the three bounded repairs at `22f0f4152fb33c6a8bfa26a472f7c57332f183c0`. Exact-head run `29997207747` proved Repository policy, Ubuntu Node 20/24, and Windows Node 20; Windows Node 24 failed only because `runner-log-bounds` declared timeout after 15 seconds while the exact worker lease remained active.
-- STEP-396 published the first oracle repair at `a55e279ea63794c0d5ddb649e5689cdbeb58c0a4`. Exact-head run `30011123344` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24; Windows Node 20 exposed the same shorter-deadline defect in the finalization-observation helper.
-- STEP-397 published the second oracle repair at `63732355657e0e426d7c29dd21e52ac216be28f0`. Exact-head run `30015004010` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24; Windows Node 20 exposed a production lifecycle defect because the unreferenced lease-renewal timer could not keep the detached worker alive through authoritative result publication.
-- STEP-398 retains that timer until result publication completes and has passed all local closure gates. The user authorized the additional fixes, commits, pushes, and exact-head attempts required to reach formal Phase 6 closure; deployment, release publication, Phase 7, force push, destructive history changes, credentials, and unrelated scope remain excluded.
-- STEP-390 implements and adversarially repairs the local Phase 6 `standard` preview: root/target AGENTS, target-bound Skill discovery/loading, lazy resources, bounded diagnostics, and exact legacy compatibility.
-- STEP-391 obtained live ChatGPT evidence through the existing Cloudflare named tunnel: root guidance/root Skill, nested root-to-target guidance, target-scoped `frontend-guidance`, one bounded edit, and `npm run check` all succeeded. A forced cross-session reuse of the returned workspace handle correctly failed closed under the Phase 2B transport boundary; standard server instructions now tell ChatGPT Web/App to omit `workspace_id` on subsequent default-workspace calls.
-- STEP-392 completed the strict second-subtree G6-U sequence in a clean ChatGPT conversation: frontend context, exact nested Skill load once, frontend edit, backend subtree switch and context reload, backend edit, and workspace verification all succeeded without `WORKSPACE_NOT_FOUND` or fallback. The old pre-Phase-6 App had already been deleted; the user approved one **Scan Tools** refresh or App recreation as the documented upgrade path instead of claiming transparent frozen-snapshot compatibility.
-- Omitted mode defaults to `standard` with readiness `ready`; explicit `CODEXGPT_GUIDANCE_MODE=legacy` remains the one-restart rollback. Omitted `minimal` mode preserves the exact legacy projection because it has no `codex_context`; explicit `standard + minimal` fails closed. Formal Phase 6 closure requires one exact published head to pass Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package gates.
+- Phase 6 is formally closed at `31631676fe254962a9a4f14d6e025e3edba82b8d`; exact-head run `30033293444` passed Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package. Explicit `legacy` remains rollback and old Apps require one **Scan Tools** refresh or recreation.
+- STEP-400 repaired the two Windows test observers and passed local ordinary, Build, and Smoke on managed Node 20/24. STEP-401 records the exact published closure without creating an evidence-only repository commit.
+- STEP-399 completes the adversarially repaired Phase 7 paired design/TDD plan. Core is zero-setup owned-worker JS/TS plus symbol lookup, inherited V5, and approval/identity-bound atomic rename; Phase 7B Serena and demand-driven Phase 7C LSP are non-blocking extensions. No Phase 7 runtime, dependency, or Provider install was performed; publication of the design records is governed by STEP-404.
+- Omitted mode defaults to `standard` with readiness `ready`; explicit `CODEXGPT_GUIDANCE_MODE=legacy` remains the one-restart rollback. Omitted `minimal` mode preserves the exact legacy projection because it has no `codex_context`; explicit `standard + minimal` fails closed.
 
 ## Approved execution boundary
 
-Phase 6 runtime, exact `yaml@2.9.0`, live G6-M/G6-U acceptance, omitted-default activation, and the bounded additional fixes, English commits, ordinary pushes, and exact-head attempts required for formal closure are authorized. This authority ends when one exact published head passes Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package gates. Tasks 4B1–4B6 and `workspace` remain deferred. Force push, destructive history changes, deployment, release publication, credential handling, Phase 7, and unrelated scope expansion remain excluded.
+Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-23 publication authorization permits staging, English commits, ordinary pushes, and exact-head CI repair/retry cycles for the audited Phase 6 closure/project records, Phase 7 design/TDD records, and STEP-403 public-help repair. Phase 7 Core runtime and exact TypeScript dependency, Phase 7B/7C dependencies or installs, npm registry credential use/release, deployment, Tasks 4B1–4B6, `workspace`, force push, destructive history, credentials, Phase 8+, and unrelated scope remain excluded.
 
 ## Active decisions and constraints
 
@@ -43,17 +38,17 @@ Phase 6 runtime, exact `yaml@2.9.0`, live G6-M/G6-U acceptance, omitted-default 
 - Phase 6 adds no Tool Contract V5, generic Hooks, automatic Skill scripts/dependencies, custom trust/hash/permission manifest, or guidance-derived authority. Standard user/plugin Skills remain explicit opt-in.
 - Every Phase 6 AGENTS/Skill/resource read must use one canonical same-handle bounded reader; automatic Skill catalogs default to an 8,000-character total budget.
 - Omitted `CODEXGPT_GUIDANCE_MODE` now selects `standard` with readiness `ready`; explicit `legacy` preserves the exact prior V1/V2/V3/V4 projections as a one-restart rollback. In ChatGPT Web/App, subsequent default-workspace calls omit `workspace_id` because opaque handles are transport-session scoped and cross-session reuse must fail closed. Apps with frozen pre-Phase-6 tool snapshots require one **Scan Tools** refresh or recreation; transparent refresh is not claimed. `yaml@2.9.0` is the only new production dependency and has no transitive dependencies or lifecycle scripts.
+- Phase 7 Core must close independently before optional Providers: owned-worker builtin JS/TS, symbol-or-position `semantic`, exact inherited V5=52, lexical quality labels, and server-owned rename plans applied only through the server Policy Kernel/Phase 3 transaction. Approval binds `semanticFactsDigest`; stable identity/path/hash reaches the lock-held second inspection.
+- Every Core workspace semantic read is mandatory canonical same-handle with `nlink === 1`. Serena is Phase 7B; direct LSP is Phase 7C only for a named unmet language need. External same-user Providers have no execution, filesystem, or network isolation guarantee.
 
 ## Verification evidence
 
 - Phase 3 closure heads passed runs `29441752493` and `29443158835`; reduced Phase 4 passed `29603060944`; Phase 5 passed `29698209894`.
 - Gate X follow-up head passed exact-head run `29780813295`; the post-Phase-5 runtime base `d2a5af0b7dee30d3a507ebaaac9876911f4ebf2c` passed run `29925944942`.
 - Phase 6 implementation, live ChatGPT G6-M/G6-U acceptance, default activation, doctor alignment, compatibility repair, and complete local closure are recorded in STEP-390 through STEP-394 of `docs/memory/archive/phase-6.md`.
-- STEP-395 managed Node 20.20.2 and 24.15.0 each passed 35 affected tests and build. Detached ordinary passed 1,175/1,177 per major with zero failures and two established skips; dual-major eight-part Smoke, policy, package, Markdown, secret, and mutation gates passed.
-- Exact-head run `29997207747` for `22f0f4152fb33c6a8bfa26a472f7c57332f183c0` passed Repository policy, Ubuntu Node 20/24, and Windows Node 20. Windows Node 24 failed only in `runner-log-bounds` after its fixed 15-second deadline while the exact lease remained active; all three STEP-395 failure classes stayed closed.
-- STEP-396 passed the runner/log lifecycle suite 19/19 on each managed major and the Node 24 flood test in ten consecutive rounds. Detached ordinary run `2026-07-23T12-46-34-421Z-phase6-final-ordinary-03b98fb5` passed 1,175/1,177 per major; detached Smoke run `2026-07-23T13-10-44-132Z-phase6-final-smoke-c2b26ef0` passed all eight sections per major.
-- STEP-397 passed the same 19/19 suite on both majors and the affected Node 20 finalization test in five consecutive rounds. Detached ordinary run `2026-07-23T13-48-27-430Z-phase6-final-ordinary-r2-21db5147` passed 1,175/1,177 per major with zero failures and two established skips; stderr was empty, temporary state cleaned, and retention had zero failures.
-- STEP-398 passed the affected lifecycle/runner/mutation/operational suite 32/32 on both managed majors and the Windows Node 20 retention test in ten consecutive rounds. Detached ordinary run `2026-07-23T14-41-41-946Z-phase6-final-ordinary-r3-bcb87de9` passed 1,175/1,177 per major; detached Smoke run `2026-07-23T15-55-33-034Z-phase6-final-smoke-r3-c52297e7` passed all eight sections per major. Both runs had exit 0, empty stderr, cleaned temporary state, and zero retention failures; static/package/mutation/operational tests passed 21/21, policy passed, and package dry-run contained 549 files with no tests, `.ai-bridge`, or memory archive.
+- STEP-395 through STEP-400 repair evidence and failed exact-head progression are preserved in `docs/memory/archive/phase-6.md`; STEP-401 and exact closure run `30033293444` are recorded in `docs/memory/archive/phase-6-part-2.md`.
+- STEP-399 documentation gates: repository policy passed; auth/package focused tests passed 8/8; repository-wide Markdown link audit passed 125 files with zero broken links before final archive reconciliation.
+- STEP-403 routes source-checkout help through the public entry and binds the npm `codexgpt` bin to that entry. Managed Node 20/24 focused tests passed 14/14 per major, build passed on both, and detached Smoke passed all eight domains on both.
 
 ## Known limitations
 
@@ -67,24 +62,19 @@ Phase 6 runtime, exact `yaml@2.9.0`, live G6-M/G6-U acceptance, omitted-default 
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
 - The deleted pre-Phase-6 App made a genuine frozen-tool-snapshot reuse test impossible. The approved product contract is one explicit **Scan Tools** refresh or App recreation; transparent cache refresh is not claimed.
+- Phase 7 runtime does not exist. The owned worker, V5, semantic approval facts, lock-held identity preconditions, Serena, and LSP are design requirements, not current capabilities; optional same-user Providers would remain unsandboxed.
 
 ## Open items
 
-1. Stage and publish the final reviewed STEP-398 candidate, then require terminal exact-head Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package success. Do not create an evidence-only follow-up commit after success.
-2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret Git/worktree mechanisms, ConPTY, or lifecycle leases as a sandbox.
-3. Treat migration from `%LOCALAPPDATA%\CodexPro\toolchains` to the default `CodexGPT` toolchain root as separate unplanned maintenance requiring approval.
+1. Obtain fresh authorization for Phase 7 Core runtime and the exact TypeScript dependency; do not request Serena/LSP installs at Core G7-0.
+2. Keep Tasks 4B1–4B6 and `workspace` deferred; treat the toolchain-root migration as separate maintenance and never reinterpret ambient process/worktree mechanisms as a sandbox.
 
 ## Recent summaries
 
-- **STEP-398 - Keep detached workers alive through publication:** retain the renewal timer until authoritative terminal evidence is written, without widening lease authority.
-- **STEP-397 - Align finalization observation:** bind the remaining finalization helper to the production lease plus bounded grace while preserving exact lease/result requirements.
-- **STEP-396 - Align the flood runner oracle:** bind flood-fixture failure to the production lease plus bounded terminal grace, preserving immediate stale failure and bounded CI completion.
-- **STEP-395 - Repair Phase 6 exact-head CI gaps:** normalize cross-host guidance paths, detect same-size same-handle mutation by byte verification, and promptly retry failed observational lease renewals.
-- **STEP-394 - Complete Phase 6 local closure:** repair omitted-minimal and frozen-contract compatibility, reconcile user documentation, and pass complete dual-major local gates.
-- **STEP-393 - Align doctor with activated guidance:** report ready default `standard` while preserving explicit legacy rollback.
-- **STEP-392 - Complete G6-U and activate standard guidance:** pass the strict second-subtree journey, flip the omitted default, and preserve exact legacy compatibility.
-- **STEP-391 - Run live Phase 6 acceptance:** verify named-tunnel root/nested/write/check behavior while preserving transport-scoped workspace isolation.
-- **STEP-390 - Implement the Phase 6 preview:** add bounded AGENTS context, target Skills, lazy resources, diagnostics, and exact legacy projection.
+- **STEP-403 - Keep public help on the supported entry:** replace the direct inner-CLI example, bind the runtime output and npm bin through a permanent regression, and pass managed Node 20/24 focused, build, and Smoke gates.
+- **STEP-402 - Reconcile Phase 6 closure knowledge:** remove stale open-gate claims from active plans, align Phase 7's compatibility baseline, verify rules/links/size boundaries, and leave runtime help drift for explicit authorization.
+- **STEP-401 - Close Phase 6 on the exact published head:** bind `31631676fe254962a9a4f14d6e025e3edba82b8d` to successful run `30033293444` and end the Phase 6 closure authority.
+- **STEP-400 - Stabilize Windows runner completion observation:** align test observers with the production state machine and lease boundary and pass complete local Node 20/24 gates.
 
 ## Archives
 
@@ -115,7 +105,9 @@ Phase 6 runtime, exact `yaml@2.9.0`, live G6-M/G6-U acceptance, omitted-default 
 - [Closed Phase 4 Volume 3 — STEP-326 through STEP-343](docs/memory/archive/phase-4-part-3.md)
 - [Closed Phase 5 Volume 1 — STEP-344 through STEP-355](docs/memory/archive/phase-5.md)
 - [Closed Phase 5 Volume 2 — STEP-356 through STEP-362](docs/memory/archive/phase-5-part-2.md)
-- [Active Phase 6 — STEP-386 onward](docs/memory/archive/phase-6.md)
+- [Closed Phase 6 Volume 1 — STEP-386 through STEP-400](docs/memory/archive/phase-6.md)
+- [Closed Phase 6 Volume 2 — STEP-401](docs/memory/archive/phase-6-part-2.md)
+- [Phase 7 design and future implementation — STEP-399 onward](docs/memory/archive/phase-7.md)
 
 ## Memory maintenance protocol
 

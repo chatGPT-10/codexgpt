@@ -1,6 +1,6 @@
 # Phase 6 Project Guidance and Skills Usability Design
 
-**Status:** runtime, adversarial repair, live ChatGPT root/nested acceptance, and omitted-default activation complete; publication and exact-head closure remain open
+**Status:** closed at `31631676fe254962a9a4f14d6e025e3edba82b8d`; exact-head run `30033293444` passed Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package
 **Date:** 2026-07-22
 **Supersedes:** the former Phase 6 Hook/trust-manifest outline in the master plan
 **Scope:** make repository guidance and Agent Skills work predictably from ChatGPT while retaining the project's existing authorization boundary
