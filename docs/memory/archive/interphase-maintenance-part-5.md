@@ -167,3 +167,10 @@ This append-only volume continues interphase maintenance after the closed Part 4
 **Rollback:** Revert STEP-388. This restores single-attempt asynchronous rename behavior while leaving the STEP-387 fixture isolation unchanged.
 
 **Next step:** Commit and push only the four STEP-388 files, bind the new exact 40-character HEAD to a fresh full Ubuntu/Windows Node 20/24 CI run, and require every non-skipped job to succeed before Gate G6-0 can pass.
+
+### STEP-388 publication correction — recorded during STEP-389
+
+- STEP-388 was committed and pushed as `d2a5af0b7dee30d3a507ebaaac9876911f4ebf2c` with commit message `fix: retry transient atomic replacements`.
+- Exact-head CI run `29925944942` completed with conclusion `success`; Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package all passed, and bounded failure-evidence uploads were correctly skipped.
+- Local `main`, `origin/main`, and the GitHub run head resolve to the same 40-character SHA.
+- This closes the runtime-base exact-head prerequisite of Phase 6 Gate G6-0. It does not authorize Phase 6 runtime implementation or the YAML production dependency, and a fresh no-conflicting-run check remains mandatory immediately before Task 6A0.

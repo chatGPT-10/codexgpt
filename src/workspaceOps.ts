@@ -22,6 +22,15 @@ import {
   type WaitForHandoffUnavailableReason
 } from "./tools/schemas/waitForHandoff.js";
 import type { CodexContextUnavailable } from "./tools/schemas/codexContext.js";
+import { discoverInstructions, type InstructionDiagnostic, type InstructionFile } from "./guidance/instructions.js";
+import {
+  discoverExplicitGlobalSkills,
+  discoverTargetSkills,
+  type SkillDiscoveryDiagnostic,
+  type SkillDiscoveryResult
+} from "./guidance/skillDiscovery.js";
+import { buildSkillCatalog, type SkillCatalogEntry } from "./guidance/skillCatalog.js";
+import { redactSensitiveText } from "./redact.js";
 
 export interface WorkspaceSummary {
   text: string;
@@ -34,6 +43,25 @@ export interface WorkspaceSummary {
   skillCounts: Record<string, number>;
   tree?: string;
   gitStatus: string;
+  standardGuidance?: {
+    status: "ok" | "warning" | "unavailable";
+    instructionChain: InstructionFile[];
+    instructionDiagnostics: GuidanceDiagnostic[];
+    skillCatalog: SkillCatalogEntry[];
+    skillScan: {
+      candidateCount: number;
+      validCount: number;
+      invalidCount: number;
+      scanComplete: boolean;
+      scanTruncated: boolean;
+      returnedTruncated: boolean;
+      catalogComplete: boolean;
+      catalogOmittedCount: number;
+      descriptionsShortened: number;
+      catalogChars: number;
+      ineligibleCount: number;
+    };
+  };
 }
 
 export interface CodexContext {
@@ -48,6 +76,7 @@ export interface CodexContext {
   unavailableSources: CodexContextUnavailable[];
   gitStatus?: string;
   gitDiff?: string;
+  standardGuidance?: NonNullable<WorkspaceSummary["standardGuidance"]>;
 }
 
 export type CodexContextTargetKind = "file" | "directory" | "missing";
@@ -248,14 +277,79 @@ export async function workspaceSummary(
   if (options.bootstrapContext) {
     await ensureAiBridge(config, guard, workspace);
   }
-  const skillInventory = options.includeSkills
-    ? await discoverSkillInventory(workspace, { includeGlobal: options.includeGlobalSkills !== false, maxSkills: 120 })
-    : [];
+  const standardMode = (config.guidanceMode ?? "legacy") === "standard";
+  const standardInstructions = standardMode
+    ? await discoverInstructions({
+        root: workspace.root,
+        targetPath: ".",
+        fallbackNames: config.instructionFallbacks?.length ? config.instructionFallbacks : undefined,
+        maxFileBytes: Math.min(60_000, config.maxReadBytes),
+        maxTotalBytes: config.maxInstructionTotalBytes ?? 32_768,
+        blockedGlobs: config.blockedGlobs
+      })
+    : null;
+  const standardSkillDiscovery = standardMode
+    ? await (async () => {
+        const workspaceSkills = await discoverTargetSkills({
+          root: workspace.root,
+          targetPath: ".",
+          maxCandidates: config.maxSkillCandidates ?? 1_000,
+          maxSkills: 120,
+          blockedGlobs: config.blockedGlobs
+        });
+        if (!options.includeGlobalSkills) return workspaceSkills;
+        const remainingCandidates = (config.maxSkillCandidates ?? 1_000) - workspaceSkills.candidateCount;
+        if (remainingCandidates <= 0) {
+          return {
+            ...workspaceSkills,
+            scanComplete: false,
+            scanTruncated: true,
+            diagnostics: workspaceSkills.diagnostics.some((item) => item.code === "SKILL_SCAN_TRUNCATED")
+              ? workspaceSkills.diagnostics
+              : [
+                  ...workspaceSkills.diagnostics,
+                  {
+                    status: "warning" as const,
+                    code: "SKILL_SCAN_TRUNCATED" as const,
+                    path: null,
+                    count: 1,
+                    action: "Reduce Skill candidates or raise the bounded candidate limit."
+                  }
+                ]
+          };
+        }
+        const globalSkills = await discoverExplicitGlobalSkills({
+          codexDir: config.codexDir,
+          maxCandidates: remainingCandidates,
+          maxSkills: 120,
+          blockedGlobs: config.blockedGlobs
+        });
+        return mergeSkillDiscovery(workspaceSkills, globalSkills, 120);
+      })()
+    : null;
+  const standardCatalog = standardSkillDiscovery
+    ? buildSkillCatalog(standardSkillDiscovery.skills, config.maxSkillCatalogChars ?? 8_000)
+    : null;
+  const skillInventory = standardCatalog
+    ? standardCatalog.entries.map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+        source: skill.source,
+        path: skill.path
+      }))
+    : options.includeSkills
+      ? await discoverSkillInventory(workspace, { includeGlobal: options.includeGlobalSkills !== false, maxSkills: 120 })
+      : [];
   const skills = skillInventory.map((skill) => skill.name);
   const counts = skillCounts(skillInventory);
-  const agentsPath = await findAgentsFile(workspace);
+  const agentsPath = standardInstructions?.files[0]?.path ?? await findAgentsFile(workspace);
   let agentsText = "AGENTS.md: none loaded";
-  if (agentsPath) {
+  if (standardInstructions?.files.length) {
+    agentsText = [
+      "## Project Instructions",
+      ...standardInstructions.files.map((file) => `--- ${file.path} ---\n${file.text}`)
+    ].join("\n\n");
+  } else if (agentsPath) {
     agentsText = `AGENTS.md: ${agentsPath} (read this file before editing or making project decisions).`;
   }
 
@@ -276,7 +370,9 @@ export async function workspaceSummary(
   const log = options.gitLogProvider
     ? await options.gitLogProvider()
     : gitLog(config, workspace, 5);
-  const skillText = options.includeSkills
+  const skillText = standardCatalog
+    ? `Skills: ${standardCatalog.entries.length} implicit-ready entries (${standardSkillDiscovery!.validCount} valid; ${standardSkillDiscovery!.invalidCount} invalid).\n${standardCatalog.serialized}`
+    : options.includeSkills
     ? `Skills: ${counts.total} total (${counts.workspace ?? 0} workspace, ${counts.user ?? 0} user, ${counts.plugin ?? 0} plugin, ${counts.other ?? 0} other).`
     : "Skills: skipped. Pass include_skills=true if skill discovery is needed.";
   const text = `# Workspace\n\nWorkspace: ${workspace.id}\nRoot: ${workspace.root}\nBash mode: ${config.bashMode}\nWrite mode: ${config.writeMode}\nTool mode: ${config.toolMode}\n\n${agentsText}\n${skillText}\n\n## Git status\n\n${status}\n\n## Recent commits\n\n${log}\n${treeText ? `\n## Files\n\n${treeText}` : ""}`;
@@ -291,8 +387,82 @@ export async function workspaceSummary(
     skillInventory,
     skillCounts: counts,
     tree: treeText,
-    gitStatus: status
+    gitStatus: status,
+    ...(standardInstructions && standardSkillDiscovery && standardCatalog
+      ? {
+          standardGuidance: {
+            status: guidanceDiagnostics(standardInstructions.diagnostics, standardSkillDiscovery, standardCatalog).length ? "warning" as const : "ok" as const,
+            instructionChain: standardInstructions.files,
+            instructionDiagnostics: guidanceDiagnostics(standardInstructions.diagnostics, standardSkillDiscovery, standardCatalog),
+            skillCatalog: standardCatalog.entries,
+            skillScan: {
+              candidateCount: standardSkillDiscovery.candidateCount,
+              validCount: standardSkillDiscovery.validCount,
+              invalidCount: standardSkillDiscovery.invalidCount,
+              scanComplete: standardSkillDiscovery.scanComplete,
+              scanTruncated: standardSkillDiscovery.scanTruncated,
+              returnedTruncated: standardSkillDiscovery.returnedTruncated,
+              catalogComplete: standardCatalog.catalogComplete,
+              catalogOmittedCount: standardCatalog.catalogOmittedCount,
+              descriptionsShortened: standardCatalog.descriptionsShortened,
+              catalogChars: standardCatalog.characterCount,
+              ineligibleCount: standardCatalog.ineligibleCount
+            }
+          }
+        }
+      : {})
   };
+}
+
+type GuidanceDiagnostic = InstructionDiagnostic | SkillDiscoveryDiagnostic | {
+  status: "warning";
+  code: "SKILL_CATALOG_TRUNCATED";
+  path: null;
+  count: number;
+  action: string;
+};
+
+function mergeSkillDiscovery(primary: SkillDiscoveryResult, secondary: SkillDiscoveryResult, maxSkills: number): SkillDiscoveryResult {
+  const allSkills = [...primary.skills, ...secondary.skills];
+  const returnedTruncated = primary.returnedTruncated || secondary.returnedTruncated || allSkills.length > maxSkills;
+  return {
+    skills: allSkills.slice(0, maxSkills),
+    candidateCount: primary.candidateCount + secondary.candidateCount,
+    validCount: primary.validCount + secondary.validCount,
+    invalidCount: primary.invalidCount + secondary.invalidCount,
+    scanComplete: primary.scanComplete && secondary.scanComplete,
+    scanTruncated: primary.scanTruncated || secondary.scanTruncated,
+    returnedTruncated,
+    diagnostics: [
+      ...primary.diagnostics,
+      ...secondary.diagnostics,
+      ...(allSkills.length > maxSkills ? [{
+        status: "warning" as const,
+        code: "SKILL_RESULTS_TRUNCATED" as const,
+        path: null,
+        count: allSkills.length - maxSkills,
+        action: "Use a narrower target or raise the bounded returned-Skill limit."
+      }] : [])
+    ]
+  };
+}
+
+function guidanceDiagnostics(
+  instructions: InstructionDiagnostic[],
+  discovery: SkillDiscoveryResult,
+  catalog: ReturnType<typeof buildSkillCatalog>
+): GuidanceDiagnostic[] {
+  return [
+    ...instructions,
+    ...discovery.diagnostics,
+    ...(catalog.catalogOmittedCount > 0 ? [{
+      status: "warning" as const,
+      code: "SKILL_CATALOG_TRUNCATED" as const,
+      path: null,
+      count: catalog.catalogOmittedCount,
+      action: "Use a narrower target or raise the bounded Skill catalog character limit."
+    }] : [])
+  ];
 }
 
 export function readHandoffLimits(config: CodexGPTConfig): ReadHandoffLimits {
@@ -795,6 +965,9 @@ export async function resolveCodexContextTarget(
   inputPath = "."
 ): Promise<CodexContextTarget> {
   const requested = inputPath.trim() || ".";
+  if (redactSensitiveText(requested) !== requested) {
+    throw new Error("Codex context target path is blocked by safety rules.");
+  }
   let resolved = guard.resolve(workspace, requested);
   let stat: fs.Stats;
   try {
@@ -854,7 +1027,38 @@ export async function readCodexContext(
     ? { targetPath: options.targetPath ?? ".", targetKind: options.targetKind }
     : await resolveCodexContextTarget(guard, workspace, options.targetPath);
   const maxAgentBytes = Math.min(options.maxAgentBytes ?? 60_000, config.maxReadBytes);
-  const agents = await readCodexAgentsChain(config, guard, workspace, target, maxAgentBytes);
+  const standardMode = (config.guidanceMode ?? "legacy") === "standard";
+  const standardInstructions = standardMode
+    ? await discoverInstructions({
+        root: workspace.root,
+        targetPath: target.targetPath,
+        fallbackNames: config.instructionFallbacks?.length ? config.instructionFallbacks : undefined,
+        maxFileBytes: maxAgentBytes,
+        maxTotalBytes: config.maxInstructionTotalBytes ?? 32_768,
+        blockedGlobs: config.blockedGlobs
+      })
+    : null;
+  const agents = standardInstructions
+    ? {
+        text: standardInstructions.files.length
+          ? standardInstructions.files.map((file) => `--- ${file.path} ---\n${file.text}`).join("\n\n")
+          : "No AGENTS.md-style instruction files found for this target path.",
+        files: standardInstructions.files.map((file) => file.path),
+        unavailable: [] as CodexContextUnavailable[]
+      }
+    : await readCodexAgentsChain(config, guard, workspace, target, maxAgentBytes);
+  const standardSkillDiscovery = standardMode
+    ? await discoverTargetSkills({
+        root: workspace.root,
+        targetPath: target.targetPath,
+        maxCandidates: config.maxSkillCandidates ?? 1_000,
+        maxSkills: 120,
+        blockedGlobs: config.blockedGlobs
+      })
+    : null;
+  const standardCatalog = standardSkillDiscovery
+    ? buildSkillCatalog(standardSkillDiscovery.skills, config.maxSkillCatalogChars ?? 8_000)
+    : null;
   const handoff = options.includeAiBridge === false
     ? null
     : await readHandoffContext(config, guard, workspace);
@@ -912,6 +1116,7 @@ export async function readCodexContext(
     "## AGENTS Instructions",
     "",
     agents.text,
+    ...(standardCatalog ? ["", "## Applicable Skills", "", standardCatalog.serialized] : []),
     "",
     "## AI Bridge Context",
     "",
@@ -931,6 +1136,29 @@ export async function readCodexContext(
     aiContextFiles: ai.files,
     unavailableSources: [...agents.unavailable, ...ai.unavailable],
     gitStatus: status,
-    gitDiff: diff
+    gitDiff: diff,
+    ...(standardInstructions && standardSkillDiscovery && standardCatalog
+      ? {
+          standardGuidance: {
+            status: guidanceDiagnostics(standardInstructions.diagnostics, standardSkillDiscovery, standardCatalog).length ? "warning" as const : "ok" as const,
+            instructionChain: standardInstructions.files,
+            instructionDiagnostics: guidanceDiagnostics(standardInstructions.diagnostics, standardSkillDiscovery, standardCatalog),
+            skillCatalog: standardCatalog.entries,
+            skillScan: {
+              candidateCount: standardSkillDiscovery.candidateCount,
+              validCount: standardSkillDiscovery.validCount,
+              invalidCount: standardSkillDiscovery.invalidCount,
+              scanComplete: standardSkillDiscovery.scanComplete,
+              scanTruncated: standardSkillDiscovery.scanTruncated,
+              returnedTruncated: standardSkillDiscovery.returnedTruncated,
+              catalogComplete: standardCatalog.catalogComplete,
+              catalogOmittedCount: standardCatalog.catalogOmittedCount,
+              descriptionsShortened: standardCatalog.descriptionsShortened,
+              catalogChars: standardCatalog.characterCount,
+              ineligibleCount: standardCatalog.ineligibleCount
+            }
+          }
+        }
+      : {})
   };
 }

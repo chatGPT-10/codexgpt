@@ -68,6 +68,14 @@ Call it with `action=list_actions` to see what the current server mode actually 
 
 Use explicit tools such as `read`, `search`, `edit`, `bash`, and `show_changes` for normal work. Use the supertool when ChatGPT connector caching, custom workflows, or stable wrapper-style integrations matter more than separate visible tool descriptors.
 
+## How do project guidance and Skills work?
+
+Normal `standard` mode enables project guidance by default. Workspace open returns bounded root `AGENTS.md` text and a compact catalog of workspace Skills that are eligible for implicit use. Before the first mutation, and again after switching to another subtree, ChatGPT should call `codex_context(target_path)` to obtain the exact root-to-target instruction chain and target-scoped Skill catalog.
+
+A matching Skill is loaded lazily and remains instruction text only. Skill scripts do not run automatically, declared dependencies are not installed or treated as verified, and neither AGENTS nor Skills can enable tools, widen roots, approve mutations, or bypass Policy, Approval, Audit, blocked paths, or execution modes. User/plugin Skills remain excluded unless a call explicitly opts into global discovery.
+
+`--tool-mode minimal` does not expose `codex_context`. When guidance mode is omitted, minimal mode therefore uses the exact `legacy` compatibility projection; explicitly requesting `CODEXGPT_GUIDANCE_MODE=standard` with minimal mode fails at startup. Apps created before the Phase 6 tool update may need one **Scan Tools** refresh or recreation.
+
 ## What is the recommended install path?
 
 Install globally once:

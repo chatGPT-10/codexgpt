@@ -6,21 +6,19 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-22.
+- Date: 2026-07-23.
 - Package: `codexgpt@0.28.6`; repository: `chatGPT-10/codexgpt`; primary platform: native Windows; WSL remains optional.
 - Phases 0–3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head run `29603060944`; Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
-- Pull request #4 passed exact-head run `29773470293` at `b85286def95592cf5fa7ce552adcc1043106e5af` and was squash-merged to `main` as `afed823dc8a8cca187d7678cb4e33895de158c57`.
-- STEP-379/380 was published as `d8edadc4eb8fca917b06d669e8fa0e3627d237cb`; failed run `29778608848` is retained only as diagnosed evidence for the invalid equal ConPTY worker/RPC deadline.
-- Follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` preserves the 60-second worker deadline, hard-bounds shutdown/drain cleanup, and passed exact-head CI run `29780813295` across Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package.
-- `D:\Dev\codexpro` has one registered worktree. Before the STEP-381 documentation reconciliation, local `main` and `origin/main` were synchronized at runtime closure head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4`; `.ai-bridge` contained only ignored local evidence.
-- STEP-382 was committed and pushed as `19bf635f32cc84eabd6eac91892e01fd3d9d515f`; exact-head run `29906441541` exposed Node 24 detached-run lease starvation on Ubuntu and Windows while Node 20 passed.
-- STEP-383 was committed and pushed as `3f2c962f8aa6754490e6b3393e5ca60a5451cc0e`. Exact-head run `29910197587` proved the synchronous lease path fixed Ubuntu Node 24, but Windows Node 20/24 still produced false stale state when transient replacement sharing conflicts exhausted a lease refresh.
-- STEP-384 was published as `c917a6bdb1c0dceddf62ba23bbf01d4bae9cfd53`. Exact-head run `29913227391` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24; Windows Node 20 exposed that the first `running` lease publication still aborted the worker after a persistent replacement conflict.
-- STEP-385 makes the initial lease observational like later refresh/finalizing writes. Deterministic regression, Node 20/24 focused suites, build, policy, 529-entry package dry-run, diff integrity, and complete local ordinary regression passed; publication and replacement exact-head CI remain pending.
+- Post-Phase 5 maintenance through STEP-388 is published; local `main` and `origin/main` are synchronized at `d2a5af0b7dee30d3a507ebaaac9876911f4ebf2c`.
+- Exact-head run `29925944942` for `d2a5af0` completed successfully: Repository policy and Ubuntu/Windows Node 20/24 Regression, Smoke, and Package all passed. The current-runtime-base success prerequisite of Gate G6-0 is satisfied.
+- STEP-390 implements and adversarially repairs the local Phase 6 `standard` preview: root/target AGENTS, target-bound Skill discovery/loading, lazy resources, bounded diagnostics, and exact legacy compatibility.
+- STEP-391 obtained live ChatGPT evidence through the existing Cloudflare named tunnel: root guidance/root Skill, nested root-to-target guidance, target-scoped `frontend-guidance`, one bounded edit, and `npm run check` all succeeded. A forced cross-session reuse of the returned workspace handle correctly failed closed under the Phase 2B transport boundary; standard server instructions now tell ChatGPT Web/App to omit `workspace_id` on subsequent default-workspace calls.
+- STEP-392 completed the strict second-subtree G6-U sequence in a clean ChatGPT conversation: frontend context, exact nested Skill load once, frontend edit, backend subtree switch and context reload, backend edit, and workspace verification all succeeded without `WORKSPACE_NOT_FOUND` or fallback. The old pre-Phase-6 App had already been deleted; the user approved one **Scan Tools** refresh or App recreation as the documented upgrade path instead of claiming transparent frozen-snapshot compatibility.
+- Omitted mode defaults to `standard` with readiness `ready`; explicit `CODEXGPT_GUIDANCE_MODE=legacy` remains the one-restart rollback. Omitted `minimal` mode preserves the exact legacy projection because it has no `codex_context`; explicit `standard + minimal` fails closed. STEP-394 completed the final local closure gates and the user authorized one Phase 6 staging, English commit, push, and exact-head closure attempt. No deployment, release publication, or Phase 7 work is authorized.
 
 ## Approved execution boundary
 
-STEP-379/380 publication and exact-head closure are complete. Phase 6 remains frozen by the current user instruction; do not begin it until explicitly resumed. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive data/history changes, production deployment, credential handling, and silent scope expansion remain excluded.
+Phase 6 runtime, exact `yaml@2.9.0`, live G6-M/G6-U acceptance, omitted-default activation, full local closure, and one staging/commit/push attempt are authorized. The remaining gate is terminal exact-head Ubuntu/Windows Node 20/24 CI for the published SHA. Tasks 4B1–4B6 and `workspace` remain deferred. Destructive history changes, deployment, release publication, credential handling, Phase 7, and silent scope expansion remain excluded.
 
 ## Active decisions and constraints
 
@@ -31,32 +29,33 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - The ChatGPT Web compatibility flow uses the query token when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; public startup logs hide it by default and require an explicit local `u`/Create App action to display it. `CODEXGPT_ALLOW_QUERY_TOKEN=0` is for compatible Bearer clients, not manual ChatGPT Web Bearer configuration.
 - V1/V2/V3/V4 tool counts remain 28/31/39/51. `full_access` is ambient trusted-code authority, not isolation; `workspace` has no fallback; Gate S and Task 4B0 remain blocked diagnostics.
 - Gate X accepts only the four typed local Git operations. Old/new tree derivation and private staging remain inside one reviewed materialized integration bundle; no caller-selected command, remote, credential, force, or config mutation is allowed.
-- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. Every lease publication, including the first, is observational and cannot suppress task execution or authoritative result publication. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry. Lease persistence is synchronous and atomic, with bounded retries only for transient Windows replacement-sharing failures.
+- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. Every lease publication, including the first, is observational and cannot suppress task execution or authoritative result publication. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry. Lease persistence is synchronous and atomic; synchronous and asynchronous atomic JSON replacement share one bounded retry policy for transient Windows replacement-sharing failures.
 - `scripts/test-domains.mjs` is authoritative. Connector-backed local regression uses `ordinary`; destructive control/all execution requires CI or a proven independent native terminal. There is no `npm test` script.
 - Focused tests and tasks use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>`. Cleanup deletes only exact verified dead-owner temporary roots and terminal run evidence.
 - Mutation inventory is fail-closed and binds direct filesystem primitives to repository path, syscall type, and semantic call identity. Atomic production paths cannot fall back to legacy writers.
 - With `inheritEnv=false`, Windows child environments preserve only bounded required user/system paths; do not copy `GH_TOKEN` or arbitrary API variables. `CODEXGPT_INHERIT_ENV=1` is trusted-repository opt-in.
 - `scripts/smoke.mjs` and `scripts/http-smoke.mjs` remain protected; compatibility loaders use exact fail-closed in-memory substitutions.
 - Runtime-relevant pushed SHAs require the complete exact-head matrix. Documentation-only changes require repository policy and document integrity checks.
+- Phase 6 is usability-first: workspace open must return real root AGENTS text, standard `codex_context(target_path)` must return target guidance plus target Skill metadata, and bodies/resources stay lazy.
+- Phase 6 adds no Tool Contract V5, generic Hooks, automatic Skill scripts/dependencies, custom trust/hash/permission manifest, or guidance-derived authority. Standard user/plugin Skills remain explicit opt-in.
+- Every Phase 6 AGENTS/Skill/resource read must use one canonical same-handle bounded reader; automatic Skill catalogs default to an 8,000-character total budget.
+- Omitted `CODEXGPT_GUIDANCE_MODE` now selects `standard` with readiness `ready`; explicit `legacy` preserves the exact prior V1/V2/V3/V4 projections as a one-restart rollback. In ChatGPT Web/App, subsequent default-workspace calls omit `workspace_id` because opaque handles are transport-session scoped and cross-session reuse must fail closed. Apps with frozen pre-Phase-6 tool snapshots require one **Scan Tools** refresh or recreation; transparent refresh is not claimed. `yaml@2.9.0` is the only new production dependency and has no transitive dependencies or lifecycle scripts.
 
 ## Verification evidence
 
 - Phase 3 closure heads passed runs `29441752493` and `29443158835`; reduced Phase 4 passed `29603060944`; Phase 5 passed `29698209894`.
-- STEP-373 through STEP-376 local verification passed runner suites 33/33 and Windows process-host control 10/10 on both managed Node majors; cleanup/process-identity passed five consecutive Node 24 runs at 20/20.
-- STEP-378 deterministic regression failed before the fix and passed afterward; affected cleanup, identity, operational, mutation, and atomic suites passed 36/36 on native Node 20 and Node 24.
-- STEP-378 complete ordinary regression passed on both Node majors: 1,104 tests, 1,102 passed, zero failed, and two established skips per major. Workspace-contained TEMP required `GIT_CEILING_DIRECTORIES` at the repository root to preserve non-repository test semantics.
-- Exact-head PR run `29773470293` passed the complete matrix and authorized the unchanged squash merge.
-- Main push run `29774932378` is diagnosed failure evidence: its sole failure was the Windows Node 20 test waiting exclusively for optional `finalizing` lease publication; production behavior remained covered by the adjacent forced lease-failure regression.
-- STEP-379 lifecycle verification passed 15/15 on managed Node 20 and Node 24; Node 20 also passed three earlier consecutive 15/15 stress runs, and the final exact-evidence publication rerun passed 15/15 on both majors.
-- STEP-379 initial publication gates passed: diff integrity, TypeScript build, repository policy, 529-entry package dry-run, 119-file Markdown link audit with `BROKEN_COUNT|0`, exact three-file scope, and added-line secret review.
-- Run `29778608848` diagnosed the ConPTY failure as an outer RPC budget shorter than the bounded worker plus cleanup path; the follow-up preserved the 60-second worker limit and added bounded cleanup/RPC headroom without masking real worker timeout.
-- Follow-up local regression passed 21/21 affected manifest/protocol/package/domain tests and 15/15 lifecycle tests on each verified Node major.
-- Exact-head run `29780813295` verified head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` with status `completed`, conclusion `success`, and every non-skipped job successful; bounded failure-evidence uploads were correctly skipped in successful jobs.
-- Final synchronization confirmed a clean checkout, exact local/remote head equality, one registered worktree, and ignored-only `.ai-bridge` evidence.
-- STEP-382 TDD regressions passed 19/19 on verified Node 20.20.2 and 19/19 on Node 24.15.0; builds passed on both. Exact detached ordinary run `2026-07-22T08-29-16-832Z-step382-ubuntu-install-regression-ordinary-76566a78` passed 1,105/1,107 with zero failures and two established skips per major, with complete untruncated stdout and zero stderr. Package dry-run retained 529 files.
-- STEP-383 affected lifecycle/atomic/mutation tests passed 30/30 on each verified Node major. Exact detached ordinary run `2026-07-22T09-33-21-984Z-step383-node24-ci-repair-ordinary-55fdc886` passed 1,107/1,109 with zero failures and two established skips per major, cleaned temporary state, retained complete stdout, and produced zero stderr.
-- STEP-384 affected tests passed 31/31 on each verified Node major. Exact detached ordinary run `2026-07-22T10-21-21-141Z-step384-windows-lease-retry-ordinary-bc0425da` passed 1,108/1,110 with zero failures and two established skips per major, cleaned temporary state, retained complete stdout, and produced zero stderr.
-- STEP-385 deterministic regression failed before the fix because evidence was published but the child never started, then passed after making the first lease observational. Verified Node 20.20.2 and Node 24.15.0 each passed 32/32 affected tests. Exact detached ordinary run `2026-07-22T11-19-34-671Z-step385-initial-lease-observational-ordinary-34b24faa` passed 1,109/1,111 with zero failures and two established skips per major, exit code 0, cleaned temporary state, complete stdout, and zero stderr.
+- Gate X repair PR run `29773470293` and follow-up exact-head run `29780813295` passed the complete required matrices.
+- STEP-382 through STEP-385 each passed managed Node 20/24 affected suites, builds, policy, and complete detached ordinary matrices; STEP-385 ordinary passed 1,109/1,111 per major with zero failures and two established skips.
+- STEP-387/388 diagnosed and closed the prior prune-claim and Windows terminal-publication failures; complete failed-run details remain in `docs/memory/archive/interphase-maintenance-part-5.md`.
+- STEP-388 verified Node 20.20.2 and Node 24.15.0 at 28/28 affected tests plus 5/5 mutation tests per major; the two Windows Node 20 failures passed five consecutive stress rounds. Exact detached ordinary run `2026-07-22T13-08-28-930Z-step388-async-atomic-retry-b2665083` passed 1,110/1,112 per major with zero failures and two established skips, followed by successful dual-major build, policy, 529-file package dry-run, and scoped diff integrity checks.
+- Published head `d2a5af0b7dee30d3a507ebaaac9876911f4ebf2c` passed exact-head CI run `29925944942`; every non-skipped job completed successfully.
+- STEP-386 documentation verification passed repository policy, focused authentication/package tests 8/8, diff/explicit whitespace checks, and a 123-file Markdown audit with `BROKEN_COUNT|0`; build/Smoke/runtime suites were not run because no runtime file was changed by STEP-386.
+- STEP-390 final related focused suite passed 170/170. Detached ordinary run `2026-07-22T17-14-54-260Z-phase6-ordinary-2af159ed` passed Node 20.20.2 and Node 24.15.0 at 1,170/1,172 each, with zero failures and two established skips per major. The preceding run exposed and permanently regressed a legacy wire-schema contamination instead of accepting a snapshot change.
+- Protected Smoke run `2026-07-22T17-43-36-225Z-phase6-smoke-06a40596` passed all eight domains on both managed majors; dual-major build, repository policy, authentication/package tests 8/8, and package dry-run also passed. The package contains 549 files, no tests or `.ai-bridge` evidence, and 18 compiled guidance files.
+- STEP-391 live acceptance used the supported global CLI and existing named tunnel. Tool scan reached local MCP with HTTP 200/202; root and nested read journeys were correct; the target edit was written; `npm run check` exited 0. The transport-scope instruction regression passed its RED/GREEN cycle, the related local suite passed 21/21, managed Node 20.20.2 and 24.15.0 each passed 8/8 focused tests and build, and repository policy plus `git diff --check` passed.
+- STEP-392 default-flip verification passed the 99-test related contract suite; managed Node 20.20.2 and 24.15.0 each passed 24/24 focused tests and build. Detached Smoke run `2026-07-22T20-22-52-703Z-phase6-default-flip-smoke-c3c1f405` exited 0 with empty stderr and all eight Smoke sections passing on both majors. The flip exposed legacy Smoke wrappers that relied on omitted mode; each compatibility wrapper now pins explicit `legacy`, with a permanent regression.
+- STEP-393 doctor alignment passed its RED/GREEN cycle; the final related local contract suite passed 100/100, and managed Node 20.20.2 and 24.15.0 each passed 25/25 focused tests and build. The supported doctor entry with the guidance variable omitted reported `standard is ready and enabled by default`. Detached Smoke run `2026-07-22T20-40-39-820Z-phase6-doctor-default-smoke-1d042126` exited 0 with empty stderr and all eight sections passing on both majors.
+- STEP-394 first exposed 11 compatibility failures after default activation, then repaired omitted-minimal selection and explicitly pinned frozen legacy fixtures without widening the minimal surface. Final ordinary run `2026-07-23T07-09-16-184Z-phase6-closure-ordinary-r2-b6e4a32b` passed 1,172/1,174 with zero failures and two established skips on each managed major. Final Smoke run `2026-07-23T07-47-04-068Z-phase6-closure-smoke-final-9653d6a4` passed all eight sections on both majors with empty stderr. Dual-major build, 17/17 docs/mutation/compatibility tests, 549-file package dry-run, policy, whitespace, secret, 123-file Markdown, dependency, and doctor/minimal gates passed; `yaml@2.9.0` introduced no advisory.
 
 ## Known limitations
 
@@ -69,16 +68,25 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - Atomic `apply_patch` supports bounded UTF-8 create/replace/delete only and fails closed for binary, symlink, rename/copy, and mode changes.
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
+- The deleted pre-Phase-6 App made a genuine frozen-tool-snapshot reuse test impossible. The approved product contract is one explicit **Scan Tools** refresh or App recreation; transparent cache refresh is not claimed.
 
 ## Open items
 
-1. Keep Phase 6 frozen until the user explicitly resumes it; the prior conditional Phase 6–8 authorization does not override the current pause.
+1. Stage the reviewed Phase 6 scope, create one concise English commit, push once, and require terminal exact-head Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package success before formal closure.
 2. Keep Tasks 4B1–4B6 and `workspace` deferred; do not reinterpret Git/worktree mechanisms, ConPTY, or lifecycle leases as a sandbox.
 3. Treat migration from `%LOCALAPPDATA%\CodexPro\toolchains` to the default `CodexGPT` toolchain root as separate unplanned maintenance requiring approval.
-4. For any future runtime-relevant head, require the complete exact-head Ubuntu/Windows Node 20/24 matrix before closure.
 
 ## Recent summaries
 
+- **STEP-394 - Complete Phase 6 local closure:** repair omitted-minimal and frozen-contract compatibility, reconcile user documentation, pass final dual-major ordinary/build/Smoke and static/package gates, and record one authorized publication attempt with exact-head CI still pending.
+- **STEP-393 - Align doctor with activated guidance:** make the supported launcher report ready default `standard`, preserve explicit legacy rollback, and verify the final script through dual-major focused/build/Smoke gates.
+- **STEP-392 - Complete G6-U and activate standard guidance:** pass the strict second-subtree ChatGPT sequence, document the one-time old-App refresh path, flip omitted mode to ready `standard`, and preserve exact legacy Smoke through explicit rollback-mode wrappers.
+- **STEP-391 - Run live Phase 6 acceptance and clarify transport-scoped handles:** verify named-tunnel root/nested/write/check behavior in ChatGPT, preserve fail-closed cross-session handle isolation, and instruct standard ChatGPT flows to omit `workspace_id` on default-workspace calls.
+- **STEP-390 - Implement and adversarially repair Phase 6 preview:** add bounded same-handle project guidance, target Skills and lazy resources to `standard`, preserve exact legacy projections, repair three independent reviews, and keep activation blocked on real ChatGPT evidence.
+- **STEP-389 - Reconcile the green runtime base with Phase 6 records:** replace obsolete blocker text with exact successful head/run evidence while preserving the remaining runtime/YAML authorization gates.
+- **STEP-388 - Retry transient asynchronous atomic replacements:** protect authoritative detached-run JSON publication with the same bounded sharing-conflict retry policy already used by synchronous leases.
+- **STEP-387 - Isolate prune-claim recovery:** replace unrelated detached-run setup with a complete terminal fixture so the test directly exercises verified claimed-directory recovery.
+- **STEP-386 - Design usable project guidance and Skills:** replace the over-broad Hook/trust-manifest outline with a reviewed root/target AGENTS and progressive Skill plan, including an early usable slice, same-handle reads, global privacy, real ChatGPT gates, and exact rollback/closure steps.
 - **STEP-385 - Keep the initial lease observational:** a permanently blocked first lease write no longer aborts the worker before task execution and authoritative terminal publication.
 - **STEP-384 - Retry transient Windows lease replacement:** retain the synchronous atomic lease path and add a bounded retry window for Windows sharing violations without extending lease duration or weakening stale detection.
 - **STEP-383 - Preserve Node 24 runner leases under CI pressure:** move the small observational lease to synchronous atomic replacement so cleanup/retention filesystem congestion cannot create false stale runs.
@@ -119,6 +127,7 @@ STEP-379/380 publication and exact-head closure are complete. Phase 6 remains fr
 - [Closed Phase 4 Volume 3 — STEP-326 through STEP-343](docs/memory/archive/phase-4-part-3.md)
 - [Closed Phase 5 Volume 1 — STEP-344 through STEP-355](docs/memory/archive/phase-5.md)
 - [Closed Phase 5 Volume 2 — STEP-356 through STEP-362](docs/memory/archive/phase-5-part-2.md)
+- [Active Phase 6 — STEP-386 onward](docs/memory/archive/phase-6.md)
 
 ## Memory maintenance protocol
 

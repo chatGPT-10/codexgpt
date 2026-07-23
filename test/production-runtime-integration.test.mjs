@@ -66,7 +66,8 @@ function configFor(workspaceRoot, stateHome, overrides = {}) {
     CODEXGPT_TOOL_CONTRACT_VERSION: overrides.toolContractVersion ?? "1",
     CODEXGPT_TOOL_MODE: overrides.toolMode ?? "standard",
     CODEXGPT_CODEX_SESSIONS: overrides.codexSessions ?? "off",
-    CODEXGPT_CONNECTION_TEST: overrides.connectionTest ? "1" : undefined
+    CODEXGPT_CONNECTION_TEST: overrides.connectionTest ? "1" : undefined,
+    CODEXGPT_GUIDANCE_MODE: overrides.guidanceMode ?? "legacy"
   }, () => loadConfig([
     "--root", workspaceRoot,
     "--allow-root", workspaceRoot,

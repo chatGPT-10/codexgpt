@@ -104,7 +104,9 @@ ChatGPT Web 可以操作：
 
 默认 `CODEXGPT_TOOL_MODE=standard`，只暴露常用编码循环、`codexgpt_self_test`、`show_changes`、上下文导出和 handoff。演示时可以用 `--tool-mode minimal`，需要完整兼容工具时用 `--tool-mode full`。
 
-默认工具数量较少是故意的：ChatGPT 面对少量高信号工具时更稳定。workspace open 默认不做 skill discovery；需要 repo-local skills 时传 `include_skills=true`，需要 user/plugin skills 时再加 `include_global_skills=true`。然后用 `load_skill` 按名称、source 和显示出的 path 加载需要的 `SKILL.md`；如果仍有重名匹配，CodexGPT 会报歧义错误，不会随便选一个，也不会把几十个 skill 变成单独 action。
+默认工具数量较少是故意的：ChatGPT 面对少量高信号工具时更稳定。Phase 6 项目指导现在默认启用，直接运行 `codexgpt start` 即可。首次 workspace open 会自动返回有界的根 `AGENTS.md` 正文和仅含 implicit-eligible workspace Skill 的 catalog；首次修改前，ChatGPT 必须调用 `codex_context(target_path)` 获取精确的 root-to-target 指令链和 target-scoped `.agents/skills`，再用返回的同一个 `target_path` 最多加载一个匹配 Skill。Skill 正文及 `references/`、`scripts/`、`assets/` 文本按需加载，任何脚本、依赖或 metadata 都不会自动执行。user/plugin Skills 默认不暴露，只有显式 `include_global_skills=true` 才扫描。
+
+Phase 6 更新前创建的 App 可能保留冻结的旧工具快照；此时需要执行一次 **Scan Tools** 或重建该 App，不宣称透明自动刷新。若旧快照中已有稳定的 `codexgpt` supertool，它仍可兼容调用 `open` 和 `codex_context`。同一二进制回滚只需设置 `$env:CODEXGPT_GUIDANCE_MODE = "legacy"` 并重启。`codexgpt doctor` 会报告 readiness、无效 metadata、命名冲突及 scan/catalog 截断。省略该变量时现在使用 `standard`；由于 `minimal` 不暴露 `codex_context`，省略 guidance 配置的 `--tool-mode minimal` 会使用精确的 legacy 兼容投影，显式 `standard + minimal` 则在启动时失败。
 
 CodexGPT 默认给 ChatGPT 暴露纯 MCP 工具描述，不附带 widget/card metadata。需要紧凑 v9 卡片时用 `CODEXGPT_TOOL_CARDS=1` 启动；server config、自测、workspace 摘要、读写 diff、bash 验证、git/tree/search/context 和 handoff/export 都有结构化视图。git、skills、tree、terminal 输出、context 和 raw diff 会折叠或截断，避免在聊天里刷出大段原始数据。`CODEXGPT_WIDGET_DOMAIN` 用于设置 ChatGPT widget iframe 的专用 HTTPS origin，正式提交 app 前应换成你控制的独立域名。
 

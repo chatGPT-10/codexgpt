@@ -1,6 +1,7 @@
 import path from "node:path";
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import { guidanceDiagnosticSchema, standardSkillScanSchema } from "./guidance.js";
 
 export const CODEXGPT_SELF_TEST_ARTIFACT = ".ai-bridge/codexgpt-self-test.md" as const;
 
@@ -299,7 +300,7 @@ const allowedCheckOutcomes = new Set([
   "terms_boundary:pass:TERMS_BOUNDARY_VALID"
 ]);
 
-export const codexgptSelfTestDataSchema = z.object({
+const codexgptSelfTestLegacyDataObjectSchema = z.object({
   workspace_id: safeIdentifierSchema,
   root: canonicalAbsolutePathSchema,
   status: z.enum(["pass", "warn", "fail"]),
@@ -328,7 +329,11 @@ export const codexgptSelfTestDataSchema = z.object({
   files_touched: fixedTouchedFilesSchema,
   checks: z.array(codexgptSelfTestCheckSchema).length(18),
   terms_boundary: codexgptSelfTestTermsBoundarySchema
-}).strict().superRefine((value, context) => {
+}).strict();
+
+type CodexGPTSelfTestLegacyData = z.infer<typeof codexgptSelfTestLegacyDataObjectSchema>;
+
+function refineCodexGPTSelfTestData(value: CodexGPTSelfTestLegacyData, context: z.RefinementCtx): void {
   for (const field of ["expected_tools", "registered_tools", "missing_tools", "unexpected_tools"] as const) {
     checkSortedUnique(value[field], context, field);
   }
@@ -458,7 +463,21 @@ export const codexgptSelfTestDataSchema = z.object({
       message: "The probe artifact and touched-file set must agree."
     });
   }
-});
+}
+
+export const codexgptSelfTestLegacyDataSchema = codexgptSelfTestLegacyDataObjectSchema.superRefine(refineCodexGPTSelfTestData);
+
+const codexgptSelfTestGuidanceDataSchema = codexgptSelfTestLegacyDataObjectSchema.extend({
+  guidance_mode: z.literal("standard"),
+  guidance_status: z.enum(["ok", "warning", "unavailable"]),
+  guidance_diagnostics: z.array(guidanceDiagnosticSchema).max(256),
+  skill_scan: standardSkillScanSchema
+}).strict().superRefine(refineCodexGPTSelfTestData);
+
+export const codexgptSelfTestDataSchema = z.union([
+  codexgptSelfTestLegacyDataSchema,
+  codexgptSelfTestGuidanceDataSchema
+]);
 
 const emptyDetailsSchema = z.object({}).strict();
 const workspaceNotFoundDetailsSchema = z.union([
@@ -500,6 +519,11 @@ export const codexgptSelfTestOutputShape = {
   data: codexgptSelfTestDataSchema.nullable(),
   error: codexgptSelfTestErrorSchema.nullable(),
   meta: toolMetaSchema
+};
+
+export const codexgptSelfTestLegacyOutputShape = {
+  ...codexgptSelfTestOutputShape,
+  data: codexgptSelfTestLegacyDataSchema.nullable()
 };
 
 const codexgptSelfTestOutputBaseSchema = z.object(codexgptSelfTestOutputShape).strict();

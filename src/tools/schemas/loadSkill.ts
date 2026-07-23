@@ -19,6 +19,11 @@ export const LOAD_SKILL_ERROR_MESSAGES = {
   SKILL_RESOLUTION_LIMIT_REACHED: "Skill discovery reached max_skills before the selector could be resolved safely.",
   SKILL_BOUNDARY_VIOLATION: "The resolved Skill no longer matches its discovered filesystem boundary.",
   SKILL_READ_FAILED: "The resolved Skill instructions could not be read.",
+  SKILL_RESOURCE_BLOCKED: "The requested Skill resource is blocked by local secret-content policy.",
+  SKILL_RESOURCE_BOUNDARY_VIOLATION: "The requested Skill resource is outside its authorized Skill boundary.",
+  SKILL_RESOURCE_NOT_TEXT: "The requested Skill resource is not a supported text file.",
+  SKILL_RESOURCE_HARDLINK_UNSAFE: "The requested Skill resource has an unsafe hard-link identity.",
+  SKILL_RESOURCE_READ_FAILED: "The requested Skill resource could not be read safely.",
   INTERNAL_ERROR: "The Skill loader failed because of an internal error."
 } as const;
 
@@ -88,9 +93,48 @@ export const loadSkillSelectorSchema = z.object({
   }
 });
 
+export const loadSkillStandardSelectorSchema = z.object({
+  name: safeOneLineSchema,
+  source: codexgptInventorySkillSourceSchema.nullable(),
+  path: z.string().min(1).max(1024).nullable()
+}).strict().superRefine((value, context) => {
+  if (value.path === null) return;
+  const pathSource = loadSkillStandardSelectorPathSource(value.path);
+  if (!pathSource) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["path"], message: "Path must be a sanitized Skill selector." });
+    return;
+  }
+  if (value.source === null) return;
+  const sourceMatches = value.source === pathSource ||
+    ((value.source === "user" || value.source === "plugin") && pathSource === "user");
+  if (!sourceMatches) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["path"], message: "Selector source and path do not agree." });
+  }
+});
+
 export type LoadSkillSelector = z.infer<typeof loadSkillSelectorSchema>;
 
+const standardLoadSkillSkillSchema = z.object({
+  name: safeOneLineSchema,
+  description: z.string().min(1).max(500).nullable(),
+  source: codexgptInventorySkillSourceSchema,
+  path: z.string().min(1).max(1024)
+}).strict().superRefine((value, context) => {
+  const pathSource = loadSkillStandardSelectorPathSource(value.path);
+  if (!pathSource || !(
+    pathSource === value.source ||
+    ((value.source === "user" || value.source === "plugin") && pathSource === "user")
+  )) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["path"], message: "Skill path must match its configured source." });
+  }
+});
+
 export const loadSkillSkillSchema = codexgptInventorySkillSchema;
+
+export const loadSkillStandardSkillSchema = z.union([
+  codexgptInventorySkillSchema,
+  standardLoadSkillSkillSchema
+]);
 
 export const loadSkillDataSchema = z.object({
   workspace_id: safeWorkspaceIdSchema,
@@ -196,6 +240,73 @@ export const loadSkillDataSchema = z.object({
   }
 });
 
+const loadSkillStandardBodyDataSchema = z.object({
+  workspace_id: safeWorkspaceIdSchema,
+  root: z.string().min(1),
+  selector: loadSkillStandardSelectorSchema,
+  skill: loadSkillStandardSkillSchema,
+  include_global_skills: z.boolean(),
+  max_skills: z.number().int().min(1).max(500),
+  max_bytes: z.number().int().min(1_000).max(100_000),
+  bytes: z.number().int().min(0).max(100_000),
+  returned_bytes: z.number().int().min(0).max(400_000),
+  total_bytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  truncated: z.boolean(),
+  resolution_truncated: z.boolean(),
+  redacted: z.boolean(),
+  text: z.string().max(200_000)
+}).strict();
+
+const loadSkillResourceDataSchema = z.object({
+  workspace_id: safeWorkspaceIdSchema,
+  root: z.string().min(1),
+  selector: loadSkillStandardSelectorSchema,
+  skill: loadSkillStandardSkillSchema,
+  guidance_mode: z.literal("standard"),
+  target_path: z.string().min(1).max(1024),
+  kind: z.literal("resource"),
+  resource_path: z.string().min(1).max(2048),
+  max_bytes: z.number().int().min(1_000).max(100_000),
+  bytes: z.number().int().nonnegative(),
+  returned_bytes: z.number().int().nonnegative(),
+  redacted: z.boolean(),
+  text: z.string().max(200_000)
+}).strict().superRefine((value, context) => {
+  if (value.returned_bytes !== Buffer.byteLength(value.text, "utf8")) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["returned_bytes"], message: "returned_bytes must match resource text." });
+  }
+
+});
+
+const loadSkillBodyWithIndexDataSchema = z.object({
+  workspace_id: safeWorkspaceIdSchema,
+  root: z.string().min(1),
+  selector: loadSkillStandardSelectorSchema,
+  skill: loadSkillStandardSkillSchema,
+  include_global_skills: z.boolean(),
+  max_skills: z.number().int().min(1).max(500),
+  max_bytes: z.number().int().min(1_000).max(100_000),
+  bytes: z.number().int().min(0).max(100_000),
+  returned_bytes: z.number().int().min(0).max(400_000),
+  total_bytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  truncated: z.boolean(),
+  resolution_truncated: z.boolean(),
+  redacted: z.boolean(),
+  text: z.string().max(200_000),
+  guidance_mode: z.literal("standard"),
+  target_path: z.string().min(1).max(1024),
+  kind: z.literal("body_with_index"),
+  resource_index: z.array(z.string().min(1).max(2048)).max(1_000),
+  resource_index_truncated: z.boolean()
+}).strict();
+
+export const loadSkillStandardDataSchema = z.union([
+  loadSkillDataSchema,
+  loadSkillStandardBodyDataSchema,
+  loadSkillResourceDataSchema,
+  loadSkillBodyWithIndexDataSchema
+]);
+
 const emptyDetailsSchema = z.object({}).strict();
 
 const workspaceNotFoundDetailsSchema = z.union([
@@ -221,14 +332,14 @@ const invalidSelectorDetailsSchema = z.discriminatedUnion("field", [
 ]);
 
 const selectorLookupDetailsSchema = z.object({
-  selector: loadSkillSelectorSchema,
+  selector: loadSkillStandardSelectorSchema,
   include_global_skills: z.boolean(),
   max_skills: z.number().int().min(1).max(500)
 }).strict();
 
 const ambiguousDetailsSchema = z.object({
-  selector: loadSkillSelectorSchema,
-  candidates: z.array(loadSkillSkillSchema).min(2).max(8),
+  selector: loadSkillStandardSelectorSchema,
+  candidates: z.array(loadSkillStandardSkillSchema).min(2).max(8),
   candidates_truncated: z.boolean(),
   resolution_truncated: z.boolean()
 }).strict().superRefine((value, context) => {
@@ -275,7 +386,12 @@ const ambiguousDetailsSchema = z.object({
 });
 
 const resolvedSkillDetailsSchema = z.object({
-  skill: loadSkillSkillSchema
+  skill: loadSkillStandardSkillSchema
+}).strict();
+
+const skillResourceDetailsSchema = z.object({
+  skill: loadSkillSkillSchema,
+  resource_path: z.string().min(1).max(2048)
 }).strict();
 
 const workspaceNotFoundErrorSchema = z.object({
@@ -327,6 +443,23 @@ const skillReadErrorSchema = z.object({
   details: resolvedSkillDetailsSchema
 }).strict();
 
+const skillResourceErrorSchema = z.object({
+  code: z.enum([
+    "SKILL_RESOURCE_BLOCKED",
+    "SKILL_RESOURCE_BOUNDARY_VIOLATION",
+    "SKILL_RESOURCE_NOT_TEXT",
+    "SKILL_RESOURCE_HARDLINK_UNSAFE",
+    "SKILL_RESOURCE_READ_FAILED"
+  ]),
+  message: z.string().min(1),
+  retryable: z.literal(false),
+  details: skillResourceDetailsSchema
+}).strict().superRefine((value, context) => {
+  if (value.message !== LOAD_SKILL_ERROR_MESSAGES[value.code]) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["message"], message: "Resource error message must match its code." });
+  }
+});
+
 const internalErrorSchema = z.object({
   code: z.literal("INTERNAL_ERROR"),
   message: z.literal(LOAD_SKILL_ERROR_MESSAGES.INTERNAL_ERROR),
@@ -334,7 +467,7 @@ const internalErrorSchema = z.object({
   details: emptyDetailsSchema
 }).strict();
 
-export const loadSkillErrorSchema = z.discriminatedUnion("code", [
+export const loadSkillStandardErrorSchema = z.union([
   workspaceNotFoundErrorSchema,
   invalidSelectorErrorSchema,
   skillNotFoundErrorSchema,
@@ -342,6 +475,79 @@ export const loadSkillErrorSchema = z.discriminatedUnion("code", [
   skillResolutionLimitErrorSchema,
   skillBoundaryErrorSchema,
   skillReadErrorSchema,
+  skillResourceErrorSchema,
+  internalErrorSchema
+]);
+
+const legacySelectorLookupDetailsSchema = z.object({
+  selector: loadSkillSelectorSchema,
+  include_global_skills: z.boolean(),
+  max_skills: z.number().int().min(1).max(500)
+}).strict();
+
+const legacyAmbiguousDetailsSchema = z.object({
+  selector: loadSkillSelectorSchema,
+  candidates: z.array(codexgptInventorySkillSchema).min(2).max(8),
+  candidates_truncated: z.boolean(),
+  resolution_truncated: z.boolean()
+}).strict().superRefine((value, context) => {
+  value.candidates.forEach((candidate, index) => {
+    if (candidate.name !== value.selector.name) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["candidates", index, "name"], message: "Ambiguous candidates must match the selector name." });
+    }
+    if (value.selector.source !== null && candidate.source !== value.selector.source) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["candidates", index, "source"], message: "Ambiguous candidates must match the selector source." });
+    }
+    if (value.selector.path !== null && candidate.path !== value.selector.path) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["candidates", index, "path"], message: "Ambiguous candidates must match the selector path." });
+    }
+  });
+  const identities = value.candidates.map((candidate) => `${candidate.source}\u0000${candidate.name}\u0000${candidate.path}`);
+  if (new Set(identities).size !== identities.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["candidates"], message: "Ambiguous candidates must be unique." });
+  }
+  if (value.candidates_truncated && value.candidates.length !== 8) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["candidates_truncated"], message: "Truncated candidate previews must fill the eight-item bound." });
+  }
+});
+
+const legacyResolvedSkillDetailsSchema = z.object({
+  skill: codexgptInventorySkillSchema
+}).strict();
+
+export const loadSkillErrorSchema = z.discriminatedUnion("code", [
+  workspaceNotFoundErrorSchema,
+  invalidSelectorErrorSchema,
+  z.object({
+    code: z.literal("SKILL_NOT_FOUND"),
+    message: z.literal(LOAD_SKILL_ERROR_MESSAGES.SKILL_NOT_FOUND),
+    retryable: z.literal(false),
+    details: legacySelectorLookupDetailsSchema
+  }).strict(),
+  z.object({
+    code: z.literal("SKILL_AMBIGUOUS"),
+    message: z.literal(LOAD_SKILL_ERROR_MESSAGES.SKILL_AMBIGUOUS),
+    retryable: z.literal(false),
+    details: legacyAmbiguousDetailsSchema
+  }).strict(),
+  z.object({
+    code: z.literal("SKILL_RESOLUTION_LIMIT_REACHED"),
+    message: z.literal(LOAD_SKILL_ERROR_MESSAGES.SKILL_RESOLUTION_LIMIT_REACHED),
+    retryable: z.literal(false),
+    details: legacySelectorLookupDetailsSchema
+  }).strict(),
+  z.object({
+    code: z.literal("SKILL_BOUNDARY_VIOLATION"),
+    message: z.literal(LOAD_SKILL_ERROR_MESSAGES.SKILL_BOUNDARY_VIOLATION),
+    retryable: z.literal(false),
+    details: legacyResolvedSkillDetailsSchema
+  }).strict(),
+  z.object({
+    code: z.literal("SKILL_READ_FAILED"),
+    message: z.literal(LOAD_SKILL_ERROR_MESSAGES.SKILL_READ_FAILED),
+    retryable: z.literal(false),
+    details: legacyResolvedSkillDetailsSchema
+  }).strict(),
   internalErrorSchema
 ]);
 
@@ -354,16 +560,45 @@ export const loadSkillOutputShape = {
   meta: toolMetaSchema
 };
 
+export const loadSkillStandardOutputShape = {
+  ...loadSkillOutputShape,
+  data: loadSkillStandardDataSchema.nullable(),
+  error: loadSkillStandardErrorSchema.nullable()
+};
+
 const loadSkillOutputBaseSchema = z.object(loadSkillOutputShape).strict();
+const loadSkillStandardOutputBaseSchema = z.object(loadSkillStandardOutputShape).strict();
 
 function loadSkillWarnings(data: LoadSkillData): string[] {
   const warnings: string[] = [];
-  if (data.truncated) warnings.push(LOAD_SKILL_TRUNCATED_WARNING);
+  if ("truncated" in data && data.truncated) warnings.push(LOAD_SKILL_TRUNCATED_WARNING);
   if (data.redacted) warnings.push(LOAD_SKILL_REDACTED_WARNING);
   return warnings;
 }
 
-export const loadSkillOutputSchema = loadSkillOutputBaseSchema.superRefine((value, context) => {
+export function loadSkillStandardSelectorPathSource(
+  selector: string
+): z.infer<typeof codexgptInventorySkillSourceSchema> | undefined {
+  const legacySource = loadSkillSelectorPathSource(selector);
+  if (legacySource) return legacySource;
+  if (selector.includes("\\") || !selector.endsWith("/SKILL.md")) return undefined;
+  if (selector.startsWith("$CODEX_DIR/") || selector.startsWith("$USER_SKILLS/")) {
+    const remainder = selector.slice(selector.indexOf("/") + 1);
+    return hasSafeSelectorSegments(remainder) ? "user" : undefined;
+  }
+  if (/^\$PLUGIN_ROOT\/root_[0-9a-f]{16}\//.test(selector)) {
+    const remainder = selector.replace(/^\$PLUGIN_ROOT\/root_[0-9a-f]{16}\//, "");
+    return hasSafeSelectorSegments(remainder) ? "plugin" : undefined;
+  }
+  return undefined;
+}
+
+function refineLoadSkillOutput(value: {
+  ok: boolean;
+  data: LoadSkillData | null;
+  error: unknown | null;
+  meta: { warnings: string[] };
+}, context: z.RefinementCtx): void {
   if (value.ok) {
     if (value.data === null) {
       context.addIssue({
@@ -416,10 +651,13 @@ export const loadSkillOutputSchema = loadSkillOutputBaseSchema.superRefine((valu
       message: "Failed load_skill results cannot include warnings."
     });
   }
-});
+}
 
-export type LoadSkillData = z.infer<typeof loadSkillDataSchema>;
-export type LoadSkillStructuredResult = z.infer<typeof loadSkillOutputBaseSchema>;
+export const loadSkillOutputSchema = loadSkillOutputBaseSchema.superRefine(refineLoadSkillOutput);
+export const loadSkillStandardOutputSchema = loadSkillStandardOutputBaseSchema.superRefine(refineLoadSkillOutput);
+
+export type LoadSkillData = z.infer<typeof loadSkillStandardDataSchema>;
+export type LoadSkillStructuredResult = z.infer<typeof loadSkillStandardOutputBaseSchema>;
 
 export type LoadSkillFailureInput =
   | {
@@ -455,14 +693,23 @@ export type LoadSkillFailureInput =
       code: "SKILL_BOUNDARY_VIOLATION" | "SKILL_READ_FAILED";
       details: { skill: CodexGPTInventorySkill };
     }
+  | {
+      code:
+        | "SKILL_RESOURCE_BLOCKED"
+        | "SKILL_RESOURCE_BOUNDARY_VIOLATION"
+        | "SKILL_RESOURCE_NOT_TEXT"
+        | "SKILL_RESOURCE_HARDLINK_UNSAFE"
+        | "SKILL_RESOURCE_READ_FAILED";
+      details: { skill: CodexGPTInventorySkill; resource_path: string };
+    }
   | { code: "INTERNAL_ERROR"; details: Record<string, never> };
 
 export function createLoadSkillSuccess(
   data: LoadSkillData,
   durationMs = 0
 ): LoadSkillStructuredResult {
-  const parsedData = loadSkillDataSchema.parse(data);
-  return loadSkillOutputSchema.parse({
+  const parsedData = loadSkillStandardDataSchema.parse(data);
+  return loadSkillStandardOutputSchema.parse({
     codexgpt_tool: "load_skill",
     codexgpt_title: "Load Skill",
     ok: true,
@@ -476,7 +723,7 @@ export function createLoadSkillFailure(
   failure: LoadSkillFailureInput,
   durationMs = 0
 ): LoadSkillStructuredResult {
-  return loadSkillOutputSchema.parse({
+  return loadSkillStandardOutputSchema.parse({
     codexgpt_tool: "load_skill",
     codexgpt_title: "Load Skill",
     ok: false,

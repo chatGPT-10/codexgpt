@@ -58,8 +58,14 @@ function isSkillSelectorForSource(
   }
 
   if (source === "user" || source === "plugin") {
-    if (!selector.startsWith("~/")) return false;
-    return hasSafeSelectorSegments(selector.slice(2));
+    if (selector.startsWith("~/")) return hasSafeSelectorSegments(selector.slice(2));
+    if (source === "user" && (selector.startsWith("$CODEX_DIR/") || selector.startsWith("$USER_SKILLS/"))) {
+      return hasSafeSelectorSegments(selector.slice(selector.indexOf("/") + 1));
+    }
+    if (source === "plugin" && /^\$PLUGIN_ROOT\/root_[0-9a-f]{16}\//.test(selector)) {
+      return hasSafeSelectorSegments(selector.replace(/^\$PLUGIN_ROOT\/root_[0-9a-f]{16}\//, ""));
+    }
+    return false;
   }
 
   return /^\$EXTERNAL\/[0-9a-f]{12}\/SKILL\.md$/.test(selector);

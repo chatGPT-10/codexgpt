@@ -155,6 +155,21 @@ test("server_config success constructor produces the strict schema-v1 envelope",
   });
 });
 
+test("server_config standard preview branch is strict and additive", () => {
+  const data = {
+    ...sampleServerConfigData(),
+    guidanceMode: "standard",
+    guidanceReadiness: "preview",
+    instructionFallbacks: ["CLAUDE.md"],
+    maxInstructionTotalBytes: 32_768,
+    maxSkillCandidates: 1_000,
+    maxSkillCatalogChars: 8_000
+  };
+  const parsed = createServerConfigSuccess(data, 0);
+  assert.equal(parsed.data.guidanceReadiness, "preview");
+  assert.throws(() => createServerConfigSuccess({ ...data, unexpected: true }, 0));
+});
+
 test("server_config failure constructor produces only INTERNAL_ERROR", () => {
   const result = createServerConfigFailure("redacted failure", 3);
   const parsed = serverConfigOutputSchema.parse(result);

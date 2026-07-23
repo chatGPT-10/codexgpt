@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
 process.env["CODEXGPT_ALLOW_QUERY_" + "TOKEN"] = "1";
+process.env.CODEXGPT_GUIDANCE_MODE = "legacy";
 
 const require = createRequire(import.meta.url);
 const sourceUrl = new URL("./http-smoke.mjs", import.meta.url);

@@ -1,16 +1,16 @@
 # CodexGPT 总体实施计划
 
-> 版本：2.2
+> 版本：2.3
 > 生效日期：2026-07-13
-> 核对日期：2026-07-21
+> 核对日期：2026-07-23
 > 状态：当前权威实施路线
 > 工作区：`D:\Dev\codexpro`
 > 基线版本：`codexgpt@0.28.6`
-> 当前阶段：Phase 1–5 已关闭；reduced Phase 4 的诊断性 4B0 保持 blocked，`workspace` 与 Task 4B1–4B6 延期；STEP-379/380 follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` 已通过 exact-head CI run `29780813295`
+> 当前阶段：Phase 1–5 已关闭；reduced Phase 4 的诊断性 4B0 保持 blocked，`workspace` 与 Task 4B1–4B6 延期；Phase 6 runtime、真实 ChatGPT 验收、默认翻转、全量本地 closure 与发布授权已完成，等待一次提交/推送后的 exact-head CI
 >
-> 下一门禁：Phase 6 按当前用户边界冻结；只有收到新的显式授权后才恢复配对设计、TDD、审计和阶段发布流程
+> 下一门禁：发布唯一 Phase 6 commit，并要求该精确 HEAD 的 Repository policy 与 Ubuntu/Windows Node 20/24 Build、Regression、Smoke、Package 全部 terminal success
 >
-> 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5 已完成；2026-07-14 对 Phase 6–8 的条件授权仍保留为历史边界，但当前 Phase 6 冻结指令优先
+> 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5 已完成；Phase 6 runtime、精确 `yaml@2.9.0` dependency 和一次 staging/英文 commit/push/exact-head closure attempt 已获授权；Phase 7+、部署和 release publication 未授权
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
@@ -40,7 +40,7 @@
 
 ### 0.3 本文件不是什么
 
-2026-07-14 曾记录连续执行至 Phase 8 的条件授权，但当前用户边界明确冻结 Phase 6。恢复后也不等于跳过质量门；每个工具切片和每个安全子系统仍必须单独经历：
+2026-07-14 曾记录连续执行至 Phase 8 的条件授权。2026-07-22 的后续指令先完成 Phase 6 详细设计，随后显式授权 Phase 6 runtime implementation 与单一审计依赖；2026-07-23 又明确授权一次 Phase 6 staging、英文 commit、push 和 exact-head closure attempt。该授权不覆盖部署、release publication、Phase 7 或其他安全子系统。每个工具切片和每个安全子系统仍必须单独经历：
 
 ```text
 设计草稿
@@ -104,7 +104,8 @@ mcp.<user-domain>
 | Phase 3 | 正式关闭 | runtime head `2df4a1f` 与 documentation closure head `3a04064` 均通过 Ubuntu/Windows Node 20/24 Build、Regression、完整 Smoke 与 Package |
 | Phase 4 | 正式关闭 | closure head `d19e65b` 通过 exact-head run `29603060944` 的 repository policy 与 Ubuntu/Windows Node 20/24 完整矩阵；4B0 保留 blocked 诊断，`workspace` 与 Task 4B1–4B6 延期 |
 | Phase 5 | 正式关闭 | closure head `9aa76b92d7894a2f013b2d6478897907c4010a7e` 通过 exact-head run `29698209894`；后续 Gate X 修复经 PR #4 合并到 `main`，STEP-379/380 follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` 通过 run `29780813295` 的完整矩阵 |
-| Phase 6–8 | 条件授权保留；当前冻结 | 2026-07-14 的条件授权未撤销，但当前用户指令暂停 Phase 6；不得把历史授权解释为自动进入下一阶段 |
+| Phase 6 | 本地 closure 与发布授权已完成；exact-head 待关闭 | `standard` root/target AGENTS、target Skills、lazy resources 与诊断已实现；真实 ChatGPT root/nested、Skill、subtree switch、write 与 verification 通过；默认 `standard`，minimal 省略值保留 exact legacy 投影；最终 Node 20/24 ordinary、Smoke、build、package、policy/docs 门禁通过，等待唯一 commit/push 后的 exact-head CI |
+| Phase 7–8 | 条件授权仅作历史记录 | 不得把 2026-07-14 的历史条件授权解释为自动进入 runtime 或下一阶段 |
 | Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
 Phase 0.5 已验证的外部入口事实：公开 `https://codexgpt.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexGPT，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
@@ -212,7 +213,7 @@ Phase 4B：保留诊断证据，强 OS Sandbox 延期
   ↓
 Phase 5：Git 写能力与任务 Worktree
   ↓
-Phase 6：Instructions、Hooks、Skills 信任
+Phase 6：Project Guidance 与 Agent Skills 可用性（无 generic Hooks）
   ↓
 Phase 7：语义 Provider
   ↓
@@ -518,10 +519,10 @@ Authorization / Cookie
 |---:|---|---|---|
 | 1 | Permission Profile | Policy Gate、Phase 2A、Phase 8 | 采用分层思想，建立自己的版本化 Schema，不照抄 beta 配置 |
 | 2 | Sandbox 与 Approval 分离 | Policy Gate、Phase 2A、Phase 4B | 成为不可绕过的架构原则，沙箱不可用时 fail closed |
-| 3 | Hooks 生命周期与内容信任 | Phase 6 | 采用确定性事件和精确内容 Hash；Hook 不能扩权 |
-| 4 | Skills 元数据优先、延迟加载 | Phase 6 | 保留当前发现/加载机制，只补信任、权限、版本和 Hash |
+| 3 | Project guidance 作用域与读取边界 | Phase 6 | 交付 root/target AGENTS 链与同目标 Skill catalog；统一 same-handle reader，指导内容不能扩权 |
+| 4 | Skills 元数据优先、正文/资源延迟加载 | Phase 6 | 保留当前发现/加载机制，补标准 metadata、预算、目标可达性与诊断，不引入自定义 trust/permission manifest |
 | 5 | PTY、持久进程和有界输出 | Phase 4A | 借鉴接口与测试边界，Windows 以 ConPTY/Job Object 为核心 |
-| 6 | 配置分层 | Policy Gate、Phase 6 | AGENTS、Profile、Skills、Hooks、MCP 各司其职 |
+| 6 | 配置分层 | Policy Gate、Phase 6 | AGENTS、Profile、Skills、MCP 各司其职；generic Hooks 仅可在未来独立门禁重新评估 |
 | 7 | 不同场景的工具表面 | Policy Gate、Phase 2A | 做用户目标预设，但明确 visibility 不是 authorization |
 
 ### 5.3 明确不采用
@@ -975,80 +976,41 @@ force worktree deletion
 
 ---
 
-## 14. Phase 6 — Instructions、Hooks 与 Skills 信任
+## 14. Phase 6 — Project Guidance 与 Agent Skills 可用性
 
-### 14.1 Instruction precedence
+2026-07-22 的对抗审查后，Phase 6 由配对 [design](superpowers/specs/2026-07-22-phase-6-project-guidance-and-skills-design.md) 和 [plan](superpowers/plans/2026-07-22-phase-6-project-guidance-and-skills.md) 控制。它们取代本节此前的通用 Hook 和自定义 Skill trust/hash/permissions 清单。`standard` runtime、后置对抗修复、真实 ChatGPT root/nested gate 与 omitted default flip 已完成；发布、完整 closure verification 与 exact-head CI 尚未完成。
 
-```text
-non-overridable built-in security
-  → user-global instructions
-  → allowed-root instructions
-  → workspace-root instructions
-  → directory-local instructions
-```
-
-越接近目标文件的风格/流程规则可以优先，但任何指令都不能关闭认证、扩大 allowed roots、读取密钥、跳过审计、授权网络或批准高风险命令。
-
-### 14.2 Hooks 设计
-
-优先采用少量通用事件和匹配器，而不是为每个工具种类复制事件：
+### 14.1 用户结果
 
 ```text
-SessionOpen
-BeforeTool
-PermissionRequest
-AfterTool
-BeforeCompact
-AfterCompact
-SessionClose
+workspace open
+  → 返回实际 root AGENTS 正文和有总预算的 root Skill metadata
+  → 目标确定后 codex_context(target_path)
+  → 返回 root-to-target AGENTS 链和同一 target 的 Skill catalog
+  → load_skill 按需加载一个正文或引用文本
+  → 真实写入/进程/Git 仍由现有 typed tool、Policy、Approval、Audit 决定
 ```
 
-Subagent 事件只在 Phase 9 启用。`BeforeTool` 通过 `toolName`、operation category、workspace、resource 和 risk matcher 覆盖 file/shell/git/process 场景。
+`codex_context` 进入 `standard` profile，但不新增公开工具或 Tool Contract V5；V1/V2/V3/V4 保持 exact 28/31/39/51。Root guidance 必须在 open 时真正进入模型上下文，不能只返回一个待读路径。
 
-Hook 规则：
+### 14.2 标准边界
 
-1. 安全检查是内置机制，不是 Hook。
-2. Hook 可以进一步拒绝或收窄，不能扩大权限。
-3. 信任绑定到完整有效定义：事件、matcher、命令、脚本内容、工作目录、权限和受引用内容。
-4. 任一有效内容变化都使旧信任失效。
-5. content hash 用于检测漂移，不代表代码安全。
-6. 安全相关 pre-hook 超时/失败默认 fail closed；非安全 post-hook 可返回固定 warning，具体分类在设计中确定。
-7. 必须处理重入、递归、顺序、并发、超时、输出上限和脱敏。
-8. Hook 执行仍经过 Policy、Approval、Sandbox 和 Audit。
+- AGENTS 与 Skills 是 bounded context，不是 authority；不增加 signature、content-hash trust、per-Skill permission manifest 或 Markdown approval ceremony。
+- 所有 AGENTS、`SKILL.md`、companion metadata 与 resource 使用同一 canonical same-handle reader，保留 blocked secret-file、redaction、workspace/source-root、lifecycle 和 output gates。
+- Standard 模式默认只发现 workspace Skills；user/plugin/other Skills 需要显式 opt-in。Legacy 模式保留一轮精确回滚。
+- Skill catalog 自动但默认不超过 8,000 characters；正文和资源 lazy load。
+- `allowed-tools`、source、version、hash 或成功读取都不能扩大权限；声明的依赖不会自动安装/连接。
+- Skill scripts 不自动执行。任何执行仍是独立的现有工具调用。
 
-### 14.3 Skills 设计
+### 14.3 Hooks 决定
 
-当前代码已经具备元数据发现和按需加载，不重建另一套 Skill loader。Phase 6 只扩展：
+Generic executable Hooks 不属于 Phase 6。它们不解决首次成功的 AGENTS/Skill 路径，却会引入独立的命令身份、重入、顺序、超时、进程清理和失败语义。未来只有具体用户需求和独立设计/授权门才能恢复该议题；Phase 5 Git integrations 不受此决定影响。
 
-```text
-name
-version
-description
-source
-trust
-requiredPermissions
-workspaceScope
-contentHash
-enabled
-```
+### 14.4 顺序与验收
 
-加载流程：
+G6-0、G6-R same-handle reader、root usable slice、nested instructions、target Skills、resources、diagnostics、完整 integration 与 execution/security/UX 三路只读审查修复均已在本地完成。Default flip 被真实 ChatGPT G6-M/G6-U gate 正确阻止；通过该 gate 前 omitted mode 保持 `legacy`。
 
-```text
-启动/刷新时扫描小元数据
-→ 任务匹配时加载完整 SKILL.md
-→ 真正执行脚本时重新检查 workspace、policy、approval、sandbox
-```
-
-Workspace Skill 默认是不受信任的说明内容。Skill 脚本不能因为“Skill 已信任”就继承全机权限。
-
-### 14.4 验收条件
-
-- AGENTS、Hook 和 Skill 都无法越过 hard policy。
-- Hook/Skill 内容变化可被精确检测并使信任失效。
-- 未触发的 Skill 不把完整正文塞入上下文。
-- 同名 Skill、来源优先级和禁用状态有确定规则。
-- 所有脚本执行经过统一 Policy/Sandbox/Audit。
+阶段关闭至少要求：真实 ChatGPT 完成 `open → locate target → context(target) → load_skill → action → verify`；跨子树前重载 context；global omitted inputs 无泄露；path replacement/blocked secrets 失败；读取阶段零脚本/Hook/网络/写入；managed Node 20/24 ordinary、Smoke、package/policy/docs 和 exact-head CI 全绿。
 
 ---
 
@@ -1253,7 +1215,7 @@ focused contract tests
 - 完成 Phase 1 后才进入 Policy Kernel 设计门。
 - Policy Kernel 设计门全部通过后连续实施 Phase 2A–Phase 5；用户于 2026-07-14 将同一授权模型扩展到 Phase 8，并授权每个已验证子部分自行 stage、使用英文 commit、push。每一部分仍须先通过自身设计、TDD、验证、`neat-freak` 和精确头 CI。
 - Permission、Approval、Sandbox、Tool Surface 分层。
-- Skills 延迟加载不重建，只在 Phase 6 补信任和权限。
+- Skills 复用现有延迟加载；Phase 6 按 Agent Skills 标准补 root/target 可达性、预算和兼容诊断，不要求自定义 trust/permission manifest。
 - Open Interpreter 只借鉴与 CodexGPT 边界一致的设计和测试方法。
 - 不引入模型 Provider/Harness，不转型为通用 Agent Runtime。
 - OAuth 2.1 作为 Phase 8 已获实现授权；真实凭据不得进入测试、日志或仓库，迁移必须可回滚并经过独立安全门。
@@ -1268,7 +1230,7 @@ focused contract tests
 - Phase 4 V3 已决定使用本机 V3-only pending issuer、R3 两分钟一次性 grant、confirmed-root 固定绝对租约和 atomic consume；实现证据仍待 Gates A0/A1。
 - Phase 4 正向网络 egress 明确不可用；未来 WFP/privileged broker 需要新的设计和授权。
 - OAuth 身份提供器和凭据生命周期。
-- Hooks 的最终 manifest、事件 payload 和执行 backend。
+- Generic Hooks 已移出 Phase 6；只有未来具体用户需求和独立设计/授权门才能重新决定 manifest、事件 payload 与执行 backend。
 - Serena/LSP 的具体接入方式。
 
 ### 21.3 禁止静默改变
@@ -1292,8 +1254,8 @@ focused contract tests
 7. Phase 2 先建立 RequestIdentity 接口，Phase 8 再接入 OAuth subject/scopes，避免循环依赖。
 8. Phase 4 拆为 Shell/Process 与 OS Sandbox/Egress 两部分。
 9. 明确 Job Object 是进程生命周期控制，不是沙箱。
-10. Hooks 延后到 Phase 6，且不能替代内置安全机制。
-11. Skills 复用当前元数据发现和延迟加载，不重复造 loader。
+10. 原“Hooks 延后到 Phase 6”已被 2026-07-22 决定取代；generic Hooks 延后到未排期的独立未来门禁，且不能替代内置安全机制。
+11. Skills 复用当前元数据发现和延迟加载，Phase 6 只补标准 metadata、root/target 调用链、预算、资源和可操作诊断。
 12. Tool Surface 改为面向目标的预设方向，但不把预设当成权限。
 13. OpenAI Codex 成为共享安全机制的上游主参考，Open Interpreter 成为适配和测试参考。
 14. 聚合包装工具放在 Phase 1 最后迁移。
@@ -1303,7 +1265,7 @@ focused contract tests
 
 ## 23. 历史停止点记录和当前下一动作
 
-下列长代码块保留早期阶段的历史 checkpoint，不代表当前执行位置；当前事实以本节末尾总结、`Memory.md` 和配对 Phase 4/5 文档为准。
+下列长代码块保留早期阶段的历史 checkpoint，不代表当前执行位置；当前事实以本节末尾总结、`Memory.md` 和配对 Phase 4/5/6 文档为准。
 
 当前停止点：
 
@@ -1404,4 +1366,4 @@ Phase 1 Slice 28 codexgpt
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1、Policy Kernel、Phase 2A、Phase 2B、完整 Phase 3 与 reduced Phase 4 已正式关闭。Phase 4 closure head `d19e65ba75938c35afa472d23d91d1724fe7fabf` 通过 exact-head run `29603060944`：classification、repository policy、Ubuntu Node 20/24 与 Windows Node 20/24 均为 terminal success，且 verifier 报告 `repositoryWriteRequired: false`。Published scope 保留 one-shot/persistent trusted-code `full_access`、interactive ConPTY、exact R3、backend-drift、ambient-authority、owner-bound lifecycle、bounded output、local emergency control、单一生产路径和 exact V1/V2 compatibility；4B0 的真实 Gate S 结果仍为 `blocked`，Task 4B1–4B6、sandbox authority 与 `workspace` profile 延期且不可用。Phase 5 实现、Gate X 对抗修复、文档对齐、managed Node 20/24 ordinary、Windows control、protected Smoke、package 与静态门已完成；只允许一次 Phase 5 发布，并须等待 closure SHA 的 terminal exact-head success 才可进入 Phase 6。Phase 9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。
+Phase 1–5 已正式关闭；reduced Phase 4 的 4B0、Task 4B1–4B6、sandbox authority 与 `workspace` profile 仍延期。2026-07-22 已完成 Phase 6 `standard` runtime、精确 `yaml@2.9.0` dependency、execution/security/UX 三路审查修复、本地 Node 20/24 gates，以及真实 ChatGPT root/nested、target Skill、subtree switch、write 与 verification 验收；omitted mode 已翻转为 `standard`，显式 `legacy` 保留回滚。旧 App 已删除，用户批准以一次性 Scan Tools 或重建说明替代透明缓存刷新声明。Phase 6 尚未发布或正式关闭；Phase 7–9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。

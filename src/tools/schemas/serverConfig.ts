@@ -22,7 +22,7 @@ const analysisLimitsSchema = z.object({
   maxRelationships: z.number().int().nonnegative()
 }).strict();
 
-export const serverConfigDataSchema = z.object({
+export const legacyServerConfigDataSchema = z.object({
   defaultRoot: z.string(),
   allowedRoots: z.array(z.string()),
   host: z.string(),
@@ -62,6 +62,20 @@ export const serverConfigDataSchema = z.object({
   registeredToolCount: z.number().int().nonnegative()
 }).strict();
 
+const standardServerConfigDataSchema = legacyServerConfigDataSchema.extend({
+  guidanceMode: z.literal("standard"),
+  guidanceReadiness: z.enum(["not_ready", "preview", "ready"]),
+  instructionFallbacks: z.array(z.string().min(1).max(255)).max(16),
+  maxInstructionTotalBytes: z.number().int().min(1_000).max(200_000),
+  maxSkillCandidates: z.number().int().min(1).max(10_000),
+  maxSkillCatalogChars: z.number().int().min(1_000).max(32_000)
+}).strict();
+
+export const serverConfigDataSchema = z.union([
+  legacyServerConfigDataSchema,
+  standardServerConfigDataSchema
+]);
+
 const internalErrorSchema = toolErrorSchema.extend({
   code: z.literal("INTERNAL_ERROR")
 }).strict();
@@ -73,6 +87,11 @@ export const serverConfigOutputShape = {
   data: serverConfigDataSchema.nullable(),
   error: internalErrorSchema.nullable(),
   meta: toolMetaSchema
+};
+
+export const legacyServerConfigOutputShape = {
+  ...serverConfigOutputShape,
+  data: legacyServerConfigDataSchema.nullable()
 };
 
 const serverConfigOutputBaseSchema = z.object(serverConfigOutputShape).strict();

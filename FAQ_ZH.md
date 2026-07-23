@@ -87,6 +87,14 @@ codexgpt pro-bundle --root /path/to/repo --copy
 
 然后把生成的 `.ai-bridge/pro-context.md` 粘贴给该模型，让它做规划，再用本地执行器执行。
 
+## 项目指令和 Skills 是怎么工作的？
+
+普通 `standard` 模式默认启用项目指导。首次打开 workspace 时会返回有界的根 `AGENTS.md` 正文和可隐式使用的 workspace Skill 简表；首次修改前，以及切换到另一个子树后，ChatGPT 应调用 `codex_context(target_path)`，获取精确的 root-to-target 指令链和目标范围内的 Skill catalog。
+
+匹配 Skill 只会按需读取，并且始终只是指令文本。Skill 脚本不会自动执行，声明的依赖不会自动安装或视为已验证；AGENTS 和 Skills 都不能启用工具、扩大 root、批准修改，也不能绕过 Policy、Approval、Audit、blocked path 或执行模式。user/plugin Skills 只有显式请求全局发现时才会出现。
+
+`--tool-mode minimal` 不暴露 `codex_context`。因此省略 guidance 配置时，minimal 模式使用精确的 `legacy` 兼容投影；若显式组合 `CODEXGPT_GUIDANCE_MODE=standard` 与 minimal，启动会失败。Phase 6 工具更新前创建的 App 可能需要执行一次 **Scan Tools** 或重建。
+
 ## 为什么 Pro 账号也可能连不上某个模型？
 
 账号权限和模型工具能力是两回事。

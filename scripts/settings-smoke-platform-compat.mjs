@@ -9,6 +9,7 @@ const previousNodeOptions = process.env.NODE_OPTIONS;
 const previousShimNodeOptions = process.env.CODEXGPT_REALPATH_PREVIOUS_NODE_OPTIONS;
 const previousTemp = process.env.TEMP;
 const previousTmp = process.env.TMP;
+const previousGuidanceMode = process.env.CODEXGPT_GUIDANCE_MODE;
 const originalSpawn = childProcess.spawn;
 
 function removeRuntimeStatusForPid(home, pid) {
@@ -40,6 +41,7 @@ function removeQuickTunnelCredentials(argsLogPath) {
 }
 
 try {
+  process.env.CODEXGPT_GUIDANCE_MODE = 'legacy';
   if (process.platform === 'win32') {
     const canonicalTemp = fs.realpathSync.native(os.tmpdir());
     process.env.TEMP = canonicalTemp;
@@ -78,4 +80,6 @@ try {
   else process.env.TEMP = previousTemp;
   if (previousTmp === undefined) delete process.env.TMP;
   else process.env.TMP = previousTmp;
+  if (previousGuidanceMode === undefined) delete process.env.CODEXGPT_GUIDANCE_MODE;
+  else process.env.CODEXGPT_GUIDANCE_MODE = previousGuidanceMode;
 }

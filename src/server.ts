@@ -154,6 +154,15 @@ import {
   type SkillInventoryItem
 } from "./capabilitiesOps.js";
 import {
+  discoverExplicitGlobalSkills,
+  discoverTargetSkills,
+  resolveExactGlobalSkill,
+  resolveExactWorkspaceSkill,
+  type StandardSkillRecord
+} from "./guidance/skillDiscovery.js";
+import { readGuidanceText } from "./guidance/safeTextReader.js";
+import { indexSkillResources, loadSkillResource } from "./guidance/skillResources.js";
+import {
   CODEX_SESSION_READ_FILE_LIMIT,
   CODEX_SESSION_SCAN_DEPTH_LIMIT,
   CODEX_SESSION_SCAN_FILE_LIMIT,
@@ -183,6 +192,7 @@ import {
 } from "./selfTestOps.js";
 import {
   CODEXGPT_SELF_TEST_ERROR_MESSAGES,
+  codexgptSelfTestLegacyOutputShape,
   codexgptSelfTestOutputShape,
   createCodexGPTSelfTestFailure,
   createCodexGPTSelfTestSuccess
@@ -190,6 +200,7 @@ import {
 import {
   createServerConfigFailure,
   createServerConfigSuccess,
+  legacyServerConfigOutputShape,
   serverConfigDataSchema,
   serverConfigOutputShape,
   type ServerConfigData
@@ -404,6 +415,7 @@ import {
   createOpenCurrentWorkspaceFailure,
   createOpenCurrentWorkspaceSuccess,
   openCurrentWorkspaceDataSchema,
+  openCurrentWorkspaceLegacyOutputShape,
   openCurrentWorkspaceOutputShape,
   type OpenCurrentWorkspaceFailureInput
 } from "./tools/schemas/openCurrentWorkspace.js";
@@ -412,6 +424,7 @@ import {
   createOpenWorkspaceFailure,
   createOpenWorkspaceSuccess,
   openWorkspaceDataSchema,
+  openWorkspaceLegacyOutputShape,
   openWorkspaceOutputShape,
   type OpenWorkspaceFailureInput,
   type OpenWorkspaceRootSource
@@ -464,15 +477,19 @@ import {
   LOAD_SKILL_ERROR_MESSAGES,
   createLoadSkillFailure,
   createLoadSkillSuccess,
-  loadSkillDataSchema,
+  loadSkillStandardDataSchema,
+  loadSkillStandardOutputShape,
   loadSkillOutputShape,
   loadSkillSelectorPathSource,
   loadSkillSelectorSchema,
+  loadSkillStandardSelectorPathSource,
+  loadSkillStandardSelectorSchema,
   loadSkillSkillSchema,
   type LoadSkillData,
   type LoadSkillFailureInput,
   type LoadSkillSelector
 } from "./tools/schemas/loadSkill.js";
+import { guidanceReadiness } from "./guidance/mode.js";
 import {
   READ_HANDOFF_ARTIFACT_DEFINITIONS,
   READ_HANDOFF_ERROR_MESSAGES,
@@ -510,6 +527,7 @@ import {
   CODEX_CONTEXT_ERROR_MESSAGES,
   CODEX_CONTEXT_TRUNCATION_MARKER,
   codexContextDataSchema,
+  codexContextLegacyOutputShape,
   codexContextOutputShape,
   codexContextPreview,
   codexContextSourcePathSchema,
@@ -931,7 +949,8 @@ const codexContextProviderResultSchema = z.object({
   aiContextFiles: z.array(codexContextSourcePathSchema).max(7),
   unavailableSources: z.array(codexContextUnavailableSchema).max(263),
   gitStatus: z.string().optional(),
-  gitDiff: z.string().optional()
+  gitDiff: z.string().optional(),
+  standardGuidance: z.lazy(() => standardGuidanceProviderSchema).optional()
 }).strict();
 
 const exportProContextProviderResultSchema = z.object({
@@ -1084,7 +1103,8 @@ function loadSkillSourceMatchesPath(
 }
 
 function normalizeLoadSkillRequest(
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  standardMode = false
 ): NormalizedLoadSkillRequest | LoadSkillFailureInput {
   const name = String(args.name ?? "").trim();
   if (!name || name.length > 240 || /[\r\n\u0000-\u001f\u007f]/.test(name)) {
@@ -1098,7 +1118,9 @@ function normalizeLoadSkillRequest(
   const requestedPath = typeof args.path === "string" ? args.path.trim() : undefined;
   let pathSource: SkillInventoryItem["source"] | undefined;
   if (requestedPath !== undefined) {
-    pathSource = loadSkillSelectorPathSource(requestedPath);
+    pathSource = standardMode
+      ? loadSkillStandardSelectorPathSource(requestedPath)
+      : loadSkillSelectorPathSource(requestedPath);
     if (!requestedPath || !pathSource) {
       return {
         code: "INVALID_SKILL_SELECTOR",
@@ -1113,12 +1135,14 @@ function normalizeLoadSkillRequest(
     }
   }
 
-  const selector = loadSkillSelectorSchema.parse({
+  const selector = (standardMode ? loadSkillStandardSelectorSchema : loadSkillSelectorSchema).parse({
     name,
     source: source ?? null,
     path: requestedPath ?? null
   });
-  const includeGlobalDefault = source !== "workspace" && pathSource !== "workspace";
+  const includeGlobalDefault = standardMode
+    ? Boolean(source && source !== "workspace") || Boolean(pathSource && pathSource !== "workspace")
+    : source !== "workspace" && pathSource !== "workspace";
   const includeGlobal = parseBool(args.include_global_skills, includeGlobalDefault);
   const maxSkills = limitInt(args.max_skills, 500, 1, 500);
   const maxBytes = limitInt(args.max_bytes, 40_000, 1_000, 100_000);
@@ -2457,6 +2481,48 @@ const openCurrentWorkspaceProviderCountsSchema = z.object({
   other: z.number().int().nonnegative()
 }).strict();
 
+const standardGuidanceProviderSchema = z.object({
+  status: z.enum(["ok", "warning", "unavailable"]),
+  instructionChain: z.array(z.object({
+    path: z.string().min(1),
+    text: z.string(),
+    sourceBytes: z.number().int().nonnegative(),
+    returnedBytes: z.number().int().nonnegative(),
+    redacted: z.boolean()
+  }).strict()),
+  instructionDiagnostics: z.array(z.object({
+    status: z.enum(["warning", "unavailable"]),
+    code: z.string().min(1),
+    path: z.string().min(1).nullable(),
+    count: z.number().int().positive(),
+    action: z.string().min(1)
+  }).strict()),
+  skillCatalog: z.array(z.object({
+    name: z.string().min(1),
+    description: z.string().min(1),
+    source: z.enum(["workspace", "user", "plugin", "other"]),
+    path: z.string().min(1),
+    compatibility: z.string().nullable(),
+    loadable: z.boolean(),
+    implicitEligible: z.boolean(),
+    requirementsState: z.enum(["none", "declared_unverified"]),
+    specCompliant: z.boolean()
+  }).strict()),
+  skillScan: z.object({
+    candidateCount: z.number().int().nonnegative(),
+    validCount: z.number().int().nonnegative(),
+    invalidCount: z.number().int().nonnegative(),
+    scanComplete: z.boolean(),
+    scanTruncated: z.boolean(),
+    returnedTruncated: z.boolean(),
+    catalogComplete: z.boolean(),
+    catalogOmittedCount: z.number().int().nonnegative(),
+    descriptionsShortened: z.number().int().nonnegative(),
+    catalogChars: z.number().int().nonnegative(),
+    ineligibleCount: z.number().int().nonnegative()
+  }).strict()
+}).strict();
+
 const openCurrentWorkspaceProviderResultSchema = z.object({
   text: z.string().min(1),
   workspaceId: z.string().min(1),
@@ -2467,10 +2533,50 @@ const openCurrentWorkspaceProviderResultSchema = z.object({
   skillInventory: z.array(openCurrentWorkspaceProviderSkillSchema),
   skillCounts: openCurrentWorkspaceProviderCountsSchema,
   tree: z.string().min(1).optional(),
-  gitStatus: z.string().min(1)
+  gitStatus: z.string().min(1),
+  standardGuidance: standardGuidanceProviderSchema.optional()
 }).strict();
 
 type OpenCurrentWorkspaceProviderResult = z.infer<typeof openCurrentWorkspaceProviderResultSchema>;
+
+function standardGuidanceWireData(guidance: z.infer<typeof standardGuidanceProviderSchema>) {
+  return {
+    guidance_mode: "standard" as const,
+    guidance_status: guidance.status,
+    instruction_chain: guidance.instructionChain.map((file) => ({
+      path: file.path,
+      text: file.text,
+      source_bytes: file.sourceBytes,
+      returned_bytes: file.returnedBytes,
+      redacted: file.redacted
+    })),
+    instruction_diagnostics: guidance.instructionDiagnostics,
+    skill_catalog: guidance.skillCatalog.map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      source: skill.source,
+      path: skill.path,
+      compatibility: skill.compatibility,
+      loadable: skill.loadable,
+      implicit_eligible: skill.implicitEligible,
+      requirements_state: skill.requirementsState,
+      spec_compliant: skill.specCompliant
+    })),
+    skill_scan: {
+      candidate_count: guidance.skillScan.candidateCount,
+      valid_count: guidance.skillScan.validCount,
+      invalid_count: guidance.skillScan.invalidCount,
+      scan_complete: guidance.skillScan.scanComplete,
+      scan_truncated: guidance.skillScan.scanTruncated,
+      returned_truncated: guidance.skillScan.returnedTruncated,
+      catalog_complete: guidance.skillScan.catalogComplete,
+      catalog_omitted_count: guidance.skillScan.catalogOmittedCount,
+      descriptions_shortened: guidance.skillScan.descriptionsShortened,
+      catalog_chars: guidance.skillScan.catalogChars,
+      ineligible_count: guidance.skillScan.ineligibleCount
+    }
+  };
+}
 
 function expectedOpenCurrentWorkspaceSkillCounts(
   inventory: OpenCurrentWorkspaceProviderResult["skillInventory"]
@@ -2522,7 +2628,7 @@ function validateOpenCurrentWorkspaceProviderResult(
     }
   }
 
-  if (!options.includeSkills && (result.skills.length || result.skillInventory.length || result.skillCounts.total)) {
+  if (!result.standardGuidance && !options.includeSkills && (result.skills.length || result.skillInventory.length || result.skillCounts.total)) {
     throw new CodexGPTError("Open current workspace provider returned skills when discovery was disabled.");
   }
   if (options.includeTree !== Boolean(result.tree)) {
@@ -2590,7 +2696,8 @@ const openWorkspaceProviderResultSchema = z.object({
   skillInventory: z.array(openWorkspaceProviderSkillSchema),
   skillCounts: openWorkspaceProviderCountsSchema,
   tree: z.string().min(1).optional(),
-  gitStatus: z.string().min(1)
+  gitStatus: z.string().min(1),
+  standardGuidance: standardGuidanceProviderSchema.optional()
 }).strict();
 
 type OpenWorkspaceProviderResult = z.infer<typeof openWorkspaceProviderResultSchema>;
@@ -2645,7 +2752,7 @@ function validateOpenWorkspaceProviderResult(
     }
   }
 
-  if (!options.includeSkills && (result.skills.length || result.skillInventory.length || result.skillCounts.total)) {
+  if (!result.standardGuidance && !options.includeSkills && (result.skills.length || result.skillInventory.length || result.skillCounts.total)) {
     throw new CodexGPTError("Open workspace provider returned skills when discovery was disabled.");
   }
   if (
@@ -4562,6 +4669,7 @@ const CONNECTION_TEST_HIDDEN_TOOLS = new Set<string>([
   SUPERTOOL_NAME,
   "codexgpt_self_test",
   "close_workspace",
+  "codex_context",
   "write",
   "edit",
   "apply_patch",
@@ -4635,12 +4743,16 @@ function toolNamesForMode(config: CodexGPTConfig): string[] {
   }
   if (config.connectionTest) {
     for (const hiddenTool of CONNECTION_TEST_HIDDEN_TOOLS) {
+      if (hiddenTool === "codex_context" && (config.guidanceMode ?? "legacy") === "legacy") continue;
       const toolIndex = names.indexOf(hiddenTool);
       if (toolIndex !== -1) names.splice(toolIndex, 1);
     }
   }
   for (const name of codexSessionToolNames(config)) {
     if (!names.includes(name)) names.push(name);
+  }
+  if (!config.connectionTest && config.toolMode === "standard" && (config.guidanceMode ?? "legacy") === "standard" && !names.includes("codex_context")) {
+    names.push("codex_context");
   }
   return names;
 }
@@ -4661,7 +4773,11 @@ function registeredToolNames(server: McpServer): string[] {
 }
 
 function shouldRegisterTool(config: CodexGPTConfig, name: string): boolean {
-  if (config.connectionTest && CONNECTION_TEST_HIDDEN_TOOLS.has(name)) return false;
+  if (
+    config.connectionTest &&
+    CONNECTION_TEST_HIDDEN_TOOLS.has(name) &&
+    !(name === "codex_context" && (config.guidanceMode ?? "legacy") === "legacy")
+  ) return false;
   if (V3_ADDITION_TOOLS.has(name)) {
     return (v3ToolsForProjection({
       version: config.toolContractVersion,
@@ -4684,6 +4800,9 @@ function shouldRegisterTool(config: CodexGPTConfig, name: string): boolean {
   if (name === "codex_sessions") return config.codexSessions !== "off";
   if (name === "read_codex_session") return config.codexSessions === "read";
   if (name === "inspect_workspace" && !config.analysisEnabled) return false;
+  if (name === "codex_context" && config.toolMode === "standard") {
+    return (config.guidanceMode ?? "legacy") === "standard";
+  }
   if (name === "handoff_to_agent" && config.writeMode === "handoff") return true;
   if (config.toolMode === "full") return true;
   if (config.toolMode === "minimal") return MINIMAL_TOOLS.has(name);
@@ -5490,7 +5609,7 @@ function registerV4ContractTools(
   }
 }
 
-function serverInstructions(config: CodexGPTConfig): string {
+export function serverInstructions(config: CodexGPTConfig): string {
   const editInstruction =
     config.connectionTest
       ? "4. Connection test mode is read-only. Write, patch, export, and handoff-writing tools are unavailable."
@@ -5506,13 +5625,19 @@ function serverInstructions(config: CodexGPTConfig): string {
       ? "5. Bash is disabled and the bash tool is unavailable. Do not attempt shell commands."
       : "5. Use bash only for meaningful verification commands such as npm test, npm run build, lint, typecheck, or an existing project script.";
 
+  const standardGuidance = (config.guidanceMode ?? "legacy") === "standard";
   return [
     "CodexGPT connects ChatGPT to one local development workspace.",
     "",
     "Preferred workflow:",
     "1. Start with open_current_workspace. Use open_workspace only when the user gives a different root or asks to switch folders.",
+    standardGuidance
+      ? "1a. In ChatGPT Web/App, omit workspace_id on subsequent default-workspace tool calls; workspace handles are transport-session scoped and must not be reused across MCP sessions."
+      : "",
     "2. Follow any AGENTS.md-style instructions returned by the workspace open call before editing files.",
-    "3. Inspect with tree, search, and read. Do not use bash for git status, git diff, cat, sed, grep, rg, find, ls, or file reading.",
+    standardGuidance
+      ? "3. Locate the target with tree/search/read, then call codex_context(target_path) before the first mutation and again after crossing into another subtree. Load at most one matching implicit_eligible Skill by calling load_skill with that result's exact target_path and catalog name/path; explicit-only or dependency-unverified Skills require an explicit user request."
+      : "3. Inspect with tree, search, and read. Do not use bash for git status, git diff, cat, sed, grep, rg, find, ls, or file reading.",
     editInstruction,
     bashInstruction,
     "6. Keep tool calls minimal. Prefer one targeted search plus show_changes instead of repeated broad inspection calls.",
@@ -5945,7 +6070,17 @@ function buildServerConfigData(
     maxSearchResults: config.maxSearchResults,
     blockedGlobs: config.blockedGlobs,
     registeredTools,
-    registeredToolCount: registeredTools.length
+    registeredToolCount: registeredTools.length,
+    ...((config.guidanceMode ?? "legacy") === "standard"
+      ? {
+          guidanceMode: "standard" as const,
+          guidanceReadiness: guidanceReadiness("standard"),
+          instructionFallbacks: config.instructionFallbacks,
+          maxInstructionTotalBytes: config.maxInstructionTotalBytes,
+          maxSkillCandidates: config.maxSkillCandidates,
+          maxSkillCatalogChars: config.maxSkillCatalogChars
+        }
+      : {})
   });
 }
 
@@ -6651,7 +6786,9 @@ export function createCodexGPTServer(
       title: "Server Config",
       description: "Show CodexGPT server configuration, safety modes, limits, and blocked paths. Does not reveal auth tokens.",
       inputSchema: {},
-      outputSchema: serverConfigOutputShape,
+      outputSchema: (config.guidanceMode ?? "legacy") === "standard"
+        ? serverConfigOutputShape
+        : legacyServerConfigOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -6687,13 +6824,18 @@ export function createCodexGPTServer(
         "Run controlled local diagnostics only. The optional write/edit probe can touch only .ai-bridge/codexgpt-self-test.md, Pro context is built in memory, and this tool does not execute agents or reveal secrets, command output, session ids, Skill names, MCP server names, or Git paths.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
+        ...((config.guidanceMode ?? "legacy") === "standard"
+          ? { guidance_only: z.boolean().optional().describe("Run only read-only guidance diagnostics; forces write and Bash probes off.") }
+          : {}),
         write_probe: z.boolean().optional().describe("Create/edit only .ai-bridge/codexgpt-self-test.md. Default: true."),
         bash_probe: z.boolean().optional().describe("Check Bash policy with safe local commands only. Default: true."),
         pro_context_probe: z.boolean().optional().describe("Build a selected-only Pro context bundle in memory without writing pro-context.md. Default: true."),
         include_global_skills: z.boolean().optional().describe("Include user/plugin Skill discovery in the inventory count. Default: true."),
         max_skills: z.number().int().min(1).max(120).optional().describe("Maximum Skills to inspect during the inventory check. Default: 40.")
       },
-      outputSchema: codexgptSelfTestOutputShape,
+      outputSchema: (config.guidanceMode ?? "legacy") === "standard"
+        ? codexgptSelfTestOutputShape
+        : codexgptSelfTestLegacyOutputShape,
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -6733,7 +6875,17 @@ export function createCodexGPTServer(
         };
       }
 
-      const request = normalizeCodexGPTSelfTestRequest(args);
+      const request = normalizeCodexGPTSelfTestRequest(
+        args.guidance_only === true
+          ? {
+              ...args,
+              write_probe: false,
+              bash_probe: false,
+              pro_context_probe: false,
+              include_global_skills: args.include_global_skills === true
+            }
+          : args
+      );
       const expectedTools = [...toolNamesForMode(config)].sort();
       const registeredTools = [...registeredToolNames(server)].sort();
       const injectedProvider = (
@@ -6782,7 +6934,26 @@ export function createCodexGPTServer(
 
       try {
         const facts = await provider(context);
-        const data = buildCodexGPTSelfTestData(facts, context);
+        const legacyData = buildCodexGPTSelfTestData(facts, context);
+        const data = args.guidance_only === true && (config.guidanceMode ?? "legacy") === "standard"
+          ? await (async () => {
+              const guidanceContext = await readCodexContext(config, guard, workspace, {
+                targetPath: ".",
+                includeAiBridge: false,
+                includeGit: false,
+                includeDiff: false
+              });
+              if (!guidanceContext.standardGuidance) throw new Error("Standard guidance diagnostics are unavailable.");
+              const guidance = standardGuidanceWireData(guidanceContext.standardGuidance);
+              return {
+                ...legacyData,
+                guidance_mode: "standard" as const,
+                guidance_status: guidance.guidance_status,
+                guidance_diagnostics: guidance.instruction_diagnostics,
+                skill_scan: guidance.skill_scan
+              };
+            })()
+          : legacyData;
         return carryPendingMutation(
           facts,
           textResult(
@@ -6816,7 +6987,11 @@ export function createCodexGPTServer(
         "List CodexGPT modes plus discovered skill names and configured MCP server names. Use this early when planning needs local agent capabilities.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        include_global_skills: z.boolean().optional().describe("Include user and plugin skill folders. Default: true."),
+        include_global_skills: z.boolean().optional().describe(
+          (config.guidanceMode ?? "legacy") === "standard"
+            ? "Include user and plugin skill folders. Default: false."
+            : "Include user and plugin skill folders. Default: true."
+        ),
         include_mcp_servers: z.boolean().optional().describe("Include configured MCP server names from safe config files. Default: true."),
         max_skills: z.number().int().min(1).max(500).optional().describe("Maximum skills to list. Default: 120.")
       },
@@ -6858,15 +7033,45 @@ export function createCodexGPTServer(
         };
       }
 
+      const standardInventoryMode = (config.guidanceMode ?? "legacy") === "standard";
       const options = {
-        includeGlobalSkills: parseBool(args.include_global_skills, true),
+        includeGlobalSkills: parseBool(args.include_global_skills, !standardInventoryMode),
         includeMcpServers: parseBool(args.include_mcp_servers, true),
         maxSkills: limitInt(args.max_skills, 120, 1, 500)
       };
 
       let rawInventory: unknown;
       try {
-        rawInventory = await codexgptInventoryProvider({ config, workspace, options });
+        if (standardInventoryMode) {
+          const base = await codexgptInventoryProvider({
+            config,
+            workspace,
+            options: { ...options, includeGlobalSkills: false }
+          });
+          const workspaceSkills = await discoverTargetSkills({
+            root: workspace.root,
+            targetPath: ".",
+            maxCandidates: config.maxSkillCandidates ?? 1_000,
+            maxSkills: options.maxSkills,
+            blockedGlobs: config.blockedGlobs
+          });
+          const globalSkills = options.includeGlobalSkills
+            ? await discoverExplicitGlobalSkills({
+                codexDir: config.codexDir,
+                maxCandidates: config.maxSkillCandidates ?? 1_000,
+                maxSkills: options.maxSkills,
+                blockedGlobs: config.blockedGlobs
+              })
+            : null;
+          const combined = [...workspaceSkills.skills, ...(globalSkills?.skills ?? [])].slice(0, options.maxSkills);
+          rawInventory = {
+            ...base,
+            skills: combined.map((skill) => ({ name: skill.name, description: skill.description, source: skill.source, path: skill.path })),
+            skillsTruncated: workspaceSkills.returnedTruncated || Boolean(globalSkills?.returnedTruncated) || combined.length < workspaceSkills.skills.length + (globalSkills?.skills.length ?? 0)
+          };
+        } else {
+          rawInventory = await codexgptInventoryProvider({ config, workspace, options });
+        }
       } catch {
         const failure: CodexGPTInventoryFailureInput = {
           code: "INVENTORY_DISCOVERY_FAILED",
@@ -6934,17 +7139,34 @@ export function createCodexGPTServer(
     {
       title: "Load Skill",
       description:
-        "Load the bounded SKILL.md body for a discovered workspace, user, or plugin skill by name. Does not accept arbitrary paths; use after open_current_workspace/open_workspace shows skill_inventory.",
+        (config.guidanceMode ?? "legacy") === "standard"
+          ? "Load one bounded Skill selected from open or codex_context.skill_catalog. Reuse the exact same target_path passed to codex_context; prefer its exact name/path. Global and implicit-disabled Skills require explicit user intent."
+          : "Load the bounded SKILL.md body for a discovered workspace, user, or plugin skill by name. Does not accept arbitrary paths; use after open_current_workspace/open_workspace shows skill_inventory.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        name: z.string().describe("Exact skill name from skill_inventory or codexgpt_inventory."),
+        ...((config.guidanceMode ?? "legacy") === "standard"
+          ? { target_path: z.string().optional().describe("Workspace-relative target whose applicable Skill catalog is used. Reuse the exact codex_context target_path. Default: .") }
+          : {}),
+        name: z.string().describe(
+          (config.guidanceMode ?? "legacy") === "standard"
+            ? "Exact skill name from skill_catalog, skill_inventory, or codexgpt_inventory."
+            : "Exact skill name from skill_inventory or codexgpt_inventory."
+        ),
         source: z.enum(["workspace", "user", "plugin", "other"]).optional().describe("Optional source when multiple skills share a name."),
         path: z.string().optional().describe("Exact sanitized path from skill_inventory when name/source are still ambiguous."),
         include_global_skills: z.boolean().optional().describe("Also scan installed user/plugin skills. Default: auto when source/path is not workspace."),
         max_skills: z.number().int().min(1).max(500).optional().describe("Maximum skills to scan while resolving the requested skill. Default: 500."),
-        max_bytes: z.number().int().min(1000).max(100000).optional().describe("Maximum bytes to return from SKILL.md. Default: 40000.")
+        max_bytes: z.number().int().min(1000).max(100000).optional().describe("Maximum bytes to return from SKILL.md. Default: 40000."),
+        ...((config.guidanceMode ?? "legacy") === "standard"
+          ? {
+              include_resource_index: z.boolean().optional().describe("Include a bounded path-only references/scripts/assets index. Default: false."),
+              resource_path: z.string().optional().describe("Load one text resource below the selected Skill root.")
+            }
+          : {})
       },
-      outputSchema: loadSkillOutputShape,
+      outputSchema: (config.guidanceMode ?? "legacy") === "standard"
+        ? loadSkillStandardOutputShape
+        : loadSkillOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -6956,8 +7178,9 @@ export function createCodexGPTServer(
     async (args) => {
       const startedAt = Date.now();
       let request: NormalizedLoadSkillRequest;
+      const standardMode = (config.guidanceMode ?? "legacy") === "standard";
       try {
-        const normalized = normalizeLoadSkillRequest(args);
+        const normalized = normalizeLoadSkillRequest(args, standardMode);
         if ("code" in normalized) return loadSkillFailureResult(normalized, startedAt);
         request = normalized;
       } catch {
@@ -6984,12 +7207,130 @@ export function createCodexGPTServer(
       }
 
       let rawLoaded: unknown;
+      let standardRecord: StandardSkillRecord | undefined;
+      let standardTargetPath = typeof args.target_path === "string" ? args.target_path : ".";
       try {
-        rawLoaded = await loadSkillProvider({
-          config,
-          workspace,
-          options: request.options
-        });
+        if (standardMode) {
+          const domainSelector = {
+            name: request.selector.name,
+            ...(request.selector.source ? { source: request.selector.source } : {}),
+            ...(request.selector.path ? { path: request.selector.path } : {})
+          };
+          standardTargetPath = (await resolveCodexContextTarget(guard, workspace, standardTargetPath)).targetPath;
+          const targetPath = standardTargetPath;
+          const record = request.selector.path
+            ? request.selector.path.startsWith("$WORKSPACE/")
+              ? await resolveExactWorkspaceSkill({
+                  root: workspace.root,
+                  targetPath,
+                  selector: request.selector.path,
+                  blockedGlobs: config.blockedGlobs
+                })
+              : request.options.includeGlobal
+                ? await resolveExactGlobalSkill({
+                    codexDir: config.codexDir,
+                    selector: request.selector.path,
+                    blockedGlobs: config.blockedGlobs
+                  })
+                : (() => { throw new Error("Global Skill selection requires explicit opt-in."); })()
+            : await (async () => {
+                const workspaceDiscovery = await discoverTargetSkills({
+                  root: workspace.root,
+                  targetPath,
+                  maxCandidates: config.maxSkillCandidates ?? 1_000,
+                  maxSkills: request.options.maxSkills,
+                  blockedGlobs: config.blockedGlobs
+                });
+                const globalDiscovery = request.options.includeGlobal
+                  ? await discoverExplicitGlobalSkills({
+                      codexDir: config.codexDir,
+                      maxCandidates: config.maxSkillCandidates ?? 1_000,
+                      maxSkills: request.options.maxSkills,
+                      blockedGlobs: config.blockedGlobs
+                    })
+                  : null;
+                if (workspaceDiscovery.scanTruncated || globalDiscovery?.scanTruncated) {
+                  throw new LoadSkillError("SKILL_RESOLUTION_LIMIT_REACHED", {
+                    selector: domainSelector,
+                    includeGlobal: request.options.includeGlobal,
+                    maxSkills: request.options.maxSkills,
+                    discoveryTruncated: true
+                  });
+                }
+                const matches = [
+                  ...workspaceDiscovery.skills,
+                  ...(globalDiscovery?.skills ?? [])
+                ].filter((skill) =>
+                  skill.name === request.selector.name &&
+                  (!request.selector.source || skill.source === request.selector.source)
+                );
+                if (matches.length > 1) {
+                  throw new LoadSkillError("SKILL_AMBIGUOUS", {
+                    selector: domainSelector,
+                    candidates: matches.slice(0, 8),
+                    candidatesTruncated: matches.length > 8,
+                    discoveryTruncated: false
+                  });
+                }
+                if (!matches[0]) {
+                  throw new LoadSkillError("SKILL_NOT_FOUND", {
+                    selector: domainSelector,
+                    includeGlobal: request.options.includeGlobal,
+                    maxSkills: request.options.maxSkills,
+                    discoveryTruncated: false
+                  });
+                }
+                return matches[0];
+              })();
+          standardRecord = record;
+          if (record.name !== request.selector.name) {
+            throw new LoadSkillError("SKILL_NOT_FOUND", {
+              selector: domainSelector,
+              includeGlobal: request.options.includeGlobal,
+              maxSkills: request.options.maxSkills,
+              discoveryTruncated: false
+            });
+          }
+          if (!request.selector.path && !record.implicitEligible) {
+            throw new LoadSkillError("SKILL_NOT_FOUND", {
+              selector: domainSelector,
+              includeGlobal: request.options.includeGlobal,
+              maxSkills: request.options.maxSkills,
+              discoveryTruncated: false
+            });
+          }
+          const loaded = await readGuidanceText({
+            root: record.root,
+            relativePath: path.relative(record.root, record.absPath),
+            maxBytes: 100_000,
+            blockedGlobs: config.blockedGlobs
+          });
+          if (!loaded.ok) {
+            throw new LoadSkillError(
+              loaded.reason === "READ_BOUNDARY_VIOLATION" || loaded.reason === "READ_IDENTITY_CHANGED" || loaded.reason === "READ_HARDLINK_UNSAFE"
+                ? "SKILL_BOUNDARY_VIOLATION"
+                : "SKILL_READ_FAILED",
+              {
+                selector: domainSelector,
+                skill: { name: record.name, description: record.description, source: record.source, path: record.path }
+              }
+            );
+          }
+          rawLoaded = {
+            skill: { name: record.name, description: record.description, source: record.source, path: record.path },
+            text: loaded.text,
+            bytes: loaded.sourceBytes,
+            totalBytes: loaded.sourceBytes,
+            truncated: false,
+            discoveryTruncated: false
+          };
+        } else {
+          rawLoaded = await loadSkillProvider({
+            config,
+            workspace,
+            options: request.options
+          });
+        }
       } catch (error) {
         return loadSkillFailureResult(
           classifyLoadSkillProviderFailure(error, request),
@@ -7009,8 +7350,39 @@ export function createCodexGPTServer(
           throw new CodexGPTError("Load Skill provider returned a mismatched Skill identity.");
         }
 
-        const safeText = redactSensitiveText(loaded.text);
-        const data = loadSkillDataSchema.parse({
+        const targetPath = standardMode ? standardTargetPath : (typeof args.target_path === "string" ? args.target_path : ".");
+        if (standardMode && typeof args.resource_path === "string") {
+          if (!standardRecord) throw new CodexGPTError("Standard Skill resource identity is unavailable.");
+          const resource = await loadSkillResource({
+            root: standardRecord.root,
+            skillRoot: path.dirname(standardRecord.absPath),
+            resourcePath: args.resource_path,
+            maxBytes: request.options.maxBytes,
+            blockedGlobs: config.blockedGlobs
+          });
+          const safeResourceText = redactSensitiveText(resource.text);
+          const resourceData = loadSkillStandardDataSchema.parse({
+            workspace_id: workspace.id,
+            root: workspace.root,
+            selector: request.selector,
+            skill,
+            guidance_mode: "standard",
+            target_path: targetPath,
+            kind: "resource",
+            resource_path: resource.path,
+            max_bytes: request.options.maxBytes,
+            bytes: resource.sourceBytes,
+            returned_bytes: Buffer.byteLength(safeResourceText, "utf8"),
+            redacted: safeResourceText !== resource.text,
+            text: safeResourceText
+          });
+          return textResult(resourceData.text, createLoadSkillSuccess(resourceData, Date.now() - startedAt));
+        }
+
+        const fullyRedactedText = redactSensitiveText(loaded.text);
+        const safeText = standardMode ? utf8Prefix(fullyRedactedText, request.options.maxBytes) : fullyRedactedText;
+        const standardTruncated = standardMode && Buffer.byteLength(fullyRedactedText, "utf8") > request.options.maxBytes;
+        const baseData = {
           workspace_id: workspace.id,
           root: workspace.root,
           selector: request.selector,
@@ -7018,17 +7390,40 @@ export function createCodexGPTServer(
           include_global_skills: request.options.includeGlobal,
           max_skills: request.options.maxSkills,
           max_bytes: request.options.maxBytes,
-          bytes: loaded.bytes,
+          bytes: standardMode ? Math.min(loaded.totalBytes, request.options.maxBytes) : loaded.bytes,
           returned_bytes: Buffer.byteLength(safeText, "utf8"),
           total_bytes: loaded.totalBytes,
-          truncated: loaded.truncated,
+          truncated: loaded.truncated || standardTruncated,
           resolution_truncated: loaded.discoveryTruncated,
-          redacted: safeText !== loaded.text,
+          redacted: fullyRedactedText !== loaded.text,
           text: safeText
-        });
+        };
+        const data = loadSkillStandardDataSchema.parse(
+          standardMode && args.include_resource_index === true
+            ? {
+                ...baseData,
+                guidance_mode: "standard",
+                target_path: targetPath,
+                kind: "body_with_index",
+                ...await (async () => {
+                  if (!standardRecord) throw new CodexGPTError("Standard Skill resource identity is unavailable.");
+                  const index = await indexSkillResources({
+                    root: standardRecord.root,
+                    skillRoot: path.dirname(standardRecord.absPath),
+                    maxEntries: 1_000,
+                    blockedGlobs: config.blockedGlobs
+                  });
+                  return { resource_index: index.paths, resource_index_truncated: index.truncated };
+                })()
+              }
+            : baseData
+        );
         const status = [
-          data.truncated ? "source truncated" : "source complete",
-          data.redacted ? "secret-looking content redacted" : "no redaction"
+          "truncated" in data && data.truncated ? "source truncated" : "source complete",
+          data.redacted ? "secret-looking content redacted" : "no redaction",
+          ...(standardRecord && !standardRecord.implicitEligible
+            ? ["explicit selection required; never invoke this Skill implicitly"]
+            : [])
         ].join(", ");
         const text = [
           "# Load Skill",
@@ -7036,7 +7431,7 @@ export function createCodexGPTServer(
           `Name: ${data.skill.name}`,
           `Source: ${data.skill.source}`,
           `Path: ${data.skill.path}`,
-          `Source bytes: ${data.bytes}/${data.total_bytes}`,
+          `Source bytes: ${data.bytes}/${"total_bytes" in data ? data.total_bytes : data.bytes}`,
           `Returned bytes: ${data.returned_bytes}`,
           `Status: ${status}`,
           "",
@@ -7048,7 +7443,35 @@ export function createCodexGPTServer(
           text,
           createLoadSkillSuccess(data, Date.now() - startedAt)
         );
-      } catch {
+      } catch (error) {
+        const resourceCode = error instanceof Error && [
+          "SKILL_RESOURCE_BLOCKED",
+          "SKILL_RESOURCE_BOUNDARY_VIOLATION",
+          "SKILL_RESOURCE_NOT_TEXT",
+          "SKILL_RESOURCE_HARDLINK_UNSAFE",
+          "SKILL_RESOURCE_READ_FAILED"
+        ].includes(error.message)
+          ? error.message
+          : null;
+        if (resourceCode && standardRecord && typeof args.resource_path === "string") {
+          return loadSkillFailureResult({
+            code: resourceCode as
+              | "SKILL_RESOURCE_BLOCKED"
+              | "SKILL_RESOURCE_BOUNDARY_VIOLATION"
+              | "SKILL_RESOURCE_NOT_TEXT"
+              | "SKILL_RESOURCE_HARDLINK_UNSAFE"
+              | "SKILL_RESOURCE_READ_FAILED",
+            details: {
+              skill: {
+                name: standardRecord.name,
+                description: standardRecord.description,
+                source: standardRecord.source,
+                path: standardRecord.path
+              },
+              resource_path: redactSensitiveText(args.resource_path)
+            }
+          }, startedAt);
+        }
         return loadSkillFailureResult({ code: "INTERNAL_ERROR", details: {} }, startedAt);
       }
     }
@@ -7202,7 +7625,9 @@ export function createCodexGPTServer(
         include_skills: z.boolean().optional().describe("Discover skills by name/description. Default: false for speed."),
         include_global_skills: z.boolean().optional().describe("Also scan installed user/plugin skills when include_skills=true. Default: false.")
       },
-      outputSchema: openCurrentWorkspaceOutputShape,
+      outputSchema: (config.guidanceMode ?? "legacy") === "standard"
+        ? openCurrentWorkspaceOutputShape
+        : openCurrentWorkspaceLegacyOutputShape,
       annotations: SESSION_READ_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -7223,6 +7648,10 @@ export function createCodexGPTServer(
         const summary = openCurrentWorkspaceProviderResultSchema.parse(
           await openCurrentWorkspaceSummaryProvider({ config, guard, workspace, options })
         );
+        const standardMode = (config.guidanceMode ?? "legacy") === "standard";
+        if (standardMode !== Boolean(summary.standardGuidance)) {
+          throw new CodexGPTError("Open current workspace provider guidance mode mismatch.");
+        }
         const normalizedInventory = validateOpenCurrentWorkspaceProviderResult(
           summary,
           workspace,
@@ -7241,7 +7670,8 @@ export function createCodexGPTServer(
           git_status: summary.gitStatus,
           bash_mode: config.bashMode,
           write_mode: config.writeMode,
-          tool_mode: config.toolMode
+          tool_mode: config.toolMode,
+          ...(summary.standardGuidance ? standardGuidanceWireData(summary.standardGuidance) : {})
         });
 
         return textResult(
@@ -7285,7 +7715,9 @@ export function createCodexGPTServer(
         include_global_skills: z.boolean().optional().describe("Also scan installed user/plugin skills when include_skills=true. Default: false."),
         bootstrap_context: z.boolean().optional().describe("Deprecated and ignored. Use handoff_to_agent to create .ai-bridge files.")
       },
-      outputSchema: openWorkspaceOutputShape,
+      outputSchema: (config.guidanceMode ?? "legacy") === "standard"
+        ? openWorkspaceOutputShape
+        : openWorkspaceLegacyOutputShape,
       annotations: SESSION_READ_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -7327,6 +7759,10 @@ export function createCodexGPTServer(
         const summary = openWorkspaceProviderResultSchema.parse(
           await openWorkspaceSummaryProvider({ config, guard, workspace, options })
         );
+        const standardMode = (config.guidanceMode ?? "legacy") === "standard";
+        if (standardMode !== Boolean(summary.standardGuidance)) {
+          throw new CodexGPTError("Open workspace provider guidance mode mismatch.");
+        }
         const normalizedInventory = validateOpenWorkspaceProviderResult(
           summary,
           workspace,
@@ -7345,7 +7781,8 @@ export function createCodexGPTServer(
           git_status: summary.gitStatus,
           bash_mode: config.bashMode,
           write_mode: config.writeMode,
-          tool_mode: config.toolMode
+          tool_mode: config.toolMode,
+          ...(summary.standardGuidance ? standardGuidanceWireData(summary.standardGuidance) : {})
         });
 
         return textResult(
@@ -9341,16 +9778,28 @@ export function createCodexGPTServer(
     {
       title: "Codex Context",
       description:
-        "Load Codex-style workspace context in one call: AGENTS instructions for a target path, .ai-bridge handoff files, and optional git status/diff.",
+        (config.guidanceMode ?? "legacy") === "standard"
+          ? "Load the canonical target instruction chain and applicable implicit Skill catalog. Before mutation, choose at most one matching skill_catalog entry and call load_skill with this result's exact target_path. AI bridge, git, and diff are opt-in."
+          : "Load Codex-style workspace context in one call: AGENTS instructions for a target path, .ai-bridge handoff files, and optional git status/diff.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         target_path: z.string().optional().describe("Workspace-relative file or directory whose AGENTS instruction chain should be loaded. Default: ."),
-        include_ai_bridge: z.boolean().optional().describe("Include .ai-bridge plan, agent status, diff, decisions, questions, and execution log. Default: true."),
-        include_git: z.boolean().optional().describe("Include git status. Default: true."),
+        include_ai_bridge: z.boolean().optional().describe(
+          (config.guidanceMode ?? "legacy") === "standard"
+            ? "Include .ai-bridge plan, agent status, diff, decisions, questions, and execution log. Default: false."
+            : "Include .ai-bridge plan, agent status, diff, decisions, questions, and execution log. Default: true."
+        ),
+        include_git: z.boolean().optional().describe(
+          (config.guidanceMode ?? "legacy") === "standard"
+            ? "Include git status. Default: false."
+            : "Include git status. Default: true."
+        ),
         include_diff: z.boolean().optional().describe("Include full git diff. Default: false for speed/noise."),
         max_agent_bytes: z.number().int().min(1000).max(200000).optional().describe("Maximum bytes per AGENTS file. Default: 60000.")
       },
-      outputSchema: codexContextOutputShape,
+      outputSchema: (config.guidanceMode ?? "legacy") === "standard"
+        ? codexContextOutputShape
+        : codexContextLegacyOutputShape,
       annotations: { ...READ_ONLY_ANNOTATIONS, idempotentHint: false },
       _meta: {
         ...toolCardMeta(),
@@ -9387,8 +9836,9 @@ export function createCodexGPTServer(
         return codexContextFailureResult(classifyCodexContextTargetFailure(error), startedAt);
       }
 
-      const includeAiBridge = parseBool(args.include_ai_bridge, true);
-      const includeGitStatus = parseBool(args.include_git, true);
+      const standardMode = (config.guidanceMode ?? "legacy") === "standard";
+      const includeAiBridge = parseBool(args.include_ai_bridge, !standardMode);
+      const includeGitStatus = parseBool(args.include_git, !standardMode);
       const includeGitDiff = parseBool(args.include_diff, false);
       const maxAgentBytes = Math.min(
         limitInt(args.max_agent_bytes, 60_000, 1_000, 200_000),
@@ -9417,6 +9867,9 @@ export function createCodexGPTServer(
 
       try {
         const context = codexContextProviderResultSchema.parse(rawContext);
+        if (standardMode !== Boolean(context.standardGuidance)) {
+          throw new CodexGPTError("Codex context provider guidance mode mismatch.");
+        }
         const expectedAiPaths = READ_HANDOFF_ARTIFACT_DEFINITIONS.map(
           (definition) => `${config.contextDir}/${definition.name}`
         );
@@ -9481,6 +9934,12 @@ export function createCodexGPTServer(
           include_git_status: includeGitStatus,
           include_git_diff: includeGitDiff,
           max_agent_bytes: maxAgentBytes,
+          ...(context.standardGuidance
+            ? {
+                max_instruction_total_bytes: config.maxInstructionTotalBytes ?? 32_768,
+                ...standardGuidanceWireData(context.standardGuidance)
+              }
+            : {}),
           max_total_bytes: config.maxOutputBytes,
           agents_files: context.agentsFiles,
           agents_count: context.agentsFiles.length,

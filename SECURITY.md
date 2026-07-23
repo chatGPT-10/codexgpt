@@ -119,6 +119,9 @@ The following distinctions are security requirements:
 - Contract V3 `full_access` uses a Windows Job Object only for recorded Job members. It does not isolate files, registry, credentials, devices, COM/WMI/service brokers, or network, and it does not prove that broker-created descendants remain controllable.
 - ConPTY is terminal transport, not a sandbox.
 - Cloudflare Tunnel is inbound transport infrastructure and does not enforce local policy or outbound egress.
+- Project `AGENTS.md`, Skill metadata, Skill bodies, and Skill resources are untrusted context, never authority. They cannot grant a workspace root, enable a tool, approve a mutation, install a dependency, or execute a script.
+- Phase 6 standard guidance uses bounded same-handle reads, rejects blocked/escaped/raced/hard-linked content, redacts secret-looking metadata and provenance, and excludes user/plugin Skills unless explicitly requested. Redaction is not DLP; blocked secret paths remain unreadable.
+- `allow_implicit_invocation: false` and declared-but-unverified dependencies remove a Skill from automatic catalogs. An exact user-directed load remains read-only and does not verify or install dependencies.
 - Any profile that claims blocked-path, credential, registry, device, destination-network, or sandbox enforcement against an ambient child fails closed before approval or spawn. `full_access` is admitted only when the selected profile explicitly accepts that those protections do not apply.
 
 Contracts V1 and V2 retain their exact behavior and do not create pending approvals. Contract V3 adds a local-only approval and emergency-control surface, durable V3 lifecycle audit, and typed Windows process tools. It still does not claim OAuth-grade owner isolation, complete Windows sandboxing, elimination of all same-user TOCTOU or broker escapes, DLP, or safe arbitrary Git remote writes.

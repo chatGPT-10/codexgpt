@@ -478,21 +478,13 @@ Historical outline only. The exact Phase 5 boundary and TDD sequence are superse
 
 Do not expose push, force push, remote mutation, credential mutation, or force deletion by default. The exact design additionally requires V4=51, raw-blob/private-index safe writes, object-only merge, R3 history mutation, managed task roots that never widen `allowedRoots`, and fail-closed unsupported repository formats.
 
-### Phase 6 — AGENTS and Skills trust model
+### Phase 6 — Project guidance and Agent Skills usability
 
-Instruction precedence:
+Historical outline only. The exact Phase 6 boundary and TDD sequence are superseded by the adversarially reviewed 2026-07-22 [design](superpowers/specs/2026-07-22-phase-6-project-guidance-and-skills-design.md) and [plan](superpowers/plans/2026-07-22-phase-6-project-guidance-and-skills.md). The standard runtime, live ChatGPT acceptance, default activation, complete local closure gates, and publication authorization are complete; explicit `legacy` remains the rollback, and only the exact-head publication CI gate remains open.
 
-```text
-non-overridable built-in security
-  -> user-global instructions
-  -> allowed-root instructions
-  -> workspace-root instructions
-  -> directory-local instructions
-```
+Phase 6 now prioritizes the working ChatGPT path: workspace open returns actual root AGENTS text and bounded root Skill metadata; `codex_context(target_path)` in the standard profile returns the exact root-to-target instruction chain and target-scoped Skill catalog; `load_skill` keeps bodies and resources lazy; actual file, process, and Git actions remain under existing typed tools and Policy/Approval/Audit.
 
-Project instructions may control coding style and workflow but may not disable security, expand allowed roots, authorize secrets, enable networking, or approve high-risk commands.
-
-Skills require manifest data including name, version, source, trust, permissions, workspace scope, content hash, and enabled state. Workspace skills default to untrusted instructional content.
+The former mandatory version/trust/permission/content-hash manifest and generic Hook runner are not Phase 6 requirements. Agent Skills use their standard metadata, automatic catalogs are budgeted, user/plugin Skills remain explicit standard opt-in, scripts/dependencies do not auto-run, and one canonical same-handle reader protects AGENTS/Skill/resource reads. This changes usability scope, not the existing local authorization boundary.
 
 ### Phase 7 — Semantic providers
 

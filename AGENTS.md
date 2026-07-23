@@ -155,6 +155,10 @@ The following rules are mandatory and are enforced by `npm run policy:check` plu
 
 - Follow the paired Phase 5 [spec](docs/superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md). V4 is opt-in exact 51 and preserves V1/V2/V3. Safe Git writes require fixed executable identity, private indexes, quarantined object promotion, complete mutation tokens, R3 ref/history approval, and journaled participants. Gate X exposes only private stage, shadow commit, quarantined object merge, and private checkout after exact binding and approval; it accepts no caller-selected Git command and remains ambient `full_access` without isolation. Managed worktrees are owner-bound workflow artifacts, not sandboxes; they do not widen `allowedRoots`, delete branches/history, or enable remote, credential, force, or config mutations.
 
+### 5.11 Phase 6 design boundary
+
+- Follow the adversarially reviewed Phase 6 [spec](docs/superpowers/specs/2026-07-22-phase-6-project-guidance-and-skills-design.md) and [plan](docs/superpowers/plans/2026-07-22-phase-6-project-guidance-and-skills.md). Phase 6 makes root/target AGENTS and target-scoped Agent Skills usable from the standard ChatGPT flow without Tool Contract V5 or new execution authority. Use one canonical same-handle bounded reader, keep standard user/plugin Skills explicit opt-in, budget automatic metadata, and keep bodies/resources lazy. AGENTS/Skills never grant permission; scripts, dependencies, and generic Hooks do not auto-run. The former Hook/trust-manifest Phase 6 outline is superseded. Live root/nested acceptance passed and omitted mode now defaults to `standard`; explicit `legacy` remains the one-restart rollback. Apps with frozen pre-Phase-6 tool snapshots require one **Scan Tools** refresh or recreation; transparent refresh is not claimed.
+
 ## 6. Documentation map
 
 - `Memory.md` indexes current state and `docs/memory/archive/` append-only history.
@@ -198,4 +202,4 @@ Distinguish clearly between:
 
 Phases 1–5 are closed. Phase 4's 4B0 stays blocked/non-production; `workspace` and Tasks 4B1–4B6 stay deferred. Preserve verified Node toolchains; use `Memory.md` for current evidence and next action.
 
-The 2026-07-14 conditional authorization through Phase 8 remains recorded, but the current user boundary freezes Phase 6. Do not begin Phase 6 until the user explicitly resumes it. When resumed, keep recommended defaults, scoped staging, English commits, one push per phase, and terminal exact-head CI. Do not bypass gates or weaken the deferred sandbox claim. Excluded: destructive data/history changes, production deployment, credential disclosure, and silent scope expansion.
+The 2026-07-22 implementation instruction authorized the Phase 6 runtime and the single audited `yaml@2.9.0` production dependency. Live ChatGPT Gates G6-M/G6-U and the omitted-default flip are complete. The 2026-07-23 user instruction authorizes one Phase 6 staging, English commit, push, and exact-head closure attempt after all local gates pass; it does not authorize deployment, release publication, Phase 7, destructive history changes, credential operations, or silent scope expansion. Terminal exact-head Ubuntu/Windows Node 20/24 success remains mandatory before formal closure.

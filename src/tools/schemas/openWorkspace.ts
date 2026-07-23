@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import {
+  guidanceDiagnosticSchema,
+  guidanceInstructionFileSchema,
+  standardSkillCatalogEntrySchema,
+  standardSkillScanSchema
+} from "./guidance.js";
 
 export const OPEN_WORKSPACE_ERROR_MESSAGES = {
   ROOT_ALIAS_CONFLICT: "The root and path arguments identify different workspace roots.",
@@ -26,7 +32,7 @@ export const openWorkspaceSkillCountsSchema = z.object({
   other: z.number().int().nonnegative()
 }).strict();
 
-export const openWorkspaceDataSchema = z.object({
+export const openWorkspaceLegacyDataSchema = z.object({
   workspace_id: z.string().min(1),
   root: z.string().min(1),
   agents_loaded: z.boolean(),
@@ -40,6 +46,32 @@ export const openWorkspaceDataSchema = z.object({
   write_mode: z.enum(["off", "handoff", "workspace"]),
   tool_mode: z.enum(["minimal", "standard", "full"])
 }).strict();
+
+export const openWorkspaceStandardDataSchema = z.object({
+  workspace_id: z.string().min(1),
+  root: z.string().min(1),
+  agents_loaded: z.boolean(),
+  agents_path: z.string().min(1).nullable(),
+  skills: z.array(z.string().min(1)),
+  skill_inventory: z.array(openWorkspaceSkillSchema),
+  skill_counts: openWorkspaceSkillCountsSchema,
+  tree: z.string().min(1).nullable(),
+  git_status: z.string().min(1),
+  bash_mode: z.enum(["off", "safe", "full"]),
+  write_mode: z.enum(["off", "handoff", "workspace"]),
+  tool_mode: z.enum(["standard", "full"]),
+  guidance_mode: z.literal("standard"),
+  guidance_status: z.enum(["ok", "warning", "unavailable"]),
+  instruction_chain: z.array(guidanceInstructionFileSchema).max(256),
+  instruction_diagnostics: z.array(guidanceDiagnosticSchema).max(256),
+  skill_catalog: z.array(standardSkillCatalogEntrySchema).max(500),
+  skill_scan: standardSkillScanSchema
+}).strict();
+
+export const openWorkspaceDataSchema = z.union([
+  openWorkspaceLegacyDataSchema,
+  openWorkspaceStandardDataSchema
+]);
 
 const aliasConflictDetailsSchema = z.object({
   fields: z.tuple([z.literal("root"), z.literal("path")])
@@ -117,6 +149,11 @@ export const openWorkspaceOutputShape = {
   data: openWorkspaceDataSchema.nullable(),
   error: openWorkspaceErrorSchema.nullable(),
   meta: toolMetaSchema
+};
+
+export const openWorkspaceLegacyOutputShape = {
+  ...openWorkspaceOutputShape,
+  data: openWorkspaceLegacyDataSchema.nullable()
 };
 
 const openWorkspaceOutputBaseSchema = z.object(openWorkspaceOutputShape).strict();

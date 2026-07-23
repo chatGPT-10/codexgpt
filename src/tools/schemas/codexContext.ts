@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import {
+  guidanceDiagnosticSchema,
+  guidanceInstructionFileSchema,
+  standardSkillCatalogEntrySchema,
+  standardSkillScanSchema
+} from "./guidance.js";
 
 export const CODEX_CONTEXT_UNAVAILABLE_WARNING =
   "Some Codex context sources could not be read safely." as const;
@@ -131,7 +137,7 @@ export const codexContextUnavailableSchema = z.object({
   }
 });
 
-export const codexContextDataSchema = z.object({
+export const codexContextLegacyDataSchema = z.object({
   workspace_id: safeWorkspaceIdSchema,
   root: z.string().min(1),
   target_path: codexContextTargetPathSchema,
@@ -266,6 +272,66 @@ export const codexContextDataSchema = z.object({
   }
 });
 
+export const codexContextStandardDataSchema = z.object({
+  workspace_id: safeWorkspaceIdSchema,
+  root: z.string().min(1),
+  target_path: codexContextTargetPathSchema,
+  target_kind: z.enum(["file", "directory", "missing"]),
+  tool_mode: z.enum(["standard", "full"]),
+  write_mode: z.enum(["off", "handoff", "workspace"]),
+  bash_mode: z.enum(["off", "safe", "full"]),
+  guidance_mode: z.literal("standard"),
+  guidance_status: z.enum(["ok", "warning", "unavailable"]),
+  include_ai_bridge: z.boolean(),
+  include_git_status: z.boolean(),
+  include_git_diff: z.boolean(),
+  max_agent_bytes: z.number().int().min(1).max(200_000),
+  max_instruction_total_bytes: z.number().int().min(1).max(200_000),
+  max_total_bytes: z.number().int().min(1).max(2_000_000),
+  agents_files: z.array(codexContextSourcePathSchema).max(256),
+  agents_count: z.number().int().min(0).max(256),
+  instruction_chain: z.array(guidanceInstructionFileSchema).max(256),
+  instruction_diagnostics: z.array(guidanceDiagnosticSchema).max(256),
+  skill_catalog: z.array(standardSkillCatalogEntrySchema).max(500),
+  skill_scan: standardSkillScanSchema,
+  ai_context_exists: z.boolean().nullable(),
+  ai_context_files: z.array(codexContextSourcePathSchema).max(CODEX_CONTEXT_AI_NAMES.length),
+  ai_context_count: z.number().int().min(0).max(CODEX_CONTEXT_AI_NAMES.length),
+  unavailable_sources: z.array(codexContextUnavailableSchema).max(263),
+  unavailable_count: z.number().int().min(0).max(263),
+  included_git_status: z.boolean(),
+  included_git_diff: z.boolean(),
+  context: z.string().max(2_000_000),
+  context_source_bytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  context_bytes: z.number().int().min(0).max(2_000_000),
+  preview: z.string().max(12_024),
+  truncated: z.boolean(),
+  output_limited: z.boolean(),
+  redacted: z.boolean()
+}).strict().superRefine((value, context) => {
+  if (value.agents_count !== value.agents_files.length || value.instruction_chain.length !== value.agents_files.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["agents_count"], message: "Instruction chain counts must match." });
+  }
+  if (value.ai_context_count !== value.ai_context_files.length || value.unavailable_count !== value.unavailable_sources.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["unavailable_count"], message: "Context source counts must match." });
+  }
+  if (value.included_git_status !== value.include_git_status || value.included_git_diff !== value.include_git_diff) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["included_git_status"], message: "Git inclusion must match the request." });
+  }
+  const actualBytes = Buffer.byteLength(value.context, "utf8");
+  if (value.context_bytes !== actualBytes || value.context_bytes > value.max_total_bytes || value.context_source_bytes < value.context_bytes) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["context_bytes"], message: "Context byte accounting is inconsistent." });
+  }
+  if (value.truncated !== (value.context_source_bytes > value.context_bytes) || value.preview !== codexContextPreview(value.context)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["truncated"], message: "Context truncation or preview is inconsistent." });
+  }
+});
+
+export const codexContextDataSchema = z.union([
+  codexContextLegacyDataSchema,
+  codexContextStandardDataSchema
+]);
+
 const emptyDetailsSchema = z.object({}).strict();
 const workspaceNotFoundDetailsSchema = z.union([
   z.object({ source: z.literal("workspace_id"), workspace_id: safeWorkspaceIdSchema }).strict(),
@@ -302,6 +368,11 @@ export const codexContextOutputShape = {
   data: codexContextDataSchema.nullable(),
   error: codexContextErrorSchema.nullable(),
   meta: toolMetaSchema
+};
+
+export const codexContextLegacyOutputShape = {
+  ...codexContextOutputShape,
+  data: codexContextLegacyDataSchema.nullable()
 };
 
 const codexContextOutputBaseSchema = z.object(codexContextOutputShape).strict();

@@ -148,6 +148,25 @@ codexgpt start
 
 The standard surface supports repository reads, search, scoped writes/edits, guarded patches, Git review, and safe verification.
 
+### Phase 6 project guidance
+
+Phase 6 project guidance is enabled by default. Start normally:
+
+```powershell
+codexgpt start
+```
+
+The first workspace-open result includes bounded root `AGENTS.md` instructions and an implicit-eligible workspace Skill catalog. Before the first mutation, ChatGPT calls `codex_context(target_path)` to load the exact root-to-target instruction chain and target-scoped `.agents/skills` catalog, then may load at most one matching Skill with the same returned `target_path`. Skill bodies and `references/`, `scripts/`, or `assets/` text remain lazy; nothing in a Skill executes automatically. User/plugin Skills remain excluded unless a tool call explicitly opts into global discovery.
+
+An App created before the Phase 6 tool update may retain a frozen tool snapshot. Run **Scan Tools** once or recreate that App; transparent refresh is not claimed. The stable `codexgpt` supertool remains a compatibility path for `open` and `codex_context` when present in the cached snapshot. To roll back with the same binary, restart with:
+
+```powershell
+$env:CODEXGPT_GUIDANCE_MODE = "legacy"
+codexgpt start
+```
+
+Run `codexgpt doctor` to see readiness, invalid metadata, collisions, and scan/catalog truncation. The omitted mode is now `standard`; explicit `legacy` remains the one-restart rollback path. Because `minimal` does not expose `codex_context`, omitted guidance with `--tool-mode minimal` uses the exact legacy compatibility projection; explicitly requesting `standard` with minimal fails at startup.
+
 Disable all ChatGPT-triggered shell commands:
 
 ```powershell

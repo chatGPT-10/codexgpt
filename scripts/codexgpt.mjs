@@ -3031,6 +3031,67 @@ async function runDoctor(argv) {
   record(['off', 'safe', 'full'].includes(bash) ? 'ok' : 'fail', 'Bash mode', ['off', 'safe', 'full'].includes(bash) ? bash : '--bash must be off, safe, or full');
   record(!writeError && ['off', 'handoff', 'workspace'].includes(write) ? 'ok' : 'fail', 'Write mode', writeError || write);
   record(['minimal', 'standard', 'full'].includes(toolMode) ? 'ok' : 'fail', 'Tool mode', ['minimal', 'standard', 'full'].includes(toolMode) ? toolMode : '--tool-mode must be minimal, standard, or full');
+  const guidanceModeInput = process.env.CODEXGPT_GUIDANCE_MODE;
+  const guidanceMode = guidanceModeInput === undefined && toolMode === 'minimal'
+    ? 'legacy'
+    : String(guidanceModeInput ?? 'standard').trim().toLowerCase();
+  record(
+    guidanceMode === 'legacy' || guidanceMode === 'standard' ? 'ok' : 'fail',
+    'Guidance mode',
+    guidanceMode === 'standard'
+      ? 'standard is ready and enabled by default'
+      : guidanceMode === 'legacy'
+        ? guidanceModeInput === undefined && toolMode === 'minimal'
+          ? 'minimal mode uses legacy compatibility because codex_context is unavailable'
+          : 'explicit legacy rollback mode'
+        : 'CODEXGPT_GUIDANCE_MODE must be legacy or standard'
+  );
+  if (guidanceMode === 'standard' && fs.existsSync(serverPath)) {
+    try {
+      const [{ loadConfig }, { discoverInstructions }, { discoverTargetSkills }, { buildSkillCatalog }] = await Promise.all([
+        import(pathToFileURL(path.join(projectRoot, 'dist', 'config.js')).href),
+        import(pathToFileURL(path.join(projectRoot, 'dist', 'guidance', 'instructions.js')).href),
+        import(pathToFileURL(path.join(projectRoot, 'dist', 'guidance', 'skillDiscovery.js')).href),
+        import(pathToFileURL(path.join(projectRoot, 'dist', 'guidance', 'skillCatalog.js')).href)
+      ]);
+      const runtimeConfig = loadConfig(['--root', root, '--bash', String(bash), '--write', String(write), '--tool-mode', String(toolMode)]);
+      const instructions = await discoverInstructions({
+        root,
+        targetPath: '.',
+        fallbackNames: runtimeConfig.instructionFallbacks,
+        maxFileBytes: 60000,
+        maxTotalBytes: runtimeConfig.maxInstructionTotalBytes,
+        blockedGlobs: runtimeConfig.blockedGlobs
+      });
+      const skills = await discoverTargetSkills({
+        root,
+        targetPath: '.',
+        maxCandidates: runtimeConfig.maxSkillCandidates,
+        maxSkills: 500,
+        blockedGlobs: runtimeConfig.blockedGlobs
+      });
+      const catalog = buildSkillCatalog(skills.skills, runtimeConfig.maxSkillCatalogChars);
+      record(instructions.complete ? 'ok' : 'warn', 'Project guidance', `${instructions.files.length} instruction file(s); ${instructions.diagnostics.length} diagnostic(s)`);
+      for (const item of instructions.diagnostics.slice(0, 8)) {
+        record('warn', 'Guidance detail', `${item.code}${item.path ? ` ${item.path}` : ''}; ${item.action}`);
+      }
+      for (const item of skills.diagnostics.slice(0, 8)) {
+        record('warn', 'Skill diagnostic', `${item.code}${item.path ? ` ${item.path}` : ''}; ${item.action}`);
+      }
+      record(
+        skills.scanTruncated || catalog.catalogOmittedCount > 0 || skills.invalidCount > 0 ? 'warn' : 'ok',
+        'Project Skills',
+        `${skills.validCount} valid, ${skills.invalidCount} invalid, ${catalog.entries.length} implicit; scan_truncated=${skills.scanTruncated}; catalog_omitted=${catalog.catalogOmittedCount}`
+      );
+      for (const skill of skills.skills.filter((item) => item.warnings.length || item.requirementsState !== 'none' || !item.implicitInvocation).slice(0, 8)) {
+        const policy = !skill.implicitInvocation ? 'explicit-only' : skill.requirementsState;
+        record('warn', 'Skill detail', `${skill.path}: ${[policy, ...skill.warnings].filter(Boolean).join(', ')}`);
+      }
+      record('ok', 'Skill resources', 'path-only index and one-file text reads use the blocked-secret and same-handle reader policy');
+    } catch (error) {
+      record('fail', 'Guidance scan', error instanceof Error ? error.message.split('\n')[0] : String(error));
+    }
+  }
   record(clipboard ? 'ok' : 'warn', 'Clipboard', clipboard || 'not found; URL will be printed for manual copy');
   record(browser ? 'ok' : 'warn', 'Browser open', browser || 'not found; open ChatGPT manually');
 

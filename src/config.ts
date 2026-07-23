@@ -4,6 +4,7 @@ import path from "node:path";
 import { DEFAULT_ANALYSIS_LIMITS, type AnalysisLimits } from "./analysis/types.js";
 import type { RiskClass } from "./policy/types.js";
 import type { ChangeSetRetentionConfig } from "./changesets/types.js";
+import { resolveGuidanceMode, type GuidanceMode } from "./guidance/mode.js";
 
 export type BashMode = "off" | "safe" | "full";
 export type BashTranscriptMode = "compact" | "full";
@@ -90,6 +91,11 @@ export interface CodexGPTConfig {
   connectionTest: boolean;
   analysisEnabled: boolean;
   analysisLimits: AnalysisLimits;
+  guidanceMode: GuidanceMode;
+  instructionFallbacks: string[];
+  maxInstructionTotalBytes: number;
+  maxSkillCandidates: number;
+  maxSkillCatalogChars: number;
 }
 
 const DEFAULT_BLOCKED_GLOBS = [
@@ -178,6 +184,33 @@ function splitList(value: string | undefined, delimiter: string = path.delimiter
     .split(delimiter)
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+function instructionFallbacksFrom(value: string | undefined): string[] {
+  const names = value === undefined ? ["agents.md", ".agents.md"] : splitList(value, ",");
+  if (names.length > 8) {
+    throw new Error("CODEXGPT_INSTRUCTION_FALLBACKS accepts at most eight basenames.");
+  }
+  const seen = new Set<string>();
+  for (const name of names) {
+    if (
+      name !== path.basename(name) ||
+      name === "." ||
+      name === ".." ||
+      /[\\/:\u0000-\u001f\u007f]/.test(name) ||
+      name.endsWith(".") ||
+      name.endsWith(" ") ||
+      /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i.test(name)
+    ) {
+      throw new Error("CODEXGPT_INSTRUCTION_FALLBACKS must contain safe basenames only.");
+    }
+    const key = name.toLocaleLowerCase("en-US");
+    if (seen.has(key)) {
+      throw new Error("CODEXGPT_INSTRUCTION_FALLBACKS must not contain case-insensitive duplicates.");
+    }
+    seen.add(key);
+  }
+  return names;
 }
 
 function splitRoots(value: string | undefined): string[] {
@@ -616,6 +649,11 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
     ? args["tool-contract-version"]
     : undefined;
   const toolModeArg = typeof args["tool-mode"] === "string" ? args["tool-mode"] : undefined;
+  const toolMode = toolModeFrom(toolModeArg ?? process.env.CODEXGPT_TOOL_MODE);
+  const guidanceModeInput = process.env.CODEXGPT_GUIDANCE_MODE;
+  const guidanceMode = guidanceModeInput === undefined && toolMode === "minimal"
+    ? "legacy"
+    : resolveGuidanceMode(guidanceModeInput);
   const policyEngineArg = typeof args["policy-engine"] === "string" ? args["policy-engine"] : undefined;
   const auditModeArg = typeof args["audit-mode"] === "string" ? args["audit-mode"] : undefined;
   const permissionProfileArg = typeof args["permission-profile"] === "string" ? args["permission-profile"] : undefined;
@@ -674,7 +712,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
     toolContractVersion: toolContractVersionFrom(
       toolContractVersionArg ?? process.env.CODEXGPT_TOOL_CONTRACT_VERSION
     ),
-    toolMode: toolModeFrom(toolModeArg ?? process.env.CODEXGPT_TOOL_MODE),
+    toolMode,
     policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXGPT_POLICY_ENGINE),
     auditMode: auditModeFrom(auditModeArg ?? process.env.CODEXGPT_AUDIT_MODE),
     auditRetention: {
@@ -786,7 +824,12 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
       maxScannedBytes: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_SCANNED_BYTES, DEFAULT_ANALYSIS_LIMITS.maxScannedBytes, 1_000_000, 512 * 1024 * 1024),
       maxSymbols: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_SYMBOLS, DEFAULT_ANALYSIS_LIMITS.maxSymbols, 100, 1_000_000),
       maxRelationships: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_RELATIONSHIPS, DEFAULT_ANALYSIS_LIMITS.maxRelationships, 100, 2_000_000)
-    }
+    },
+    guidanceMode,
+    instructionFallbacks: instructionFallbacksFrom(process.env.CODEXGPT_INSTRUCTION_FALLBACKS),
+    maxInstructionTotalBytes: numberFrom(process.env.CODEXGPT_MAX_INSTRUCTION_TOTAL_BYTES, 32_768, 1_000, 200_000),
+    maxSkillCandidates: numberFrom(process.env.CODEXGPT_MAX_SKILL_CANDIDATES, 1_000, 1, 10_000),
+    maxSkillCatalogChars: numberFrom(process.env.CODEXGPT_MAX_SKILL_CATALOG_CHARS, 8_000, 1_000, 32_000)
   };
   if (
     config.toolContractVersion !== 3 &&
@@ -798,6 +841,9 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
     )
   ) {
     throw new Error("Contract V3 is required for confirmed roots, execution profiles, or execution dependency views.");
+  }
+  if (config.guidanceMode === "standard" && config.toolMode === "minimal") {
+    throw new Error("CODEXGPT_GUIDANCE_MODE=standard requires CODEXGPT_TOOL_MODE=standard or full.");
   }
   if (
     config.toolContractVersion !== 4 &&

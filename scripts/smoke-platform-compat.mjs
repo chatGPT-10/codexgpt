@@ -7,6 +7,7 @@ const previousInheritEnv = process.env.CODEXGPT_INHERIT_ENV;
 const previousTemp = process.env.TEMP;
 const previousTmp = process.env.TMP;
 const previousPathext = process.env.PATHEXT;
+const previousGuidanceMode = process.env.CODEXGPT_GUIDANCE_MODE;
 let compatibilityDir;
 
 function replaceExactCount(source, oldText, newText, expectedCount) {
@@ -276,6 +277,7 @@ try {
     }
   }
 
+  process.env.CODEXGPT_GUIDANCE_MODE = 'legacy';
   await importMigratedSmokeSource();
 } finally {
   if (previousBashEnv === undefined) delete process.env.BASH_ENV;
@@ -290,6 +292,9 @@ try {
   else process.env.TMP = previousTmp;
   if (previousPathext === undefined) delete process.env.PATHEXT;
   else process.env.PATHEXT = previousPathext;
+
+  if (previousGuidanceMode === undefined) delete process.env.CODEXGPT_GUIDANCE_MODE;
+  else process.env.CODEXGPT_GUIDANCE_MODE = previousGuidanceMode;
 
   if (compatibilityDir) {
     await fs.rm(compatibilityDir, { recursive: true, force: true });

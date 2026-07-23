@@ -131,7 +131,8 @@ function v4Config(root) {
     CODEXGPT_TOOL_CONTRACT_VERSION: "4",
     CODEXGPT_FILE_TRANSACTIONS: "atomic",
     CODEXGPT_AUDIT_MODE: "required",
-    CODEXGPT_POLICY_ENGINE: "enforce"
+    CODEXGPT_POLICY_ENGINE: "enforce",
+    CODEXGPT_GUIDANCE_MODE: "legacy"
   }, () => loadConfig(["--bash", "off", "--write", "off", "--tool-mode", "full"]));
 }
 

@@ -82,6 +82,7 @@ motion support. Animate transform and opacity only.
   filesystem, credential, registry, broker, device, or network isolation.
 - Describe Job Objects as member lifetime control and ConPTY as terminal I/O;
   never call either one a sandbox.
+- Describe project guidance as bounded root-to-target context: root `AGENTS.md` arrives on workspace open, target context is refreshed before mutation and after subtree switches, and at most one matching target Skill is loaded lazily. Guidance, Skill metadata, bodies, resources, scripts, and declared dependencies never grant authority or execute automatically.
 - Do not claim permanent ChatGPT memory. Say repo-backed context files.
 - Do not imply CodexGPT unlocks models, bypasses limits, automates approval
   gates, or provides secure human-presence proof after same-user code runs.
