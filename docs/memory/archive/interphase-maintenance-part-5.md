@@ -402,3 +402,40 @@ Size clarification: 27,342 bytes was measured immediately before this addendum; 
 **Rollback:** Revert only the STEP-406 test and record updates. This restores the synthetic stale-run timing fixture and its CI flakiness.
 
 **Next step:** Run policy, whitespace, secret, and intended-scope checks; create one English repair commit; push normally; and require a new exact-head CI matrix to pass before calling publication successful.
+
+## 2026-07-23 — STEP-407: Separate finalizing-lease identity from Windows result publication
+
+**Status:** Local repair complete; republishing for a new exact-head matrix is authorized.
+
+**Goal:** Repair the first root cause from exact-head run 30044475015 without changing production runner behavior or weakening the finalizing-lease, identity, cleanup, retention, or terminal-result contracts.
+
+**Failure evidence:**
+
+- Published head a644174ba5ae3786e7436efd525299d95cd19276 reached CI run 30044475015.
+- Repository policy, Ubuntu Node 20/24, and Windows Node 24 passed. Windows Node 20 first timed out worker finalization remains observable through an exact lease or authoritative result after 90 seconds, then two later detached-worker tests also failed to reach terminal state.
+- The failure sequence proves this was not the removed fabricated stale-run fixture: the problematic test concurrently polled files while its real worker synchronously replaced lease and result records. Its stuck detached worker then affected subsequent lifecycle cases.
+- The compact summary and redacted CI artifact are under ignored .ai-bridge/step406-ci-failure-summary.json and .ai-bridge/step406-failure-artifact/. No secret was added to the repository.
+
+**Implementation:**
+
+- Removed the test-only polling helper that concurrently read metadata, evidence, lease, result, and stopped records every 25 milliseconds while the real worker performed atomic replacements.
+- The integration test now starts the real detached worker and requires its matching successful result.json followed by terminal status. It therefore still proves the authoritative publication path without manufacturing a replacement-window race on Windows Node 20.
+- Renamed the integration test to state its real assertion. The exact bounded finalizing-lease and terminal_publication_in_progress semantics remain deterministically covered by runner-process-identity.test.mjs, including a bounded observer that sees the exact lease.
+- No production file changed.
+
+**Verification:**
+
+- `node scripts/toolchain-manager.mjs matrix --major all --root C:\\Users\\Administrator\\AppData\\Local\\CodexPro\\toolchains -- npm run test:focused -- test/task-cleanup-lifecycle.test.mjs test/runner-process-identity.test.mjs` passed 23/23 on Node 20.20.2 and 23/23 on Node 24.15.0.
+
+**Adversarial review:**
+
+- Independent behavior and scope reviews found no blocker. They confirmed that the concurrent reader was test-only, the real detached-result path remains covered, and exact finalizing-lease identity/observation are deterministically covered by the dedicated identity suite.
+
+**Decisions, risks, and limitations:**
+
+- This separates two legitimate contracts instead of trying to make a filesystem race deterministic. The lease contract remains independently tested, and the integration test continues to exercise the real detached result path.
+- Local dual-major verification is not publication closure. The pushed runtime-relevant SHA must still pass the full exact-head Ubuntu/Windows Node 20/24 matrix.
+
+**Rollback:** Revert only the STEP-407 test and record updates. This restores the concurrent observer and its Windows Node 20 timing race.
+
+**Next step:** Run independent adversarial review, policy, whitespace, secret, and intended-scope checks; create one English repair commit; push normally; and require a new exact-head CI matrix to pass before calling publication successful.

@@ -51,6 +51,7 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - STEP-403 routes source-checkout help through the public entry and binds the npm `codexgpt` bin to that entry. Managed Node 20/24 focused tests passed 14/14 per major, build passed on both, and detached Smoke passed all eight domains on both.
 - STEP-405 repairs the only failed gate from publication run `30040766710`: the Windows Node 20 lease-refresh fixture now proves its child reached the release branch, explicitly exits that fixture, and observes the terminal result through the lease boundary plus grace. Managed Node 20/24 focused lifecycle tests passed 17/17 per major.
 - STEP-406 repairs the only failed gate from exact-head run `30042788160`: the finalization-observation integration test no longer manufactures a stale worker identity that makes retention wait before result publication. The real detached worker still proves an exact finalizing lease or authoritative successful result, then its terminal state. Managed Node 20/24 focused lifecycle tests passed 17/17 per major.
+- STEP-407 repairs the only failed gate from publication run `30044475015`: Windows Node 20 timed out while that integration test concurrently polled the lease/result replacement window, then later detached checks cascaded behind the stuck worker. The lifecycle test now proves the authoritative result without racing those replacements; the exact bounded finalizing-lease contract remains deterministically covered in `runner-process-identity`. Managed Node 20/24 focused lifecycle plus identity tests passed 23/23 per major.
 
 ## Known limitations
 
@@ -73,6 +74,7 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 
 ## Recent summaries
 
+- **STEP-407 - Separate finalizing-lease identity from result publication:** remove the timing-race observer from the integration test, retain its real detached-result assertion, and keep lease semantics in the deterministic identity suite.
 - **STEP-406 - Remove synthetic finalization timing:** keep the real detached-run observation and terminal assertions, but remove the impossible stale-run fixture that caused the Windows Node 20 CI timeout.
 - **STEP-405 - Stabilize the Windows lease-refresh test:** prove the fixture child completes, preserve the final-result assertion, and wait through the lease boundary plus grace before reporting a test failure.
 - **STEP-403 - Keep public help on the supported entry:** replace the direct inner-CLI example, bind the runtime output and npm bin through a permanent regression, and pass managed Node 20/24 focused, build, and Smoke gates.
