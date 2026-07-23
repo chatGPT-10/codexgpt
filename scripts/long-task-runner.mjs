@@ -18,6 +18,36 @@ export const DEFAULT_RUN_RETENTION_COUNT = 20;
 export const DEFAULT_RUN_RETENTION_DAYS = 14;
 export const WORKER_LEASE_MS = 60_000;
 export const WORKER_LEASE_RENEW_MS = 15_000;
+export const WORKER_LEASE_RETRY_MS = 1_000;
+
+export function startWorkerLeaseRenewal(options) {
+  const publish = options.publish;
+  const renewMs = options.renewMs ?? WORKER_LEASE_RENEW_MS;
+  const retryMs = options.retryMs ?? WORKER_LEASE_RETRY_MS;
+  const setTimer = options.setTimer ?? setTimeout;
+  const clearTimer = options.clearTimer ?? clearTimeout;
+  let stopped = false;
+  let timer;
+
+  const schedule = (delay) => {
+    timer = setTimer(async () => {
+      let succeeded = true;
+      try {
+        await publish();
+      } catch {
+        succeeded = false;
+      }
+      if (!stopped) schedule(succeeded ? renewMs : retryMs);
+    }, delay);
+    timer?.unref?.();
+  };
+
+  schedule(renewMs);
+  return () => {
+    stopped = true;
+    if (timer !== undefined) clearTimer(timer);
+  };
+}
 
 const RUN_PRUNE_CLAIM_PATTERN = /^\.codexgpt-run-prune-[a-f0-9]{32}$/u;
 
@@ -678,10 +708,7 @@ async function worker() {
   };
   // The initial lease is observational too; failure must not prevent task execution or terminal publication.
   await publishWorkerLease("running").catch(() => {});
-  const leaseTimer = setInterval(() => {
-    void publishWorkerLease().catch(() => {});
-  }, WORKER_LEASE_RENEW_MS);
-  leaseTimer.unref();
+  const stopLeaseRenewal = startWorkerLeaseRenewal({ publish: publishWorkerLease });
 
   const stdoutTail = new BoundedTail(command.logLimitBytes);
   const stderrTail = new BoundedTail(command.logLimitBytes);
@@ -792,7 +819,7 @@ async function worker() {
   try {
     await writeJsonAtomic(directory, "result.json", result);
   } finally {
-    clearInterval(leaseTimer);
+    stopLeaseRenewal();
     await leaseWrite.catch(() => {});
   }
   process.exitCode = outcome.code;

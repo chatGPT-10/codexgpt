@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
   pruneTerminalRuns,
+  startWorkerLeaseRenewal,
   waitForTerminalPublication,
   workerLeaseActive,
   WORKER_LEASE_MS
@@ -128,6 +129,35 @@ test("terminal publication grace tolerates delayed Windows result visibility", a
   } finally {
     await publish;
     await fs.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("worker lease renewal retries promptly after a transient publication failure", async () => {
+  const scheduled = [];
+  const callbacks = [];
+  let attempts = 0;
+  const stop = startWorkerLeaseRenewal({
+    publish: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("transient lease publication failure");
+    },
+    renewMs: 15_000,
+    retryMs: 1_000,
+    setTimer: (callback, delay) => {
+      scheduled.push(delay);
+      callbacks.push(callback);
+      return { unref() {} };
+    },
+    clearTimer: () => {}
+  });
+  try {
+    assert.deepEqual(scheduled, [15_000]);
+    await callbacks.shift()();
+    assert.deepEqual(scheduled, [15_000, 1_000]);
+    await callbacks.shift()();
+    assert.deepEqual(scheduled, [15_000, 1_000, 15_000]);
+  } finally {
+    stop();
   }
 });
 

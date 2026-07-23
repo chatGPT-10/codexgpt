@@ -415,3 +415,46 @@ The STEP-386 historical roadmap and paired design were revalidated and required 
 **Rollback:** Before publication, revert the Phase 6 slice as one unpublished change set. After publication, restart the same binary with explicit `CODEXGPT_GUIDANCE_MODE=legacy` for operational rollback. Never weaken workspace lifecycle isolation, add minimal context tools, delete user AGENTS/Skills, or rewrite history.
 
 **Next step:** Stage only the reviewed Phase 6 scope, create one concise English commit, push once to `main`, and verify the exact 40-character HEAD through the complete CI matrix. Do not create an evidence-only follow-up commit and do not start Phase 7.
+
+## 2026-07-23 — STEP-395: Repair Phase 6 exact-head CI gaps
+
+**Status:** Complete locally. The first Phase 6 publication head `efb53118331868686703d28b5ddea55611836b54` matched exact-head run `29990618309`, but Ubuntu Node 20/24 and Windows Node 24 exposed three bounded defects. The user authorized one concise CI-repair commit and a second ordinary push. Force push, deployment, release publication, and Phase 7 remain excluded.
+
+**Observed failures:**
+
+- Ubuntu treated `nested\\AGENTS.md` and `pkg\\src\\file.ts` as literal POSIX names, so safe reads failed and instruction discovery omitted `pkg/AGENTS.md`.
+- Windows Node 24 accepted a same-size in-place guidance edit because NTFS did not provide a distinguishable stat transition in that run.
+- Windows Node 24 retention observed an active detached run as `stale` after approximately 68 seconds. The existing periodic lease writer silently waited a full 15-second interval after each transient publication failure, so consecutive failures could consume the fixed 60-second lease.
+
+**Implementation:**
+
+- Added one host-independent guidance path boundary. It validates every target with Windows path rules, rejects drive-relative/absolute, UNC/device, and NTFS ADS forms without echoing the raw target, converts backslashes to `/`, and then delegates to the existing workspace/path guard.
+- Applied that boundary consistently to direct guidance reads, root-to-target instruction discovery, and target-scoped Skill discovery.
+- After the bounded first read and test hook, reread the exact byte range from the same open file handle and compare bytes before accepting the existing stat/canonical-parent identity proof. A short or different second read fails as `READ_IDENTITY_CHANGED`.
+- Replaced the fixed renewal interval with a single scheduled lease renewal. Successful writes retain the 15-second cadence; a failed observational write retries after one second. Stop cancels the next timer, authority and the 60-second lease duration are unchanged, and terminal result publication remains authoritative.
+
+**TDD and adversarial review:**
+
+- The new host-independent path test first failed because no normalizer existed. The existing same-size mutation test reproduced the Windows failure before byte verification. The injected scheduler test first failed because no retry-aware renewal helper existed.
+- No external agent provider was available. Manual adversarial review found and removed raw target-path disclosure from validation errors and increased the transient retry from 250 ms to one second to avoid unnecessary event-loop pressure during a persistent observational-write fault.
+- Review confirmed no new path authority, no lease authorization, no lease-duration extension, no Policy/Approval/Audit change, and no widening of global Skill or script execution.
+
+**Verification:**
+
+- The final affected suite passed 35/35 on managed Node 20.20.2 and 35/35 on managed Node 24.15.0. Both managed builds passed.
+- Mutation/operational verification passed 13/13; repository policy and `git diff --check` passed.
+- Detached ordinary run `2026-07-23T09-14-03-949Z-phase6-ci-fix-ordinary-8d8b57a4` completed with exit code 0, empty stderr, cleaned temporary state, and retention with zero failures:
+  - Node 20.20.2: 1,177 tests, 1,175 passed, zero failed, two established skips.
+  - Node 24.15.0: 1,177 tests, 1,175 passed, zero failed, two established skips.
+- Detached protected Smoke run `2026-07-23T09-39-22-115Z-phase6-ci-fix-smoke-ca19c622` completed with exit code 0, empty stderr, cleaned temporary state, zero retention failures, and all eight analysis, CLI, MCP, HTTP, Pro, doctor, settings, and handoff sections passing on both majors.
+- Focused package/authentication/mutation checks passed. Package dry-run contains 549 files, 1,205,315 packed bytes and 6,696,420 unpacked bytes, with 18 compiled guidance files and no tests, `.ai-bridge`, or memory archive.
+
+**Risks and limitations:**
+
+- Same-handle byte verification doubles bounded guidance-file read I/O. The per-file limits remain unchanged, so the cost is fixed and small relative to stronger mutation detection.
+- A permanently failing observational lease write still cannot block task execution or authoritative terminal publication. The worker may become stale after the unchanged lease expires, which is the intended fail-closed behavior.
+- Local closure is not formal Phase 6 closure. The replacement published SHA must pass the complete exact-head Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, protected Smoke, and Package matrix.
+
+**Rollback:** Revert the STEP-395 runtime and tests together. Operational guidance rollback remains explicit `CODEXGPT_GUIDANCE_MODE=legacy`; do not weaken path checks, extend lease authority, force push, or rewrite history.
+
+**Next step:** Review and stage only the STEP-395 repair, create one concise English commit, perform the authorized second ordinary push, and verify the replacement exact head through terminal CI. Do not create an evidence-only follow-up commit and do not start Phase 7.

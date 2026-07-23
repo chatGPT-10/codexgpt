@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { assertSafePathInput, displayPath, isSubpath, normalizeRelPath } from "../guard.js";
-import { readGuidanceText, type GuidanceReadFailureReason } from "./safeTextReader.js";
+import { normalizeGuidancePathInput, readGuidanceText, type GuidanceReadFailureReason } from "./safeTextReader.js";
 import { redactSensitiveText } from "../redact.js";
 
 const FIXED_NAMES = ["AGENTS.override.md", "AGENTS.md"] as const;
@@ -82,9 +82,10 @@ function diagnostic(code: InstructionDiagnosticCode, filePath: string | null): I
 }
 
 async function targetDirectory(root: string, targetPath: string): Promise<{ targetPath: string; targetKind: InstructionTargetKind; directory: string }> {
-  if (redactSensitiveText(targetPath || ".") !== (targetPath || ".")) throw new Error("Target path is blocked by safety rules.");
-  assertSafePathInput(targetPath || ".");
-  const requested = path.resolve(root, targetPath || ".");
+  const requestedTargetPath = targetPath || ".";
+  if (redactSensitiveText(requestedTargetPath) !== requestedTargetPath) throw new Error("Target path is blocked by safety rules.");
+  const normalizedTargetPath = normalizeGuidancePathInput(requestedTargetPath);
+  const requested = path.resolve(root, normalizedTargetPath);
   if (!isSubpath(requested, root)) throw new Error("Target path escapes workspace root.");
   try {
     const real = await fsp.realpath(requested);

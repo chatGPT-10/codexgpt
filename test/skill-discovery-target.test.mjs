@@ -27,7 +27,7 @@ test("target Skill discovery walks closest target directory through workspace ro
     await addSkill(root, path.join("packages", "app"), "app-skill");
     const result = await discovery.discoverTargetSkills({
       root,
-      targetPath: "packages/app/src/file.ts",
+      targetPath: "packages\\app\\src\\file.ts",
       maxCandidates: 100,
       maxSkills: 100,
       blockedGlobs: [".env", ".env.*"]

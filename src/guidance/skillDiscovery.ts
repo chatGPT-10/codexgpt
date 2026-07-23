@@ -3,8 +3,8 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { createHash } from "node:crypto";
-import { assertSafePathInput, isSubpath, normalizeRelPath } from "../guard.js";
-import { readGuidanceText } from "./safeTextReader.js";
+import { isSubpath, normalizeRelPath } from "../guard.js";
+import { normalizeGuidancePathInput, readGuidanceText } from "./safeTextReader.js";
 import { parseSkillMetadata } from "./skillMetadata.js";
 import { parseOpenAISkillMetadata } from "./openaiSkillMetadata.js";
 import type { OpenAISkillMetadata } from "./openaiSkillMetadata.js";
@@ -65,9 +65,10 @@ function skillDiagnostic(code: SkillDiscoveryDiagnostic["code"], candidatePath: 
 }
 
 async function targetDirectory(root: string, targetPath: string): Promise<string> {
-  if (redactSensitiveText(targetPath || ".") !== (targetPath || ".")) throw new Error("Target is blocked by safety rules.");
-  assertSafePathInput(targetPath || ".");
-  const requested = path.resolve(root, targetPath || ".");
+  const requestedTargetPath = targetPath || ".";
+  if (redactSensitiveText(requestedTargetPath) !== requestedTargetPath) throw new Error("Target is blocked by safety rules.");
+  const normalizedTargetPath = normalizeGuidancePathInput(requestedTargetPath);
+  const requested = path.resolve(root, normalizedTargetPath);
   if (!isSubpath(requested, root)) throw new Error("Target escapes workspace.");
   try {
     const real = await fsp.realpath(requested);

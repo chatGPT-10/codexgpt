@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { PathGuard, displayPath, isSubpath, normalizeRelPath, type Workspace } from "../guard.js";
+import { PathGuard, assertSafePathInput, displayPath, isSubpath, normalizeRelPath, type Workspace } from "../guard.js";
 
 export type GuidanceReadFailureReason =
   | "READ_BLOCKED"
@@ -41,6 +41,26 @@ export interface GuidanceReadOptions {
   };
 }
 
+export function normalizeGuidancePathInput(inputPath: string): string {
+  const value = inputPath || ".";
+  if (/^[A-Za-z]:/u.test(value)) {
+    throw new Error("Windows drive paths are not allowed for guidance reads.");
+  }
+  try {
+    assertSafePathInput(value, "win32");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("alternate data stream")) {
+      throw new Error("NTFS alternate data stream paths are not allowed for guidance reads.");
+    }
+    if (message.includes("UNC") || message.includes("device")) {
+      throw new Error("Windows UNC and device paths are not allowed for guidance reads.");
+    }
+    throw new Error("Windows-unsafe paths are not allowed for guidance reads.");
+  }
+  return value.replace(/\\/g, "/");
+}
+
 function identity(stat: fs.BigIntStats): { dev: string; ino: string; nlink: number } {
   return { dev: stat.dev.toString(), ino: stat.ino.toString(), nlink: Number(stat.nlink) };
 }
@@ -71,7 +91,7 @@ function classifyPreOpenError(error: unknown): GuidanceReadFailureReason {
   if (code === "ENOENT") return "READ_MISSING";
   const message = error instanceof Error ? error.message : "";
   if (message.includes("blocked by safety rules")) return "READ_BLOCKED";
-  if (message.includes("outside") || message.includes("escapes") || message.includes("UNC") || message.includes("device") || message.includes("alternate data stream")) {
+  if (message.includes("outside") || message.includes("escapes") || message.includes("drive paths") || message.includes("UNC") || message.includes("device") || message.includes("alternate data stream")) {
     return "READ_BOUNDARY_VIOLATION";
   }
   return "READ_FAILED";
@@ -83,7 +103,7 @@ export async function readGuidanceText(options: GuidanceReadOptions): Promise<Gu
   const guard = new PathGuard({ blockedGlobs: options.blockedGlobs });
   let resolved: { absPath: string; relPath: string };
   try {
-    resolved = guard.resolve(workspace, options.relativePath);
+    resolved = guard.resolve(workspace, normalizeGuidancePathInput(options.relativePath));
   } catch (error) {
     return failure(null, classifyPreOpenError(error));
   }
@@ -111,6 +131,17 @@ export async function readGuidanceText(options: GuidanceReadOptions): Promise<Gu
     }
     if (offset !== buffer.length) return failure(safePath, "READ_IDENTITY_CHANGED");
     await options.testHooks?.afterRead?.();
+
+    const verification = Buffer.alloc(buffer.length);
+    let verificationOffset = 0;
+    while (verificationOffset < verification.length) {
+      const read = await handle.read(verification, verificationOffset, verification.length - verificationOffset, verificationOffset);
+      if (read.bytesRead === 0) break;
+      verificationOffset += read.bytesRead;
+    }
+    if (verificationOffset !== verification.length || !verification.equals(buffer)) {
+      return failure(safePath, "READ_IDENTITY_CHANGED");
+    }
 
     const after = await handle.stat({ bigint: true });
     if (!sameIdentity(before, after) || !after.isFile() || after.nlink !== 1n || after.size !== before.size) {

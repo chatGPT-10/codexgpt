@@ -5,7 +5,18 @@ import path from "node:path";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
-const { readGuidanceText } = await tsImport("../src/guidance/safeTextReader.ts", import.meta.url);
+const { normalizeGuidancePathInput, readGuidanceText } = await tsImport("../src/guidance/safeTextReader.ts", import.meta.url);
+
+test("guidance path normalization is host-independent and rejects Windows drive or ADS syntax", () => {
+  assert.equal(normalizeGuidancePathInput("nested\\AGENTS.md"), "nested/AGENTS.md");
+  const secretLookingDrivePath = `C:\\ghp_${"a".repeat(32)}\\AGENTS.md`;
+  assert.throws(
+    () => normalizeGuidancePathInput(secretLookingDrivePath),
+    (error) => /drive paths/i.test(error.message) && !error.message.includes(secretLookingDrivePath)
+  );
+  assert.throws(() => normalizeGuidancePathInput("C:AGENTS.md"), /drive paths/i);
+  assert.throws(() => normalizeGuidancePathInput("nested\\AGENTS.md:secret"), /alternate data stream/i);
+});
 
 test("safe guidance reader accepts Windows separators but rejects ADS syntax", async () => {
   const created = await fs.mkdtemp(path.join(os.tmpdir(), "phase6-safe-reader-win-"));
