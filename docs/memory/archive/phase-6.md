@@ -458,3 +458,52 @@ The STEP-386 historical roadmap and paired design were revalidated and required 
 **Rollback:** Revert the STEP-395 runtime and tests together. Operational guidance rollback remains explicit `CODEXGPT_GUIDANCE_MODE=legacy`; do not weaken path checks, extend lease authority, force push, or rewrite history.
 
 **Next step:** Review and stage only the STEP-395 repair, create one concise English commit, perform the authorized second ordinary push, and verify the replacement exact head through terminal CI. Do not create an evidence-only follow-up commit and do not start Phase 7.
+
+## 2026-07-23 — STEP-396: Align the final runner oracle and publish the closure candidate
+
+**Status:** Complete locally. Exact-head run `29997207747` proved the three STEP-395 repairs on Ubuntu Node 20/24 and Windows Node 20, but Windows Node 24 exposed one independent test-oracle defect. The user authorized the bounded additional fixes, commits, ordinary pushes, and exact-head attempts required to reach formal Phase 6 closure. Deployment, release publication, Phase 7, force push, destructive history changes, credential operations, and unrelated scope remain excluded.
+
+**Observed failure and root cause:**
+
+- Repository policy, Ubuntu Node 20/24, and Windows Node 20 all completed successfully for `22f0f4152fb33c6a8bfa26a472f7c57332f183c0`.
+- Windows Node 24 failed only `detached runner retains a bounded tail and records dropped stdout/stderr bytes` after approximately 16.6 seconds.
+- The test polled a runner with an exact active lease and never observed `stale`; it nevertheless declared failure at a fixed 15-second deadline. Production liveness uses a renewable 60-second lease and a bounded terminal-publication grace, so the test could fail a still-observable worker before the production stale boundary was reachable.
+- The Ubuntu path failures, same-size guidance mutation, and retention stale race from run `29990618309` did not recur.
+
+**Implementation:**
+
+- `runner-log-bounds.test.mjs` now imports the production `WORKER_LEASE_MS` constant and defaults its terminal deadline to `WORKER_LEASE_MS + 30_000`.
+- The poll still fails immediately on `stale`, still requires authoritative `completed` state, and remains bounded. No production runner, lease, retention, process identity, stop, or result-publication code changed.
+- Updated the project execution boundary to reflect the user's closure authorization without widening deployment, release, credential, history, or Phase 7 authority.
+- Performed neat-freak reconciliation: compacted `Memory.md` from 139 lines / 22,697 bytes to 119 lines / 16,162 bytes, removed duplicated historical verification detail already preserved in archives, and retained current decisions, active constraints, evidence, and pointers.
+
+**TDD and verification:**
+
+- The CI failure supplied the RED state: a valid running lease was rejected by the unrelated 15-second fixture deadline.
+- Managed Node 20.20.2 and Node 24.15.0 each passed the runner/log lifecycle set at 19/19.
+- Managed Node 24.15.0 passed `runner-log-bounds.test.mjs` in ten consecutive rounds.
+- Managed Node 20.20.2 and Node 24.15.0 builds passed.
+- Authoritative detached ordinary run `2026-07-23T12-46-34-421Z-phase6-final-ordinary-03b98fb5` completed with exit code 0, empty stderr, cleaned temporary state, and zero retention failures:
+  - Node 20.20.2: 1,177 tests, 1,175 passed, zero failed, two established skips.
+  - Node 24.15.0: 1,177 tests, 1,175 passed, zero failed, two established skips.
+- Authoritative detached Smoke run `2026-07-23T13-10-44-132Z-phase6-final-smoke-c2b26ef0` completed with exit code 0, empty stderr, cleaned temporary state, zero retention failures, and all eight analysis, CLI, MCP, HTTP, Pro, doctor, settings, and handoff sections passing on both majors.
+- Final documentation/package/mutation/operational tests passed 21/21. Repository policy and `git diff --check` passed.
+- Package dry-run contains 549 files, 1,205,521 packed bytes and 6,696,921 unpacked bytes, with 18 compiled guidance files and no tests, `.ai-bridge`, or memory archive.
+- Repository-wide Markdown audit covered 123 tracked Markdown files with `BROKEN_COUNT=0`; added-line secret and relative-time scans passed; protected `scripts/smoke.mjs` and `scripts/http-smoke.mjs` remain unchanged.
+
+**Adversarial review:**
+
+- No external agent provider was available. Manual failure-mode review confirmed the change references the exported production lease constant instead of duplicating 60 seconds, preserves fail-fast stale detection, adds only finite publication grace, and cannot convert an invalid run into success.
+- Manual authority review confirmed no production code, permission, Policy, Approval, Audit, path, transport, process-stop, cleanup, retention, or credential boundary changed.
+- Manual compatibility review confirmed the test remains ordinary-domain, both managed majors execute it, and Linux behavior is unchanged.
+- Knowledge-base review confirmed `AGENTS.md`, `Memory.md`, the Phase 6 archive, and `CHANGELOG.md` agree on the remaining exact-head closure condition and excluded work.
+
+**Risks and limitations:**
+
+- A genuinely non-terminal worker that keeps renewing an exact lease can now consume up to 90 seconds in this fixture before timeout. The wait is bounded and correctly reflects the production liveness contract; `stale` still fails immediately.
+- Formal closure still depends on one exact published head passing Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package gates.
+- Existing ambient-authority, safe-Bash, deleted-old-App, dependency-advisory, and deferred-sandbox limitations remain unchanged.
+
+**Rollback:** Revert the STEP-396 test deadline and documentation changes together. Do not restore a deadline shorter than the production stale boundary, weaken stale detection, extend production lease authority, force push, or rewrite history.
+
+**Next step:** Stage the reviewed STEP-396 scope, create one concise English commit, push normally to `main`, and require terminal exact-head success across the complete matrix. On success this published head is the Phase 6 closure head; do not create an evidence-only follow-up commit or begin Phase 7.

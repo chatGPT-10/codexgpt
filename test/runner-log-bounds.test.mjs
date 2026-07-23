@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { WORKER_LEASE_MS } from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,15 +23,15 @@ async function execute(args, options = {}) {
   });
 }
 
-async function waitForTerminal(root, runId) {
-  const deadline = Date.now() + 15_000;
+async function waitForTerminal(root, runId, deadlineMs = WORKER_LEASE_MS + 30_000) {
+  const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const state = JSON.parse((await execute(["status", "--root", root, "--run", runId])).stdout);
     if (state.status === "completed") return state;
     assert.notEqual(state.status, "stale");
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error("Runner flood fixture did not complete.");
+  throw new Error(`Runner flood fixture did not complete within ${deadlineMs}ms.`);
 }
 
 test("detached runner retains a bounded tail and records dropped stdout/stderr bytes", async () => {
