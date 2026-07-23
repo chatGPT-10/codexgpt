@@ -333,3 +333,35 @@ Size clarification: 27,342 bytes was measured immediately before this addendum; 
 **Rollback:** Revert the resulting published commit normally if the exact-head matrix exposes a regression. Do not force-push or rewrite history.
 
 **Next step:** Stage the reviewed batch, create an English commit, push normally to `origin/main`, locate and verify its exact-head CI run, and repair/retry only if a gate fails.
+## 2026-07-23 — STEP-405: Stabilize Windows lease-refresh terminal observation
+
+**Status:** Local repair complete; republishing for a new exact-head matrix is authorized.
+
+**Goal:** Fix the first and only failed gate from exact-head run 30040766710 without weakening the production runner's lease, finalization, cleanup, or fail-closed stale semantics.
+
+**Failure evidence:**
+
+- Published head 0d28db3f6c05d0f29d075bf71de43585b772da4b reached CI run 30040766710.
+- Repository policy, Ubuntu Node 20/24, and Windows Node 24 all passed. Windows Node 20 Regression failed only terminal result publication survives a failed observational lease refresh after 63.6 seconds because its 60-second waitForJson deadline saw no result.json.
+- The compact summary and bounded failure evidence are under ignored .ai-bridge/step404-ci-failure-summary.json and GitHub artifact 8577548984. No secret was added to the repository.
+
+**Implementation:**
+
+- The test-only child now writes a completion marker and calls process.exit(0) after it observes the release signal. This removes ambiguity from relying on an interval handle to quiesce while keeping the worker's real child-close, TEMP cleanup, logs, retention, and result.json path under test.
+- The test confirms the child marker before awaiting the runner result, so a future timeout distinguishes child-release failure from worker-finalization failure.
+- The result observation deadline is WORKER_LEASE_MS + 30,000, matching the existing terminal-observation grace. It does not change the production 60-second lease, 15-second renewal, one-second failure retry, or stale classification; it only prevents a test from declaring failure at the exact observation boundary while the deliberately broken observational lease cannot provide a finalizing signal.
+
+**Verification:**
+
+- The targeted managed Node 20 test passed once, then passed five sequential repetitions (17/17 each).
+- Managed Node 20.20.2 and 24.15.0 each passed test/task-cleanup-lifecycle.test.mjs 17/17.
+- The same managed Node 20/24 build and repository policy gates passed before the repair; final policy, scope, secret, and whitespace checks are required before staging.
+
+**Adversarial review:**
+
+- Three independent read-only reviews found no production behavior, authorization, mutation-inventory, secret, or scope blocker.
+- Review required the completion marker before the extended result wait; that repair is included above. The 30-second grace reduces test sensitivity to terminal latency but preserves the production contract and makes the fixture's progress diagnosable.
+
+**Rollback:** Revert only the STEP-405 test and record updates. This restores the former 60-second observation deadline and implicit fixture exit behavior.
+
+**Next step:** Run final policy/scope checks, create one English repair commit, push normally, and require a new exact-head CI matrix to pass before calling publication successful.

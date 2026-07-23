@@ -167,13 +167,17 @@ test("terminal result publication survives a failed observational lease refresh"
   const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-lease-refresh-failure-runs-"));
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-lease-refresh-failure-temp-"));
   const releasePath = path.join(runRoot, "release-worker");
+  const childCompletedPath = path.join(runRoot, "release-worker-completed");
   try {
     const source = [
       "const fs = require('node:fs');",
       `const release = ${JSON.stringify(releasePath)};`,
+      `const completed = ${JSON.stringify(childCompletedPath)};`,
       "const timer = setInterval(() => {",
       "  if (!fs.existsSync(release)) return;",
       "  clearInterval(timer);",
+      "  fs.writeFileSync(completed, 'released\\n');",
+      "  process.exit(0);",
       "}, 25);"
     ].join("");
     const started = JSON.parse((await executeLongRunner([
@@ -192,10 +196,12 @@ test("terminal result publication survives a failed observational lease refresh"
     await fs.rm(leasePath);
     await fs.mkdir(leasePath);
     await fs.writeFile(releasePath, "go\n", "utf8");
+    await waitForPath(childCompletedPath);
 
     const result = await waitForJson(
       path.join(directory, "result.json"),
-      (value) => value.runId === started.runId
+      (value) => value.runId === started.runId,
+      WORKER_LEASE_MS + 30_000
     );
     assert.equal(result.exitCode, 0);
   } finally {
