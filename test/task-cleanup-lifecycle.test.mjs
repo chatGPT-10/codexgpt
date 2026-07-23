@@ -78,7 +78,7 @@ async function readObservationJson(target) {
   }
 }
 
-async function waitForFinalizationObservation(directory, runId, deadlineMs = WORKER_LEASE_MS) {
+async function waitForFinalizationObservation(directory, runId, deadlineMs = WORKER_LEASE_MS + 30_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const [metadata, evidence, lease, result, stopped] = await Promise.all([
@@ -99,7 +99,7 @@ async function waitForFinalizationObservation(directory, runId, deadlineMs = WOR
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  throw new Error(`Timed out waiting for exact finalizing lease or successful result in ${directory}.`);
+  throw new Error(`Timed out after ${deadlineMs}ms waiting for exact finalizing lease or successful result in ${directory}.`);
 }
 
 test("terminal publication grace tolerates delayed Windows result visibility", async () => {

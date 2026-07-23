@@ -507,3 +507,47 @@ The STEP-386 historical roadmap and paired design were revalidated and required 
 **Rollback:** Revert the STEP-396 test deadline and documentation changes together. Do not restore a deadline shorter than the production stale boundary, weaken stale detection, extend production lease authority, force push, or rewrite history.
 
 **Next step:** Stage the reviewed STEP-396 scope, create one concise English commit, push normally to `main`, and require terminal exact-head success across the complete matrix. On success this published head is the Phase 6 closure head; do not create an evidence-only follow-up commit or begin Phase 7.
+
+## 2026-07-23 — STEP-397: Align finalization observation with the production lease boundary
+
+**Status:** Complete locally. Exact-head run `30011123344` for `a55e279ea63794c0d5ddb649e5689cdbeb58c0a4` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24. Windows Node 20 exposed one remaining test-only deadline mismatch. The user authorization continues through formal Phase 6 closure under the existing exclusions.
+
+**Observed failure and root cause:**
+
+- Windows Node 20 failed only `worker finalization remains observable through an exact lease or authoritative result` after approximately 65.7 seconds.
+- The helper began a fixed 60-second wait after startup and required either an exact active `finalizing` lease or an authoritative successful result. A lease published after the helper began could remain valid beyond that fixed deadline, so the helper could time out before the exact lease was eligible to expire.
+- The run did not show a production stale transition, nonzero result, stop record, identity mismatch, or authority failure. Windows Node 24 and every Ubuntu job completed successfully.
+
+**Implementation:**
+
+- Changed only `waitForFinalizationObservation` in `task-cleanup-lifecycle.test.mjs`.
+- Its default deadline now uses `WORKER_LEASE_MS + 30_000`, matching the bounded lease-plus-publication-grace rule already used by the flood fixture and terminal helpers.
+- The helper still requires an exact matching active `finalizing` lease or authoritative zero-exit result, still fails immediately on a stop record or mismatched/nonzero result, and remains bounded.
+- No production source, runner implementation, lease duration, renewal cadence, process identity, cleanup, retention, stop, Policy, Approval, Audit, path, transport, or credential behavior changed.
+
+**TDD and verification:**
+
+- Exact-head run `30011123344` supplied the RED state: the helper rejected a still-observable lifecycle before the post-call lease could expire.
+- Managed Node 20.20.2 and Node 24.15.0 each passed the combined runner/log lifecycle suite at 19/19.
+- Managed Node 20.20.2 passed the affected finalization test in five consecutive isolated rounds; each round retained the exact lease/result assertions and skipped only unrelated tests through `--test-name-pattern`.
+- Managed Node 20.20.2 and Node 24.15.0 builds passed.
+- Authoritative detached ordinary run `2026-07-23T13-48-27-430Z-phase6-final-ordinary-r2-21db5147` completed with exit code 0, empty stderr, cleaned temporary state, and zero retention failures:
+  - Node 20.20.2: 1,177 tests, 1,175 passed, zero failed, two established skips.
+  - Node 24.15.0: 1,177 tests, 1,175 passed, zero failed, two established skips.
+- The packaged production tree is unchanged from STEP-396, whose dual-major Smoke run `2026-07-23T13-10-44-132Z-phase6-final-smoke-c2b26ef0` passed all eight sections per major with empty stderr and zero retention failures. Exact-head CI will rerun Smoke and Package for the new candidate.
+
+**Adversarial review:**
+
+- No external agent provider was available. Manual timing review confirmed the new deadline is derived from the exported production lease constant, adds finite grace only, and does not allow a stale, stopped, mismatched, or nonzero run to pass.
+- Manual scope review confirmed the change is test-only and cannot alter runtime authority or user behavior.
+- Manual compatibility review confirmed both managed majors execute the helper and the ordinary-domain classification remains unchanged.
+
+**Risks and limitations:**
+
+- Under severe CI pressure, this specific helper may now wait up to 90 seconds. The wait is bounded and correctly starts after the caller begins observation; exact failure conditions remain immediate.
+- Formal closure still requires one exact published head to pass Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package gates.
+- Existing Phase 6 and platform limitations remain unchanged.
+
+**Rollback:** Revert the STEP-397 helper deadline and its documentation together. Do not restore a deadline shorter than the post-call lease-expiry boundary, weaken exact lease/result validation, change production lease authority, force push, or rewrite history.
+
+**Next step:** Complete final static/package/document gates, stage the reviewed STEP-397 scope, create one concise English commit, push normally, and require terminal exact-head success across the complete matrix. On success that exact published head closes Phase 6; do not create an evidence-only follow-up commit or begin Phase 7.
