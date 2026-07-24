@@ -5,6 +5,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createOwnedTempEnvironment } from "./owned-temp-root.mjs";
 
+export const SERIAL_PROCESS_TESTS = Object.freeze([
+  "operational-reliability.test.mjs",
+  "runner-log-bounds.test.mjs",
+  "runner-process-identity.test.mjs",
+  "runner-stop-identity-windows-control.test.mjs",
+  "task-cleanup-lifecycle.test.mjs"
+]);
+
 export const CONTROL_DOMAIN_TESTS = Object.freeze([
   "conpty-close-order-windows-control.test.mjs",
   "git-execution-windows-control.test.mjs",
@@ -65,6 +73,27 @@ function localControlDomainApproved() {
     process.env.CODEXGPT_ALLOW_CONTROL_DOMAIN_TESTS === "1";
 }
 
+async function runNodeTests(testNames, concurrency, environment) {
+  if (testNames.length === 0) return 0;
+  const nodeArgs = ["--test"];
+  if (concurrency) nodeArgs.push(`--test-concurrency=${concurrency}`);
+  nodeArgs.push(...testNames.map((name) => path.posix.join("test", name)));
+  const child = spawn(process.execPath, nodeArgs, {
+    cwd: repositoryRoot,
+    env: environment,
+    shell: false,
+    windowsHide: true,
+    stdio: "inherit"
+  });
+  return await new Promise((resolve) => {
+    child.once("error", (error) => {
+      console.error(error.stack ?? error.message);
+      resolve(127);
+    });
+    child.once("close", (code) => resolve(code ?? 1));
+  });
+}
+
 const domains = await classifyTestDomains();
 const domain = option("--domain", "ordinary");
 if (!Object.hasOwn(domains, domain)) fail("--domain must be ordinary, control, or all.", 2);
@@ -91,34 +120,30 @@ if (action === "list") {
   }
 
   const concurrency = option("--test-concurrency", process.platform === "win32" ? "1" : undefined);
-  const nodeArgs = ["--test"];
-  if (concurrency) nodeArgs.push(`--test-concurrency=${concurrency}`);
-  nodeArgs.push(...domains[domain].map((name) => path.posix.join("test", name)));
+  const isolateProcessTests = process.platform !== "win32" && concurrency !== "1";
+  const serialSet = new Set(SERIAL_PROCESS_TESTS);
+  const parallelTests = isolateProcessTests
+    ? domains[domain].filter((name) => !serialSet.has(name))
+    : domains[domain];
+  const serialTests = isolateProcessTests
+    ? domains[domain].filter((name) => serialSet.has(name))
+    : [];
   console.log(JSON.stringify({
     schemaVersion: 1,
     domain,
     count: domains[domain].length,
     concurrency: concurrency ?? "runtime-default",
+    serialProcessTests: serialTests.length,
     authority: domain === "ordinary" ? "local-non-control-domain" : "isolated-control-domain"
   }));
 
   const suiteTemp = await createOwnedTempEnvironment(`tests-${domain}`);
   let exitCode = 1;
   try {
-    const child = spawn(process.execPath, nodeArgs, {
-      cwd: repositoryRoot,
-      env: suiteTemp.environment,
-      shell: false,
-      windowsHide: true,
-      stdio: "inherit"
-    });
-    exitCode = await new Promise((resolve) => {
-      child.once("error", (error) => {
-        console.error(error.stack ?? error.message);
-        resolve(127);
-      });
-      child.once("close", (code) => resolve(code ?? 1));
-    });
+    exitCode = await runNodeTests(parallelTests, concurrency, suiteTemp.environment);
+    if (exitCode === 0 && serialTests.length > 0) {
+      exitCode = await runNodeTests(serialTests, "1", suiteTemp.environment);
+    }
   } finally {
     try {
       await suiteTemp.cleanup();

@@ -205,3 +205,48 @@ The environment exposed no independent Agent runtime, so STEP-408 did not claim 
 **Rollback:** Revert only the shared generation-aware parent identity helper and its regression. Do not revert the Phase 7 Core candidate or weaken the replaced-parent lock-held precondition.
 
 **Next action:** Run final policy/diff checks, create one concise repair commit, push normally, and bind the replacement exact head to the complete CI matrix. Real ChatGPT G7-U remains required before formal Phase 7 closure.
+
+## 2026-07-24 — STEP-410: Isolate detached-runner lifecycle tests
+
+**Status:** Second exact-head run exposed a Node 24 Ubuntu test-scheduling starvation pattern. The authoritative test launcher is repaired locally with RED/GREEN coverage and managed Node 20/24 verification; replacement publication remains pending.
+
+**Goal:** Keep the full non-Windows regression suite fast and concurrent while ensuring tests that own detached process lifecycles receive deterministic process and filesystem scheduling.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7.md`
+- `scripts/test-domains.mjs`
+- `test/owned-temp-root.test.mjs`
+- `test/test-domain-classification.test.mjs`
+
+**Failure evidence:**
+
+- Repair commit `0a0b495be8a846fe3ad81090bfd71172c411c9e1` (`fix: bind parent directory generation`) was pushed normally.
+- Exact-head run `30078316551` passed Repository policy and completed Ubuntu Node 20 successfully.
+- Ubuntu Node 24 Regression timed out three independent detached-runner fixtures at approximately 90 seconds: bounded log-tail publication, authoritative final result publication, and retention pruning.
+- The same runner behavior passed on Ubuntu Node 20 and in isolated managed Node 24 tests, so increasing product or fixture deadlines would hide scheduler starvation rather than repair a product defect.
+
+**RED evidence:** `test/test-domain-classification.test.mjs` required a closed list of process-owning lifecycle files and a two-stage non-Windows schedule. Before implementation, the new contract failed because the launcher contained no serial process-test boundary.
+
+**Root cause:** On non-Windows, the `all` domain launched every test file with Node's runtime-default cross-file concurrency. Phase 7 increased suite size and resource pressure. Files that create and observe detached workers then competed with the entire regression suite for processes, CPU, and temporary filesystem operations; Node 24 Ubuntu reproduced the starvation while Node 20 happened to complete.
+
+**Implementation:**
+
+- Added a closed `SERIAL_PROCESS_TESTS` set containing `operational-reliability`, `runner-log-bounds`, `runner-process-identity`, `runner-stop-identity-windows-control`, and `task-cleanup-lifecycle`.
+- On non-Windows with default parallel execution, `test-domains.mjs` runs the remaining main suite first with unchanged runtime concurrency, then runs only the selected process-owning files with `--test-concurrency=1`.
+- Windows remains fully serialized as before. An explicit `--test-concurrency=1` also preserves one invocation.
+- The shared owned TEMP environment is passed to both invocations and cleaned only after both complete.
+- No runner lease, lifecycle, retention, or test deadline was widened. No platform skip was added.
+
+**Verification:**
+
+- Launcher classification, owned TEMP, and CI workflow focused suite — 18/18 passed.
+- Managed Node `20.20.2` and `24.15.0` lifecycle/runner suite — 51/51 passed per major.
+- The three previously timed-out fixtures complete in approximately 1.1 seconds, 0.8 seconds, and 2.4 seconds when isolated from suite-wide contention.
+
+**Risks and limitations:** The serial list is intentionally closed and enforced by tests; a future process-owning fixture must be added explicitly. This adds a small second-process startup cost on non-Windows but avoids serializing the full suite.
+
+**Rollback:** Revert the two-stage launcher and its exact contract tests. Do not widen detached-runner deadlines or globally force all Linux tests to concurrency one.
+
+**Next action:** Run policy/diff/staged-secret checks, commit the scheduling repair, push normally, and bind the new exact head to the complete CI matrix. Real ChatGPT G7-U remains required before formal Phase 7 closure.
