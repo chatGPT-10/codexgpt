@@ -7,6 +7,7 @@ import { tsImport } from "tsx/esm/api";
 
 const source = await tsImport("../src/semantic/sourceSnapshot.ts", import.meta.url).catch(() => null);
 const positions = await tsImport("../src/semantic/positions.ts", import.meta.url).catch(() => null);
+const guardModule = await tsImport("../src/guard.ts", import.meta.url).catch(() => null);
 
 async function withRoot(callback) {
   const created = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-semantic-source-"));
@@ -82,6 +83,36 @@ test("semantic snapshots reject hardlinks, blocked files, invalid UTF-8, and rep
       }
     })).reason, "SOURCE_IDENTITY_CHANGED");
   });
+});
+
+test("parent identity distinguishes a reused directory object generation", () => {
+  assert.ok(guardModule);
+  const initial = guardModule.parentObjectIdentity("/workspace/src", {
+    dev: 7n,
+    ino: 11n,
+    birthtimeNs: 13n,
+    ctimeNs: 17n
+  });
+  const replaced = guardModule.parentObjectIdentity("/workspace/src", {
+    dev: 7n,
+    ino: 11n,
+    birthtimeNs: 19n,
+    ctimeNs: 23n
+  });
+  const fallbackInitial = guardModule.parentObjectIdentity("/workspace/src", {
+    dev: 7n,
+    ino: 11n,
+    birthtimeNs: 0n,
+    ctimeNs: 29n
+  });
+  const fallbackReplaced = guardModule.parentObjectIdentity("/workspace/src", {
+    dev: 7n,
+    ino: 11n,
+    birthtimeNs: 0n,
+    ctimeNs: 31n
+  });
+  assert.notEqual(initial, replaced);
+  assert.notEqual(fallbackInitial, fallbackReplaced);
 });
 
 test("public positions use one-based Unicode code points across BOM, CRLF, and surrogate pairs", () => {

@@ -47,6 +47,19 @@ export function normalizeRelPath(relPath: string): string {
   return normalized;
 }
 
+export function parentObjectIdentity(
+  canonicalParentPath: string,
+  stat: Pick<fs.BigIntStats, "dev" | "ino" | "birthtimeNs" | "ctimeNs">
+): string {
+  const generation = stat.birthtimeNs > 0n
+    ? `birth:${stat.birthtimeNs}`
+    : `ctime:${stat.ctimeNs}`;
+  return `parent_${createHash("sha256")
+    .update(`${canonicalParentPath}\0${stat.dev}\0${stat.ino}\0${generation}`, "utf8")
+    .digest("hex")
+    .slice(0, 24)}`;
+}
+
 const WINDOWS_RESERVED_BASENAME = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
 const RESERVED_TRANSACTION_PREFIX = ".codexgpt-txn-";
 
@@ -627,8 +640,7 @@ export class PathGuard {
       throw new CodexGPTError(`Path parent is outside the workspace: ${inputPath}`);
     }
     const parentStat = fs.statSync(existingParent, { bigint: true });
-    const parentIdentityPayload = `${existingParent}\0${parentStat.dev}\0${parentStat.ino}`;
-    const existingParentIdentity = `parent_${createHash("sha256").update(parentIdentityPayload).digest("hex").slice(0, 24)}`;
+    const existingParentIdentity = parentObjectIdentity(existingParent, parentStat);
     const canonicalRelPath = displayPath(targetAbsPath, workspace.root);
     const normalizedRelPath = normalizeRelPath(canonicalRelPath).normalize("NFC");
     const comparisonKey = this.platform === "win32"

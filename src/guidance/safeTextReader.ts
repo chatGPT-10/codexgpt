@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { PathGuard, assertSafePathInput, displayPath, isSubpath, normalizeRelPath, type Workspace } from "../guard.js";
+import { PathGuard, assertSafePathInput, displayPath, isSubpath, normalizeRelPath, parentObjectIdentity, type Workspace } from "../guard.js";
 
 export type GuidanceReadFailureReason =
   | "READ_BLOCKED"
@@ -201,10 +201,7 @@ export async function readGuidanceText(options: GuidanceReadOptions): Promise<Gu
       bom: buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf,
       identity: identity(before),
       canonicalParentPath: currentParent,
-      parentIdentity: `parent_${createHash("sha256")
-        .update(`${currentParent}\0${parentStat.dev}\0${parentStat.ino}`, "utf8")
-        .digest("hex")
-        .slice(0, 24)}`,
+      parentIdentity: parentObjectIdentity(currentParent, parentStat),
       rawSha256
     };
   } catch (error) {

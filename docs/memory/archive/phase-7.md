@@ -160,3 +160,48 @@ The environment exposed no independent Agent runtime, so STEP-408 did not claim 
 **Rollback:** Before publication, revert only the reviewed Phase 7 runtime/contracts/tests/docs/dependency changes. Operational rollback for an installed candidate is `codexgpt semantic disable` followed by one restart; V1–V4 and ordinary read/search/edit remain unchanged. No persistent Serena/LSP installation, remote Provider registration, commit, branch, worktree, release, deployment, or credential change was made.
 
 **Next approved action:** Perform real ChatGPT Gate G7-U with one fresh or explicitly refreshed App and retain the old 51-tool migration check. After G7-U passes, request separate authorization for reviewed staging, English commit, ordinary push, and exact-head CI. Do not stage the unrelated Phase 8 files or begin Phase 7B/7C without new authorization.
+
+## 2026-07-24 — STEP-409: Repair Linux parent-directory object reuse
+
+**Status:** First Phase 7 publication candidate pushed; the first exact-head run exposed one Linux race-boundary defect, which is repaired locally with deterministic RED/GREEN and managed Node 20/24 verification. Replacement publication and exact-head verification remain pending.
+
+**Goal:** Preserve the semantic rename guarantee that replacing an affected file's parent directory is rejected inside the workspace lock, even when the original file object is moved back and the filesystem immediately reuses the removed directory inode.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7.md`
+- `src/guard.ts`
+- `src/guidance/safeTextReader.ts`
+- `test/phase-7-source-boundary.test.mjs`
+
+**Publication and RED evidence:**
+
+- Reviewed Phase 7 scope was staged without the two untracked Phase 8 drafts; staged diff was 84 files, 5,689 insertions, and 180 deletions.
+- Staged `git diff --check`, repository policy, and added-line credential-pattern scan passed; the scan found zero staged secret-pattern matches.
+- Commit `2fe59314dde9300fe08a59776e96bbaf9408cb7b` (`feat: add Phase 7 semantic core`) was pushed normally to `origin/main`.
+- Exact-head run `30077724891` passed classification, build, and Repository policy, but Ubuntu Node 20 and Node 24 Regression both failed `lock-held semantic replace rejects a replaced parent even when the same file object returns` with `ERR_ASSERTION: Missing expected rejection`.
+- A deterministic local RED added `parent identity distinguishes a reused directory object generation`; before implementation it failed because `parentObjectIdentity` did not exist.
+
+**Root cause:** Parent identity hashed only canonical path, device, and inode/file ID. Linux may immediately reuse a removed empty directory inode for the newly created directory at the same path. The target file object and SHA-256 were intentionally preserved by the fixture, so the lock-held check could not distinguish the new parent object.
+
+**Implementation:**
+
+- Added one canonical `parentObjectIdentity()` helper shared by `PathGuard.resolvePolicyFacts()` and the canonical same-handle reader.
+- Parent identity now binds canonical parent path, device, inode/file ID, and object generation.
+- `birthtimeNs` is used when available because it remains stable while directory contents change. Filesystems without birth time fail closed by using `ctimeNs`; this may reject a concurrent sibling mutation but cannot silently accept parent replacement.
+- No timeout, platform skip, weakened assertion, or hash-only fallback was introduced.
+
+**Verification:**
+
+- Local deterministic RED: `npm run test:focused -- test/phase-7-source-boundary.test.mjs` — 3 passed, 1 failed before implementation.
+- `npm run build` — passed.
+- Affected local suite: source boundary, rename races, rename apply, and apply-patch transaction — 25/25 passed.
+- Managed Node `20.20.2` and `24.15.0` build — passed on both.
+- Managed Node 20/24 affected suite — 25/25 passed per major.
+
+**Risks and limitations:** Filesystems without a meaningful birth time use the conservative ctime fallback. A sibling directory-entry change between preview and apply may therefore reject a valid rename on those filesystems; the required recovery is a fresh preview. This is an availability tradeoff, not an authority expansion.
+
+**Rollback:** Revert only the shared generation-aware parent identity helper and its regression. Do not revert the Phase 7 Core candidate or weaken the replaced-parent lock-held precondition.
+
+**Next action:** Run final policy/diff checks, create one concise repair commit, push normally, and bind the replacement exact head to the complete CI matrix. Real ChatGPT G7-U remains required before formal Phase 7 closure.
