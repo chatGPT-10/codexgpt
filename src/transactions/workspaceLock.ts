@@ -215,7 +215,8 @@ export class WorkspaceMutationLock {
         const verified = this.registry.isVerifiable(owner.instanceId, owner.pid);
         throw new TransactionError(
           "TRANSACTION_BUSY",
-          verified ? "Workspace mutation is already locked." : "Workspace lock owner cannot be verified safely."
+          verified ? "Workspace mutation is already locked." : "Workspace lock owner cannot be verified safely.",
+          verified ? { liveOwnerVerified: true } : {}
         );
       }
       const recoveryRandom = this.dependencies.randomBytes(8);

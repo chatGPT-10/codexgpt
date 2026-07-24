@@ -4,7 +4,7 @@ import { loadConfig } from "../dist/config.js";
 import { PathGuard, WorkspaceManager } from "../dist/guard.js";
 import { SemanticProviderManager } from "../dist/semantic/index.js";
 
-test("builtin resolves the Phase 7 live-journey symbol in this NodeNext repository cold", { timeout: 15_000 }, async () => {
+test("builtin resolves the Phase 7 live journey and repository-scale diagnostics", { timeout: 30_000 }, async () => {
   const previousMode = process.env.CODEXGPT_SEMANTIC_MODE;
   const previousRoots = process.env.CODEXGPT_ALLOWED_ROOTS;
   process.env.CODEXGPT_SEMANTIC_MODE = "standard";
@@ -48,6 +48,32 @@ test("builtin resolves the Phase 7 live-journey symbol in this NodeNext reposito
         performance.now() - warmStarted <= warmLimitMs,
         `warm repository definition exceeded ${warmLimitMs} ms`
       );
+
+      const definition = result.result.locations[0];
+      const references = await manager.execute(workspace, {
+        operation: "references",
+        locator: {
+          kind: "position",
+          path: definition.path,
+          line: definition.range.start.line,
+          column: definition.range.start.column
+        },
+        include_declaration: true,
+        max_results: 20
+      });
+      assert.equal(references.state, "ready");
+      assert.equal(references.actual_provider, "builtin-typescript");
+      assert.equal(references.result.locations.some((location) => location.path === definition.path), true);
+
+      const diagnostics = await manager.execute(workspace, {
+        operation: "diagnostics",
+        path: "scripts/long-task-runner.mjs",
+        severity: "hint",
+        max_results: 20
+      });
+      assert.equal(diagnostics.state, "ready");
+      assert.equal(diagnostics.actual_provider, "builtin-typescript");
+      assert.equal(Array.isArray(diagnostics.result.diagnostics), true);
     } finally {
       await manager.dispose();
     }

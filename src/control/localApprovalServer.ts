@@ -233,7 +233,7 @@ export class LocalApprovalServer {
       resourceFingerprint: current.facts.resourceFingerprint,
       inputDigest: current.facts.inputDigest,
       riskClass: current.facts.riskClass,
-      toolContractVersion: "3",
+      toolContractVersion: current.facts.toolContractVersion,
       issuedAt: new Date(nowMs).toISOString(),
       expiresAt: new Date(expiresMs).toISOString(),
       usesRemaining: riskLimits(current.facts.riskClass).uses

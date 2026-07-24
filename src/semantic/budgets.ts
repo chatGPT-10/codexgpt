@@ -5,6 +5,7 @@ export const DEFAULT_SEMANTIC_BUDGETS = Object.freeze({
   maxResults: 200,
   maxPreviewChars: 24_000,
   maxWorkerResponseBytes: 2 * 1024 * 1024,
+  workerOldGenerationSizeMb: 448,
   workerTimeoutMs: 5_000,
   maxQueue: 8
 });

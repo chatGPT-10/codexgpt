@@ -1,6 +1,6 @@
 # Phase 7 Semantic Providers TDD Plan
 
-**Status:** Core local implementation candidate completed through Gate G7-X on 2026-07-24 after execution, security/compatibility, and UX adversarial repair; live ChatGPT G7-U and separately authorized publication/exact-head closure remain outstanding
+**Status:** Core code and backend acceptance candidate completed locally through STEP-416 on 2026-07-24 after execution, security/compatibility, UX, and recovery-lock adversarial repair; publication/exact-head CI and real ChatGPT App UI G7-U remain outstanding
 
 **Date:** 2026-07-24
 
@@ -1090,17 +1090,23 @@ Update root `Memory.md` in place with only current state, active decisions, fina
 
 ## 20. Current next action
 
-The Phase 7 Core checkout candidate has completed local Gate G7-X, the production/low-level V5 preflight repair, and the STEP-415 detached-worker terminal-observer repair exposed by exact-head run `30097613996`. The latest authoritative local runs are:
+The Phase 7 Core checkout candidate has completed STEP-416 code repair and backend live acceptance. STEP-416 fixes MCP wire descriptor publication, production approval state-root alignment, inherited V3 approval binding for Tool Contracts 3/4/5, workspace-root Policy facts, repository-scale TypeScript worker memory, non-authoritative Git summary degradation, and recovery contention. Adversarial review additionally proved that recovery may defer only a `TRANSACTION_BUSY` carrying an exact verified-live-owner fact; unverifiable ownership and every other busy cause remain fail-closed.
 
-- ordinary: `2026-07-24T13-52-39-279Z-phase7-worker-observer-ordinary-dcfd2455` — managed Node 20/24, exit 0, 1,226 tests per major, 1,224 passed and 2 skipped;
-- protected Smoke: `2026-07-24T14-16-31-900Z-phase7-worker-observer-smoke-50bfd1b6` — all eight domains passed on managed Node 20/24.
+Authoritative STEP-416 focused evidence:
 
-The 2026-07-24 follow-up authorization already permits staging only the reviewed Phase 7 repair scope, one concise English commit, an ordinary push, and bounded exact-head CI diagnosis/repair cycles. It does not authorize Phase 7B/7C, Phase 8, release, deployment, credential work, force push, or unrelated changes.
+- managed functional matrix: `2026-07-24T19-20-52-160Z-phase7-step416-managed-functional-r2-c01bac11` — Node 20 and Node 24 each passed 60/60, exit 0, zero stderr;
+- managed repository acceptance, isolated from competing CPU load: `2026-07-24T19-23-36-411Z-phase7-step416-managed-repository-r2-0f097adb` — Node 20 and Node 24 each passed 1/1 with the existing warm `<= 2000 ms` assertion unchanged, exit 0, zero stderr;
+- managed build: `2026-07-24T19-27-57-319Z-phase7-step416-managed-build-final-efe701ac` — Node 20 and Node 24 passed, exit 0, zero stderr;
+- authoritative ordinary: `2026-07-24T19-29-42-826Z-phase7-step416-ordinary-final-5ee89b91` — each managed major ran 1,229 tests, with 1,227 passed, 2 established skips, and 0 failed;
+- protected Smoke: `2026-07-24T19-54-59-950Z-phase7-step416-smoke-final-2daab671` — all eight domains passed on both managed majors, exit 0, zero stderr;
+- backend HTTP MCP U1 and U2 passed; U3 content drift rejected a stale preview with `FILE_VERSION_CONFLICT`; same-content object replacement is covered by deterministic lock-held regressions, not claimed as real App UI evidence.
 
-The next legal action is:
+The 2026-07-24 follow-up authorization permits final local closure gates, staging only the reviewed Phase 7 scope, one concise English commit, an ordinary push, and bounded exact-head CI diagnosis/repair cycles. It does not authorize Phase 7B/7C, Phase 8, release, deployment, credential work, force push, or unrelated changes.
 
-1. stage and publish only the reviewed STEP-415 worker-observer repair scope, excluding the untracked Phase 8 records;
+The final local build, focused, repository, ordinary, Smoke, policy, package, Markdown-link, secret-pattern, diff, size, and scope gates pass. The next legal action is:
+
+1. stage and publish only the reviewed 22-file STEP-416 repair scope, excluding the two untracked Phase 8 records and all runtime evidence/state;
 2. bind the resulting exact 40-character head to Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package;
 3. perform Gate G7-U in the real ChatGPT App after one explicit **Scan Tools** refresh or App recreation, retaining the old 51-tool migration check;
 4. keep Serena and direct LSP outside Core and uninstalled;
-5. close Core only when both the exact-head matrix and real user-observable G7-U pass.
+5. close Core only when both the exact-head matrix and real user-observable G7-U pass. Backend HTTP MCP evidence is not a substitute for the UI gate.

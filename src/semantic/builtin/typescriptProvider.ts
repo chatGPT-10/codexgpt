@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { Worker } from "node:worker_threads";
+import { DEFAULT_SEMANTIC_BUDGETS } from "../budgets.js";
 
 export interface TypeScriptWorkerClientOptions {
   timeoutMs: number;
@@ -82,7 +83,7 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
     const created = new Worker(workerUrl, {
       execArgv: [],
       resourceLimits: {
-        maxOldGenerationSizeMb: 192,
+        maxOldGenerationSizeMb: DEFAULT_SEMANTIC_BUDGETS.workerOldGenerationSizeMb,
         maxYoungGenerationSizeMb: 32,
         stackSizeMb: 4
       }

@@ -7,6 +7,13 @@ const applyPatchExpectedFilesSchemaV5 = z.record(
   z.string().regex(/^[a-f0-9]{64}$/).nullable()
 ).refine((value) => Object.keys(value).length <= 1_000, "expected_files exceeds the file limit.");
 
+export const applyPatchInputDescriptorShapeV5 = {
+  workspace_id: z.string().min(1).max(160).optional(),
+  patch: z.string().min(1).optional(),
+  expected_files: applyPatchExpectedFilesSchemaV5.optional(),
+  semantic_preview_id: z.string().min(20).max(200).optional()
+};
+
 export const applyPatchInputSchemaV5 = z.union([
   z.object({
     workspace_id: z.string().min(1).max(160).optional(),

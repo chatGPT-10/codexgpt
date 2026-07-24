@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { loadConfig } from "../dist/config.js";
 import { createCodexGPTServer } from "../dist/server.js";
 import {
@@ -49,6 +51,18 @@ function allowDecision(toolName) {
   };
 }
 
+async function connect(server, action) {
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  const client = new Client({ name: "phase-7-v5-wire", version: "0.0.0" });
+  await client.connect(clientTransport);
+  try {
+    return await action(client);
+  } finally {
+    await client.close();
+  }
+}
+
 function dependencies() {
   const previews = {
     resolve() { throw new Error("not used"); },
@@ -60,8 +74,24 @@ function dependencies() {
   return {
     persistentAuditRuntime: { persistAuthorization() {}, persistExecution() {} },
     workspaceMutationRuntime: {},
+    changeSetOwnerBindingKey: Buffer.alloc(32, 7),
+    atomicMutationToolNames: new Set([
+      "apply_patch",
+      "codexgpt_self_test",
+      "edit",
+      "export_pro_context",
+      "handoff_to_agent",
+      "handoff_to_codex",
+      "write"
+    ]),
     movePathsService: {},
     undoChangeSetService: {},
+    gitReadServiceV4: {
+      capabilityRevision: "git-v4-test",
+      status() { throw new Error("synthetic status failure"); },
+      log() { throw new Error("synthetic log failure"); },
+      currentBranchName() { return null; }
+    },
     policySessionContextSource: {
       identity: { credentialRef: "credential_v5", scopes: [] },
       transportKind: "stdio",
@@ -103,7 +133,9 @@ function dependencies() {
 }
 
 test("V5 server registers exact V4 inheritance plus semantic in standard/full only", async () => {
-  const standardServer = createCodexGPTServer(v5Config("standard"), dependencies());
+  const standardConfig = v5Config("standard");
+  standardConfig.writeMode = "workspace";
+  const standardServer = createCodexGPTServer(standardConfig, dependencies());
   const standard = standardServer._registeredTools;
   assert.ok(standard.semantic);
   assert.equal(standard.semantic.annotations.readOnlyHint, true);
@@ -117,6 +149,51 @@ test("V5 server registers exact V4 inheritance plus semantic in standard/full on
   });
   assert.equal(result.structuredContent.ok, true);
   assert.equal(result.structuredContent.data.actual_provider, "builtin-typescript");
+
+  await connect(standardServer, async (client) => {
+    const listedTools = (await client.listTools()).tools;
+    const descriptor = listedTools.find((tool) => tool.name === "semantic");
+    assert.ok(descriptor);
+    assert.equal(descriptor.inputSchema.type, "object");
+    for (const property of [
+      "operation",
+      "locator",
+      "path",
+      "severity",
+      "include_declaration",
+      "max_results",
+      "new_name",
+      "max_preview_chars",
+      "workspace_id"
+    ]) {
+      assert.ok(descriptor.inputSchema.properties?.[property], `semantic descriptor must expose ${property}`);
+    }
+    const applyPatchDescriptor = listedTools.find((tool) => tool.name === "apply_patch");
+    assert.ok(applyPatchDescriptor);
+    assert.equal(applyPatchDescriptor.inputSchema.type, "object");
+    for (const property of ["workspace_id", "patch", "expected_files", "semantic_preview_id"]) {
+      assert.ok(applyPatchDescriptor.inputSchema.properties?.[property], `apply_patch descriptor must expose ${property}`);
+    }
+
+    const opened = await client.callTool({
+      name: "open_current_workspace",
+      arguments: { include_tree: false, include_skills: false }
+    });
+    assert.equal(opened.isError, undefined);
+    assert.equal(opened.structuredContent.ok, true);
+    assert.equal(opened.structuredContent.data.git_status, "Git status unavailable for this workspace.");
+
+    const wireResult = await client.callTool({
+      name: "semantic",
+      arguments: {
+        operation: "definition",
+        locator: { kind: "symbol", symbol: "value" }
+      }
+    });
+    assert.equal(wireResult.isError, undefined);
+    assert.equal(wireResult.structuredContent.ok, true);
+    assert.equal(wireResult.structuredContent.data.actual_provider, "builtin-typescript");
+  });
 
   const listed = await standard.codexgpt.handler({ action: "list_actions" });
   assert.equal(codexgptOutputSchemaV5.safeParse(listed.structuredContent).success, true);

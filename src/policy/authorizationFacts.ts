@@ -3,6 +3,7 @@ import { canonicalJson } from "../audit/canonicalJson.js";
 import type { RiskClass } from "./types.js";
 
 export type ApprovableRiskClass = Exclude<RiskClass, "R0" | "R4">;
+export type InheritedToolContractVersionV3 = "3" | "4" | "5";
 
 export interface AuthorizationFactsV3Input {
   serverId: string;
@@ -16,7 +17,7 @@ export interface AuthorizationFactsV3Input {
   leaseId: string | null;
   policyRevision: string;
   evidenceRevision: string;
-  toolContractVersion: "3";
+  toolContractVersion: InheritedToolContractVersionV3;
   toolName: string;
   canonicalAction: string;
   operation: string;
@@ -72,7 +73,9 @@ function requireSafeId(name: string, value: string | null): string | null {
 }
 
 export function createAuthorizationFactsV3(input: AuthorizationFactsV3Input): AuthorizationFactsV3 {
-  if (input.toolContractVersion !== "3") throw new Error("V3 authorization facts require contract 3.");
+  if (!["3", "4", "5"].includes(input.toolContractVersion)) {
+    throw new Error("V3 authorization facts require inherited contract 3, 4, or 5.");
+  }
   const normalized: AuthorizationFactsV3Input = {
     serverId: requireSafeId("serverId", input.serverId)!,
     credentialRef: requireSafeId("credentialRef", input.credentialRef),
@@ -85,7 +88,7 @@ export function createAuthorizationFactsV3(input: AuthorizationFactsV3Input): Au
     leaseId: requireSafeId("leaseId", input.leaseId),
     policyRevision: requireSafeId("policyRevision", input.policyRevision)!,
     evidenceRevision: requireSafeId("evidenceRevision", input.evidenceRevision)!,
-    toolContractVersion: "3",
+    toolContractVersion: input.toolContractVersion,
     toolName: requireSafeText("toolName", input.toolName, 160),
     canonicalAction: requireSafeText("canonicalAction", input.canonicalAction),
     operation: requireSafeText("operation", input.operation, 160),

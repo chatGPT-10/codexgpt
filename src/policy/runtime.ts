@@ -12,7 +12,12 @@ import type { LocalApprovalRuntimeV3 } from "../control/runtime.js";
 import type { RootAdmissionRuntimeV3 } from "../access/rootAdmission.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import { SessionGrantStore } from "./approval.js";
-import { createAuthorizationFactsV3, createAuthorizationFactsV4, semanticDigest } from "./authorizationFacts.js";
+import {
+  createAuthorizationFactsV3,
+  createAuthorizationFactsV4,
+  semanticDigest,
+  type InheritedToolContractVersionV3
+} from "./authorizationFacts.js";
 import { createAuditEvent } from "./audit.js";
 import { compileCompatibilityProfile } from "./compat.js";
 import { createRequestContext } from "./context.js";
@@ -437,6 +442,13 @@ export interface CreateDefaultPolicyRuntimeInput {
   rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
 }
 
+function inheritedToolContractVersionV3(version: number): InheritedToolContractVersionV3 {
+  if (version === 3) return "3";
+  if (version === 4) return "4";
+  if (version === 5) return "5";
+  throw new Error("Inherited local approval requires tool contract 3, 4, or 5.");
+}
+
 export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInput): PolicyRuntime & {
   policyRevision: string;
   permissionProfileId: string;
@@ -514,13 +526,16 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
       }
 
       const digest = inputDigest(args);
+      const approvalToolContractVersion = contractV3
+        ? inheritedToolContractVersionV3(input.config.toolContractVersion)
+        : String(input.config.toolContractVersion);
       const matchInput = {
         context,
         operation: operationForApproval(described.resource),
         resourceFingerprint: described.resource.resourceFingerprint,
         inputDigest: digest,
         riskClass: described.riskClass,
-        toolContractVersion: String(input.config.toolContractVersion),
+        toolContractVersion: approvalToolContractVersion,
         now
       };
       const reserved = contractV3 && input.localApprovalRuntimeV3 && described.riskClass !== "R0" && described.riskClass !== "R4"
@@ -590,7 +605,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
           leaseId: null,
           policyRevision,
           evidenceRevision: currentEvidenceRevision(),
-          toolContractVersion: "3",
+          toolContractVersion: inheritedToolContractVersionV3(input.config.toolContractVersion),
           toolName,
           canonicalAction,
           operation: operationForApproval(described.resource),

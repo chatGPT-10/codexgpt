@@ -6,7 +6,9 @@ import test from "node:test";
 import { PathGuard } from "../dist/guard.js";
 import {
   AtomicWorkspaceFs,
+  ProcessInstanceRegistry,
   TransactionManifestStore,
+  WorkspaceMutationLock,
   createDefaultTransactionRecoveryCoordinator,
   installationMasterKey,
   loadOrCreateInstallationState,
@@ -49,6 +51,56 @@ test("recovery state policy is closed and deterministic", () => {
   assert.equal(recoveryActionForState("committed"), "finish_cleanup");
   assert.equal(recoveryActionForState("rolled_back"), "finish_rollback_cleanup");
 });
+
+test("live mutation ownership defers redundant recovery without freezing the workspace", () => fixture(async ({ workspaceRoot, stateRoot, config }) => {
+  const coordinator = createDefaultTransactionRecoveryCoordinator(config, { stateRoot });
+  const registry = new ProcessInstanceRegistry(stateRoot);
+  try {
+    await coordinator.ensureWorkspaceReady(workspaceRoot);
+    const installation = loadOrCreateInstallationState({ stateRoot });
+    const masterKey = installationMasterKey(installation);
+    const workspaceStateKey = workspaceStateKeyForRoot(workspaceRoot, masterKey);
+    masterKey.fill(0);
+    const lock = new WorkspaceMutationLock(stateRoot, registry).acquire({
+      workspaceStateKey,
+      transactionId: "tx_" + "9".repeat(32)
+    });
+    try {
+      await coordinator.ensureWorkspaceReady(workspaceRoot);
+    } finally {
+      lock.release();
+    }
+    await coordinator.ensureWorkspaceReady(workspaceRoot);
+  } finally {
+    registry.dispose();
+    coordinator.dispose();
+  }
+}));
+
+test("unverifiable live mutation ownership remains fail-closed", () => fixture(async ({ workspaceRoot, stateRoot, config }) => {
+  const coordinator = createDefaultTransactionRecoveryCoordinator(config, { stateRoot });
+  const ownerRegistry = new ProcessInstanceRegistry(stateRoot);
+  let lock;
+  try {
+    const installation = loadOrCreateInstallationState({ stateRoot });
+    const masterKey = installationMasterKey(installation);
+    const workspaceStateKey = workspaceStateKeyForRoot(workspaceRoot, masterKey);
+    masterKey.fill(0);
+    lock = new WorkspaceMutationLock(stateRoot, ownerRegistry).acquire({
+      workspaceStateKey,
+      transactionId: "tx_" + "8".repeat(32)
+    });
+    await fsp.rm(ownerRegistry.recordPath, { force: true });
+    await assert.rejects(
+      coordinator.ensureWorkspaceReady(workspaceRoot),
+      (error) => error?.code === "TRANSACTION_BUSY"
+    );
+  } finally {
+    lock?.release();
+    ownerRegistry.dispose();
+    coordinator.dispose();
+  }
+}));
 
 test("committing recovery restores complete before-state and is idempotent", () => fixture(async ({ workspaceRoot, stateRoot, workspace, config }) => {
   await fsp.writeFile(path.join(workspaceRoot, "a.txt"), "old-a");

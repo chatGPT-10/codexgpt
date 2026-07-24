@@ -632,8 +632,11 @@ export class PathGuard {
     const realTarget = maybeRealpath(resolved.absPath);
     const targetAbsPath = realTarget ?? resolved.absPath;
     const targetExists = Boolean(realTarget);
+    const canonicalRelPath = displayPath(targetAbsPath, workspace.root);
     const existingParentCandidate = targetExists
-      ? path.dirname(targetAbsPath)
+      ? canonicalRelPath === "."
+        ? targetAbsPath
+        : path.dirname(targetAbsPath)
       : closestExistingParent(path.dirname(resolved.absPath));
     const existingParent = maybeRealpath(existingParentCandidate);
     if (!existingParent || !isSubpath(existingParent, workspace.root)) {
@@ -641,7 +644,6 @@ export class PathGuard {
     }
     const parentStat = fs.statSync(existingParent, { bigint: true });
     const existingParentIdentity = parentObjectIdentity(existingParent, parentStat);
-    const canonicalRelPath = displayPath(targetAbsPath, workspace.root);
     const normalizedRelPath = normalizeRelPath(canonicalRelPath).normalize("NFC");
     const comparisonKey = this.platform === "win32"
       ? normalizedRelPath.toLocaleLowerCase("en-US")

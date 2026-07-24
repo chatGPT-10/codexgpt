@@ -185,6 +185,41 @@ test("V3 default policy runtime issues durable pending state and atomically rese
   assert.equal(approvalRuntime.approvals.get(first.localApproval.approvalId).state, "consumed");
   assert.equal(approvalRuntime.grants.size(), 1);
 
+  for (const inheritedContractVersion of [4, 5]) {
+    const inheritedConfig = { ...activeConfig, toolContractVersion: inheritedContractVersion };
+    const inheritedRuntime = createDefaultPolicyRuntime({
+      config: inheritedConfig,
+      workspaces,
+      guard,
+      sessionSource,
+      persistentAudit,
+      localApprovalRuntimeV3: approvalRuntime
+    });
+    const inheritedArgs = {
+      workspace_id: workspace.id,
+      path: `approved-v${inheritedContractVersion}.txt`,
+      content: `bounded inherited contract ${inheritedContractVersion}`
+    };
+    const inheritedFirst = await inheritedRuntime.authorize("write", inheritedArgs);
+    assert.equal(inheritedFirst.decision.outcome, "approval_required");
+    const inheritedApproval = approvalRuntime.approvals.get(inheritedFirst.localApproval.approvalId);
+    assert.equal(inheritedApproval.facts.toolContractVersion, String(inheritedContractVersion));
+    await approvalRuntime.server.handle({
+      schemaVersion: 3,
+      contractVersion: 3,
+      operation: "approvals.approve",
+      serverId: approvalRuntime.serverId,
+      approvalId: inheritedFirst.localApproval.approvalId
+    });
+    const inheritedRetry = await inheritedRuntime.authorize("write", inheritedArgs);
+    assert.equal(inheritedRetry.decision.outcome, "allow");
+    assert.ok(inheritedRetry.reservation);
+    await inheritedRetry.reservation.commit();
+    const inheritedConsumed = approvalRuntime.approvals.get(inheritedFirst.localApproval.approvalId);
+    assert.match(inheritedConsumed.grantId, /^grant_[a-f0-9]{24}$/);
+    approvalRuntime.grants.revokeGrant(inheritedConsumed.grantId);
+  }
+
   const executionConfig = { ...activeConfig, executionProfile: "full_access" };
   const executionResource = {
     schemaVersion: 3,

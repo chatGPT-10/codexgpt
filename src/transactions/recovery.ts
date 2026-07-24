@@ -317,10 +317,22 @@ export class TransactionRecoveryCoordinator {
         "Recovery transaction ID source is invalid."
       );
     }
-    const lock = this.locks!.acquire({
-      workspaceStateKey,
-      transactionId: `tx_${recoveryIdBytes.toString("hex")}`
-    });
+    let lock;
+    try {
+      lock = this.locks!.acquire({
+        workspaceStateKey,
+        transactionId: `tx_${recoveryIdBytes.toString("hex")}`
+      });
+    } catch (error) {
+      if (
+        error instanceof TransactionError &&
+        error.code === "TRANSACTION_BUSY" &&
+        error.safeDetails.liveOwnerVerified === true
+      ) {
+        return;
+      }
+      throw error;
+    }
     try {
       const manifests = this.store!.list(workspaceStateKey).sort((left, right) =>
         left.createdAt.localeCompare(right.createdAt) ||
@@ -674,6 +686,7 @@ export class TransactionRecoveryCoordinator {
     if (this.ownsRegistry) this.registry?.dispose();
     this.moveRecovery?.dispose();
     this.masterKey?.fill(0);
+    this.inFlight.clear();
     this.registry = undefined;
     this.ownsRegistry = false;
     this.locks = undefined;

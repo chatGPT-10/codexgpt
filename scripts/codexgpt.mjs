@@ -4065,14 +4065,23 @@ async function runLocalControlCli(family, argv) {
   if (!operation || extra.length > 0) throw new Error(`Invalid ${family} command.`);
   const clientPath = path.join(projectRoot, 'dist', 'control', 'localApprovalClient.js');
   const serverPath = path.join(projectRoot, 'dist', 'control', 'localApprovalServer.js');
-  if (!fs.existsSync(clientPath) || !fs.existsSync(serverPath)) {
+  const stateRootPath = path.join(projectRoot, 'dist', 'transactions', 'stateRoot.js');
+  if (!fs.existsSync(clientPath) || !fs.existsSync(serverPath) || !fs.existsSync(stateRootPath)) {
     throw new Error('Local approval runtime is not built. Run npm run build first.');
   }
-  const [{ LocalApprovalClient }, { escapeTerminalText, renderLocalApprovalEntry }] = await Promise.all([
+  const [
+    { LocalApprovalClient },
+    { escapeTerminalText, renderLocalApprovalEntry },
+    { resolveTransactionStateRoot }
+  ] = await Promise.all([
     import(pathToFileURL(clientPath).href),
-    import(pathToFileURL(serverPath).href)
+    import(pathToFileURL(serverPath).href),
+    import(pathToFileURL(stateRootPath).href)
   ]);
-  const client = new LocalApprovalClient({ timeoutMs: Math.min(30_000, parsed.timeoutMs + 5_000) });
+  const client = new LocalApprovalClient({
+    stateBaseRoot: resolveTransactionStateRoot(),
+    timeoutMs: Math.min(30_000, parsed.timeoutMs + 5_000)
+  });
 
   if (family === 'approvals' && operation === 'list' && !target) {
     const response = await client.list(parsed.serverId);

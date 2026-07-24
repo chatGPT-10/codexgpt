@@ -64,6 +64,21 @@ export const semanticInputSchema = z.discriminatedUnion("operation", [
   renamePreviewSchema
 ]);
 
+// McpServer.registerTool expects a raw Zod shape at the descriptor boundary.
+// This intentionally advertises the union of public fields while
+// semanticInputSchema remains the exact operation-discriminated validator.
+export const semanticInputDescriptorShape = {
+  operation: z.enum(["definition", "references", "diagnostics", "rename_preview"]),
+  locator: semanticLocatorSchema.optional(),
+  path: z.string().min(1).max(240).optional(),
+  severity: z.enum(["error", "warning", "information", "hint"]).optional(),
+  include_declaration: z.boolean().optional(),
+  max_results: z.number().int().min(1).max(200).optional(),
+  new_name: safeIdentifierSchema.optional(),
+  max_preview_chars: z.number().int().min(1_000).max(100_000).optional(),
+  workspace_id: commonWorkspace.workspace_id
+};
+
 const positionSchema = z.object({
   line: z.number().int().positive(),
   column: z.number().int().positive()

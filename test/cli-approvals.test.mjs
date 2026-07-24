@@ -58,7 +58,7 @@ function summary(suffix) {
 
 windowsOnly("public CLI requires exact server routing and safely lists, watches, approves, denies, and controls processes", async (t) => {
   const localAppData = await fsp.mkdtemp(path.join(os.tmpdir(), "codexgpt-cli-control-"));
-  const stateBaseRoot = path.join(localAppData, "CodexGPT", "control");
+  const stateBaseRoot = path.join(localAppData, "CodexGPT", "state", "v1");
   const serverId = localControlServerId();
   const approvals = new PendingApprovalStore();
   const grants = new SessionGrantStore();

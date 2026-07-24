@@ -58,6 +58,24 @@ test("Windows resource comparison keys are case-insensitive and slash normalized
   });
 });
 
+test("workspace-root reads use the root object as the bounded parent identity", () => {
+  withWorkspace(({ workspace }) => {
+    const guard = new PathGuard(config, process.platform);
+    const resource = describeFilesystemResource({
+      platform: process.platform,
+      workspace,
+      guard,
+      operation: "list",
+      inputPath: "."
+    });
+    assert.equal(resource.relativePath, ".");
+    assert.equal(resource.targetExists, true);
+    assert.equal(resource.containment, "inside");
+    assert.deepEqual(resource.unresolvedSuffix, []);
+    assert.match(resource.existingParentIdentity, /^parent_[a-f0-9]{24}$/);
+  });
+});
+
 test("non-existent write targets retain a validated unresolved suffix and stable parent identity", () => {
   withWorkspace(({ workspace }) => {
     const guard = new PathGuard(config, process.platform);

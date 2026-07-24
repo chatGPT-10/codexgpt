@@ -107,6 +107,7 @@ import {
 import {
   createSemanticFailure,
   createSemanticSuccess,
+  semanticInputDescriptorShape,
   semanticInputSchema,
   semanticOutputShape
 } from "./tools/schemas/semantic.js";
@@ -412,6 +413,7 @@ import {
   APPLY_PATCH_ERROR_MESSAGES,
   APPLY_PATCH_TRANSACTION_ERROR_MESSAGES,
   applyPatchDataSchema,
+  applyPatchInputDescriptorShapeV5,
   applyPatchInputSchemaV5,
   applyPatchOutputShape,
   applyPatchOutputShapeV2,
@@ -6461,8 +6463,20 @@ export function createCodexGPTServer(
     const service = typedGitReadService(activeConfig);
     if (!service) return {};
     return {
-      gitStatusProvider: () => service.status({ workspace, guard: activeGuard }).then((data) => projectTypedGitStatus(service, data)),
-      gitLogProvider: () => service.log({ workspace, guard: activeGuard, limit: logLimit }).then(projectGitLogV4ToLegacy)
+      gitStatusProvider: async () => {
+        try {
+          return projectTypedGitStatus(service, await service.status({ workspace, guard: activeGuard }));
+        } catch {
+          return "Git status unavailable for this workspace.";
+        }
+      },
+      gitLogProvider: async () => {
+        try {
+          return projectGitLogV4ToLegacy(await service.log({ workspace, guard: activeGuard, limit: logLimit }));
+        } catch {
+          return "Git history unavailable for this workspace.";
+        }
+      }
     };
   };
   const openCurrentWorkspaceSummaryProvider =
@@ -6819,7 +6833,7 @@ export function createCodexGPTServer(
         title: "Semantic Code",
         description:
           "Find symbol definitions and references, report TypeScript/JavaScript diagnostics, or preview a safe symbol rename. Use semantic for code meaning, search for text/regex, and inspect_workspace for a repository overview. Do not ask the user to choose a Provider.",
-        inputSchema: semanticInputSchema,
+        inputSchema: semanticInputDescriptorShape,
         __codexgptStrictInputSchema: semanticInputSchema,
         outputSchema: semanticOutputShape,
         annotations: {
@@ -8878,7 +8892,7 @@ export function createCodexGPTServer(
         ? "Apply one unified diff or consume one exact server-owned semantic rename preview. The two forms are mutually exclusive and every target is revalidated before one atomic transaction."
         : "Apply one unified diff patch inside the workspace. Paths are validated before applying. Prefer edit for tiny replacements and apply_patch for multi-file diffs.",
       inputSchema: contractIncludesV5(config.toolContractVersion)
-        ? applyPatchInputSchemaV5
+        ? applyPatchInputDescriptorShapeV5
         : {
             workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
             patch: z.string().describe("Unified diff patch to apply. File paths must stay inside the workspace and avoid blocked paths."),
