@@ -6197,7 +6197,9 @@ export function createCodexGPTServer(
     localApprovalAvailable: dependencies.v4ContractCapabilities?.localApprovalAvailable,
     gitCapabilityAvailable: dependencies.v4ContractCapabilities?.gitCapabilityAvailable,
     contractV4MigrationAvailable: dependencies.v4ContractCapabilities?.contractV4MigrationAvailable,
-    semanticRuntimeAvailable: true,
+    semanticRuntimeAvailable:
+      config.semanticMode === "standard" &&
+      config.semanticProvider === "builtin",
     contractV5MigrationAvailable: true
   });
   const transactionRecoveryCoordinator = config.fileTransactions === "atomic"

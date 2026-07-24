@@ -338,3 +338,92 @@ The environment exposed no independent Agent runtime, so STEP-408 did not claim 
 **Rollback:** Revert only the live-worker retention deferral and its deterministic regression. Do not restore deletion of evidence owned by a still-live exact worker and do not increase retention/test deadlines.
 
 **Next action:** Run final policy/diff/staged-secret checks, create one concise repair commit, push normally, and bind the replacement exact head to the complete CI matrix. Real ChatGPT G7-U remains required before formal Phase 7 closure.
+
+## 2026-07-24 — STEP-413: Forward Contract V5 production capabilities
+
+**Status:** The production Contract V5 preflight wiring defect is repaired locally. Build, focused V5 tests, repository policy, diff validation, and the supported native-Windows startup path pass.
+
+**Goal:** Stop `createProductionCodexGPTServer()` from rejecting an otherwise valid standard/builtin Contract V5 configuration with `Contract V5 requires the builtin semantic runtime` merely because `src/productionRuntime.ts` omitted the already-known semantic and migration capabilities when calling `assertToolContractConfiguration()`.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7.md`
+- `src/productionRuntime.ts`
+
+**Root cause:** `composeRuntime()` forwarded all inherited V3/V4 production capabilities into the contract preflight but stopped at `contractV4MigrationAvailable`. For Contract V5, the validator therefore observed both `semanticRuntimeAvailable` and `contractV5MigrationAvailable` as absent/false even when configuration selected `semanticMode=standard` and `semanticProvider=builtin`.
+
+**Implementation:**
+
+- Kept the existing V3/V4 capability derivation unchanged.
+- Added `semanticRuntimeAvailable` derived only from the exact supported pair `config.semanticMode === "standard" && config.semanticProvider === "builtin"`.
+- Added `contractV5MigrationAvailable: true` immediately after the V4 migration gate.
+- Added no new runtime, provider, fallback, configuration path, or authority.
+
+**Verification:**
+
+- `npm run build` — passed.
+- `npm run test:focused -- test/phase-7-contract-v5.test.mjs` — passed 3/3.
+- `git diff --check` — passed.
+- `npm run policy:check` — `Repository operational policy: PASS`.
+- Native Windows supported entry launched with `CODEXGPT_FILE_TRANSACTIONS=atomic` and `CODEXGPT_POLICY_ENGINE=enforce`; the entry process remained alive, the server bound `127.0.0.1:8787`, and an unauthenticated `/healthz` request returned 401 rather than exposing the endpoint.
+
+**Risk and limitation:** The startup command used the existing saved profile and named Cloudflare Tunnel configuration. This step verifies the repaired local production preflight and live listener, not formal Gate G7-U completion or exact-head CI closure. The two pre-existing untracked Phase 8 design/plan files were not modified.
+
+**Rollback:** Revert the two V5 capability fields in `src/productionRuntime.ts` and this STEP-413 record. That intentionally restores the false-negative V5 startup failure; no persistent state migration is involved.
+
+**Next action:** Review the combined diff, then stage/commit/push only under the already authorized Phase 7 publication scope or leave the repair uncommitted for further local validation. Formal Phase 7 closure still requires exact-head CI and real ChatGPT G7-U.
+
+## 2026-07-24 — STEP-414: Bind Contract V5 capability checks end to end
+
+**Status:** The production and low-level Contract V5 capability boundaries are repaired and locally closed. Both managed Node majors pass the affected suites, complete ordinary domain, protected Smoke, and build. Publication and exact-head CI remain the next authorized actions; real ChatGPT G7-U remains mandatory for formal Phase 7 closure.
+
+**Goal:** Ensure every server-construction path derives V5 semantic availability from the exact supported configuration instead of either omitting the capability or claiming it unconditionally, and preserve the defect as a permanent regression.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7.md`
+- `docs/superpowers/plans/2026-07-23-phase-7-semantic-providers.md`
+- `src/productionRuntime.ts`
+- `src/server.ts`
+- `test/phase-7-v5-runtime-inheritance.test.mjs`
+- `test/production-runtime-integration.test.mjs`
+
+**Prior exact-head evidence:** Repair base `f5c7763dfa36309901f3118b45dc81f2a2a4ee11` passed CI run `30083199776`, including Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package. That run predates STEP-413/414 and therefore does not close the new repair head.
+
+**RED evidence:** A new low-level regression set `semanticProvider="none"` on an otherwise valid V5 configuration and expected `Contract V5 requires the builtin semantic runtime`. Before implementation, `createCodexGPTServer()` did not throw because `src/server.ts` hard-coded `semanticRuntimeAvailable: true`; the focused run failed exactly one of 18 tests with `Missing expected exception`.
+
+**Implementation:**
+
+- Kept STEP-413's production preflight derivation: semantic availability is true only for `semanticMode === "standard"` and `semanticProvider === "builtin"`.
+- Replaced the low-level server's unconditional semantic capability with the same exact derivation.
+- Kept `contractV5MigrationAvailable: true`; this is a completed schema/runtime migration gate, not a Provider-readiness override.
+- Added a low-level fail-closed regression for the disabled Provider.
+- Added a production-composition regression proving standard/builtin V5 registers `semantic` and standard/none V5 fails before registration.
+- Updated the active Phase 7 plan to reflect the already granted 2026-07-24 publication authority and the correct ordering: publish/exact-head and real G7-U are independent required closure gates.
+- Kept the two untracked Phase 8 design/plan files outside every edit and verification scope.
+
+**Verification:**
+
+- RED: `npm run build && npm run test:focused -- test/phase-7-v5-runtime-inheritance.test.mjs test/production-runtime-integration.test.mjs` — 17/18 passed; only the new low-level fail-closed assertion failed before the fix.
+- GREEN: the same command — 18/18 passed.
+- Managed Node `20.20.2` and `24.15.0`: Phase 7 plus production-runtime affected suite — 59/59 passed per major; build passed on both.
+- Ordinary run `2026-07-24T12-55-54-670Z-phase7-v5-preflight-ordinary-fc9b4b4a` — exit 0; 1,225 tests per major, 1,223 passed and 2 established skips.
+- Protected Smoke run `2026-07-24T13-21-27-766Z-phase7-v5-preflight-smoke-6759399b` — exit 0; all eight domains passed on both managed majors.
+- Detached-run evidence retained bounded stdout, zero stderr, successful temporary-state cleanup, and zero retention failures.
+- `npm run policy:check` — `Repository operational policy: PASS`.
+- `git diff --check` — passed.
+- `npm pack --dry-run --json` — passed with 579 package entries; no tests, archives, `.ai-bridge`, or Phase 8 records entered the package.
+- Changed-Markdown relative-link audit — passed for all three changed Markdown files.
+- Changed-content credential-assignment scan — no matches.
+- Scope audit — exactly seven tracked Phase 7 files changed; the two untracked Phase 8 files remained excluded.
+- Size audit before publication — `Memory.md` 122 lines / 16,496 bytes; active Phase 7 archive remained below the 48-KiB rollover threshold.
+
+**Adversarial review:** The repair was checked against three bypasses: direct low-level server construction, production composition, and a disabled Provider under explicit V5. All now converge on the same fail-closed predicate. The change adds no Provider selection, runtime fallback, tool, authority, dependency, state migration, or network behavior.
+
+**Risk and limitation:** Programmatic callers that manually mutate a loaded V5 config to `semanticProvider="none"` now fail at construction instead of exposing a nonfunctional semantic tool. This is intentional contract enforcement. The exact repair head has not yet passed remote CI, and G7-U cannot be claimed from local or connector-backed tests.
+
+**Rollback:** Revert the semantic capability derivations and the two regressions together. Reverting only the tests would remove the permanent guard; reverting only the runtime would restore either the production false negative or the low-level false positive.
+
+**Next action:** Run final policy, diff, package, secret, scope, link, and size checks; stage only the seven reviewed Phase 7 files; create one concise English commit; push normally; bind the exact head to the complete CI matrix. Do not stage Phase 8 files. Formal Phase 7 closure still requires real ChatGPT G7-U.

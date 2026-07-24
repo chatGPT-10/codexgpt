@@ -1090,14 +1090,17 @@ Update root `Memory.md` in place with only current state, active decisions, fina
 
 ## 20. Current next action
 
-The Phase 7 Core checkout candidate has completed local Gate G7-X. The authoritative local runs are:
+The Phase 7 Core checkout candidate has completed local Gate G7-X and the production/low-level V5 preflight repair. The latest authoritative local runs are:
 
-- ordinary: `2026-07-24T07-24-01-829Z-phase7-core-ordinary-final-r2-34f8955d` — managed Node 20/24, exit 0, 1,220 tests per major, 1,218 passed and 2 skipped;
-- protected Smoke: `2026-07-24T07-47-39-512Z-phase7-core-smoke-final-b56c3f08` — all eight domains passed on managed Node 20/24.
+- ordinary: `2026-07-24T12-55-54-670Z-phase7-v5-preflight-ordinary-fc9b4b4a` — managed Node 20/24, exit 0, 1,225 tests per major, 1,223 passed and 2 skipped;
+- protected Smoke: `2026-07-24T13-21-27-766Z-phase7-v5-preflight-smoke-6759399b` — all eight domains passed on managed Node 20/24.
+
+The 2026-07-24 follow-up authorization already permits staging only the reviewed Phase 7 repair scope, one concise English commit, an ordinary push, and bounded exact-head CI diagnosis/repair cycles. It does not authorize Phase 7B/7C, Phase 8, release, deployment, credential work, force push, or unrelated changes.
 
 The next legal action is:
 
-1. perform Gate G7-U in the real ChatGPT App after one explicit **Scan Tools** refresh or App recreation, retaining the old 51-tool migration check;
-2. keep Serena and direct LSP outside Core and uninstalled;
-3. after successful G7-U, request separate authorization for staging, commit, push, publication, and exact-head CI;
-4. close Core only when one exact published 40-character head passes Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
+1. stage and publish only the reviewed Phase 7 repair scope, excluding the untracked Phase 8 records;
+2. bind the resulting exact 40-character head to Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package;
+3. perform Gate G7-U in the real ChatGPT App after one explicit **Scan Tools** refresh or App recreation, retaining the old 51-tool migration check;
+4. keep Serena and direct LSP outside Core and uninstalled;
+5. close Core only when both the exact-head matrix and real user-observable G7-U pass.

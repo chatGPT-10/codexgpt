@@ -286,7 +286,11 @@ function composeRuntime(
     nativeHostIdentityAvailable: gitEvidenceConfigured,
     localApprovalAvailable: Boolean(localApprovalRuntimeV3) || automaticLocalApproval,
     gitCapabilityAvailable: gitReadConfigured && gitEvidenceConfigured,
-    contractV4MigrationAvailable: true
+    contractV4MigrationAvailable: true,
+    semanticRuntimeAvailable:
+      config.semanticMode === "standard" &&
+      config.semanticProvider === "builtin",
+    contractV5MigrationAvailable: true
   });
 
   if (!atomic && !durableAudit) {

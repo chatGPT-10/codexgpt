@@ -132,6 +132,15 @@ test("V5 server registers exact V4 inheritance plus semantic in standard/full on
   await fullServer.close();
 });
 
+test("V5 fails closed when the configured builtin semantic runtime is unavailable", () => {
+  const disabled = v5Config("standard");
+  disabled.semanticProvider = "none";
+  assert.throws(
+    () => createCodexGPTServer(disabled, dependencies()),
+    /Contract V5 requires the builtin semantic runtime/
+  );
+});
+
 test("legacy V4 and V5 minimal/connection-test never register semantic", async () => {
   const minimal = v5Config("standard");
   minimal.toolMode = "minimal";

@@ -8,7 +8,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { loadConfig } from "../dist/config.js";
 import { createStdioPolicySessionSource } from "../dist/policy/identity.js";
+import { SessionGrantStore } from "../dist/policy/approval.js";
 import { policyIdentityScopes } from "../dist/policy/runtime.js";
+import { bindGitExecutable, createGitCapabilityEvidence } from "../dist/git/capabilities.js";
 import {
   CONTRACT_V1_CHILD_TOOLS,
   CONTRACT_V2_CHILD_TOOLS,
@@ -67,7 +69,9 @@ function configFor(workspaceRoot, stateHome, overrides = {}) {
     CODEXGPT_TOOL_MODE: overrides.toolMode ?? "standard",
     CODEXGPT_CODEX_SESSIONS: overrides.codexSessions ?? "off",
     CODEXGPT_CONNECTION_TEST: overrides.connectionTest ? "1" : undefined,
-    CODEXGPT_GUIDANCE_MODE: overrides.guidanceMode ?? "legacy"
+    CODEXGPT_GUIDANCE_MODE: overrides.guidanceMode ?? "legacy",
+    CODEXGPT_SEMANTIC_MODE: overrides.semanticMode,
+    CODEXGPT_SEMANTIC_PROVIDER: overrides.semanticProvider
   }, () => loadConfig([
     "--root", workspaceRoot,
     "--allow-root", workspaceRoot,
@@ -106,6 +110,33 @@ function productionOptions(stateHome, overrides = {}) {
     },
     ...overrides
   };
+}
+
+async function v5ProductionOptions(stateHome, config, sessionId) {
+  const binding = await bindGitExecutable(process.execPath);
+  const evidence = createGitCapabilityEvidence({
+    executable: binding,
+    version: "git version 2.50.0",
+    hostManifestRevision: "1".repeat(64),
+    implementationRevision: "2".repeat(64)
+  });
+  const localApprovalRuntimeV3 = {
+    serverId: `server_${"3".repeat(32)}`,
+    grants: new SessionGrantStore(),
+    setApprovalPreparation() {},
+    setProcessControl() {},
+    async close() {},
+    async reserveMatching() { return null; },
+    async request() { throw new Error("not used"); },
+    async burn() {},
+    async commitConsume() {}
+  };
+  return productionOptions(stateHome, {
+    policySessionContextSource: sourceFor(config, sessionId),
+    localApprovalRuntimeV3,
+    gitReadServiceV4: { capabilityRevision: evidence.capabilityRevision },
+    gitCapabilityEvidenceV4: evidence
+  });
 }
 
 function deferred() {
@@ -186,6 +217,35 @@ async function connect(server, action) {
     await Promise.allSettled([client.close(), server.close()]);
   }
 }
+
+test("production V5 preflight forwards builtin semantic capability and rejects a disabled provider", () => fixture(async ({ workspaceRoot, stateHome }) => {
+  const builtin = configFor(workspaceRoot, stateHome, {
+    toolContractVersion: "5",
+    semanticMode: "standard",
+    semanticProvider: "builtin",
+    policyEngineMode: "enforce",
+    writeMode: "off"
+  });
+  const builtinServer = createProductionCodexGPTServer(
+    builtin,
+    await v5ProductionOptions(stateHome, builtin, "production-v5-builtin")
+  );
+  assert.ok(builtinServer._registeredTools.semantic);
+  await builtinServer.close();
+
+  const disabled = configFor(workspaceRoot, stateHome, {
+    toolContractVersion: "5",
+    semanticMode: "standard",
+    semanticProvider: "none",
+    policyEngineMode: "enforce",
+    writeMode: "off"
+  });
+  const disabledOptions = await v5ProductionOptions(stateHome, disabled, "production-v5-disabled");
+  assert.throws(
+    () => createProductionCodexGPTServer(disabled, disabledOptions),
+    /Contract V5 requires the builtin semantic runtime/
+  );
+}));
 
 test("Gate R production wiring fails closed outside contract 4 or before startup recovery", () => fixture(async ({ workspaceRoot, stateHome }) => {
   const config = configFor(workspaceRoot, stateHome, {
