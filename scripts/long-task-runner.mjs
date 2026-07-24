@@ -743,6 +743,7 @@ async function worker() {
   const startedAt = new Date().toISOString();
   let taskTemp;
   let child;
+  let childOutcome;
   let spawnError;
   let outcome;
   let cleanupError;
@@ -762,14 +763,7 @@ async function worker() {
       });
       child.stdout.on("data", (chunk) => stdoutTail.push(chunk));
       child.stderr.on("data", (chunk) => stderrTail.push(chunk));
-      await writeJsonAtomic(directory, "child.json", { schemaVersion: RUNNER_SCHEMA_VERSION, pid: child.pid, workerNonce: command.workerNonce });
-    } catch (error) {
-      spawnError = error;
-    }
-
-    outcome = spawnError
-      ? { code: 127, signal: null, error: spawnError.stack ?? spawnError.message }
-      : await new Promise((resolve) => {
+      childOutcome = new Promise((resolve) => {
         let settled = false;
         const finish = (value) => {
           if (settled) return;
@@ -779,6 +773,14 @@ async function worker() {
         child.once("error", (error) => finish({ code: 127, signal: null, error: error.stack ?? error.message }));
         child.once("close", (code, signal) => finish({ code: code ?? 1, signal, error: null }));
       });
+      await writeJsonAtomic(directory, "child.json", { schemaVersion: RUNNER_SCHEMA_VERSION, pid: child.pid, workerNonce: command.workerNonce });
+    } catch (error) {
+      spawnError = error;
+    }
+
+    outcome = spawnError
+      ? { code: 127, signal: null, error: spawnError.stack ?? spawnError.message }
+      : await childOutcome;
     // Lease refresh is observational; failure must not suppress terminal result publication.
     await publishWorkerLease("finalizing").catch(() => {});
   } finally {

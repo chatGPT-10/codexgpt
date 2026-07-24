@@ -57,6 +57,21 @@ async function waitForProcessExit(pid, deadlineMs = 10_000) {
   throw new Error(`Process ${pid} did not exit.`);
 }
 
+test("worker observes child terminal events before the first asynchronous metadata write", async () => {
+  const source = await fs.readFile(runner, "utf8");
+  const spawnIndex = source.indexOf("child = spawn(command.argv[0]");
+  const closeObserverIndex = source.indexOf('child.once("close"', spawnIndex);
+  const childMetadataIndex = source.indexOf('await writeJsonAtomic(directory, "child.json"', spawnIndex);
+
+  assert.ok(spawnIndex >= 0, "worker child spawn must remain present");
+  assert.ok(closeObserverIndex > spawnIndex, "worker must observe child close");
+  assert.ok(childMetadataIndex > spawnIndex, "worker child metadata write must remain present");
+  assert.ok(
+    closeObserverIndex < childMetadataIndex,
+    "worker must observe fast child termination before awaiting child metadata persistence"
+  );
+});
+
 test("process creation identity is available for the current process", async () => {
   const created = await processCreationTime(process.pid);
   assert.equal(typeof created, "string");

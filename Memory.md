@@ -11,7 +11,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phases 0–3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head run `29603060944`; Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
 - Phase 6 is formally closed at `31631676fe254962a9a4f14d6e025e3edba82b8d`; exact-head run `30033293444` passed Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package. Explicit `legacy` remains rollback and old Apps require one **Scan Tools** refresh or recreation.
 - STEP-400 repaired the two Windows test observers and passed local ordinary, Build, and Smoke on managed Node 20/24. STEP-401 records the exact published closure without creating an evidence-only repository commit.
-- STEP-408 completes the Phase 7 Core local candidate through Gate G7-X. STEP-409 through STEP-412 repair cross-platform identity and detached-runner races. STEP-413 forwards V5 production capabilities; STEP-414 makes both production and low-level V5 capability checks fail closed and adds permanent regressions. Formal closure still requires the repair exact-head matrix plus real ChatGPT G7-U.
+- STEP-408 completes the Phase 7 Core local candidate through Gate G7-X. STEP-409 through STEP-412 repair cross-platform identity and detached-runner races. STEP-413/414 bind V5 capabilities end to end. STEP-415 closes the detached-worker fast-child terminal-event race exposed by the first repair CI. Formal closure still requires the replacement exact-head matrix plus real ChatGPT G7-U.
 - Omitted mode defaults to `standard` with readiness `ready`; explicit `CODEXGPT_GUIDANCE_MODE=legacy` remains the one-restart rollback. Omitted `minimal` mode preserves the exact legacy projection because it has no `codex_context`; explicit `standard + minimal` fails closed.
 
 ## Approved execution boundary
@@ -27,7 +27,7 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - The ChatGPT Web compatibility flow uses the query token when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. Treat the complete Server URL as a secret; public startup logs hide it by default and require an explicit local `u`/Create App action to display it. `CODEXGPT_ALLOW_QUERY_TOKEN=0` is for compatible Bearer clients, not manual ChatGPT Web Bearer configuration.
 - V1/V2/V3/V4 tool counts remain 28/31/39/51. `full_access` is ambient trusted-code authority, not isolation; `workspace` has no fallback; Gate S and Task 4B0 remain blocked diagnostics.
 - Gate X accepts only the four typed local Git operations. Old/new tree derivation and private staging remain inside one reviewed materialized integration bundle; no caller-selected command, remote, credential, force, or config mutation is allowed.
-- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. Every lease publication, including the first, is observational and cannot suppress task execution or authoritative result publication. The renewal timer remains referenced so it keeps the worker alive until `result.json` is published, then `stopLeaseRenewal()` clears it. A lease is non-authorizing: stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry. Lease persistence is synchronous and atomic; synchronous and asynchronous atomic JSON replacement share one bounded retry policy for transient Windows replacement-sharing failures. A failed periodic lease publication retries after one second instead of waiting a full 15-second renewal interval.
+- Detached-run liveness is represented by exact renewable `worker-lease.json` evidence for `running` and `finalizing`. Every lease publication is observational and cannot suppress task execution or authoritative result publication. The worker registers child `error`/`close` observers before its first asynchronous metadata write so fast completion cannot be lost; the referenced renewal timer then keeps finalization observable only until `result.json` is published. Stop still requires exact live process identity, and a crashed worker becomes stale after lease expiry.
 - `scripts/test-domains.mjs` is authoritative. Connector-backed local regression uses `ordinary`; destructive control/all execution requires CI or a proven independent native terminal. There is no `npm test` script.
 - Focused tests and tasks use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>`. Cleanup deletes only exact verified dead-owner temporary roots and terminal run evidence.
 - Mutation inventory is fail-closed and binds direct filesystem primitives to repository path, syscall type, and semantic call identity. Atomic production paths cannot fall back to legacy writers.
@@ -50,7 +50,8 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - STEP-408 Gate G7-X passed managed Node 20/24 affected tests, build, ordinary `2026-07-24T07-24-01-829Z-phase7-core-ordinary-final-r2-34f8955d`, protected Smoke `2026-07-24T07-47-39-512Z-phase7-core-smoke-final-b56c3f08`, policy, package, advisory, link, secret, and diff gates.
 - STEP-409 through STEP-412 exact-head repairs culminated in `f5c7763dfa36309901f3118b45dc81f2a2a4ee11`; CI run `30083199776` passed Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
 - STEP-413 verified the supported native-Windows standard/builtin V5 entry starts under atomic/enforce and rejects unauthenticated health access with 401.
-- STEP-414 RED/GREEN production and low-level V5 regressions pass 18/18 locally; managed Node 20/24 Phase 7 plus production suites pass 59/59 per major and build passes. Ordinary `2026-07-24T12-55-54-670Z-phase7-v5-preflight-ordinary-fc9b4b4a` passes 1,223/1,225 with 2 established skips per major; protected Smoke `2026-07-24T13-21-27-766Z-phase7-v5-preflight-smoke-6759399b` passes all eight domains per major.
+- STEP-414 published as `6ec5f5ab8ccd03868954e642a557c2a1e55957a6`; exact-head run `30097613996` passed Repository policy, Ubuntu Node 20, and Windows Node 24, but Ubuntu Node 24 lost two fast-child terminal events and Windows Node 20 lost one, each waiting 90 seconds for a result the worker never published.
+- STEP-415 registers child terminal observers before persisting `child.json`. RED source-order regression failed before the repair; current and managed Node 20/24 lifecycle suites pass 36/36. Ordinary `2026-07-24T13-52-39-279Z-phase7-worker-observer-ordinary-dcfd2455` passes 1,224/1,226 with 2 established skips per major; protected Smoke `2026-07-24T14-16-31-900Z-phase7-worker-observer-smoke-50bfd1b6` passes all eight domains per major.
 
 ## Known limitations
 
@@ -64,15 +65,16 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
 - The deleted pre-Phase-6 App made a genuine frozen-tool-snapshot reuse test impossible. The approved product contract is one explicit **Scan Tools** refresh or App recreation; transparent cache refresh is not claimed.
-- Phase 7 Core is not formally closed: the STEP-414 repair still needs publication/exact-head CI and real ChatGPT G7-U. Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. `npm audit` has zero high/critical findings but retains two moderate transitive findings in the current MCP SDK compatibility line.
+- Phase 7 Core is not formally closed: the STEP-415 replacement repair still needs publication/exact-head CI and real ChatGPT G7-U. Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. `npm audit` has zero high/critical findings but retains two moderate transitive findings in the current MCP SDK compatibility line.
 
 ## Open items
 
-1. Publish only the reviewed STEP-413/414 Phase 7 repair scope and bind its exact head to the complete CI matrix. Run real ChatGPT Gate G7-U after one **Scan Tools** refresh or App recreation; retain the old 51-tool migration check and do not mark formal closure without both gates.
+1. Publish only the reviewed STEP-415 repair and bind its replacement exact head to the complete CI matrix. Run real ChatGPT Gate G7-U after one **Scan Tools** refresh or App recreation; retain the old 51-tool migration check and do not mark formal closure without both gates.
 2. Keep Serena/LSP, Tasks 4B1–4B6, `workspace`, Phase 8, release/deployment, and toolchain-root migration deferred; never reinterpret ambient process/worktree/Provider mechanisms as a sandbox.
 
 ## Recent summaries
 
+- **STEP-415 - Observe worker child completion before metadata I/O:** attach child terminal listeners before the first await so fast exits and output floods always reach authoritative result publication.
 - **STEP-414 - Bind V5 capability checks end to end:** derive semantic availability from exact standard/builtin configuration in both production composition and the low-level server, with RED/GREEN regressions for enabled and disabled Providers.
 - **STEP-413 - Forward V5 production capabilities:** pass builtin semantic-runtime readiness and the completed V5 migration gate into the production preflight.
 - **STEP-412 - Defer pruning live terminal workers:** retain terminal evidence until exact worker identity is gone.
@@ -112,7 +114,8 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - [Closed Phase 5 Volume 2 — STEP-356 through STEP-362](docs/memory/archive/phase-5-part-2.md)
 - [Closed Phase 6 Volume 1 — STEP-386 through STEP-400](docs/memory/archive/phase-6.md)
 - [Closed Phase 6 Volume 2 — STEP-401](docs/memory/archive/phase-6-part-2.md)
-- [Active Phase 7 design and Core implementation — STEP-399 onward](docs/memory/archive/phase-7.md)
+- [Closed Phase 7 Volume 1 — STEP-399 through STEP-414](docs/memory/archive/phase-7.md)
+- [Active Phase 7 Volume 2 — STEP-415 onward](docs/memory/archive/phase-7-part-2.md)
 
 ## Memory maintenance protocol
 

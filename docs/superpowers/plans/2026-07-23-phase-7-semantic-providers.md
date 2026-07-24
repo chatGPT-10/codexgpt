@@ -1090,16 +1090,16 @@ Update root `Memory.md` in place with only current state, active decisions, fina
 
 ## 20. Current next action
 
-The Phase 7 Core checkout candidate has completed local Gate G7-X and the production/low-level V5 preflight repair. The latest authoritative local runs are:
+The Phase 7 Core checkout candidate has completed local Gate G7-X, the production/low-level V5 preflight repair, and the STEP-415 detached-worker terminal-observer repair exposed by exact-head run `30097613996`. The latest authoritative local runs are:
 
-- ordinary: `2026-07-24T12-55-54-670Z-phase7-v5-preflight-ordinary-fc9b4b4a` — managed Node 20/24, exit 0, 1,225 tests per major, 1,223 passed and 2 skipped;
-- protected Smoke: `2026-07-24T13-21-27-766Z-phase7-v5-preflight-smoke-6759399b` — all eight domains passed on managed Node 20/24.
+- ordinary: `2026-07-24T13-52-39-279Z-phase7-worker-observer-ordinary-dcfd2455` — managed Node 20/24, exit 0, 1,226 tests per major, 1,224 passed and 2 skipped;
+- protected Smoke: `2026-07-24T14-16-31-900Z-phase7-worker-observer-smoke-50bfd1b6` — all eight domains passed on managed Node 20/24.
 
 The 2026-07-24 follow-up authorization already permits staging only the reviewed Phase 7 repair scope, one concise English commit, an ordinary push, and bounded exact-head CI diagnosis/repair cycles. It does not authorize Phase 7B/7C, Phase 8, release, deployment, credential work, force push, or unrelated changes.
 
 The next legal action is:
 
-1. stage and publish only the reviewed Phase 7 repair scope, excluding the untracked Phase 8 records;
+1. stage and publish only the reviewed STEP-415 worker-observer repair scope, excluding the untracked Phase 8 records;
 2. bind the resulting exact 40-character head to Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package;
 3. perform Gate G7-U in the real ChatGPT App after one explicit **Scan Tools** refresh or App recreation, retaining the old 51-tool migration check;
 4. keep Serena and direct LSP outside Core and uninstalled;
