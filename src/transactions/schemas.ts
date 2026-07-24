@@ -62,7 +62,8 @@ const existingFileFactV1Schema = z.object({
   sha256: sha256Schema,
   identity: fileIdentitySchema,
   bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  metadata: fileMetadataV1Schema
+  metadata: fileMetadataV1Schema,
+  existingParentIdentity: parentIdentitySchema.optional()
 }).strict();
 
 const absentFileFactV1Schema = z.object({
@@ -190,6 +191,7 @@ export const transactionManifestV1Schema = z.object({
   createdDirectories: z.array(transactionRelativePathSchema).max(1_000),
   requiredParticipants: z.array(participantNameSchema).max(32),
   participantFacts: z.record(participantNameSchema, z.enum(["pending", "committed", "failed"])),
+  semanticFactsDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/).optional(),
   failureCode: transactionErrorCodeSchema.optional(),
   failureMessage: z.string().min(1).max(500).refine(
     (value) => !/[\r\n\u0000-\u001f\u007f]/.test(value),

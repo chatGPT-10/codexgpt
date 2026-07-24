@@ -3,7 +3,7 @@ import {
   type CodexGPTConfig,
   type ToolContractVersion
 } from "../config.js";
-import { contractIncludesV2 } from "./contracts/catalog.js";
+import { contractIncludesV2, contractIncludesV4 } from "./contracts/catalog.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import {
   AuditError,
@@ -175,7 +175,7 @@ export function createPhase3DResourceResolver(
   return {
     describe(toolName, args) {
       if (toolName === "query_audit_events") {
-        const filterDigest = toolContractVersion === 4
+        const filterDigest = contractIncludesV4(toolContractVersion)
           ? auditQueryFilterDigestV4(queryAuditEventsInputV4Schema.parse(args))
           : toolContractVersion === 3
             ? auditQueryFilterDigestV3(queryAuditEventsInputV3Schema.parse(args))
@@ -364,7 +364,7 @@ export function createPhase3DServerIntegration(
       });
     });
 
-    if (config.toolMode === "full" && contractVersion !== 4) {
+    if (config.toolMode === "full" && !contractIncludesV4(contractVersion)) {
       const v3 = contractVersion === 3;
       if (v3 ? !dependencies.auditQueryHandlerV3 : !dependencies.auditQueryHandler) {
         throw new Error(`Contract V${contractVersion} audit query service is unavailable.`);

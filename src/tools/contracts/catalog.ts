@@ -5,11 +5,13 @@ import type {
   CanonicalToolV2,
   CanonicalToolV3,
   CanonicalToolV4,
+  CanonicalToolV5,
   ToolContractDescriptor,
   ToolContractProjectionInput
 } from "./types.js";
 import { CONTRACT_V3_ADDITIONS } from "./v3.js";
 import { CONTRACT_V4_ADDITIONS } from "./v4.js";
+import { CONTRACT_V5_ADDITIONS } from "./v5.js";
 
 export const CONTRACT_V1_CHILD_TOOLS = Object.freeze([
   "apply_patch",
@@ -63,6 +65,11 @@ export const CONTRACT_V4_CHILD_TOOLS = Object.freeze([
   ...CONTRACT_V4_ADDITIONS
 ] as const satisfies readonly CanonicalToolV4[]);
 
+export const CONTRACT_V5_CHILD_TOOLS = Object.freeze([
+  ...CONTRACT_V4_CHILD_TOOLS,
+  ...CONTRACT_V5_ADDITIONS
+] as const satisfies readonly CanonicalToolV5[]);
+
 const V2_DESCRIPTORS = Object.freeze({
   query_audit_events: Object.freeze({
     name: "query_audit_events",
@@ -84,16 +91,20 @@ const V2_DESCRIPTORS = Object.freeze({
   })
 } satisfies Record<(typeof CONTRACT_V2_ADDITIONS)[number], ToolContractDescriptor>);
 
-export function contractIncludesV2(version: ToolContractVersion): version is 2 | 3 | 4 {
-  return version === 2 || version === 3 || version === 4;
+export function contractIncludesV2(version: ToolContractVersion): version is 2 | 3 | 4 | 5 {
+  return version === 2 || version === 3 || version === 4 || version === 5;
 }
 
-export function contractIncludesV3(version: ToolContractVersion): version is 3 | 4 {
-  return version === 3 || version === 4;
+export function contractIncludesV3(version: ToolContractVersion): version is 3 | 4 | 5 {
+  return version === 3 || version === 4 || version === 5;
 }
 
-export function contractIncludesV4(version: ToolContractVersion): version is 4 {
-  return version === 4;
+export function contractIncludesV4(version: ToolContractVersion): version is 4 | 5 {
+  return version === 4 || version === 5;
+}
+
+export function contractIncludesV5(version: ToolContractVersion): version is 5 {
+  return version === 5;
 }
 
 export function canonicalToolsForVersion(version: ToolContractVersion): readonly CanonicalTool[] {
@@ -101,6 +112,7 @@ export function canonicalToolsForVersion(version: ToolContractVersion): readonly
   if (version === 2) return CONTRACT_V2_CHILD_TOOLS;
   if (version === 3) return CONTRACT_V3_CHILD_TOOLS;
   if (version === 4) return CONTRACT_V4_CHILD_TOOLS;
+  if (version === 5) return CONTRACT_V5_CHILD_TOOLS;
   throw new Error("Unsupported tool contract version.");
 }
 

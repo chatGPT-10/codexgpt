@@ -12,16 +12,18 @@ export type CodexSessionsMode = "off" | "metadata" | "read";
 export type WriteMode = "off" | "handoff" | "workspace";
 export type ToolMode = "minimal" | "standard" | "full";
 export type FileTransactionMode = "legacy" | "atomic";
-export type ToolContractVersion = 1 | 2 | 3 | 4;
+export type ToolContractVersion = 1 | 2 | 3 | 4 | 5;
 export type PersistedMutationContractVersion = 1 | 2 | 3;
+export type SemanticMode = "legacy" | "standard";
+export type SemanticProviderSelection = "builtin" | "none";
 
 export function persistedMutationContractVersion(
   version: ToolContractVersion
 ): PersistedMutationContractVersion {
-  return version === 4 ? 3 : version;
+  return version === 4 || version === 5 ? 3 : version;
 }
 
-export function persistedV2ContractVersion(version: 2 | 3 | 4): 2 | 3 {
+export function persistedV2ContractVersion(version: 2 | 3 | 4 | 5): 2 | 3 {
   return version === 2 ? 2 : 3;
 }
 export type LocalFileAccessMode = "configured_roots" | "confirmed_roots";
@@ -92,6 +94,8 @@ export interface CodexGPTConfig {
   analysisEnabled: boolean;
   analysisLimits: AnalysisLimits;
   guidanceMode: GuidanceMode;
+  semanticMode: SemanticMode;
+  semanticProvider: SemanticProviderSelection;
   instructionFallbacks: string[];
   maxInstructionTotalBytes: number;
   maxSkillCandidates: number;
@@ -302,7 +306,22 @@ function toolContractVersionFrom(value: string | undefined): ToolContractVersion
   if (normalized === "2") return 2;
   if (normalized === "3") return 3;
   if (normalized === "4") return 4;
-  throw new Error("CODEXGPT_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4.");
+  if (normalized === "5") return 5;
+  throw new Error("CODEXGPT_TOOL_CONTRACT_VERSION must be 1, 2, 3, 4, or 5.");
+}
+
+function semanticModeFrom(value: string | undefined): SemanticMode {
+  const normalized = value?.trim();
+  if (!normalized || normalized === "legacy") return "legacy";
+  if (normalized === "standard") return "standard";
+  throw new Error("CODEXGPT_SEMANTIC_MODE must be legacy or standard.");
+}
+
+function semanticProviderFrom(value: string | undefined): SemanticProviderSelection {
+  const normalized = value?.trim();
+  if (!normalized || normalized === "builtin") return "builtin";
+  if (normalized === "none") return "none";
+  throw new Error("CODEXGPT_SEMANTIC_PROVIDER must be builtin or none in Phase 7 Core.");
 }
 
 export interface FileTransactionCapabilities {
@@ -380,6 +399,8 @@ export interface ToolContractCapabilities {
   localApprovalAvailable?: boolean;
   gitCapabilityAvailable?: boolean;
   contractV4MigrationAvailable?: boolean;
+  semanticRuntimeAvailable?: boolean;
+  contractV5MigrationAvailable?: boolean;
 }
 
 export function assertToolContractConfiguration(
@@ -393,7 +414,8 @@ export function assertToolContractConfiguration(
   if (
     config.toolContractVersion !== 2 &&
     config.toolContractVersion !== 3 &&
-    config.toolContractVersion !== 4
+    config.toolContractVersion !== 4 &&
+    config.toolContractVersion !== 5
   ) {
     throw new Error("Unsupported tool contract version.");
   }
@@ -414,7 +436,7 @@ export function assertToolContractConfiguration(
     throw new Error(`${contractLabel} requires an available Phase 3 state root.`);
   }
   const exposesInheritedV3Actions =
-    (config.toolContractVersion === 3 || config.toolContractVersion === 4) &&
+    (config.toolContractVersion === 3 || config.toolContractVersion === 4 || config.toolContractVersion === 5) &&
     config.connectionTest !== true &&
     config.toolMode !== "minimal";
   if (exposesInheritedV3Actions) {
@@ -435,7 +457,7 @@ export function assertToolContractConfiguration(
     }
   }
   const exposesV4Actions =
-    config.toolContractVersion === 4 &&
+    (config.toolContractVersion === 4 || config.toolContractVersion === 5) &&
     config.connectionTest !== true &&
     config.toolMode !== "minimal";
   if (exposesV4Actions) {
@@ -450,6 +472,18 @@ export function assertToolContractConfiguration(
     }
     if (!capabilities.contractV4MigrationAvailable) {
       throw new Error("Contract V4 migration gate is not complete.");
+    }
+  }
+  const exposesV5Actions =
+    config.toolContractVersion === 5 &&
+    config.connectionTest !== true &&
+    config.toolMode !== "minimal";
+  if (exposesV5Actions) {
+    if (!capabilities.semanticRuntimeAvailable) {
+      throw new Error("Contract V5 requires the builtin semantic runtime.");
+    }
+    if (!capabilities.contractV5MigrationAvailable) {
+      throw new Error("Contract V5 migration gate is not complete.");
     }
   }
 }
@@ -643,7 +677,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
     ? args["file-transactions"]
     : undefined;
   if (args["tool-contract-version"] === true) {
-    throw new Error("--tool-contract-version requires a value of 1, 2, 3, or 4.");
+    throw new Error("--tool-contract-version requires a value of 1, 2, 3, 4, or 5.");
   }
   const toolContractVersionArg = typeof args["tool-contract-version"] === "string"
     ? args["tool-contract-version"]
@@ -654,6 +688,14 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
   const guidanceMode = guidanceModeInput === undefined && toolMode === "minimal"
     ? "legacy"
     : resolveGuidanceMode(guidanceModeInput);
+  const semanticMode = semanticModeFrom(process.env.CODEXGPT_SEMANTIC_MODE);
+  const explicitToolContractVersion = toolContractVersionArg ?? process.env.CODEXGPT_TOOL_CONTRACT_VERSION;
+  if (semanticMode === "standard" && explicitToolContractVersion !== undefined && explicitToolContractVersion.trim() !== "5") {
+    throw new Error("CODEXGPT_SEMANTIC_MODE=standard contradicts an explicit tool contract other than V5.");
+  }
+  if (semanticMode === "legacy" && explicitToolContractVersion?.trim() === "5") {
+    throw new Error("CODEXGPT_TOOL_CONTRACT_VERSION=5 requires CODEXGPT_SEMANTIC_MODE=standard.");
+  }
   const policyEngineArg = typeof args["policy-engine"] === "string" ? args["policy-engine"] : undefined;
   const auditModeArg = typeof args["audit-mode"] === "string" ? args["audit-mode"] : undefined;
   const permissionProfileArg = typeof args["permission-profile"] === "string" ? args["permission-profile"] : undefined;
@@ -710,7 +752,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
       fileTransactionsArg ?? process.env.CODEXGPT_FILE_TRANSACTIONS
     ),
     toolContractVersion: toolContractVersionFrom(
-      toolContractVersionArg ?? process.env.CODEXGPT_TOOL_CONTRACT_VERSION
+      semanticMode === "standard" ? "5" : explicitToolContractVersion
     ),
     toolMode,
     policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXGPT_POLICY_ENGINE),
@@ -826,6 +868,10 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
       maxRelationships: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_RELATIONSHIPS, DEFAULT_ANALYSIS_LIMITS.maxRelationships, 100, 2_000_000)
     },
     guidanceMode,
+    semanticMode,
+    semanticProvider: semanticMode === "standard"
+      ? semanticProviderFrom(process.env.CODEXGPT_SEMANTIC_PROVIDER)
+      : "builtin",
     instructionFallbacks: instructionFallbacksFrom(process.env.CODEXGPT_INSTRUCTION_FALLBACKS),
     maxInstructionTotalBytes: numberFrom(process.env.CODEXGPT_MAX_INSTRUCTION_TOTAL_BYTES, 32_768, 1_000, 200_000),
     maxSkillCandidates: numberFrom(process.env.CODEXGPT_MAX_SKILL_CANDIDATES, 1_000, 1, 10_000),
@@ -834,6 +880,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
   if (
     config.toolContractVersion !== 3 &&
     config.toolContractVersion !== 4 &&
+    config.toolContractVersion !== 5 &&
     (
       config.localFileAccess !== "configured_roots" ||
       config.executionProfile !== "off" ||
@@ -847,6 +894,7 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
   }
   if (
     config.toolContractVersion !== 4 &&
+    config.toolContractVersion !== 5 &&
     (config.gitMode !== "read" || config.gitIntegrations !== "off")
   ) {
     throw new Error("Contract V4 is required for local Git mutations or repository integrations.");
@@ -856,6 +904,9 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
   }
   if (config.gitIntegrations === "approved_full_access" && config.executionProfile !== "full_access") {
     throw new Error("Approved Git integrations require the explicit full_access execution profile.");
+  }
+  if (config.semanticMode === "standard" && config.toolMode === "minimal") {
+    throw new Error("CODEXGPT_SEMANTIC_MODE=standard requires CODEXGPT_TOOL_MODE=standard or full.");
   }
   assertAuditConfiguration(config, { durableStoreAvailable: true });
   return config;

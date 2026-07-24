@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.js";
+import { contractIncludesV4 } from "./tools/contracts/index.js";
 import { createStdioPolicySessionSource } from "./policy/identity.js";
 import { policyIdentityScopes } from "./policy/runtime.js";
 import {
@@ -38,7 +39,7 @@ async function main(): Promise<void> {
   process.env.CODEXGPT_ALLOW_NO_HTTP_TOKEN ??= "1";
   const config = loadConfig();
   const needsSessionContext =
-    config.toolContractVersion === 4 ||
+    contractIncludesV4(config.toolContractVersion) ||
     (config.policyEngineMode ?? "legacy") !== "legacy" ||
     (config.fileTransactions === "atomic" && config.writeMode !== "off");
   const policySessionContextSource = needsSessionContext

@@ -51,7 +51,7 @@ import {
   createCodexGPTServer,
   type CodexGPTServerDependencies
 } from "./server.js";
-import { contractIncludesV3 } from "./tools/contracts/index.js";
+import { contractIncludesV3, contractIncludesV4 } from "./tools/contracts/index.js";
 import {
   assertGitCapabilityEvidence,
   type GitCapabilityEvidence
@@ -176,7 +176,7 @@ function composeRuntime(
 ): RuntimeResources {
   const lifecycle = new ServerMutationLifecycle();
   let localApprovalRuntimeV3 = options.localApprovalRuntimeV3;
-  const automaticLocalApproval = config.toolContractVersion === 4 && Boolean(options.gitBootstrapV4);
+  const automaticLocalApproval = contractIncludesV4(config.toolContractVersion) && Boolean(options.gitBootstrapV4);
   const atomic = config.fileTransactions === "atomic";
   const writableAtomic = atomic && config.writeMode !== "off";
   const durableAudit = config.auditMode !== "off" && (
@@ -259,13 +259,13 @@ function composeRuntime(
   }
   if (
     options.taskWorktreeServiceV4 &&
-    (config.toolContractVersion !== 4 || config.gitMode !== "local" || !options.gitGateRRuntimeV4?.isReady())
+    (!contractIncludesV4(config.toolContractVersion) || config.gitMode !== "local" || !options.gitGateRRuntimeV4?.isReady())
   ) {
     throw new Error("Contract V4 task worktrees require local Git mode and a ready Gate R runtime.");
   }
 
   if (options.gitGateRRuntimeV4) {
-    if (config.toolContractVersion !== 4 || !durableAudit || !options.gitGateRRuntimeV4.isReady()) {
+    if (!contractIncludesV4(config.toolContractVersion) || !durableAudit || !options.gitGateRRuntimeV4.isReady()) {
       throw new Error("Gate R requires contract 4, durable audit, and completed startup recovery before production wiring.");
     }
   }
@@ -355,7 +355,7 @@ function composeRuntime(
       gitMutationServiceV4: options.gitMutationServiceV4,
       taskWorktreeServiceV4: options.taskWorktreeServiceV4,
       taskWorktreeAuthorityV4: options.taskWorktreeAuthorityV4,
-      ...(config.toolContractVersion === 4 ? {
+      ...(contractIncludesV4(config.toolContractVersion) ? {
         v4ContractCapabilities: {
           nativeHostIdentityAvailable: gitEvidenceConfigured,
           localApprovalAvailable: Boolean(localApprovalRuntimeV3) || automaticLocalApproval,

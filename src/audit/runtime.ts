@@ -62,7 +62,8 @@ export class PersistentAuditRuntimeV2 {
       revertsChangeSetId: input.revertsChangeSetId ?? null,
       operationCount: input.operationCount,
       mutationKinds: input.mutationKinds,
-      recoveryRequired: input.recoveryRequired
+      recoveryRequired: input.recoveryRequired,
+      ...(input.semanticFacts ? { semanticFacts: input.semanticFacts } : {})
     });
     await this.store.append(event);
     return { eventId: event.eventId, timestamp: event.timestamp };

@@ -49,7 +49,8 @@ function savedProfileCheck() {
   const checks = [
     ["Bash mode", profile?.bash, ["off", "safe", "full"]],
     ["Write mode", profile?.write, ["off", "handoff", "workspace"]],
-    ["Tool mode", profile?.toolMode, ["minimal", "standard", "full"]]
+    ["Tool mode", profile?.toolMode, ["minimal", "standard", "full"]],
+    ["Semantic Provider", profile?.semanticProvider, ["builtin", "none"]]
   ];
   let valid = true;
   for (const [label, value, allowed] of checks) {

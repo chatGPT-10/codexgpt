@@ -134,7 +134,13 @@ function closestExistingParent(absPath: string): string {
   return current;
 }
 
-type WorkspaceRevocationReason = "closed" | "expired" | "transport_closed" | "policy_revision_changed";
+export type WorkspaceRevocationReason = "closed" | "expired" | "transport_closed" | "policy_revision_changed";
+
+export interface WorkspaceRevocationEvent {
+  id: string;
+  key: string;
+  reason: WorkspaceRevocationReason;
+}
 
 interface WorkspaceRecord {
   workspace: Workspace;
@@ -191,6 +197,7 @@ export class WorkspaceManager {
   private readonly maxTombstones: number;
   private readonly confirmedRoots?: WorkspaceManagerOptions["confirmedRoots"];
   private readonly taskWorktrees?: WorkspaceManagerOptions["taskWorktrees"];
+  private readonly revocationListeners = new Set<(event: WorkspaceRevocationEvent) => void | Promise<void>>();
 
   constructor(
     private readonly config: CodexGPTConfig,
@@ -308,13 +315,19 @@ export class WorkspaceManager {
     if (!record) {
       try {
         const closed = this.confirmedRoots?.closeWorkspace(id);
-        if (closed) return closed;
+        if (closed) {
+          this.emitExternalRevocation(id, "closed", closed.closedAt);
+          return closed;
+        }
       } catch {
         // Preserve the same opaque not-found result for stale or foreign handles.
       }
       try {
         const closed = this.taskWorktrees?.closeWorkspace(id);
-        if (closed) return closed;
+        if (closed) {
+          this.emitExternalRevocation(id, "closed", closed.closedAt);
+          return closed;
+        }
       } catch {
         // Preserve the same opaque not-found result for stale or foreign handles.
       }
@@ -348,11 +361,13 @@ export class WorkspaceManager {
     try {
       for (const workspace of this.confirmedRoots?.listWorkspaces() ?? []) {
         this.confirmedRoots?.closeWorkspace(workspace.id);
+        this.emitExternalRevocation(workspace.id, reason, revokedAt);
       }
     } catch { }
     try {
       for (const workspace of this.taskWorktrees?.listWorkspaces() ?? []) {
         this.taskWorktrees?.closeWorkspace(workspace.id);
+        this.emitExternalRevocation(workspace.id, reason, revokedAt);
       }
     } catch { }
   }
@@ -362,6 +377,56 @@ export class WorkspaceManager {
     for (const record of [...this.records.values()]) {
       if (record.policyRevision === activePolicyRevision) continue;
       this.revokeRecord(record, "policy_revision_changed", revokedAt);
+    }
+  }
+
+  onWorkspaceRevoked(
+    listener: (event: WorkspaceRevocationEvent) => void | Promise<void>
+  ): () => void {
+    this.revocationListeners.add(listener);
+    return () => this.revocationListeners.delete(listener);
+  }
+
+  workspaceBindingDigest(id: string): string {
+    const workspace = this.getWorkspace(id);
+    const record = this.records.get(id);
+    return `sha256:${createHash("sha256").update(JSON.stringify({
+      domain: "codexgpt.workspace.semantic-binding.v1",
+      workspaceId: workspace.id,
+      workspaceKey: record?.key ?? workspaceKeyForRoot(workspace.root),
+      openedAt: workspace.openedAt,
+      accessClass: workspace.accessClass ?? null,
+      access: workspace.access ?? null,
+      leaseId: workspace.leaseId ?? null,
+      idleExpiresAt: workspace.idleExpiresAt ?? null,
+      absoluteExpiresAt: workspace.absoluteExpiresAt ?? null,
+      transportSessionId: record?.transportSessionId ?? this.currentTransportSessionId(),
+      identityBinding: record?.identityBinding ?? this.identityBinding,
+      policyRevision: record?.policyRevision ?? this.policyRevision()
+    }), "utf8").digest("hex")}`;
+  }
+
+  private emitExternalRevocation(
+    id: string,
+    reason: WorkspaceRevocationReason,
+    revokedAt: string
+  ): void {
+    this.tombstones.set(id, { workspaceId: id, revokedAt, reason });
+    while (this.tombstones.size > this.maxTombstones) {
+      const oldest = this.tombstones.keys().next().value;
+      if (typeof oldest !== "string") break;
+      this.tombstones.delete(oldest);
+    }
+    const key = `external:${id}`;
+    for (const listener of this.revocationListeners) {
+      try {
+        const pending = listener({ id, key, reason });
+        if (pending && typeof (pending as PromiseLike<void>).then === "function") {
+          void Promise.resolve(pending).catch(() => undefined);
+        }
+      } catch {
+        // Revocation remains authoritative even if an observer fails.
+      }
     }
   }
 
@@ -419,6 +484,14 @@ export class WorkspaceManager {
       revokedAt,
       reason
     });
+    const event: WorkspaceRevocationEvent = {
+      id: record.workspace.id,
+      key: record.key,
+      reason
+    };
+    for (const listener of this.revocationListeners) {
+      void Promise.resolve(listener(event)).catch(() => undefined);
+    }
     while (this.tombstones.size > this.maxTombstones) {
       const oldest = this.tombstones.keys().next().value;
       if (typeof oldest !== "string") break;
@@ -553,7 +626,7 @@ export class PathGuard {
     if (!existingParent || !isSubpath(existingParent, workspace.root)) {
       throw new CodexGPTError(`Path parent is outside the workspace: ${inputPath}`);
     }
-    const parentStat = fs.statSync(existingParent);
+    const parentStat = fs.statSync(existingParent, { bigint: true });
     const parentIdentityPayload = `${existingParent}\0${parentStat.dev}\0${parentStat.ino}`;
     const existingParentIdentity = `parent_${createHash("sha256").update(parentIdentityPayload).digest("hex").slice(0, 24)}`;
     const canonicalRelPath = displayPath(targetAbsPath, workspace.root);

@@ -158,6 +158,7 @@ class PendingWorkspaceMutationImpl implements PendingWorkspaceMutation {
     private readonly project: (input: MutationProjectionInput<object>) => object,
     private readonly failureProjector: ((input: MutationFailureProjectionInput<object>) => object | null) | undefined,
     private readonly now: () => number,
+    private readonly validateLifecycle: (() => void) | undefined,
     operations: readonly { kind: "create" | "replace" | "delete" }[],
     private readonly onSettled: (pending: PendingWorkspaceMutationImpl) => void
   ) {
@@ -195,16 +196,28 @@ class PendingWorkspaceMutationImpl implements PendingWorkspaceMutation {
     let phase: "install" | "audit" | "change_set" | "finalize" = "install";
     const createdChangeSet: { value: ChangeSetManifestV1 | null } = { value: null };
     try {
+      this.validateLifecycle?.();
       this.pendingCommit = await this.prepared.commit();
+      this.validateLifecycle?.();
+      if (this.validateLifecycle) {
+        await this.pendingCommit.commitParticipant("semantic", async () => {
+          this.validateLifecycle?.();
+        });
+      }
       phase = "audit";
       await this.pendingCommit.commitParticipant("audit", async () => {
+        this.validateLifecycle?.();
         await input.persistAudit();
+        this.validateLifecycle?.();
       });
       phase = "change_set";
       await this.pendingCommit.commitParticipant("change_set", async () => {
+        this.validateLifecycle?.();
         createdChangeSet.value = this.changeSetStore.create(this.changeSetInput);
+        this.validateLifecycle?.();
       });
       phase = "finalize";
+      this.validateLifecycle?.();
       const committed = await this.pendingCommit.finalize();
       if (!createdChangeSet.value) {
         throw new TransactionError(
@@ -324,7 +337,8 @@ export class WorkspaceMutationRuntime {
   ): Promise<PendingWorkspaceMutation> {
     const prepared = await this.engine.prepare({
       ...input.transaction,
-      requiredParticipants: ["audit", "change_set"]
+      requiredParticipants: input.validateLifecycle ? ["semantic", "audit", "change_set"] : ["audit", "change_set"],
+      ...(input.validateLifecycle ? { finalizationGuard: input.validateLifecycle } : {})
     });
     let changeSetInput: CreateChangeSetInput | null = null;
     try {
@@ -354,6 +368,7 @@ export class WorkspaceMutationRuntime {
         projection: MutationFailureProjectionInput<object>
       ) => object | null) | undefined,
       this.now,
+      input.validateLifecycle,
       input.transaction.operations,
       (settled) => context?.pending.delete(settled)
     );

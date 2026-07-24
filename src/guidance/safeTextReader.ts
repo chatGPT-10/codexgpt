@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { PathGuard, assertSafePathInput, displayPath, isSubpath, normalizeRelPath, type Workspace } from "../guard.js";
@@ -22,6 +23,9 @@ export interface GuidanceReadSuccess {
   returnedBytes: number;
   bom: boolean;
   identity: { dev: string; ino: string; nlink: number };
+  canonicalParentPath: string;
+  parentIdentity: string;
+  rawSha256: string;
 }
 
 export interface GuidanceReadFailure {
@@ -35,6 +39,12 @@ export interface GuidanceReadOptions {
   relativePath: string;
   maxBytes: number;
   blockedGlobs: string[];
+  preparedBoundary?: {
+    root: string;
+    guard: PathGuard;
+  };
+  verificationPasses?: 1 | 2;
+  expectedRawSha256?: string;
   testHooks?: {
     afterOpen?: () => void | Promise<void>;
     afterRead?: () => void | Promise<void>;
@@ -98,9 +108,9 @@ function classifyPreOpenError(error: unknown): GuidanceReadFailureReason {
 }
 
 export async function readGuidanceText(options: GuidanceReadOptions): Promise<GuidanceReadSuccess | GuidanceReadFailure> {
-  const root = fs.realpathSync.native(path.resolve(options.root));
+  const root = options.preparedBoundary?.root ?? fs.realpathSync.native(path.resolve(options.root));
   const workspace: Workspace = { id: "guidance-reader", root, openedAt: "1970-01-01T00:00:00.000Z" };
-  const guard = new PathGuard({ blockedGlobs: options.blockedGlobs });
+  const guard = options.preparedBoundary?.guard ?? new PathGuard({ blockedGlobs: options.blockedGlobs });
   let resolved: { absPath: string; relPath: string };
   try {
     resolved = guard.resolve(workspace, normalizeGuidancePathInput(options.relativePath));
@@ -132,15 +142,17 @@ export async function readGuidanceText(options: GuidanceReadOptions): Promise<Gu
     if (offset !== buffer.length) return failure(safePath, "READ_IDENTITY_CHANGED");
     await options.testHooks?.afterRead?.();
 
-    const verification = Buffer.alloc(buffer.length);
-    let verificationOffset = 0;
-    while (verificationOffset < verification.length) {
-      const read = await handle.read(verification, verificationOffset, verification.length - verificationOffset, verificationOffset);
-      if (read.bytesRead === 0) break;
-      verificationOffset += read.bytesRead;
-    }
-    if (verificationOffset !== verification.length || !verification.equals(buffer)) {
-      return failure(safePath, "READ_IDENTITY_CHANGED");
+    if (options.verificationPasses !== 1) {
+      const verification = Buffer.alloc(buffer.length);
+      let verificationOffset = 0;
+      while (verificationOffset < verification.length) {
+        const read = await handle.read(verification, verificationOffset, verification.length - verificationOffset, verificationOffset);
+        if (read.bytesRead === 0) break;
+        verificationOffset += read.bytesRead;
+      }
+      if (verificationOffset !== verification.length || !verification.equals(buffer)) {
+        return failure(safePath, "READ_IDENTITY_CHANGED");
+      }
     }
 
     const after = await handle.stat({ bigint: true });
@@ -164,12 +176,22 @@ export async function readGuidanceText(options: GuidanceReadOptions): Promise<Gu
     if (guard.isBlockedRelativePath(canonicalPath)) return failure(safePath, "READ_BLOCKED");
     if (buffer.includes(0)) return failure(safePath, "READ_NOT_TEXT");
 
-    let text: string;
-    try {
-      text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
-    } catch {
-      return failure(safePath, "READ_NOT_TEXT");
+    const rawSha256 = createHash("sha256").update(buffer).digest("hex");
+    const verifiedExistingText = options.expectedRawSha256 !== undefined &&
+      /^[a-f0-9]{64}$/u.test(options.expectedRawSha256) &&
+      rawSha256 === options.expectedRawSha256;
+    if (options.expectedRawSha256 !== undefined && !verifiedExistingText) {
+      return failure(safePath, "READ_IDENTITY_CHANGED");
     }
+    let text = "";
+    if (!verifiedExistingText) {
+      try {
+        text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buffer);
+      } catch {
+        return failure(safePath, "READ_NOT_TEXT");
+      }
+    }
+    const parentStat = await fsp.stat(currentParent, { bigint: true });
     return {
       ok: true,
       path: safePath,
@@ -177,7 +199,13 @@ export async function readGuidanceText(options: GuidanceReadOptions): Promise<Gu
       sourceBytes: buffer.length,
       returnedBytes: buffer.length,
       bom: buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf,
-      identity: identity(before)
+      identity: identity(before),
+      canonicalParentPath: currentParent,
+      parentIdentity: `parent_${createHash("sha256")
+        .update(`${currentParent}\0${parentStat.dev}\0${parentStat.ino}`, "utf8")
+        .digest("hex")
+        .slice(0, 24)}`,
+      rawSha256
     };
   } catch (error) {
     return failure(safePath, classifyPreOpenError(error));

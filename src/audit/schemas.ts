@@ -44,6 +44,23 @@ const boundedByteCountsSchema = z.record(
   (value) => Object.keys(value).length <= 16,
   "Audit byte-count maps are bounded to sixteen entries."
 );
+const semanticAuditFactsV1Schema = z.object({
+  schemaVersion: z.literal(1),
+  semanticFactsDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  manifestDigest: sha256Schema,
+  provider: z.literal("builtin-typescript"),
+  engineVersion: z.string().min(1).max(80).regex(/^[A-Za-z0-9][A-Za-z0-9.+_-]*$/),
+  providerGeneration: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  workspaceBindingDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  affectedFileCount: z.number().int().positive().max(64),
+  editCount: z.number().int().positive().max(5_000),
+  totalAfterBytes: z.number().int().nonnegative().max(64 * 1024 * 1024),
+  files: z.array(z.object({
+    pathFingerprint: sha256Schema,
+    expectedSha256: sha256Schema,
+    resultingSha256: sha256Schema
+  }).strict()).min(1).max(64)
+}).strict();
 
 const commonShape = {
   schemaVersion: z.literal(2),
@@ -82,7 +99,8 @@ const rawAuthorizationAuditEventV2Schema = z.object({
   approvalState: z.enum(["not_required", "required", "granted", "denied"]),
   grantId: nullableSafeIdSchema,
   sandboxBackend: safeOneLineSchema,
-  riskClass: z.enum(["R0", "R1", "R2", "R3", "R4"])
+  riskClass: z.enum(["R0", "R1", "R2", "R3", "R4"]),
+  semanticFacts: semanticAuditFactsV1Schema.optional()
 }).strict();
 
 export const authorizationAuditEventV2Schema: z.ZodType<AuthorizationAuditEventV2> =
@@ -101,7 +119,8 @@ const rawExecutionAuditEventV2Schema = z.object({
   revertsChangeSetId: z.string().regex(/^cs_[a-f0-9]{32}$/).nullable().optional(),
   operationCount: nonnegativeIntegerSchema,
   mutationKinds: mutationKindsSchema,
-  recoveryRequired: z.boolean()
+  recoveryRequired: z.boolean(),
+  semanticFacts: semanticAuditFactsV1Schema.optional()
 }).strict();
 
 function validateExecutionEvent(value: ExecutionAuditEventV2, context: z.RefinementCtx): void {

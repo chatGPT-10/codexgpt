@@ -2,7 +2,8 @@ import { CANONICAL_CODEXGPT_CHILD_TOOLS, type CanonicalCodexGPTChildTool } from 
 import { gitV4PolicyDefinition, type GitV4PolicyDefinition } from "../git/resources.js";
 import {
   CONTRACT_V3_ADDITIONS,
-  CONTRACT_V4_ADDITIONS
+  CONTRACT_V4_ADDITIONS,
+  CONTRACT_V5_ADDITIONS
 } from "../tools/contracts/index.js";
 import type { GitOperationV4, PolicyScope, PolicyScopeV3, RiskClass } from "./types.js";
 export type { PolicyScopeV3 } from "./types.js";
@@ -92,6 +93,7 @@ export const TOOL_POLICY_DEFINITIONS: Readonly<Record<CanonicalCodexGPTChildTool
 const canonicalSet = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS);
 const v3AdditionSet = new Set<string>(CONTRACT_V3_ADDITIONS);
 const v4AdditionSet = new Set<string>(CONTRACT_V4_ADDITIONS);
+const v5AdditionSet = new Set<string>(CONTRACT_V5_ADDITIONS);
 
 export const DISABLED_V3_TOOL_POLICY: ToolPolicyDefinition = Object.freeze({
   riskClass: "R4",
@@ -132,6 +134,10 @@ const V4_TOOL_POLICY_DEFINITIONS: Readonly<Record<string, ToolPolicyDefinition>>
   remove_task_worktree: Object.freeze({ riskClass: "R4", requiredScope: null, resourceMode: "resolved" })
 });
 
+const V5_TOOL_POLICY_DEFINITIONS: Readonly<Record<string, ToolPolicyDefinition>> = Object.freeze({
+  semantic: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "workspace_read" })
+});
+
 export function gateRPolicyDefinition(
   toolName: string,
   operation?: GitOperationV4
@@ -146,6 +152,7 @@ export function toolPolicyDefinition(toolName: string): ToolPolicyDefinition {
   if (toolName === "query_audit_events") return AUDIT_QUERY_TOOL_POLICY_V2;
   if (v3AdditionSet.has(toolName)) return V3_TOOL_POLICY_DEFINITIONS[toolName];
   if (v4AdditionSet.has(toolName)) return V4_TOOL_POLICY_DEFINITIONS[toolName] ?? DISABLED_V4_TOOL_POLICY;
+  if (v5AdditionSet.has(toolName)) return V5_TOOL_POLICY_DEFINITIONS[toolName];
   if (!canonicalSet.has(toolName)) throw new Error("Registered tool is outside the closed Policy Kernel tool set.");
   return TOOL_POLICY_DEFINITIONS[toolName as CanonicalCodexGPTChildTool];
 }

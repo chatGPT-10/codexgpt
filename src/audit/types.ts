@@ -33,6 +33,24 @@ export type AuditEventType =
   | "recovery"
   | "administrative";
 
+export interface SemanticAuditFactsV1 {
+  schemaVersion: 1;
+  semanticFactsDigest: string;
+  manifestDigest: string;
+  provider: "builtin-typescript";
+  engineVersion: string;
+  providerGeneration: number;
+  workspaceBindingDigest: string;
+  affectedFileCount: number;
+  editCount: number;
+  totalAfterBytes: number;
+  files: Array<{
+    pathFingerprint: string;
+    expectedSha256: string;
+    resultingSha256: string;
+  }>;
+}
+
 export interface AuditEventCommonV2 {
   schemaVersion: 2;
   eventId: string;
@@ -62,6 +80,7 @@ export interface AuthorizationAuditEventV2 extends AuditEventCommonV2 {
   grantId: string | null;
   sandboxBackend: string;
   riskClass: RiskClass;
+  semanticFacts?: SemanticAuditFactsV1;
 }
 
 export type ExecutionAuditStatus =
@@ -91,6 +110,7 @@ export interface ExecutionAuditEventV2 extends AuditEventCommonV2 {
   operationCount: number;
   mutationKinds: AuditMutationKind[];
   recoveryRequired: boolean;
+  semanticFacts?: SemanticAuditFactsV1;
 }
 
 export type RecoveryAuditAction =

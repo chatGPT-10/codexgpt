@@ -16,6 +16,7 @@ import {
   FULL_ACCESS_PROCESS_AUTHORITY_V3,
   FULL_ACCESS_PROCESS_WARNING_V3
 } from "./authority.js";
+import { contractIncludesV4 } from "../tools/contracts/index.js";
 
 export interface PersistentProcessHandleV3 {
   backend?: {
@@ -78,7 +79,7 @@ export class ProcessManagerV3 implements ToolResourceResolver {
 
   async start(args: Record<string, unknown>): Promise<Record<string, unknown>> {
     const prepared = this.#execution?.preparePersistent(args) ?? null;
-    const input = this.#execution?.toolContractVersion === 4
+    const input = this.#execution && contractIncludesV4(this.#execution.toolContractVersion)
       ? startProcessInputV4Schema.parse(args)
       : startProcessInputV1Schema.parse(args);
     if (input.mode !== "full_access") throw new Error("PROCESS_SANDBOX_UNAVAILABLE");
@@ -153,7 +154,7 @@ export class ProcessManagerV3 implements ToolResourceResolver {
   }
   async resize(id: string, columns: number, rows: number): Promise<void> { await this.#requireRunning(id).handle!.resize(columns, rows); }
 
-  read(id: string, cursor?: string, maxBytes = 64 * 1024): Record<string, unknown> { const r = this.#owned(id); if (!r) throw new Error("PROCESS_NOT_FOUND"); const state = cursor ? this.#cursor.decode(cursor, { processId: id, generation: r.generation, contextFingerprint: r.context }) : { sequence: 0, offset: 0 }; const page = r.ring.read({ sequence: state.sequence, offset: state.offset, maxBytes }); const output = { chunks: page.chunks, next_cursor: page.eof ? null : this.#cursor.encode({ processId: id, generation: r.generation, sequence: page.next.sequence, offset: 0, contextFingerprint: r.context, expiresAt: r.expiresAt }), truncated: page.truncated, eof: page.eof, returned_bytes: page.returnedBytes }; const v4 = this.#execution?.toolContractVersion === 4; const data = { process_id: id, status: r.status, output, ...(v4 ? { exit_code: r.exitCode, verification_receipt: r.verificationReceipt } : {}) }; const schema = v4 ? readProcessOutputOutputSchemaV4 : readProcessOutputOutputSchema; return schema.parse({ codexgpt_tool: "read_process_output", codexgpt_title: "Read Process Output", ok: true, data, error: null, meta: createToolMeta() }) as Record<string, unknown>; }
+  read(id: string, cursor?: string, maxBytes = 64 * 1024): Record<string, unknown> { const r = this.#owned(id); if (!r) throw new Error("PROCESS_NOT_FOUND"); const state = cursor ? this.#cursor.decode(cursor, { processId: id, generation: r.generation, contextFingerprint: r.context }) : { sequence: 0, offset: 0 }; const page = r.ring.read({ sequence: state.sequence, offset: state.offset, maxBytes }); const output = { chunks: page.chunks, next_cursor: page.eof ? null : this.#cursor.encode({ processId: id, generation: r.generation, sequence: page.next.sequence, offset: 0, contextFingerprint: r.context, expiresAt: r.expiresAt }), truncated: page.truncated, eof: page.eof, returned_bytes: page.returnedBytes }; const v4 = Boolean(this.#execution && contractIncludesV4(this.#execution.toolContractVersion)); const data = { process_id: id, status: r.status, output, ...(v4 ? { exit_code: r.exitCode, verification_receipt: r.verificationReceipt } : {}) }; const schema = v4 ? readProcessOutputOutputSchemaV4 : readProcessOutputOutputSchema; return schema.parse({ codexgpt_tool: "read_process_output", codexgpt_title: "Read Process Output", ok: true, data, error: null, meta: createToolMeta() }) as Record<string, unknown>; }
   list(): Record<string, unknown> { const processes = [...this.#records.values()].filter((r) => r.context === this.#context()).slice(0, 32).map((r) => ({ process_id: r.id, status: r.status, mode: r.mode, terminal: r.terminal, started_at: new Date(r.startedAt).toISOString(), absolute_expires_at: new Date(r.expiresAt).toISOString() })); return listProcessesOutputSchema.parse({ codexgpt_tool: "list_processes", codexgpt_title: "List Processes", ok: true, data: { processes, process_count: processes.length }, error: null, meta: createToolMeta() }) as Record<string, unknown>; }
 
   async writeResult(args: Record<string, unknown>): Promise<Record<string, unknown>> { const id = String(args.process_id ?? ""); await this.write(id, String(args.data ?? ""), args.close === true); return this.#stateResult(writeProcessInputOutputSchema, "write_process_input", "Write Process Input", id); }

@@ -142,6 +142,20 @@ Contract V4 is exact 51 and requires atomic state, durable audit, Policy Kernel 
 
 Repository integrations that require hooks, filters, signing, merge helpers, or similar programs are not run by the safe path. Enabling a configuration value never authorizes silent ambient execution; if an exact approved integration path is unavailable, the operation fails with an action-oriented error. Gate X requires explicit `approved_full_access`, local Git mode, one exact fresh R3 grant, and unchanged executable/repository/integration identities. It exposes only private-index stage, shadow-directory commit, quarantined object-only merge, and private-destination checkout; no caller-selected Git command or typed remote, credential, force, or config mutation exists. These four operations remain ambient current-user execution with no filesystem, credential, registry, network, or broker isolation, and both the local approval display and public result state that limit.
 
+## Contract V5 Semantic Core Boundaries
+
+Contract V5 is exact V4 inheritance plus one `semantic` tool and is available only in explicit Phase 7 `standard` mode. V1/V2/V3/V4 remain exact and do not accept the semantic-preview branch.
+
+- Every workspace source, configuration, package metadata, and declaration read passes the canonical same-handle reader and requires `nlink === 1`. Canonical path, stable object identity, parent/path binding, content hash, and policy/workspace generation are retained for later validation.
+- Builtin TypeScript compiler work runs in a bounded owned worker over server-created snapshots. The worker receives no caller-selected executable, command, environment, endpoint, package version, or project script authority. It still runs as the current user: `execution_isolation: none`, `filesystem_isolation: none`, and `network_isolation: none` are the truthful boundary.
+- Definition, references, and diagnostics are read-only. Lexical fallback is explicitly labeled through `result_quality`; rename never falls back to lexical replacement.
+- `rename_preview` creates one random, opaque, server-local, workspace- and policy-bound plan. It contains the complete edit and identity manifest but performs no mutation and grants no approval.
+- V5 `apply_patch` may consume an exact `semantic_preview_id` once. The Policy Kernel binds the same `semanticFactsDigest` through pre-authorization, approval display, reservation, transaction request, lock-held second inspection, terminal audit, and change-set publication.
+- Any drift, replay, foreign/expired token, provider generation change, workspace revocation, policy/access/worktree change, transaction attempt, or uncertain terminal state fails closed and burns the preview. The transaction path reopens and revalidates every target while holding the existing workspace lock.
+- A Provider cannot grant workspace access, approve a mutation, write files, invoke Git or shell commands, install software, or bypass the existing transaction runtime. Only the server-owned prepared-batch mutation path can commit semantic edits.
+- Persistent audit excludes preview-token values, source bodies, complete diffs, raw worker stderr, and absolute workspace paths. Public output exposes relative paths, bounded previews, counts, one manifest digest, and actionable safe errors.
+- Serena and direct LSP are not bundled Core capabilities. Any future same-user Provider remains ambient authority unless a separately proven isolation boundary exists; protocol allowlisting alone is not a sandbox.
+
 During the migration cycle, rollback is permitted only to reviewed legacy behavior, the exact generated compatibility profile, or a narrower read-only profile. Invalid policy configuration cannot fall through to an unguarded execution path.
 
 ## Contract V3 Trusted-Code Execution Boundaries

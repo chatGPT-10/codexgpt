@@ -47,8 +47,8 @@ CodexGPT is not a hosted coding service, model proxy, quota bypass, account pool
 
 - Package metadata is currently `codexgpt@0.28.6`; `main` contains unreleased changes that may be ahead of npm.
 - Native Windows is a primary supported environment. WSL is not required. PowerShell is supported; Git Bash remains useful for Bash-oriented workflows.
-- The default public tool contract remains V1. Contracts V2, V3, and V4 are explicit opt-in advanced surfaces.
-- Phases 5 and 6 are closed on full Ubuntu/Windows Node 20/24 validation matrices. Project guidance now defaults to `standard`; typed local Git, managed task worktrees, and guidance/Skill reads retain their documented fail-closed and no-sandbox boundaries.
+- The default public tool contract remains V1. Contracts V2, V3, V4, and the explicit-standard Phase 7 Core V5 surface are advanced opt-ins.
+- Phases 5 and 6 are closed on full Ubuntu/Windows Node 20/24 validation matrices. Phase 7 Core is implemented locally and remains in pre-publication validation; its default activation and exact-head closure are not yet claimed.
 
 Check the npm badge before installing. Use a source checkout when you specifically need unreleased `main` behavior.
 
@@ -182,6 +182,35 @@ codexgpt start
 
 Run `codexgpt doctor` to see readiness, invalid metadata, collisions, and scan/catalog truncation. The omitted mode is now `standard`; explicit `legacy` remains the one-restart rollback path. Because `minimal` does not expose `codex_context`, omitted guidance with `--tool-mode minimal` uses the exact legacy compatibility projection; explicitly requesting `standard` with minimal fails at startup.
 
+### Phase 7 Core semantic navigation
+
+Phase 7 Core adds an explicit-standard Contract V5 with one zero-setup `semantic` tool for JavaScript and TypeScript. It supports `definition`, `references`, one-file `diagnostics`, and `rename_preview`. A symbol locator may omit the path only when the symbol resolves uniquely; ambiguous names return bounded candidates instead of guessing. Results use workspace-relative paths and report `actual_provider` plus `result_quality` so lexical fallback is never presented as semantic certainty.
+
+Enable the builtin engine for this workspace, restart, then run **Scan Tools** once in an existing 51-tool ChatGPT App or recreate the App:
+
+```powershell
+codexgpt semantic use builtin
+codexgpt start
+```
+
+Inspect health and bounded worker facts locally:
+
+```powershell
+codexgpt semantic status
+codexgpt semantic status --verbose
+```
+
+A rename is two distinct operations. `semantic` with `rename_preview` creates a complete, hash- and identity-bound in-memory plan without writing files. V5 `apply_patch` consumes its opaque `semantic_preview_id` once and applies the whole batch through the existing approval, atomic transaction, audit, change-set, review, and undo path. A preview is not approval, and a Provider never gains workspace or mutation authority.
+
+Rollback is one restart and leaves ordinary read/search/edit tools unchanged:
+
+```powershell
+codexgpt semantic disable
+codexgpt start
+```
+
+The builtin worker runs as the current user and is not an execution, filesystem, credential, or network sandbox. Serena and direct LSP Providers are unimplemented post-Core extensions and are not bundled or installed by this feature.
+
 Disable all ChatGPT-triggered shell commands:
 
 ```powershell
@@ -240,6 +269,9 @@ codexgpt setup
 codexgpt start
 codexgpt stable --hostname mcp.example.com --tunnel-name codexgpt
 codexgpt doctor
+codexgpt semantic status --verbose
+codexgpt semantic use builtin
+codexgpt semantic disable
 codexgpt connection-test --root <repo>
 codexgpt settings
 codexgpt inspect --root <repo>
@@ -281,6 +313,7 @@ The default path is intentionally simpler. Advanced versions are explicit:
 - **V2**: atomic transactions, durable audit, move/undo, and bounded audit queries. Explicit contract V2 activation requires atomic transactions and persistent audit and defines exactly 31 child tools.
 - **V3**: trusted-code Windows process execution and confirmed-root admission with separate local one-use approvals.
 - **V4**: typed local Git operations and owner-bound managed task worktrees.
+- **V5**: exact V4 inheritance plus one read-only `semantic` tool in explicit `standard` mode. The builtin TypeScript engine can create a rename preview, while only V5 `apply_patch` may consume `semantic_preview_id` through the existing atomic mutation path.
 
 Writable atomic V1 requires persistent terminal audit. A PowerShell example for exact V2 activation is:
 

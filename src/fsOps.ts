@@ -80,6 +80,8 @@ export interface WorkspaceTextBatchWrite {
   content: string;
   mode: WorkspaceTextBatchMode;
   expectedSha256?: string;
+  expectedStableIdentity?: { dev: string; ino: string };
+  expectedParentIdentity?: string;
   missingContent?: string;
 }
 
@@ -253,7 +255,13 @@ export async function prepareWorkspaceTextBatch(
           kind: "replace",
           relativePath: inspected.relPath,
           bytes,
-          expectedSha256: inspected.before.sha256
+          expectedSha256: inspected.before.sha256,
+          ...(write.expectedStableIdentity
+            ? { expectedStableIdentity: { ...write.expectedStableIdentity } }
+            : {}),
+          ...(write.expectedParentIdentity
+            ? { expectedParentIdentity: write.expectedParentIdentity }
+            : {})
         }
       : {
           operationId,

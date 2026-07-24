@@ -71,9 +71,21 @@ const standardServerConfigDataSchema = legacyServerConfigDataSchema.extend({
   maxSkillCatalogChars: z.number().int().min(1_000).max(32_000)
 }).strict();
 
+const semanticServerConfigDataSchema = standardServerConfigDataSchema.extend({
+  toolContractVersion: z.literal(5),
+  semanticMode: z.literal("standard"),
+  semanticProvider: z.enum(["builtin", "none"]),
+  semanticActualProvider: z.enum(["builtin-typescript", "none"]),
+  semanticState: z.enum(["ready", "disabled", "cooldown", "unavailable"]),
+  semanticResultQuality: z.enum(["semantic", "lexical"]),
+  semanticNextAction: z.string().min(1).max(240),
+  semanticRetryAfterMs: z.number().int().nonnegative()
+}).strict();
+
 export const serverConfigDataSchema = z.union([
   legacyServerConfigDataSchema,
-  standardServerConfigDataSchema
+  standardServerConfigDataSchema,
+  semanticServerConfigDataSchema
 ]);
 
 const internalErrorSchema = toolErrorSchema.extend({

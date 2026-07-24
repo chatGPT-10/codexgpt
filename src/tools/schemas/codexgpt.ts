@@ -5,6 +5,7 @@ import {
   CONTRACT_V2_CHILD_TOOLS,
   CONTRACT_V3_CHILD_TOOLS,
   CONTRACT_V4_CHILD_TOOLS,
+  CONTRACT_V5_CHILD_TOOLS,
   canonicalToolsForVersion
 } from "../contracts/catalog.js";
 import {
@@ -66,17 +67,20 @@ import { listTaskWorktreesOutputSchemaV4 } from "./listTaskWorktrees.js";
 import { getTaskWorktreeOutputSchemaV4 } from "./getTaskWorktree.js";
 import { mergeTaskWorktreeOutputSchemaV4 } from "./mergeTaskWorktree.js";
 import { removeTaskWorktreeOutputSchemaV4 } from "./removeTaskWorktree.js";
+import { semanticOutputSchema } from "./semantic.js";
 
 export const CANONICAL_CODEXGPT_CHILD_TOOLS_V1 = CONTRACT_V1_CHILD_TOOLS;
 export const CANONICAL_CODEXGPT_CHILD_TOOLS_V2 = CONTRACT_V2_CHILD_TOOLS;
 export const CANONICAL_CODEXGPT_CHILD_TOOLS_V3 = CONTRACT_V3_CHILD_TOOLS;
 export const CANONICAL_CODEXGPT_CHILD_TOOLS_V4 = CONTRACT_V4_CHILD_TOOLS;
+export const CANONICAL_CODEXGPT_CHILD_TOOLS_V5 = CONTRACT_V5_CHILD_TOOLS;
 export const CANONICAL_CODEXGPT_CHILD_TOOLS = CANONICAL_CODEXGPT_CHILD_TOOLS_V1;
 
 export type CanonicalCodexGPTChildTool = typeof CANONICAL_CODEXGPT_CHILD_TOOLS[number];
 export type CanonicalCodexGPTChildToolV2 = typeof CANONICAL_CODEXGPT_CHILD_TOOLS_V2[number];
 export type CanonicalCodexGPTChildToolV3 = typeof CANONICAL_CODEXGPT_CHILD_TOOLS_V3[number];
 export type CanonicalCodexGPTChildToolV4 = typeof CANONICAL_CODEXGPT_CHILD_TOOLS_V4[number];
+export type CanonicalCodexGPTChildToolV5 = typeof CANONICAL_CODEXGPT_CHILD_TOOLS_V5[number];
 
 export function canonicalCodexGPTChildTools(version: ToolContractVersion) {
   return canonicalToolsForVersion(version);
@@ -1099,6 +1103,189 @@ export function wrapCodexGPTChildResultV4(
   }
   const parsedChild = childOutputSchemasV4[wrappedTool].parse(child);
   return codexgptOutputSchemaV4.parse({
+    ...parsedChild,
+    codexgpt_super_action: safePublicAction(action),
+    wrapped_tool: wrappedTool
+  });
+}
+
+const canonicalToolSchemaV5 = z.enum(
+  [...CANONICAL_CODEXGPT_CHILD_TOOLS_V5] as unknown as [
+    CanonicalCodexGPTChildToolV5,
+    ...CanonicalCodexGPTChildToolV5[]
+  ]
+);
+const canonicalToolSetV5 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V5);
+const childOutputSchemasV5 = Object.freeze({
+  ...childOutputSchemasV4,
+  semantic: semanticOutputSchema
+} satisfies Record<CanonicalCodexGPTChildToolV5, z.ZodTypeAny>);
+
+export const CODEXGPT_CHILD_OUTPUT_SCHEMAS_V5 = childOutputSchemasV5;
+
+export function resolveCodexGPTActionV5(action: string): CanonicalCodexGPTChildToolV5 | null {
+  if (canonicalToolSetV5.has(action)) return action as CanonicalCodexGPTChildToolV5;
+  const alias = CODEXGPT_ACTION_ALIASES[action as CodexGPTAlias];
+  return alias && canonicalToolSetV5.has(alias) ? alias : null;
+}
+
+const codexgptErrorSchemaV5 = z.union([
+  toolErrorSchema.extend({
+    code: z.literal("ACTION_NOT_AVAILABLE"),
+    message: z.literal(CODEXGPT_ERROR_MESSAGES.ACTION_NOT_AVAILABLE),
+    retryable: z.literal(false),
+    details: z.object({ action: safeActionSchema }).strict()
+  }).strict(),
+  toolErrorSchema.extend({
+    code: z.literal("ACTION_ARGUMENTS_INVALID"),
+    message: z.literal(CODEXGPT_ERROR_MESSAGES.ACTION_ARGUMENTS_INVALID),
+    retryable: z.literal(false),
+    details: z.object({ action: safeActionSchema, wrapped_tool: canonicalToolSchemaV5 }).strict()
+  }).strict(),
+  toolErrorSchema.extend({
+    code: z.literal("CHILD_RESULT_INVALID"),
+    message: z.literal(CODEXGPT_ERROR_MESSAGES.CHILD_RESULT_INVALID),
+    retryable: z.literal(false),
+    details: z.object({ action: safeActionSchema, wrapped_tool: canonicalToolSchemaV5 }).strict()
+  }).strict(),
+  internalErrorSchema
+]);
+
+const codexgptListActionsDataSchemaV5 = z.object({
+  actions: z.array(canonicalToolSchemaV5),
+  action_count: z.number().int().nonnegative()
+}).strict().superRefine((value, context) => {
+  if (value.action_count !== value.actions.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["action_count"], message: "action_count must equal actions.length." });
+  }
+  if (new Set(value.actions).size !== value.actions.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["actions"], message: "actions must be unique." });
+  }
+  const sorted = [...value.actions].sort();
+  if (sorted.some((action, index) => action !== value.actions[index])) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["actions"], message: "actions must be sorted." });
+  }
+});
+
+const codexgptOwnedOutputSchemaV5 = z.object({
+  codexgpt_tool: z.literal("codexgpt"),
+  codexgpt_title: z.literal("CodexGPT"),
+  ok: z.boolean(),
+  data: codexgptListActionsDataSchemaV5.nullable(),
+  error: codexgptErrorSchemaV5.nullable(),
+  meta: toolMetaSchema
+}).strict().superRefine((value, context) => {
+  if (value.ok && (value.data === null || value.error !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful CodexGPT V5 results require data and no error." });
+  }
+  if (!value.ok && (value.data !== null || value.error === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed CodexGPT V5 results require an error and no data." });
+  }
+});
+
+export const codexgptOutputShapeV5 = {
+  codexgpt_tool: z.union([z.literal("codexgpt"), canonicalToolSchemaV5]),
+  codexgpt_title: z.string().min(1),
+  ok: z.boolean(),
+  data: z.record(z.unknown()).nullable(),
+  error: z.union([codexgptErrorSchemaV5, toolErrorSchema]).nullable(),
+  meta: toolMetaSchema,
+  codexgpt_super_action: safeActionSchema.optional(),
+  wrapped_tool: canonicalToolSchemaV5.optional()
+};
+
+const codexgptOutputBaseSchemaV5 = z.object(codexgptOutputShapeV5).strict();
+
+export const codexgptOutputSchemaV5 = codexgptOutputBaseSchemaV5.superRefine((value, context) => {
+  if (value.codexgpt_tool === "codexgpt") {
+    if (!codexgptOwnedOutputSchemaV5.safeParse(value).success) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid wrapper-owned CodexGPT V5 result." });
+    }
+    return;
+  }
+  if (!value.codexgpt_super_action || !value.wrapped_tool) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Wrapped V5 child results require wrapper identity fields." });
+    return;
+  }
+  if (
+    value.codexgpt_tool !== value.wrapped_tool ||
+    resolveCodexGPTActionV5(value.codexgpt_super_action) !== value.wrapped_tool
+  ) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "CodexGPT V5 action and wrapped tool do not match." });
+    return;
+  }
+  if (!childOutputSchemasV5[value.wrapped_tool].safeParse(stripWrapperFields(value)).success) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Wrapped V5 child result does not match its exact child schema." });
+  }
+});
+
+export type CodexGPTStructuredResultV5 = z.infer<typeof codexgptOutputBaseSchemaV5>;
+
+export function createCodexGPTListActionsSuccessV5(
+  actions: readonly string[],
+  durationMs = 0
+): CodexGPTStructuredResultV5 {
+  const uniqueActions = [...new Set(actions)];
+  for (const action of uniqueActions) {
+    if (!canonicalToolSetV5.has(action)) throw new Error("Invalid canonical CodexGPT V5 child action.");
+  }
+  uniqueActions.sort();
+  return codexgptOwnedOutputSchemaV5.parse({
+    codexgpt_tool: "codexgpt",
+    codexgpt_title: "CodexGPT",
+    ok: true,
+    data: { actions: uniqueActions, action_count: uniqueActions.length },
+    error: null,
+    meta: createToolMeta(durationMs)
+  });
+}
+
+type CodexGPTFailureInputV5 =
+  | { code: "ACTION_NOT_AVAILABLE"; details: { action: unknown } }
+  | { code: "ACTION_ARGUMENTS_INVALID" | "CHILD_RESULT_INVALID"; details: { action: unknown; wrapped_tool: CanonicalCodexGPTChildToolV5 } }
+  | { code: "INTERNAL_ERROR"; details?: Record<string, never> };
+
+export function createCodexGPTFailureV5(
+  failure: CodexGPTFailureInputV5,
+  durationMs = 0
+): CodexGPTStructuredResultV5 {
+  const details = failure.code === "ACTION_NOT_AVAILABLE"
+    ? { action: safePublicAction(failure.details.action) }
+    : failure.code === "INTERNAL_ERROR"
+      ? {}
+      : { action: safePublicAction(failure.details.action), wrapped_tool: failure.details.wrapped_tool };
+  return codexgptOwnedOutputSchemaV5.parse({
+    codexgpt_tool: "codexgpt",
+    codexgpt_title: "CodexGPT",
+    ok: false,
+    data: null,
+    error: {
+      code: failure.code,
+      message: CODEXGPT_ERROR_MESSAGES[failure.code],
+      retryable: false,
+      details
+    },
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export function wrapCodexGPTChildResultV5(
+  action: string,
+  wrappedTool: CanonicalCodexGPTChildToolV5,
+  childStructuredContent: unknown
+): CodexGPTStructuredResultV5 {
+  if (resolveCodexGPTActionV5(action) !== wrappedTool) {
+    throw new Error("CodexGPT V5 action and wrapped tool do not match.");
+  }
+  if (!childStructuredContent || typeof childStructuredContent !== "object" || Array.isArray(childStructuredContent)) {
+    throw new Error("CodexGPT V5 child structured result must be an object.");
+  }
+  const child = childStructuredContent as Record<string, unknown>;
+  if ("codexgpt_super_action" in child || "wrapped_tool" in child) {
+    throw new Error("CodexGPT V5 child structured result already contains wrapper fields.");
+  }
+  const parsedChild = childOutputSchemasV5[wrappedTool].parse(child);
+  return codexgptOutputSchemaV5.parse({
     ...parsedChild,
     codexgpt_super_action: safePublicAction(action),
     wrapped_tool: wrappedTool

@@ -1,4 +1,5 @@
 import type { CodexGPTConfig } from "../config.js";
+import { contractIncludesV4 } from "../tools/contracts/index.js";
 import type { ManagedWorktreeRoot } from "../worktrees/root.js";
 import { admitManagedWorktreeRoot } from "../worktrees/root.js";
 import { WindowsProcessHostRuntime } from "../process/windowsHostClient.js";
@@ -18,7 +19,7 @@ export async function createProductionGitBootstrapV4(
   }
 ): Promise<ProductionGitBootstrapV4 | null> {
   if (
-    config.toolContractVersion !== 4 ||
+    !contractIncludesV4(config.toolContractVersion) ||
     config.toolMode === "minimal" ||
     config.connectionTest
   ) return null;

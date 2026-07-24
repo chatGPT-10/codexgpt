@@ -33,6 +33,9 @@ Usage:
   codexgpt start
   codexgpt start --root /path/to/repo
   codexgpt settings
+  codexgpt semantic status [--verbose]
+  codexgpt semantic use builtin|none
+  codexgpt semantic disable
   codexgpt doctor
   codexgpt approvals list --server <server_id>
   codexgpt approvals watch --server <server_id>
@@ -359,6 +362,8 @@ function parseArgs(argv) {
     else if (key === 'pro-planning' || key === 'pro') out.mode = 'pro';
     else if (key === 'log-requests') out.logRequests = true;
     else if (key === 'print-env') out.printEnv = true;
+    else if (key === 'print-env-only') { out.printEnv = true; out.printEnvOnly = true; }
+    else if (key === 'verbose') out.verbose = true;
     else {
       const next = argv[i + 1];
       const value = inlineValue ?? next;
@@ -3092,6 +3097,27 @@ async function runDoctor(argv) {
       record('fail', 'Guidance scan', error instanceof Error ? error.message.split('\n')[0] : String(error));
     }
   }
+  const semanticProvider = optionValue(args, profile, 'semanticProvider', ['CODEXGPT_SEMANTIC_PROVIDER'], 'builtin');
+  const semanticMode = process.env.CODEXGPT_SEMANTIC_MODE === 'legacy'
+    ? 'legacy'
+    : process.env.CODEXGPT_SEMANTIC_MODE === 'standard'
+      ? 'standard'
+      : profile.semanticProvider && toolMode !== 'minimal'
+        ? 'standard'
+        : 'legacy';
+  if (semanticMode === 'standard') {
+    const typescriptPackage = path.join(projectRoot, 'node_modules', 'typescript', 'package.json');
+    const semanticReady = semanticProvider === 'none' || fs.existsSync(typescriptPackage);
+    record(
+      ['builtin', 'none'].includes(semanticProvider) && semanticReady ? 'ok' : 'fail',
+      'Semantic Core',
+      semanticProvider === 'none'
+        ? 'disabled by saved selector; ordinary tools remain available'
+        : semanticReady
+          ? 'builtin TypeScript ready; existing 51-tool Apps must Scan Tools once or be recreated'
+          : 'builtin TypeScript asset missing; run npm install, then restart'
+    );
+  }
   record(clipboard ? 'ok' : 'warn', 'Clipboard', clipboard || 'not found; URL will be printed for manual copy');
   record(browser ? 'ok' : 'warn', 'Browser open', browser || 'not found; open ChatGPT manually');
 
@@ -3337,6 +3363,7 @@ function profileFromPreference(root, args, profile, preference) {
     ...(write ? { write } : {}),
     ...(toolMode ? { toolMode } : {}),
     ...(widgetDomain ? { widgetDomain } : {}),
+    ...(profile.semanticProvider ? { semanticProvider: profile.semanticProvider } : {}),
     ...toolCardsProfileEntry(args, profile),
     ...(args.noInstallCloudflared ? { noInstallCloudflared: true } : {}),
     root
@@ -3691,6 +3718,7 @@ function saveSettingsFromArgs(root, args, profile) {
     ...(mode !== 'agent' || args.write !== undefined || profile.write ? { write } : {}),
     ...(toolMode ? { toolMode } : {}),
     ...(widgetDomain ? { widgetDomain } : {}),
+    ...(profile.semanticProvider ? { semanticProvider: profile.semanticProvider } : {}),
     ...toolCardsProfileEntry(args, profile),
     ...(args.noInstallCloudflared ?? profile.noInstallCloudflared ? { noInstallCloudflared: true } : {})
   });
@@ -3841,6 +3869,76 @@ async function runSettings(argv) {
   } finally {
     rl.close();
   }
+}
+
+async function runSemantic(argv) {
+  const action = argv[0] && !argv[0].startsWith('--') ? argv[0] : 'status';
+  const selection = argv[1] && !argv[1].startsWith('--') ? argv[1] : undefined;
+  const args = parseArgs(argv);
+  const root = realDir(args.root ?? process.env.CODEXGPT_ROOT ?? process.cwd());
+  const profile = args.noProfile ? {} : loadWorkspaceProfile(root);
+  if (action === 'use' || action === 'disable') {
+    if (args.noProfile) throw new Error('semantic use/disable requires a saved workspace profile; remove --no-profile.');
+    const provider = action === 'disable' ? 'none' : selection;
+    if (!['builtin', 'none'].includes(provider)) {
+      throw new Error('Use `codexgpt semantic use builtin|none` or `codexgpt semantic disable`.');
+    }
+    if (provider === 'builtin' && profile.toolMode === 'minimal') {
+      throw new Error('Semantic V5 is not exposed in minimal tool mode. Change the saved tool mode to standard or full first.');
+    }
+    const savedPath = saveWorkspaceProfile(root, {
+      ...profile,
+      profilePath: undefined,
+      semanticProvider: provider
+    });
+    statusLine('ok', `Semantic Provider set to ${provider}: ${savedPath}`);
+    console.log(provider === 'builtin'
+      ? 'Restart CodexGPT. JavaScript/TypeScript semantic navigation will be available with no separate Provider setup.'
+      : 'Restart CodexGPT. Semantic navigation and rename previews are disabled; ordinary tools are unchanged.');
+    return;
+  }
+  if (action !== 'status' || selection) {
+    throw new Error('Use `codexgpt semantic status [--verbose]`, `use builtin|none`, or `disable`.');
+  }
+  const configuredProvider = process.env.CODEXGPT_SEMANTIC_PROVIDER === 'none'
+    ? 'none'
+    : process.env.CODEXGPT_SEMANTIC_PROVIDER === 'builtin'
+      ? 'builtin'
+      : profile.semanticProvider === 'none'
+        ? 'none'
+        : 'builtin';
+  const statusPath = path.join(projectRoot, 'dist', 'semantic', 'status.js');
+  if (!fs.existsSync(statusPath)) {
+    throw new Error('Semantic status runtime is not built. Run `npm install && npm run build`, then retry.');
+  }
+  const { semanticCoreStatus } = await import(pathToFileURL(statusPath).href);
+  const status = semanticCoreStatus(configuredProvider);
+  const semanticMode = process.env.CODEXGPT_SEMANTIC_MODE === 'legacy'
+    ? 'legacy'
+    : process.env.CODEXGPT_SEMANTIC_MODE === 'standard'
+      ? 'standard'
+      : profile.semanticProvider && profile.toolMode !== 'minimal'
+        ? 'standard'
+        : 'legacy';
+  const lines = [
+    labelValue('Configured', status.configuredProvider),
+    labelValue('Actual', status.actualProvider),
+    labelValue('State', semanticMode === 'standard' ? status.state : 'legacy rollback'),
+    labelValue('Quality', semanticMode === 'standard' ? status.resultQuality : 'lexical'),
+    labelValue('Next action', semanticMode === 'standard'
+      ? status.nextAction
+      : 'Run `codexgpt semantic use builtin`, restart, then Scan Tools in the existing ChatGPT App.')
+  ];
+  if (argv.includes('--verbose')) {
+    lines.push(
+      labelValue('Engine', status.engineVersion ?? 'unavailable'),
+      labelValue('Worker timeout', `${status.budgets.workerTimeoutMs} ms`),
+      labelValue('Queue limit', status.budgets.maxQueue),
+      labelValue('Result limit', status.budgets.maxResults),
+      labelValue('Isolation', 'execution/filesystem/network: none (current-user worker)')
+    );
+  }
+  printBox('CodexGPT semantic status', lines);
 }
 
 function writeControlPrompt() {
@@ -4053,6 +4151,10 @@ async function main() {
     await runSettings(argv.slice(1));
     return;
   }
+  if (subcommand === 'semantic') {
+    await runSemantic(argv.slice(1));
+    return;
+  }
   if (subcommand === 'execute-handoff' || subcommand === 'execute' || subcommand === 'run-handoff') {
     await runExecuteHandoff(argv.slice(1));
     return;
@@ -4176,9 +4278,11 @@ async function main() {
   const toolMode = optionValue(args, profile, 'toolMode', ['CODEXGPT_TOOL_MODE'], 'standard');
   const widgetDomain = optionValue(args, profile, 'widgetDomain', ['CODEXGPT_WIDGET_DOMAIN'], 'https://rebel0789.github.io');
   const toolCards = optionBool(args, profile, 'toolCards', ['CODEXGPT_TOOL_CARDS'], false);
+  const semanticProvider = optionValue(args, profile, 'semanticProvider', ['CODEXGPT_SEMANTIC_PROVIDER'], 'builtin');
   validateChoice('bash', bash, ['off', 'safe', 'full']);
   validateChoice('write', write, ['off', 'handoff', 'workspace']);
   validateChoice('tool-mode', toolMode, ['minimal', 'standard', 'full']);
+  validateChoice('semantic provider', semanticProvider, ['builtin', 'none']);
 
   let token = args.noAuth ? '' : optionValue(args, profile, 'token', ['CODEXGPT_HTTP_TOKEN', 'CODEBASE_BRIDGE_HTTP_TOKEN'], '');
   if (!token && !args.noAuth) token = stableToken();
@@ -4198,11 +4302,22 @@ async function main() {
     CODEXGPT_TOOL_MODE: toolMode,
     CODEXGPT_WIDGET_DOMAIN: widgetDomain,
     CODEXGPT_TOOL_CARDS: toolCards ? '1' : '0',
+    CODEXGPT_SEMANTIC_MODE: process.env.CODEXGPT_SEMANTIC_MODE === 'legacy'
+      ? 'legacy'
+      : process.env.CODEXGPT_SEMANTIC_MODE === 'standard'
+        ? 'standard'
+        : profile.semanticProvider && toolMode !== 'minimal'
+          ? 'standard'
+          : 'legacy',
+    CODEXGPT_SEMANTIC_PROVIDER: semanticProvider,
     CODEXGPT_CONNECTION_TEST: connectionTest ? '1' : '0',
     CODEXGPT_MODE: mode,
     CODEXGPT_TUNNEL_MODE: tunnel === 'none' ? '0' : '1',
     CODEXGPT_ALLOW_NO_HTTP_TOKEN: args.noAuth ? '1' : '0'
   };
+  if (serverEnv.CODEXGPT_SEMANTIC_MODE === 'standard') {
+    statusLine('warn', 'Semantic V5 exposes 52 tools. In an existing 51-tool ChatGPT App, choose Scan Tools once or recreate the App.');
+  }
   if (codexDir) serverEnv.CODEXGPT_CODEX_DIR = codexDir;
   if (args.logRequests || process.env.CODEXGPT_LOG_REQUESTS === '1') serverEnv.CODEXGPT_LOG_REQUESTS = '1';
   if (args.allowHome) serverEnv.CODEXGPT_ALLOW_HOME = '1';
@@ -4212,6 +4327,7 @@ async function main() {
   if (args.printEnv) {
     console.log(JSON.stringify(redactEnvObject(serverEnv), null, 2));
   }
+  if (args.printEnvOnly) return;
 
   const httpPath = path.join(projectRoot, 'dist', 'http.js');
   if (!fs.existsSync(httpPath)) {

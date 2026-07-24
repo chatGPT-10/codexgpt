@@ -83,6 +83,9 @@ motion support. Animate transform and opacity only.
 - Describe Job Objects as member lifetime control and ConPTY as terminal I/O;
   never call either one a sandbox.
 - Describe project guidance as bounded root-to-target context: root `AGENTS.md` arrives on workspace open, target context is refreshed before mutation and after subtree switches, and at most one matching target Skill is loaded lazily. Guidance, Skill metadata, bodies, resources, scripts, and declared dependencies never grant authority or execute automatically.
+- Describe Phase 7 semantic navigation by user goals: find a definition, find references, inspect one file's diagnostics, or preview a rename. Always expose `result_quality` and the actual Provider; never present lexical fallback as semantic certainty.
+- Keep rename preview, approval, and apply visually distinct. A rename preview is a bounded review artifact, not permission; only V5 `apply_patch` may consume its opaque `semantic_preview_id` through the existing atomic mutation and undo path.
+- State that builtin semantic analysis is zero-setup for JavaScript/TypeScript but the owned worker still has current-user ambient access. Serena and direct LSP remain unimplemented, unbundled extensions until separately approved.
 - Do not claim permanent ChatGPT memory. Say repo-backed context files.
 - Do not imply CodexGPT unlocks models, bypasses limits, automates approval
   gates, or provides secure human-presence proof after same-user code runs.

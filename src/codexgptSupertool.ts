@@ -6,27 +6,33 @@ import {
   CANONICAL_CODEXGPT_CHILD_TOOLS_V2,
   CANONICAL_CODEXGPT_CHILD_TOOLS_V3,
   CANONICAL_CODEXGPT_CHILD_TOOLS_V4,
+  CANONICAL_CODEXGPT_CHILD_TOOLS_V5,
   CODEXGPT_ERROR_MESSAGES,
   codexgptOutputShape,
   codexgptOutputShapeV2,
   codexgptOutputShapeV3,
   codexgptOutputShapeV4,
+  codexgptOutputShapeV5,
   createCodexGPTFailure,
   createCodexGPTFailureV2,
   createCodexGPTFailureV3,
   createCodexGPTFailureV4,
+  createCodexGPTFailureV5,
   createCodexGPTListActionsSuccess,
   createCodexGPTListActionsSuccessV2,
   createCodexGPTListActionsSuccessV3,
   createCodexGPTListActionsSuccessV4,
+  createCodexGPTListActionsSuccessV5,
   resolveCodexGPTAction,
   resolveCodexGPTActionV2,
   resolveCodexGPTActionV3,
   resolveCodexGPTActionV4,
+  resolveCodexGPTActionV5,
   wrapCodexGPTChildResult,
   wrapCodexGPTChildResultV2,
   wrapCodexGPTChildResultV3,
-  wrapCodexGPTChildResultV4
+  wrapCodexGPTChildResultV4,
+  wrapCodexGPTChildResultV5
 } from "./tools/schemas/codexgpt.js";
 
 interface ToolCallResult {
@@ -83,6 +89,7 @@ const canonicalToolsV1 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS);
 const canonicalToolsV2 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V2);
 const canonicalToolsV3 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V3);
 const canonicalToolsV4 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V4);
+const canonicalToolsV5 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V5);
 const v2OnlyTools = new Set<string>(
   CANONICAL_CODEXGPT_CHILD_TOOLS_V2.filter((name) => !canonicalToolsV1.has(name))
 );
@@ -96,6 +103,7 @@ const codexgptAdvertisedOutputSchema = z.object(codexgptOutputShape).strict();
 const codexgptAdvertisedOutputSchemaV2 = z.object(codexgptOutputShapeV2).strict();
 const codexgptAdvertisedOutputSchemaV3 = z.object(codexgptOutputShapeV3).strict();
 const codexgptAdvertisedOutputSchemaV4 = z.object(codexgptOutputShapeV4).strict();
+const codexgptAdvertisedOutputSchemaV5 = z.object(codexgptOutputShapeV5).strict();
 
 function elapsedMs(startedAt: number): number {
   return Math.max(0, Date.now() - startedAt);
@@ -106,6 +114,16 @@ function contractFor(
   requestedVersion?: ToolContractVersion
 ): SupertoolContract {
   const inferredV2 = Object.keys(tools).some((name) => v2OnlyTools.has(name));
+  if (requestedVersion === 5) {
+    return {
+      canonicalTools: canonicalToolsV5,
+      outputSchema: codexgptAdvertisedOutputSchemaV5,
+      createFailure: createCodexGPTFailureV5 as unknown as FailureFactory,
+      createList: createCodexGPTListActionsSuccessV5 as unknown as ListFactory,
+      resolve: resolveCodexGPTActionV5 as ResolveFactory,
+      wrap: wrapCodexGPTChildResultV5 as unknown as WrapFactory
+    };
+  }
   if (requestedVersion === 4) {
     return {
       canonicalTools: canonicalToolsV4,

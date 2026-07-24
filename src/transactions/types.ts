@@ -57,6 +57,7 @@ export interface ExistingFileFactV1 {
   identity: string;
   bytes: number;
   metadata: FileMetadataV1;
+  existingParentIdentity?: string;
 }
 
 export interface AbsentFileFactV1 {
@@ -112,6 +113,7 @@ export interface TransactionManifestV1 {
   createdDirectories: string[];
   requiredParticipants: string[];
   participantFacts: Record<string, ParticipantFact>;
+  semanticFactsDigest?: string;
   failureCode?: TransactionErrorCode;
   failureMessage?: string;
   directorySync?: DirectorySyncCapability;
@@ -131,6 +133,8 @@ export type TransactionRequestOperationV1 =
       relativePath: string;
       bytes: Buffer;
       expectedSha256: string | null;
+      expectedStableIdentity?: { dev: string; ino: string };
+      expectedParentIdentity?: string;
     }
   | {
       operationId: string;
@@ -149,6 +153,8 @@ export interface TransactionRequestV1 {
   workspace: TransactionWorkspaceV1;
   operations: TransactionRequestOperationV1[];
   requiredParticipants: string[];
+  semanticFactsDigest?: string;
+  finalizationGuard?: () => void;
 }
 
 export interface FileObjectIdentityV2 {

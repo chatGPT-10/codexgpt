@@ -1,8 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { resolveAuditRequirement, type CodexGPTConfig } from "../config.js";
-import { CONTRACT_V3_ADDITIONS, CONTRACT_V4_ADDITIONS, contractIncludesV3 } from "../tools/contracts/index.js";
+import {
+  CONTRACT_V3_ADDITIONS,
+  CONTRACT_V4_ADDITIONS,
+  contractIncludesV3,
+  contractIncludesV4
+} from "../tools/contracts/index.js";
 import { authorizationAuditEventV2Schema, auditEventV4Schema } from "../audit/schemas.js";
-import type { AuthorizationAuditEventV4 } from "../audit/types.js";
+import type { AuthorizationAuditEventV4, SemanticAuditFactsV1 } from "../audit/types.js";
 import type { LocalApprovalRuntimeV3 } from "../control/runtime.js";
 import type { RootAdmissionRuntimeV3 } from "../access/rootAdmission.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
@@ -193,6 +198,7 @@ interface DescribedPolicyResource {
   requiredScope: PolicyScope | null;
   requiredScopes: readonly PolicyScopeV4[];
   semanticFactsDigest: string | null;
+  semanticAuditFacts?: SemanticAuditFactsV1;
   approvalRevealArguments?: readonly string[];
 }
 
@@ -205,7 +211,8 @@ function describeResource(
   resourceResolver?: ToolResourceResolver
 ): DescribedPolicyResource {
   const definition = toolPolicyDefinition(toolName);
-  if (definition.resourceMode === "resolved") {
+  const semanticPreviewApply = toolName === "apply_patch" && typeof args.semantic_preview_id === "string";
+  if (definition.resourceMode === "resolved" || semanticPreviewApply) {
     if (!resourceResolver) throw new Error("Policy resource resolver is unavailable.");
     const described = resourceResolver.describe(toolName, args);
     const v3Addition = (CONTRACT_V3_ADDITIONS as readonly string[]).includes(toolName);
@@ -229,6 +236,7 @@ function describeResource(
       requiredScope: definition.requiredScope,
       requiredScopes,
       semanticFactsDigest: described.semanticFactsDigest ?? null,
+      semanticAuditFacts: described.semanticAuditFacts,
       approvalRevealArguments: described.approvalRevealArguments
     };
   }
@@ -444,8 +452,8 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
     currentEvidenceRevision()
   );
   const grants = input.localApprovalRuntimeV3?.grants ?? input.grants ?? new SessionGrantStore();
-  const contractV3 = Number(input.config.toolContractVersion) === 3 ||
-    Number(input.config.toolContractVersion) === 4;
+  const contractV3 = contractIncludesV3(input.config.toolContractVersion);
+  const contractV4 = contractIncludesV4(input.config.toolContractVersion);
 
   return {
     mode: input.config.policyEngineMode ?? "legacy",
@@ -501,7 +509,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
       const effectiveScopes: PolicyScopeV4[] = [...context.identity.scopes];
       if (contractV3 && input.config.executionProfile !== "off") effectiveScopes.push("process:manage", "shell:execute", "process:persistent");
       if (contractV3 && input.config.executionProfile === "full_access") effectiveScopes.push("host:full-access", "workspace:full-access", "network:connect");
-      if (Number(input.config.toolContractVersion) === 4 && input.config.gitMode === "local") {
+      if (contractV4 && input.config.gitMode === "local") {
         effectiveScopes.push("git:index:write", "git:refs:write", "git:commit", "git:merge", "worktree:manage");
       }
 
@@ -519,7 +527,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         ? await input.localApprovalRuntimeV3.reserveMatching(matchInput)
         : null;
       const v3Addition = contractV3 && (CONTRACT_V3_ADDITIONS as readonly string[]).includes(toolName);
-      const v4Addition = Number(input.config.toolContractVersion) === 4 &&
+      const v4Addition = contractV4 &&
         (CONTRACT_V4_ADDITIONS as readonly string[]).includes(toolName);
       let decision = toolPolicyDefinition(toolName).resourceMode === "context_only" || v3Addition || v4Addition
         ? contextDecision({
@@ -699,11 +707,13 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
               approvalState: auditEvent.approvalState,
               grantId: auditEvent.grantId,
               sandboxBackend: auditEvent.sandboxBackend,
-              riskClass: described.riskClass
+              riskClass: described.riskClass,
+              ...(described.semanticAuditFacts ? { semanticFacts: described.semanticAuditFacts } : {})
             }),
             requirement,
             riskClass: described.riskClass,
-            mutating
+            mutating,
+            ...(described.semanticAuditFacts ? { semanticFacts: described.semanticAuditFacts } : {})
           };
       let v4Authorization: PolicyAuthorizationResult["v4Authorization"];
       if (

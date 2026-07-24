@@ -2,6 +2,7 @@ import type { ToolContractVersion } from "../../config.js";
 import { canonicalToolsForVersion, v2ToolsForProjection } from "./catalog.js";
 import { v3ToolsForProjection } from "./v3.js";
 import { v4ToolsForProjection } from "./v4.js";
+import { v5ToolsForProjection } from "./v5.js";
 import type { CanonicalTool, ToolContractProjectionInput } from "./types.js";
 
 export interface RegistrationProjection extends ToolContractProjectionInput {
@@ -16,7 +17,8 @@ export function projectedRegisteredTools(input: RegistrationProjection): readonl
   const additions = [
     ...v2ToolsForProjection(input),
     ...v3ToolsForProjection(input),
-    ...v4ToolsForProjection(input)
+    ...v4ToolsForProjection(input),
+    ...v5ToolsForProjection(input)
   ];
   return Object.freeze([...v1, ...additions] as CanonicalTool[]);
 }

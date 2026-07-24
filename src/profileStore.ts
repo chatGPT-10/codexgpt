@@ -2,7 +2,15 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { BashMode, BashTranscriptMode, CodexSessionsMode, PolicyEngineMode, ToolMode, WriteMode } from "./config.js";
+import type {
+  BashMode,
+  BashTranscriptMode,
+  CodexSessionsMode,
+  PolicyEngineMode,
+  SemanticProviderSelection,
+  ToolMode,
+  WriteMode
+} from "./config.js";
 import { expandHome } from "./config.js";
 
 export type TunnelMode = "none" | "cloudflare" | "cloudflare-named" | "ngrok" | "tailscale";
@@ -34,6 +42,7 @@ export interface WorkspaceProfile {
   toolCards?: boolean;
   policyEngine?: PolicyEngineMode | string;
   permissionProfile?: string;
+  semanticProvider?: SemanticProviderSelection | string;
   widgetDomain?: string;
   noInstallCloudflared?: boolean;
 }
@@ -57,6 +66,7 @@ export interface RuntimeConnection {
   toolCards?: boolean;
   policyEngine?: PolicyEngineMode | string;
   permissionProfile?: string;
+  semanticProvider?: SemanticProviderSelection | string;
 }
 
 // Runtime connection records keep only safe policy selectors, never policy bodies or credentials.
@@ -111,7 +121,7 @@ export function saveWorkspaceProfile(root: string, profile: WorkspaceProfile): s
   const { profilePath: _profilePath, ...rest } = profile;
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const payload: WorkspaceProfile = {
-    version: 1,
+    version: 2,
     updatedAt: new Date().toISOString(),
     ...rest,
     root

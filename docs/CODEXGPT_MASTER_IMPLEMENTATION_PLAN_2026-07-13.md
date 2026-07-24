@@ -2,15 +2,15 @@
 
 > 版本：2.4
 > 生效日期：2026-07-13
-> 核对日期：2026-07-23
+> 核对日期：2026-07-24
 > 状态：当前权威实施路线
 > 工作区：`D:\Dev\codexpro`
 > 基线版本：`codexgpt@0.28.6`
-> 当前阶段：Phase 1–6 已关闭；Phase 6 closure head `31631676fe254962a9a4f14d6e025e3edba82b8d` 的 exact-head run `30033293444` 已通过完整 Repository policy 与 Ubuntu/Windows Node 20/24 Build、Regression、Smoke、Package；reduced Phase 4 的诊断性 4B0 保持 blocked，`workspace` 与 Task 4B1–4B6 延期
+> 当前阶段：Phase 1–6 已关闭；Phase 7 Core 已在本地 checkout 实现并通过当前双 Node focused/事务边界验证，仍待最终 ordinary/smoke/package 本地闭环、真实 ChatGPT G7-U 和另行授权的 publication/exact-head；reduced Phase 4 的诊断性 4B0 保持 blocked，`workspace` 与 Task 4B1–4B6 延期
 >
-> 下一门禁：取得 Phase 7 Core runtime 与精确 TypeScript dependency 的 fresh G7-0 授权；Serena/LSP 仍须后续扩展专属授权
+> 下一门禁：完成 Phase 7 Core 本地 G7-X，随后执行真实 ChatGPT G7-U；Serena/LSP 仍须后续扩展专属授权
 >
-> 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 5 已完成；Phase 6 runtime、精确 `yaml@2.9.0` dependency 和 formal closure 已完成，对应有界修复/英文 commit/push/exact-head authority 已耗尽；Phase 7 详细设计与 TDD 计划已获授权，runtime、依赖/外部安装、发布、部署和 Phase 8+ 未授权
+> 已批准主路线：Phase 1 → Policy Kernel → Phase 2A–Phase 6 已完成；2026-07-24 当前指令授权继续本地完成 Phase 7 Core，但不自动授权 stage、commit、push、release、deployment、Phase 7B/7C 或 Phase 8+
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
@@ -105,7 +105,7 @@ mcp.<user-domain>
 | Phase 4 | 正式关闭 | closure head `d19e65b` 通过 exact-head run `29603060944` 的 repository policy 与 Ubuntu/Windows Node 20/24 完整矩阵；4B0 保留 blocked 诊断，`workspace` 与 Task 4B1–4B6 延期 |
 | Phase 5 | 正式关闭 | closure head `9aa76b92d7894a2f013b2d6478897907c4010a7e` 通过 exact-head run `29698209894`；后续 Gate X 修复经 PR #4 合并到 `main`，STEP-379/380 follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` 通过 run `29780813295` 的完整矩阵 |
 | Phase 6 | 已关闭 | closure head `31631676fe254962a9a4f14d6e025e3edba82b8d` 的 run `30033293444` 已通过 Repository policy 与 Ubuntu/Windows Node 20/24 Build、Regression、Smoke、Package |
-| Phase 7 | paired design/TDD 经三路审查修复；runtime 未授权 | Core 先交付 owned-worker 零配置 JS/TS、symbol locator、V5 `semantic`、approval/identity-bound atomic rename；Serena 仅为闭环后的 Phase 7B，direct LSP 仅为有真实语言需求时的 Phase 7C |
+| Phase 7 | Core 本地实现候选，尚未正式关闭 | owned-worker 零配置 JS/TS、symbol locator、exact inherited V5=52、quality-labeled fallback、approval/identity-bound atomic rename 已实现并完成 focused 对抗修复；仍待最终 G7-X、真实 ChatGPT G7-U 与另行授权的 publication/exact-head |
 | Phase 8 | 条件授权仅作历史记录 | 不得把 2026-07-14 的历史条件授权解释为自动进入 runtime 或下一阶段 |
 | Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
@@ -1039,7 +1039,7 @@ Phase 7 的精确边界和 TDD 顺序由 2026-07-23 的 [design](superpowers/spe
 
 ### 15.3 顺序与验收
 
-Phase 6 exact-head closure 已完成。取得 G7-0 的 Core runtime/精确 TypeScript dependency authorization 后，再按 per-server kernel/workspace revoke → mandatory same-handle Core source boundary → owned-worker builtin JS/TS vertical slice → V5 inherited-runtime migration/semantic tool → rename preview/approval/atomic apply → Core health/docs → completed-Core adversarial repair → live ChatGPT → publication/exact-head 的顺序实施。Core 关闭后，Serena 才能以 Phase 7B 单独授权；direct LSP 只有出现明确未支持语言需求时才进入 Phase 7C。
+Phase 6 exact-head closure 已完成。Phase 7 Core 当前已按 per-server kernel/workspace revoke → mandatory same-handle Core source boundary → owned-worker builtin JS/TS vertical slice → V5 inherited-runtime migration/semantic tool → rename preview/approval/atomic apply → Core health/docs → completed-Core adversarial repair 的顺序形成本地候选。正式关闭仍要求最终 G7-X、真实 ChatGPT G7-U，以及另行授权后的 publication/exact-head。Core 关闭后，Serena 才能以 Phase 7B 单独授权；direct LSP 只有出现明确未支持语言需求时才进入 Phase 7C。
 
 Core 关闭至少要求：symbol-only 自然语言无需 pre-search 的 JS/TS definition/reference 与单文件 diagnostic；本仓库 NodeNext/`@types`/monorepo 数据图可用；完整 server-owned identity/hash/edit manifest；approval facts 和锁内 identity/path/hash 复验；file/policy/access/worktree/provider/session drift fail closed；真实 ChatGPT 区分“先看影响”和“完成重命名”并能 verify/undo；旧 51-tool App 获得一次 Scan Tools/recreate 提示；managed Node 20/24 ordinary、Smoke、package/policy/docs/mutation gates 与 exact-head Ubuntu/Windows 全矩阵通过。Serena/LSP 缺席不能阻止 Core 关闭。
 
@@ -1363,4 +1363,4 @@ Phase 1 Slice 28 codexgpt
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1–6 已正式关闭；Phase 6 closure head `31631676fe254962a9a4f14d6e025e3edba82b8d` 的 exact-head run `30033293444` 已通过完整矩阵。Reduced Phase 4 的 4B0、Task 4B1–4B6、sandbox authority 与 `workspace` profile 仍延期。2026-07-23 已完成并三路对抗修复 Phase 7 paired design/TDD plan；Core runtime 与精确 TypeScript dependency、Phase 7B Serena、Phase 7C LSP 均须分别授权。Phase 8–9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。
+Phase 1–6 已正式关闭；Phase 6 closure head `31631676fe254962a9a4f14d6e025e3edba82b8d` 的 exact-head run `30033293444` 已通过完整矩阵。Reduced Phase 4 的 4B0、Task 4B1–4B6、sandbox authority 与 `workspace` profile 仍延期。2026-07-24 已形成 Phase 7 Core 本地实现候选并完成 focused 对抗修复；正式关闭仍需要最终 G7-X、真实 ChatGPT G7-U 与另行授权的 publication/exact-head。Phase 7B Serena、Phase 7C LSP、Phase 8–9、生产部署、真实凭据迁移、破坏性数据/历史操作和规格外扩权仍未授权。

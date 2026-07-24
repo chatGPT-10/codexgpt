@@ -76,7 +76,7 @@ const V3_DESCRIPTORS = Object.freeze({
 export function v3ToolsForProjection(
   input: ToolContractProjectionInput
 ): readonly CanonicalToolV3Addition[] {
-  if ((input.version !== 3 && input.version !== 4) || input.connectionTest) return Object.freeze([]);
+  if ((input.version !== 3 && input.version !== 4 && input.version !== 5) || input.connectionTest) return Object.freeze([]);
   return Object.freeze(CONTRACT_V3_ADDITIONS.filter((name) =>
     (V3_DESCRIPTORS[name].modes as readonly string[]).includes(input.mode)
   ));

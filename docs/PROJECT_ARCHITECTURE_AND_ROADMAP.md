@@ -490,11 +490,11 @@ The former mandatory version/trust/permission/content-hash manifest and generic 
 
 Historical outline only. The exact Phase 7 boundary and sequence are superseded by the 2026-07-23 [design](superpowers/specs/2026-07-23-phase-7-semantic-providers-design.md) and [TDD plan](superpowers/plans/2026-07-23-phase-7-semantic-providers.md).
 
-The current design prioritizes a runnable first path: a zero-setup owned-worker JavaScript/TypeScript engine that understands symbol-only requests and real in-workspace declaration/config data; one inherited-runtime V5 `semantic` tool; honest lexical fallback; and a complete server-owned identity/hash/edit rename plan whose approval facts and lock-held preconditions flow through the existing Phase 3 atomic transaction.
+The current local Core candidate implements the runnable first path: a zero-setup owned-worker JavaScript/TypeScript engine that understands symbol-only requests and real in-workspace declaration/config data; exact inherited-runtime V5 with one `semantic` tool; honest lexical fallback; and a complete server-owned identity/hash/edit rename plan whose approval facts and lock-held preconditions flow through the existing Phase 3 atomic transaction.
 
-Phase 7 Core closes independently after live ChatGPT and exact-head success. Serena retrieval is a separately authorized Phase 7B extension; direct stdio LSP is Phase 7C only when a concrete language need remains. CodexGPT exposes no protocol-level Provider mutation, while external same-user processes truthfully retain `execution_isolation: none`, `filesystem_isolation: none`, and `network_isolation: none`.
+Focused Node 20/24, transaction, audit, cache-revalidation, worker isolation, documentation, and repository latency gates pass locally after adversarial repair. This is not formal closure: final ordinary/smoke/package G7-X, real ChatGPT G7-U, and separately authorized publication/exact-head evidence remain outstanding.
 
-Phase 7 Core runtime and its exact TypeScript dependency remain unapproved pending a fresh G7-0 authorization. Serena/LSP dependencies or installations require their later extension-specific approvals.
+Serena retrieval is a separately authorized Phase 7B extension; direct stdio LSP is Phase 7C only when a concrete language need remains. CodexGPT exposes no protocol-level Provider mutation, while external same-user processes truthfully retain `execution_isolation: none`, `filesystem_isolation: none`, and `network_isolation: none`. Serena/LSP dependencies or installations remain outside the Core candidate.
 
 ### Phase 8 — OAuth and Cloudflare hardening
 

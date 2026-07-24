@@ -40,7 +40,7 @@ const V4_DESCRIPTORS = Object.freeze({
 export function v4ToolsForProjection(
   input: ToolContractProjectionInput
 ): readonly CanonicalToolV4Addition[] {
-  if (input.version !== 4 || input.connectionTest) return Object.freeze([]);
+  if ((input.version !== 4 && input.version !== 5) || input.connectionTest) return Object.freeze([]);
   return Object.freeze(CONTRACT_V4_ADDITIONS.filter((name) =>
     (V4_DESCRIPTORS[name].modes as readonly string[]).includes(input.mode)
   ));

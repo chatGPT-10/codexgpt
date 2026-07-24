@@ -8,6 +8,7 @@ import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { expandHome, loadConfig, type CodexGPTConfig } from "./config.js";
+import { contractIncludesV4 } from "./tools/contracts/index.js";
 import { createHttpPolicySessionSource, loadOrCreateIdentityKey } from "./policy/identity.js";
 import { policyIdentityScopes } from "./policy/runtime.js";
 import { acceptedAuthenticationMode, type AcceptedHttpAuthenticationMode } from "./policy/transport.js";
@@ -1767,7 +1768,7 @@ async function main(): Promise<void> {
 
         const policyEngineMode = config.policyEngineMode ?? "legacy";
         const needsSessionContext =
-          config.toolContractVersion === 4 ||
+          contractIncludesV4(config.toolContractVersion) ||
           policyEngineMode !== "legacy" ||
           (config.fileTransactions === "atomic" && config.writeMode !== "off");
         const authenticationMode = (res.locals.codexgptAuthenticationMode ?? "loopback_none") as AcceptedHttpAuthenticationMode;

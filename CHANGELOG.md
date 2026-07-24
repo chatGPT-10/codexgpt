@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Phase 7 Core behind explicit `standard` Contract V5: one zero-setup JavaScript/TypeScript `semantic` tool for definitions, references, one-file diagnostics, and complete rename previews; a bounded owned worker using TypeScript 5.9.3; honest lexical fallback; single-use `semantic_preview_id` application through the existing approval/atomic transaction/audit/change-set/undo path; local status/disable commands; and exact V1/V2/V3/V4 compatibility. Serena and direct LSP remain unimplemented, unbundled post-Core extensions.
 - Fixed source-checkout CLI help so it consistently routes users through the supported `scripts/codexgpt-entry.mjs` public entry, with a runtime regression that also binds the published `codexgpt` bin mapping.
 - Added Phase 6 project guidance: normal `standard` mode now returns bounded root and target `AGENTS.md` context, discovers target-scoped workspace Skills with lazy body/resource loading, requires context refresh before mutation and subtree switches, and keeps scripts, dependencies, user/plugin Skills, and all permission changes explicit. Omitted guidance defaults to ready `standard`; explicit `legacy` remains the rollback, while omitted minimal mode preserves the exact legacy projection because `codex_context` is unavailable there.
 - Fixed Phase 6 exact-head cross-platform failures by normalizing Windows-style guidance targets on every host, rereading the same bounded handle to detect same-size in-place edits, and promptly retrying failed detached-run lease renewals without extending lease authority.

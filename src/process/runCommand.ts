@@ -33,6 +33,7 @@ import { OutputCursorCodec } from "./outputCursor.js";
 import { OutputQuotaManager } from "./outputQuota.js";
 import { OutputRing } from "./outputRing.js";
 import { StreamingRedactor } from "./streamingRedactor.js";
+import { contractIncludesV4 } from "../tools/contracts/index.js";
 import {
   FULL_ACCESS_PROCESS_AUTHORITY_V3,
   FULL_ACCESS_PROCESS_WARNING_V3
@@ -140,7 +141,7 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
   }
 
   get toolContractVersion(): 3 | 4 {
-    return this.#options.config.toolContractVersion === 4 ? 4 : 3;
+    return contractIncludesV4(this.#options.config.toolContractVersion) ? 4 : 3;
   }
 
   async beginPersistentVerification(
@@ -189,11 +190,11 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
 
   #resolve(args: Record<string, unknown>, operation: "run_command" | "start_process" = "run_command") {
     const persistentInput = operation === "start_process"
-      ? (this.toolContractVersion === 4
+      ? (contractIncludesV4(this.toolContractVersion)
           ? startProcessInputV4Schema.parse(args)
           : startProcessInputV1Schema.parse(args))
       : null;
-    const input = persistentInput ?? (this.#options.config.toolContractVersion === 4
+    const input = persistentInput ?? (contractIncludesV4(this.#options.config.toolContractVersion)
       ? runCommandInputV4Schema.parse(args)
       : runCommandInputV1Schema.parse(args));
     if (input.mode !== "full_access") throw new Error("PROCESS_SANDBOX_UNAVAILABLE");
@@ -309,8 +310,8 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
       const data = { process_id: processId, status, exit_code: exitCode, termination_reason: timedOut ? "timeout" : null,
         backend: { backend_id: resolved.backend.backendId, command_kind: resolved.command.kind, executable_identity: resolved.backend.sha256, terminal: "none" }, authority: FULL_ACCESS_PROCESS_AUTHORITY_V3, output,
         started_at: new Date(started).toISOString(), ended_at: new Date(this.#now()).toISOString(),
-        ...(this.#options.config.toolContractVersion === 4 ? { verification_receipt: null } : {}) };
-      const schema = this.#options.config.toolContractVersion === 4
+        ...(contractIncludesV4(this.#options.config.toolContractVersion) ? { verification_receipt: null } : {}) };
+    const schema = contractIncludesV4(this.#options.config.toolContractVersion)
         ? runCommandOutputSchemaV4
         : runCommandOutputSchema;
       const structured = schema.parse({ codexgpt_tool: "run_command", codexgpt_title: "Run Command", ok: true, data, error: null, meta: createToolMeta(this.#now() - started, [FULL_ACCESS_PROCESS_WARNING_V3]) }) as Record<string, unknown>;
@@ -380,14 +381,14 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
       process_id: processId,
       status: record.status,
       output,
-      ...(this.toolContractVersion === 4
+      ...(contractIncludesV4(this.toolContractVersion)
         ? {
             exit_code: record.exitCode,
             verification_receipt: record.verificationReceipt
           }
         : {})
     };
-    const schema = this.toolContractVersion === 4
+    const schema = contractIncludesV4(this.toolContractVersion)
       ? readProcessOutputOutputSchemaV4
       : readProcessOutputOutputSchema;
     return schema.parse({ codexgpt_tool: "read_process_output", codexgpt_title: "Read Process Output", ok: true, data, error: null, meta: createToolMeta() }) as Record<string, unknown>;

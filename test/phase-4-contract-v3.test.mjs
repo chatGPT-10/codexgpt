@@ -57,8 +57,8 @@ test("contract V3 parses explicitly while V1 remains the default", () => {
   assert.equal(config({ CODEXGPT_TOOL_CONTRACT_VERSION: "3" }).toolContractVersion, 3);
   assert.equal(config({}, ["--bash", "off", "--write", "off", "--tool-contract-version", "3"]).toolContractVersion, 3);
   assert.throws(
-    () => config({ CODEXGPT_TOOL_CONTRACT_VERSION: "5" }),
-    /CODEXGPT_TOOL_CONTRACT_VERSION must be 1, 2, 3, or 4/
+    () => config({ CODEXGPT_TOOL_CONTRACT_VERSION: "6" }),
+    /CODEXGPT_TOOL_CONTRACT_VERSION must be 1, 2, 3, 4, or 5/
   );
 });
 

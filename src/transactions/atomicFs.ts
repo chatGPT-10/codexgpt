@@ -17,6 +17,7 @@ export interface InspectedWorkspacePath {
   comparisonKey: string;
   targetAbsPath: string;
   before: BeforeFileFactV1;
+  stableIdentity: { dev: string; ino: string } | null;
   artifactParentAbsPath: string;
   missingDirectories: readonly {
     relativePath: string;
@@ -150,13 +151,15 @@ export class AtomicWorkspaceFs {
           mode: Number(stat.mode),
           atimeMs: Number(stat.atimeNs) / 1_000_000,
           mtimeMs: Number(stat.mtimeNs) / 1_000_000
-        }
+        },
+        existingParentIdentity: facts.existingParentIdentity
       };
       return {
         relativePath: facts.relPath,
         comparisonKey: facts.comparisonKey,
         targetAbsPath: facts.absPath,
         before,
+        stableIdentity: { dev: stat.dev.toString(), ino: stat.ino.toString() },
         artifactParentAbsPath: path.dirname(facts.absPath),
         missingDirectories: []
       };
@@ -180,6 +183,7 @@ export class AtomicWorkspaceFs {
         comparisonKey: facts.comparisonKey,
         targetAbsPath: facts.absPath,
         before,
+        stableIdentity: null,
         artifactParentAbsPath: facts.existingParent,
         missingDirectories: facts.unresolvedSuffix.slice(0, -1).map((_, index) => {
           const segments = facts.unresolvedSuffix.slice(0, index + 1);
@@ -312,10 +316,21 @@ export class AtomicWorkspaceFs {
     operationId: string,
     relativePath: string,
     bytes: Buffer,
-    expectedSha256: string | null
+    expectedSha256: string | null,
+    expectedStableIdentity?: { dev: string; ino: string },
+    expectedParentIdentity?: string
   ): Promise<PreparedAtomicOperation> {
     const inspected = await this.inspect(relativePath);
-    if (!inspected.before.exists || (expectedSha256 !== null && inspected.before.sha256 !== expectedSha256)) {
+    if (
+      !inspected.before.exists ||
+      (expectedSha256 !== null && inspected.before.sha256 !== expectedSha256) ||
+      (expectedStableIdentity !== undefined && (
+        inspected.stableIdentity?.dev !== expectedStableIdentity.dev ||
+        inspected.stableIdentity?.ino !== expectedStableIdentity.ino
+      )) ||
+      (expectedParentIdentity !== undefined &&
+        inspected.before.existingParentIdentity !== expectedParentIdentity)
+    ) {
       throw conflict(inspected.relativePath);
     }
     const stageAbsPath = await this.writeStage(inspected.targetAbsPath, inspected.artifactParentAbsPath, bytes, inspected.before.metadata.mode);

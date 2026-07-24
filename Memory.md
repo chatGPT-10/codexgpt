@@ -6,17 +6,17 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-23.
+- Date: 2026-07-24.
 - Package: `codexgpt@0.28.6`; repository: `chatGPT-10/codexgpt`; primary platform: native Windows; WSL remains optional.
 - Phases 0–3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with exact-head run `29603060944`; Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`.
 - Phase 6 is formally closed at `31631676fe254962a9a4f14d6e025e3edba82b8d`; exact-head run `30033293444` passed Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package. Explicit `legacy` remains rollback and old Apps require one **Scan Tools** refresh or recreation.
 - STEP-400 repaired the two Windows test observers and passed local ordinary, Build, and Smoke on managed Node 20/24. STEP-401 records the exact published closure without creating an evidence-only repository commit.
-- STEP-399 completes the adversarially repaired Phase 7 paired design/TDD plan. Core is zero-setup owned-worker JS/TS plus symbol lookup, inherited V5, and approval/identity-bound atomic rename; Phase 7B Serena and demand-driven Phase 7C LSP are non-blocking extensions. No Phase 7 runtime, dependency, or Provider install was performed; publication of the design records is governed by STEP-404.
+- STEP-408 completes the Phase 7 Core local implementation candidate through Gate G7-X: zero-setup owned-worker JS/TS, symbol-or-position `semantic`, exact inherited V5=52, quality-labeled fallback, and approval/identity-bound atomic rename. Formal closure still requires real ChatGPT G7-U plus separately authorized publication and exact-head CI; Serena/LSP remain unimplemented extensions.
 - Omitted mode defaults to `standard` with readiness `ready`; explicit `CODEXGPT_GUIDANCE_MODE=legacy` remains the one-restart rollback. Omitted `minimal` mode preserves the exact legacy projection because it has no `codex_context`; explicit `standard + minimal` fails closed.
 
 ## Approved execution boundary
 
-Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-23 publication authorization permits staging, English commits, ordinary pushes, and exact-head CI repair/retry cycles for the audited Phase 6 closure/project records, Phase 7 design/TDD records, and STEP-403 public-help repair. Phase 7 Core runtime and exact TypeScript dependency, Phase 7B/7C dependencies or installs, npm registry credential use/release, deployment, Tasks 4B1–4B6, `workspace`, force push, destructive history, credentials, Phase 8+, and unrelated scope remain excluded.
+Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-24 follow-up instruction authorizes completing the remaining Phase 7 Core path: real G7-U where the connected ChatGPT surface is available, staging only the reviewed Phase 7 scope, one concise English commit, ordinary push, and bounded exact-head CI diagnosis/repair cycles. It does not authorize Phase 7B/7C dependencies or installs, npm release, deployment, npm registry credentials, Tasks 4B1–4B6, `workspace`, force push, destructive history, credential migration, Phase 8+, or unrelated scope.
 
 ## Active decisions and constraints
 
@@ -38,8 +38,8 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - Phase 6 adds no Tool Contract V5, generic Hooks, automatic Skill scripts/dependencies, custom trust/hash/permission manifest, or guidance-derived authority. Standard user/plugin Skills remain explicit opt-in.
 - Every Phase 6 AGENTS/Skill/resource read must use one canonical same-handle bounded reader; automatic Skill catalogs default to an 8,000-character total budget.
 - Omitted `CODEXGPT_GUIDANCE_MODE` now selects `standard` with readiness `ready`; explicit `legacy` preserves the exact prior V1/V2/V3/V4 projections as a one-restart rollback. In ChatGPT Web/App, subsequent default-workspace calls omit `workspace_id` because opaque handles are transport-session scoped and cross-session reuse must fail closed. Apps with frozen pre-Phase-6 tool snapshots require one **Scan Tools** refresh or recreation; transparent refresh is not claimed. `yaml@2.9.0` is the only new production dependency and has no transitive dependencies or lifecycle scripts.
-- Phase 7 Core must close independently before optional Providers: owned-worker builtin JS/TS, symbol-or-position `semantic`, exact inherited V5=52, lexical quality labels, and server-owned rename plans applied only through the server Policy Kernel/Phase 3 transaction. Approval binds `semanticFactsDigest`; stable identity/path/hash reaches the lock-held second inspection.
-- Every Core workspace semantic read is mandatory canonical same-handle with `nlink === 1`. Serena is Phase 7B; direct LSP is Phase 7C only for a named unmet language need. External same-user Providers have no execution, filesystem, or network isolation guarantee.
+- Phase 7 Core is implemented locally behind explicit `standard` Contract V5=52: owned-worker builtin JS/TS, symbol-or-position `semantic`, honest lexical quality labels, and server-owned rename plans applied only through the Policy Kernel/Phase 3 transaction. Approval binds `semanticFactsDigest`; stable identity/path/hash reaches the lock-held second inspection.
+- Every Core workspace semantic read uses canonical same-handle access with `nlink === 1`; cached results revalidate exact source inventory, identity, and SHA-256 before reuse. Serena is Phase 7B; direct LSP is Phase 7C only for a named unmet language need. External same-user Providers have no execution, filesystem, or network isolation guarantee.
 
 ## Verification evidence
 
@@ -52,6 +52,7 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - STEP-405 repairs the only failed gate from publication run `30040766710`: the Windows Node 20 lease-refresh fixture now proves its child reached the release branch, explicitly exits that fixture, and observes the terminal result through the lease boundary plus grace. Managed Node 20/24 focused lifecycle tests passed 17/17 per major.
 - STEP-406 repairs the only failed gate from exact-head run `30042788160`: the finalization-observation integration test no longer manufactures a stale worker identity that makes retention wait before result publication. The real detached worker still proves an exact finalizing lease or authoritative successful result, then its terminal state. Managed Node 20/24 focused lifecycle tests passed 17/17 per major.
 - STEP-407 repairs the only failed gate from publication run `30044475015`: Windows Node 20 timed out while that integration test concurrently polled the lease/result replacement window, then later detached checks cascaded behind the stuck worker. The lifecycle test now proves the authoritative result without racing those replacements; the exact bounded finalizing-lease contract remains deterministically covered in `runner-process-identity`. Managed Node 20/24 focused lifecycle plus identity tests passed 23/23 per major.
+- STEP-408 Gate G7-X evidence: the affected Phase 7/transaction suite passed 80/80 per managed Node major; strict repository latency passed; build passed on Node 20/24; ordinary run `2026-07-24T07-24-01-829Z-phase7-core-ordinary-final-r2-34f8955d` passed 1,218/1,220 with 2 established skips per major; Smoke run `2026-07-24T07-47-39-512Z-phase7-core-smoke-final-b56c3f08` passed all eight domains per major; policy, package dry-run, high/critical advisory, link, secret-pattern, and diff checks passed.
 
 ## Known limitations
 
@@ -65,15 +66,16 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - `docs/memory/archive/phase-1.md` exceeds normal direct-read size and remains an unchanged closed archive volume.
 - The deleted pre-Phase-6 App made a genuine frozen-tool-snapshot reuse test impossible. The approved product contract is one explicit **Scan Tools** refresh or App recreation; transparent cache refresh is not claimed.
-- Phase 7 runtime does not exist. The owned worker, V5, semantic approval facts, lock-held identity preconditions, Serena, and LSP are design requirements, not current capabilities; optional same-user Providers would remain unsandboxed.
+- Phase 7 Core is not formally closed or published: real ChatGPT G7-U, clean-install/exact-head CI, stage/commit/push, and release were not performed. Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. `npm audit` has zero high/critical findings but retains two moderate transitive findings in the current MCP SDK compatibility line.
 
 ## Open items
 
-1. Obtain fresh authorization for Phase 7 Core runtime and the exact TypeScript dependency; do not request Serena/LSP installs at Core G7-0.
-2. Keep Tasks 4B1–4B6 and `workspace` deferred; treat the toolchain-root migration as separate maintenance and never reinterpret ambient process/worktree mechanisms as a sandbox.
+1. Publish the reviewed Phase 7 Core candidate and bind its exact head to the complete CI matrix. Run real ChatGPT Gate G7-U after one **Scan Tools** refresh or App recreation when that UI surface is available; retain the old 51-tool migration check, and do not mark formal closure without it.
+2. Keep Serena/LSP, Tasks 4B1–4B6, `workspace`, Phase 8, release/deployment, and toolchain-root migration deferred; never reinterpret ambient process/worktree/Provider mechanisms as a sandbox.
 
 ## Recent summaries
 
+- **STEP-408 - Complete Phase 7 Core local G7-X:** finish docs and integration, repair cross-workspace cancellation, user-error classification, exact project caching/revalidation, worker reuse, dependency inventory drift, latency, and mutation-writer inventory; pass managed Node 20/24 ordinary and Smoke.
 - **STEP-407 - Separate finalizing-lease identity from result publication:** remove the timing-race observer from the integration test, retain its real detached-result assertion, and keep lease semantics in the deterministic identity suite.
 - **STEP-406 - Remove synthetic finalization timing:** keep the real detached-run observation and terminal assertions, but remove the impossible stale-run fixture that caused the Windows Node 20 CI timeout.
 - **STEP-405 - Stabilize the Windows lease-refresh test:** prove the fixture child completes, preserve the final-result assertion, and wait through the lease boundary plus grace before reporting a test failure.
@@ -113,7 +115,7 @@ Phase 6 closure authority ended with exact-head run `30033293444`. The 2026-07-2
 - [Closed Phase 5 Volume 2 — STEP-356 through STEP-362](docs/memory/archive/phase-5-part-2.md)
 - [Closed Phase 6 Volume 1 — STEP-386 through STEP-400](docs/memory/archive/phase-6.md)
 - [Closed Phase 6 Volume 2 — STEP-401](docs/memory/archive/phase-6-part-2.md)
-- [Phase 7 design and future implementation — STEP-399 onward](docs/memory/archive/phase-7.md)
+- [Active Phase 7 design and Core implementation — STEP-399 onward](docs/memory/archive/phase-7.md)
 
 ## Memory maintenance protocol
 

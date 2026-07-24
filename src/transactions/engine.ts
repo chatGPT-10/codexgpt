@@ -60,6 +60,7 @@ interface TransactionContext {
   lock: WorkspaceLockHandle;
   released: boolean;
   lifecycle: "prepared" | "pending" | "committed" | "rolled_back" | "recovery_required";
+  finalizationGuard?: () => void;
 }
 
 function exactSha256(bytes: Buffer): string {
@@ -262,6 +263,12 @@ export class AtomicTransactionEngine {
         throw new TransactionError("TRANSACTION_PRECONDITION_FAILED", "Transaction participant name is invalid.");
       }
     }
+    if (
+      request.semanticFactsDigest !== undefined &&
+      !/^sha256:[a-f0-9]{64}$/u.test(request.semanticFactsDigest)
+    ) {
+      throw new TransactionError("TRANSACTION_PRECONDITION_FAILED", "Transaction semantic facts are invalid.");
+    }
   }
 
   async prepare(request: TransactionRequestV1): Promise<PreparedTransaction> {
@@ -297,6 +304,7 @@ export class AtomicTransactionEngine {
     let released = false;
 
     try {
+      request.finalizationGuard?.();
       manifest = {
         schemaVersion: 1,
         transactionId,
@@ -309,12 +317,16 @@ export class AtomicTransactionEngine {
         operations: planned.map(({ operation }) => operation),
         createdDirectories: [],
         requiredParticipants: [...request.requiredParticipants],
-        participantFacts: participantFacts(request.requiredParticipants)
+        participantFacts: participantFacts(request.requiredParticipants),
+        ...(request.semanticFactsDigest === undefined
+          ? {}
+          : { semanticFactsDigest: request.semanticFactsDigest })
       };
       this.store.writeInitial(manifest);
       await this.faults.hit("after_manifest_preparing", { operationCount: planned.length });
 
       for (let index = 0; index < planned.length; index += 1) {
+        request.finalizationGuard?.();
         const item = planned[index];
         let staged: PreparedAtomicOperation;
         if (item.request.kind === "create") {
@@ -328,7 +340,9 @@ export class AtomicTransactionEngine {
             item.request.operationId,
             item.request.relativePath,
             item.request.bytes,
-            item.request.expectedSha256
+            item.request.expectedSha256,
+            item.request.expectedStableIdentity,
+            item.request.expectedParentIdentity
           );
         } else {
           staged = await atomicFs.stageDelete(
@@ -357,6 +371,7 @@ export class AtomicTransactionEngine {
         released,
         lifecycle: "prepared"
       };
+      context.finalizationGuard = request.finalizationGuard;
       return new PreparedTransactionImpl(this, context);
     } catch (error) {
       if (manifest) {
@@ -428,6 +443,7 @@ export class AtomicTransactionEngine {
         left.split("/").length - right.split("/").length || left.localeCompare(right)
       );
       for (let index = 0; index < orderedDirectories.length; index += 1) {
+        context.finalizationGuard?.();
         const [relativePath, absPath] = orderedDirectories[index];
         try {
           await fsp.mkdir(absPath);
@@ -450,6 +466,7 @@ export class AtomicTransactionEngine {
         });
       }
       for (let index = 0; index < context.prepared.length; index += 1) {
+        context.finalizationGuard?.();
         const installed = await context.atomicFs.install(context.prepared[index]);
         context.prepared[index] = installed;
         context.manifest = this.transition(context.manifest, {
@@ -531,6 +548,7 @@ export class AtomicTransactionEngine {
       );
     }
 
+    context.finalizationGuard?.();
     context.manifest = this.transition(context.manifest, { state: "committed" });
     await this.faults.hit("after_manifest_committed", {
       operationCount: context.prepared.length

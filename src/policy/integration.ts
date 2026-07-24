@@ -4,7 +4,12 @@ import {
   commitTransactionWithAudit,
   executionAuditFacts
 } from "../audit/transactionParticipant.js";
-import { type AuditMutationKind, type AuthorizationAuditEventV2, type ExecutionAuditStatus } from "../audit/types.js";
+import {
+  type AuditMutationKind,
+  type AuthorizationAuditEventV2,
+  type ExecutionAuditStatus,
+  type SemanticAuditFactsV1
+} from "../audit/types.js";
 import type { AuthorizationAuditEventV4 } from "../audit/types.js";
 import type { PersistedExecutionAuditEvidenceV2 } from "../audit/runtime.js";
 import { pendingVerificationReceipt } from "../worktrees/verificationTerminal.js";
@@ -42,6 +47,7 @@ export interface AuditAuthorizationContextV2 {
   requirement: AuditRequirement;
   riskClass: RiskClass;
   mutating: boolean;
+  semanticFacts?: SemanticAuditFactsV1;
 }
 
 export interface AuditExecutionInputV2 {
@@ -55,6 +61,7 @@ export interface AuditExecutionInputV2 {
   operationCount: number;
   mutationKinds: AuditMutationKind[];
   recoveryRequired: boolean;
+  semanticFacts?: SemanticAuditFactsV1;
 }
 
 export interface PolicyAuthorizationResult {
@@ -79,6 +86,7 @@ export interface ResourceResolutionResult {
   requiredCapabilities?: RequiredCapabilityV1[];
   requiredScopes?: readonly string[];
   semanticFactsDigest?: string;
+  semanticAuditFacts?: SemanticAuditFactsV1;
   riskClass?: "R0" | "R1" | "R2" | "R3" | "R4";
   approvalRevealArguments?: readonly string[];
 }
@@ -278,7 +286,8 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
             revertsChangeSetId: null,
             operationCount: 0,
             mutationKinds: [],
-            recoveryRequired: false
+            recoveryRequired: false,
+            ...(auditContext.semanticFacts ? { semanticFacts: auditContext.semanticFacts } : {})
           };
           try {
             if (!runtime.persistExecution) throw new Error("Persistent audit runtime is unavailable.");

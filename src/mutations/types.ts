@@ -37,6 +37,7 @@ export interface WorkspaceMutationPreparation<T extends object> {
   changeSet(identity: ChangeSetIdentity): CreateChangeSetInput;
   project?(input: MutationProjectionInput<T>): T;
   projectFailure?(input: MutationFailureProjectionInput<T>): T | null;
+  validateLifecycle?(): void;
 }
 
 export interface MutationCommitInput<T extends object> {

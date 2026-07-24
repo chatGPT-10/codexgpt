@@ -1,8 +1,8 @@
 # Phase 7 Semantic Providers TDD Plan
 
-**Status:** executable plan complete after execution, security/compatibility, and UX adversarial review; runtime/dependencies/external installs remain unimplemented and unauthorized
+**Status:** Core local implementation candidate completed through Gate G7-X on 2026-07-24 after execution, security/compatibility, and UX adversarial repair; live ChatGPT G7-U and separately authorized publication/exact-head closure remain outstanding
 
-**Date:** 2026-07-23
+**Date:** 2026-07-24
 
 **Design:** [Phase 7 Semantic Providers Usability Design](../specs/2026-07-23-phase-7-semantic-providers-design.md)
 
@@ -1090,11 +1090,14 @@ Update root `Memory.md` in place with only current state, active decisions, fina
 
 ## 20. Current next action
 
-Do not implement this plan yet.
+The Phase 7 Core checkout candidate has completed local Gate G7-X. The authoritative local runs are:
+
+- ordinary: `2026-07-24T07-24-01-829Z-phase7-core-ordinary-final-r2-34f8955d` — managed Node 20/24, exit 0, 1,220 tests per major, 1,218 passed and 2 skipped;
+- protected Smoke: `2026-07-24T07-47-39-512Z-phase7-core-smoke-final-b56c3f08` — all eight domains passed on managed Node 20/24.
 
 The next legal action is:
 
-1. preserve the closed Phase 6 base at `31631676fe254962a9a4f14d6e025e3edba82b8d`, whose exact-head run `30033293444` passed the complete matrix;
-2. ask for explicit Phase 7 Core runtime and the exact TypeScript production dependency authorization; do not request Serena/LSP installs at Core G7-0;
-3. prove no conflicting same-kind detached run and execute Gate G7-0;
-4. begin Task 7A1 only after G7-0 passes.
+1. perform Gate G7-U in the real ChatGPT App after one explicit **Scan Tools** refresh or App recreation, retaining the old 51-tool migration check;
+2. keep Serena and direct LSP outside Core and uninstalled;
+3. after successful G7-U, request separate authorization for staging, commit, push, publication, and exact-head CI;
+4. close Core only when one exact published 40-character head passes Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.

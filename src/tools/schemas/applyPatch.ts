@@ -2,6 +2,23 @@ import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 import { transactionResultV2Schema } from "./transactionResult.js";
 
+const applyPatchExpectedFilesSchemaV5 = z.record(
+  z.string().min(1).max(240),
+  z.string().regex(/^[a-f0-9]{64}$/).nullable()
+).refine((value) => Object.keys(value).length <= 1_000, "expected_files exceeds the file limit.");
+
+export const applyPatchInputSchemaV5 = z.union([
+  z.object({
+    workspace_id: z.string().min(1).max(160).optional(),
+    patch: z.string().min(1),
+    expected_files: applyPatchExpectedFilesSchemaV5.optional()
+  }).strict(),
+  z.object({
+    workspace_id: z.string().min(1).max(160).optional(),
+    semantic_preview_id: z.string().min(20).max(200)
+  }).strict()
+]);
+
 export const APPLY_PATCH_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not available. Open the workspace before retrying.",
   PATH_OUTSIDE_WORKSPACE: "A patch target is outside the permitted workspace boundary.",

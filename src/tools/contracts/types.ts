@@ -60,7 +60,9 @@ export type CanonicalToolV4Addition =
   | "remove_task_worktree";
 
 export type CanonicalToolV4 = CanonicalToolV3 | CanonicalToolV4Addition;
-export type CanonicalTool = CanonicalToolV2 | CanonicalToolV3 | CanonicalToolV4;
+export type CanonicalToolV5Addition = "semantic";
+export type CanonicalToolV5 = CanonicalToolV4 | CanonicalToolV5Addition;
+export type CanonicalTool = CanonicalToolV2 | CanonicalToolV3 | CanonicalToolV4 | CanonicalToolV5;
 
 export interface ToolContractProjectionInput {
   version: ToolContractVersion;

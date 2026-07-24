@@ -34,7 +34,7 @@
 ## 当前项目状态
 
 - 包元数据当前为 `codexgpt@0.28.6`，`main` 包含尚未发布到 npm 的改动。
-- Phase 5 和 Phase 6 已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。项目指导默认使用 `standard`；这些能力仍保留文档规定的 fail-closed 与非沙箱边界。
+- Phase 5 和 Phase 6 已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。Phase 7 Core 已在本地实现，当前仍处于发布前验证阶段；尚不宣称默认启用或完成 exact-head 关闭。
 
 ## 安装
 
@@ -127,6 +127,35 @@ ChatGPT Web 可以操作：
 默认工具数量较少是故意的：ChatGPT 面对少量高信号工具时更稳定。Phase 6 项目指导现在默认启用，直接运行 `codexgpt start` 即可。首次 workspace open 会自动返回有界的根 `AGENTS.md` 正文和仅含 implicit-eligible workspace Skill 的 catalog；首次修改前，ChatGPT 必须调用 `codex_context(target_path)` 获取精确的 root-to-target 指令链和 target-scoped `.agents/skills`，再用返回的同一个 `target_path` 最多加载一个匹配 Skill。Skill 正文及 `references/`、`scripts/`、`assets/` 文本按需加载，任何脚本、依赖或 metadata 都不会自动执行。user/plugin Skills 默认不暴露，只有显式 `include_global_skills=true` 才扫描。
 
 Phase 6 更新前创建的 App 可能保留冻结的旧工具快照；此时需要执行一次 **Scan Tools** 或重建该 App，不宣称透明自动刷新。若旧快照中已有稳定的 `codexgpt` supertool，它仍可兼容调用 `open` 和 `codex_context`。同一二进制回滚只需设置 `$env:CODEXGPT_GUIDANCE_MODE = "legacy"` 并重启。`codexgpt doctor` 会报告 readiness、无效 metadata、命名冲突及 scan/catalog 截断。省略该变量时现在使用 `standard`；由于 `minimal` 不暴露 `codex_context`，省略 guidance 配置的 `--tool-mode minimal` 会使用精确的 legacy 兼容投影，显式 `standard + minimal` 则在启动时失败。
+
+### Phase 7 Core 语义导航
+
+Phase 7 Core 新增显式 `standard` 的 Contract V5，并通过一个零配置 `semantic` 工具为 JavaScript/TypeScript 提供定义、引用、单文件诊断和重命名预览。只有符号唯一时才允许省略路径；名称有歧义时返回有界候选，不会猜测。结果只显示工作区相对路径，并明确返回 `actual_provider` 与 `result_quality`，因此 lexical fallback 不会伪装成语义结果。
+
+为当前工作区启用 builtin engine 后重启；已有 51 工具快照的 ChatGPT App 需要执行一次 **Scan Tools（扫描工具）** 或重建 App：
+
+```powershell
+codexgpt semantic use builtin
+codexgpt start
+```
+
+本地查看健康状态、engine 版本和有界 worker 参数：
+
+```powershell
+codexgpt semantic status
+codexgpt semantic status --verbose
+```
+
+重命名分为两个明确步骤。`semantic` 的 `rename_preview` 只生成完整、绑定文件 hash 与稳定 identity 的内存计划，不写文件；随后 V5 `apply_patch` 使用一次性 `semantic_preview_id`，通过现有审批、原子事务、audit、change set、review 和 undo 路径整体提交。预览不是审批，Provider 也不能获得工作区或 mutation 权限。
+
+同一 binary 的回滚只需禁用并重启，普通 read/search/edit 不受影响：
+
+```powershell
+codexgpt semantic disable
+codexgpt start
+```
+
+builtin worker 仍以当前 Windows 用户权限运行，不是 execution、filesystem、credential 或 network sandbox。Serena 与直接 LSP 仍是未实现、未捆绑的 post-Core 扩展，本功能不会安装它们。
 
 CodexGPT 默认给 ChatGPT 暴露纯 MCP 工具描述，不附带 widget/card metadata。需要紧凑 v9 卡片时用 `CODEXGPT_TOOL_CARDS=1` 启动；server config、自测、workspace 摘要、读写 diff、bash 验证、git/tree/search/context 和 handoff/export 都有结构化视图。git、skills、tree、terminal 输出、context 和 raw diff 会折叠或截断，避免在聊天里刷出大段原始数据。`CODEXGPT_WIDGET_DOMAIN` 用于设置 ChatGPT widget iframe 的专用 HTTPS origin，正式提交 app 前应换成你控制的独立域名。
 

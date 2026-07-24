@@ -247,7 +247,7 @@ test("every production mutation-writer call site maps the selected public contra
     {
       attachPreparedFileMutation: 2,
       attachPreparedPatchMutation: 1,
-      attachPreparedBatchMutation: 4
+      attachPreparedBatchMutation: 5
     }
   );
   for (const call of serverCalls) {

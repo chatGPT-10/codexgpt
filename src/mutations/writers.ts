@@ -84,6 +84,8 @@ export interface BatchMutationContext {
   now?: () => number;
   retentionMs?: number;
   retainChangeSet?: boolean;
+  semanticFactsDigest?: string;
+  validateSemanticReservation?: () => void;
 }
 
 export interface BatchMutationFileProjection {
@@ -150,8 +152,14 @@ export async function attachPreparedBatchMutation<T extends object>(
   const pending = await input.runtime.prepare<T>({
     transaction: {
       workspace: input.workspace,
-      operations: input.prepared.operations.map((prepared) => prepared.operation)
+      operations: input.prepared.operations.map((prepared) => prepared.operation),
+      ...(input.context.semanticFactsDigest === undefined
+        ? {}
+        : { semanticFactsDigest: input.context.semanticFactsDigest })
     },
+    ...(input.context.validateSemanticReservation
+      ? { validateLifecycle: input.context.validateSemanticReservation }
+      : {}),
     changeSet: ({ transactionId, changeSetId, workspaceStateKey }) => {
       const entries = input.prepared.operations.map((prepared) => {
         const before = prepared.before;

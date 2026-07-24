@@ -34,9 +34,12 @@ import {
 import {
   contractIncludesV2,
   contractIncludesV3,
+  contractIncludesV4,
+  contractIncludesV5,
   v2ToolsForProjection,
   v3ToolsForProjection,
   v4ToolsForProjection,
+  v5ToolsForProjection,
   type CanonicalToolV3Addition,
   type CanonicalToolV4Addition
 } from "./tools/contracts/index.js";
@@ -84,6 +87,7 @@ import {
   textScanByteLimit,
   prepareWriteTextFile,
   prepareEditTextFile,
+  prepareWorkspaceTextBatch,
   writeTextFile,
   editTextFile,
   type ReadFileResult,
@@ -92,6 +96,20 @@ import {
   type WriteFileResult,
   type EditFileResult
 } from "./fsOps.js";
+import {
+  SemanticProviderManager,
+  semanticInvocationId,
+  semanticCoreStatus,
+  readSemanticSourceSnapshot,
+  applySemanticEdits,
+  type SemanticPreviewPlan
+} from "./semantic/index.js";
+import {
+  createSemanticFailure,
+  createSemanticSuccess,
+  semanticInputSchema,
+  semanticOutputShape
+} from "./tools/schemas/semantic.js";
 import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
 import { probeBashAvailability, runBash, type BashResult } from "./bashOps.js";
 import {
@@ -394,6 +412,7 @@ import {
   APPLY_PATCH_ERROR_MESSAGES,
   APPLY_PATCH_TRANSACTION_ERROR_MESSAGES,
   applyPatchDataSchema,
+  applyPatchInputSchemaV5,
   applyPatchOutputShape,
   applyPatchOutputShapeV2,
   createApplyPatchFailure,
@@ -4473,6 +4492,7 @@ export interface CodexGPTServerDependencies extends Phase3DServerDependencies {
   taskWorktreeAuthorityV4?: WorkspaceManagerOptions["taskWorktrees"];
   rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
   windowsProcessHostRuntimeV3?: import("./process/windowsHostClient.js").WindowsProcessHostRuntime;
+  semanticManagerV5?: SemanticProviderManager;
 }
 
 const SUPERTOOL_NAME = "codexgpt";
@@ -4690,6 +4710,11 @@ const V4_ADDITION_TOOLS = new Set<string>(v4ToolsForProjection({
   mode: "full",
   connectionTest: false
 }));
+const V5_ADDITION_TOOLS = new Set<string>(v5ToolsForProjection({
+  version: 5,
+  mode: "full",
+  connectionTest: false
+}));
 
 function codexSessionToolNames(config: CodexGPTConfig): string[] {
   if (config.codexSessions === "off") return [];
@@ -4735,6 +4760,13 @@ function toolNamesForMode(config: CodexGPTConfig): string[] {
     if (!names.includes(name)) names.push(name);
   }
   for (const name of v4ToolsForProjection({
+    version: config.toolContractVersion,
+    mode: config.toolMode,
+    connectionTest: config.connectionTest
+  })) {
+    if (!names.includes(name)) names.push(name);
+  }
+  for (const name of v5ToolsForProjection({
     version: config.toolContractVersion,
     mode: config.toolMode,
     connectionTest: config.connectionTest
@@ -4787,6 +4819,13 @@ function shouldRegisterTool(config: CodexGPTConfig, name: string): boolean {
   }
   if (V4_ADDITION_TOOLS.has(name)) {
     return (v4ToolsForProjection({
+      version: config.toolContractVersion,
+      mode: config.toolMode,
+      connectionTest: config.connectionTest
+    }) as readonly string[]).includes(name);
+  }
+  if (V5_ADDITION_TOOLS.has(name)) {
+    return (v5ToolsForProjection({
       version: config.toolContractVersion,
       mode: config.toolMode,
       connectionTest: config.connectionTest
@@ -4970,7 +5009,7 @@ function registerV3ContractTools(
 ): void {
   if (!contractIncludesV3(config.toolContractVersion)) return;
   for (const inheritedDefinition of V3_CONTRACT_TOOL_DEFINITIONS) {
-    const definition = config.toolContractVersion !== 4
+    const definition = !contractIncludesV4(config.toolContractVersion)
       ? inheritedDefinition
       : inheritedDefinition.name === "run_command"
         ? {
@@ -5272,7 +5311,7 @@ function registerV4ContractTools(
   workspaces: WorkspaceManager,
   guard: PathGuard
 ): void {
-  if (config.toolContractVersion !== 4) return;
+  if (!contractIncludesV4(config.toolContractVersion)) return;
   for (const definition of V4_CONTRACT_TOOL_DEFINITIONS) {
     let handler: CodexToolHandler = () => {
       const structured = definition.unavailable();
@@ -5640,6 +5679,9 @@ export function serverInstructions(config: CodexGPTConfig): string {
       : "3. Inspect with tree, search, and read. Do not use bash for git status, git diff, cat, sed, grep, rg, find, ls, or file reading.",
     editInstruction,
     bashInstruction,
+    contractIncludesV5(config.toolContractVersion)
+      ? "5a. For a request to inspect rename impact, call semantic(rename_preview) and stop without applying. For an explicit request to complete the rename, obtain a fresh preview and pass its opaque preview_id directly to apply_patch; never quote, narrate, or expose that token in natural-language output. After apply, verify with diagnostics/show_changes and use undo_change_set if rollback is requested."
+      : "",
     "6. Keep tool calls minimal. Prefer one targeted search plus show_changes instead of repeated broad inspection calls.",
     config.codexSessions !== "off"
       ? `7. Codex session history access is enabled in ${config.codexSessions} mode. Use it only when the user asks for local Codex session history.`
@@ -6017,7 +6059,8 @@ function undoChangeSetFailureResult(
 function buildServerConfigData(
   config: CodexGPTConfig,
   server: McpServer,
-  runtimeDiagnostics?: PolicyRuntimeDiagnostics
+  runtimeDiagnostics?: PolicyRuntimeDiagnostics,
+  runtimeSemanticStatus?: ReturnType<SemanticProviderManager["runtimeStatus"]>
 ): ServerConfigData {
   const registeredTools = registeredToolNames(server);
   const baselineCapabilities = baselineNodeCapabilityReport(process.platform);
@@ -6033,6 +6076,9 @@ function buildServerConfigData(
       missingCapabilities: []
     }
   };
+  const semanticStatus = contractIncludesV5(config.toolContractVersion)
+    ? runtimeSemanticStatus ?? semanticCoreStatus(config.semanticProvider)
+    : null;
   return serverConfigDataSchema.parse({
     defaultRoot: config.defaultRoot,
     allowedRoots: config.allowedRoots,
@@ -6071,6 +6117,18 @@ function buildServerConfigData(
     blockedGlobs: config.blockedGlobs,
     registeredTools,
     registeredToolCount: registeredTools.length,
+    ...(semanticStatus
+      ? {
+          toolContractVersion: 5 as const,
+          semanticMode: "standard" as const,
+          semanticProvider: config.semanticProvider,
+          semanticActualProvider: semanticStatus.actualProvider,
+          semanticState: semanticStatus.state,
+          semanticResultQuality: semanticStatus.resultQuality,
+          semanticNextAction: semanticStatus.nextAction,
+          semanticRetryAfterMs: "retryAfterMs" in semanticStatus ? semanticStatus.retryAfterMs : 0
+        }
+      : {}),
     ...((config.guidanceMode ?? "legacy") === "standard"
       ? {
           guidanceMode: "standard" as const,
@@ -6095,7 +6153,7 @@ import {
 import { baselineNodeCapabilityReport } from "./policy/enforcement.js";
 import { HARD_POLICY_REVISION } from "./policy/hardPolicy.js";
 import type { PolicySessionContextSource } from "./policy/identity.js";
-import { describeGitResource } from "./policy/resources.js";
+import { describeFilesystemBatchResource, describeGitResource } from "./policy/resources.js";
 import { createDefaultPolicyRuntime } from "./policy/runtime.js";
 import type { AuditEventV1 } from "./policy/types.js";
 import {
@@ -6138,7 +6196,9 @@ export function createCodexGPTServer(
     nativeHostIdentityAvailable: dependencies.v4ContractCapabilities?.nativeHostIdentityAvailable,
     localApprovalAvailable: dependencies.v4ContractCapabilities?.localApprovalAvailable,
     gitCapabilityAvailable: dependencies.v4ContractCapabilities?.gitCapabilityAvailable,
-    contractV4MigrationAvailable: dependencies.v4ContractCapabilities?.contractV4MigrationAvailable
+    contractV4MigrationAvailable: dependencies.v4ContractCapabilities?.contractV4MigrationAvailable,
+    semanticRuntimeAvailable: true,
+    contractV5MigrationAvailable: true
   });
   const transactionRecoveryCoordinator = config.fileTransactions === "atomic"
     ? dependencies.transactionRecoveryCoordinator ?? createDefaultTransactionRecoveryCoordinator(config)
@@ -6161,10 +6221,48 @@ export function createCodexGPTServer(
     taskWorktrees: dependencies.taskWorktreeAuthorityV4
   });
   const guard = new PathGuard(config);
+  const semanticManager = contractIncludesV5(config.toolContractVersion)
+    ? dependencies.semanticManagerV5 ?? new SemanticProviderManager(config, guard, workspaces)
+    : null;
+  const invalidateWorkspaceCaches = (workspaceId: string): void => {
+    invalidateWorkspaceAnalysis(workspaceId);
+    semanticManager?.invalidateWorkspace(workspaceId);
+  };
   const policyEngineMode = config.policyEngineMode ?? "legacy";
-  const toolResourceResolver: ToolResourceResolver | undefined = dependencies.undoChangeSetService || dependencies.toolResourceResolver || dependencies.gitMutationServiceV4 || dependencies.taskWorktreeServiceV4 || dependencies.rootAdmissionRuntimeV3
+  const toolResourceResolver: ToolResourceResolver | undefined = dependencies.undoChangeSetService || dependencies.toolResourceResolver || dependencies.gitMutationServiceV4 || dependencies.taskWorktreeServiceV4 || dependencies.rootAdmissionRuntimeV3 || semanticManager
     ? {
         describe(toolName, args) {
+          if (toolName === "apply_patch" && typeof args.semantic_preview_id === "string") {
+            if (!semanticManager) throw new Error("Semantic preview resource resolver is unavailable.");
+            const suppliedWorkspaceId = typeof args.workspace_id === "string"
+              ? args.workspace_id
+              : undefined;
+            const resolved = semanticManager.resolvePreview(args.semantic_preview_id, suppliedWorkspaceId);
+            const workspace = workspaces.getWorkspace(resolved.plan.workspaceId);
+            return {
+              resource: describeFilesystemBatchResource({
+                workspace,
+                guard,
+                operation: "patch",
+                entries: resolved.plan.files.map((file) => ({
+                  sourcePath: file.snapshot.relativePath,
+                  destinationPath: null
+                }))
+              }),
+              requiredCapabilities: [{ name: "filesystemWriteBoundary", minimum: "brokered" }],
+              requiredScopes: ["filesystem:write"],
+              semanticFactsDigest: resolved.semanticFactsDigest,
+              semanticAuditFacts: resolved.semanticAuditFacts,
+              riskClass: "R2",
+              approvalRevealArguments: [
+                `rename ${resolved.plan.oldName} to ${resolved.plan.newName}`,
+                `provider=builtin-typescript generation=${resolved.plan.providerGeneration}`,
+                `manifest=${resolved.manifestDigest}`,
+                `files=${resolved.plan.files.length} edits=${resolved.plan.files.reduce((sum, file) => sum + file.edits.length, 0)} bytes=${resolved.plan.files.reduce((sum, file) => sum + Buffer.byteLength(file.resultingText, "utf8"), 0)}`,
+                ...resolved.plan.files.map((file) => file.snapshot.relativePath)
+              ]
+            };
+          }
           if (toolName === "undo_change_set") {
             if (!dependencies.undoChangeSetService) {
               throw new Error("Undo resource resolver is unavailable.");
@@ -6265,6 +6363,19 @@ export function createCodexGPTServer(
       : undefined
   );
   const server = new McpServer({ name: "CodexGPT", version: "0.28.6" }, { instructions: serverInstructions(config) });
+  if (semanticManager) {
+    const closeServer = server.close.bind(server);
+    let semanticClose: Promise<void> | null = null;
+    server.close = async () => {
+      try {
+        workspaces.revokeAll("transport_closed");
+        await closeServer();
+      } finally {
+        semanticClose ??= semanticManager.dispose();
+        await semanticClose;
+      }
+    };
+  }
   if (dependencies.workspaceMutationRuntime) {
     mutationRegistrationByServer.set(server as object, {
       runtime: dependencies.workspaceMutationRuntime,
@@ -6273,7 +6384,12 @@ export function createCodexGPTServer(
   }
   const serverConfigDataProvider =
     dependencies.serverConfigDataProvider ??
-    (() => buildServerConfigData(config, server, effectivePolicyRuntime?.diagnostics?.()));
+    (() => buildServerConfigData(
+      config,
+      server,
+      effectivePolicyRuntime?.diagnostics?.(),
+      semanticManager?.runtimeStatus?.()
+    ));
   const treeResultProvider =
     dependencies.treeResultProvider ??
     ((context: TreeProviderContext) =>
@@ -6322,7 +6438,7 @@ export function createCodexGPTServer(
       ));
   type GitReadServiceDependencyV4 = NonNullable<CodexGPTServerDependencies["gitReadServiceV4"]>;
   const typedGitReadService = (activeConfig: CodexGPTConfig): GitReadServiceDependencyV4 | null => {
-    if (activeConfig.toolContractVersion !== 4) return null;
+    if (!contractIncludesV4(activeConfig.toolContractVersion)) return null;
     if (!dependencies.gitReadServiceV4) throw new CodexGPTError("GIT_V4_HANDLER_UNAVAILABLE");
     return dependencies.gitReadServiceV4;
   };
@@ -6692,6 +6808,75 @@ export function createCodexGPTServer(
   });
   registerV3ContractTools(config, server, dependencies);
   registerV4ContractTools(config, server, dependencies, workspaces, guard);
+  if (semanticManager) {
+    registerCodexTool(
+      config,
+      server,
+      "semantic",
+      {
+        title: "Semantic Code",
+        description:
+          "Find symbol definitions and references, report TypeScript/JavaScript diagnostics, or preview a safe symbol rename. Use semantic for code meaning, search for text/regex, and inspect_workspace for a repository overview. Do not ask the user to choose a Provider.",
+        inputSchema: semanticInputSchema,
+        __codexgptStrictInputSchema: semanticInputSchema,
+        outputSchema: semanticOutputShape,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false
+        },
+        _meta: {
+          ...toolCardMeta(),
+          "openai/toolInvocation/invoking": "Analyzing code semantics...",
+          "openai/toolInvocation/invoked": "Semantic analysis complete"
+        }
+      },
+      async (args) => {
+        try {
+          const parsed = semanticInputSchema.parse(args);
+          const workspace = workspaces.resolveWorkspace(parsed.workspace_id);
+          const result = await semanticManager.execute(workspace, parsed);
+          const publicDetails = "diff_preview" in result.result
+            ? `\nFiles: ${result.result.affected_file_count}; edits: ${result.result.edit_count}\n\n${result.result.diff_preview}`
+            : Array.isArray(result.result.locations)
+              ? `\nReturned: ${result.returned_count}; omitted: ${result.omitted_count}\n${result.result.locations.map((item: any) => `${item.path}:${item.range.start.line}:${item.range.start.column}`).join("\n")}`
+              : Array.isArray(result.result.diagnostics)
+                ? `\nReturned: ${result.returned_count}; omitted: ${result.omitted_count}\n${result.result.diagnostics.map((item: any) => `${item.path}:${item.range.start.line}:${item.range.start.column} ${item.severity} ${item.code} ${item.message}`).join("\n")}`
+                : Array.isArray(result.result.candidates)
+                  ? `\nCandidates: ${result.returned_count}; omitted: ${result.omitted_count}\n${result.result.candidates.map((item: any) => `${item.path}:${item.range.start.line}:${item.range.start.column}`).join("\n")}`
+                  : "";
+          return textResult(
+            `# Semantic Code\n\nProvider: ${result.actual_provider}\nQuality: ${result.result_quality}\nState: ${result.state}\nNext: ${result.next_action}${publicDetails}`,
+            createSemanticSuccess(result)
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Semantic analysis failed.";
+          const code = /workspace/i.test(message)
+            ? "WORKSPACE_NOT_FOUND"
+            : /unsupported/i.test(message)
+              ? "UNSUPPORTED"
+              : /too large|limit/i.test(message)
+                ? "TOO_LARGE"
+                : /source|changed|identity/i.test(message)
+                  ? "SOURCE_CHANGED"
+                  : /invalid|position|identifier|argument/i.test(message)
+                    ? "INVALID_ARGUMENT"
+                    : "INTERNAL_ERROR";
+          const structured = createSemanticFailure({
+            code,
+            message: message.replace(/(?:[A-Za-z]:\\|\/home\/|\/Users\/)[^\s]*/gu, "[path omitted]").slice(0, 400),
+            retryable: code === "SOURCE_CHANGED",
+            details: {}
+          });
+          return {
+            ...textResult(`# Semantic Code Error\n\n${structured.error?.message ?? "Semantic analysis failed."}`, structured),
+            isError: true
+          };
+        }
+      }
+    );
+  }
   registerToolCardResource(server, config);
 
   registerCodexTool(
@@ -8419,7 +8604,7 @@ export function createCodexGPTServer(
           deletions: result.diff.deletions,
           diff: result.diff.diff
         });
-        if (result.diff.changed) invalidateWorkspaceAnalysis(workspace.id);
+        if (result.diff.changed) invalidateWorkspaceCaches(workspace.id);
         const text = `# Write File\n\nPath: ${result.path}\nExisted before: ${result.existed}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\nDiff stats: +${result.diff.additions} -${result.diff.deletions}${diffBlock(result.diff.diff)}`;
         const response = textResult(text, createWriteSuccess(data));
         if (!prepared) return response;
@@ -8586,7 +8771,7 @@ export function createCodexGPTServer(
           deletions: result.diff.deletions,
           diff: result.diff.diff
         });
-        if (result.diff.changed) invalidateWorkspaceAnalysis(workspace.id);
+        if (result.diff.changed) invalidateWorkspaceCaches(workspace.id);
         const text = `# Edit File\n\nPath: ${result.path}\nReplacements: ${result.replacements}\nBytes: ${result.bytes}\nSHA-256: ${result.sha256}\nDiff stats: +${result.diff.additions} -${result.diff.deletions}${diffBlock(result.diff.diff)}`;
         const response = textResult(text, createEditSuccess(data));
         if (!prepared) return response;
@@ -8687,22 +8872,28 @@ export function createCodexGPTServer(
     "apply_patch",
     {
       title: "Apply Patch",
-      description:
-        "Apply one unified diff patch inside the workspace. Paths are validated before applying. Prefer edit for tiny replacements and apply_patch for multi-file diffs.",
-      inputSchema: {
-        workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
-        patch: z.string().describe("Unified diff patch to apply. File paths must stay inside the workspace and avoid blocked paths."),
-        ...(contractIncludesV2(config.toolContractVersion)
-          ? {
-              expected_files: z.record(
-                z.string().min(1).max(240),
-                z.string().regex(/^[a-f0-9]{64}$/).nullable()
-              ).refine((value) => Object.keys(value).length <= 1_000, "expected_files exceeds the file limit.")
-                .optional()
-                .describe("Optional touched-file SHA-256 or null-absence preconditions.")
-            }
-          : {})
-      },
+      description: contractIncludesV5(config.toolContractVersion)
+        ? "Apply one unified diff or consume one exact server-owned semantic rename preview. The two forms are mutually exclusive and every target is revalidated before one atomic transaction."
+        : "Apply one unified diff patch inside the workspace. Paths are validated before applying. Prefer edit for tiny replacements and apply_patch for multi-file diffs.",
+      inputSchema: contractIncludesV5(config.toolContractVersion)
+        ? applyPatchInputSchemaV5
+        : {
+            workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
+            patch: z.string().describe("Unified diff patch to apply. File paths must stay inside the workspace and avoid blocked paths."),
+            ...(contractIncludesV2(config.toolContractVersion)
+              ? {
+                  expected_files: z.record(
+                    z.string().min(1).max(240),
+                    z.string().regex(/^[a-f0-9]{64}$/).nullable()
+                  ).refine((value) => Object.keys(value).length <= 1_000, "expected_files exceeds the file limit.")
+                    .optional()
+                    .describe("Optional touched-file SHA-256 or null-absence preconditions.")
+                }
+              : {})
+          },
+      __codexgptStrictInputSchema: contractIncludesV5(config.toolContractVersion)
+        ? applyPatchInputSchemaV5
+        : undefined,
       outputSchema: contractIncludesV2(config.toolContractVersion) ? applyPatchOutputShapeV2 : applyPatchOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
@@ -8713,6 +8904,143 @@ export function createCodexGPTServer(
     },
     async (args) => {
       try {
+        if (contractIncludesV5(config.toolContractVersion) && "semantic_preview_id" in args) {
+          if (!semanticManager) throw new CodexGPTError("Semantic preview runtime is unavailable.");
+          const previewId = String(args.semantic_preview_id);
+          const resolved = semanticManager.resolvePreview(
+            previewId,
+            typeof args.workspace_id === "string" ? args.workspace_id : undefined
+          );
+          const workspace = workspaces.getWorkspace(resolved.plan.workspaceId);
+          if (args.workspace_id !== undefined && args.workspace_id !== workspace.id) {
+            throw new CodexGPTError("Semantic preview is unavailable.");
+          }
+          const invocationId = semanticInvocationId();
+          const plan = semanticManager.previews.reserve(previewId, invocationId, workspace.id);
+          const validateReservation = () => {
+            semanticManager.assertReservation(previewId, invocationId, workspace.id);
+          };
+          try {
+            const writes = [];
+            let additions = 0;
+            let deletions = 0;
+            for (const file of plan.files) {
+              validateReservation();
+              const current = await readSemanticSourceSnapshot({
+                root: workspace.root,
+                relativePath: file.snapshot.relativePath,
+                maxBytes: Math.max(config.maxReadBytes, config.maxWriteBytes),
+                blockedGlobs: config.blockedGlobs
+              });
+              if (
+                !current.ok ||
+                current.snapshot.sha256 !== file.snapshot.sha256 ||
+                current.snapshot.stableIdentity.dev !== file.snapshot.stableIdentity.dev ||
+                current.snapshot.stableIdentity.ino !== file.snapshot.stableIdentity.ino
+              ) {
+                throw new TransactionError("FILE_VERSION_CONFLICT", "Semantic preview source changed.", {
+                  relativePath: file.snapshot.relativePath
+                });
+              }
+              const resultingText = applySemanticEdits(current.snapshot, file.edits);
+              const resultingSha256 = createHash("sha256").update(resultingText, "utf8").digest("hex");
+              if (resultingSha256 !== file.resultingSha256) {
+                throw new TransactionError("TRANSACTION_PRECONDITION_FAILED", "Semantic preview result changed.");
+              }
+              const changedLines = new Set(file.edits.map((edit) =>
+                file.snapshot.utf8Text.slice(0, edit.start).split("\n").length
+              ));
+              additions += changedLines.size;
+              deletions += changedLines.size;
+              writes.push({
+                path: file.snapshot.relativePath,
+                content: resultingText,
+                mode: "replace" as const,
+                expectedSha256: file.snapshot.sha256,
+                expectedStableIdentity: {
+                  dev: file.snapshot.stableIdentity.dev,
+                  ino: file.snapshot.stableIdentity.ino
+                },
+                expectedParentIdentity: file.snapshot.parentIdentity
+              });
+            }
+            validateReservation();
+            const prepared = await prepareWorkspaceTextBatch(config, guard, workspace, writes, {
+              maxBatchBytes: Math.min(64 * 1024 * 1024, config.maxWriteBytes * Math.max(1, writes.length))
+            });
+            const paths = plan.files.map((file) => file.snapshot.relativePath);
+            const diff = plan.files.map((file) =>
+              `--- a/${file.snapshot.relativePath}\n+++ b/${file.snapshot.relativePath}\n@@ semantic rename ${plan.oldName} -> ${plan.newName} @@`
+            ).join("\n");
+            const data = applyPatchDataSchema.parse({
+              workspace_id: workspace.id,
+              root: workspace.root,
+              paths,
+              stdout: "",
+              stderr: "",
+              additions,
+              deletions,
+              changed: true,
+              diff
+            });
+            const response = textResult(
+              `# Apply Semantic Rename\n\nPaths: ${paths.join(", ")}\nManifest: ${resolved.manifestDigest}\nFiles: ${paths.length}; edits: ${plan.files.reduce((total, file) => total + file.edits.length, 0)}`,
+              createApplyPatchSuccess(data)
+            );
+            const runtime = dependencies.workspaceMutationRuntime;
+            if (!runtime) throw new TransactionError("ATOMIC_BACKEND_UNAVAILABLE", "Atomic semantic rename runtime is unavailable.");
+            return attachPreparedBatchMutation({
+              runtime,
+              workspace,
+              prepared,
+              context: {
+                toolName: "apply_patch",
+                requestId: null,
+                ownerBinding: changeSetOwnerBinding(dependencies.policySessionContextSource, dependencies.changeSetOwnerBindingKey),
+                policyRevision: mutationPolicyRevision(effectivePolicyRuntime),
+                contractVersion: persistedMutationContractVersion(config.toolContractVersion),
+                retentionMs: config.changeSetRetention.activeRetentionMs,
+                semanticFactsDigest: resolved.semanticFactsDigest,
+                validateSemanticReservation: validateReservation
+              },
+              result: response,
+              project: ({ result: committedResult, transaction, files }) => {
+                semanticManager.previews.consume(previewId, invocationId);
+                semanticManager.previews.invalidatePaths(workspace.id, paths);
+                invalidateWorkspaceCaches(workspace.id);
+                return {
+                  ...committedResult,
+                  structuredContent: createApplyPatchSuccessV2({
+                    ...data,
+                    transaction,
+                    files
+                  }, resultDurationMs(committedResult))
+                };
+              },
+              projectFailure: ({ result: failedResult, error }) => {
+                semanticManager.previews.burn(previewId, invocationId);
+                const code = publicMutationFailureCode(error) ?? "TRANSACTION_FAILED";
+                const structured = createApplyPatchTransactionFailureV2({
+                  code,
+                  details: code === "FILE_VERSION_CONFLICT"
+                    ? { path: publicMutationFailurePath(error, paths[0] ?? "[path omitted]") }
+                    : {}
+                }, resultDurationMs(failedResult));
+                return {
+                  ...failedResult,
+                  ...textResult(
+                    `# Apply Semantic Rename Error\n\nCode: ${code}\n${APPLY_PATCH_TRANSACTION_ERROR_MESSAGES[code]}`,
+                    structured
+                  ),
+                  isError: true
+                };
+              }
+            });
+          } catch (error) {
+            semanticManager.previews.burn(previewId, invocationId);
+            throw error;
+          }
+        }
         const workspace = workspaces.resolveWorkspace(args.workspace_id);
         const patch = String(args.patch ?? "");
         const touchedPaths = validateApplyPatchInput(config, patch);
@@ -8781,7 +9109,7 @@ export function createCodexGPTServer(
         ].filter(Boolean).join("\n");
         const response = textResult(text, createApplyPatchSuccess(data));
         if (!prepared) {
-          invalidateWorkspaceAnalysis(workspace.id);
+          invalidateWorkspaceCaches(workspace.id);
           return response;
         }
         const runtime = dependencies.workspaceMutationRuntime;
@@ -8805,7 +9133,7 @@ export function createCodexGPTServer(
           },
           result: response,
           project: ({ result: committedResult, transaction, files }) => {
-            invalidateWorkspaceAnalysis(workspace.id);
+            invalidateWorkspaceCaches(workspace.id);
             if (config.toolContractVersion === 1) return committedResult;
             return {
               ...committedResult,
@@ -8977,17 +9305,17 @@ export function createCodexGPTServer(
     "git_status",
     {
       title: "Git Status",
-      description: config.toolContractVersion === 4
+      description: contractIncludesV4(config.toolContractVersion)
         ? "Read a bounded typed Git state projection and mint a mutation token only for complete state."
         : "Show git branch and changed files for the workspace.",
-      inputSchema: config.toolContractVersion === 4
+      inputSchema: contractIncludesV4(config.toolContractVersion)
         ? gitStatusInputV4Schema
         : {
             workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
             path: z.string().optional().describe("Optional file path relative to workspace root.")
           },
-      __codexgptStrictInputSchema: config.toolContractVersion === 4 ? gitStatusInputV4Schema : undefined,
-      outputSchema: config.toolContractVersion === 4 ? gitStatusOutputShapeV4 : gitStatusOutputShape,
+      __codexgptStrictInputSchema: contractIncludesV4(config.toolContractVersion) ? gitStatusInputV4Schema : undefined,
+      outputSchema: contractIncludesV4(config.toolContractVersion) ? gitStatusOutputShapeV4 : gitStatusOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -8996,7 +9324,7 @@ export function createCodexGPTServer(
       }
     },
     async (args) => {
-      if (config.toolContractVersion === 4) {
+      if (contractIncludesV4(config.toolContractVersion)) {
         if (!dependencies.gitReadServiceV4) {
           const structured = createGitStatusUnavailableV4();
           return {
@@ -9086,10 +9414,10 @@ export function createCodexGPTServer(
     "git_diff",
     {
       title: "Git Diff",
-      description: config.toolContractVersion === 4
+      description: contractIncludesV4(config.toolContractVersion)
         ? "Read a bounded typed Git comparison without accepting arbitrary revisions or flags."
         : "Show current unstaged or staged git diff, optionally scoped to a file.",
-      inputSchema: config.toolContractVersion === 4
+      inputSchema: contractIncludesV4(config.toolContractVersion)
         ? gitDiffInputV4Schema
         : {
             workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
@@ -9097,8 +9425,8 @@ export function createCodexGPTServer(
             staged: z.boolean().optional().describe("Show staged diff. Default: false."),
             include_diff: z.boolean().optional().describe("Include the raw unified diff in the response. Default: true. Set false for stats-only checks.")
           },
-      __codexgptStrictInputSchema: config.toolContractVersion === 4 ? gitDiffInputV4Schema : undefined,
-      outputSchema: config.toolContractVersion === 4 ? gitDiffOutputShapeV4 : gitDiffOutputShape,
+      __codexgptStrictInputSchema: contractIncludesV4(config.toolContractVersion) ? gitDiffInputV4Schema : undefined,
+      outputSchema: contractIncludesV4(config.toolContractVersion) ? gitDiffOutputShapeV4 : gitDiffOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -9107,7 +9435,7 @@ export function createCodexGPTServer(
       }
     },
     async (args) => {
-      if (config.toolContractVersion === 4) {
+      if (contractIncludesV4(config.toolContractVersion)) {
         if (!dependencies.gitReadServiceV4) {
           const structured = createGitDiffUnavailableV4();
           return {
