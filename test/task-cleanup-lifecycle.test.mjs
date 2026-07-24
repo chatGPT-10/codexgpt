@@ -317,6 +317,67 @@ test("worker finalization publishes an authoritative successful result", async (
   }
 });
 
+test("retention defers terminal evidence while its exact worker is still alive", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-live-terminal-run-"));
+  const runId = "2020-01-01T00-00-00-000Z-live-terminal-aaaaaaaa";
+  const directory = path.join(root, runId);
+  try {
+    await fs.mkdir(directory);
+    const [stat, workerCreationTime] = await Promise.all([
+      fs.stat(directory, { bigint: true }),
+      longTaskRunner.processCreationTime(process.pid)
+    ]);
+    assert.ok(workerCreationTime);
+    const metadata = {
+      schemaVersion: 2,
+      runId,
+      kind: "live-terminal",
+      workerPid: process.pid,
+      workerNonce: "a".repeat(64),
+      workerCreationTime,
+      workerCommandDigest: "b".repeat(64),
+      commandDigest: "c".repeat(64),
+      startedAt: "2020-01-01T00:00:00.000Z",
+      directory,
+      directoryIdentity: { dev: String(stat.dev), ino: String(stat.ino) },
+      command: [process.execPath, "-e", ""],
+      cwd: repositoryRoot,
+      logLimitBytes: 4096,
+      retentionCount: 1,
+      retentionDays: 1,
+      host: os.hostname()
+    };
+    const evidence = {
+      schemaVersion: 2,
+      runId,
+      workerPid: metadata.workerPid,
+      workerNonce: metadata.workerNonce,
+      workerCreationTime: metadata.workerCreationTime,
+      commandDigest: metadata.commandDigest,
+      workerCommandDigest: metadata.workerCommandDigest,
+      publishedAt: metadata.startedAt
+    };
+    const result = {
+      schemaVersion: 2,
+      runId,
+      completedAt: "2020-01-01T00:00:01.000Z"
+    };
+    await Promise.all([
+      fs.writeFile(path.join(directory, "metadata.json"), `${JSON.stringify(metadata)}\n`, "utf8"),
+      fs.writeFile(path.join(directory, "worker-evidence.json"), `${JSON.stringify(evidence)}\n`, "utf8"),
+      fs.writeFile(path.join(directory, "result.json"), `${JSON.stringify(result)}\n`, "utf8")
+    ]);
+
+    const report = await pruneTerminalRuns(root, { keepCount: 1, maxAgeDays: 1 });
+    assert.equal(report.removed, 0);
+    assert.equal(report.retained, 1);
+    assert.equal(report.failed, 0);
+    assert.deepEqual(await fs.readdir(root), [runId]);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
 test("retention excludes the preserved in-progress run before state evaluation", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-preserved-run-"));
   const runId = "2026-07-20T00-00-00-000Z-preserved-run-aaaaaaaa";
@@ -588,8 +649,17 @@ test("terminal detached-run evidence is automatically pruned to the configured r
       const state = await waitForTerminal(runRoot, started.runId);
       assert.equal(state.result.exitCode, 0);
       assert.equal(state.result.retention.failed, 0, JSON.stringify(state.result.retention));
-      await waitForDirectoryCount(runRoot, 1);
     }
+
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      await pruneTerminalRuns(runRoot, { keepCount: 1, maxAgeDays: 36_500 });
+      const count = (await fs.readdir(runRoot, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory()).length;
+      if (count === 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    await waitForDirectoryCount(runRoot, 1);
 
     const states = JSON.parse((await executeLongRunner(["list", "--root", runRoot])).stdout);
     assert.equal(states.length, 1);

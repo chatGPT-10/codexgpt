@@ -559,6 +559,14 @@ async function recoverClaimedRunDirectories(root) {
   return summary;
 }
 
+async function terminalRunWorkerActive(root, state) {
+  if (state.schemaVersion !== RUNNER_SCHEMA_VERSION) return false;
+  const directory = resolveRunDirectory(root, state.runId);
+  const evidence = await readJson(path.join(directory, "worker-evidence.json"));
+  const identity = await verifyWorkerIdentity(state, evidence);
+  return identity.owned || identity.reason === "process_identity_unavailable";
+}
+
 async function removeTerminalRun(root, state) {
   if (state.status !== "completed" && state.status !== "stopped") {
     throw new Error(`Refusing to prune non-terminal run ${state.runId}.`);
@@ -646,6 +654,10 @@ export async function pruneTerminalRuns(root, options = {}) {
       continue;
     }
     try {
+      if (await terminalRunWorkerActive(root, state)) {
+        result.retained += 1;
+        continue;
+      }
       await removeTerminalRun(root, state);
       result.removed += 1;
     } catch (error) {

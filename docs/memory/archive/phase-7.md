@@ -295,3 +295,46 @@ The environment exposed no independent Agent runtime, so STEP-408 did not claim 
 **Rollback:** Revert only the lease target preflight and its deterministic regression. Do not restore unbounded Windows rename retries against a known non-file target and do not weaken authoritative result publication.
 
 **Next action:** Run final policy/diff/staged-secret checks, create one concise repair commit, push normally, and bind the replacement exact head to the complete CI matrix. Real ChatGPT G7-U remains required before formal Phase 7 closure.
+
+## 2026-07-24 — STEP-412: Defer pruning live terminal workers
+
+**Status:** The fourth exact-head candidate passed Repository policy, Ubuntu Node 20/24, and Windows Node 24. Windows Node 20 exposed a retention/open-handle race. A process-identity-bound retention repair is complete locally and awaits publication.
+
+**Goal:** Prevent a newer detached run from blocking terminal publication while retention tries to delete evidence for an older run whose `result.json` is visible but whose exact worker process is still exiting.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7.md`
+- `scripts/long-task-runner.mjs`
+- `test/task-cleanup-lifecycle.test.mjs`
+
+**Failure evidence:**
+
+- Lease-target repair commit `677107d61c4aa430e83a0241b2fdb8bacfc85a67` (`fix: fail closed on unsafe lease targets`) was pushed normally.
+- Exact-head run `30081603749` passed Repository policy, Ubuntu Node 20/24, and Windows Node 24.
+- Windows Node 20 Regression timed out `terminal detached-run evidence is automatically pruned to the configured retention count` after approximately 92 seconds while waiting for the second run to become terminal.
+- The previous run already had terminal evidence, but its worker could still be completing post-result lease cleanup and process exit. Windows directory rename/removal can wait on those open handles, and retention ran before the newer worker published its own result.
+
+**RED evidence:** Added `retention defers terminal evidence while its exact worker is still alive` using a terminal fixture bound to the current process's exact creation identity. Before implementation, pruning removed the directory and the test failed `removed === 0`.
+
+**Implementation:**
+
+- Before deleting an expired terminal run, retention now reads its worker evidence and calls the existing exact `verifyWorkerIdentity()` boundary.
+- If the exact worker is still owned/alive, or process identity is temporarily unavailable while the PID is alive, the run is counted as retained/deferred for that pass.
+- Once exact process identity is gone, later automatic or explicit pruning may claim and remove the terminal directory under the existing canonical-path and directory-identity checks.
+- The retention integration no longer requires each newly completed result to synchronously reduce the directory count before the preceding exact worker has exited. It verifies eventual convergence by invoking the same production pruning function until one retained run remains.
+- No retention age/count limit, worker deadline, file-removal retry count, or stale classification was widened.
+
+**Verification:**
+
+- Local runner/lifecycle/identity suite — 33/33 passed.
+- Managed Node `20.20.2` and `24.15.0` lifecycle/runner/classification suite — 53/53 passed per major.
+- Automatic retention still converges to the configured count after exact workers exit, and `retention.failed` remains zero.
+- TypeScript build passed.
+
+**Security result:** Terminal evidence is no longer treated as proof that the worker process has released all handles. Deletion remains bound to exact process creation identity, run-directory identity, canonical path, and terminal record; PID reuse cannot authorize deletion.
+
+**Rollback:** Revert only the live-worker retention deferral and its deterministic regression. Do not restore deletion of evidence owned by a still-live exact worker and do not increase retention/test deadlines.
+
+**Next action:** Run final policy/diff/staged-secret checks, create one concise repair commit, push normally, and bind the replacement exact head to the complete CI matrix. Real ChatGPT G7-U remains required before formal Phase 7 closure.
