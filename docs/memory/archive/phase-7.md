@@ -250,3 +250,48 @@ The environment exposed no independent Agent runtime, so STEP-408 did not claim 
 **Rollback:** Revert the two-stage launcher and its exact contract tests. Do not widen detached-runner deadlines or globally force all Linux tests to concurrency one.
 
 **Next action:** Run policy/diff/staged-secret checks, commit the scheduling repair, push normally, and bind the new exact head to the complete CI matrix. Real ChatGPT G7-U remains required before formal Phase 7 closure.
+
+## 2026-07-24 — STEP-411: Fail closed before unsafe lease replacement
+
+**Status:** The third exact-head candidate passed Repository policy, Ubuntu Node 20/24, and Windows Node 20, but Windows Node 24 reproduced one lease-refresh fixture timeout twice. A deterministic target-boundary repair is complete locally and awaits publication.
+
+**Goal:** Ensure an observational worker-lease write cannot delay authoritative terminal result publication when the lease path has been replaced by a directory, symlink, hardlink, or other non-ordinary object.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7.md`
+- `scripts/long-task-runner.mjs`
+- `test/task-cleanup-lifecycle.test.mjs`
+
+**Failure evidence:**
+
+- Scheduling repair commit `65084e71568f046d9d299d4a41a0d63c70d96f10` (`test: isolate detached runner lifecycles`) was pushed normally.
+- Exact-head run `30079058827` passed Repository policy, Ubuntu Node 20/24, and Windows Node 20.
+- Windows Node 24 Regression timed out `terminal result publication survives a failed observational lease refresh` after approximately 92 seconds.
+- A same-head failed-job rerun reproduced the same Windows Node 24 timeout, so it was not accepted as infrastructure noise.
+- Before the repair, the deliberately sabotaged `worker-lease.json` directory was passed directly into Windows atomic rename retry handling. A blocked observational write could therefore delay the worker before it reached `result.json` publication.
+
+**RED evidence:** Added `worker lease target preflight rejects directory replacement without retrying`. Before implementation it failed because `assertWorkerLeaseTarget` was absent; the remaining 17 lifecycle tests passed.
+
+**Implementation:**
+
+- Added `assertWorkerLeaseTarget()` to the runner.
+- An absent lease target is permitted for first publication.
+- An existing target must be a non-symlink, single-link ordinary file. Any directory, symlink, hardlink, or special object fails immediately with `WORKER_LEASE_PATH_UNSAFE`.
+- Every lease publication runs this preflight before entering atomic rename/retry handling.
+- The lease remains observational: publication failure is caught and cannot suppress task execution or authoritative result publication.
+- No lease duration, renewal cadence, result deadline, test timeout, or stale-state rule was widened.
+
+**Verification:**
+
+- Local runner/lifecycle/identity suite — 32/32 passed; the sabotaged refresh case completed in approximately 0.7 seconds instead of waiting 92 seconds.
+- Managed Node `20.20.2` and `24.15.0` lifecycle/runner/classification suite — 52/52 passed per major.
+- Managed Node 24 repeated the preflight plus failed-refresh pair 12 times — 12/12 passed.
+- TypeScript build passed.
+
+**Security result:** The repair narrows the lease write boundary. It does not follow links, replace directories, widen authority, or treat a lease as authorization. A path-type race after preflight still reaches the existing atomic replacement failure and remains observational.
+
+**Rollback:** Revert only the lease target preflight and its deterministic regression. Do not restore unbounded Windows rename retries against a known non-file target and do not weaken authoritative result publication.
+
+**Next action:** Run final policy/diff/staged-secret checks, create one concise repair commit, push normally, and bind the replacement exact head to the complete CI matrix. Real ChatGPT G7-U remains required before formal Phase 7 closure.

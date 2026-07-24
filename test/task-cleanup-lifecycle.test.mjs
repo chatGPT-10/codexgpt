@@ -13,6 +13,7 @@ import {
   waitForTerminalPublication,
   WORKER_LEASE_MS
 } from "../scripts/long-task-runner.mjs";
+import * as longTaskRunner from "../scripts/long-task-runner.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -126,6 +127,21 @@ test("worker lease renewal retries promptly after a transient publication failur
     assert.deepEqual(scheduled, [15_000, 1_000, 15_000]);
   } finally {
     stop();
+  }
+});
+
+test("worker lease target preflight rejects directory replacement without retrying", async () => {
+  assert.equal(typeof longTaskRunner.assertWorkerLeaseTarget, "function");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-lease-target-"));
+  const target = path.join(root, "worker-lease.json");
+  try {
+    await fs.mkdir(target);
+    assert.throws(
+      () => longTaskRunner.assertWorkerLeaseTarget(target),
+      (error) => error?.code === "WORKER_LEASE_PATH_UNSAFE"
+    );
+  } finally {
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 

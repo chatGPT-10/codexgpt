@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
+import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -19,6 +20,20 @@ export const DEFAULT_RUN_RETENTION_DAYS = 14;
 export const WORKER_LEASE_MS = 60_000;
 export const WORKER_LEASE_RENEW_MS = 15_000;
 export const WORKER_LEASE_RETRY_MS = 1_000;
+
+export function assertWorkerLeaseTarget(targetPath) {
+  try {
+    const stat = fs.lstatSync(targetPath, { bigint: true });
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n) {
+      const error = new Error("Worker lease target is not a single-link ordinary file.");
+      error.code = "WORKER_LEASE_PATH_UNSAFE";
+      throw error;
+    }
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    throw error;
+  }
+}
 
 export function startWorkerLeaseRenewal(options) {
   const publish = options.publish;
@@ -696,7 +711,9 @@ async function worker() {
     leasePhase = phase;
     leaseWrite = leaseWrite.catch(() => {}).then(async () => {
       const publishedAtMs = Date.now();
-      writeJsonAtomicFileSync(path.join(directory, "worker-lease.json"), {
+      const leasePath = path.join(directory, "worker-lease.json");
+      assertWorkerLeaseTarget(leasePath);
+      writeJsonAtomicFileSync(leasePath, {
         ...evidence,
         phase: leasePhase,
         publishedAt: new Date(publishedAtMs).toISOString(),
