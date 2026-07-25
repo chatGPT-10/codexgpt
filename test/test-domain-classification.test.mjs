@@ -85,7 +85,22 @@ test("process-owning and resource-bounded files are isolated without serializing
   assert.match(source, /const isolateProcessTests = process\.platform !== "win32" && concurrency !== "1"/);
   assert.match(source, /const parallelTests = isolateProcessTests/);
   assert.match(source, /const serialTests = isolateProcessTests/);
-  assert.match(source, /runNodeTests\(serialTests, "1", suiteTemp\.environment\)/);
+  assert.match(source, /runNodeTests\(serialTests, "1", suiteTemp\.environment, performanceState, "serial"\)/);
+});
+
+test("optional performance collection keeps the test runner topology and writes only ignored metadata", async () => {
+  const source = await fs.readFile(script, "utf8");
+  assert.match(source, /argv\.includes\("--performance"\)/);
+  assert.match(source, /performanceState\.performance\.path/);
+  assert.match(source, /test-performance-reporter\.mjs/);
+  assert.match(source, /--test-reporter-destination=stdout/);
+  assert.match(source, /CODEXGPT_TEST_PERFORMANCE_DOMAIN/);
+  assert.match(source, /CODEXGPT_TEST_PERFORMANCE_SHARD/);
+  assert.match(source, /prepareTestPerformanceDirectory\(\)/);
+  assert.match(source, /verifyTestPerformanceDirectory\(performanceState\)/);
+  assert.match(source, /validateTestPerformanceReport\(destination/);
+  assert.match(source, /runNodeTests\(parallelTests, concurrency, suiteTemp\.environment, performanceState, "main"\)/);
+  assert.match(source, /runNodeTests\(serialTests, "1", suiteTemp\.environment, performanceState, "serial"\)/);
 });
 
 test("connector-backed local execution fails closed for control and all domains", async () => {

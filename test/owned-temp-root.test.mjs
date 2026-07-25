@@ -335,8 +335,9 @@ test("official ordinary/control and smoke launchers use the shared child TEMP en
     fs.readFile("scripts/run-smoke.mjs", "utf8"),
     fs.readFile("package.json", "utf8").then(JSON.parse)
   ]);
-  assert.match(domains, /runNodeTests\([^,]+,\s*[^,]+,\s*suiteTemp\.environment\)/u);
-  assert.match(domains, /env:\s*environment/u);
+  assert.match(domains, /runNodeTests\([^,]+,\s*[^,]+,\s*suiteTemp\.environment(?:,\s*[^)]*)?\)/u);
+  assert.match(domains, /let childEnvironment = environment/u);
+  assert.match(domains, /env:\s*childEnvironment/u);
   assert.match(smoke, /runScript\(script,\s*suiteTemp\.environment\)/u);
   for (const source of [domains, smoke]) {
     assert.match(source, /createOwnedTempEnvironment/u);

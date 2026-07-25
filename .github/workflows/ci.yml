@@ -84,7 +84,8 @@ jobs:
         run: npm run build
 
       - name: Regression Tests
-        run: node scripts/run-and-summarize.mjs --label regression-ubuntu-node-${{ matrix.node-version }} -- node scripts/test-domains.mjs run --domain all
+        id: regression
+        run: node scripts/run-and-summarize.mjs --label regression-ubuntu-node-${{ matrix.node-version }} -- node scripts/test-domains.mjs run --domain all --performance
 
       - name: Smoke Test
         run: node scripts/run-and-summarize.mjs --label smoke-ubuntu-node-${{ matrix.node-version }} -- npm run smoke
@@ -99,6 +100,18 @@ jobs:
           name: ci-failure-ubuntu-node-${{ matrix.node-version }}
           path: .ai-bridge/ci-logs
           if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload performance report
+        if: steps.regression.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ci-performance-ubuntu-node-${{ matrix.node-version }}-attempt-${{ github.run_attempt }}
+          path: |
+            .ai-bridge/performance/test-performance-all-main-linux-node${{ matrix.node-version }}.json
+            .ai-bridge/performance/test-performance-all-serial-linux-node${{ matrix.node-version }}.json
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 14
 
   windows:
@@ -128,7 +141,8 @@ jobs:
         run: npm run build
 
       - name: Regression Tests
-        run: node scripts/run-and-summarize.mjs --label regression-windows-node-${{ matrix.node-version }} -- node scripts/test-domains.mjs run --domain all
+        id: regression
+        run: node scripts/run-and-summarize.mjs --label regression-windows-node-${{ matrix.node-version }} -- node scripts/test-domains.mjs run --domain all --performance
 
       - name: Smoke Test
         run: node scripts/run-and-summarize.mjs --label smoke-windows-node-${{ matrix.node-version }} -- npm run smoke
@@ -143,4 +157,14 @@ jobs:
           name: ci-failure-windows-node-${{ matrix.node-version }}
           path: .ai-bridge/ci-logs
           if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload performance report
+        if: steps.regression.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ci-performance-windows-node-${{ matrix.node-version }}-attempt-${{ github.run_attempt }}
+          path: .ai-bridge/performance/test-performance-all-main-win32-node${{ matrix.node-version }}.json
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 14

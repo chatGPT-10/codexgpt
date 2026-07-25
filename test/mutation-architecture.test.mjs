@@ -124,6 +124,12 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "rename:94267e3ddce4"
     ])
   }),
+  "scripts/test-performance-reporter.mjs": Object.freeze({
+    purpose: "Ignored .ai-bridge opt-in test-performance artifact directory for local and CI timing metadata outside tracked repository state.",
+    occurrences: Object.freeze([
+      "mkdir:9ae71d40146f"
+    ])
+  }),
   "scripts/owned-temp-root.mjs": Object.freeze({
     purpose: "Strictly marked OS-temporary roots with exact owner identity, crash-recovery sweeping, normal-exit cleanup, and fail-closed preservation of unknown or changed paths.",
     occurrences: Object.freeze([

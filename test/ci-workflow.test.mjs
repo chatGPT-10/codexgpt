@@ -28,6 +28,13 @@ function jobBlock(workflow, jobName, nextJobName) {
   return workflow.slice(start, end === -1 ? workflow.length : end);
 }
 
+function stepBlock(job, stepName) {
+  const start = job.indexOf(`      - name: ${stepName}`);
+  assert.notEqual(start, -1, `Missing ${stepName} step`);
+  const end = job.indexOf("      - name:", start + 1);
+  return job.slice(start, end === -1 ? job.length : end);
+}
+
 test("CI classifies changes, always enforces policy, and bounds full-matrix logs", async () => {
   const workflow = await fs.readFile(workflowPath, "utf8");
   const classify = jobBlock(workflow, "classify", "policy");
@@ -45,19 +52,29 @@ test("CI classifies changes, always enforces policy, and bounds full-matrix logs
   assert.match(policy, /test\/read-contract\.test\.mjs/);
 
   for (const [name, block] of [["Ubuntu", ubuntu], ["Windows", windows]]) {
+    const regression = stepBlock(block, "Regression Tests");
+    const performance = stepBlock(block, "Upload performance report");
     assert.match(block, /needs:\s*classify/, `${name} CI must depend on change classification`);
     assert.match(block, /if:\s*needs\.classify\.outputs\.runtime == 'true'/, `${name} full matrix must be runtime-only`);
     assert.match(
-      block,
-      /scripts\/run-and-summarize\.mjs[^\r\n]*-- node scripts\/test-domains\.mjs run --domain all/,
+      regression,
+      /scripts\/run-and-summarize\.mjs[^\r\n]*-- node scripts\/test-domains\.mjs run --domain all --performance/,
       `${name} CI must run the complete authoritative test domain through the bounded summary wrapper`
     );
+    assert.match(regression, /id:\s*regression/);
     assert.match(
       block,
       /scripts\/run-and-summarize\.mjs[^\r\n]*-- npm run smoke/,
       `${name} CI must run the complete smoke suite through the bounded summary wrapper`
     );
     assert.match(block, /actions\/upload-artifact@v7\.0\.1/, `${name} CI must upload bounded failure evidence`);
+    assert.match(performance, /if:\s*steps\.regression\.outcome == 'success'/);
+    assert.match(performance, /name:\s*ci-performance-[^\r\n]*-attempt-\$\{\{ github\.run_attempt \}\}/);
+    assert.doesNotMatch(performance, /\.ai-bridge\/performance\/\*\.json/);
+    assert.match(performance, /\.ai-bridge\/performance\/test-performance-all-main-(?:linux|win32)-node\$\{\{ matrix\.node-version \}\}\.json/);
+    assert.match(performance, /include-hidden-files:\s*true/);
+    assert.match(performance, /if-no-files-found:\s*error/);
+    assert.match(performance, /retention-days:\s*14/);
     assert.match(block, /retention-days:\s*14/, `${name} CI failure logs must have bounded retention`);
   }
 

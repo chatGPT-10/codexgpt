@@ -2,8 +2,13 @@
 import { spawn } from "node:child_process";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createOwnedTempEnvironment } from "./owned-temp-root.mjs";
+import {
+  prepareTestPerformanceDirectory,
+  validateTestPerformanceReport,
+  verifyTestPerformanceDirectory
+} from "./test-performance-reporter.mjs";
 
 export const SERIAL_PROCESS_TESTS = Object.freeze([
   "operational-reliability.test.mjs",
@@ -38,6 +43,7 @@ export const CONTROL_DOMAIN_TESTS = Object.freeze([
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "..");
 const testDirectory = path.join(repositoryRoot, "test");
+const performanceReporter = path.join(scriptDirectory, "test-performance-reporter.mjs");
 const argv = process.argv.slice(2);
 const action = argv[0] ?? "list";
 
@@ -74,25 +80,75 @@ function localControlDomainApproved() {
     process.env.CODEXGPT_ALLOW_CONTROL_DOMAIN_TESTS === "1";
 }
 
-async function runNodeTests(testNames, concurrency, environment) {
+function performanceReportPath(performanceDirectory, domain, shard) {
+  const nodeMajor = process.versions.node.split(".")[0];
+  if (process.env.GITHUB_ACTIONS === "true") {
+    return path.join(
+      performanceDirectory,
+      `test-performance-${domain}-${shard}-${process.platform}-node${nodeMajor}.json`
+    );
+  }
+  const timestamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+  return path.join(
+    performanceDirectory,
+    `test-performance-${domain}-${shard}-${process.platform}-node${nodeMajor}-${timestamp}-${process.pid}.json`
+  );
+}
+
+async function runNodeTests(testNames, concurrency, environment, performanceState, shard) {
   if (testNames.length === 0) return 0;
   const nodeArgs = ["--test"];
   if (concurrency) nodeArgs.push(`--test-concurrency=${concurrency}`);
+  let childEnvironment = environment;
+  let destination = null;
+  if (performanceState !== null) {
+    destination = performanceReportPath(performanceState.performance.path, domain, shard);
+    nodeArgs.push(
+      `--test-reporter=${process.stdout.isTTY ? "spec" : "tap"}`,
+      `--test-reporter=${pathToFileURL(performanceReporter).href}`,
+      "--test-reporter-destination=stdout",
+      `--test-reporter-destination=${destination}`
+    );
+    childEnvironment = {
+      ...environment,
+      CODEXGPT_TEST_PERFORMANCE_DOMAIN: domain,
+      CODEXGPT_TEST_PERFORMANCE_SHARD: shard
+    };
+    console.log(JSON.stringify({
+      schemaVersion: 1,
+      performanceReport: path.relative(repositoryRoot, destination).split(path.sep).join("/")
+    }));
+  }
   nodeArgs.push(...testNames.map((name) => path.posix.join("test", name)));
   const child = spawn(process.execPath, nodeArgs, {
     cwd: repositoryRoot,
-    env: environment,
+    env: childEnvironment,
     shell: false,
     windowsHide: true,
     stdio: "inherit"
   });
-  return await new Promise((resolve) => {
+  let exitCode = await new Promise((resolve) => {
     child.once("error", (error) => {
       console.error(error.stack ?? error.message);
       resolve(127);
     });
     child.once("close", (code) => resolve(code ?? 1));
   });
+  if (performanceState !== null) {
+    try {
+      await verifyTestPerformanceDirectory(performanceState);
+      await validateTestPerformanceReport(destination, {
+        domain,
+        shard,
+        testNames,
+        architecture: process.arch
+      });
+    } catch (error) {
+      console.error(`Performance report validation failed: ${error?.message ?? "unknown"}`);
+      if (exitCode === 0) exitCode = 1;
+    }
+  }
+  return exitCode;
 }
 
 const domains = await classifyTestDomains();
@@ -121,6 +177,8 @@ if (action === "list") {
   }
 
   const concurrency = option("--test-concurrency", process.platform === "win32" ? "1" : undefined);
+  const performance = argv.includes("--performance");
+  const performanceState = performance ? await prepareTestPerformanceDirectory() : null;
   const isolateProcessTests = process.platform !== "win32" && concurrency !== "1";
   const serialSet = new Set(SERIAL_PROCESS_TESTS);
   const parallelTests = isolateProcessTests
@@ -135,15 +193,16 @@ if (action === "list") {
     count: domains[domain].length,
     concurrency: concurrency ?? "runtime-default",
     serialProcessTests: serialTests.length,
+    performance,
     authority: domain === "ordinary" ? "local-non-control-domain" : "isolated-control-domain"
   }));
 
   const suiteTemp = await createOwnedTempEnvironment(`tests-${domain}`);
   let exitCode = 1;
   try {
-    exitCode = await runNodeTests(parallelTests, concurrency, suiteTemp.environment);
+    exitCode = await runNodeTests(parallelTests, concurrency, suiteTemp.environment, performanceState, "main");
     if (exitCode === 0 && serialTests.length > 0) {
-      exitCode = await runNodeTests(serialTests, "1", suiteTemp.environment);
+      exitCode = await runNodeTests(serialTests, "1", suiteTemp.environment, performanceState, "serial");
     }
   } finally {
     try {
@@ -155,5 +214,5 @@ if (action === "list") {
   }
   process.exitCode = exitCode;
 } else {
-  fail("Usage: node scripts/test-domains.mjs <list|run> [--domain ordinary|control|all] [--test-concurrency N]", 2);
+  fail("Usage: node scripts/test-domains.mjs <list|run> [--domain ordinary|control|all] [--test-concurrency N] [--performance]", 2);
 }
