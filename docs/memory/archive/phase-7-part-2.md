@@ -132,3 +132,48 @@ This append-only volume continues [Phase 7 Volume 1](phase-7.md) from STEP-415 s
 **Final scope:** Exactly 22 tracked STEP-416 files are modified. The only untracked files are the two Phase 8 OAuth records, and neither is in the tracked diff. No run log, fixture, package tarball, audit evidence, transaction state, approval state, credential state, or toolchain state is included.
 
 **Revised next action:** Stage the exact 22-file reviewed scope, create one concise English commit, push normally to `origin/main`, and bind the resulting 40-character head to terminal exact-head CI success. After code and backend publication gates complete, real ChatGPT App G7-U remains a separate externally observable requirement.
+
+## 2026-07-25 — STEP-417: Preserve dual local-control state roots after exact-head CI
+
+**Status:** The first STEP-416 publication exposed a real Windows regression in the local process-control fallback. The replacement implementation and all relevant local Node 20/24 gates pass. A replacement commit, push, and exact-head CI run remain required; formal ChatGPT App UI G7-U remains externally blocked.
+
+**Goal:** Keep production approvals and unified production process control on the transaction state root without breaking the legacy owned-process fallback used when the remote approval path is unavailable.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7-part-2.md`
+- `docs/superpowers/plans/2026-07-23-phase-7-semantic-providers.md`
+- `scripts/codexgpt.mjs`
+
+**Failure evidence:** Commit `691168ebf88024896d755067656b438217356ed0` was pushed normally and bound to exact-head CI run `30123081050`. Repository policy and Ubuntu Node 24 passed, but Windows Node 20 failed first in `test/process-local-control-cli.test.mjs`: `processes terminate` looked only under `CodexGPT/state/v1/<server-id>` and raised `ENOENT` while the valid owned-process fallback server was under `CodexGPT/control/<server-id>`. Windows Node 24 and Ubuntu Node 20 also ended non-success, so the exact head was rejected rather than treated as flaky.
+
+**Root cause:** STEP-416 correctly moved approval CLI discovery to `resolveTransactionStateRoot()`, but `runLocalControlCli()` serves both `approvals` and `processes`. Applying the production approval root unconditionally erased the existing dual topology: the production unified server uses the transaction root, while the standalone owned-process fallback intentionally retains the legacy local-control root.
+
+**Implementation:**
+
+- `approvals` always selects the transaction state root.
+- `processes` selects the transaction root when the exact requested server directory exists there, preserving production unified control.
+- Otherwise `processes` leaves `stateBaseRoot` unset so `LocalApprovalClient` uses its established legacy `CodexGPT/control` default, preserving the standalone fallback.
+- Selection is exact-server based. If a production server directory exists but contains missing, replaced, symlinked, or corrupt state, the client remains on that root and fails closed; it does not silently fall back to a different server under the legacy root.
+- No "latest" server selection, directory enumeration, credential migration, or state mutation was introduced.
+
+**RED/GREEN evidence:** The published exact head is the RED evidence. Its Windows Node 20 regression deterministically failed the legacy fallback journey. After the bounded routing repair, `test/process-local-control-cli.test.mjs` and `test/cli-approvals.test.mjs` pass together, proving both the legacy fallback and production transaction-root topology.
+
+**Verification:**
+
+- Current-runtime build plus focused dual-topology tests: 2/2 passed.
+- Managed dual-topology matrix `2026-07-24T20-32-39-683Z-phase7-step416-ci-cli-managed-35a5a5cf` — Node `20.20.2` and `24.15.0` each passed 2/2; exit 0; zero stderr.
+- Replacement authoritative ordinary `2026-07-24T20-35-11-700Z-phase7-step416-ci-repair-ordinary-8ab133f4` — both managed majors passed; exit 0; zero stderr; temporary state cleanup succeeded.
+- Replacement protected Smoke `2026-07-24T20-57-18-972Z-phase7-step416-ci-repair-smoke-29898681` — all eight domains passed on both managed majors; exit 0; zero stderr; temporary state cleanup succeeded.
+- Replacement managed build `2026-07-25T03-50-56-919Z-phase7-step416-ci-repair-build-72f42491` — both managed majors passed; exit 0; zero stderr; temporary state cleanup succeeded.
+
+**Adversarial review:** No independent agent runtime is available. Manual review checked four failure modes: production processes must not regress to the legacy root; legacy fallback must remain usable; exact production state corruption must not be hidden by cross-root fallback; and approval discovery must never return to the legacy root. The exact-directory predicate plus the existing `LocalApprovalClient` lstat/identity checks satisfy those boundaries without adding a new state abstraction.
+
+**Risk and limitation:** Root selection is intentionally based only on the exact server directory's existence, not state validity. That preserves fail-closed behavior but means an abandoned corrupt production directory blocks same-ID legacy fallback until an operator diagnoses state; this is safer than silently connecting to a different authority domain. Exact-head CI for the replacement commit is still pending.
+
+**Rollback:** Reverting only this correction restores the confirmed Windows process-control regression. A complete product rollback remains explicit legacy guidance/contract mode; deleting local-control or transaction state is not an authorized rollback.
+
+**Next action:** Re-run policy, diff, package, Markdown-link, secret-pattern, size, and exact-scope checks; stage only these four reviewed STEP-417 files; commit once in English; push normally; and require terminal success from a new exact-head Repository policy, Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix. Keep both Phase 8 records untracked and excluded. Real ChatGPT App UI G7-U remains a separate externally observable requirement.
+
+**Final verification addendum:** Manual security review replaced `existsSync` with exact `lstatSync` probing so only `ENOENT` authorizes legacy fallback; access, type, symlink, and other state-root errors remain on the production authority path and fail closed. The first combined orchestration attempt `2026-07-25T03-55-26-727Z-phase7-step417-final-local-gates-cbb7ac45` did not execute tests because Git Bash rewrote `cmd.exe /d /s /c` flags as paths; it exited 1 with zero stdout and is not acceptance evidence. The corrected PowerShell-wrapped exact run `2026-07-25T03-57-05-983Z-phase7-step417-final-local-gates-r2-46cbb590` passed Node 20/24 dual-topology tests 2/2 per major, authoritative ordinary 1,227/1,229 with 2 established skips and 0 failures per major, and all eight protected Smoke domains per major; exit 0, zero stderr, successful temporary-state cleanup, and zero retention failures.

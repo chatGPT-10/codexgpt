@@ -1090,7 +1090,7 @@ Update root `Memory.md` in place with only current state, active decisions, fina
 
 ## 20. Current next action
 
-The Phase 7 Core checkout candidate has completed STEP-416 code repair and backend live acceptance. STEP-416 fixes MCP wire descriptor publication, production approval state-root alignment, inherited V3 approval binding for Tool Contracts 3/4/5, workspace-root Policy facts, repository-scale TypeScript worker memory, non-authoritative Git summary degradation, and recovery contention. Adversarial review additionally proved that recovery may defer only a `TRANSACTION_BUSY` carrying an exact verified-live-owner fact; unverifiable ownership and every other busy cause remain fail-closed.
+The Phase 7 Core checkout candidate has completed STEP-416 code repair and backend live acceptance. STEP-416 fixes MCP wire descriptor publication, production approval state-root alignment, inherited V3 approval binding for Tool Contracts 3/4/5, workspace-root Policy facts, repository-scale TypeScript worker memory, non-authoritative Git summary degradation, and recovery contention. Adversarial review additionally proved that recovery may defer only a `TRANSACTION_BUSY` carrying an exact verified-live-owner fact; unverifiable ownership and every other busy cause remain fail-closed. STEP-417 repairs the exact-head Windows regression caused by applying the production approval root to the standalone owned-process fallback: approvals remain on the transaction root, production processes use that root when the exact server directory exists there, and otherwise process control retains the established legacy local-control root without falling back around corrupt production state.
 
 Authoritative STEP-416 focused evidence:
 
@@ -1103,10 +1103,10 @@ Authoritative STEP-416 focused evidence:
 
 The 2026-07-24 follow-up authorization permits final local closure gates, staging only the reviewed Phase 7 scope, one concise English commit, an ordinary push, and bounded exact-head CI diagnosis/repair cycles. It does not authorize Phase 7B/7C, Phase 8, release, deployment, credential work, force push, or unrelated changes.
 
-The final local build, focused, repository, ordinary, Smoke, policy, package, Markdown-link, secret-pattern, diff, size, and scope gates pass. The next legal action is:
+The original STEP-416 publication `691168ebf88024896d755067656b438217356ed0` was correctly rejected by exact-head run `30123081050` after Windows Node 20 exposed the dual-root process-control regression. STEP-417 now probes the exact production server path with `lstatSync`, allowing legacy fallback only on `ENOENT`; all other state-root errors remain fail-closed. Final local run `2026-07-25T03-57-05-983Z-phase7-step417-final-local-gates-r2-46cbb590` passes managed dual-topology 2/2, authoritative ordinary 1,227/1,229 with 2 established skips, and all eight protected Smoke domains on both Node 20/24 majors; managed build `2026-07-25T03-50-56-919Z-phase7-step416-ci-repair-build-72f42491` also passes both majors. The next legal action is:
 
-1. stage and publish only the reviewed 22-file STEP-416 repair scope, excluding the two untracked Phase 8 records and all runtime evidence/state;
-2. bind the resulting exact 40-character head to Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package;
+1. stage and publish only the reviewed four-file STEP-417 correction scope, excluding the two untracked Phase 8 records and all runtime evidence/state;
+2. bind the replacement exact 40-character head to Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package;
 3. perform Gate G7-U in the real ChatGPT App after one explicit **Scan Tools** refresh or App recreation, retaining the old 51-tool migration check;
 4. keep Serena and direct LSP outside Core and uninstalled;
 5. close Core only when both the exact-head matrix and real user-observable G7-U pass. Backend HTTP MCP evidence is not a substitute for the UI gate.
