@@ -9,6 +9,11 @@ import {
   validateTestPerformanceReport,
   verifyTestPerformanceDirectory
 } from "./test-performance-reporter.mjs";
+import {
+  buildTestExecutionShards,
+  validateTestExecutionPartition,
+  validateTestExecutionProfileInventory
+} from "./test-execution-profiles.mjs";
 
 export const SERIAL_PROCESS_TESTS = Object.freeze([
   "operational-reliability.test.mjs",
@@ -152,6 +157,10 @@ async function runNodeTests(testNames, concurrency, environment, performanceStat
 }
 
 const domains = await classifyTestDomains();
+validateTestExecutionProfileInventory(domains.all, {
+  controlTests: CONTROL_DOMAIN_TESTS,
+  serialTests: SERIAL_PROCESS_TESTS
+});
 const domain = option("--domain", "ordinary");
 if (!Object.hasOwn(domains, domain)) fail("--domain must be ordinary, control, or all.", 2);
 
@@ -176,23 +185,36 @@ if (action === "list") {
     );
   }
 
-  const concurrency = option("--test-concurrency", process.platform === "win32" ? "1" : undefined);
+  const requestedConcurrency = option("--test-concurrency", undefined);
+  const testTopology = option(
+    "--test-topology",
+    process.env.CODEXGPT_TEST_TOPOLOGY ?? "layered"
+  );
   const performance = argv.includes("--performance");
   const performanceState = performance ? await prepareTestPerformanceDirectory() : null;
-  const isolateProcessTests = process.platform !== "win32" && concurrency !== "1";
-  const serialSet = new Set(SERIAL_PROCESS_TESTS);
-  const parallelTests = isolateProcessTests
-    ? domains[domain].filter((name) => !serialSet.has(name))
-    : domains[domain];
-  const serialTests = isolateProcessTests
-    ? domains[domain].filter((name) => serialSet.has(name))
-    : [];
+  let shards;
+  try {
+    shards = buildTestExecutionShards(domains[domain], {
+      platform: process.platform,
+      topology: testTopology,
+      requestedConcurrency,
+      controlTests: CONTROL_DOMAIN_TESTS,
+      serialTests: SERIAL_PROCESS_TESTS
+    });
+    validateTestExecutionPartition(domains[domain], shards);
+  } catch (error) {
+    fail(error?.message ?? "TEST_CLASSIFICATION_INVALID", 2);
+  }
   console.log(JSON.stringify({
     schemaVersion: 1,
     domain,
     count: domains[domain].length,
-    concurrency: concurrency ?? "runtime-default",
-    serialProcessTests: serialTests.length,
+    testTopology,
+    shards: shards.map((shard) => ({
+      name: shard.name,
+      count: shard.tests.length,
+      concurrency: shard.concurrency ?? "runtime-default"
+    })),
     performance,
     authority: domain === "ordinary" ? "local-non-control-domain" : "isolated-control-domain"
   }));
@@ -200,9 +222,16 @@ if (action === "list") {
   const suiteTemp = await createOwnedTempEnvironment(`tests-${domain}`);
   let exitCode = 1;
   try {
-    exitCode = await runNodeTests(parallelTests, concurrency, suiteTemp.environment, performanceState, "main");
-    if (exitCode === 0 && serialTests.length > 0) {
-      exitCode = await runNodeTests(serialTests, "1", suiteTemp.environment, performanceState, "serial");
+    exitCode = 0;
+    for (const shard of shards) {
+      if (exitCode !== 0) break;
+      exitCode = await runNodeTests(
+        shard.tests,
+        shard.concurrency,
+        suiteTemp.environment,
+        performanceState,
+        shard.name
+      );
     }
   } finally {
     try {
@@ -214,5 +243,5 @@ if (action === "list") {
   }
   process.exitCode = exitCode;
 } else {
-  fail("Usage: node scripts/test-domains.mjs <list|run> [--domain ordinary|control|all] [--test-concurrency N] [--performance]", 2);
+  fail("Usage: node scripts/test-domains.mjs <list|run> [--domain ordinary|control|all] [--test-concurrency N] [--test-topology layered|legacy] [--performance]", 2);
 }

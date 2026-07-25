@@ -83,15 +83,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check package manifest
+        run: npm pack --dry-run --ignore-scripts
+
       - name: Regression Tests
         id: regression
         run: node scripts/run-and-summarize.mjs --label regression-ubuntu-node-${{ matrix.node-version }} -- node scripts/test-domains.mjs run --domain all --performance
 
       - name: Smoke Test
         run: node scripts/run-and-summarize.mjs --label smoke-ubuntu-node-${{ matrix.node-version }} -- npm run smoke
-
-      - name: Check Package Contents
-        run: npm pack --dry-run
 
       - name: Upload bounded failure evidence
         if: failure()
@@ -103,7 +103,7 @@ jobs:
           retention-days: 14
 
       - name: Upload performance report
-        if: steps.regression.outcome == 'success'
+        if: ${{ !cancelled() && steps.regression.outcome == 'success' }}
         uses: actions/upload-artifact@v7.0.1
         with:
           name: ci-performance-ubuntu-node-${{ matrix.node-version }}-attempt-${{ github.run_attempt }}
@@ -119,6 +119,8 @@ jobs:
     needs: classify
     if: needs.classify.outputs.runtime == 'true'
     runs-on: windows-latest
+    env:
+      CODEXGPT_TEST_TOPOLOGY: ${{ vars.CODEXGPT_TEST_TOPOLOGY || 'layered' }}
     strategy:
       fail-fast: false
       matrix:
@@ -140,15 +142,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check package manifest
+        run: npm pack --dry-run --ignore-scripts
+
       - name: Regression Tests
         id: regression
         run: node scripts/run-and-summarize.mjs --label regression-windows-node-${{ matrix.node-version }} -- node scripts/test-domains.mjs run --domain all --performance
 
       - name: Smoke Test
         run: node scripts/run-and-summarize.mjs --label smoke-windows-node-${{ matrix.node-version }} -- npm run smoke
-
-      - name: Check Package Contents
-        run: npm pack --dry-run
 
       - name: Upload bounded failure evidence
         if: failure()
@@ -159,8 +161,34 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Verify Windows performance reports
+        id: performance_reports
+        if: ${{ !cancelled() && steps.regression.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $shards = if ($env:CODEXGPT_TEST_TOPOLOGY -eq 'legacy') { @('main') } else { @('fast', 'safe', 'isolated') }
+          foreach ($shard in $shards) {
+            $report = ".ai-bridge/performance/test-performance-all-$shard-win32-node${{ matrix.node-version }}.json"
+            if (-not (Test-Path -LiteralPath $report -PathType Leaf)) {
+              throw "Missing required performance report: $report"
+            }
+          }
+
       - name: Upload performance report
-        if: steps.regression.outcome == 'success'
+        if: ${{ !cancelled() && steps.regression.outcome == 'success' && steps.performance_reports.outcome == 'success' && env.CODEXGPT_TEST_TOPOLOGY != 'legacy' }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ci-performance-windows-node-${{ matrix.node-version }}-attempt-${{ github.run_attempt }}
+          path: |
+            .ai-bridge/performance/test-performance-all-fast-win32-node${{ matrix.node-version }}.json
+            .ai-bridge/performance/test-performance-all-safe-win32-node${{ matrix.node-version }}.json
+            .ai-bridge/performance/test-performance-all-isolated-win32-node${{ matrix.node-version }}.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload performance report (legacy)
+        if: ${{ !cancelled() && steps.regression.outcome == 'success' && steps.performance_reports.outcome == 'success' && env.CODEXGPT_TEST_TOPOLOGY == 'legacy' }}
         uses: actions/upload-artifact@v7.0.1
         with:
           name: ci-performance-windows-node-${{ matrix.node-version }}-attempt-${{ github.run_attempt }}

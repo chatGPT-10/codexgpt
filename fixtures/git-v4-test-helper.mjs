@@ -34,19 +34,33 @@ export function runGit(root, args, input, options = {}) {
 }
 
 export async function withGitMutationRepository(callback, options = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-v4-mutation-"));
-  const privateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-v4-private-"));
-  const stateRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-v4-state-"));
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-git-v4-"));
+  const root = path.join(fixtureRoot, "repository");
+  const privateRoot = path.join(fixtureRoot, "private");
+  const stateRoot = path.join(fixtureRoot, "state");
+  const setupGitCalls = [];
+  const runSetupGit = (args, input) => {
+    setupGitCalls.push([...args]);
+    return runGit(root, args, input);
+  };
   try {
+    await Promise.all([
+      fs.mkdir(root),
+      fs.mkdir(privateRoot),
+      fs.mkdir(stateRoot)
+    ]);
     const safeHooksRoot = path.join(privateRoot, "safe-hooks");
     await fs.mkdir(safeHooksRoot);
-    runGit(root, ["init", "--initial-branch=main", ...(options.objectFormat ? [`--object-format=${options.objectFormat}`] : [])]);
-    runGit(root, ["config", "user.name", "CodexGPT Test"]);
-    runGit(root, ["config", "user.email", "codexgpt@example.invalid"]);
+    runSetupGit(["init", "--initial-branch=main", ...(options.objectFormat ? [`--object-format=${options.objectFormat}`] : [])]);
+    await fs.appendFile(
+      path.join(root, ".git", "config"),
+      "\n[user]\n\tname = CodexGPT Test\n\temail = codexgpt@example.invalid\n",
+      "utf8"
+    );
     await fs.writeFile(path.join(root, "tracked.txt"), "alpha\n", "utf8");
     await fs.writeFile(path.join(root, "delete.txt"), "remove\n", "utf8");
-    runGit(root, ["add", "tracked.txt", "delete.txt"]);
-    runGit(root, ["commit", "-m", "initial"]);
+    runSetupGit(["add", "tracked.txt", "delete.txt"]);
+    runSetupGit(["commit", "-m", "initial"]);
     const calls = [];
     const executionResults = [];
     const approvedCalls = [];
@@ -229,7 +243,25 @@ export async function withGitMutationRepository(callback, options = {}) {
     );
     const fileTransactions = new GitFileTransactionV4(transactionEngine);
     try {
-      await callback({ root: workspace.root, executor, calls, executionResults, approvedCalls, registry, stateTokens, readService, mutationContext, indexTokens, workspace, guard, fileTransactions });
+      await callback({
+        fixtureRoot,
+        root: workspace.root,
+        privateRoot,
+        stateRoot,
+        setupGitCalls: setupGitCalls.map((args) => Object.freeze([...args])),
+        executor,
+        calls,
+        executionResults,
+        approvedCalls,
+        registry,
+        stateTokens,
+        readService,
+        mutationContext,
+        indexTokens,
+        workspace,
+        guard,
+        fileTransactions
+      });
     } finally {
       processRegistry.dispose();
       indexTokens.dispose();
@@ -237,8 +269,6 @@ export async function withGitMutationRepository(callback, options = {}) {
       registry.dispose();
     }
   } finally {
-    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    await fs.rm(privateRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    await fs.rm(stateRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs.rm(fixtureRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 }
