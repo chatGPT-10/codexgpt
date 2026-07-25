@@ -11,6 +11,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const script = path.join(repositoryRoot, "scripts", "test-domains.mjs");
 const expectedSerialProcessTests = [
   "operational-reliability.test.mjs",
+  "phase-7-repository-acceptance.test.mjs",
   "runner-log-bounds.test.mjs",
   "runner-process-identity.test.mjs",
   "runner-stop-identity-windows-control.test.mjs",
@@ -77,7 +78,7 @@ test("test domains partition every discovered test and freeze the connector-host
   );
 });
 
-test("process-owning lifecycle files are isolated without serializing the main non-Windows suite", async () => {
+test("process-owning and resource-bounded files are isolated without serializing the main non-Windows suite", async () => {
   const source = await fs.readFile(script, "utf8");
   assert.match(source, /process\.platform === "win32" \? "1" : undefined/);
   for (const name of expectedSerialProcessTests) assert.match(source, new RegExp(name.replaceAll(".", "\\.")));

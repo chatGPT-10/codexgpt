@@ -215,3 +215,50 @@ This append-only volume continues [Phase 7 Volume 1](phase-7.md) from STEP-415 s
 **Next action:** Complete policy, diff, package, Markdown-link, secret-pattern, size, and exact-scope checks; stage only these six STEP-418 files; commit once in English; push normally; and require terminal success from a new exact-head Repository policy, Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix. Keep both Phase 8 records untracked and excluded. Formal Phase 7 closure still requires real user-observable G7-U.
 
 **Neat-freak closure:** Repository policy and `git diff --check` pass. Package dry-run contains 579 entries and no test, memory archive, `.ai-bridge`, or `.hallmark` payload. The corrected audit checks 128 tracked Markdown files with zero broken relative links; 36 added lines contain zero credential-pattern hits and no relative-time wording. `Memory.md` was reduced from 109 lines/19,458 bytes to 101 lines/17,802 bytes, below the practical 150-line/18 KB target. Required project files and operational npm scripts exist. The exact tracked scope is the six files listed above; the two Phase 8 OAuth records remain untracked and excluded.
+
+## 2026-07-25 — STEP-419: Isolate repository-scale semantic acceptance
+
+**Status:** The exact-head Ubuntu Node 20 regression is repaired locally. TDD, fixed Node 20/24 focused acceptance, fixed Node 20/24 ordinary, and protected Smoke pass. Replacement publication and exact-head CI remain required. Real ChatGPT App UI G7-U remains externally blocked.
+
+**Goal:** Preserve the production 5-second semantic worker deadline while ensuring the repository-scale acceptance test runs under the independent resource envelope already required by the Phase 7 design.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7-part-2.md`
+- `docs/superpowers/plans/2026-07-23-phase-7-semantic-providers.md`
+- `scripts/test-domains.mjs`
+- `test/test-domain-classification.test.mjs`
+
+**Exact-head failure evidence:** STEP-418 published as `62c8df0526cbd17bcd44592435b9fdb1650e99be`. Exact-head run `30147030377` passed change classification, Repository policy, Ubuntu Node 24, and Windows Node 20/24. Ubuntu Node 20 failed only `builtin resolves the Phase 7 live journey and repository-scale diagnostics`: the first semantic result returned `state="unavailable"` instead of `ready` after 14,652 ms. Build passed; Smoke and Package were skipped only because Regression failed.
+
+**Root cause:** Linux CI uses the Node test runner's runtime-default concurrency. The resource-bounded repository acceptance remained in the main parallel set even though STEP-416's accepted design and evidence require it to run independently from competing CPU load. Under Ubuntu Node 20 contention, project discovery plus the worker request exhausted the unchanged 5-second worker deadline. Node 24 and both Windows jobs passed because Node 24 completed faster and Windows already forces test concurrency 1. This was orchestration drift, not a semantic-provider functional defect.
+
+**RED/GREEN evidence:** The classification contract first added `phase-7-repository-acceptance.test.mjs` to the expected isolated set. Before implementation, `test/test-domain-classification.test.mjs` passed 2/3 and failed only because `scripts/test-domains.mjs` did not contain the required file. Adding the file to the existing serial isolation set produced 4/4 when classification and repository acceptance were run together. The production worker timeout, heap, input/output, queue, and cooldown values were not changed.
+
+**Implementation:**
+
+- Add `phase-7-repository-acceptance.test.mjs` to `SERIAL_PROCESS_TESTS`.
+- On non-Windows runtime-default concurrency, the main suite runs first and the existing isolated pass then runs process-owning tests plus repository-scale semantic acceptance with `--test-concurrency=1`.
+- Explicit `--test-concurrency=1` remains a single serial suite, and native Windows behavior remains unchanged.
+- Do not add retries, loosen assertions, widen semantic deadlines, or classify the test as control-domain.
+
+**Verification:**
+
+- Current runtime focused classification plus repository acceptance: 4/4 passed.
+- Managed Node `20.20.2` and `24.15.0`: each passed the same 4/4 focused set; the repository journey took approximately 17.5 seconds and 13.2 seconds respectively while the worker operation retained its 5-second deadline.
+- Managed Node 20 build passed.
+- Node 24 ordinary `2026-07-25T06-37-21-602Z-phase7-step419-ordinary-r2-883b6a49`: 1,229 tests, 1,227 passed, 2 established skips, 0 failed; exit 0, zero stderr, temporary-state cleanup succeeded.
+- Node 24 protected Smoke `2026-07-25T06-48-29-614Z-phase7-step419-smoke-12593c1c`: all eight domains passed; exit 0, zero stderr, temporary-state cleanup succeeded.
+- Managed Node 20 ordinary `2026-07-25T06-55-36-485Z-phase7-step419-node20-ordinary-f354277c`: 1,229 tests, 1,227 passed, 2 established skips, 0 failed; exit 0, zero stderr, temporary-state cleanup succeeded.
+- Managed Node 20 protected Smoke `2026-07-25T07-13-23-088Z-phase7-step419-node20-smoke-541b73e3`: all eight domains passed; exit 0, zero stderr, temporary-state cleanup succeeded.
+
+**Failed attempts retained:** The first managed-matrix command used the toolchain manager's default `%LOCALAPPDATA%\CodexGPT\toolchains` root and correctly reported the pinned runtimes unavailable; the accepted rerun used the repository's retained `%LOCALAPPDATA%\CodexPro\toolchains` root. The first detached ordinary command attempted `npm run test:ordinary`; the narrowed runner environment correctly returned `spawn npm ENOENT` without executing tests. The accepted retry invoked `node scripts/test-domains.mjs run --domain ordinary` directly. Long polling produced two connector 502 responses; exact runner state remained healthy and later published authoritative results.
+
+**Adversarial review:** No independent agent provider is available in this workspace. Manual adversarial review checked four boundaries: the production 5-second deadline is untouched; Windows remains serial without a second pass; Linux explicit concurrency 1 does not duplicate tests; and the isolated file remains ordinary-domain so control authority is unchanged. The regression freezes the required classification and fails if the resource-bounded test drifts back into the parallel set.
+
+**Risk and limitation:** Linux CI duration increases by one isolated repository acceptance after the parallel set. That cost is intentional because the test validates an accepted repository-scale workload under a deterministic resource envelope. This change does not prove real ChatGPT App UI behavior and does not close G7-U.
+
+**Rollback:** Remove the file from the serial isolation set and its classification expectation together. Doing so restores the confirmed Ubuntu Node 20 contention failure and is not a safe test-orchestration rollback. Product rollback remains explicit `CODEXGPT_GUIDANCE_MODE=legacy`.
+
+**Next action:** Complete build, policy, diff, package, Markdown-link, secret-pattern, size, and exact-scope checks; stage only these five STEP-419 files; commit once in English; push normally; and bind the replacement exact head to terminal Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package success. Keep both Phase 8 records untracked and excluded. Formal Phase 7 closure still requires real user-observable G7-U.

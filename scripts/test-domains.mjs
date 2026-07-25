@@ -7,6 +7,7 @@ import { createOwnedTempEnvironment } from "./owned-temp-root.mjs";
 
 export const SERIAL_PROCESS_TESTS = Object.freeze([
   "operational-reliability.test.mjs",
+  "phase-7-repository-acceptance.test.mjs",
   "runner-log-bounds.test.mjs",
   "runner-process-identity.test.mjs",
   "runner-stop-identity-windows-control.test.mjs",
