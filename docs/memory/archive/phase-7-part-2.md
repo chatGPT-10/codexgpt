@@ -177,3 +177,41 @@ This append-only volume continues [Phase 7 Volume 1](phase-7.md) from STEP-415 s
 **Next action:** Re-run policy, diff, package, Markdown-link, secret-pattern, size, and exact-scope checks; stage only these four reviewed STEP-417 files; commit once in English; push normally; and require terminal success from a new exact-head Repository policy, Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix. Keep both Phase 8 records untracked and excluded. Real ChatGPT App UI G7-U remains a separate externally observable requirement.
 
 **Final verification addendum:** Manual security review replaced `existsSync` with exact `lstatSync` probing so only `ENOENT` authorizes legacy fallback; access, type, symlink, and other state-root errors remain on the production authority path and fail closed. The first combined orchestration attempt `2026-07-25T03-55-26-727Z-phase7-step417-final-local-gates-cbb7ac45` did not execute tests because Git Bash rewrote `cmd.exe /d /s /c` flags as paths; it exited 1 with zero stdout and is not acceptance evidence. The corrected PowerShell-wrapped exact run `2026-07-25T03-57-05-983Z-phase7-step417-final-local-gates-r2-46cbb590` passed Node 20/24 dual-topology tests 2/2 per major, authoritative ordinary 1,227/1,229 with 2 established skips and 0 failures per major, and all eight protected Smoke domains per major; exit 0, zero stderr, successful temporary-state cleanup, and zero retention failures.
+
+## 2026-07-25 — STEP-418: Bound Windows local-control cold startup
+
+**Status:** Implemented and locally verified. Publication and replacement exact-head CI remain required. Real ChatGPT App UI G7-U remains externally blocked.
+
+**Goal:** Accommodate measured GitHub Windows cold PowerShell `Add-Type` compilation latency without widening local-control request authority, process lifetime, output, ownership, or close behavior.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7-part-2.md`
+- `docs/superpowers/plans/2026-07-23-phase-7-semantic-providers.md`
+- `scripts/windows-local-control-spike.mjs`
+- `src/control/windowsLocalControl.ts`
+- `test/approval-multi-server.test.mjs`
+
+**Failure evidence:** STEP-417 published as `9f8a593e52b5ed57bd6beb4885617dc85e44f6a3`. Exact-head run `30144166480` passed change classification, Repository policy, Ubuntu Node 20/24, and Windows Node 24. Windows Node 20 failed first in `production local-control factory routes exact servers and performs real approval decisions` with `CONTROL_READY_TIMEOUT` after 60,061 ms. Its Build passed; Smoke and Package were skipped only because Regression failed.
+
+**Root cause and implementation:** The production and diagnostic local-control launchers compile the fixed C# host through Windows PowerShell `Add-Type` on a fresh private state root. The existing 60-second startup ceiling was itself reached under serialized GitHub Windows Node 20 load. Both production and diagnostic cold-start defaults are now 120 seconds. The change does not modify message size, pipe identity, remote-client rejection, process/request deadlines, lifecycle ownership, output caps, dispatch validation, shutdown, or cleanup.
+
+**RED/GREEN evidence:** The startup-bound contract was first changed to require `120_000`; it failed while both implementations still declared `60_000`. After changing only the two startup constants, current-runtime build and the four affected local-control/CLI files passed 10/10.
+
+**Verification:**
+
+- Managed Node 20/24 build and affected tests passed inside `2026-07-25T04-54-46-291Z-phase7-step418-final-local-gates-e8ed7c24`; affected tests passed 10/10 per major.
+- The same run passed authoritative ordinary at 1,227/1,229 with 2 established skips and 0 failures per major.
+- Its immediately following Node 20 HTTP Smoke timed out waiting for a dynamically selected loopback health endpoint after the long ordinary sequence. That unrelated resource-tail failure is recorded, not used as acceptance, and did not recur in the independent protected run.
+- Isolated protected Smoke `2026-07-25T05-24-21-474Z-phase7-step418-smoke-isolated-594818f3` passed all eight domains on both Node 20/24 majors; exit 0, zero stderr, successful temporary-state cleanup, and zero retention failures.
+
+**Documentation review:** This is an internal bounded startup reliability change. README, public launch, Cloudflare, authentication, and user-facing CLI behavior are unchanged. `AGENTS.md` already states the operational gate rules; only the durable 120-second local-control cold-start constraint belongs in the project memory and Phase 7 execution record.
+
+**Risk and limitation:** A genuinely hung compiler is now detected after 120 seconds instead of 60 seconds. This is limited to startup and does not relax runtime operations. The replacement exact head has not yet passed CI, and backend evidence still does not satisfy real ChatGPT App UI G7-U.
+
+**Rollback:** Reverting the two constants and their contract restores the exact Windows Node 20 timeout observed in run `30144166480`. No state deletion, credential migration, or audit reset is part of rollback.
+
+**Next action:** Complete policy, diff, package, Markdown-link, secret-pattern, size, and exact-scope checks; stage only these six STEP-418 files; commit once in English; push normally; and require terminal success from a new exact-head Repository policy, Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package matrix. Keep both Phase 8 records untracked and excluded. Formal Phase 7 closure still requires real user-observable G7-U.
+
+**Neat-freak closure:** Repository policy and `git diff --check` pass. Package dry-run contains 579 entries and no test, memory archive, `.ai-bridge`, or `.hallmark` payload. The corrected audit checks 128 tracked Markdown files with zero broken relative links; 36 added lines contain zero credential-pattern hits and no relative-time wording. `Memory.md` was reduced from 109 lines/19,458 bytes to 101 lines/17,802 bytes, below the practical 150-line/18 KB target. Required project files and operational npm scripts exist. The exact tracked scope is the six files listed above; the two Phase 8 OAuth records remain untracked and excluded.

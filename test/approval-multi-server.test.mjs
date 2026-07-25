@@ -120,9 +120,9 @@ test("production and diagnostic local-control startup allow bounded fresh compil
     fsp.readFile(new URL("../src/control/windowsLocalControl.ts", import.meta.url), "utf8"),
     fsp.readFile(new URL("../scripts/windows-local-control-spike.mjs", import.meta.url), "utf8")
   ]);
-  assert.match(source, /const DEFAULT_WINDOWS_LOCAL_CONTROL_STARTUP_TIMEOUT_MS = 60_000;/);
+  assert.match(source, /const DEFAULT_WINDOWS_LOCAL_CONTROL_STARTUP_TIMEOUT_MS = 120_000;/);
   assert.match(source, /options\.startupTimeoutMs \?\? DEFAULT_WINDOWS_LOCAL_CONTROL_STARTUP_TIMEOUT_MS/);
-  assert.match(spike, /const DEFAULT_WINDOWS_LOCAL_CONTROL_SPIKE_STARTUP_TIMEOUT_MS = 60_000;/);
+  assert.match(spike, /const DEFAULT_WINDOWS_LOCAL_CONTROL_SPIKE_STARTUP_TIMEOUT_MS = 120_000;/);
   assert.match(spike, /CONTROL_READY_TIMEOUT"\)\), DEFAULT_WINDOWS_LOCAL_CONTROL_SPIKE_STARTUP_TIMEOUT_MS/);
 });
 

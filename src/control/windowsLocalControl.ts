@@ -7,7 +7,7 @@ import type { LocalApprovalServer } from "./localApprovalServer.js";
 import { localControlResponseV3Schema, type LocalControlResponseV3 } from "./schemas.js";
 
 const MAX_MESSAGE_BYTES = 64 * 1024;
-const DEFAULT_WINDOWS_LOCAL_CONTROL_STARTUP_TIMEOUT_MS = 60_000;
+const DEFAULT_WINDOWS_LOCAL_CONTROL_STARTUP_TIMEOUT_MS = 120_000;
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(moduleDirectory, "..", "..");
 
