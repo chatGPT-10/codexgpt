@@ -247,6 +247,22 @@ test("production V5 preflight forwards builtin semantic capability and rejects a
   );
 }));
 
+test("production session close preserves an injected process-lifecycle approval runtime", () => fixture(async ({ workspaceRoot, stateHome }) => {
+  const config = configFor(workspaceRoot, stateHome, {
+    toolContractVersion: "5",
+    semanticMode: "standard",
+    semanticProvider: "builtin",
+    policyEngineMode: "enforce",
+    writeMode: "off"
+  });
+  const options = await v5ProductionOptions(stateHome, config, "production-v5-shared-approval");
+  let closeCalls = 0;
+  options.localApprovalRuntimeV3.close = async () => { closeCalls += 1; };
+  const server = createProductionCodexGPTServer(config, options);
+  await server.close();
+  assert.equal(closeCalls, 0);
+}));
+
 test("Gate R production wiring fails closed outside contract 4 or before startup recovery", () => fixture(async ({ workspaceRoot, stateHome }) => {
   const config = configFor(workspaceRoot, stateHome, {
     toolContractVersion: "1",

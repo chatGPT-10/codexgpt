@@ -166,6 +166,27 @@ function decisionWithApprovalId(decision: PolicyDecisionV1, approvalId: string):
   });
 }
 
+function decisionWithResourceFingerprint(
+  decision: PolicyDecisionV1,
+  resourceFingerprint: string
+): PolicyDecisionV1 {
+  if (decision.resourceFingerprint === resourceFingerprint) return decision;
+  const facts = {
+    outcome: decision.outcome,
+    reasonCode: decision.reasonCode,
+    policyRevision: decision.policyRevision,
+    resourceFingerprint,
+    requiredApproval: decision.requiredApproval,
+    requiredEnforcement: decision.requiredEnforcement,
+    provenance: decision.provenance
+  };
+  return policyDecisionV1Schema.parse({
+    schemaVersion: 1,
+    decisionId: `decision_${createHash("sha256").update(JSON.stringify(facts), "utf8").digest("hex").slice(0, 24)}`,
+    ...facts
+  });
+}
+
 function repositoryKey(workspace: Workspace): string {
   return `repo_${createHash("sha256").update(workspace.root, "utf8").digest("hex").slice(0, 24)}`;
 }
@@ -202,6 +223,12 @@ interface DescribedPolicyResource {
   riskClass: RiskClass;
   requiredScope: PolicyScope | null;
   requiredScopes: readonly PolicyScopeV4[];
+  approvalBindingV3?: {
+    transportSessionId: string;
+    workspaceId: string;
+    resourceFingerprint: string;
+    inputDigest: string;
+  };
   semanticFactsDigest: string | null;
   semanticAuditFacts?: SemanticAuditFactsV1;
   approvalRevealArguments?: readonly string[];
@@ -240,6 +267,7 @@ function describeResource(
       riskClass: described.riskClass ?? definition.riskClass,
       requiredScope: definition.requiredScope,
       requiredScopes,
+      approvalBindingV3: described.approvalBindingV3,
       semanticFactsDigest: described.semanticFactsDigest ?? null,
       semanticAuditFacts: described.semanticAuditFacts,
       approvalRevealArguments: described.approvalRevealArguments
@@ -526,14 +554,39 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
       }
 
       const digest = inputDigest(args);
+      const reconnectBoundApproval = contractV3 && (
+        (toolName === "apply_patch" && typeof args.semantic_preview_id === "string") ||
+        toolName === "undo_change_set"
+      );
+      if (described.approvalBindingV3 && !reconnectBoundApproval) {
+        throw new Error("Reconnect-stable approval binding is unavailable for this tool.");
+      }
+      const approvalBinding = reconnectBoundApproval
+        ? described.approvalBindingV3
+        : undefined;
+      const authorizationContext = approvalBinding
+        ? {
+            ...context,
+            transportSessionId: approvalBinding.transportSessionId,
+            workspaceId: approvalBinding.workspaceId
+          }
+        : context;
+      const authorizationResource = approvalBinding
+        ? {
+            ...described.resource,
+            workspaceId: approvalBinding.workspaceId,
+            resourceFingerprint: approvalBinding.resourceFingerprint
+          } as ResourceDescriptorV4
+        : described.resource;
+      const authorizationDigest = approvalBinding?.inputDigest ?? digest;
       const approvalToolContractVersion = contractV3
         ? inheritedToolContractVersionV3(input.config.toolContractVersion)
         : String(input.config.toolContractVersion);
       const matchInput = {
-        context,
-        operation: operationForApproval(described.resource),
-        resourceFingerprint: described.resource.resourceFingerprint,
-        inputDigest: digest,
+        context: authorizationContext,
+        operation: operationForApproval(authorizationResource),
+        resourceFingerprint: authorizationResource.resourceFingerprint,
+        inputDigest: authorizationDigest,
         riskClass: described.riskClass,
         toolContractVersion: approvalToolContractVersion,
         now
@@ -547,17 +600,17 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
       let decision = toolPolicyDefinition(toolName).resourceMode === "context_only" || v3Addition || v4Addition
         ? contextDecision({
             contextPolicyRevision: policyRevision,
-            resource: described.resource as ResourceDescriptorV1,
+            resource: authorizationResource as ResourceDescriptorV1,
             requiredScopes: described.requiredScopes,
             scopes: effectiveScopes,
             riskClass: described.riskClass,
             granted: reserved ? { grantId: reserved.reservation.grantId, approvalId: reserved.approval.approvalId } : undefined
           })
         : evaluatePolicy({
-            context,
+            context: authorizationContext,
             activePolicyRevision: policyRevision,
             profile: compiled.profile,
-            resource: described.resource as ResourceDescriptorV1,
+            resource: authorizationResource as ResourceDescriptorV1,
             riskClass: described.riskClass,
             grants: reserved ? [reserved.reservation.grant] : contractV3 ? [] : grants.snapshot(),
             requiredCapabilities: described.requiredCapabilities,
@@ -566,7 +619,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
             now,
             platform: process.platform,
             toolContractVersion: String(input.config.toolContractVersion),
-            inputDigest: digest
+            inputDigest: authorizationDigest
           });
 
       if (reserved && decision.outcome !== "allow") {
@@ -576,12 +629,12 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
       let localApproval: PolicyAuthorizationResult["localApproval"];
       if (contractV3 && decision.outcome === "approval_required") {
         if (!input.localApprovalRuntimeV3) throw new Error("V3 local approval runtime is unavailable.");
-        const canonicalAction = operationForApproval(described.resource);
+        const canonicalAction = operationForApproval(authorizationResource);
         const semanticFacts = described.semanticFactsDigest ?? semanticDigest({
           canonicalAction,
-          operation: operationForApproval(described.resource),
-          resourceFingerprint: described.resource.resourceFingerprint,
-          inputDigest: digest,
+          operation: operationForApproval(authorizationResource),
+          resourceFingerprint: authorizationResource.resourceFingerprint,
+          inputDigest: authorizationDigest,
           args
         });
         const executionDisplay = described.resource as unknown as {
@@ -593,24 +646,24 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         };
         const facts = createAuthorizationFactsV3({
           serverId: input.localApprovalRuntimeV3.serverId,
-          credentialRef: context.identity.credentialRef,
-          credentialRevision: context.identity.credentialRef
-            ? semanticDigest({ credentialRef: context.identity.credentialRef })
+          credentialRef: authorizationContext.identity.credentialRef,
+          credentialRevision: authorizationContext.identity.credentialRef
+            ? semanticDigest({ credentialRef: authorizationContext.identity.credentialRef })
             : "credential-none",
-          transportKind: context.transportKind,
-          transportSessionId: context.transportSessionId,
-          identityKind: context.identity.kind,
-          identitySubject: context.identity.subject,
-          workspaceId: context.workspaceId,
+          transportKind: authorizationContext.transportKind,
+          transportSessionId: authorizationContext.transportSessionId,
+          identityKind: authorizationContext.identity.kind,
+          identitySubject: authorizationContext.identity.subject,
+          workspaceId: authorizationContext.workspaceId,
           leaseId: null,
           policyRevision,
           evidenceRevision: currentEvidenceRevision(),
           toolContractVersion: inheritedToolContractVersionV3(input.config.toolContractVersion),
           toolName,
           canonicalAction,
-          operation: operationForApproval(described.resource),
-          resourceFingerprint: described.resource.resourceFingerprint,
-          inputDigest: digest,
+          operation: operationForApproval(authorizationResource),
+          resourceFingerprint: authorizationResource.resourceFingerprint,
+          inputDigest: authorizationDigest,
           semanticFactsDigest: semanticFacts,
           riskClass: described.riskClass as "R1" | "R2" | "R3"
         });
@@ -620,7 +673,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
             backend: executionDisplay.kind === "execution" && typeof executionDisplay.backendId === "string"
               ? executionDisplay.backendId
               : capabilities.backendId,
-            actionKind: operationForApproval(described.resource),
+            actionKind: operationForApproval(authorizationResource),
             argumentCount: described.approvalRevealArguments
               ? described.approvalRevealArguments.length
               : executionDisplay.kind === "execution" && typeof executionDisplay.argumentCount === "number"
@@ -665,6 +718,11 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
           serverId: input.localApprovalRuntimeV3.serverId
         };
       }
+
+      decision = decisionWithResourceFingerprint(
+        decision,
+        described.resource.resourceFingerprint
+      );
 
       const grantId = decision.provenance.find((item) => item.grantId)?.grantId ?? null;
       const approvalId = decision.provenance.find((item) => item.approvalId)?.approvalId ?? null;

@@ -102,14 +102,16 @@ import {
   semanticCoreStatus,
   readSemanticSourceSnapshot,
   applySemanticEdits,
-  type SemanticPreviewPlan
+  isSemanticPreviewUnavailableError,
+  type SemanticPreviewPlan,
+  type SemanticPreviewStore,
+  type SemanticWorkerHealthRegistry
 } from "./semantic/index.js";
 import {
   createSemanticFailure,
   createSemanticSuccess,
   semanticInputDescriptorShape,
-  semanticInputSchema,
-  semanticOutputShape
+  semanticInputSchema
 } from "./tools/schemas/semantic.js";
 import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
 import { probeBashAvailability, runBash, type BashResult } from "./bashOps.js";
@@ -417,11 +419,13 @@ import {
   applyPatchInputSchemaV5,
   applyPatchOutputShape,
   applyPatchOutputShapeV2,
+  applyPatchOutputShapeV5,
   createApplyPatchFailure,
+  createApplyPatchFailureV5,
   createApplyPatchSuccess,
   createApplyPatchSuccessV2,
   createApplyPatchTransactionFailureV2,
-  type ApplyPatchFailureInput
+  type ApplyPatchFailureInputV5
 } from "./tools/schemas/applyPatch.js";
 import {
   BASH_ERROR_MESSAGES,
@@ -487,6 +491,7 @@ import {
 import {
   CODEXGPT_INVENTORY_ERROR_MESSAGES,
   CODEXGPT_INVENTORY_MCP_SERVER_LIMIT,
+  CODEXGPT_INVENTORY_SKILL_DESCRIPTION_LIMIT,
   codexgptInventoryDataSchema,
   codexgptInventoryOutputShape,
   createCodexGPTInventoryFailure,
@@ -3580,8 +3585,12 @@ function classifyApplyPatchFailure(
   error: unknown,
   args: Record<string, unknown>,
   config: CodexGPTConfig
-): ApplyPatchFailureInput {
+): ApplyPatchFailureInputV5 {
   const message = error instanceof Error ? error.message : String(error);
+
+  if (isSemanticPreviewUnavailableError(error)) {
+    return { code: "SEMANTIC_PREVIEW_STALE", details: {} };
+  }
 
   if (args.workspace_id && message.startsWith("Unknown workspace_id:")) {
     return {
@@ -4495,6 +4504,8 @@ export interface CodexGPTServerDependencies extends Phase3DServerDependencies {
   rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
   windowsProcessHostRuntimeV3?: import("./process/windowsHostClient.js").WindowsProcessHostRuntime;
   semanticManagerV5?: SemanticProviderManager;
+  semanticPreviewStoreV5?: SemanticPreviewStore;
+  semanticWorkerHealthV5?: SemanticWorkerHealthRegistry;
 }
 
 const SUPERTOOL_NAME = "codexgpt";
@@ -6148,6 +6159,7 @@ import { upgradeCodexGPTSupertool } from "./codexgptSupertool.js";
 import {
   authorizedGitEventV4,
   installPolicyKernel,
+  PolicyInputUnavailableError,
   type PolicyRuntime,
   type PolicyRuntimeDiagnostics,
   type ToolResourceResolver
@@ -6168,6 +6180,7 @@ import {
   createUndoChangeSetFailure,
   createUndoChangeSetSuccess,
   undoChangeSetInputV2Schema,
+  undoChangeSetInputV5Schema,
   undoChangeSetOutputShape,
   type UndoChangeSetData
 } from "./tools/schemas/undoChangeSet.js";
@@ -6226,7 +6239,10 @@ export function createCodexGPTServer(
   });
   const guard = new PathGuard(config);
   const semanticManager = contractIncludesV5(config.toolContractVersion)
-    ? dependencies.semanticManagerV5 ?? new SemanticProviderManager(config, guard, workspaces)
+    ? dependencies.semanticManagerV5 ?? new SemanticProviderManager(config, guard, workspaces, {
+        previews: dependencies.semanticPreviewStoreV5,
+        workerHealth: dependencies.semanticWorkerHealthV5
+      })
     : null;
   const invalidateWorkspaceCaches = (workspaceId: string): void => {
     invalidateWorkspaceAnalysis(workspaceId);
@@ -6241,18 +6257,43 @@ export function createCodexGPTServer(
             const suppliedWorkspaceId = typeof args.workspace_id === "string"
               ? args.workspace_id
               : undefined;
-            const resolved = semanticManager.resolvePreview(args.semantic_preview_id, suppliedWorkspaceId);
-            const workspace = workspaces.getWorkspace(resolved.plan.workspaceId);
+            let resolved;
+            try {
+              resolved = semanticManager.resolvePreview(args.semantic_preview_id, suppliedWorkspaceId);
+            } catch (error) {
+              if (isSemanticPreviewUnavailableError(error)) throw new PolicyInputUnavailableError();
+              throw error;
+            }
+            const workspace = workspaces.getWorkspace(resolved.workspaceId);
+            const resource = describeFilesystemBatchResource({
+              workspace,
+              guard,
+              operation: "patch",
+              entries: resolved.plan.files.map((file) => ({
+                sourcePath: file.snapshot.relativePath,
+                destinationPath: null
+              }))
+            });
+            const approvalResourceFingerprint = `sha256:${createHash("sha256")
+              .update("codexgpt.semantic.rename.approval-resource.v1\0", "utf8")
+              .update(JSON.stringify({
+                workspaceAuthorityDigest: resolved.plan.workspaceAuthorityDigest,
+                manifestDigest: resolved.manifestDigest,
+                operation: resource.operation,
+                entries: resource.entries
+              }), "utf8")
+              .digest("hex")}`;
+            const approvalInputDigest = `sha256:${createHash("sha256")
+              .update(JSON.stringify({ semantic_preview_id: args.semantic_preview_id }), "utf8")
+              .digest("hex")}`;
             return {
-              resource: describeFilesystemBatchResource({
-                workspace,
-                guard,
-                operation: "patch",
-                entries: resolved.plan.files.map((file) => ({
-                  sourcePath: file.snapshot.relativePath,
-                  destinationPath: null
-                }))
-              }),
+              resource,
+              approvalBindingV3: {
+                transportSessionId: `semantic-preview:${resolved.manifestDigest}`,
+                workspaceId: `workspace-authority:${resolved.plan.workspaceAuthorityDigest.replace(/^sha256:/u, "")}`,
+                resourceFingerprint: approvalResourceFingerprint,
+                inputDigest: approvalInputDigest
+              },
               requiredCapabilities: [{ name: "filesystemWriteBoundary", minimum: "brokered" }],
               requiredScopes: ["filesystem:write"],
               semanticFactsDigest: resolved.semanticFactsDigest,
@@ -6265,24 +6306,6 @@ export function createCodexGPTServer(
                 `files=${resolved.plan.files.length} edits=${resolved.plan.files.reduce((sum, file) => sum + file.edits.length, 0)} bytes=${resolved.plan.files.reduce((sum, file) => sum + Buffer.byteLength(file.resultingText, "utf8"), 0)}`,
                 ...resolved.plan.files.map((file) => file.snapshot.relativePath)
               ]
-            };
-          }
-          if (toolName === "undo_change_set") {
-            if (!dependencies.undoChangeSetService) {
-              throw new Error("Undo resource resolver is unavailable.");
-            }
-            const workspaceId = typeof args.workspace_id === "string" ? args.workspace_id : "";
-            const changeSetId = typeof args.change_set_id === "string" ? args.change_set_id : "";
-            const workspace = workspaces.getWorkspace(workspaceId);
-            return {
-              resource: dependencies.undoChangeSetService.describeResource({
-                workspace,
-                changeSetId,
-                ownerBinding: changeSetOwnerBinding(
-                  dependencies.policySessionContextSource,
-                  dependencies.changeSetOwnerBindingKey
-                )
-              })
             };
           }
           if (toolName === "open_full_access_workspace") {
@@ -6835,7 +6858,6 @@ export function createCodexGPTServer(
           "Find symbol definitions and references, report TypeScript/JavaScript diagnostics, or preview a safe symbol rename. Use semantic for code meaning, search for text/regex, and inspect_workspace for a repository overview. Do not ask the user to choose a Provider.",
         inputSchema: semanticInputDescriptorShape,
         __codexgptStrictInputSchema: semanticInputSchema,
-        outputSchema: semanticOutputShape,
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -7267,7 +7289,14 @@ export function createCodexGPTServer(
           const combined = [...workspaceSkills.skills, ...(globalSkills?.skills ?? [])].slice(0, options.maxSkills);
           rawInventory = {
             ...base,
-            skills: combined.map((skill) => ({ name: skill.name, description: skill.description, source: skill.source, path: skill.path })),
+            skills: combined.map((skill) => ({
+              name: skill.name,
+              description: skill.description.length <= CODEXGPT_INVENTORY_SKILL_DESCRIPTION_LIMIT
+                ? skill.description
+                : undefined,
+              source: skill.source,
+              path: skill.path
+            })),
             skillsTruncated: workspaceSkills.returnedTruncated || Boolean(globalSkills?.returnedTruncated) || combined.length < workspaceSkills.skills.length + (globalSkills?.skills.length ?? 0)
           };
         } else {
@@ -8910,7 +8939,11 @@ export function createCodexGPTServer(
       __codexgptStrictInputSchema: contractIncludesV5(config.toolContractVersion)
         ? applyPatchInputSchemaV5
         : undefined,
-      outputSchema: contractIncludesV2(config.toolContractVersion) ? applyPatchOutputShapeV2 : applyPatchOutputShape,
+      outputSchema: contractIncludesV5(config.toolContractVersion)
+        ? applyPatchOutputShapeV5
+        : contractIncludesV2(config.toolContractVersion)
+          ? applyPatchOutputShapeV2
+          : applyPatchOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -8927,12 +8960,10 @@ export function createCodexGPTServer(
             previewId,
             typeof args.workspace_id === "string" ? args.workspace_id : undefined
           );
-          const workspace = workspaces.getWorkspace(resolved.plan.workspaceId);
-          if (args.workspace_id !== undefined && args.workspace_id !== workspace.id) {
-            throw new CodexGPTError("Semantic preview is unavailable.");
-          }
+          const workspace = workspaces.getWorkspace(resolved.workspaceId);
           const invocationId = semanticInvocationId();
-          const plan = semanticManager.previews.reserve(previewId, invocationId, workspace.id);
+          const reserved = semanticManager.reservePreview(previewId, invocationId, workspace.id);
+          const plan = reserved.plan;
           const validateReservation = () => {
             semanticManager.assertReservation(previewId, invocationId, workspace.id);
           };
@@ -9207,7 +9238,11 @@ export function createCodexGPTServer(
           }
         }
         const failure = classifyApplyPatchFailure(error, args, config);
-        const structured = createApplyPatchFailure(failure);
+        const structured = failure.code === "SEMANTIC_PREVIEW_STALE"
+          ? createApplyPatchFailureV5(failure)
+          : contractIncludesV5(config.toolContractVersion)
+            ? createApplyPatchFailureV5(failure)
+            : createApplyPatchFailure(failure);
         const text = [
           "# Apply Patch Error",
           "",
@@ -10927,6 +10962,9 @@ export function createCodexGPTServer(
   );
 
   const undoContractVersion = persistedMutationContractVersion(config.toolContractVersion);
+  const undoInputSchema = contractIncludesV5(config.toolContractVersion)
+    ? undoChangeSetInputV5Schema
+    : undoChangeSetInputV2Schema;
   if (contractIncludesV2(undoContractVersion)) {
     registerCodexTool(
       config,
@@ -10936,7 +10974,10 @@ export function createCodexGPTServer(
         title: "Undo Change Set",
         description:
           "Preview or atomically reverse one owner-bound change set. The complete current state must still match; there is no force or overwrite option.",
-        inputSchema: undoChangeSetInputV2Schema.shape,
+        inputSchema: undoInputSchema.shape,
+        ...(contractIncludesV5(config.toolContractVersion)
+          ? { __codexgptStrictInputSchema: undoInputSchema }
+          : {}),
         outputSchema: undoChangeSetOutputShape,
         annotations: LOCAL_WRITE_ANNOTATIONS,
         _meta: {
@@ -10950,7 +10991,9 @@ export function createCodexGPTServer(
         const startedAt = Date.now();
         let workspace: Workspace;
         try {
-          workspace = workspaces.getWorkspace(args.workspace_id);
+          workspace = contractIncludesV5(config.toolContractVersion)
+            ? workspaces.resolveWorkspace(args.workspace_id)
+            : workspaces.getWorkspace(args.workspace_id);
         } catch {
           return undoChangeSetFailureResult(
             new UndoChangeSetError("WORKSPACE_NOT_FOUND", "Workspace was not found."),

@@ -76,7 +76,7 @@ export const TOOL_POLICY_DEFINITIONS: Readonly<Record<CanonicalCodexGPTChildTool
   inspect_workspace: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "workspace_read" }),
   list_workspaces: Object.freeze({ riskClass: "R0", requiredScope: "workspace:open", resourceMode: "context_only" }),
   load_skill: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "context_only" }),
-  open_current_workspace: Object.freeze({ riskClass: "R1", requiredScope: "workspace:open", resourceMode: "context_only" }),
+  open_current_workspace: Object.freeze({ riskClass: "R0", requiredScope: "workspace:open", resourceMode: "context_only" }),
   open_workspace: Object.freeze({ riskClass: "R1", requiredScope: "workspace:open", resourceMode: "context_only" }),
   read: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "exact_read" }),
   read_codex_session: Object.freeze({ riskClass: "R0", requiredScope: "filesystem:read", resourceMode: "context_only" }),

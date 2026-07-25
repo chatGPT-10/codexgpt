@@ -13,6 +13,7 @@ export interface SemanticPreviewFile {
 export interface SemanticPreviewPlan {
   workspaceId: string;
   workspaceBindingDigest: string;
+  workspaceAuthorityDigest: string;
   providerGeneration: number;
   providerFacts: {
     provider: string;
@@ -26,6 +27,7 @@ export interface SemanticPreviewPlan {
 interface StoredPreview {
   id: string;
   plan: SemanticPreviewPlan;
+  holderWorkspaceId: string;
   manifestDigest: string;
   semanticFactsDigest: string;
   semanticAuditFacts: SemanticAuditFactsV1;
@@ -34,6 +36,19 @@ interface StoredPreview {
   state: "ready" | "reserved" | "consumed" | "burned";
   invocationId: string | null;
   bytes: number;
+}
+
+export class SemanticPreviewUnavailableError extends Error {
+  readonly code = "SEMANTIC_PREVIEW_STALE";
+
+  constructor() {
+    super("Semantic preview is unavailable or stale. Create a fresh rename preview, then retry apply_patch once.");
+    this.name = "SemanticPreviewUnavailableError";
+  }
+}
+
+export function isSemanticPreviewUnavailableError(error: unknown): error is SemanticPreviewUnavailableError {
+  return error instanceof SemanticPreviewUnavailableError;
 }
 
 export interface SemanticPreviewStoreOptions {
@@ -49,6 +64,7 @@ function stableManifest(plan: SemanticPreviewPlan): string {
   return JSON.stringify({
     workspaceId: plan.workspaceId,
     workspaceBindingDigest: plan.workspaceBindingDigest,
+    workspaceAuthorityDigest: plan.workspaceAuthorityDigest,
     providerGeneration: plan.providerGeneration,
     providerFacts: plan.providerFacts,
     oldName: plan.oldName,
@@ -78,6 +94,7 @@ function immutablePlan(input: SemanticPreviewPlan): SemanticPreviewPlan {
   return Object.freeze({
     workspaceId: input.workspaceId,
     workspaceBindingDigest: input.workspaceBindingDigest,
+    workspaceAuthorityDigest: input.workspaceAuthorityDigest,
     providerGeneration: input.providerGeneration,
     providerFacts: Object.freeze({ ...input.providerFacts }),
     oldName: input.oldName,
@@ -124,7 +141,7 @@ export class SemanticPreviewStore {
       0
     );
     if (bytes > this.maxTotalBytes) throw new Error("Semantic preview is too large.");
-    this.evict(plan.workspaceId, bytes);
+    this.evict(plan.workspaceAuthorityDigest, bytes);
     let id = "";
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const candidate = `sp_${this.random(24).toString("base64url")}`;
@@ -160,6 +177,7 @@ export class SemanticPreviewStore {
     const preview: StoredPreview = {
       id,
       plan,
+      holderWorkspaceId: plan.workspaceId,
       manifestDigest,
       semanticFactsDigest,
       semanticAuditFacts,
@@ -196,32 +214,47 @@ export class SemanticPreviewStore {
 
   resolve(id: string, workspaceId?: string): Readonly<{
     plan: SemanticPreviewPlan;
+    workspaceId: string;
     manifestDigest: string;
     semanticFactsDigest: string;
     semanticAuditFacts: SemanticAuditFactsV1;
   }> {
     const preview = this.lookup(id, workspaceId);
-    if (preview.state !== "ready") throw new Error("Semantic preview is unavailable.");
-    return {
-      plan: preview.plan,
-      manifestDigest: preview.manifestDigest,
-      semanticFactsDigest: preview.semanticFactsDigest,
-      semanticAuditFacts: preview.semanticAuditFacts
-    };
+    if (preview.state !== "ready") throw new SemanticPreviewUnavailableError();
+    return this.resolved(preview);
+  }
+
+  adopt(id: string, workspaceId: string, workspaceAuthorityDigest: string) {
+    const preview = this.lookup(id);
+    if (
+      preview.state !== "ready" ||
+      preview.plan.workspaceAuthorityDigest !== workspaceAuthorityDigest
+    ) {
+      throw new SemanticPreviewUnavailableError();
+    }
+    preview.holderWorkspaceId = workspaceId;
+    return this.resolved(preview);
   }
 
   reserve(id: string, invocationId: string, workspaceId?: string): SemanticPreviewPlan {
     const preview = this.lookup(id, workspaceId);
-    if (preview.state !== "ready") throw new Error("Semantic preview is unavailable.");
+    if (preview.state !== "ready") throw new SemanticPreviewUnavailableError();
     preview.state = "reserved";
     preview.invocationId = invocationId;
     return preview.plan;
   }
 
-  assertReserved(id: string, invocationId: string, workspaceId: string): SemanticPreviewPlan {
+  assertReserved(
+    id: string,
+    invocationId: string,
+    workspaceId: string
+  ): SemanticPreviewPlan {
     const preview = this.lookup(id, workspaceId);
-    if (preview.state !== "reserved" || preview.invocationId !== invocationId) {
-      throw new Error("Semantic preview is unavailable.");
+    if (
+      preview.state !== "reserved" ||
+      preview.invocationId !== invocationId
+    ) {
+      throw new SemanticPreviewUnavailableError();
     }
     return preview.plan;
   }
@@ -244,7 +277,7 @@ export class SemanticPreviewStore {
 
   invalidateWorkspace(workspaceId: string): void {
     for (const [id, preview] of this.previews) {
-      if (preview.plan.workspaceId === workspaceId) this.previews.delete(id);
+      if (preview.holderWorkspaceId === workspaceId) this.previews.delete(id);
     }
   }
 
@@ -254,7 +287,7 @@ export class SemanticPreviewStore {
       return process.platform === "win32" ? normalized.toLocaleLowerCase("en-US") : normalized;
     }));
     for (const [id, preview] of this.previews) {
-      if (preview.plan.workspaceId !== workspaceId) continue;
+      if (preview.holderWorkspaceId !== workspaceId) continue;
       if (preview.plan.files.some((file) => {
         const relativePath = process.platform === "win32"
           ? file.snapshot.relativePath.toLocaleLowerCase("en-US")
@@ -264,23 +297,33 @@ export class SemanticPreviewStore {
     }
   }
 
+  private resolved(preview: StoredPreview) {
+    return {
+      plan: preview.plan,
+      workspaceId: preview.holderWorkspaceId,
+      manifestDigest: preview.manifestDigest,
+      semanticFactsDigest: preview.semanticFactsDigest,
+      semanticAuditFacts: preview.semanticAuditFacts
+    } as const;
+  }
+
   private lookup(id: string, workspaceId?: string): StoredPreview {
     const preview = this.previews.get(id);
-    if (!preview || (workspaceId !== undefined && preview.plan.workspaceId !== workspaceId)) {
-      throw new Error("Semantic preview is unavailable.");
+    if (!preview || (workspaceId !== undefined && preview.holderWorkspaceId !== workspaceId)) {
+      throw new SemanticPreviewUnavailableError();
     }
     if (this.monotonicNow() - preview.createdMonotonicMs >= this.ttlMs) {
       preview.state = "burned";
       this.previews.delete(id);
-      throw new Error("Semantic preview is unavailable.");
+      throw new SemanticPreviewUnavailableError();
     }
     return preview;
   }
 
-  private evict(workspaceId: string, incomingBytes: number): void {
+  private evict(workspaceAuthorityDigest: string, incomingBytes: number): void {
     const unused = [...this.previews.values()].filter((preview) => preview.state === "ready");
     const workspacePreviews = [...this.previews.values()]
-      .filter((preview) => preview.plan.workspaceId === workspaceId);
+      .filter((preview) => preview.plan.workspaceAuthorityDigest === workspaceAuthorityDigest);
     const workspaceUnused = workspacePreviews.filter((preview) => preview.state === "ready");
     let workspaceCount = workspacePreviews.length;
     while (workspaceCount >= this.maxPerWorkspace && workspaceUnused.length > 0) {

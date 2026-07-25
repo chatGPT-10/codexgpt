@@ -3,12 +3,25 @@ import { redactSensitiveText } from "../redact.js";
 import type { CodexGPTConfig } from "../config.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import { DEFAULT_SEMANTIC_BUDGETS } from "./budgets.js";
-import { createTypeScriptWorkerClient, type TypeScriptWorkerClient } from "./builtin/typescriptProvider.js";
+import {
+  createTypeScriptWorkerClient,
+  type SemanticWorkerHealthRegistry,
+  type TypeScriptWorkerClient
+} from "./builtin/typescriptProvider.js";
 import { loadTypeScriptLibraryAssets } from "./builtin/typescriptAssets.js";
 import { semanticCoreStatus } from "./status.js";
 import { createLineIndex, publicPositionToOffset } from "./positions.js";
-import { SemanticPreviewStore, type SemanticPreviewPlan } from "./previewStore.js";
-import { revalidateSemanticProject, resolveSemanticProject, type SemanticProject } from "./projectResolver.js";
+import {
+  SemanticPreviewStore,
+  SemanticPreviewUnavailableError,
+  type SemanticPreviewPlan
+} from "./previewStore.js";
+import {
+  revalidateSemanticProject,
+  revalidateSemanticSnapshots,
+  resolveSemanticProject,
+  type SemanticProject
+} from "./projectResolver.js";
 import type {
   SemanticDiagnostic,
   SemanticLocation,
@@ -120,17 +133,22 @@ export class SemanticProviderManager {
     private readonly config: CodexGPTConfig,
     private readonly guard: PathGuard,
     private readonly workspaces: WorkspaceManager,
-    options: { worker?: TypeScriptWorkerClient; previews?: SemanticPreviewStore } = {}
+    options: {
+      worker?: TypeScriptWorkerClient;
+      previews?: SemanticPreviewStore;
+      workerHealth?: SemanticWorkerHealthRegistry;
+    } = {}
   ) {
     this.worker = options.worker ?? createTypeScriptWorkerClient({
       timeoutMs: DEFAULT_SEMANTIC_BUDGETS.workerTimeoutMs,
       maxQueue: DEFAULT_SEMANTIC_BUDGETS.maxQueue,
-      maxResponseBytes: DEFAULT_SEMANTIC_BUDGETS.maxWorkerResponseBytes
+      maxResponseBytes: DEFAULT_SEMANTIC_BUDGETS.maxWorkerResponseBytes,
+      healthRegistry: options.workerHealth
     });
     this.previews = options.previews ?? new SemanticPreviewStore();
-    this.unsubscribe = this.workspaces.onWorkspaceRevoked(({ id }) => {
+    this.unsubscribe = this.workspaces.onWorkspaceRevoked(({ id, reason }) => {
       this.revokedWorkspaces.add(id);
-      this.previews.invalidateWorkspace(id);
+      if (reason !== "transport_closed") this.previews.invalidateWorkspace(id);
       this.projectCache.delete(id);
       this.worker.cancelScope?.(id);
       for (const cancel of this.activeCancellations.get(id) ?? []) cancel();
@@ -151,18 +169,25 @@ export class SemanticProviderManager {
         : request.locator.path_hint
           ? this.guard.resolve(workspace, request.locator.path_hint).relPath
           : undefined;
+    const includeDependencies = !(request.operation === "definition" && request.locator.kind === "symbol");
     const project = await this.resolveProject(
       workspace,
       requiredPath,
-      !(request.operation === "definition" && request.locator.kind === "symbol")
+      includeDependencies
     );
     if (this.revokedWorkspaces.has(workspace.id)) {
       throw new Error("Semantic workspace is unavailable.");
     }
-    if (request.operation === "rename_preview" && (project.partial || project.dependencyPartial)) {
-      throw new Error("Semantic rename requires complete project coverage; no preview was created.");
-    }
     const byPath = new Map(project.snapshots.map((snapshot) => [snapshot.relativePath, snapshot]));
+    const hintedSnapshot = requiredPath ? byPath.get(requiredPath) : undefined;
+    if (
+      request.operation !== "diagnostics" &&
+      request.locator.kind === "symbol" &&
+      hintedSnapshot &&
+      !["typescript", "typescriptreact", "javascript", "javascriptreact"].includes(hintedSnapshot.language)
+    ) {
+      return this.lexicalFallback(project.snapshots, request, hintedSnapshot);
+    }
     const target = request.operation === "diagnostics"
       ? { path: requiredPath!, line: 1, column: 1 }
       : request.locator.kind === "position"
@@ -178,6 +203,9 @@ export class SemanticProviderManager {
         candidates: target.candidates,
         needs_disambiguation: true
       }, project.omittedCount + target.omitted, project.partial || project.dependencyPartial || target.omitted > 0, "Choose one candidate path and position.", "NEEDS_DISAMBIGUATION");
+    }
+    if (request.operation === "rename_preview" && (project.partial || project.dependencyPartial)) {
+      throw new Error("Semantic rename requires complete project coverage; no preview was created.");
     }
     const targetSnapshot = byPath.get(target.path);
     if (!targetSnapshot) throw new Error("Semantic target source is unavailable.");
@@ -196,9 +224,10 @@ export class SemanticProviderManager {
       ...selectedSnapshots.map((snapshot) => ({ path: snapshot.relativePath, text: snapshot.utf8Text })),
       ...(libraryAssets?.files ?? [])
     ];
+    const healthScopeId = this.workspaces.workspaceAuthorityDigest(workspace.id);
     let response: any;
     try {
-      response = await this.workspaceRequest(workspace.id, {
+      response = await this.workspaceRequest(workspace.id, healthScopeId, {
           operation: request.operation,
           files,
           target,
@@ -207,7 +236,7 @@ export class SemanticProviderManager {
         });
     } catch (error) {
       if (isSemanticRequestError(error)) throw error;
-      const status = this.worker.status(workspace.id);
+      const status = this.worker.status(healthScopeId);
       const emptyResult = request.operation === "diagnostics"
         ? { diagnostics: [] }
         : { locations: [] };
@@ -228,6 +257,10 @@ export class SemanticProviderManager {
         ),
         ...(status.retryAfterMs > 0 ? { retry_after_ms: status.retryAfterMs } : {})
       };
+    }
+    if (!await revalidateSemanticSnapshots(this.config, workspace, selectedSnapshots)) {
+      this.projectCache.delete(workspace.id);
+      throw new Error("Semantic source changed during analysis.");
     }
     if (request.operation === "rename_preview") {
       return this.renameEnvelope(workspace, project.snapshots, request, response);
@@ -261,7 +294,8 @@ export class SemanticProviderManager {
 
   private workspaceRequest(
     workspaceId: string,
-    request: Omit<Parameters<TypeScriptWorkerClient["request"]>[0], "scopeId">
+    healthScopeId: string,
+    request: Omit<Parameters<TypeScriptWorkerClient["request"]>[0], "scopeId" | "healthScopeId">
   ): Promise<any> {
     if (this.revokedWorkspaces.has(workspaceId)) {
       return Promise.reject(new Error("Semantic workspace is unavailable."));
@@ -277,7 +311,7 @@ export class SemanticProviderManager {
       };
       cancellations.add(cancel);
       this.activeCancellations.set(workspaceId, cancellations);
-      void this.worker.request({ ...request, scopeId: workspaceId }).then(
+      void this.worker.request({ ...request, scopeId: workspaceId, healthScopeId }).then(
         (value) => {
           if (settled) return;
           settled = true;
@@ -295,15 +329,27 @@ export class SemanticProviderManager {
   }
 
   resolvePreview(id: string, workspaceId?: string) {
-    const resolved = this.previews.resolve(id, workspaceId);
-    if (
-      resolved.plan.providerGeneration !== this.worker.generation ||
-      resolved.plan.workspaceBindingDigest !== this.workspaces.workspaceBindingDigest(resolved.plan.workspaceId)
-    ) {
-      this.previews.burn(id);
-      throw new Error("Semantic preview is unavailable.");
+    let workspace: Workspace;
+    try {
+      workspace = this.workspaces.resolveWorkspace(workspaceId);
+    } catch {
+      throw new SemanticPreviewUnavailableError();
     }
-    return resolved;
+    const resolved = this.previews.resolve(id);
+    if (resolved.plan.workspaceAuthorityDigest !== this.workspaces.workspaceAuthorityDigest(workspace.id)) {
+      throw new SemanticPreviewUnavailableError();
+    }
+    return this.previews.adopt(
+      id,
+      workspace.id,
+      resolved.plan.workspaceAuthorityDigest
+    );
+  }
+
+  reservePreview(id: string, invocationId: string, workspaceId?: string) {
+    const resolved = this.resolvePreview(id, workspaceId);
+    const plan = this.previews.reserve(id, invocationId, resolved.workspaceId);
+    return { ...resolved, plan };
   }
 
   invalidateWorkspace(workspaceId: string): void {
@@ -372,12 +418,9 @@ export class SemanticProviderManager {
 
   assertReservation(id: string, invocationId: string, workspaceId: string): SemanticPreviewPlan {
     const plan = this.previews.assertReserved(id, invocationId, workspaceId);
-    if (
-      plan.providerGeneration !== this.worker.generation ||
-      plan.workspaceBindingDigest !== this.workspaces.workspaceBindingDigest(workspaceId)
-    ) {
+    if (plan.workspaceAuthorityDigest !== this.workspaces.workspaceAuthorityDigest(workspaceId)) {
       this.previews.burn(id, invocationId);
-      throw new Error("Semantic preview is unavailable.");
+      throw new SemanticPreviewUnavailableError();
     }
     return plan;
   }
@@ -482,6 +525,7 @@ export class SemanticProviderManager {
     const plan: SemanticPreviewPlan = Object.freeze({
       workspaceId: workspace.id,
       workspaceBindingDigest: this.workspaces.workspaceBindingDigest(workspace.id),
+      workspaceAuthorityDigest: this.workspaces.workspaceAuthorityDigest(workspace.id),
       providerGeneration: this.worker.generation,
       providerFacts: Object.freeze({
         provider: String(response.provider),

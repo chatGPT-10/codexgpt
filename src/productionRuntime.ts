@@ -59,6 +59,8 @@ import {
 import type { GitReadServiceV4 } from "./git/readService.js";
 import type { GitGateRRuntimeV4 } from "./git/recovery.js";
 import type { ProductionGitBootstrapV4 } from "./git/productionBootstrap.js";
+import type { SemanticPreviewStore } from "./semantic/previewStore.js";
+import type { SemanticWorkerHealthRegistry } from "./semantic/builtin/typescriptProvider.js";
 import { RepositoryIdentityRegistry } from "./git/repositoryIdentity.js";
 import { GitStateTokenService } from "./git/stateToken.js";
 import { GitReadServiceV4 as ConcreteGitReadServiceV4 } from "./git/readService.js";
@@ -126,6 +128,8 @@ export interface ProductionCodexGPTServerOptions {
   taskWorktreeServiceV4?: NonNullable<CodexGPTServerDependencies["taskWorktreeServiceV4"]>;
   taskWorktreeAuthorityV4?: NonNullable<CodexGPTServerDependencies["taskWorktreeAuthorityV4"]>;
   gitBootstrapV4?: ProductionGitBootstrapV4;
+  semanticPreviewStoreV5?: SemanticPreviewStore;
+  semanticWorkerHealthV5?: SemanticWorkerHealthRegistry;
 }
 
 interface RuntimeResources {
@@ -138,10 +142,12 @@ interface RuntimeResources {
 
 function noRuntime(
   policySessionContextSource: PolicySessionContextSource | undefined,
-  lifecycle: ServerMutationLifecycle
+  lifecycle: ServerMutationLifecycle,
+  semanticPreviewStoreV5?: SemanticPreviewStore,
+  semanticWorkerHealthV5?: SemanticWorkerHealthRegistry
 ): RuntimeResources {
   return {
-    dependencies: { policySessionContextSource },
+    dependencies: { policySessionContextSource, semanticPreviewStoreV5, semanticWorkerHealthV5 },
     observation: {
       atomic: false,
       durableAudit: false,
@@ -176,6 +182,7 @@ function composeRuntime(
 ): RuntimeResources {
   const lifecycle = new ServerMutationLifecycle();
   let localApprovalRuntimeV3 = options.localApprovalRuntimeV3;
+  let ownsLocalApprovalRuntimeV3 = false;
   const automaticLocalApproval = contractIncludesV4(config.toolContractVersion) && Boolean(options.gitBootstrapV4);
   const atomic = config.fileTransactions === "atomic";
   const writableAtomic = atomic && config.writeMode !== "off";
@@ -294,7 +301,12 @@ function composeRuntime(
   });
 
   if (!atomic && !durableAudit) {
-    return noRuntime(options.policySessionContextSource, lifecycle);
+    return noRuntime(
+      options.policySessionContextSource,
+      lifecycle,
+      options.semanticPreviewStoreV5,
+      options.semanticWorkerHealthV5
+    );
   }
   if (writableAtomic && config.auditMode === "off") {
     throw new Error("Writable atomic transactions require persistent audit; CODEXGPT_AUDIT_MODE cannot be off.");
@@ -359,6 +371,8 @@ function composeRuntime(
       gitMutationServiceV4: options.gitMutationServiceV4,
       taskWorktreeServiceV4: options.taskWorktreeServiceV4,
       taskWorktreeAuthorityV4: options.taskWorktreeAuthorityV4,
+      semanticPreviewStoreV5: options.semanticPreviewStoreV5,
+      semanticWorkerHealthV5: options.semanticWorkerHealthV5,
       ...(contractIncludesV4(config.toolContractVersion) ? {
         v4ContractCapabilities: {
           nativeHostIdentityAvailable: gitEvidenceConfigured,
@@ -426,6 +440,7 @@ function composeRuntime(
           stateBaseRoot: stateRoot,
           startNativeControl: false
         });
+        ownsLocalApprovalRuntimeV3 = true;
         dependencies.localApprovalRuntimeV3 = localApprovalRuntimeV3;
         automaticGitStartup = localApprovalRuntimeV3.activateNativeControl(stateRoot);
       }
@@ -861,7 +876,7 @@ function composeRuntime(
       try {
         await processManager?.close();
         await options.rootAdmissionRuntimeV3?.close();
-        await localApprovalRuntimeV3?.close();
+        if (ownsLocalApprovalRuntimeV3) await localApprovalRuntimeV3?.close();
         runCommandRuntime?.close();
         await Promise.all([
           windowsProcessHostRuntime?.close()
@@ -918,7 +933,7 @@ function composeRuntime(
     registry?.dispose();
     void processManager?.close();
     void options.rootAdmissionRuntimeV3?.close();
-    void localApprovalRuntimeV3?.close();
+    if (ownsLocalApprovalRuntimeV3) void localApprovalRuntimeV3?.close();
     runCommandRuntime?.close();
     void windowsProcessHostRuntime?.close();
     void options.gitBootstrapV4?.dispose();

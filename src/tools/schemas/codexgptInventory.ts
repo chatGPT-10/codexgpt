@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 
 export const CODEXGPT_INVENTORY_MCP_SERVER_LIMIT = 120 as const;
+export const CODEXGPT_INVENTORY_SKILL_DESCRIPTION_LIMIT = 500 as const;
 
 export const CODEXGPT_INVENTORY_SKILLS_TRUNCATED_WARNING =
   "Skill inventory reached the requested max_skills limit." as const;
@@ -23,7 +24,7 @@ const safeOneLineSchema = z.string()
 
 const skillDescriptionSchema = z.string()
   .min(1)
-  .max(500)
+  .max(CODEXGPT_INVENTORY_SKILL_DESCRIPTION_LIMIT)
   .refine((value) => value.trim() === value, "Description cannot have surrounding whitespace.")
   .refine((value) => !/[\r\n\u0000-\u001f\u007f]/.test(value), "Description must be one line.");
 

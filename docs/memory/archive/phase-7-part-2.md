@@ -262,3 +262,307 @@ This append-only volume continues [Phase 7 Volume 1](phase-7.md) from STEP-415 s
 **Rollback:** Remove the file from the serial isolation set and its classification expectation together. Doing so restores the confirmed Ubuntu Node 20 contention failure and is not a safe test-orchestration rollback. Product rollback remains explicit `CODEXGPT_GUIDANCE_MODE=legacy`.
 
 **Next action:** Complete build, policy, diff, package, Markdown-link, secret-pattern, size, and exact-scope checks; stage only these five STEP-419 files; commit once in English; push normally; and bind the replacement exact head to terminal Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package success. Keep both Phase 8 records untracked and excluded. Formal Phase 7 closure still requires real user-observable G7-U.
+
+## 2026-07-25 — STEP-420: Repair live ChatGPT schema compatibility and default-root entry
+
+**Status:** Implemented and locally verified. The real ChatGPT connector now accepts the V5 tool set and completed definition, references, file-open, and diagnostics portions of U1. A fresh supported-entry restart is still required to confirm approval-free default-root opening and finish the ambiguous-symbol journey. Publication and replacement exact-head CI remain pending.
+
+**Goal:** Remove two live-only blockers without weakening the strict semantic runtime, arbitrary-root approval, transport-session isolation, or Phase 3 mutation boundary.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7-part-2.md`
+- `src/policy/toolPolicy.ts`
+- `src/server.ts`
+- `src/tools/schemas/semantic.ts`
+- `test/phase-7-v5-runtime-inheritance.test.mjs`
+- `test/policy-transport.test.mjs`
+
+**Live evidence and root causes:**
+
+- ChatGPT initially rejected the connector with `Invalid MCP tool schema for tool 'semantic'`. The input descriptor advertised nested union and Unicode-regex constructs, and the optional output descriptor advertised union/const/pattern/reference constructs that the live connector rejected before any tool call.
+- After replacing only the advertised semantic locator/new-name shape with a flat descriptor and omitting the optional advertised semantic output schema, connector creation succeeded. The strict discriminated input parser and strict success/failure output parsing remain server-side.
+- Real U1 then returned the correct `startWorkerLeaseRenewal` definition, production reference, test references, source excerpt, and zero diagnostics without a Provider/setup question.
+- The ambiguous-symbol attempt exposed a second blocker: `open_current_workspace` was classified R1 even though it can open only the configured default root. ChatGPT creates a fresh Streamable HTTP transport session during retries, so each retry correctly had a new session-local approval domain and could not consume the prior grant. Repeated approval was therefore unavoidable under that classification.
+
+**Implementation:**
+
+- Publish a flat semantic locator descriptor with optional position/symbol fields; keep exact operation/locator combinations in the existing strict runtime schema.
+- Publish `new_name` as a bounded trimmed string without the wire-level Unicode pattern; retain strict runtime identifier validation.
+- Stop advertising optional `outputSchema` for `semantic`; keep internal strict output construction and parsing unchanged.
+- Reclassify only `open_current_workspace` from R1 to R0. It still requires the existing `workspace:open` identity scope and opens only the startup-configured root under the existing workspace/path policy.
+- Keep arbitrary `open_workspace` at R1. Do not share grants across transport sessions, stabilize random local-control server IDs across sessions, or weaken workspace-handle/session binding.
+
+**TDD and verification:**
+
+- Semantic schema repair: `npm run build` passed; `npm run test:focused -- test/phase-7-v5-runtime-inheritance.test.mjs test/phase-7-repository-acceptance.test.mjs` passed 4/4; `npm run policy:check` passed; `git diff --check` passed.
+- Default-root RED: the new policy transport regression passed 5/6 and failed only because `open_current_workspace` returned an approval-required error.
+- Default-root GREEN: `npm run test:focused -- test/policy-transport.test.mjs` passed 7/7. The test proves configured `open_current_workspace` succeeds and audits as allow while an explicit `open_workspace` call for the same path still returns `APPROVAL_REQUIRED` and audits as approval-required.
+- Combined affected suite: `npm run test:focused -- test/policy-transport.test.mjs test/open-current-workspace-contract.test.mjs test/phase-6-root-bootstrap.test.mjs test/phase-6-transport-parity.test.mjs test/phase-7-v5-runtime-inheritance.test.mjs` passed 30/30.
+- Final local `npm run build` and `npm run policy:check` passed. `git diff --check` reported only the repository's existing LF-to-CRLF working-copy warnings and no diff errors.
+
+**Adversarial review:** No independent agent provider is available in this workspace. Manual review challenged four boundaries: the semantic wire descriptor is compatibility-only and cannot bypass the strict parser; omission of the optional output descriptor does not remove server output validation; only the already configured default root becomes R0; and arbitrary roots, foreign transport sessions, stale workspace handles, writes, rename application, and all higher-risk operations retain their existing approval and fail-closed behavior.
+
+**Risk and limitation:** R0 default-root opening removes a redundant consent prompt for a root already selected by the local startup operator. It does not authorize another path. The live App must be restarted against the rebuilt server before this behavior can be accepted. U1 ambiguous-symbol handling and U2-U6 remain incomplete.
+
+**Rollback:** Restore `open_current_workspace` to R1 and restore the previous semantic descriptors. That rollback also restores the observed connector rejection and per-session approval loop. No state deletion, credential migration, grant migration, or history rewrite is required.
+
+**Next action:** Stop the old server, restart the supported public entry from the rebuilt checkout with the existing atomic/enforce/standard/builtin environment, and repeat the U1 ambiguous `delay` request in a fresh ChatGPT conversation. No approval should be requested for `open_current_workspace`; `open_workspace` must still require approval. Keep both untracked Phase 8 records excluded.
+
+## 2026-07-25 — STEP-421: Preserve semantic preview authority across HTTP reconnect and pass the public named-tunnel U2 journey
+
+**Status:** Implemented and locally verified. Build, affected regression, repository policy, diff, and native-Windows ordinary pass. The supported named-tunnel production path completes cross-session semantic preview, exact R2 apply approval, atomic apply, same-preview replay rejection, exact R2 undo, and post-undo baseline verification. Real ChatGPT App UI U2–U6, publication, and replacement exact-head CI remain pending.
+
+**Goal:** Prevent a valid server-owned semantic rename preview from disappearing when ChatGPT rotates its Streamable HTTP transport, while preserving transport-local workspace handles, exact credential/root/policy binding, single-use semantics, Phase 3 approval, and lock-held atomic preconditions.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7-part-2.md`
+- `src/guard.ts`
+- `src/http.ts`
+- `src/policy/integration.ts`
+- `src/policy/toolPolicy.ts`
+- `src/productionRuntime.ts`
+- `src/semantic/manager.ts`
+- `src/semantic/previewStore.ts`
+- `src/server.ts`
+- `src/tools/schemas/applyPatch.ts`
+- `src/tools/schemas/semantic.ts`
+- `test/phase-7-http-reconnect-preview.test.mjs`
+- `test/phase-7-preview-lifecycle.test.mjs`
+- `test/phase-7-rename-apply.test.mjs`
+- `test/phase-7-semantic-audit.test.mjs`
+- `test/phase-7-v5-runtime-inheritance.test.mjs`
+- `test/policy-transport.test.mjs`
+- `test/workspace-lifecycle.test.mjs`
+
+**Confirmed root cause:** `src/http.ts` created and disposed one complete production server per MCP transport. `SemanticPreviewStore` therefore died with session A, while session B correctly received a fresh `WorkspaceManager` and semantic manager. `apply_patch(semantic_preview_id)` in session B reached the Policy resource resolver before approval, could not resolve the old preview, and the Policy wrapper collapsed the exception into `POLICY_CONFIG_INVALID / policy-unavailable`. A normal `open_workspace` approval could not restore the missing preview.
+
+**Implementation:**
+
+- HTTP now owns one bounded `SemanticPreviewStore` for the process lifetime and injects it into each per-transport production server. Semantic managers, workers, workspace managers, public handles, and transport revocation remain session-local.
+- `WorkspaceManager.workspaceAuthorityDigest()` binds canonical root key, access class/mode, lease, identity binding, and policy revision, while deliberately excluding transport session ID, public workspace handle, and open timestamp.
+- A ready preview may be adopted by a new session only when its immutable authority digest matches. The store then binds the current holder workspace ID for reservation, path invalidation, and exact single-use consumption.
+- Transport close cancels the old manager/worker and revokes its public workspace handles but does not invalidate a ready process-lifecycle preview. Explicit workspace revocation, policy change, TTL expiry, reserve/consume, burn, changed-path invalidation, and quota eviction remain authoritative.
+- The manifest now binds the reconnect authority digest plus the original provider generation/facts, source canonical paths, stable identities, hashes, edits, and resulting hashes. Apply consumes the immutable plan and does not depend on the new session worker epoch.
+- Missing, expired, foreign-authority, reserved, consumed, or burned previews return typed `SEMANTIC_PREVIEW_STALE` with one fresh-preview action. They no longer become `POLICY_CONFIG_INVALID`.
+- The stale error extends only the V5 `apply_patch` output. V1–V4 frozen descriptors and behavior remain unchanged.
+- R2 approval, exact semantic facts digest, source hash/stable identity/parent identity, transaction lock, lock-held second inspection, atomic commit, audit, replay refusal, and undo remain unchanged.
+
+**TDD and adversarial corrections:**
+
+- The HTTP reconnect RED reproduced session A preview followed by session B apply and failed before the repair.
+- The first implementation compared the old provider generation with the new session worker generation. Manual adversarial review rejected that design because a harmless semantic read in session B could rotate the local worker epoch even though apply uses only the immutable preview plan. The new session worker epoch is therefore not an adoption condition.
+- The first stale-output implementation extended the shared V2 schema and changed V1–V4 frozen descriptors. The production snapshot suite failed; the correction introduced a V5-only output extension.
+- Regressions cover foreign credential/identity, different canonical root, different policy revision, manifest/provider-fact changes, TTL, single-use adoption, concurrent reserve, changed path, source replacement, parent replacement, replay, and process-lifecycle HTTP wiring.
+
+**Final local verification:**
+
+- `npm run build` — passed.
+- `npm run test:focused -- test/phase-7-http-reconnect-preview.test.mjs test/phase-7-preview-lifecycle.test.mjs test/workspace-lifecycle.test.mjs test/phase-7-semantic-manager.test.mjs test/phase-7-rename-apply.test.mjs test/phase-7-rename-races.test.mjs test/phase-7-semantic-audit.test.mjs test/policy-transport.test.mjs test/production-runtime-integration.test.mjs test/phase-7-v5-runtime-inheritance.test.mjs` — 64/64 passed.
+- `npm run policy:check` — `Repository operational policy: PASS`.
+- `git diff --check` — passed with only existing LF-to-CRLF working-copy warnings.
+- Authoritative native-Windows ordinary run `2026-07-25T11-53-20-033Z-phase7-u2-ordinary-r2-57089d52` — exit 0; 113,628 retained stdout bytes, zero stderr, no truncation, temporary state cleaned, zero retention failures.
+- The first ordinary wrapper run `2026-07-25T11-52-08-470Z-phase7-u2-ordinary-cdd1e117` did not execute tests because Windows `spawn npm.cmd` returned `EINVAL`; the accepted retry used the authoritative direct Node entry `node scripts/test-domains.mjs run --domain ordinary`.
+
+**Named-tunnel production U2 evidence:**
+
+- Supported entry run `2026-07-25T12-05-55-426Z-phase7-u2-named-tunnel-r3-ed5b6586` remains active with a renewable worker lease.
+- Environment: atomic transactions, Policy enforce, semantic standard/builtin, and explicit `CODEXGPT_PUBLIC_HOSTNAME=codexpro.drliang.uk` for the child fixture Host allowlist.
+- Local and public unauthenticated `/healthz` returned 401. A credential-safe public MCP probe connected through `https://codexpro.drliang.uk/mcp`, exposed semantic/apply/undo, and never printed the saved token or complete credential URL.
+- Session A created a rename preview for `computeApplyDelayLive` to `calculateApplyDelayLive`: manifest `6457b98e5e52160c7f4b5bef333efe8be6441dac91c23a3474e9f239ed8521e3`, 3 files, 5 edits.
+- Session A closed. Session B submitted the same opaque preview, received exact R2 `APPROVAL_REQUIRED`, obtained local approval `approval_9a4635ef693171c5eb9a52233c68e59f`, and atomically committed change set `cs_f865fe620dc66847e9b1fcb341fe5f3b`.
+- Modified fixture syntax checks and Node tests passed; all five symbol occurrences were renamed and no old occurrence remained.
+- Reusing the exact same preview ID returned `SEMANTIC_PREVIEW_STALE`; no second mutation occurred.
+- Exact R2 undo approval `approval_1f4ab0d124d6af422883ac0950462ac2` committed reverse change set `cs_48238274a26faa8e886c7028814721ad`, reverting `cs_f865fe620dc66847e9b1fcb341fe5f3b`.
+- Post-undo syntax checks and Node tests passed; the fixture returned to five old-name occurrences and zero renamed occurrences.
+- An earlier diagnostic journey applied and undid `cs_ab5fc652b4406bd9efa989661baea287`; it was not used as final replay evidence because the caller did not retain the opaque preview ID. Its cleanup undo succeeded; the later complete single-process journey above is the accepted evidence.
+
+**Security review:** A wrong identity/root/policy digest cannot adopt, reserve, consume, or burn another authority's preview. The public preview ID remains opaque and the public result still omits per-file hashes and internal tokens. The shared object is only the bounded preview store; no workspace manager, worker, grant store, local-control authority, credential, or public workspace handle became process-global. Phase 3 transaction and audit boundaries are unchanged.
+
+**Risk and limitation:** This journey uses the real public domain, Cloudflare named tunnel, production HTTP server, saved query-token compatibility credential, local approval runtime, Policy Kernel, and atomic transaction backend. It is stronger than an in-memory/backend regression, but it is still an SDK-driven MCP client journey. It does not substitute for user-observable ChatGPT App UI evidence or cached-App **Scan Tools** migration evidence.
+
+**Rollback:** Revert the shared HTTP preview-store injection, authority digest, V5 stale classification, and corresponding regressions as one unit. That restores the confirmed reconnect loss and misleading Policy error. Do not restore preview continuity by sharing `WorkspaceManager`, grants, workers, or transport handles globally.
+
+**Next action:** Use the still-running named-tunnel fixture to complete real ChatGPT App UI U2–U6. Then run managed Node 20/24 build/ordinary/Smoke and package gates, perform final adversarial scope review, stage only the reviewed Phase 7 files, commit once in English, push normally, and require terminal exact-head Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package success. Keep both Phase 8 OAuth files untracked and excluded.
+
+## 2026-07-25 — STEP-422: Preserve exact V5 approval grants across ChatGPT HTTP reconnect
+
+**Status:** Implemented and locally verified. Build, 87 affected regressions, repository policy, diff, and authoritative native-Windows ordinary pass. The repaired supported named-tunnel runtime is active and publicly reachable with authentication enforced. Real ChatGPT App UI U2 retry remains the next acceptance action.
+
+**Goal:** Stop the ChatGPT App approval loop in which a locally granted semantic apply or undo request immediately returned a different `approval_id` and `server_id` after the App rotated its Streamable HTTP transport.
+
+**Files changed in this step:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-7-part-2.md`
+- `src/http.ts`
+- `src/policy/integration.ts`
+- `src/policy/runtime.ts`
+- `src/productionRuntime.ts`
+- `src/server.ts`
+- `src/tools/phase3dServer.ts`
+- `test/phase-7-http-reconnect-preview.test.mjs`
+- `test/production-runtime-integration.test.mjs`
+
+**Confirmed root cause:** STEP-421 preserved the semantic preview across transport reconnect, but each HTTP transport still constructed a separate `LocalApprovalRuntimeV3`. Local approval granted a session-local store, and closing that transport closed the runtime and erased the grant. Even if the store survived, the V3 grant matched the old `transportSessionId`, opaque `workspaceId`, resource fingerprint, and request input digest. ChatGPT's retry therefore could not consume the approved grant and created another pending request on a new server.
+
+**Implementation:**
+
+- `src/http.ts` now creates one process-lifecycle local approval runtime only for the bounded HTTP V5 path: Contract V5, Policy enforce, audit enabled, execution profile off, and no confirmed-root admission. Full-access execution, process control, confirmed roots, and older contracts retain their existing lifecycle boundaries.
+- Every per-transport production server receives that injected runtime. `src/productionRuntime.ts` records whether it owns an automatically created runtime; session close disposes only owned runtimes, while HTTP process shutdown closes the injected runtime exactly once.
+- The Policy resource contract accepts an internal `approvalBindingV3` only from a trusted resource resolver. It may substitute stable approval-only transport/workspace/resource/input facts while the execution decision and audit retain the real current resource fingerprint.
+- Semantic apply binds the grant to the authenticated credential, policy/evidence revisions, risk and operation, exact semantic facts, canonical workspace authority, immutable manifest, and exact opaque preview ID. A second preview ID cannot consume a grant even when its rename content and manifest-equivalent source state match.
+- V5 undo binds the grant to the authenticated credential, policy/evidence revisions, risk and operation, canonical workspace authority, exact change-set ID, undo mode, and exact described reverse resource.
+- The execution handler still resolves the current session-local workspace and runs all existing lock-held source identity/hash/parent checks, Phase 3 atomic transaction, required audit, single-use preview consumption, and change-set ownership checks. The stable approval binding grants no new path or operation authority.
+
+**TDD and adversarial review:**
+
+- The live App reproduced the defect: the first apply request was granted locally, but the retry returned a new approval/server pair instead of consuming the grant.
+- The reconnect regression now proves preview creation in session A, approval request in session B, local grant, session B close, and grant consumption in session C.
+- The undo reconnect regression proves a new opaque workspace handle and transport can consume only the exact approved change set under the same credential-derived owner binding.
+- An adversarial sibling-preview assertion proves a distinct preview ID cannot reuse the approved grant and receives a separate approval requirement.
+- A production lifecycle regression proves closing one production session does not close an injected process-lifecycle approval runtime.
+- Existing frozen V1–V4 wire/transaction tests remain unchanged and pass.
+
+**Verification:**
+
+- `npm run build` — passed.
+- Narrow affected suite — 58/58 passed.
+- Final affected suite: `npm run test:focused -- test/phase-7-http-reconnect-preview.test.mjs test/phase-7-preview-lifecycle.test.mjs test/workspace-lifecycle.test.mjs test/phase-7-semantic-manager.test.mjs test/phase-7-rename-apply.test.mjs test/phase-7-rename-races.test.mjs test/phase-7-semantic-audit.test.mjs test/policy-transport.test.mjs test/production-runtime-integration.test.mjs test/phase-7-v5-runtime-inheritance.test.mjs test/policy-v3-approval-integration.test.mjs test/undo-change-set.test.mjs test/transaction-contract-version.test.mjs` — 87/87 passed.
+- `npm run policy:check` — `Repository operational policy: PASS`.
+- `git diff --check` — passed with only existing LF-to-CRLF working-copy warnings.
+- Authoritative native-Windows ordinary run `2026-07-25T13-04-29-128Z-phase7-u2-ordinary-r3-f8392ddb` — exit 0; 113,956 retained stdout bytes, zero stderr, no truncation, temporary state cleaned, zero retention failures.
+
+**Named-tunnel restart and public probe:**
+
+- Exact old run `2026-07-25T12-05-55-426Z-phase7-u2-named-tunnel-r3-ed5b6586` was stopped through the detached runner after exact ownership verification.
+- Repaired run `2026-07-25T13-13-17-909Z-phase7-u2-named-tunnel-r4-bd51dfa7` is active with a renewable worker lease, the supported public entry, atomic transactions, Policy enforce, semantic standard/builtin, and the existing `codexpro.drliang.uk` named-tunnel hostname.
+- Local and public unauthenticated `/healthz` each return 401.
+- A credential-safe public MCP SDK probe used the saved query-token credential internally without printing it or the complete URL. It connected successfully, listed 35 tools, and confirmed `semantic`, `apply_patch`, `undo_change_set`, and `open_current_workspace`.
+- Two initial inline probe attempts failed only because Windows PowerShell stripped nested Node `-e` quotes; they did not reach the credentialed MCP call or modify state. The final environment-passed probe succeeded.
+
+**Risk and limitation:** Process-lifecycle grants remain in memory only and disappear on CodexGPT restart, which is the intended fail-closed behavior. The new stable binding is restricted to exact V5 semantic apply and undo resolver facts; it does not make arbitrary V3/V4 grants reconnectable and does not share workspace managers, public handles, workers, process managers, root admission, or Git authority. Real ChatGPT App UI evidence is still required because SDK and regression evidence cannot prove the App's user-observable retry behavior.
+
+**Rollback:** Remove the process-lifecycle HTTP approval runtime injection, restore per-server runtime ownership, and remove the two V5 stable approval bindings and regressions as one unit. That restores the confirmed infinite approval loop but requires no credential migration, state deletion, or history rewrite.
+
+**Next action:** In the existing ChatGPT App, create a fresh rename preview because the old preview and grant belonged to the stopped process. Apply it, approve the first R2 request locally, and retry after any App transport rotation. The retry must consume the same grant instead of returning another approval. Then verify exact-preview replay refusal and reconnect-safe undo. No stage, commit, or push has been performed; both Phase 8 OAuth records remain untracked and excluded.
+
+## 2026-07-25 — STEP-423: Make V5 undo independent of session-local workspace handles
+
+**Status:** Implemented and locally verified. The exact live failure is reproduced by a production regression, the V5-only fix passes 88 affected regressions, repository policy, diff validation, and authoritative native-Windows ordinary. The repaired named-tunnel runtime is active; real ChatGPT App undo retry remains pending after one explicit **Scan Tools** refresh.
+
+**Confirmed root cause:** ChatGPT may rotate Streamable HTTP transports between two tool calls in one conversation. `open_current_workspace` therefore returned a workspace handle owned by session A, while `undo_change_set` executed in session B. Workspace handles are intentionally session-local and must not be adopted across transports. V5 nevertheless required `workspace_id`, so the stale handle failed in the Policy resource resolver before R2 approval and was projected as `POLICY_CONFIG_INVALID / policy-unavailable`.
+
+**Implementation:**
+
+- Added a V5-only strict undo input schema in which `workspace_id` is optional while `change_set_id` remains mandatory and exact.
+- When V5 omits `workspace_id`, both the Policy resource resolver and execution handler resolve only the server's already configured default root through `WorkspaceManager.resolveWorkspace()`.
+- An explicitly supplied stale, foreign, or invalid workspace handle is still rejected; there is no fallback from a bad explicit handle.
+- V2, V3, and V4 retain the existing required `workspace_id` schema and behavior.
+- Change-set owner binding, canonical workspace authority, exact change-set ID, undo mode, reverse resource fingerprint, R2 approval, conflict checks, atomic transaction, and required audit remain unchanged.
+- The internal Phase 3D registration path uses the same contract-selected schema so direct and composed registrations cannot drift.
+
+**TDD and adversarial evidence:**
+
+- RED: a real production V5 test created a semantic preview in session A, requested and granted apply in session B, committed the change set in session C, opened the default workspace in session D, then attempted undo in session E without a workspace handle. Before the fix it reproduced the live `POLICY_CONFIG_INVALID / policy-unavailable` result.
+- GREEN: the same session-E undo now reaches exact `APPROVAL_REQUIRED`.
+- The regression separately sends the stale session-D handle from another session and proves it is rejected without creating an approval.
+- Schema assertions prove V2 still rejects omitted `workspace_id`, V5 accepts omission, and V5 remains strict against extra force-like arguments.
+
+**Verification:**
+
+- `npm run build` — passed.
+- Final affected suite — 88/88 passed.
+- `npm run policy:check` — `Repository operational policy: PASS`.
+- `git diff --check` — passed with only existing LF-to-CRLF working-copy warnings.
+- Authoritative ordinary run `2026-07-25T13-46-37-029Z-phase7-u2-undo-reconnect-ordinary-r5-9ced8ff0` — exit 0; 114,107 retained stdout bytes, zero stderr, no truncation, temporary state cleaned, zero retention failures.
+
+**Named-tunnel evidence:**
+
+- The first restart `2026-07-25T13-56-11-488Z-phase7-u2-named-tunnel-r5-4dd01498` inherited no explicit V5 environment and correctly exposed only the legacy 21-tool projection. It was stopped and is not acceptance evidence.
+- Corrected run `2026-07-25T13-58-50-191Z-phase7-u2-named-tunnel-r6-85202e85` was started with explicit atomic, required-audit, Policy enforce, Contract V5, semantic standard/builtin, and public-hostname environment.
+- Local and public unauthenticated `/healthz` each return 401.
+- A credential-safe public SDK probe lists 35 tools, confirms `undo_change_set` and `semantic`, confirms `workspace_id` is not required for V5 undo, confirms `change_set_id` remains required, and reports Policy enforce with workspace writes.
+
+**Security review:** Omission selects only the startup-configured root that `open_current_workspace` already exposes as R0. It does not accept caller-selected paths or foreign handles. Undo remains owner-bound and R2-approved, and all complete-state conflict checks occur before atomic mutation. Explicit stale handles fail closed rather than silently retargeting the configured root.
+
+**Next action:** Refresh the existing App's tool snapshot once, then call `undo_change_set` for `cs_e9d32dd9fc2e78f372de4c1572911b68` with `preview=false` and omit `workspace_id` entirely. The first call must return one R2 approval; after local grant, a retry from any App transport must consume it and restore the three fixture files. No stage, commit, or push has been performed; both Phase 8 OAuth records remain untracked and excluded.
+
+## 2026-07-25 — STEP-424: Accept real ChatGPT App U2 preview, apply, replay refusal, and reconnect-safe undo
+
+**Status:** Accepted through the real ChatGPT App and the supported public named tunnel. U2 is complete. U3–U6, publication, and replacement exact-head CI remain pending.
+
+**User-observable journey:**
+
+- The App generated semantic rename preview `sp_MqGKudARZUhrOuAjEveMN3pFg2FOCl9k` with manifest `2e62a42247756dd9cd83c17798e7ccaced0f906ff109d4d5b697c08a478c0b85`.
+- The preview covered exactly three files and five edits: one in `src/lease.mjs`, two in `src/use.mjs`, and two in `test/lease.test.mjs`.
+- The first apply request returned one exact R2 approval. Local approval was granted, and the App retry consumed it without issuing a second approval.
+- Atomic apply committed `cs_e9d32dd9fc2e78f372de4c1572911b68` and changed all five occurrences from `computeApplyDelayLive` to `calculateApplyDelayLive`.
+- Reusing the exact preview returned `SEMANTIC_PREVIEW_STALE` with no approval and no second mutation.
+- The first undo attempt reproduced the stale workspace-handle defect as `POLICY_CONFIG_INVALID / policy-unavailable`, leading to STEP-423.
+- After one explicit **Scan Tools** refresh against named-tunnel run `2026-07-25T13-58-50-191Z-phase7-u2-named-tunnel-r6-85202e85`, V5 undo omitted `workspace_id`, returned one exact R2 approval, and the retry consumed that grant across App transport rotation.
+- Undo committed reverse change set `cs_f91913f2ba913b45a68b43ddbc7713ef`, with `reverts_change_set_id` equal to `cs_e9d32dd9fc2e78f372de4c1572911b68`, restoring the same three files.
+
+**Independent local verification:**
+
+- The undo approval record is `consumed`, not pending or reusable.
+- `computeApplyDelayLive` is present exactly five times across the fixture and `calculateApplyDelayLive` is absent.
+- `npm run build` in `.ai-bridge/g7u-u2-apply` passes syntax checks for all three files.
+- `npm test` passes 1/1.
+- The failed pre-fix undo and the exact-preview replay caused no extra mutation.
+
+**Adversarial review:** The accepted path demonstrates exact-preview single use, one approval per apply/undo operation, reconnect-safe grant consumption, exact change-set lineage, and restoration of the original bytes. Explicit stale handles remain fail-closed, omitted workspace authority remains limited to the configured default root, and V2–V4 contracts remain unchanged. No shared workspace manager, arbitrary path authority, wildcard approval, force undo, or credential migration was introduced.
+
+**Remaining boundary:** U2 proves JavaScript/TypeScript semantic rename through the real App, public tunnel, authentication, Policy Kernel, local R2 approval, atomic transaction, replay refusal, and undo. It does not close U3–U6, publication, exact-head CI, or the documented frozen-tool-snapshot limitation.
+
+**Next action:** Continue U3–U6 against the running r6 named-tunnel fixture. No stage, commit, or push has been performed; both Phase 8 OAuth records remain untracked and excluded.
+
+## 2026-07-25 — STEP-425: Accept real ChatGPT App U3 content and stable-identity drift rejection
+
+**Status:** Accepted through the real ChatGPT App and the supported public named tunnel. U3 is complete. U4–U6, publication, and replacement exact-head CI remain pending.
+
+**Goal:** Prove that a semantic rename preview cannot mutate a target after either ordinary content drift or a same-content replacement with a distinct stable file object, and that rejection occurs without partial mutation, a change set, or a reusable approval.
+
+**Files changed:** `Memory.md`; `docs/memory/archive/phase-7-part-2.md`. The ignored `.ai-bridge/g7u-u2-apply` fixture contains temporary replacement/backup objects used only for live acceptance. No source, test, configuration, workflow, package, credential, approval-state, transaction-state, or tracked fixture file changed in this step.
+
+**Real App content-drift journey:**
+
+- Preview `sp_VHVntp6h8ZquwFJOzTNcZ93SxYMRwFee` with manifest `a0d48b0d71cbf8677d41d6dc9388090571260bd71cc6a8623b8a6c027bea267d` covered three files and five edits.
+- An independent authorized edit appended a non-semantic comment to `src/use.mjs`; build and the 1/1 fixture test still passed, with five old-name occurrences and zero new-name occurrences.
+- The first apply request returned exact R2 approval `approval_f78ac933263c876645b3ef94f622dcea`. After local grant, the identical retry returned `FILE_VERSION_CONFLICT` for `src/use.mjs`.
+- No second approval, change set, partial mutation, or semantic rename occurred. The grant became `consumed`, and recovery guidance required rereading the changed file and creating a fresh preview.
+
+**Real App same-content distinct-object journey:**
+
+- A distinct candidate object was pre-created with the exact same 204 bytes and SHA-256 `33b71962534a496e81ccf7eac069762fed62e3c4fd37373577aacd1920f2d0a9` as `src/use.mjs`, but a different NTFS identity.
+- `System.IO.File.Replace` installed the candidate while preserving the old object as a backup. The target SHA-256 and size remained unchanged while `ino` changed from `4222124650858905` at preview creation to `562949953427317` before apply. The replaced object remained separately observable as `4222124650858905`.
+- Preview `sp_Px7LaWkiQYw6iS9FRBfyfbwm8HfeVMIp` with manifest `bf65740ab67e507ffc3bc65e53409230c2bdce2cb18e7a47fec8ae202fa11fd3` covered the same three files and five edits.
+- The first apply request returned exact R2 approval `approval_d63b996e2da1a4c64934b84a3d76281b`. After local grant, the identical retry returned `FILE_VERSION_CONFLICT` for `src/use.mjs` despite unchanged content and hash.
+- No new approval, change set, partial mutation, or semantic rename occurred. The grant became `consumed`, and recovery guidance required a fresh read and preview.
+
+**Failed attempts retained as evidence:**
+
+- One identity attempt expired before apply and correctly returned `SEMANTIC_PREVIEW_STALE` with one-step fresh-preview guidance; it was not counted as identity acceptance.
+- Devspace `write`/`edit` preserved the existing NTFS object and changed only metadata, so those attempts were rejected as invalid identity evidence.
+- Ordinary non-semantic `apply_patch` returned `POLICY_CONFIG_INVALID / policy-unavailable` across ChatGPT HTTP tool rotation, including after an App-requested `open_current_workspace`; it made no mutation and was not used as U3 evidence. The bounded V5 semantic apply path remained reconnect-stable and passed the intended gate.
+
+**Independent terminal verification:**
+
+- Final `src/use.mjs` SHA-256 is `33b71962534a496e81ccf7eac069762fed62e3c4fd37373577aacd1920f2d0a9`; the fixture contains exactly five `computeApplyDelayLive` occurrences and zero `calculateApplyDelayLive` occurrences.
+- `npm --prefix .ai-bridge/g7u-u2-apply run build` passed all syntax checks.
+- `npm --prefix .ai-bridge/g7u-u2-apply test` passed 1/1.
+- Both U3 apply approvals are `consumed`; no pending or reusable grant remains.
+- `git diff --check` passed before the documentation update. The tracked working scope remains the previously reviewed Phase 7 repair set plus these memory records; both Phase 8 OAuth records remain untracked and excluded.
+
+**Adversarial review:** Content hash alone cannot prove object continuity, and timestamp changes cannot prove object replacement. The accepted identity journey therefore used a pre-created equal-byte object, captured both identities, installed it with NTFS replacement semantics, and verified the target identity changed while hash and size stayed exact. The final App rejection names the affected relative path but does not disclose an absolute path. Approval was required before the lock-held second inspection, then consumed on failure; this preserves Policy Kernel ordering without making the grant replayable. No direct semantic writer, bypassed transaction, wildcard approval, shared workspace manager, or weakened path rule was introduced.
+
+**Risk and limitation:** The ordinary non-semantic patch path remains session-local and was not made reconnect-stable by this step. The ignored fixture retains backup/replaced files for auditability; they are outside tracked scope and should be removed only under an explicit cleanup action. U3 does not prove worker failure/fallback, boundary redaction, or cached-App migration.
+
+**Rollback:** Documentation-only rollback is to revert this STEP-425 entry and the matching `Memory.md` updates. The live fixture can be restored from its equal-byte replacement objects without affecting repository source; no tracked source rollback is required.
+
+**Next action:** Continue real ChatGPT App Gate G7-U with U4 worker failure and lexical fallback, then U5 boundaries and U6 cached-App migration. Do not stage, commit, push, install Providers, or expand into Phase 8 during those journeys.
+
+**Volume closure:** STEP-425 leaves this append-only volume above the 48 KB rollover threshold (80% of the 60 KB direct-read limit). Phase 7 Volume 2 is closed. Begin STEP-426 and every later Phase 7 record in `docs/memory/archive/phase-7-part-3.md`; do not rewrite or repartition this volume.

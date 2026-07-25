@@ -485,6 +485,36 @@ test("codexgpt_inventory real bounded workspace discovery returns deterministic 
   });
 });
 
+test("standard inventory preserves the description limit and omits overlong summaries", async () => {
+  await withTempWorkspace(async (root) => {
+    for (const [name, length] of [["exact-limit", 500], ["over-limit", 501]]) {
+      const skillDir = path.join(root, ".codex-test", "skills", name);
+      await fs.mkdir(skillDir, { recursive: true });
+      await fs.writeFile(
+        path.join(skillDir, "SKILL.md"),
+        `---\nname: ${name}\ndescription: ${"x".repeat(length)}\n---\n\nBody\n`,
+        "utf8"
+      );
+    }
+
+    await withConfigClient(createTestConfig(root, { guidanceMode: "standard" }), {}, async (client) => {
+      const result = await callTool(client, "codexgpt_inventory", {
+        include_global_skills: true,
+        include_mcp_servers: false,
+        max_skills: 10
+      });
+      const parsed = parseInventoryResult(result);
+      assert.equal(result.isError, undefined);
+      assert.equal(parsed.ok, true);
+      assert.equal(parsed.data.skill_count, 2);
+      assert.equal(parsed.data.skills[0].name, "exact-limit");
+      assert.equal(parsed.data.skills[0].description, "x".repeat(500));
+      assert.equal(parsed.data.skills[1].name, "over-limit");
+      assert.equal(parsed.data.skills[1].description, null);
+    });
+  });
+});
+
 test("codexgpt_inventory effective include flags and limits are echoed and enforced against provider output", async () => {
   await withTempWorkspace(async (root) => {
     let observed;

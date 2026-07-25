@@ -17,6 +17,12 @@ export const undoChangeSetInputV2Schema = z.object({
   preview: z.boolean().optional()
 }).strict();
 
+export const undoChangeSetInputV5Schema = z.object({
+  workspace_id: workspaceIdSchema.optional(),
+  change_set_id: changeSetIdSchema,
+  preview: z.boolean().optional()
+}).strict();
+
 export const undoChangeSetOperationSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.enum(["delete", "restore"]),

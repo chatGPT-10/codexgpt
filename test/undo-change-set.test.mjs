@@ -40,6 +40,7 @@ import {
 } from "../dist/transactions/index.js";
 import {
   undoChangeSetInputV2Schema,
+  undoChangeSetInputV5Schema,
   undoChangeSetOutputSchema
 } from "../dist/tools/schemas/undoChangeSet.js";
 import {
@@ -680,6 +681,21 @@ test("undo V2 schemas are strict and exported through the dormant contract adapt
   });
   assert.equal(undoChangeSetInputV2Schema.safeParse({
     workspace_id: "ws_fixture",
+    change_set_id: `cs_${"1".repeat(32)}`,
+    force: true
+  }).success, false);
+  assert.equal(undoChangeSetInputV2Schema.safeParse({
+    change_set_id: `cs_${"1".repeat(32)}`,
+    preview: false
+  }).success, false);
+  assert.deepEqual(undoChangeSetInputV5Schema.parse({
+    change_set_id: `cs_${"1".repeat(32)}`,
+    preview: false
+  }), {
+    change_set_id: `cs_${"1".repeat(32)}`,
+    preview: false
+  });
+  assert.equal(undoChangeSetInputV5Schema.safeParse({
     change_set_id: `cs_${"1".repeat(32)}`,
     force: true
   }).success, false);

@@ -168,6 +168,14 @@ test("V5 server registers exact V4 inheritance plus semantic in standard/full on
     ]) {
       assert.ok(descriptor.inputSchema.properties?.[property], `semantic descriptor must expose ${property}`);
     }
+    assert.equal(descriptor.inputSchema.properties.locator.type, "object");
+    assert.equal("anyOf" in descriptor.inputSchema.properties.locator, false);
+    assert.deepEqual(
+      Object.keys(descriptor.inputSchema.properties.locator.properties ?? {}).sort(),
+      ["column", "kind", "line", "path", "path_hint", "symbol"]
+    );
+    assert.equal("pattern" in descriptor.inputSchema.properties.new_name, false);
+    assert.equal("outputSchema" in descriptor, false);
     const applyPatchDescriptor = listedTools.find((tool) => tool.name === "apply_patch");
     assert.ok(applyPatchDescriptor);
     assert.equal(applyPatchDescriptor.inputSchema.type, "object");

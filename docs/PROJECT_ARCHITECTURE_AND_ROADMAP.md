@@ -492,7 +492,7 @@ Historical outline only. The exact Phase 7 boundary and sequence are superseded 
 
 The current local Core candidate implements the runnable first path: a zero-setup owned-worker JavaScript/TypeScript engine that understands symbol-only requests and real in-workspace declaration/config data; exact inherited-runtime V5 with one `semantic` tool; honest lexical fallback; and a complete server-owned identity/hash/edit rename plan whose approval facts and lock-held preconditions flow through the existing Phase 3 atomic transaction.
 
-Focused Node 20/24, transaction, audit, cache-revalidation, worker isolation, documentation, and repository latency gates pass locally after adversarial repair. This is not formal closure: final ordinary/smoke/package G7-X, real ChatGPT G7-U, and separately authorized publication/exact-head evidence remain outstanding.
+Focused Node 20/24, transaction, audit, cache-revalidation, worker isolation, documentation, and repository latency gates pass locally after adversarial repair. Real ChatGPT G7-U U2–U6 is accepted through STEP-430, and final ordinary/smoke/package G7-X passed at STEP-432. This is not formal closure: reviewed publication and replacement exact-head evidence remain outstanding.
 
 Serena retrieval is a separately authorized Phase 7B extension; direct stdio LSP is Phase 7C only when a concrete language need remains. CodexGPT exposes no protocol-level Provider mutation, while external same-user processes truthfully retain `execution_isolation: none`, `filesystem_isolation: none`, and `network_isolation: none`. Serena/LSP dependencies or installations remain outside the Core candidate.
 

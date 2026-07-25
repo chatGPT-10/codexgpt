@@ -38,6 +38,7 @@ export function detectSemanticLanguage(relativePath: string): string {
   if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) return "javascript";
   if (lower.endsWith(".jsx")) return "javascriptreact";
   if (lower.endsWith(".json")) return "json";
+  if (lower.endsWith(".py") || lower.endsWith(".pyi")) return "python";
   return "unknown";
 }
 

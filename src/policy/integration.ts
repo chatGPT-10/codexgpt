@@ -32,6 +32,18 @@ interface ToolCallResult {
   [key: string]: unknown;
 }
 
+export class PolicyInputUnavailableError extends Error {
+  readonly code: "SEMANTIC_PREVIEW_STALE";
+  readonly nextAction: string;
+
+  constructor() {
+    super("The semantic preview is unavailable or stale.");
+    this.name = "PolicyInputUnavailableError";
+    this.code = "SEMANTIC_PREVIEW_STALE";
+    this.nextAction = "Create a fresh semantic rename preview, then retry apply_patch once.";
+  }
+}
+
 interface RegisteredToolEntry {
   inputSchema: z.ZodTypeAny;
   handler: (args: Record<string, unknown>, extra?: unknown) => ToolCallResult | Promise<ToolCallResult>;
@@ -85,6 +97,12 @@ export interface ResourceResolutionResult {
   resource: ResourceDescriptorV4;
   requiredCapabilities?: RequiredCapabilityV1[];
   requiredScopes?: readonly string[];
+  approvalBindingV3?: {
+    transportSessionId: string;
+    workspaceId: string;
+    resourceFingerprint: string;
+    inputDigest: string;
+  };
   semanticFactsDigest?: string;
   semanticAuditFacts?: SemanticAuditFactsV1;
   riskClass?: "R0" | "R1" | "R2" | "R3" | "R4";
@@ -223,6 +241,20 @@ function unavailableFailure(): ToolCallResult {
   });
 }
 
+function inputUnavailableFailure(error: PolicyInputUnavailableError): ToolCallResult {
+  return {
+    content: [{
+      type: "text",
+      text: [
+        "CodexGPT refused this stale bound input.",
+        `Code: ${error.code}`,
+        `Next: ${error.nextAction}`
+      ].join("\n")
+    }],
+    isError: true
+  };
+}
+
 export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): void {
   if (runtime.mode === "legacy") return;
   const candidate = server as Partial<ServerWithRegisteredTools>;
@@ -250,10 +282,11 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
       try {
         authorization = await runtime.authorize(toolName, args, extra);
         if (authorization.auditEvent) await runtime.audit(authorization.auditEvent);
-      } catch {
+      } catch (error) {
         if (authorization?.reservation) {
           try { await authorization.reservation.burn("AUTHORIZATION_AUDIT_FAILED"); } catch { }
         }
+        if (error instanceof PolicyInputUnavailableError) return inputUnavailableFailure(error);
         if (runtime.mode === "enforce") return unavailableFailure();
         return original(args, extra);
       }

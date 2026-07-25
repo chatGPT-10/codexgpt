@@ -2,14 +2,59 @@ import fs from "node:fs";
 import { Worker } from "node:worker_threads";
 import { DEFAULT_SEMANTIC_BUDGETS } from "../budgets.js";
 
+export interface SemanticWorkerHealthRegistry {
+  recordFailure(scopeId: string): void;
+  recordSuccess(scopeId: string): void;
+  status(scopeId?: string): Readonly<{
+    unavailable: boolean;
+    retryAfterMs: number;
+  }>;
+}
+
+export function createSemanticWorkerHealthRegistry(options: {
+  now?: () => number;
+  failureThreshold?: number;
+  cooldownMs?: number;
+} = {}): SemanticWorkerHealthRegistry {
+  const now = options.now ?? Date.now;
+  const failureThreshold = options.failureThreshold ?? 3;
+  const cooldownMs = options.cooldownMs ?? 30_000;
+  const failuresByScope = new Map<string, { consecutive: number; cooldownUntil: number; unavailable: boolean }>();
+
+  return {
+    recordFailure(scopeId) {
+      const current = failuresByScope.get(scopeId) ?? { consecutive: 0, cooldownUntil: 0, unavailable: false };
+      current.consecutive += 1;
+      current.unavailable = true;
+      if (current.consecutive >= failureThreshold) current.cooldownUntil = now() + cooldownMs;
+      failuresByScope.set(scopeId, current);
+    },
+    recordSuccess(scopeId) {
+      failuresByScope.delete(scopeId);
+    },
+    status(scopeId) {
+      const records = scopeId
+        ? [failuresByScope.get(scopeId)].filter((value): value is NonNullable<typeof value> => Boolean(value))
+        : [...failuresByScope.values()];
+      const retryAfterMs = Math.max(0, ...records.map((value) => value.cooldownUntil - now()));
+      return Object.freeze({
+        unavailable: records.some((value) => value.unavailable),
+        retryAfterMs
+      });
+    }
+  };
+}
+
 export interface TypeScriptWorkerClientOptions {
   timeoutMs: number;
   maxQueue: number;
   maxResponseBytes: number;
+  healthRegistry?: SemanticWorkerHealthRegistry;
 }
 
 export interface TypeScriptWorkerRequest {
   scopeId: string;
+  healthScopeId?: string;
   operation: "definition" | "references" | "diagnostics" | "rename_preview";
   files: readonly { path: string; text: string; asset?: boolean }[];
   target: { path: string; line: number; column: number };
@@ -22,6 +67,7 @@ interface PendingRequest {
   reject(error: Error): void;
   timer: NodeJS.Timeout;
   scopeId: string;
+  healthScopeId: string;
   bytes: number;
 }
 
@@ -43,9 +89,8 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
   let disposed = false;
   let nextId = 1;
   let generation = 0;
-  const failuresByScope = new Map<string, { consecutive: number; cooldownUntil: number }>();
+  const healthRegistry = options.healthRegistry ?? createSemanticWorkerHealthRegistry();
   let queuedBytes = 0;
-  let infrastructureUnavailable = false;
   const pending = new Map<number, PendingRequest>();
 
   const rejectAll = (message: string) => {
@@ -55,19 +100,6 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
       entry.reject(new Error(message));
     }
     pending.clear();
-  };
-
-  const recordFailure = (scopeId: string) => {
-    infrastructureUnavailable = true;
-    const current = failuresByScope.get(scopeId) ?? { consecutive: 0, cooldownUntil: 0 };
-    current.consecutive += 1;
-    if (current.consecutive >= 3) current.cooldownUntil = Date.now() + 30_000;
-    failuresByScope.set(scopeId, current);
-  };
-
-  const recordSuccess = (scopeId: string) => {
-    infrastructureUnavailable = false;
-    failuresByScope.delete(scopeId);
   };
 
   const start = () => {
@@ -94,7 +126,7 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
       if (worker !== created) return;
       const serializedBytes = Buffer.byteLength(JSON.stringify(message), "utf8");
       if (serializedBytes > options.maxResponseBytes) {
-        for (const entry of pending.values()) recordFailure(entry.scopeId);
+        for (const entry of pending.values()) healthRegistry.recordFailure(entry.healthScopeId);
         rejectAll("Semantic worker response exceeded its byte limit.");
         worker = null;
         void created.terminate();
@@ -106,7 +138,7 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
       clearTimeout(entry.timer);
       queuedBytes -= entry.bytes;
       if (message?.ok === true) {
-        recordSuccess(entry.scopeId);
+        healthRegistry.recordSuccess(entry.healthScopeId);
         entry.resolve(message.result);
       } else {
         entry.reject(new Error(String(message?.error ?? "Semantic worker failed.")));
@@ -114,13 +146,16 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
     });
     created.on("error", (error) => {
       if (worker !== created) return;
-      for (const entry of pending.values()) recordFailure(entry.scopeId);
+      for (const entry of pending.values()) healthRegistry.recordFailure(entry.healthScopeId);
       rejectAll(`Semantic worker crashed: ${error.message}`);
       worker = null;
     });
     created.on("exit", (code) => {
       if (worker !== created) return;
-      if (code !== 0 && pending.size) rejectAll("Semantic worker exited before completing the request.");
+      if (code !== 0 && pending.size) {
+        for (const entry of pending.values()) healthRegistry.recordFailure(entry.healthScopeId);
+        rejectAll("Semantic worker exited before completing the request.");
+      }
       worker = null;
     });
     return created;
@@ -132,10 +167,10 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
     },
     request(request) {
       if (disposed) return Promise.reject(new Error("Semantic worker is disposed."));
-      const scope = failuresByScope.get(request.scopeId);
-      const cooldownUntil = scope?.cooldownUntil ?? 0;
-      if (Date.now() < cooldownUntil) {
-        return Promise.reject(new Error(`Semantic worker is cooling down; retry after ${cooldownUntil - Date.now()} ms.`));
+      const healthScopeId = request.healthScopeId ?? request.scopeId;
+      const health = healthRegistry.status(healthScopeId);
+      if (health.retryAfterMs > 0) {
+        return Promise.reject(new Error(`Semantic worker is cooling down; retry after ${health.retryAfterMs} ms.`));
       }
       if (pending.size >= options.maxQueue) return Promise.reject(new Error("Semantic worker queue limit reached."));
       const requestBytes = Buffer.byteLength(JSON.stringify(request), "utf8");
@@ -147,7 +182,7 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
       const active = start();
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
-          recordFailure(request.scopeId);
+          healthRegistry.recordFailure(healthScopeId);
           const entry = pending.get(id);
           pending.delete(id);
           if (entry) queuedBytes -= entry.bytes;
@@ -157,7 +192,7 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
           void exact?.terminate();
           rejectAll("Semantic worker was terminated after a timeout.");
         }, Math.max(1, options.timeoutMs));
-        pending.set(id, { resolve, reject, timer, scopeId: request.scopeId, bytes: requestBytes });
+        pending.set(id, { resolve, reject, timer, scopeId: request.scopeId, healthScopeId, bytes: requestBytes });
         queuedBytes += requestBytes;
         active.postMessage({
           id,
@@ -194,10 +229,8 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
       void exact?.terminate();
     },
     status(scopeId) {
-      const cooldownUntil = scopeId
-        ? failuresByScope.get(scopeId)?.cooldownUntil ?? 0
-        : Math.max(0, ...[...failuresByScope.values()].map((value) => value.cooldownUntil));
-      const retryAfterMs = Math.max(0, cooldownUntil - Date.now());
+      const health = healthRegistry.status(scopeId);
+      const retryAfterMs = health.retryAfterMs;
       return Object.freeze({
         state: disposed
           ? "disposed"
@@ -205,7 +238,7 @@ export function createTypeScriptWorkerClient(options: TypeScriptWorkerClientOpti
             ? "cooldown"
             : worker
               ? "ready"
-              : infrastructureUnavailable
+              : health.unavailable
                 ? "unavailable"
                 : "idle",
         generation,

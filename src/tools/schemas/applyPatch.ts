@@ -38,6 +38,7 @@ export const APPLY_PATCH_ERROR_MESSAGES = {
   GIT_UNAVAILABLE: "Git is unavailable, so the patch cannot be checked or applied.",
   PATCH_CHECK_FAILED: "The patch could not be applied cleanly to the current workspace state.",
   PATCH_APPLY_FAILED: "The patch passed preflight but the apply operation failed. Review workspace changes before retrying.",
+  SEMANTIC_PREVIEW_STALE: "The semantic preview is unavailable or stale. Create a fresh rename preview, then retry apply_patch once.",
   INTERNAL_ERROR: "The patch could not be applied because of an internal error."
 } as const;
 
@@ -162,6 +163,13 @@ const patchApplyFailedErrorSchema = z.object({
   details: emptyDetailsSchema
 }).strict();
 
+const semanticPreviewStaleErrorSchema = z.object({
+  code: z.literal("SEMANTIC_PREVIEW_STALE"),
+  message: z.literal(APPLY_PATCH_ERROR_MESSAGES.SEMANTIC_PREVIEW_STALE),
+  retryable: z.literal(false),
+  details: emptyDetailsSchema
+}).strict();
+
 const internalErrorSchema = z.object({
   code: z.literal("INTERNAL_ERROR"),
   message: z.literal(APPLY_PATCH_ERROR_MESSAGES.INTERNAL_ERROR),
@@ -246,6 +254,10 @@ export type ApplyPatchFailureInput =
   | { code: "PATCH_CHECK_FAILED"; details: Record<string, never> }
   | { code: "PATCH_APPLY_FAILED"; details: Record<string, never> }
   | { code: "INTERNAL_ERROR"; details: Record<string, never> };
+
+export type ApplyPatchFailureInputV5 =
+  | ApplyPatchFailureInput
+  | { code: "SEMANTIC_PREVIEW_STALE"; details: Record<string, never> };
 
 export function createApplyPatchSuccess(
   data: ApplyPatchData,
@@ -382,8 +394,31 @@ export const applyPatchOutputSchemaV2 = applyPatchOutputBaseSchemaV2.superRefine
   if (value.error === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Failed apply_patch results require an error object." });
 });
 
+export const applyPatchErrorSchemaV5 = z.union([
+  applyPatchErrorSchemaV2,
+  semanticPreviewStaleErrorSchema
+]);
+
+export const applyPatchOutputShapeV5 = {
+  ...applyPatchOutputShapeV2,
+  error: applyPatchErrorSchemaV5.nullable()
+};
+
+const applyPatchOutputBaseSchemaV5 = z.object(applyPatchOutputShapeV5).strict();
+
+export const applyPatchOutputSchemaV5 = applyPatchOutputBaseSchemaV5.superRefine((value, context) => {
+  if (value.ok) {
+    if (value.data === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["data"], message: "Successful apply_patch results require data." });
+    if (value.error !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Successful apply_patch results require error to be null." });
+    return;
+  }
+  if (value.data !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["data"], message: "Failed apply_patch results require data to be null." });
+  if (value.error === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "Failed apply_patch results require an error object." });
+});
+
 export type ApplyPatchDataV2 = z.infer<typeof applyPatchDataSchemaV2>;
 export type ApplyPatchStructuredResultV2 = z.infer<typeof applyPatchOutputBaseSchemaV2>;
+export type ApplyPatchStructuredResultV5 = z.infer<typeof applyPatchOutputBaseSchemaV5>;
 export type ApplyPatchTransactionFailureInputV2 = {
   code: keyof typeof APPLY_PATCH_TRANSACTION_ERROR_MESSAGES;
   details: { path: string } | Record<string, never>;
@@ -399,6 +434,25 @@ export function createApplyPatchSuccessV2(
     ok: true,
     data: applyPatchDataSchemaV2.parse(data),
     error: null,
+    meta: createToolMeta(durationMs)
+  });
+}
+
+export function createApplyPatchFailureV5(
+  failure: ApplyPatchFailureInputV5,
+  durationMs = 0
+): ApplyPatchStructuredResultV5 {
+  return applyPatchOutputSchemaV5.parse({
+    codexgpt_tool: "apply_patch",
+    codexgpt_title: "Apply Patch",
+    ok: false,
+    data: null,
+    error: {
+      code: failure.code,
+      message: APPLY_PATCH_ERROR_MESSAGES[failure.code],
+      retryable: false,
+      details: failure.details
+    },
     meta: createToolMeta(durationMs)
   });
 }

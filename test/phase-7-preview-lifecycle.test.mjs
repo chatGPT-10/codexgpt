@@ -13,6 +13,7 @@ function plan(workspaceId = "ws_preview", path = "src/value.ts", generation = 1)
   return {
     workspaceId,
     workspaceBindingDigest: `sha256:${"9".repeat(64)}`,
+    workspaceAuthorityDigest: `sha256:${"6".repeat(64)}`,
     providerGeneration: generation,
     providerFacts: { provider: "builtin-typescript", engineVersion: "5.9.3" },
     oldName: "value",
@@ -63,6 +64,44 @@ test("semantic previews are opaque, workspace-bound, monotonic-TTL bounded, and 
   const expiring = store.create(plan(), 2_000);
   monotonic = 1_101;
   assert.throws(() => store.resolve(expiring.preview_id, "ws_preview"), /unavailable/);
+});
+
+test("preview reconnect adoption is authority-bound and single-use", () => {
+  const store = new SemanticPreviewStore({ random: randomSequence() });
+  const created = store.create(plan("ws_origin"), 2_000);
+
+  assert.throws(
+    () => store.adopt(created.preview_id, "ws_foreign", `sha256:${"5".repeat(64)}`),
+    /unavailable or stale/
+  );
+  assert.equal(store.resolve(created.preview_id).workspaceId, "ws_origin");
+
+  const adopted = store.adopt(
+    created.preview_id,
+    "ws_reconnected",
+    `sha256:${"6".repeat(64)}`
+  );
+  assert.equal(adopted.workspaceId, "ws_reconnected");
+  assert.equal(store.resolve(created.preview_id, "ws_reconnected").manifestDigest, created.manifest_digest);
+  store.reserve(created.preview_id, "invocation-reconnected", "ws_reconnected");
+  assert.throws(
+    () => store.adopt(created.preview_id, "ws_reconnected", `sha256:${"6".repeat(64)}`),
+    /unavailable or stale/
+  );
+  store.consume(created.preview_id, "invocation-reconnected");
+  assert.throws(() => store.resolve(created.preview_id), /unavailable or stale/);
+});
+
+test("semantic manifest binds reconnect authority and provider facts", () => {
+  const original = new SemanticPreviewStore({ random: randomSequence() }).create(plan(), 2_000);
+  const changedAuthorityPlan = plan();
+  changedAuthorityPlan.workspaceAuthorityDigest = `sha256:${"5".repeat(64)}`;
+  const changedAuthority = new SemanticPreviewStore({ random: randomSequence() }).create(changedAuthorityPlan, 2_000);
+  const changedProviderPlan = plan();
+  changedProviderPlan.providerFacts = { ...changedProviderPlan.providerFacts, engineVersion: "5.9.4" };
+  const changedProvider = new SemanticPreviewStore({ random: randomSequence() }).create(changedProviderPlan, 2_000);
+  assert.notEqual(original.manifest_digest, changedAuthority.manifest_digest);
+  assert.notEqual(original.manifest_digest, changedProvider.manifest_digest);
 });
 
 test("preview quotas evict only ready plans and never displace a reserved transaction", () => {

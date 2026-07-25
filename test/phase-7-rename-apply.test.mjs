@@ -154,6 +154,7 @@ test("registered V5 semantic preview applies atomically once and publishes a cha
         result: previews.create({
           workspaceId: workspace.id,
           workspaceBindingDigest: `sha256:${"8".repeat(64)}`,
+          workspaceAuthorityDigest: `sha256:${"7".repeat(64)}`,
           providerGeneration: 1,
           providerFacts: { provider: "builtin-typescript", engineVersion: "5.9.3" },
           oldName: "value",
@@ -169,6 +170,10 @@ test("registered V5 semantic preview applies atomically once and publishes a cha
     },
     resolvePreview(id, workspaceId) {
       return previews.resolve(id, workspaceId);
+    },
+    reservePreview(id, invocationId, workspaceId) {
+      const resolved = previews.resolve(id, workspaceId);
+      return { ...resolved, plan: previews.reserve(id, invocationId, workspaceId) };
     },
     assertReservation(id, invocationId, workspaceId) {
       return previews.assertReserved(id, invocationId, workspaceId);

@@ -419,6 +419,20 @@ export class WorkspaceManager {
     }), "utf8").digest("hex")}`;
   }
 
+  workspaceAuthorityDigest(id: string): string {
+    const workspace = this.getWorkspace(id);
+    const record = this.records.get(id);
+    return `sha256:${createHash("sha256").update(JSON.stringify({
+      domain: "codexgpt.workspace.semantic-authority.v1",
+      workspaceKey: record?.key ?? workspaceKeyForRoot(workspace.root),
+      accessClass: workspace.accessClass ?? null,
+      access: workspace.access ?? null,
+      leaseId: workspace.leaseId ?? null,
+      identityBinding: record?.identityBinding ?? this.identityBinding,
+      policyRevision: record?.policyRevision ?? this.policyRevision()
+    }), "utf8").digest("hex")}`;
+  }
+
   private emitExternalRevocation(
     id: string,
     reason: WorkspaceRevocationReason,

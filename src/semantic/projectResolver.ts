@@ -208,6 +208,44 @@ async function dependencyInventoryForSources(
   return { paths, truncated };
 }
 
+export async function revalidateSemanticSnapshots(
+  config: CodexGPTConfig,
+  workspace: Workspace,
+  snapshots: readonly SemanticSourceSnapshot[]
+): Promise<boolean> {
+  const sourceSnapshots = snapshots.filter((snapshot) =>
+    !snapshot.relativePath.replace(/\\/gu, "/").startsWith("node_modules/")
+  );
+  const dependencySnapshots = snapshots.filter((snapshot) =>
+    snapshot.relativePath.replace(/\\/gu, "/").startsWith("node_modules/")
+  );
+  const sourceReads = await readSnapshotBatch(
+    workspace.root,
+    sourceSnapshots.map((snapshot) => snapshot.relativePath),
+    DEFAULT_SEMANTIC_BUDGETS.maxFileBytes,
+    config.blockedGlobs,
+    1,
+    128,
+    new Map(sourceSnapshots.map((snapshot) => [snapshot.relativePath, snapshot.sha256]))
+  );
+  const dependencyReads = await readSnapshotBatch(
+    workspace.root,
+    dependencySnapshots.map((snapshot) => snapshot.relativePath),
+    DEFAULT_SEMANTIC_BUDGETS.maxFileBytes,
+    packageBlockedGlobs(config.blockedGlobs),
+    1,
+    128,
+    new Map(dependencySnapshots.map((snapshot) => [snapshot.relativePath, snapshot.sha256]))
+  );
+  return sourceSnapshots.every((snapshot, index) => {
+    const read = sourceReads[index];
+    return read.ok && sameSnapshotBinding(snapshot, read.snapshot);
+  }) && dependencySnapshots.every((snapshot, index) => {
+    const read = dependencyReads[index];
+    return read.ok && sameSnapshotBinding(snapshot, read.snapshot);
+  });
+}
+
 export async function revalidateSemanticProject(
   config: CodexGPTConfig,
   workspace: Workspace,

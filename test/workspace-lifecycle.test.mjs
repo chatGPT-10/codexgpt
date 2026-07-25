@@ -99,6 +99,65 @@ test("same canonical root receives different handles in different lifecycle doma
   });
 });
 
+test("workspace semantic authority survives transport rotation but binds root identity and policy", async () => {
+  await withTempWorkspace(async (root) => {
+    const siblingCreated = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-workspace-authority-sibling-"));
+    const sibling = await fs.realpath(siblingCreated);
+    try {
+      const config = { ...configFor(root), allowedRoots: [root, sibling] };
+      const firstManager = new WorkspaceManager(config, binding({
+        transportSessionId: () => "session-a",
+        randomBytes: randomSequence("51".repeat(16))
+      }));
+      const secondManager = new WorkspaceManager(config, binding({
+        transportSessionId: () => "session-b",
+        randomBytes: randomSequence("52".repeat(16))
+      }));
+      const first = firstManager.openWorkspace(root);
+      const second = secondManager.openWorkspace(root);
+
+      assert.notEqual(first.id, second.id);
+      assert.equal(
+        firstManager.workspaceAuthorityDigest(first.id),
+        secondManager.workspaceAuthorityDigest(second.id)
+      );
+
+      const foreignIdentity = new WorkspaceManager(config, binding({
+        transportSessionId: () => "session-c",
+        identityBinding: "identity-b",
+        randomBytes: randomSequence("53".repeat(16))
+      }));
+      const foreignPolicy = new WorkspaceManager(config, binding({
+        transportSessionId: () => "session-d",
+        policyRevision: () => "policy-b",
+        randomBytes: randomSequence("54".repeat(16))
+      }));
+      const foreignRoot = new WorkspaceManager(
+        { ...configFor(sibling), allowedRoots: [root, sibling] },
+        binding({
+          transportSessionId: () => "session-e",
+          randomBytes: randomSequence("55".repeat(16))
+        })
+      );
+
+      assert.notEqual(
+        firstManager.workspaceAuthorityDigest(first.id),
+        foreignIdentity.workspaceAuthorityDigest(foreignIdentity.openWorkspace(root).id)
+      );
+      assert.notEqual(
+        firstManager.workspaceAuthorityDigest(first.id),
+        foreignPolicy.workspaceAuthorityDigest(foreignPolicy.openWorkspace(root).id)
+      );
+      assert.notEqual(
+        firstManager.workspaceAuthorityDigest(first.id),
+        foreignRoot.workspaceAuthorityDigest(foreignRoot.openWorkspace(sibling).id)
+      );
+    } finally {
+      await fs.rm(sibling, { recursive: true, force: true });
+    }
+  });
+});
+
 test("strict getWorkspace rejects omitted ids while resolveWorkspace owns legacy fallback", async () => {
   await withTempWorkspace(async (root) => {
     const manager = new WorkspaceManager(configFor(root), binding());

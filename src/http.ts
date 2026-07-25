@@ -8,7 +8,7 @@ import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { expandHome, loadConfig, type CodexGPTConfig } from "./config.js";
-import { contractIncludesV4 } from "./tools/contracts/index.js";
+import { contractIncludesV4, contractIncludesV5 } from "./tools/contracts/index.js";
 import { createHttpPolicySessionSource, loadOrCreateIdentityKey } from "./policy/identity.js";
 import { policyIdentityScopes } from "./policy/runtime.js";
 import { acceptedAuthenticationMode, type AcceptedHttpAuthenticationMode } from "./policy/transport.js";
@@ -30,6 +30,11 @@ import {
 } from "./productionRuntime.js";
 import { createProductionGitBootstrapV4 } from "./git/productionBootstrap.js";
 import { resolveTransactionStateRoot } from "./transactions/stateRoot.js";
+import { ProcessInstanceRegistry } from "./transactions/workspaceLock.js";
+import { PersistentAuditStore } from "./audit/index.js";
+import { LocalApprovalRuntimeV3 } from "./control/runtime.js";
+import { SemanticPreviewStore } from "./semantic/previewStore.js";
+import { createSemanticWorkerHealthRegistry } from "./semantic/builtin/typescriptProvider.js";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -1481,6 +1486,36 @@ async function main(): Promise<void> {
     console.error("[CodexGPT] Warning: personal query-token compatibility is enabled. Treat the complete URL as a secret; it may leak through browser history, clipboard contents, screenshots, logs, and copied links.");
   }
 
+  const semanticPreviewStoreV5 = contractIncludesV5(config.toolContractVersion)
+    ? new SemanticPreviewStore()
+    : undefined;
+  const semanticWorkerHealthV5 = contractIncludesV5(config.toolContractVersion)
+    ? createSemanticWorkerHealthRegistry()
+    : undefined;
+  const sharedApprovalStateRootV5 = contractIncludesV5(config.toolContractVersion) &&
+    config.policyEngineMode === "enforce" &&
+    config.auditMode !== "off" &&
+    config.executionProfile === "off" &&
+    config.localFileAccess !== "confirmed_roots"
+      ? resolveTransactionStateRoot()
+      : undefined;
+  const sharedApprovalRegistryV5 = sharedApprovalStateRootV5
+    ? new ProcessInstanceRegistry(sharedApprovalStateRootV5)
+    : undefined;
+  const sharedApprovalAuditStoreV5 = sharedApprovalStateRootV5 && sharedApprovalRegistryV5
+    ? PersistentAuditStore.open({
+        stateRoot: sharedApprovalStateRootV5,
+        registry: sharedApprovalRegistryV5,
+        retention: config.auditRetention
+      })
+    : undefined;
+  const sharedLocalApprovalRuntimeV5 = sharedApprovalStateRootV5 && sharedApprovalAuditStoreV5
+    ? await LocalApprovalRuntimeV3.start({
+        auditStore: sharedApprovalAuditStoreV5,
+        stateBaseRoot: sharedApprovalStateRootV5
+      })
+    : undefined;
+
   const app = express();
   const logRequests = process.env.CODEXGPT_LOG_REQUESTS === "1";
 
@@ -1787,7 +1822,10 @@ async function main(): Promise<void> {
         try {
           sessionServer = createProductionCodexGPTServer(config, {
             policySessionContextSource,
-            gitBootstrapV4: gitBootstrapV4 ?? undefined
+            gitBootstrapV4: gitBootstrapV4 ?? undefined,
+            semanticPreviewStoreV5,
+            semanticWorkerHealthV5,
+            localApprovalRuntimeV3: sharedLocalApprovalRuntimeV5
           });
         } catch (error) {
           await gitBootstrapV4?.dispose();
@@ -1859,7 +1897,7 @@ async function main(): Promise<void> {
     next(error);
   });
 
-  app.listen(config.port, config.host, () => {
+  const httpServer = app.listen(config.port, config.host, () => {
     console.error(`[CodexGPT] HTTP MCP listening on http://${config.host}:${config.port}/mcp`);
     console.error(`[CodexGPT] defaultRoot=${config.defaultRoot}`);
     console.error(`[CodexGPT] allowedRoots=${config.allowedRoots.join(", ")}`);
@@ -1867,6 +1905,41 @@ async function main(): Promise<void> {
     console.error(`[CodexGPT] writeMode=${config.writeMode}`);
     console.error(`[CodexGPT] widgetDomain=${config.widgetDomain}`);
   });
+
+  let shutdownPromise: Promise<void> | null = null;
+  const shutdown = (): Promise<void> => {
+    if (shutdownPromise) return shutdownPromise;
+    shutdownPromise = (async () => {
+      clearInterval(pruneTimer);
+      const closingTransports = [...transports.values()].map((record) =>
+        Promise.resolve(record.transport.close?.())
+      );
+      transports.clear();
+      await Promise.allSettled(closingTransports);
+      await new Promise<void>((resolve, reject) => {
+        httpServer.close((error) => error ? reject(error) : resolve());
+      });
+      let approvalFailure: unknown;
+      try {
+        await sharedLocalApprovalRuntimeV5?.close();
+      } catch (error) {
+        approvalFailure = error;
+      } finally {
+        sharedApprovalAuditStoreV5?.dispose();
+        sharedApprovalRegistryV5?.dispose();
+      }
+      if (approvalFailure) throw approvalFailure;
+    })();
+    return shutdownPromise;
+  };
+  const requestShutdown = (): void => {
+    void shutdown().catch((error) => {
+      console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+      process.exitCode = 1;
+    });
+  };
+  process.once("SIGINT", requestShutdown);
+  process.once("SIGTERM", requestShutdown);
 }
 
 main().catch((error) => {

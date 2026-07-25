@@ -155,6 +155,58 @@ test("cancelling one workspace scope preserves unrelated queued requests", async
   }
 });
 
+test("shared worker health survives transient client recreation and opens one cooldown", async () => {
+  assert.ok(workerModule);
+  const healthRegistry = workerModule.createSemanticWorkerHealthRegistry();
+  const healthScopeId = "sha256:shared-workspace-authority";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const client = workerModule.createTypeScriptWorkerClient({
+      timeoutMs: 1,
+      maxQueue: 1,
+      maxResponseBytes: 512_000,
+      healthRegistry
+    });
+    await assert.rejects(
+      client.request({
+        scopeId: `transport-${attempt}`,
+        healthScopeId,
+        operation: "diagnostics",
+        files: Array.from({ length: 500 }, (_, index) => ({
+          path: `src/reconnect-${attempt}-${index}.ts`,
+          text: `export const reconnectValue${index}: number = ${index};\n`
+        })),
+        target: { path: `src/reconnect-${attempt}-0.ts`, line: 1, column: 1 }
+      }),
+      /timeout|deadline/i
+    );
+    await client.dispose();
+  }
+
+  const nextTransport = workerModule.createTypeScriptWorkerClient({
+    timeoutMs: 5_000,
+    maxQueue: 1,
+    maxResponseBytes: 512_000,
+    healthRegistry
+  });
+  try {
+    const status = nextTransport.status(healthScopeId);
+    assert.equal(status.state, "cooldown");
+    assert.ok(status.retryAfterMs > 0);
+    await assert.rejects(
+      nextTransport.request({
+        scopeId: "transport-after-reconnect",
+        healthScopeId,
+        operation: "definition",
+        files,
+        target: { path: "src/main.ts", line: 2, column: 13 }
+      }),
+      /cooling down; retry after/i
+    );
+  } finally {
+    await nextTransport.dispose();
+  }
+});
+
 test("worker deadlines and exact disposal are bounded", async () => {
   assert.ok(workerModule);
   const client = workerModule.createTypeScriptWorkerClient({

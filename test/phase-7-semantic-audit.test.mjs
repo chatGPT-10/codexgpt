@@ -19,6 +19,7 @@ function previewFacts() {
   const created = store.create({
     workspaceId: "ws_audit",
     workspaceBindingDigest: `sha256:${"8".repeat(64)}`,
+    workspaceAuthorityDigest: `sha256:${"7".repeat(64)}`,
     providerGeneration: 3,
     providerFacts: { provider: "builtin-typescript", engineVersion: "5.9.3" },
     oldName: "value",

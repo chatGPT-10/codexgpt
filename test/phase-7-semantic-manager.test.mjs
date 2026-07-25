@@ -8,6 +8,10 @@ import { tsImport } from "tsx/esm/api";
 const { loadConfig } = await tsImport("../src/config.ts", import.meta.url);
 const { PathGuard, WorkspaceManager } = await tsImport("../src/guard.ts", import.meta.url);
 const { SemanticProviderManager } = await tsImport("../src/semantic/manager.ts", import.meta.url);
+const { createSemanticWorkerHealthRegistry } = await tsImport(
+  "../src/semantic/builtin/typescriptProvider.ts",
+  import.meta.url
+);
 
 function withEnv(changes, action) {
   const previous = new Map();
@@ -38,14 +42,15 @@ async function withProject(callback) {
   }
 }
 
-function configFor(root) {
+function configFor(root, env = {}) {
   return withEnv({
     CODEXGPT_SEMANTIC_MODE: "standard",
     CODEXGPT_TOOL_CONTRACT_VERSION: undefined,
     CODEXGPT_ALLOWED_ROOTS: root,
     CODEXGPT_FILE_TRANSACTIONS: "atomic",
     CODEXGPT_AUDIT_MODE: "required",
-    CODEXGPT_POLICY_ENGINE: "enforce"
+    CODEXGPT_POLICY_ENGINE: "enforce",
+    ...env
   }, () => loadConfig([
     "--root", root,
     "--bash", "off",
@@ -97,6 +102,36 @@ test("ambiguous symbol lookup returns candidates and creates no preview", async 
       assert.equal(result.reason_code, "NEEDS_DISAMBIGUATION");
       assert.equal(result.result.needs_disambiguation, true);
       assert.equal(result.result.candidates.length, 2);
+      assert.equal("preview_id" in result.result, false);
+    } finally {
+      await manager.dispose();
+    }
+  });
+});
+
+test("partial projects still return rename disambiguation before completeness gating", async () => {
+  await withProject(async (root) => {
+    await fs.writeFile(path.join(root, "src", "other.ts"), "export const value = 2;\n");
+    for (let index = 0; index < 105; index += 1) {
+      await fs.writeFile(
+        path.join(root, "src", `z-filler-${String(index).padStart(3, "0")}.ts`),
+        `export const filler${index} = ${index};\n`
+      );
+    }
+    const config = configFor(root, { CODEXGPT_ANALYSIS_MAX_ANALYZED_FILES: "100" });
+    const workspaces = new WorkspaceManager(config, { transportSessionId: () => "semantic-partial-ambiguous" });
+    const workspace = workspaces.defaultWorkspace();
+    const manager = new SemanticProviderManager(config, new PathGuard(config), workspaces);
+    try {
+      const result = await manager.execute(workspace, {
+        operation: "rename_preview",
+        locator: { kind: "symbol", symbol: "value" },
+        new_name: "renamed"
+      });
+      assert.equal(result.partial, true);
+      assert.equal(result.reason_code, "NEEDS_DISAMBIGUATION");
+      assert.equal(result.result.needs_disambiguation, true);
+      assert.ok(result.result.candidates.length >= 2);
       assert.equal("preview_id" in result.result, false);
     } finally {
       await manager.dispose();
@@ -161,6 +196,132 @@ test("cached projects invalidate when a complete dependency declaration inventor
         path: "src/main.ts"
       });
       assert.equal(refreshed.result.diagnostics.some((diagnostic) => diagnostic.code === "2304"), false);
+    } finally {
+      await manager.dispose();
+    }
+  });
+});
+
+test("unsupported symbol path hints use honest lexical fallback instead of TypeScript certainty", async () => {
+  await withProject(async (root) => {
+    await fs.writeFile(path.join(root, "src", "sample.py"), "python_only_value = 7\nprint(python_only_value)\n");
+    const config = configFor(root);
+    const workspaces = new WorkspaceManager(config, { transportSessionId: () => "semantic-python-fallback" });
+    const workspace = workspaces.defaultWorkspace();
+    const manager = new SemanticProviderManager(config, new PathGuard(config), workspaces);
+    try {
+      const result = await manager.execute(workspace, {
+        operation: "definition",
+        locator: {
+          kind: "symbol",
+          symbol: "python_only_value",
+          path_hint: "src/sample.py"
+        }
+      });
+      assert.equal(result.state, "fallback");
+      assert.equal(result.reason_code, "SEMANTIC_UNSUPPORTED");
+      assert.equal(result.actual_provider, "builtin-lexical");
+      assert.equal(result.result_quality, "lexical");
+      assert.equal(result.language, "python");
+      assert.equal(result.result.locations.length, 2);
+      assert.equal(result.result.locations.every((location) => location.path === "src/sample.py"), true);
+    } finally {
+      await manager.dispose();
+    }
+  });
+});
+
+test("hostile Provider paths outside snapshots are rejected without disclosing the supplied path", async () => {
+  await withProject(async (root) => {
+    await fs.writeFile(path.join(root, ".env"), "U5_SECRET=do-not-disclose\n");
+    await fs.writeFile(path.join(root, "src", "linked-source.ts"), "export const linkedValue = 1;\n");
+    await fs.link(path.join(root, "src", "linked-source.ts"), path.join(root, "src", "linked.ts"));
+    const config = configFor(root);
+    const workspaces = new WorkspaceManager(config, { transportSessionId: () => "semantic-hostile-paths" });
+    const workspace = workspaces.defaultWorkspace();
+    let returnedPath = "../outside/u5-secret.ts";
+    const worker = {
+      generation: 1,
+      async request() {
+        return {
+          provider: "builtin-typescript",
+          engineVersion: "fixture",
+          locations: [{
+            path: returnedPath,
+            range: {
+              start: { line: 1, column: 1 },
+              end: { line: 1, column: 2 }
+            }
+          }]
+        };
+      },
+      status() {
+        return { state: "ready", generation: 1, pending: 0, retryAfterMs: 0 };
+      },
+      async dispose() {}
+    };
+    const manager = new SemanticProviderManager(config, new PathGuard(config), workspaces, { worker });
+    try {
+      for (const maliciousPath of ["../outside/u5-secret.ts", ".env", "src/linked.ts"]) {
+        returnedPath = maliciousPath;
+        await assert.rejects(
+          () => manager.execute(workspace, {
+            operation: "definition",
+            locator: { kind: "symbol", symbol: "value", path_hint: "src/value.ts" }
+          }),
+          (error) => {
+            assert.match(error.message, /outside the authorized project/i);
+            assert.equal(error.message.includes(maliciousPath), false);
+            return true;
+          }
+        );
+      }
+    } finally {
+      await manager.dispose();
+    }
+  });
+});
+
+test("Provider results are rejected when a source object is replaced during analysis", async () => {
+  await withProject(async (root) => {
+    const sourcePath = path.join(root, "src", "value.ts");
+    const oldPath = path.join(root, "src", "value.ts.u5-old");
+    const replacementPath = path.join(root, "src", "value.ts.u5-replacement");
+    await fs.writeFile(replacementPath, "export const value = 1;\n");
+    const config = configFor(root);
+    const workspaces = new WorkspaceManager(config, { transportSessionId: () => "semantic-replaced-result" });
+    const workspace = workspaces.defaultWorkspace();
+    const worker = {
+      generation: 1,
+      async request() {
+        await fs.rename(sourcePath, oldPath);
+        await fs.rename(replacementPath, sourcePath);
+        return {
+          provider: "builtin-typescript",
+          engineVersion: "fixture",
+          locations: [{
+            path: "src/value.ts",
+            range: {
+              start: { line: 1, column: 14 },
+              end: { line: 1, column: 19 }
+            }
+          }]
+        };
+      },
+      status() {
+        return { state: "ready", generation: 1, pending: 0, retryAfterMs: 0 };
+      },
+      async dispose() {}
+    };
+    const manager = new SemanticProviderManager(config, new PathGuard(config), workspaces, { worker });
+    try {
+      await assert.rejects(
+        () => manager.execute(workspace, {
+          operation: "definition",
+          locator: { kind: "symbol", symbol: "value", path_hint: "src/value.ts" }
+        }),
+        /changed during analysis/i
+      );
     } finally {
       await manager.dispose();
     }
@@ -248,6 +409,85 @@ test("workspace revocation releases an in-flight semantic request without stoppi
       assert.ok(performance.now() - revokedAt < 500);
     } finally {
       await manager.dispose();
+    }
+  });
+});
+
+test("a fresh transport reports shared cooldown through runtime status", async () => {
+  await withProject(async (root) => {
+    const config = configFor(root);
+    const workerHealth = createSemanticWorkerHealthRegistry();
+    const scopeId = "sha256:shared-runtime-status";
+    workerHealth.recordFailure(scopeId);
+    workerHealth.recordFailure(scopeId);
+    workerHealth.recordFailure(scopeId);
+    const workspaces = new WorkspaceManager(config, {
+      transportSessionId: () => "semantic-status-reconnect",
+      identityBinding: "same-http-identity"
+    });
+    const manager = new SemanticProviderManager(config, new PathGuard(config), workspaces, { workerHealth });
+    try {
+      const status = manager.runtimeStatus();
+      assert.equal(status.state, "cooldown");
+      assert.ok(status.retryAfterMs > 0);
+      assert.match(status.nextAction, /^Retry after \d+ ms; ordinary tools remain available\.$/);
+    } finally {
+      await manager.dispose();
+    }
+  });
+});
+
+test("transport-local managers use one stable workspace authority health scope", async () => {
+  await withProject(async (root) => {
+    const config = configFor(root);
+    const requests = [];
+    const statusScopes = [];
+    const createFailingWorker = () => ({
+      generation: 1,
+      request(request) {
+        requests.push(request);
+        return Promise.reject(new Error("Semantic worker crashed for reconnect regression."));
+      },
+      status(scopeId) {
+        statusScopes.push(scopeId);
+        return { state: "unavailable", generation: 1, pending: 0, retryAfterMs: 0 };
+      },
+      cancelScope() {},
+      async dispose() {}
+    });
+    const workspacesA = new WorkspaceManager(config, {
+      transportSessionId: () => "semantic-reconnect-a",
+      identityBinding: "same-http-identity"
+    });
+    const workspacesB = new WorkspaceManager(config, {
+      transportSessionId: () => "semantic-reconnect-b",
+      identityBinding: "same-http-identity"
+    });
+    const workspaceA = workspacesA.defaultWorkspace();
+    const workspaceB = workspacesB.defaultWorkspace();
+    const managerA = new SemanticProviderManager(config, new PathGuard(config), workspacesA, {
+      worker: createFailingWorker()
+    });
+    const managerB = new SemanticProviderManager(config, new PathGuard(config), workspacesB, {
+      worker: createFailingWorker()
+    });
+    try {
+      const resultA = await managerA.execute(workspaceA, {
+        operation: "definition",
+        locator: { kind: "symbol", symbol: "value" }
+      });
+      const resultB = await managerB.execute(workspaceB, {
+        operation: "definition",
+        locator: { kind: "symbol", symbol: "value" }
+      });
+      assert.equal(resultA.reason_code, "WORKER_UNAVAILABLE");
+      assert.equal(resultB.reason_code, "WORKER_UNAVAILABLE");
+      assert.notEqual(requests[0].scopeId, requests[1].scopeId);
+      assert.equal(requests[0].healthScopeId, requests[1].healthScopeId);
+      assert.match(requests[0].healthScopeId, /^sha256:[a-f0-9]{64}$/);
+      assert.deepEqual(statusScopes, [requests[0].healthScopeId, requests[1].healthScopeId]);
+    } finally {
+      await Promise.all([managerA.dispose(), managerB.dispose()]);
     }
   });
 });

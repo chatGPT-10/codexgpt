@@ -1,6 +1,6 @@
 # Phase 7 Semantic Providers TDD Plan
 
-**Status:** Core code and backend acceptance candidate completed locally through STEP-416 on 2026-07-24 after execution, security/compatibility, UX, and recovery-lock adversarial repair; publication/exact-head CI and real ChatGPT App UI G7-U remain outstanding
+**Status:** Core implementation and backend acceptance are complete through STEP-423, while STEP-419 remains the latest exact-head matrix. Live U2–U6 journeys are accepted through STEP-430, and final local G7-X passed at STEP-432. Reviewed publication and replacement exact-head CI remain outstanding.
 
 **Date:** 2026-07-24
 
@@ -1090,23 +1090,18 @@ Update root `Memory.md` in place with only current state, active decisions, fina
 
 ## 20. Current next action
 
-The Phase 7 Core checkout candidate has completed STEP-416 backend repair and live acceptance. STEP-417 preserves transaction-root production control and the legacy owned-process fallback without cross-root fail-open behavior. STEP-418 published the bounded 120-second local-control cold-start repair as `62c8df0526cbd17bcd44592435b9fdb1650e99be`. Exact-head run `30147030377` passed Repository policy, Ubuntu Node 24, and Windows Node 20/24; Ubuntu Node 20 alone failed repository-scale semantic acceptance because the test still competed inside the runtime-default parallel suite and exhausted the unchanged 5-second owned-worker deadline. STEP-419 places that resource-bounded acceptance in the existing non-Windows serial pass. Production semantic input, output, heap, queue, and request deadlines remain unchanged.
+Phase 7 Core implementation, backend acceptance, managed Node 20/24 verification, and the STEP-419 exact-head matrix are complete. STEP-420 through STEP-423 repaired the live ChatGPT descriptor/default-root path, process-lifecycle preview continuity, reconnect-stable V5 apply/undo approval, and V5 default-root undo while preserving session-local workspace managers and V1–V4 compatibility. STEP-430 accepts the complete real App U2–U6 evidence, and STEP-432 passes final local G7-X; only reviewed publication and replacement exact-head CI remain.
 
-Authoritative STEP-416 focused evidence:
+Real ChatGPT App evidence through the supported public named tunnel now includes:
 
-- managed functional matrix: `2026-07-24T19-20-52-160Z-phase7-step416-managed-functional-r2-c01bac11` — Node 20 and Node 24 each passed 60/60, exit 0, zero stderr;
-- managed repository acceptance, isolated from competing CPU load: `2026-07-24T19-23-36-411Z-phase7-step416-managed-repository-r2-0f097adb` — Node 20 and Node 24 each passed 1/1 with the existing warm `<= 2000 ms` assertion unchanged, exit 0, zero stderr;
-- managed build: `2026-07-24T19-27-57-319Z-phase7-step416-managed-build-final-efe701ac` — Node 20 and Node 24 passed, exit 0, zero stderr;
-- authoritative ordinary: `2026-07-24T19-29-42-826Z-phase7-step416-ordinary-final-5ee89b91` — each managed major ran 1,229 tests, with 1,227 passed, 2 established skips, and 0 failed;
-- protected Smoke: `2026-07-24T19-54-59-950Z-phase7-step416-smoke-final-2daab671` — all eight domains passed on both managed majors, exit 0, zero stderr;
-- backend HTTP MCP U1 and U2 passed; U3 content drift rejected a stale preview with `FILE_VERSION_CONFLICT`; same-content object replacement is covered by deterministic lock-held regressions, not claimed as real App UI evidence.
+- **U2 / STEP-424:** one 3-file/5-edit semantic rename preview, exact R2 apply, atomic change set, exact-preview replay refusal, reconnect-safe exact R2 undo, reverse change-set lineage, original-byte restoration, and passing fixture build/test;
+- **U3 / STEP-425:** independent content drift and a pre-created same-content NTFS replacement object both fail at the lock-held second inspection with `FILE_VERSION_CONFLICT`, no new approval, no change set, no partial mutation, and consumed grants;
+- **U4 / STEP-427:** controlled builtin-worker crashes produced two `WORKER_UNAVAILABLE` results and then one authority-bound `WORKER_COOLDOWN` with `retry_after_ms`; a rotated `server_config` retained the same cooldown, ordinary search/read stayed usable, and an unsupported `.py` path returned honest `builtin-lexical` / `result_quality: lexical` / `language: python` output instead of TypeScript certainty. The requested fixture symbol did not exist, so zero lexical matches were correct;
+- **U5 / STEP-428:** controlled boundary results failed closed, disclosed no sensitive path or content, made no mutation, and used no write, command, or routing authority. Analysis-time source replacement is rejected by post-response snapshot revalidation.
+- **U6 / STEP-430:** a recreated V4 51-tool App received the explicit **Scan Tools**/recreate instruction, refreshed once against the same V5 endpoint, exposed `semantic`, returned a successful 29-Skill/2-MCP inventory, and completed definition, references/read, diagnostics, and 22-candidate ambiguity without Provider setup, preview creation, or mutation. U6 also repaired optional Skill-summary projection and partial-project disambiguation ordering.
 
-The 2026-07-24 follow-up authorization permits final local closure gates, staging only the reviewed Phase 7 scope, one concise English commit, an ordinary push, and bounded exact-head CI diagnosis/repair cycles. It does not authorize Phase 7B/7C, Phase 8, release, deployment, credential work, force push, or unrelated changes.
+The remaining legal sequence is:
 
-STEP-419 TDD first added `phase-7-repository-acceptance.test.mjs` to the expected isolated set; the classification suite passed 2/3 and failed only because the runner did not yet isolate that file. Adding it to `SERIAL_PROCESS_TESTS` produced 4/4 current and managed Node 20/24 focused acceptance. Node 24 ordinary `2026-07-25T06-37-21-602Z-phase7-step419-ordinary-r2-883b6a49` and Node 20 ordinary `2026-07-25T06-55-36-485Z-phase7-step419-node20-ordinary-f354277c` each passed 1,227/1,229 with 2 established skips and zero failures. Protected Smoke runs `2026-07-25T06-48-29-614Z-phase7-step419-smoke-12593c1c` and `2026-07-25T07-13-23-088Z-phase7-step419-node20-smoke-541b73e3` passed all eight domains with exit 0 and zero stderr. The failed first detached ordinary command used unavailable `npm` in the narrowed runner environment; the direct `node scripts/test-domains.mjs` retry is the acceptance evidence. The next legal action is:
+1. stage only the reviewed Phase 7 scope, create one concise English commit, push normally, and bind that exact head to terminal Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package success.
 
-1. stage and publish only the reviewed STEP-419 runner classification, regression, plan, archive, and memory scope, excluding the two untracked Phase 8 records and all runtime evidence/state;
-2. bind the replacement exact 40-character head to Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package;
-3. perform Gate G7-U in the real ChatGPT App after one explicit **Scan Tools** refresh or App recreation, retaining the old 51-tool migration check;
-4. keep Serena and direct LSP outside Core and uninstalled;
-5. close Core only when both the exact-head matrix and real user-observable G7-U pass. Backend HTTP MCP evidence is not a substitute for the UI gate.
+Keep Phase 7B Serena, Phase 7C direct LSP, Phase 8, release/deployment, credential migration, force push, destructive history, and unrelated changes outside this sequence. Phase 7 Core closes only when both real user-observable G7-U and the replacement exact-head matrix pass.

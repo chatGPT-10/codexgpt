@@ -5,13 +5,14 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
+const { policyIdentityScopes } = await tsImport("../src/policy/runtime.ts", import.meta.url);
+const { toolPolicyDefinition } = await tsImport("../src/policy/toolPolicy.ts", import.meta.url);
 const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
 const {
   createHttpPolicySessionSource,
   createStdioPolicySessionSource
 } = await tsImport("../src/policy/identity.ts", import.meta.url);
 const { acceptedAuthenticationMode } = await tsImport("../src/policy/transport.ts", import.meta.url);
-const { policyIdentityScopes } = await tsImport("../src/policy/runtime.ts", import.meta.url);
 
 function config(overrides = {}) {
   const root = process.cwd();
@@ -110,6 +111,36 @@ test("query and bearer session sources produce distinct safe identities", () => 
   assert.equal(bearer.identity.authenticationMode, "bearer");
   assert.equal(query.identity.subject, null);
   assert.equal(JSON.stringify([query.identity, bearer.identity]).includes("shared-value-one"), false);
+});
+
+test("configured current workspace is R0 while arbitrary workspace opening remains R1", () => {
+  assert.equal(toolPolicyDefinition("open_current_workspace").riskClass, "R0");
+  assert.equal(toolPolicyDefinition("open_workspace").riskClass, "R1");
+});
+
+test("configured current workspace opens without local approval in enforce mode", async () => {
+  const cfg = config();
+  const source = createStdioPolicySessionSource({
+    sessionId: "stdio-current-workspace-test",
+    scopes: policyIdentityScopes(cfg)
+  });
+  const audits = [];
+  const server = createCodexGPTServer(cfg, {
+    policySessionContextSource: source,
+    policyAuditSink: (event) => audits.push(event)
+  });
+  await withClient(server, async (client) => {
+    const opened = await client.callTool({ name: "open_current_workspace", arguments: { include_tree: false } });
+    assert.equal(opened.isError, undefined);
+    assert.equal(opened.structuredContent.codexgpt_tool, "open_current_workspace");
+
+    const arbitrary = await client.callTool({ name: "open_workspace", arguments: { path: cfg.defaultRoot } });
+    assert.equal(arbitrary.isError, true);
+    assert.match(arbitrary.content[0].text, /APPROVAL_REQUIRED/);
+  });
+  assert.equal(audits.length, 2);
+  assert.equal(audits[0].outcome, "allow");
+  assert.equal(audits[1].outcome, "approval_required");
 });
 
 test("server builds the default enforce runtime from a STDIO context source", async () => {

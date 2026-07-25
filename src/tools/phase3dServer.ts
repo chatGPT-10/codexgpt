@@ -1,9 +1,10 @@
+import { createHash } from "node:crypto";
 import {
   persistedV2ContractVersion,
   type CodexGPTConfig,
   type ToolContractVersion
 } from "../config.js";
-import { contractIncludesV2, contractIncludesV4 } from "./contracts/catalog.js";
+import { contractIncludesV2, contractIncludesV4, contractIncludesV5 } from "./contracts/catalog.js";
 import type { PathGuard, Workspace, WorkspaceManager } from "../guard.js";
 import {
   AuditError,
@@ -39,6 +40,7 @@ import {
   createUndoChangeSetFailure,
   createUndoChangeSetSuccess,
   undoChangeSetInputV2Schema,
+  undoChangeSetInputV5Schema,
   undoChangeSetOutputShape,
   type UndoChangeSetErrorCode
 } from "./schemas/undoChangeSet.js";
@@ -188,8 +190,8 @@ export function createPhase3DResourceResolver(
         };
       }
 
-      const workspace = workspaceFor(workspaces, args.workspace_id);
       if (toolName === "move_paths") {
+        const workspace = workspaceFor(workspaces, args.workspace_id);
         const parsed = movePathsInputV1Schema.parse(args);
         return {
           resource: describeFilesystemBatchResource({
@@ -209,14 +211,54 @@ export function createPhase3DResourceResolver(
         if (!dependencies.undoChangeSetService) {
           throw new Error("Undo change-set resource service is unavailable.");
         }
-        const parsed = undoChangeSetInputV2Schema.parse(args);
-        return {
-          resource: dependencies.undoChangeSetService.describeResource({
-            workspace,
+        const v5 = contractIncludesV5(toolContractVersion);
+        const parsed = (v5 ? undoChangeSetInputV5Schema : undoChangeSetInputV2Schema).parse(args);
+        const workspace = v5
+          ? workspaces.resolveWorkspace(parsed.workspace_id)
+          : workspaceFor(workspaces, parsed.workspace_id);
+        const resource = dependencies.undoChangeSetService.describeResource({
+          workspace,
+          changeSetId: parsed.change_set_id,
+          ownerBinding: ownerBinding(dependencies)
+        });
+        if (!contractIncludesV5(toolContractVersion)) {
+          return {
+            resource,
+            requiredCapabilities: [{ name: "filesystemWriteBoundary", minimum: "brokered" }]
+          };
+        }
+        const workspaceAuthorityDigest = workspaces.workspaceAuthorityDigest(workspace.id);
+        const approvalResourceFingerprint = `sha256:${createHash("sha256")
+          .update("codexgpt.undo-change-set.approval-resource.v1\0", "utf8")
+          .update(JSON.stringify({
+            workspaceAuthorityDigest,
             changeSetId: parsed.change_set_id,
-            ownerBinding: ownerBinding(dependencies)
-          }),
-          requiredCapabilities: [{ name: "filesystemWriteBoundary", minimum: "brokered" }]
+            operation: resource.operation,
+            entries: resource.entries
+          }), "utf8")
+          .digest("hex")}`;
+        const approvalInputDigest = `sha256:${createHash("sha256")
+          .update(JSON.stringify({
+            change_set_id: parsed.change_set_id,
+            preview: parsed.preview === true
+          }), "utf8")
+          .digest("hex")}`;
+        const semanticFactsDigest = `sha256:${createHash("sha256")
+          .update("codexgpt.undo-change-set.approval-facts.v1\0", "utf8")
+          .update(approvalResourceFingerprint, "utf8")
+          .update("\0", "utf8")
+          .update(approvalInputDigest, "utf8")
+          .digest("hex")}`;
+        return {
+          resource,
+          requiredCapabilities: [{ name: "filesystemWriteBoundary", minimum: "brokered" }],
+          approvalBindingV3: {
+            transportSessionId: `undo-change-set:${parsed.change_set_id}`,
+            workspaceId: `workspace-authority:${workspaceAuthorityDigest.replace(/^sha256:/u, "")}`,
+            resourceFingerprint: approvalResourceFingerprint,
+            inputDigest: approvalInputDigest
+          },
+          semanticFactsDigest
         };
       }
 
@@ -240,6 +282,9 @@ export function createPhase3DServerIntegration(
       return;
     }
     const persistedContractVersion = persistedV2ContractVersion(contractVersion);
+    const undoInputSchema = contractIncludesV5(contractVersion)
+      ? undoChangeSetInputV5Schema
+      : undoChangeSetInputV2Schema;
 
     if (!dependencies.undoChangeSetService || !dependencies.movePathsService) {
       throw new Error("Contract V2 mutation services are unavailable.");
@@ -248,7 +293,7 @@ export function createPhase3DServerIntegration(
     register("undo_change_set", {
       title: "Undo Change Set",
       description: "Preview or atomically reverse one authenticated change set after complete conflict checks.",
-      inputSchema: undoChangeSetInputV2Schema,
+      inputSchema: undoInputSchema,
       outputSchema: undoChangeSetOutputShape,
       annotations: {
         readOnlyHint: false,
@@ -262,14 +307,16 @@ export function createPhase3DServerIntegration(
       }
     }, async (args) => {
       const startedAt = Date.now();
-      const parsed = undoChangeSetInputV2Schema.safeParse(args);
+      const parsed = undoInputSchema.safeParse(args);
       if (!parsed.success) {
         const structured = createUndoChangeSetFailure("INTERNAL_ERROR", {}, Date.now() - startedAt);
         return toolResult(structured as unknown as Record<string, unknown>, structured.error?.message ?? "Undo failed.", true);
       }
       let workspace: Workspace;
       try {
-        workspace = workspaceFor(workspaces, parsed.data.workspace_id);
+        workspace = contractIncludesV5(contractVersion)
+          ? workspaces.resolveWorkspace(parsed.data.workspace_id)
+          : workspaceFor(workspaces, parsed.data.workspace_id);
       } catch {
         const structured = createUndoChangeSetFailure("WORKSPACE_NOT_FOUND", {
           workspace_id: parsed.data.workspace_id,
