@@ -2,6 +2,7 @@ import { WINDOWS_TEST_EXECUTION_PROFILES } from "./test-execution-profile-manife
 
 export const WINDOWS_ADDITIONAL_ISOLATED_TESTS = Object.freeze([
   "approval-multi-server.test.mjs",
+  "cli-approvals.test.mjs",
   "connector-auth-output.test.mjs",
   "doctor-shell.test.mjs",
   "http-security.test.mjs",

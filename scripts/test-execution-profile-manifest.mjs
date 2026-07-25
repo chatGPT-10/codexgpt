@@ -26,7 +26,6 @@ bridge-writer-transaction.test.mjs
 change-set-schema-and-crypto.test.mjs
 change-set-store.test.mjs
 ci-workflow.test.mjs
-cli-approvals.test.mjs
 cli-hostname-propagation.test.mjs
 close-workspace-contract.test.mjs
 cloudflared-installer.test.mjs
@@ -209,6 +208,7 @@ verification-receipts.test.mjs
   `),
   isolated: freezeNames(`
 approval-multi-server.test.mjs
+cli-approvals.test.mjs
 connector-auth-output.test.mjs
 conpty-close-order-windows-control.test.mjs
 doctor-shell.test.mjs

@@ -59,3 +59,9 @@ This append-only volume continues interphase maintenance after Part 5 closed abo
 **Rollback:** Revert the Phase 1–3 implementation commit. For an immediate no-code Windows rollback, set `CODEXGPT_TEST_TOPOLOGY=legacy`; the runner returns to one exact serial `main` shard. No user configuration, credentials, production workspace, audit data, branches, or worktrees are migrated by this STEP.
 
 **Next action:** Commit and push only the reviewed STEP-436 implementation/memory scope, wait for exact-head Repository policy and Ubuntu/Windows Node 20/24 Build/Regression/Smoke/Package, download the exact performance artifacts, compare them with run `30174477867`, and append the final run evidence locally without creating an evidence-only follow-up commit.
+
+### STEP-436 correction — exact-head Windows control-server classification
+
+Exact-head run `30177170822` passed Repository policy and both complete Ubuntu Node 20/24 jobs, but both Windows regression jobs failed in `cli-approvals.test.mjs` with `CONTROL_SERVER_STALE`. The file owns a real Windows local-control server and launches multiple CLI children, but the initial reviewed manifest had incorrectly placed it in `fast`.
+
+The repair moves `cli-approvals.test.mjs` into the explicit additional-isolated set and exact isolated manifest. A regression first proved the former fast classification, then managed Node 20.20.2 and Node 24.15.0 ran the real CLI journey plus profile/domain contracts at concurrency 1 and passed 13/13 on each major. No production control protocol, authority, timeout, or stale-server check changed. The failed run is retained as materially relevant evidence; a replacement exact-head run is required.

@@ -20,6 +20,7 @@ const serialTests = [
 ];
 const sampleTests = [
   "approval-multi-server.test.mjs",
+  "cli-approvals.test.mjs",
   "codexgpt-contract.test.mjs",
   "git-stash-v4.test.mjs",
   "mutation-runtime.test.mjs",
@@ -54,6 +55,7 @@ test("Windows layered topology partitions every test into bounded fast, safe, an
   ]);
   assert.deepEqual(shards[2].tests, [
     "approval-multi-server.test.mjs",
+    "cli-approvals.test.mjs",
     "phase-7-repository-acceptance.test.mjs",
     "process-lifecycle-windows-control.test.mjs",
     "runner-process-identity.test.mjs"
