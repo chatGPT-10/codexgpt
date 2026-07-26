@@ -490,23 +490,21 @@ The former mandatory version/trust/permission/content-hash manifest and generic 
 
 Historical outline only. The exact Phase 7 boundary and sequence are superseded by the 2026-07-23 [design](superpowers/specs/2026-07-23-phase-7-semantic-providers-design.md) and [TDD plan](superpowers/plans/2026-07-23-phase-7-semantic-providers.md).
 
-The current local Core candidate implements the runnable first path: a zero-setup owned-worker JavaScript/TypeScript engine that understands symbol-only requests and real in-workspace declaration/config data; exact inherited-runtime V5 with one `semantic` tool; honest lexical fallback; and a complete server-owned identity/hash/edit rename plan whose approval facts and lock-held preconditions flow through the existing Phase 3 atomic transaction.
+The closed Phase 7 Core implements the runnable first path: a zero-setup owned-worker JavaScript/TypeScript engine that understands symbol-only requests and real in-workspace declaration/config data; exact inherited-runtime V5 with one `semantic` tool; honest lexical fallback; and a complete server-owned identity/hash/edit rename plan whose approval facts and lock-held preconditions flow through the existing Phase 3 atomic transaction.
 
-Focused Node 20/24, transaction, audit, cache-revalidation, worker isolation, documentation, and repository latency gates pass locally after adversarial repair. Real ChatGPT G7-U U2–U6 is accepted through STEP-430, and final ordinary/smoke/package G7-X passed at STEP-432. This is not formal closure: reviewed publication and replacement exact-head evidence remain outstanding.
+Focused Node 20/24, transaction, audit, cache-revalidation, worker isolation, documentation, and repository latency gates pass locally after adversarial repair. Real ChatGPT G7-U U2–U6 is accepted through STEP-430, final ordinary/smoke/package G7-X passed at STEP-432, and Phase 7 Core formally closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with exact-head run `30171313296`.
 
-Serena retrieval is a separately authorized Phase 7B extension; direct stdio LSP is Phase 7C only when a concrete language need remains. CodexGPT exposes no protocol-level Provider mutation, while external same-user processes truthfully retain `execution_isolation: none`, `filesystem_isolation: none`, and `network_isolation: none`. Serena/LSP dependencies or installations remain outside the Core candidate.
+Serena retrieval is a separately authorized Phase 7B extension; direct stdio LSP is Phase 7C only when a concrete language need remains. CodexGPT exposes no protocol-level Provider mutation, while external same-user processes truthfully retain `execution_isolation: none`, `filesystem_isolation: none`, and `network_isolation: none`. Serena/LSP dependencies or installations remain outside the closed Core scope.
 
 ### Phase 8 — OAuth and Cloudflare hardening
 
-- implement OAuth 2.1 resource-server support;
-- enforce scopes;
-- revoke and rotate credentials;
-- separate MCP and admin permissions;
-- store local secrets with Windows Credential Manager or DPAPI where appropriate;
-- align allowed hosts with the configured public hostname;
-- generate and verify Cloudflare Tunnel configuration;
-- keep the local service bound to loopback;
-- treat Cloudflare Access or mTLS as optional additional controls, not replacements for MCP authentication.
+The historical outline is superseded by the 2026-07-26 [Phase 8 design](superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md) and [executable TDD plan](superpowers/plans/2026-07-24-phase-8-oauth-and-public-auth.md). Design/review is complete; runtime, dependencies, credentials/DPAPI, Cloudflare mutation, publication, and deployment are not authorized.
+
+Core uses a personal self-hosted colocated OAuth authorization/resource server, strict public-client DCR, authorization code + exact PKCE `S256`, RFC 8707 resource and RFC 9207 issuer binding, short ES256 access tokens, authenticated opaque refresh envelopes, DPAPI `CurrentUser`, request-local identity, and physically separate public/local-admin listeners. Public routes include a static safe documentation root, cookie-bound authorization status/continue, `/authorize`, `/token`, `/register`, `/revoke`, and `/jwks`; the project owns strict registration, metadata, error and bounded-admission guards instead of exposing the SDK's broader defaults. All refresh/revoke/scope family mutations share one linearizable lock/CAS order, and installation-wide audit is durable before security-state success. A stable binding owns root/issuer/hostname/dedicated Tunnel while forced recovery rotates only the incarnation authority. `legacy|oauth` remain mutually exclusive, server/client rollback uses separately retained Apps and idempotent `auth setup --root`, no tool or execution authority is added, and V1–V5 stay 28/31/39/51/52.
+
+The next gate is G8-0 after fresh runtime/dependency authorization and current protocol revalidation. Real ChatGPT fresh-link, restart/refresh, revoke/relink, cached-App recovery, Tunnel boundary, legacy rollback, DPAPI, dual Node, and exact-head matrix evidence are required for closure.
+
+The broader [`openai/codex` project review](reviews/2026-07-26-openai-codex-project-review.md) preserves the existing security/transaction/CI strengths and prioritizes, after OAuth, an explainable configuration kernel, Windows background lifecycle, unified diagnostics, incremental server/CLI domain extraction, and a separately authorized native Windows isolation feasibility study. The detailed [post-Phase-8 plan](superpowers/plans/2026-07-26-post-phase-8-project-improvement-plan.md) is advisory and grants no implementation authority.
 
 ### Phase 9 — Subagents
 

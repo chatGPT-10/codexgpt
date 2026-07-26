@@ -48,7 +48,8 @@ CodexGPT is not a hosted coding service, model proxy, quota bypass, account pool
 - Package metadata is currently `codexgpt@0.28.6`; `main` contains unreleased changes that may be ahead of npm.
 - Native Windows is a primary supported environment. WSL is not required. PowerShell is supported; Git Bash remains useful for Bash-oriented workflows.
 - The default public tool contract remains V1. Contracts V2, V3, V4, and the explicit-standard Phase 7 Core V5 surface are advanced opt-ins.
-- Phases 5 and 6 are closed on full Ubuntu/Windows Node 20/24 validation matrices. Phase 7 Core is implemented locally and remains in pre-publication validation; its default activation and exact-head closure are not yet claimed.
+- Phases 5, 6, and Phase 7 Core are closed on full Ubuntu/Windows Node 20/24 validation matrices. Phase 7 Core closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with exact-head CI run `30171313296`; Contract V5 remains an explicit `standard` opt-in rather than the default public contract.
+- Phase 8 has an implementation-ready OAuth 2.1 design and TDD plan, but its runtime is not implemented or available yet. The supported ChatGPT connection remains the query-token flow below; do not attempt OAuth setup or manual static-Bearer configuration.
 
 Check the npm badge before installing. Use a source checkout when you specifically need unreleased `main` behavior.
 
@@ -97,11 +98,10 @@ Setup saves a per-workspace profile and attempts to copy the complete Server URL
 
 ### 3. Create the ChatGPT connection
 
-In ChatGPT, enable Developer Mode, then create a Plugin/App connection using a Server URL. UI labels can change, but the current flow is generally:
+Open ChatGPT's current Apps/Plugins connection-management page. If the UI offers Developer Mode, enable it; labels can change, but the flow is generally:
 
 ```text
-Settings -> Security and login -> Developer mode: on
-Settings -> Plugins / Apps -> Create
+Settings -> Plugins / Apps -> + / Create
 ```
 
 Use:
@@ -110,10 +110,10 @@ Use:
 Name: CodexGPT
 Connection: Server URL
 Server URL: paste the complete URL copied by CodexGPT
-Authentication: No Authentication / None
+Authentication: No Authentication / None (if shown)
 ```
 
-Do not remove the `codexgpt_token` query string. The complete URL is password-equivalent and can leak through browser history, clipboard contents, screenshots, logs, or copied links.
+Do not remove the `codexgpt_token` query string. The complete URL is password-equivalent and can leak through browser history, clipboard contents, screenshots, logs, or copied links. OAuth is not an available setup path yet; do not substitute manual OAuth or static-Bearer settings.
 
 ### 4. Daily start
 

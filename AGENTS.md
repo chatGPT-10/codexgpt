@@ -16,7 +16,7 @@ mcp.<user-domain>
   -> explicitly authorized local workspaces
 ```
 
-The implementation must remain self-hosted. Cloudflare is used only for DNS, TLS, and Tunnel. Do not introduce a dependency on a project-operated Remote MCP relay unless the user explicitly changes this decision.
+Remain self-hosted. Cloudflare is only DNS/TLS/Tunnel; do not add a project-operated Remote MCP relay without explicit user approval.
 
 ## 2. Environment and hard constraints
 
@@ -71,98 +71,71 @@ Memory rules:
 - Keep paths repository-relative unless an absolute path is necessary to explain an environment problem.
 - If no source file changed, record `Files changed: none`.
 
-## 5. Active technical rules
+## 5. Rules
 
 ### 5.1 Public entry and authentication
 
-- `scripts/codexgpt-entry.mjs` is the supported public CLI entry.
-- Direct `node scripts/codexgpt.mjs` invocation bypasses entry-layer protections and is not the supported public launch path.
-- The supported public CLI uses the personal query-token compatibility flow for ChatGPT Web when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset.
-- The CLI may copy the credential-bearing Server URL for that flow and must instruct `Authentication: None / No Authentication`; public startup logs keep it hidden unless the user explicitly presses `u` or requests the Create App fields.
-- Treat the URL as a secret: it may leak through browser history, clipboard contents, screenshots, logs, and copied links.
-- `CODEXGPT_ALLOW_QUERY_TOKEN=0` explicitly disables URL credentials for advanced compatible clients that can send an `Authorization: Bearer` header.
-- Server-side Bearer support remains available for compatible clients, but documentation must not claim ChatGPT Web supports manual static-Bearer configuration.
-- OAuth 2.1 is the later standards-based direction. Its Phase 8 implementation is authorized only within the execution boundary in Section 9 and must pass the dedicated identity, migration, rollback, and security gates before activation.
-- Non-loopback and tunnel modes must fail closed without authentication unless an explicit reviewed override exists.
-- Host and Origin checks must run locally.
+- `scripts/codexgpt-entry.mjs` is the only supported public CLI; direct `scripts/codexgpt.mjs` bypasses entry protections.
+- With `CODEXGPT_ALLOW_QUERY_TOKEN` unset, ChatGPT Web uses the personal query-token URL with `Authentication: None / No Authentication`; it is password-equivalent and may leak through browser history, clipboard, screenshots, logs, and copied links. Hide it from normal startup logs. `CODEXGPT_ALLOW_QUERY_TOKEN=0` is only for Bearer-capable clients, never claimed as ChatGPT Web static-Bearer setup.
+- OAuth is governed solely by Phase 8 and its gates. Non-loopback/tunnel modes fail closed without authentication, and Host/Origin checks remain local.
 
 ### 5.2 Cloudflared
 
-- Supported Cloudflare start paths use the pinned verified installer and exact managed binary path.
-- Verify the pinned SHA-256 digest and reported version before installation.
-- Do not allow a different `cloudflared` from `PATH` to replace the verified managed binary implicitly.
-- Explicit `--cloudflared <path>` remains a manual override.
-- Cloudflare quick-tunnel Host forwarding is not considered validated until a real external check passes.
+- Supported Cloudflare starts use the SHA-256/version-verified managed binary; `PATH` cannot silently replace it, `--cloudflared <path>` is the only override, and quick-tunnel Host forwarding needs a real external check.
 
 ### 5.3 Windows paths
 
-- Canonicalize allowed roots and workspace paths with native realpath behavior.
-- Windows blocked-path matching is case-insensitive.
-- Reject Windows device paths, UNC paths, drive-relative paths, NTFS alternate data streams, reserved device names, trailing dot/space segments, and cross-drive escapes.
-- Reject symlink or junction escapes for reads and writes.
-- Never weaken blocked secret-file rules to make a test or edit easier.
+- Canonicalize roots with native realpath and case-insensitive blocked-path matching; reject device/UNC/drive-relative/ADS/reserved/trailing-dot-or-space/cross-drive paths and all symlink/junction escapes. Never weaken secret-file rules for a test or edit.
 
 ### 5.4 Shell execution
 
-- Git Bash is temporary; native PowerShell remains planned work.
-- Doctor must report an unavailable required Bash backend before a Bash tool call fails.
-- A saved profile with `bash: off` must not require Bash.
-- `doctor --no-profile` must skip every saved-profile read and validation.
-- With `inheritEnv=false`, keep arbitrary parent variables and tokens out of Bash. On Windows, preserve or derive only the bounded user/configuration paths needed for normal CLI and OS-keyring discovery; never solve CLI authentication by copying `GH_TOKEN` into the child environment.
-- `CODEXGPT_INHERIT_ENV=1` exposes the complete parent environment and is restricted to trusted local repositories.
-- Full Bash is for trusted local repositories only.
+- Legacy `bash` uses Git Bash; V3 `full_access` uses native PowerShell/process; neither is isolation. Doctor reports missing Bash; `bash: off` needs none and `--no-profile` skips profiles.
+- With `inheritEnv=false`, pass only bounded Windows discovery paths, never arbitrary parent tokens such as `GH_TOKEN`. `CODEXGPT_INHERIT_ENV=1` and full Bash are trusted-local-repository opt-ins.
 
-### 5.5 External references
+### 5.5 References
 
-- DevSpace is primary; Serena and Desktop Commander are optional semantic/process references.
-- External designs must preserve workspace, permission, path, authentication, and edit-policy boundaries.
-- Verify license and attribution before copying external source; prefer design-level reimplementation.
+- DevSpace is primary; Serena/Desktop are optional. Preserve external boundaries; verify license/attribution and prefer reimplementation.
 
-### 5.6 Workspace lifecycle
+### 5.6 Workspace
 
-- Public `workspace_id` values are random opaque handles, never canonical-path hashes.
-- Each MCP server lifecycle domain owns its own `WorkspaceManager`; do not restore process-global manager sharing.
-- Core `getWorkspace(id)` requires an explicit ID. Omitted-ID compatibility belongs only in the named session-local `resolveWorkspace()` boundary.
-- Foreign, closed, expired, transport-stale, or policy-stale handles must fail closed without revealing roots, keys, identity bindings, or revocation reasons.
-- `close_workspace` is a normal lifecycle tool but must remain hidden from the read-only connection-test surface.
+- Public `workspace_id` values are random opaque, session-local handles. Every lifecycle domain owns its `WorkspaceManager`; only `resolveWorkspace()` holds omitted-ID compatibility. Foreign, stale, closed, expired, or policy-stale handles fail closed without leakage, and `close_workspace` stays off the read-only connection-test surface.
 
-### 5.7 Direct mutation inventory
+### 5.7 Mutation inventory
 
-- `test/mutation-architecture.test.mjs` is the fail-closed inventory for filesystem mutation primitives in `src/` and shipped runtime scripts. Every occurrence is bound to a canonical repository path, line, column, call digest, and reviewed purpose; additions and line/call drift must fail CI.
-- Production direct writes are limited to the transaction filesystem backend, atomic application-state files, persistent audit maintenance, and documented installer/runtime state outside authorized workspaces.
-- The exact direct writers in `src/fsOps.ts` and `src/handoffOps.ts` are a one-cycle compatibility exception for `fileTransactions=legacy` only. The static gate must also prove that the default atomic server path selects prepared transaction mutations before any legacy provider and never falls back to these writers.
-- Fixture writers are excluded only by the test's exact source-file selection. Do not add directory, filename-pattern, or regular-expression exemptions.
+- `test/mutation-architecture.test.mjs` is the fail-closed inventory for mutation primitives in `src/` and shipped scripts. It binds canonical path, location, semantic call digest, and reviewed purpose; drift fails CI.
+- Production direct writes are limited to transaction/state/audit/documented installer runtime. The legacy `fsOps.ts`/`handoffOps.ts` writers are a one-cycle `fileTransactions=legacy` exception; the default atomic path must select prepared transactions without fallback. Fixture exclusions are exact source files only.
 
 ### 5.8 Operational reliability gates
 
 The following rules are mandatory and are enforced by `npm run policy:check` plus CI contract tests:
 
-- Use `scripts/toolchain-manager.mjs` and a verified manifest for exact Windows Node 20/24 reproduction. This checkout currently uses the retained legacy `%LOCALAPPDATA%\CodexPro\toolchains` root explicitly; migration to the default `%LOCALAPPDATA%\CodexGPT\toolchains` root requires separate approval. Temporary runtimes are migration sources only; platform-sensitive changes require both pinned majors before publication.
-- `scripts/test-domains.mjs` is authoritative. Run `ordinary` through `scripts/long-task-runner.mjs`; run `control`/`all` only in CI or a proven independent native terminal. Retain bounded run evidence, prove no same-kind run is active before retrying, and stop only an exact owned run ID—never all `node.exe` processes.
-- Detached-run liveness uses exact renewable `worker-lease.json` evidence for `running` and `finalizing`. The lease is observational only, never authorizes stop or deletion, and tests must not declare failure before the bounded lease can expire. Register every task child's `error` and `close` observers before the first awaited metadata write so fast completion cannot be lost. Lease renewal must remain independent of the asynchronous cleanup/retention filesystem queue and use bounded retries for transient Windows replacement-sharing failures so CI pressure cannot manufacture stale state.
-- Transaction recovery may defer only when an exact verifiable live workspace mutation lock returns `TRANSACTION_BUSY`; this is not a recovered or cached readiness state. Every later use may retry recovery, and all non-live-lock recovery errors remain fail-closed.
-- Use `npm run test:focused -- <files...>` and `npm run task:run -- <command...>` for focused tests and local tasks. They and detached tasks isolate `TEMP`/`TMP`/`TMPDIR` in marked owned roots; detached evidence defaults to 20 terminal runs and 14 days. `npm run task:cleanup` may delete only verified dead-owner `codexgpt-owned-v1-*` roots and terminal run evidence, never unmarked temporary entries or persistent worktree, candidate, recovery, credential, audit, or toolchain state.
-- Diagnose CI with `scripts/exact-head-ci.mjs` or `scripts/ci-failure-summary.mjs`, bound to the exact 40-character HEAD, bounded Windows user/config state, and no inherited GitHub tokens. Fix the first underlying error and keep evidence only under ignored `.ai-bridge/`.
-- A phase closes only when its closure SHA passes exact-head CI; never create a follow-up repository commit solely to record the run ID. Runtime-relevant changes—scripts, workflows, package metadata, tests, configuration, source, or fixtures—require the complete Ubuntu/Windows Node 20/24 matrix. Documentation-only changes use the documentation/policy gate.
-- Replacement fixtures must pre-create a distinct stable object before installation; never infer identity from monotonic inode/file-index or timestamps. Mutation review identity must use repository path, syscall type, and a normalized semantic AST/call digest. Line/column are diagnostic only.
-- Large single files must be read through explicit line ranges. Scan ceilings must not enlarge connector response ceilings.
-- `npm run policy:check` is required before staging and runs in every CI path, including documentation-only changes.
+- Reproduce Windows with `scripts/toolchain-manager.mjs` and its verified manifest at the retained `%LOCALAPPDATA%\CodexPro\toolchains` root. Platform-sensitive publication needs both pinned Node 20/24 majors; root migration needs separate approval.
+- `scripts/test-domains.mjs` is authoritative: run `ordinary` through `scripts/long-task-runner.mjs`; use `control`/`all` only in CI or an independent native terminal; retain bounded evidence; stop only an exact owned run ID. Renewable leases are observational, must survive cleanup pressure, and cannot manufacture a premature failure.
+- Focused/local work uses `npm run test:focused -- <files...>` and `npm run task:run -- <command...>` with owned temporary roots. Cleanup deletes only verified dead-owner marked roots/evidence; it never deletes persistent workspace, candidate, recovery, credential, audit, or toolchain state.
+- Recovery may defer only for an exact live mutation lock returning `TRANSACTION_BUSY`; all other recovery errors fail closed. Mutation review identity must use repository path, syscall type, and a normalized semantic AST/call digest; never use timestamps or monotonic file IDs.
+- Diagnose CI with `scripts/exact-head-ci.mjs` or `scripts/ci-failure-summary.mjs`, bounded user/config state, and ignored `.ai-bridge/` evidence. A phase closes only on its closure SHA's exact-head CI; never create a follow-up repository commit solely to record the run ID. Runtime changes need the complete Ubuntu/Windows Node 20/24 matrix; docs need the documentation/policy gate. `npm run policy:check` is required before staging and in every CI path, including documentation-only changes.
+- Large single files must be read through explicit line ranges. Scan ceilings never enlarge connector response ceilings.
 
 ### 5.9 Phase 4 design boundary
 
-- Follow the paired Phase 4 [spec](docs/superpowers/specs/2026-07-16-phase-4-windows-execution-and-sandbox-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-4-windows-execution-and-sandbox.md). Preserve V1=28/V2=31/V3=39 and all enforce/audit/session/atomic/approval, persistence, rollback, and native-host contracts. `confirmed_roots` remains brokered; `full_access` remains ambient trusted-code authority without filesystem, credential, registry, network, or broker isolation; `workspace` has no fallback. Diagnostic 4B0 stays blocked/package-excluded, Tasks 4B1–4B6 stay deferred, and destructive ownership tests run only in an independent control harness.
+- Follow the paired Phase 4 [spec](docs/superpowers/specs/2026-07-16-phase-4-windows-execution-and-sandbox-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-4-windows-execution-and-sandbox.md). Preserve V1=28/V2=31/V3=39 and their enforce/audit/session/atomic/approval contracts. `confirmed_roots` stays brokered; `full_access` has no filesystem, credential, registry, network, or broker isolation; `workspace` has no fallback. 4B0/4B1–4B6 remain blocked/deferred; destructive ownership tests need an independent control harness.
 
 ### 5.10 Phase 5 design boundary
 
-- Follow the paired Phase 5 [spec](docs/superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md). V4 is opt-in exact 51 and preserves V1/V2/V3. Safe Git writes require fixed executable identity, private indexes, quarantined object promotion, complete mutation tokens, R3 ref/history approval, and journaled participants. Gate X exposes only private stage, shadow commit, quarantined object merge, and private checkout after exact binding and approval; it accepts no caller-selected Git command and remains ambient `full_access` without isolation. Managed worktrees are owner-bound workflow artifacts, not sandboxes; they do not widen `allowedRoots`, delete branches/history, or enable remote, credential, force, or config mutations.
+- Follow the paired Phase 5 [spec](docs/superpowers/specs/2026-07-16-phase-5-git-and-task-worktrees-design.md) and [plan](docs/superpowers/plans/2026-07-16-phase-5-git-and-task-worktrees.md). V4 is opt-in exact 51. Safe Git requires fixed identity, private index/object quarantine, complete mutation tokens, R3 ref/history approval, and journaling; Gate X exposes only its four typed local operations, never a caller-selected command. No remote, credential, force, or config mutation; managed worktrees are owner-bound artifacts, not sandboxes/authority expansion.
 
 ### 5.11 Phase 6 design boundary
 
-- Follow the adversarially reviewed Phase 6 [spec](docs/superpowers/specs/2026-07-22-phase-6-project-guidance-and-skills-design.md) and [plan](docs/superpowers/plans/2026-07-22-phase-6-project-guidance-and-skills.md). Phase 6 makes root/target AGENTS and target-scoped Agent Skills usable from the standard ChatGPT flow without Tool Contract V5 or new execution authority. Use one canonical same-handle bounded reader, keep standard user/plugin Skills explicit opt-in, budget automatic metadata, and keep bodies/resources lazy. AGENTS/Skills never grant permission; scripts, dependencies, and generic Hooks do not auto-run. The former Hook/trust-manifest Phase 6 outline is superseded. Live root/nested acceptance passed and omitted mode now defaults to `standard`; explicit `legacy` remains the one-restart rollback. Apps with frozen pre-Phase-6 tool snapshots require one **Scan Tools** refresh or recreation; transparent refresh is not claimed.
+- Follow the adversarially reviewed Phase 6 [spec](docs/superpowers/specs/2026-07-22-phase-6-project-guidance-and-skills-design.md) and [plan](docs/superpowers/plans/2026-07-22-phase-6-project-guidance-and-skills.md). Guidance/Skills add no authority: reads are canonical same-handle and bounded, automatic metadata is budgeted, bodies/resources stay lazy, and scripts/dependencies/Hooks never auto-run. Omitted mode is `standard`; explicit `legacy` is rollback; frozen Apps need one **Scan Tools** refresh or recreation.
 
 ### 5.12 Phase 7 design boundary
 
-- Follow the execution/security/UX-reviewed Phase 7 [spec](docs/superpowers/specs/2026-07-23-phase-7-semantic-providers-design.md) and [plan](docs/superpowers/plans/2026-07-23-phase-7-semantic-providers.md). Core first delivers a zero-setup owned-worker JavaScript/TypeScript engine, symbol-or-position locator, one inherited-runtime V5 `semantic` tool, honest lexical fallback, and a server-owned rename plan consumed by V5 `apply_patch`. Approval binds the exact semantic manifest, and canonical path/stable identity/hash preconditions must reach the Phase 3 lock-held second inspection; do not use `LocalMutationService` for MCP mutations. Every workspace semantic read is mandatory canonical same-handle with `nlink === 1`. MCP wire descriptors for operation unions must expose an explicit raw Zod property shape while the server retains the exact strict union parser; local-approval protocol V3 facts and grants bind the actual inherited Tool Contract 3, 4, or 5. Backend HTTP journeys and deterministic regressions do not substitute for real ChatGPT App UI G7-U evidence. V1/V2/V3/V4 remain exact 28/31/39/51; explicit-standard V5 is exact 52 and retains `legacy` rollback until Core live/publication/exact-head gates close. Core closure must not wait for external Providers. Serena is a separately authorized Phase 7B retrieval/diagnostics extension; direct LSP is Phase 7C only for a concrete unmet language need. CodexGPT must not invoke Provider protocol-level mutation/command operations, while external same-user children truthfully remain `execution_isolation: none`, `filesystem_isolation: none`, and `network_isolation: none`. No remote request may install, update, choose commands, or grant Provider authority.
+- Follow the execution/security/UX-reviewed Phase 7 [spec](docs/superpowers/specs/2026-07-23-phase-7-semantic-providers-design.md) and [plan](docs/superpowers/plans/2026-07-23-phase-7-semantic-providers.md). Core uses its owned JS/TS engine, exact V5=52 `semantic`, honest fallback, and a server-owned rename plan only through V5 `apply_patch`; same-handle `nlink === 1` and Phase 3 lock-held identity/hash preconditions remain mandatory. V1–V4 stay 28/31/39/51; `legacy` rolls back. Real G7-U is required; Serena/LSP stay separately authorized, with no Provider mutation/command authority or sandbox claims.
+
+### 5.13 Phase 8 design boundary
+
+- Follow the 2026-07-26 Phase 8 [spec](docs/superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md) and [plan](docs/superpowers/plans/2026-07-24-phase-8-oauth-and-public-auth.md). Design/TDD only: colocated project-owned OAuth with strict routes/DCR; PKCE S256 + RFC 8707/9207, ES256, rotating opaque refresh, DPAPI CurrentUser, durable audit-before-success, bounded work/recovery, and separate public/admin listeners. `legacy|oauth` are exclusive with 2-App rollback and `auth setup --root`; no tool/execution authority, V1–V5 stay 28/31/39/51/52; real G8-U/exact-head G8-X remain mandatory.
+- The [`openai/codex` review](docs/reviews/2026-07-26-openai-codex-project-review.md) and [post-Phase-8 improvement plan](docs/superpowers/plans/2026-07-26-post-phase-8-project-improvement-plan.md) are advisory only and grant no implementation authority.
 
 ## 6. Documentation map
 
@@ -205,6 +178,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phases 1–6 are closed. Phase 7 Core is implemented, real ChatGPT Gate G7-U is accepted through STEP-430, and final local G7-X passed at STEP-432. Core remains open until the reviewed publication and replacement exact-head matrix pass. Phase 4's 4B0 stays blocked/non-production; `workspace` and Tasks 4B1–4B6 stay deferred. Preserve verified Node toolchains; use `Memory.md` for current evidence and next action.
+Phases 1–7 Core are closed. Phase 7 Core closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with exact-head run `30171313296` after real ChatGPT Gate G7-U through STEP-430 and final local G7-X at STEP-432. The current verified code baseline is `b4b041da32be7bfb133495fb30aa851d67d4f216` with exact-head run `30177507346`. Phase 4's 4B0 stays blocked/non-production; `workspace` and Tasks 4B1–4B6 stay deferred. Preserve verified Node toolchains; use `Memory.md` for current evidence and next action.
 
-The 2026-07-24 follow-up authorization permits only the remaining Phase 7 Core closure path: stage the reviewed Phase 7 repair scope, create one concise English commit, push normally, and run bounded exact-head CI diagnosis/repair cycles. It does not authorize Phase 7B/7C dependencies or installs, npm release or deployment, npm registry credentials, credential migration, force push, destructive history, Phase 8+, or unrelated scope expansion. Do not create an evidence-only follow-up commit solely to record a CI run ID.
+The 2026-07-26 continuation authorizes only the Phase 8 detailed design/TDD plan, the read-only `openai/codex` comparison, the project improvement plan, adversarial document review, and project-record reconciliation. It does not authorize Phase 8 runtime/source/dependency work, DPAPI or real/disposable credential creation, Cloudflare/Tunnel/DNS changes, Phase 7B/7C dependencies or installs, Windows Task Scheduler/service changes, sandbox/egress work, npm release or deployment, npm registry credentials, credential migration, staging, commit, push, force push, destructive history, Phase 9, or unrelated scope expansion. Phase 8 Gate G8-0 requires fresh explicit runtime and dependency authority. Do not create an evidence-only follow-up commit solely to record a CI run ID.

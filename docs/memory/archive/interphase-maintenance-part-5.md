@@ -439,3 +439,115 @@ Size clarification: 27,342 bytes was measured immediately before this addendum; 
 **Rollback:** Revert only the STEP-407 test and record updates. This restores the concurrent observer and its Windows Node 20 timing race.
 
 **Next step:** Run independent adversarial review, policy, whitespace, secret, and intended-scope checks; create one English repair commit; push normally; and require a new exact-head CI matrix to pass before calling publication successful.
+
+## 2026-07-25 — STEP-434: Reconcile knowledge after Phase 7 Core closure
+
+**Status:** Completed locally. Public status documentation, active rules, current memory, the Phase 7 plan, the historical roadmap, and archive routing now agree that Phase 7 Core is closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` by exact-head run `30171313296`. No source, dependency, runtime configuration, credential, approval, transaction, staging, commit, push, release, or deployment state changed.
+
+**Goal:** Apply the `neat-freak` workflow after formal closure: remove stale pre-publication claims, close the Phase 7 archive volume, return subsequent work to the interphase archive, audit active rule references and public setup text, and keep the root memory index compact.
+
+**Files changed:**
+
+- `AGENTS.md`
+- `Memory.md`
+- `README.md`
+- `README_ZH.md`
+- `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`
+- `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md`
+- `docs/memory/archive/phase-7-part-3.md`
+- `docs/memory/archive/interphase-maintenance-part-5.md`
+- `docs/superpowers/plans/2026-07-23-phase-7-semantic-providers.md`
+
+**Reconciliation:**
+
+- Replaced stale English and Chinese README claims that Phase 7 Core remained in pre-publication validation with the exact closure head/run while preserving that Contract V5 is an explicit `standard` opt-in rather than the default public contract.
+- Changed the roadmap's remaining “Core candidate” language to the closed Core scope and renamed the Phase 7 plan's final section from “Current next action” to “Closure state”.
+- Updated the master plan's top authorization line to state that the Phase 7 closure authorization is complete and exhausted.
+- Kept the Phase 7 design/security rules active, but corrected the rollback sentence so explicit `legacy` remains the supported one-restart rollback after closure rather than only until closure.
+- Closed Phase 7 Volume 3 at STEP-433 and changed the root archive label from active/open-ended to closed `STEP-426 through STEP-433`. Later maintenance now returns to this interphase archive as required by the project memory protocol.
+- Compacted recent root summaries to the five entries with current handoff value. Historical point-in-time statements inside closed append-only archives were not rewritten.
+- Left the two untracked Phase 8 OAuth documents unchanged and outside this maintenance scope.
+
+**Exact verification and rule audit:**
+
+- `npm run test:focused -- test/auth-documentation.test.mjs test/phase-7-documentation.test.mjs test/package-contents.test.mjs test/public-cli-help.test.mjs test/operational-reliability.test.mjs` passed 18/18.
+- `npm run policy:check` reported `Repository operational policy: PASS`; `git diff --check` passed with only checkout line-ending warnings.
+- Relative-link audit scanned 129 tracked Markdown files and 82 relative links with zero missing targets. All 32 archive links in `Memory.md` resolve.
+- Every active path explicitly referenced by `AGENTS.md` exists. `.gitignore` still covers `.env` and `.env.*`; no `CLAUDE.md` mirror is required by the project rules.
+- Active non-archive Markdown contains no relative-time wording such as “today”, “yesterday”, “recently”, `今天`, or `最近`.
+- Final size check after this entry: `AGENTS.md` 210 lines / 19,563 bytes; `Memory.md` 118 lines / 15,349 bytes; closed Phase 7 Volume 3 350 lines / 35,515 bytes; active interphase Volume 5 486 lines / 45,508 bytes; master plan 1,366 lines / 77,920 bytes. All remain within project hard limits. Interphase Volume 5 remains below the 48 KB rollover threshold, but the next complete maintenance STEP must check the threshold before appending and open Part 6 if necessary.
+
+**Adversarial review:** A second read-only pass challenged whether the closure evidence was being duplicated into rules, whether public docs overclaimed default V5 activation, whether historical archives were being rewritten, whether Phase 8 was accidentally adopted, and whether the archive routing violated the phase-completion protocol. No blocking inconsistency remained. No independent subagent provider is available in this workspace, so no multi-agent claim is made.
+
+**Decisions, risks, and limitations:** This is documentation and project-memory maintenance only. The published closure head remains unchanged, and no evidence-only commit is created. `AGENTS.md` remains above the neat-freak 15 KB soft preference but below 300 lines and contains active fail-closed rules; broad compression would reduce safety clarity. The master plan remains below its established 1,500-line soft limit and should continue to be read by explicit ranges.
+
+**Rollback:** Revert only the nine STEP-434 documentation/memory files. Do not reopen Phase 7 Volume 3, rewrite earlier append-only entries, or alter the published closure head/run evidence.
+
+**Next action:** None is authorized. Any Phase 7B/7C, Phase 8, release/deployment, credential migration, toolchain-root migration, or deferred Phase 4 work requires separate approval.
+
+## 2026-07-25 — STEP-435: Add evidence-first CI performance collection
+
+**Status:** Phase 0 is implemented and verified locally. The repository can now produce bounded per-test-file timing evidence without changing the existing Windows serialization or Linux split topology. No file was staged, committed, pushed, released, or deployed, and no new GitHub Actions run or artifact exists for this working tree.
+
+**Goal:** Begin the approved CI optimization plan at its lowest-risk boundary: measure the current test topology before changing concurrency, sharding, caches, dependencies, or runtime behavior. The immediate user impact is diagnostic rather than a claimed speedup: the next exact-head matrix can identify the real Windows bottlenecks instead of optimizing from intuition.
+
+**Files changed:**
+
+- `.github/workflows/ci.yml`
+- `scripts/test-domains.mjs`
+- `scripts/test-performance-reporter.mjs`
+- `test/ci-workflow.test.mjs`
+- `test/mutation-architecture.test.mjs`
+- `test/owned-temp-root.test.mjs`
+- `test/test-domain-classification.test.mjs`
+- `test/test-performance-reporter.test.mjs`
+- `Memory.md`
+- `docs/memory/archive/interphase-maintenance-part-5.md`
+
+**Implementation:**
+
+- Added explicit `--performance` collection to the authoritative test-domain runner. The option preserves the established Windows `--test-concurrency=1` behavior and the existing non-Windows main/serial split.
+- Added a Node test-runner reporter that records one bounded entry per repository `test/*.test.mjs` file from first dequeue through completion, sorts entries by descending duration, stores only repository-relative test paths, and includes platform, architecture, Node version, domain, shard, and bounded CI identity.
+- Local evidence uses collision-resistant timestamp/PID names under ignored `.ai-bridge/performance/`. GitHub evidence uses deterministic exact filenames for each domain, shard, platform, and Node major so the workflow never uploads by wildcard.
+- The workflow keeps ordinary console output while adding the JSON reporter, uploads only after the regression step succeeds, includes the hidden `.ai-bridge` directory explicitly, fails if an exact report is absent, retains artifacts for 14 days, and includes `github.run_attempt` in artifact names.
+- Report preparation and validation reject symlinks/junctions, hardlinks, oversized evidence, repository escapes, unstable file identity/metadata, unknown keys, malformed runtime data, and CI context not exactly bound to the current `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, and `GITHUB_JOB`.
+- Registered the reporter's ignored-state directory creation in the fail-closed mutation inventory. The reporter remains in the npm package because the shipped `scripts/test-domains.mjs --performance` path imports it; excluding the small dependency would ship a broken public script.
+- Updated operational contract tests for the additional reporter arguments and child-environment handoff without weakening owned temporary-root cleanup.
+
+**Current evidence and ranking:**
+
+- Existing successful GitHub run `30171313296` at exact head `a0b9f46e2297297959527f7570c9cb7942cc8fb3` remains the live baseline. Its regression/smoke steps were Windows Node 20 `15m29s`/`4m20s`, Windows Node 24 `11m38s`/`4m36s`, Ubuntu Node 20 `2m47s`/`1m24s`, and Ubuntu Node 24 `1m49s`/`1m12s`. This confirms that Windows regression is the first measurement target, but it does not provide per-file artifacts.
+- Managed Node 24 ordinary run `2026-07-25T20-35-16-660Z-phase0-performance-ordinary-node24-final-8cba77fc` completed successfully with 1,252 passes, zero failures, and two established skips across 1,254 tests. The runner cleaned its owned temporary state and produced a 209-file local report with `526,915 ms` wall duration.
+- The Node 24 local top five were `task-worktree-merge-execute.test.mjs` (`32,679 ms`), `git-stash-v4.test.mjs` (`32,172 ms`), `git-integrations-worktree.test.mjs` (`31,427 ms`), `task-worktree-merge-prepare.test.mjs` (`28,900 ms`), and `task-worktree-remove.test.mjs` (`28,408 ms`). These are local Windows measurements only and do not yet authorize concurrency changes.
+- An earlier managed Node 20 ordinary run produced a preliminary 209-file report with `1,014,891 ms` wall duration, then exited nonzero because `test/owned-temp-root.test.mjs` still expected the former three-argument launcher shape. Production tests were 1,250 passes, one test-contract failure, and two established skips. The stale contract was repaired to permit the reporter arguments and assert the derived child environment; the final dual-major focused regressions below passed.
+
+**Exact verification and results:**
+
+- Current Node 24: `npm run test:focused -- test/owned-temp-root.test.mjs test/test-performance-reporter.test.mjs test/test-domain-classification.test.mjs test/ci-workflow.test.mjs test/mutation-architecture.test.mjs` passed 29/29.
+- Managed Node 20.20.2: `node scripts/toolchain-manager.mjs exec --major 20 --root C:\Users\Administrator\AppData\Local\CodexPro\toolchains -- node --test test/owned-temp-root.test.mjs test/test-performance-reporter.test.mjs test/test-domain-classification.test.mjs test/ci-workflow.test.mjs test/mutation-architecture.test.mjs` passed 29/29.
+- Managed Node 24.15.0 detached ordinary with `--performance` passed 1,252/1,254 with two established skips and zero failures.
+- `npm run build` passed.
+- `npm run policy:check` reported `Repository operational policy: PASS`.
+- `npm run test:focused -- test/package-contents.test.mjs` passed 2/2.
+- `npm pack --dry-run --json` completed successfully and included both the shipped domain runner and its reporter.
+- `git diff --check` passed with informational checkout line-ending warnings only.
+- A filename-only secret-pattern scan over the eight implementation/test files returned no matches.
+
+**Adversarial review:**
+
+- Three independent read-only agents reviewed runtime compatibility, CI/test quality, and security after the initial result existed. A final security re-review found no remaining P0/P1.
+- Review repairs added hidden-file upload support, exact artifact paths, run-attempt collision resistance, success-only upload, workflow-step-scoped tests, real multi-reporter integration coverage, linked-state rejection, same-handle bounded reads, stable metadata checks, runtime architecture validation, exact CI-environment binding, mutation-inventory coverage, and adversarial oversized/hardlink/stale/malformed evidence tests.
+- The reviewers confirmed Node 20 and Node 24 multi-reporter compatibility. The final dual-major 29/29 runs above include the last CI-context and adversarial-validator changes.
+
+**Decisions, risks, and limitations:**
+
+- This STEP measures only. It deliberately does not enable parallel Windows execution, change the CI matrix, remove dependencies, alter caches, or refactor tests before exact GitHub data exists.
+- Local `.ai-bridge/performance/` reports are ignored diagnostic evidence, not publication proof. GitHub artifact generation, full cross-platform ranking, and before/after optimization evidence require an explicitly authorized commit/push followed by a new exact-head matrix.
+- The final Node 24 ordinary run began before the last validator-only tightening. Its production test workload and generated local report passed; the final validator changes were separately exercised after the patch on both managed Node majors.
+- Existing unrelated user documentation and Phase 8 working-tree changes were preserved and were not adopted into this STEP.
+
+**Rollback:** Revert only the eight implementation/test files listed above and the STEP-435 memory updates. Ignored local reports and detached-run evidence may be retained for diagnosis; no user configuration, credential, branch, worktree, audit record, or published state needs rollback.
+
+**Next action:** With explicit authorization, stage and commit only the reviewed STEP-435 scope, push normally, run the exact-head Ubuntu/Windows Node 20/24 matrix, download the four exact performance artifacts, and rank the Windows bottlenecks before proposing any Phase 1 optimization.
+
+**Volume state:** Closed after STEP-435 at 53,676 bytes, above the 48 KB rollover threshold. Leave this volume unchanged; create interphase maintenance Part 6 only when the next maintenance STEP begins.

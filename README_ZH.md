@@ -34,11 +34,12 @@
 ## 当前项目状态
 
 - 包元数据当前为 `codexgpt@0.28.6`，`main` 包含尚未发布到 npm 的改动。
-- Phase 5 和 Phase 6 已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。Phase 7 Core 已在本地实现，当前仍处于发布前验证阶段；尚不宣称默认启用或完成 exact-head 关闭。
+- Phase 5、Phase 6 和 Phase 7 Core 均已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。Phase 7 Core 的关闭提交为 `a0b9f46e2297297959527f7570c9cb7942cc8fb3`，exact-head CI run 为 `30171313296`；Contract V5 仍是显式 `standard` opt-in，不是默认公开契约。
+- Phase 8 的 OAuth 2.1 详细设计和 TDD 计划已完成，但运行时尚未实现或开放。当前支持的 ChatGPT 连接仍是下方的 query-token 流程；不要尝试 OAuth 设置或手动静态 Bearer 配置。
 
 ## 安装
 
-CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 账号。OpenAI 当前文档列出的 web 端 Developer Mode 账号范围包括 Pro、Plus、Business、Enterprise 和 Education。
+CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 账号。可用性取决于账户计划、工作区设置和产品 rollout；请以 ChatGPT 当前界面显示的资格为准。
 
 先安装 CLI：
 
@@ -70,9 +71,9 @@ cd /path/to/your/repo
 codexgpt setup
 ```
 
-CodexGPT 会尝试复制包含 `codexgpt_token` query 凭据的完整 ChatGPT Server URL，但启动日志默认隐藏这个秘密 URL。剪贴板不可用时，在 CodexGPT 终端按 `u` 显式显示。先到 `Settings -> Security and login` 打开 Developer mode，再到 `Settings -> Plugins` 创建连接，粘贴完整 URL，并选择 `Authentication: No Authentication / None`。
+CodexGPT 会尝试复制包含 `codexgpt_token` query 凭据的完整 ChatGPT Server URL，但启动日志默认隐藏这个秘密 URL。剪贴板不可用时，在 CodexGPT 终端按 `u` 显式显示。在 ChatGPT 当前的 Apps / Plugins 连接管理页面创建连接；若界面提供 Developer Mode，先启用它。粘贴完整 URL；若表单显示 Authentication，选择 `No Authentication / None`。
 
-当前支持的个人 ChatGPT 兼容方案使用这个 URL-token 流程，OAuth 2.1 仍延后实现。请把完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交这个 URL。
+当前支持的个人 ChatGPT 兼容方案使用这个 URL-token 流程。OAuth 2.1 已完成实施就绪设计，但运行时尚未实现或开放；不要尝试 OAuth 设置或手动静态 Bearer 配置。请把完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交这个 URL。
 
 以后同一个仓库日常启动只需要：
 
@@ -96,7 +97,7 @@ CodexGPT 适合已经有 ChatGPT Apps / Developer Mode 权限并希望做本地�
 - 想在某些模型不能调用工具时，导出一个持久上下文包给它做规划。
 - 想把 ChatGPT 的计划交给 Codex、OpenCode、Pi 或自定义本地代理执行。
 
-当前测试显示，ChatGPT Free / Go 账号不暴露 CodexGPT 需要的 Apps / Developer Mode 创建流程。请使用 ChatGPT 中能看到 Apps / Developer Mode 的账号层级。
+请以 ChatGPT 当前界面是否显示 Apps / Developer Mode 或连接管理入口为准。可用性会受账号、工作区策略和 rollout 影响，CodexGPT 不会解锁这些能力。
 
 ## 它能做什么
 
@@ -171,20 +172,13 @@ npx codexgpt@latest start --root /absolute/path/to/your/repo
 
 ## ChatGPT 中的 App 设置
 
-先在 ChatGPT 打开 Developer Mode：
+打开 ChatGPT 当前的 Apps / Plugins 连接管理页面；若界面提供 Developer Mode，先启用它：
 
 ```text
-ChatGPT Settings
--> Security and login
--> Developer mode: on
--> Enforce CSP in developer mode: on
-
-ChatGPT Settings
--> Plugins
--> Create
+ChatGPT Settings -> Plugins / Apps -> + / Create
 ```
 
-保留 CSP 开启。CodexGPT 的卡片和小组件就是按 CSP 开启的路径设计的，不需要远程脚本、外部字体、iframe 或第三方图片。
+若当前 Developer Mode 页面显示 CSP 开关，保持开启。CodexGPT 的卡片和小组件就是按 CSP 开启的路径设计的，不需要远程脚本、外部字体、iframe 或第三方图片。
 
 在创建 Plugin 页面填写：
 
@@ -193,7 +187,7 @@ Name: CodexGPT
 Description: Local workspace bridge for ChatGPT coding
 Connection: Server URL
 Server URL: 粘贴 CodexGPT 自动复制的完整地址，包括 codexgpt_token query string
-Authentication: No Authentication / None
+Authentication: No Authentication / None（若显示该字段）
 ```
 
 不要删除 URL 的 query string。这个完整 URL 就是当前个人 ChatGPT 兼容流程的凭据；ChatGPT Web 不需要、也不应按照本指南手动配置静态 Bearer header。
@@ -624,7 +618,7 @@ q      停止 CodexGPT
 核心结论：
 
 - 需要能访问 Apps / Developer Mode 的 ChatGPT 账号。
-- Free / Go 在当前测试中不支持这个 App 创建流程。
+- 可用性以当前 Apps / Developer Mode 或连接管理入口为准，并受账号、工作区策略和 rollout 影响。
 - CodexGPT 不绕过任何速率限制。
 - 某些 Pro / planning 模型界面不能直接连接 MCP 工具，使用 `pro-bundle` 作为上下文回退。
 - quick tunnel 每次重启 URL 会变。

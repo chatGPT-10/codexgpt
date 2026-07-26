@@ -65,3 +65,11 @@ This append-only volume continues interphase maintenance after Part 5 closed abo
 Exact-head run `30177170822` passed Repository policy and both complete Ubuntu Node 20/24 jobs, but both Windows regression jobs failed in `cli-approvals.test.mjs` with `CONTROL_SERVER_STALE`. The file owns a real Windows local-control server and launches multiple CLI children, but the initial reviewed manifest had incorrectly placed it in `fast`.
 
 The repair moves `cli-approvals.test.mjs` into the explicit additional-isolated set and exact isolated manifest. A regression first proved the former fast classification, then managed Node 20.20.2 and Node 24.15.0 ran the real CLI journey plus profile/domain contracts at concurrency 1 and passed 13/13 on each major. No production control protocol, authority, timeout, or stale-server check changed. The failed run is retained as materially relevant evidence; a replacement exact-head run is required.
+
+### STEP-436 final exact-head evidence
+
+Commit `b4b041da32be7bfb133495fb30aa851d67d4f216` passed exact-head run `30177507346`: Repository policy and Ubuntu/Windows Node 20/24 Build, Package, Regression, and Smoke all completed successfully. Windows report verification required and uploaded exact `fast`/`safe`/`isolated` artifacts for both majors.
+
+Against Phase 0 run `30174477867`, Windows Node 20 Regression changed from 787s to 655s (`-16.8%`) and its total job from 1,130s to 1,005s (`-11.1%`). Windows Node 24 Regression changed from 729s to 513s (`-29.6%`) and its total job from 1,100s to 821s (`-25.4%`). The Package step changed from 15s to 3s on both majors. Exact report wall totals were 785,828ms to 652,595ms (`-17.0%`) on Node 20 and 726,983ms to 509,749ms (`-29.9%`) on Node 24 while the inventory increased from 227 to 229 files.
+
+The original 40–70% hosted-run target was not fully reached. The remaining Windows cost is dominated by intentionally isolated control/process tests and the unchanged full Smoke journey; weakening those boundaries would trade correctness for a headline number. PR 6 remains draft. Per the project rule, this final run-id update stays local and no evidence-only follow-up commit is created.
