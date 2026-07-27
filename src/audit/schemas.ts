@@ -6,6 +6,7 @@ import type {
   AuditEventV2,
   AuditEventV3,
   AuditEventV4,
+  AuditEventV5,
   AuditIndexV1,
   AuditRetentionStateV1,
   AuditSegmentMetadataV1,
@@ -406,7 +407,64 @@ export const auditEventV4Schema: z.ZodType<AuditEventV4> = z.union([
   rawRecoveryAuditEventV4Schema
 ]);
 
-export const persistedAuditEventSchema = z.union([auditEventV2Schema, auditEventV3Schema, auditEventV4Schema]);
+export const auditEventV5Schema: z.ZodType<AuditEventV5> = z.object({
+  schemaVersion: z.literal(5),
+  contractVersion: z.literal(5),
+  eventId: eventIdSchema,
+  eventType: z.literal("auth_state"),
+  timestamp: timestampSchema,
+  requestId: z.null(),
+  toolName: z.null(),
+  canonicalAction: strictV4OneLineSchema,
+  bindingId: z.string().regex(/^binding_[a-f0-9]{32}$/).nullable(),
+  incarnationId: z.string().regex(/^incarnation_[a-f0-9]{32}$/).nullable(),
+  transition: z.enum([
+    "installation_owner_created",
+    "deployment_state_written",
+    "registry_written",
+    "deployment_recovered",
+    "deployment_backup_created",
+    "signing_key_rotated",
+    "state_migrated",
+    "client_registered",
+    "client_approved",
+    "client_revoked",
+    "authorization_requested",
+    "authorization_approved",
+    "authorization_denied",
+    "authorization_expired",
+    "authorization_code_created",
+    "authorization_code_exchanged",
+    "refresh_rotated",
+    "refresh_replayed",
+    "grant_revoked",
+    "grant_expired"
+  ]),
+  generation: z.number().int().positive().safe(),
+  stateDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  subjectFingerprint: sha256Schema,
+  contextFingerprint: sha256Schema,
+  resultCode: z.null(),
+  counts: boundedByteCountsSchema
+}).strict().superRefine((value, context) => {
+  if (value.canonicalAction !== `auth_state.${value.transition}`) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["canonicalAction"], message: "Auth-state action must match its transition." });
+  }
+  if ((value.bindingId === null) !== (value.incarnationId === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["bindingId"], message: "Auth-state binding and incarnation must both be present or both be absent." });
+  }
+  if (value.transition === "installation_owner_created" && value.bindingId !== null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["bindingId"], message: "Installation owner events cannot claim a deployment binding." });
+  }
+  if (value.transition !== "installation_owner_created" && value.bindingId === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["bindingId"], message: "Deployment auth-state events require binding identity." });
+  }
+  if (value.counts.generation !== value.generation || Object.keys(value.counts).length !== 1) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["counts"], message: "Auth-state counts must contain only the exact generation." });
+  }
+});
+
+export const persistedAuditEventSchema = z.union([auditEventV2Schema, auditEventV3Schema, auditEventV4Schema, auditEventV5Schema]);
 
 const segmentIdSchema = z.string().regex(/^audit-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}$/);
 
@@ -568,7 +626,8 @@ const auditEventTypeV4Schema = z.enum([
   "git_operation",
   "task_worktree",
   "merge_plan",
-  "verification"
+  "verification",
+  "auth_state"
 ]);
 
 const safeOneLineV4Schema = safeOneLineSchema.refine(
@@ -594,7 +653,7 @@ export const queryAuditEventsInputV4Schema = z.object({
   limit: z.number().int().min(1).max(100).optional(),
   cursor: auditCursorV4Schema.optional(),
   eventTypes: z.array(auditEventTypeV4Schema)
-    .min(1).max(13).refine(uniqueValues, "V4 audit event types must be unique.").optional(),
+    .min(1).max(14).refine(uniqueValues, "V4 audit event types must be unique.").optional(),
   toolNames: z.array(safeOneLineV4Schema)
     .min(1).max(32).refine(uniqueValues, "Audit tool names must be unique.").optional(),
   requestIds: z.array(safeIdSchema)
@@ -609,8 +668,8 @@ export const queryAuditEventsInputV4Schema = z.object({
 
 export const auditEventProjectionV4Schema = z.object({
   schemaVersion: z.literal(4),
-  sourceSchemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]),
-  sourceContractVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).nullable(),
+  sourceSchemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+  sourceContractVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).nullable(),
   eventId: eventIdSchema,
   timestamp: timestampSchema,
   eventType: auditEventTypeV4Schema,
@@ -641,16 +700,23 @@ export const auditEventProjectionV4Schema = z.object({
     if (value.subjectFingerprint === null || value.contextFingerprint === null) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["subjectFingerprint"], message: "V3 source events retain both authenticated fingerprints." });
     }
-  } else {
+  } else if (value.sourceSchemaVersion === 4) {
     if (value.sourceContractVersion !== 4 || !nativeV4) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceSchemaVersion"], message: "V4 source events require contract 4 and a native V4 event type." });
     }
     if (value.subjectFingerprint === null || value.contextFingerprint === null) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["subjectFingerprint"], message: "V4 source events retain both authenticated fingerprints." });
     }
+  } else {
+    if (value.sourceContractVersion !== 5 || value.eventType !== "auth_state") {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceSchemaVersion"], message: "V5 source events require contract 5 and auth_state event type." });
+    }
+    if (value.subjectFingerprint === null || value.contextFingerprint === null) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["subjectFingerprint"], message: "V5 auth-state events retain both authenticated fingerprints." });
+    }
   }
   if (value.sourceSchemaVersion !== 4 && (value.repositoryId !== null || value.taskWorktreeId !== null)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["repositoryId"], message: "Legacy events cannot gain V4 repository or task identity facts." });
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["repositoryId"], message: "Non-V4 events cannot gain repository or task identity facts." });
   }
 });
 

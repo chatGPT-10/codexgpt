@@ -12,6 +12,7 @@ import {
   type GitResourceV4,
   type PermissionProfileDocumentV1,
   type PermissionProfileDocumentV3,
+  type OAuthRequestIdentityV2,
   type PolicyDecisionV1,
   type RequestContextV1,
   type RequestContextV3,
@@ -302,12 +303,26 @@ export const requestIdentityV3Schema: z.ZodType<RequestIdentityV3> = z.object({
   if (requiresSubject !== (value.subject !== null)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["subject"], message: "Subject does not match identity kind." });
 });
 
+export const oauthRequestIdentityV2Schema: z.ZodType<OAuthRequestIdentityV2> = z.object({
+  schemaVersion: z.literal(2),
+  kind: z.literal("oauth_subject"),
+  authenticationMode: z.literal("oauth2"),
+  credentialRef: z.string().regex(/^cred_[a-z2-7]{16,52}$/),
+  credentialRevision: safeIdSchema,
+  subject: z.string().min(1).max(240),
+  ownerId: z.string().regex(/^owner_[a-f0-9]{32}$/),
+  tokenId: safeIdSchema,
+  clientRef: safeIdSchema,
+  scopes: z.array(z.enum(POLICY_SCOPES_V4)).max(POLICY_SCOPES_V4.length),
+  assuranceLevel: z.literal("strong")
+}).strict();
+
 export const requestContextV1Schema: z.ZodType<RequestContextV1> = z.object({
   schemaVersion: z.literal(1),
   requestId: safeIdSchema,
   transportKind: z.enum(["stdio", "streamable_http"]),
   transportSessionId: safeIdSchema,
-  identity: requestIdentityV1Schema,
+  identity: z.union([requestIdentityV1Schema, requestIdentityV3Schema, oauthRequestIdentityV2Schema]),
   workspaceId: safeIdSchema.nullable(),
   runtimeProfileId: safeIdSchema,
   permissionProfileId: profileIdSchema,
@@ -612,6 +627,7 @@ export const sessionGrantV1Schema: z.ZodType<SessionGrantV1> = z.object({
   schemaVersion: z.literal(1),
   grantId: safeIdSchema,
   credentialRef: z.string().regex(/^cred_[a-z2-7]{16,52}$/).nullable(),
+  credentialRevision: safeIdSchema.optional(),
   transportSessionId: safeIdSchema,
   workspaceId: safeIdSchema.nullable(),
   policyRevision: safeIdSchema,

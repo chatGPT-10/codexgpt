@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { resolveAuditRequirement, type CodexGPTConfig } from "../config.js";
 import {
+  credentialRevisionForIdentity,
+  effectivePolicyScopes,
+  ownerIdForPolicyIdentity
+} from "../auth/policyIdentity.js";
+import {
   CONTRACT_V3_ADDITIONS,
   CONTRACT_V4_ADDITIONS,
   contractIncludesV3,
@@ -546,12 +551,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         sessionGrantRevision: grants.revision(),
         receivedAt: now
       });
-      const effectiveScopes: PolicyScopeV4[] = [...context.identity.scopes];
-      if (contractV3 && input.config.executionProfile !== "off") effectiveScopes.push("process:manage", "shell:execute", "process:persistent");
-      if (contractV3 && input.config.executionProfile === "full_access") effectiveScopes.push("host:full-access", "workspace:full-access", "network:connect");
-      if (contractV4 && input.config.gitMode === "local") {
-        effectiveScopes.push("git:index:write", "git:refs:write", "git:commit", "git:merge", "worktree:manage");
-      }
+      const effectiveScopes: PolicyScopeV4[] = [...effectivePolicyScopes(input.config, context.identity)];
 
       const digest = inputDigest(args);
       const reconnectBoundApproval = contractV3 && (
@@ -647,9 +647,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         const facts = createAuthorizationFactsV3({
           serverId: input.localApprovalRuntimeV3.serverId,
           credentialRef: authorizationContext.identity.credentialRef,
-          credentialRevision: authorizationContext.identity.credentialRef
-            ? semanticDigest({ credentialRef: authorizationContext.identity.credentialRef })
-            : "credential-none",
+          credentialRevision: credentialRevisionForIdentity(authorizationContext.identity),
           transportKind: authorizationContext.transportKind,
           transportSessionId: authorizationContext.transportSessionId,
           identityKind: authorizationContext.identity.kind,
@@ -699,9 +697,7 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
           input.rootAdmissionRuntimeV3.registerPendingApproval(requested.approval.approvalId, args, {
             serverId: input.localApprovalRuntimeV3.serverId,
             credentialRef: context.identity.credentialRef,
-            credentialRevision: context.identity.credentialRef
-              ? semanticDigest({ credentialRef: context.identity.credentialRef })
-              : "credential-none",
+            credentialRevision: credentialRevisionForIdentity(context.identity),
             transportKind: context.transportKind,
             transportSessionId: context.transportSessionId,
             identityKind: context.identity.kind,
@@ -795,14 +791,11 @@ export function createDefaultPolicyRuntime(input: CreateDefaultPolicyRuntimeInpu
         (["R1", "R2", "R3"] as const).includes(described.riskClass as "R1" | "R2" | "R3")
       ) {
         const expiresAt = new Date(Date.parse(now) + 5 * 60_000).toISOString();
-        const ownerSeed = `${context.identity.kind}\0${context.identity.subject ?? ""}\0${context.identity.credentialRef ?? ""}`;
         const facts = createAuthorizationFactsV4({
           serverId: input.localApprovalRuntimeV3?.serverId ?? "server-v4",
-          ownerId: `owner_${createHash("sha256").update(ownerSeed).digest("hex").slice(0, 32)}`,
+          ownerId: ownerIdForPolicyIdentity(context.identity),
           credentialRef: context.identity.credentialRef,
-          credentialRevision: context.identity.credentialRef
-            ? semanticDigest({ credentialRef: context.identity.credentialRef })
-            : "credential-none",
+          credentialRevision: credentialRevisionForIdentity(context.identity),
           transportKind: context.transportKind,
           transportSessionId: context.transportSessionId,
           repositoryId: described.resource.repositoryId,

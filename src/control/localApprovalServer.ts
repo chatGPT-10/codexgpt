@@ -1,3 +1,9 @@
+import { AuthConfigurationError } from "../auth/errors.js";
+import type {
+  OAuthOwnerApprovalControl,
+  OAuthOwnerClientControl,
+  OAuthOwnerGrantControl
+} from "../auth/ownerApproval.js";
 import { riskLimits, SessionGrantStore } from "../policy/approval.js";
 import type { RequestContextV1 } from "../policy/types.js";
 import {
@@ -25,6 +31,18 @@ export interface LocalProcessControlV3 {
   terminate(processId: string): boolean | Promise<boolean>;
 }
 
+export interface LocalAdminBootstrapControlV3 {
+  issue(): string | Promise<string>;
+}
+
+export interface OAuthSigningKeyControlV3 {
+  rotate(input: { revokeAll: boolean }): void | Promise<void>;
+}
+
+export interface OAuthBackupControlV3 {
+  create(): string | Promise<string>;
+}
+
 export interface LocalApprovalServerOptions {
   serverId: string;
   approvals: PendingApprovalStore;
@@ -33,6 +51,16 @@ export interface LocalApprovalServerOptions {
   now?: () => number;
   prepareApproval?: (record: PendingApprovalV3) => void | Promise<void>;
   displayApproval?: (record: PendingApprovalV3) => ApprovalDisplaySummaryV3 | null;
+  oauthAdminBootstrap?: LocalAdminBootstrapControlV3;
+  oauthBackups?: OAuthBackupControlV3;
+  oauthSigningKeys?: OAuthSigningKeyControlV3;
+  oauthAuthorizations?: OAuthOwnerApprovalControl;
+  oauthClients?: OAuthOwnerClientControl;
+  oauthGrants?: OAuthOwnerGrantControl;
+}
+
+function isOAuthAuditUnavailable(error: unknown): boolean {
+  return error instanceof AuthConfigurationError && error.code === "OAUTH_AUDIT_FAILURE";
 }
 
 function delay(milliseconds: number): Promise<void> {
@@ -149,6 +177,12 @@ export class LocalApprovalServer {
   readonly #now: () => number;
   #prepareApproval?: (record: PendingApprovalV3) => void | Promise<void>;
   #displayApproval?: (record: PendingApprovalV3) => ApprovalDisplaySummaryV3 | null;
+  #oauthAdminBootstrap?: LocalAdminBootstrapControlV3;
+  #oauthBackups?: OAuthBackupControlV3;
+  #oauthSigningKeys?: OAuthSigningKeyControlV3;
+  #oauthAuthorizations?: OAuthOwnerApprovalControl;
+  #oauthClients?: OAuthOwnerClientControl;
+  #oauthGrants?: OAuthOwnerGrantControl;
   #mutationTail: Promise<void> = Promise.resolve();
 
   constructor(options: LocalApprovalServerOptions) {
@@ -159,6 +193,12 @@ export class LocalApprovalServer {
     this.#now = options.now ?? Date.now;
     this.#prepareApproval = options.prepareApproval;
     this.#displayApproval = options.displayApproval;
+    this.#oauthAdminBootstrap = options.oauthAdminBootstrap;
+    this.#oauthBackups = options.oauthBackups;
+    this.#oauthSigningKeys = options.oauthSigningKeys;
+    this.#oauthAuthorizations = options.oauthAuthorizations;
+    this.#oauthClients = options.oauthClients;
+    this.#oauthGrants = options.oauthGrants;
   }
 
   setApprovalPreparation(
@@ -171,6 +211,30 @@ export class LocalApprovalServer {
 
   setProcessControl(processes: LocalProcessControlV3 | undefined): void {
     this.#processes = processes;
+  }
+
+  setOAuthAdminBootstrapControl(control: LocalAdminBootstrapControlV3 | undefined): void {
+    this.#oauthAdminBootstrap = control;
+  }
+
+  setOAuthBackupControl(control: OAuthBackupControlV3 | undefined): void {
+    this.#oauthBackups = control;
+  }
+
+  setOAuthSigningKeyControl(control: OAuthSigningKeyControlV3 | undefined): void {
+    this.#oauthSigningKeys = control;
+  }
+
+  setOAuthAuthorizationControl(control: OAuthOwnerApprovalControl | undefined): void {
+    this.#oauthAuthorizations = control;
+  }
+
+  setOAuthClientControl(control: OAuthOwnerClientControl | undefined): void {
+    this.#oauthClients = control;
+  }
+
+  setOAuthGrantControl(control: OAuthOwnerGrantControl | undefined): void {
+    this.#oauthGrants = control;
   }
 
   async handle(raw: unknown): Promise<LocalControlResponseV3> {
@@ -193,6 +257,94 @@ export class LocalApprovalServer {
         const changed = await this.#processes?.terminate(request.processId) ?? false;
         return this.#processResponse(changed ? "PROCESS_TERMINATED" : "PROCESS_NOT_FOUND", changed, await this.#processes?.list() ?? []);
       }
+      case "oauth.admin.bootstrap": {
+        const oauthAdminBootstrapUrl = await this.#oauthAdminBootstrap?.issue();
+        if (!oauthAdminBootstrapUrl) return this.#oauthAdminBootstrapResponse("OAUTH_ADMIN_UNAVAILABLE", false, undefined);
+        return this.#oauthAdminBootstrapResponse("OAUTH_ADMIN_BOOTSTRAP_ISSUED", true, oauthAdminBootstrapUrl);
+      }
+      case "oauth.authorizations.list":
+        return this.#oauthAuthorizationResponse("CONTROL_OK", true, false);
+      case "oauth.authorizations.approve":
+        return this.#mutate(async () => {
+          try {
+            const changed = await this.#oauthAuthorizations?.approve(request.pendingId) ?? false;
+            return this.#oauthAuthorizationResponse(changed ? "OAUTH_AUTHORIZATION_APPROVED" : "OAUTH_AUTHORIZATION_NOT_FOUND", changed, changed);
+          } catch (error) {
+            if (isOAuthAuditUnavailable(error)) return this.#oauthAuthorizationResponse("OAUTH_AUDIT_UNAVAILABLE_RUN_CODEXGPT_DOCTOR", false, false);
+            throw error;
+          }
+        });
+      case "oauth.authorizations.deny":
+        return this.#mutate(async () => {
+          try {
+            const changed = await this.#oauthAuthorizations?.deny(request.pendingId) ?? false;
+            return this.#oauthAuthorizationResponse(changed ? "OAUTH_AUTHORIZATION_DENIED" : "OAUTH_AUTHORIZATION_NOT_FOUND", changed, changed);
+          } catch (error) {
+            if (isOAuthAuditUnavailable(error)) return this.#oauthAuthorizationResponse("OAUTH_AUDIT_UNAVAILABLE_RUN_CODEXGPT_DOCTOR", false, false);
+            throw error;
+          }
+        });
+      case "oauth.clients.list":
+        return this.#oauthClientResponse("CONTROL_OK", true, false);
+      case "oauth.clients.revoke":
+        return this.#mutate(async () => {
+          try {
+            await this.#oauthBackups?.create();
+            const changed = await this.#oauthClients?.revoke(request.clientId) ?? false;
+            return this.#oauthClientResponse(changed ? "OAUTH_CLIENT_REVOKED" : "OAUTH_CLIENT_NOT_FOUND", changed, changed);
+          } catch (error) {
+            if (isOAuthAuditUnavailable(error)) return this.#oauthClientResponse("OAUTH_AUDIT_UNAVAILABLE_RUN_CODEXGPT_DOCTOR", false, false);
+            throw error;
+          }
+        });
+      case "oauth.clients.prune_unapproved":
+        return this.#mutate(async () => {
+          try {
+            await this.#oauthBackups?.create();
+            const count = await this.#oauthClients?.pruneUnapproved() ?? 0;
+            return this.#oauthClientResponse(count > 0 ? "OAUTH_UNAPPROVED_CLIENTS_PRUNED" : "OAUTH_CLIENT_NOT_FOUND", true, count > 0);
+          } catch (error) {
+            if (isOAuthAuditUnavailable(error)) return this.#oauthClientResponse("OAUTH_AUDIT_UNAVAILABLE_RUN_CODEXGPT_DOCTOR", false, false);
+            throw error;
+          }
+        });
+      case "oauth.signing.rotate":
+        return this.#mutate(async () => {
+          try {
+            if (!this.#oauthSigningKeys) return this.#oauthGrantResponse("OAUTH_SIGNING_CONTROL_UNAVAILABLE", false, false);
+            await this.#oauthBackups?.create();
+            if (request.revokeAll) await this.#oauthGrants?.revokeOwner();
+            await this.#oauthSigningKeys.rotate({ revokeAll: request.revokeAll });
+            return this.#oauthGrantResponse(request.revokeAll ? "OAUTH_SIGNING_KEY_ROTATED_AND_GRANTS_REVOKED" : "OAUTH_SIGNING_KEY_ROTATED", true, true);
+          } catch (error) {
+            if (isOAuthAuditUnavailable(error)) return this.#oauthGrantResponse("OAUTH_AUDIT_UNAVAILABLE_RUN_CODEXGPT_DOCTOR", false, false);
+            throw error;
+          }
+        });
+      case "oauth.grants.list":
+        return this.#oauthGrantResponse("CONTROL_OK", true, false);
+      case "oauth.grants.revoke":
+        return this.#mutate(async () => {
+          try {
+            await this.#oauthBackups?.create();
+            const changed = await this.#oauthGrants?.revoke(request.grantId) ?? false;
+            return this.#oauthGrantResponse(changed ? "OAUTH_GRANT_REVOKED" : "OAUTH_GRANT_NOT_FOUND", changed, changed);
+          } catch (error) {
+            if (isOAuthAuditUnavailable(error)) return this.#oauthGrantResponse("OAUTH_AUDIT_UNAVAILABLE_RUN_CODEXGPT_DOCTOR", false, false);
+            throw error;
+          }
+        });
+      case "oauth.grants.revoke_owner":
+        return this.#mutate(async () => {
+          try {
+            await this.#oauthBackups?.create();
+            const count = await this.#oauthGrants?.revokeOwner() ?? 0;
+            return this.#oauthGrantResponse(count > 0 ? "OAUTH_OWNER_GRANTS_REVOKED" : "OAUTH_GRANT_NOT_FOUND", true, count > 0);
+          } catch (error) {
+            if (isOAuthAuditUnavailable(error)) return this.#oauthGrantResponse("OAUTH_AUDIT_UNAVAILABLE_RUN_CODEXGPT_DOCTOR", false, false);
+            throw error;
+          }
+        });
     }
   }
 
@@ -300,6 +452,73 @@ export class LocalApprovalServer {
       sequence: this.#sequence(),
       approvals: [],
       processes,
+      grantId: null,
+      changed
+    });
+  }
+
+  #oauthAdminBootstrapResponse(code: string, ok: boolean, oauthAdminBootstrapUrl: string | undefined): LocalControlResponseV3 {
+    return localControlResponseV3Schema.parse({
+      schemaVersion: 3,
+      contractVersion: 3,
+      serverId: this.serverId,
+      ok,
+      code,
+      sequence: this.#sequence(),
+      approvals: [],
+      processes: [],
+      ...(oauthAdminBootstrapUrl ? { oauthAdminBootstrapUrl } : {}),
+      grantId: null,
+      changed: false
+    });
+  }
+
+  async #oauthAuthorizationResponse(code: string, ok: boolean, changed: boolean): Promise<LocalControlResponseV3> {
+    const oauthAuthorizations = await this.#oauthAuthorizations?.list() ?? [];
+    return localControlResponseV3Schema.parse({
+      schemaVersion: 3,
+      contractVersion: 3,
+      serverId: this.serverId,
+      ok,
+      code,
+      sequence: this.#sequence(),
+      approvals: [],
+      processes: [],
+      oauthAuthorizations,
+      grantId: null,
+      changed
+    });
+  }
+
+  async #oauthClientResponse(code: string, ok: boolean, changed: boolean): Promise<LocalControlResponseV3> {
+    const oauthClients = await this.#oauthClients?.list() ?? [];
+    return localControlResponseV3Schema.parse({
+      schemaVersion: 3,
+      contractVersion: 3,
+      serverId: this.serverId,
+      ok,
+      code,
+      sequence: this.#sequence(),
+      approvals: [],
+      processes: [],
+      oauthClients,
+      grantId: null,
+      changed
+    });
+  }
+
+  async #oauthGrantResponse(code: string, ok: boolean, changed: boolean): Promise<LocalControlResponseV3> {
+    const oauthGrants = await this.#oauthGrants?.list() ?? [];
+    return localControlResponseV3Schema.parse({
+      schemaVersion: 3,
+      contractVersion: 3,
+      serverId: this.serverId,
+      ok,
+      code,
+      sequence: this.#sequence(),
+      approvals: [],
+      processes: [],
+      oauthGrants,
       grantId: null,
       changed
     });

@@ -35,6 +35,36 @@ import { PersistentAuditStore } from "./audit/index.js";
 import { LocalApprovalRuntimeV3 } from "./control/runtime.js";
 import { SemanticPreviewStore } from "./semantic/previewStore.js";
 import { createSemanticWorkerHealthRegistry } from "./semantic/builtin/typescriptProvider.js";
+import { resolveOAuthDeploymentConfiguration } from "./auth/configuration.js";
+import { oauthScopesForDeployment } from "./auth/policyIdentity.js";
+import { createOAuthDeploymentIdentity } from "./auth/schemas.js";
+import {
+  AuthDeploymentCoordinator,
+  AuthKeyManager,
+  AuthProcessInstanceRegistry,
+  AuthStateLock,
+  AuthStateStore,
+  AuthorizationStore,
+  DeploymentRegistry,
+  LocalAdminSessionManager,
+  OAuthClientStore,
+  OAuthGrantStore,
+  OAuthOwnerApprovalService,
+  OAuthOwnerClientService,
+  OAuthOwnerGrantService,
+  OAuthTokenService,
+  PersistentAuthStateAuditAppender,
+  createProductionCredentialStore,
+  removeOAuthRuntimeStatus,
+  writeOAuthRuntimeStatus
+} from "./auth/index.js";
+import { profileIdForRoot } from "./profileStore.js";
+import { createPublicOAuthApp } from "./http/publicApp.js";
+import { OAuthReadOnlyMcpRuntime } from "./http/oauthMcpRuntime.js";
+import {
+  createLocalAdminApp,
+  createLocalControlOwnerAdminService
+} from "./http/localAdminApp.js";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -1462,6 +1492,13 @@ function onboardingPage(config: CodexGPTConfig): string {
 </html>`;
 }
 
+async function startLocalApprovalRuntime(
+  auditStore: PersistentAuditStore,
+  stateBaseRoot: string
+): Promise<LocalApprovalRuntimeV3> {
+  return LocalApprovalRuntimeV3.start({ auditStore, stateBaseRoot });
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   if (argv.includes("--version") || argv.includes("-v") || argv[0] === "version") {
@@ -1474,7 +1511,7 @@ async function main(): Promise<void> {
   }
 
   const config = loadConfig();
-  if (config.requireHttpToken && !config.authToken) {
+  if (config.authMode === "legacy" && config.requireHttpToken && !config.authToken) {
     throw new Error(
       "CODEXGPT_HTTP_TOKEN is required for this HTTP binding. " +
         "Set CODEXGPT_HTTP_TOKEN, use `codexgpt start` to generate one, " +
@@ -1492,6 +1529,247 @@ async function main(): Promise<void> {
   const semanticWorkerHealthV5 = contractIncludesV5(config.toolContractVersion)
     ? createSemanticWorkerHealthRegistry()
     : undefined;
+
+  if (config.authMode === "oauth") {
+    const profile = readWorkspaceProfile(config.defaultRoot);
+    const deployment = resolveOAuthDeploymentConfiguration({
+      canonicalRoot: config.defaultRoot,
+      profileId: profileIdForRoot(config.defaultRoot),
+      hostname: profile.hostname ?? "",
+      issuer: profile.oauthIssuer,
+      resource: profile.oauthResource,
+      tunnel: profile.tunnel ?? "",
+      tunnelName: profile.tunnelName ?? "",
+      tunnelOwner: profile.tunnelOwner ?? "",
+      publicHost: config.host,
+      publicPort: config.port,
+      localAdminHost: "127.0.0.1",
+      localAdminPort: Number(profile.localAdminPort ?? 8788)
+    });
+    const stateRoot = resolveTransactionStateRoot();
+    const oauthStateRoot = path.join(stateRoot, "oauth");
+    const auditRegistry = new ProcessInstanceRegistry(stateRoot);
+    const auditStore = PersistentAuditStore.open({
+      stateRoot,
+      registry: auditRegistry,
+      retention: config.auditRetention
+    });
+    const credentialStore = createProductionCredentialStore();
+    const authInstance = new AuthProcessInstanceRegistry(oauthStateRoot);
+    let localApprovalRuntime: LocalApprovalRuntimeV3 | undefined;
+    let oauthTokenService: OAuthTokenService | undefined;
+    let oauthMcpRuntime: OAuthReadOnlyMcpRuntime | undefined;
+    let publicServer: ReturnType<express.Express["listen"]> | undefined;
+    let localAdminServer: ReturnType<express.Express["listen"]> | undefined;
+    let runtimeStatusIdentity: { profileId: string; pid: number; serverId: string } | undefined;
+    try {
+      await credentialStore.probe();
+      const authAudit = new PersistentAuthStateAuditAppender(auditStore);
+      const authStore = new AuthStateStore(oauthStateRoot, credentialStore, {
+        audit: authAudit
+      });
+      const authLocks = new AuthStateLock(oauthStateRoot, authInstance);
+      const authRegistry = new DeploymentRegistry(authStore);
+      const authCoordinator = new AuthDeploymentCoordinator(
+        authStore,
+        new AuthKeyManager(credentialStore),
+        authRegistry,
+        authLocks
+      );
+      const initialized = await authCoordinator.initialize(deployment);
+      const state = initialized.state;
+      const identity = createOAuthDeploymentIdentity({
+        issuer: state.issuer,
+        resource: state.resource,
+        hostname: state.hostname,
+        profileId: state.profileId,
+        bindingId: state.bindingId,
+        incarnationId: state.incarnationId,
+        recoveryEpoch: state.recoveryEpoch
+      });
+      const enabledScopes = oauthScopesForDeployment(config);
+      localApprovalRuntime = await startLocalApprovalRuntime(auditStore, stateRoot);
+      const oauthClients = new OAuthClientStore({
+        store: authStore,
+        locks: authLocks,
+        bindingId: state.bindingId,
+        incarnationId: state.incarnationId
+      });
+      const oauthAuthorizations = new AuthorizationStore({
+        identity,
+        canonicalRoot: state.canonicalRoot,
+        enabledScopes,
+        clients: oauthClients,
+        audit: authAudit
+      });
+      const oauthGrants = new OAuthGrantStore({
+        store: authStore,
+        locks: authLocks,
+        bindingId: state.bindingId,
+        incarnationId: state.incarnationId,
+        ownerRef: state.ownerRef,
+        resource: state.resource
+      });
+      oauthTokenService = await OAuthTokenService.create({
+        identity,
+        ownerSubject: initialized.ownerSubject,
+        ownerRef: state.ownerRef,
+        state,
+        store: authStore,
+        keyManager: authCoordinator.keyManager,
+        grants: oauthGrants
+      });
+      oauthMcpRuntime = new OAuthReadOnlyMcpRuntime({
+        config,
+        identity,
+        enabledScopes,
+        localApprovalRuntimeV3: localApprovalRuntime,
+        semanticPreviewStoreV5,
+        semanticWorkerHealthV5
+      });
+      const localAdminOrigin = `http://${deployment.listeners.localAdminHost}:${deployment.listeners.localAdminPort}`;
+      const localAdminSessions = new LocalAdminSessionManager();
+      const ownerAdminService = createLocalControlOwnerAdminService(
+        localApprovalRuntime,
+        localAdminSessions,
+        localAdminOrigin
+      );
+      localApprovalRuntime.setOAuthAdminBootstrapControl({
+        issue: () => ownerAdminService.issueBootstrap()
+      });
+      localApprovalRuntime.setOAuthBackupControl({
+        create: () => authCoordinator.createBackup(deployment.identityKey)
+      });
+      localApprovalRuntime.setOAuthSigningKeyControl({
+        rotate: async () => {
+          await authCoordinator.rotateSigningKey(deployment.identityKey, { createBackup: false });
+        }
+      });
+      localApprovalRuntime.setOAuthAuthorizationControl(
+        new OAuthOwnerApprovalService(oauthAuthorizations)
+      );
+      localApprovalRuntime.setOAuthClientControl(
+        new OAuthOwnerClientService(oauthClients, oauthGrants)
+      );
+      localApprovalRuntime.setOAuthGrantControl(
+        new OAuthOwnerGrantService(oauthGrants)
+      );
+      console.error(`[CodexGPT] OAuth owner-control server ${localApprovalRuntime.serverId}`);
+      const publicApp = createPublicOAuthApp({
+        identity,
+        enabledScopes,
+        publicJwks: [state.activePublicJwk, ...state.previousPublicJwks],
+        allowedOrigins: config.allowedOrigins,
+        oauthRuntime: {
+          clients: oauthClients,
+          authorizations: oauthAuthorizations,
+          tokens: oauthTokenService,
+          mcp: oauthMcpRuntime
+        }
+      });
+      const localAdminApp = createLocalAdminApp({
+        ownerAdminService,
+        sessions: localAdminSessions,
+        origin: localAdminOrigin
+      });
+      const listen = (
+        app: express.Express,
+        port: number,
+        host: string,
+        label: string
+      ): Promise<ReturnType<express.Express["listen"]>> => new Promise((resolve, reject) => {
+        const server = app.listen(port, host);
+        const onError = (error: Error): void => {
+          server.off("listening", onListening);
+          reject(error);
+        };
+        const onListening = (): void => {
+          server.off("error", onError);
+          console.error(`[CodexGPT] ${label} on http://${host}:${port}`);
+          resolve(server);
+        };
+        server.once("error", onError);
+        server.once("listening", onListening);
+      });
+      publicServer = await listen(
+        publicApp,
+        deployment.listeners.publicPort,
+        deployment.listeners.publicHost,
+        "OAuth public listener"
+      );
+      try {
+        localAdminServer = await listen(
+          localAdminApp,
+          deployment.listeners.localAdminPort,
+          deployment.listeners.localAdminHost,
+          "OAuth local-admin listener"
+        );
+        const nativeControlReady = localApprovalRuntime.nativeControl()!.ready;
+        writeOAuthRuntimeStatus(oauthStateRoot, {
+          schemaVersion: 1,
+          profileId: state.profileId,
+          canonicalRoot: state.canonicalRoot,
+          bindingId: state.bindingId,
+          incarnationId: state.incarnationId,
+          serverId: localApprovalRuntime.serverId,
+          pid: nativeControlReady.pid,
+          processCreationTime: nativeControlReady.processCreationTime,
+          localAdminOrigin,
+          startedAt: new Date().toISOString()
+        });
+        runtimeStatusIdentity = {
+          profileId: state.profileId,
+          pid: process.pid,
+          serverId: localApprovalRuntime.serverId
+        };
+      } catch (error) {
+        await new Promise<void>((resolve) => publicServer!.close(() => resolve()));
+        publicServer = undefined;
+        throw error;
+      }
+    } catch (error) {
+      await oauthMcpRuntime?.close().catch(() => undefined);
+      oauthTokenService?.dispose();
+      await localApprovalRuntime?.close().catch(() => undefined);
+      authInstance.dispose();
+      auditStore.dispose();
+      auditRegistry.dispose();
+      throw error;
+    }
+
+    const closeServer = (server: ReturnType<express.Express["listen"]> | undefined) =>
+      server
+        ? new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+        : Promise.resolve();
+    let shutdownPromise: Promise<void> | undefined;
+    const shutdown = (): Promise<void> => {
+      if (shutdownPromise) return shutdownPromise;
+      shutdownPromise = (async () => {
+        if (runtimeStatusIdentity) {
+          removeOAuthRuntimeStatus(oauthStateRoot, runtimeStatusIdentity.profileId, runtimeStatusIdentity);
+          runtimeStatusIdentity = undefined;
+        }
+        await Promise.all([closeServer(publicServer), closeServer(localAdminServer)]);
+        await oauthMcpRuntime?.close();
+        oauthTokenService?.dispose();
+        await localApprovalRuntime?.close();
+        authInstance.dispose();
+        auditStore.dispose();
+        auditRegistry.dispose();
+      })();
+      return shutdownPromise;
+    };
+    const requestShutdown = (): void => {
+      void shutdown().catch((error) => {
+        console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+        process.exitCode = 1;
+      });
+    };
+    process.once("SIGINT", requestShutdown);
+    process.once("SIGTERM", requestShutdown);
+    return;
+  }
+
   const sharedApprovalStateRootV5 = contractIncludesV5(config.toolContractVersion) &&
     config.policyEngineMode === "enforce" &&
     config.auditMode !== "off" &&
@@ -1510,10 +1788,7 @@ async function main(): Promise<void> {
       })
     : undefined;
   const sharedLocalApprovalRuntimeV5 = sharedApprovalStateRootV5 && sharedApprovalAuditStoreV5
-    ? await LocalApprovalRuntimeV3.start({
-        auditStore: sharedApprovalAuditStoreV5,
-        stateBaseRoot: sharedApprovalStateRootV5
-      })
+    ? await startLocalApprovalRuntime(sharedApprovalAuditStoreV5, sharedApprovalStateRootV5)
     : undefined;
 
   const app = express();

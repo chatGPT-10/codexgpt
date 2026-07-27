@@ -1,0 +1,66 @@
+# Phase 8 OAuth and Public Authentication — Volume 5
+
+## 2026-07-27 — STEP-470 — Gate G8-X local closure
+
+**Status:** Gate G8-X local closure is accepted for the current uncommitted source checkout. Phase 8 Core, authorized live Gate G8-U Journeys U2–U7, and the local dual-Node closure gates now pass. Exact-head CI, publication, release, deployment, credential migration, staging, commit, and push remain separate authorization gates and are not claimed complete.
+
+**Goal:** Validate the complete Phase 8 worktree through the authoritative focused, ordinary, protected Smoke, package, policy, dependency, documentation, credential, and adversarial review boundaries; repair any code defect found by the closure suites; preserve the U6 evidence-substitution limitation; and leave all Git publication and external state unchanged.
+
+**Files changed by STEP-470:** `scripts/codexgpt.mjs`, active Phase 8 status documents, `Memory.md`, and this archive volume. No profile, OAuth state, grant, client, credential, Tunnel, DNS, registry, service, scheduled task, or remote repository state was changed.
+
+**Test-first repair:** The first managed dual-Node protected Smoke run, `2026-07-27T12-58-31-603Z-phase8-g8-x-smoke-matrix-e7db4251`, failed on Node 20 in the named-Cloudflare settings smoke. `waitForPublicHealth()` awaited public DNS serially before observing the already-started `cloudflared` child, so the synthetic child failure and its redacted diagnostic tail were masked by `AUTH_EXTERNAL_DNS_UNAVAILABLE`. The minimal repair starts child-exit observation before the public-health branch and gives an immediately rejected public-DNS lookup a bounded one-second diagnostic grace. A successful named-tunnel start still requires public DNS resolution and successful public `/healthz`; no security check was removed or bypassed. The affected `settings-smoke-platform-compat.mjs` then passed.
+
+**Focused Phase 8 evidence:** After the diagnostic-race repair and status reconciliation, `npm run build && npm run test:focused -- test/phase-8-*.test.mjs` passed build plus `166/166` Phase 8 tests with zero failures and zero skips. The suite includes real disposable Windows DPAPI CurrentUser round trips, listener runtime/separation, OAuth setup, public health, local administration, policy identity, scope enforcement, token exchange/validation/revoke/replay, and synthetic end-to-end authenticated MCP. The final documentation/package/inventory/redaction slice passed `50/50`.
+
+**Managed ordinary evidence:** The post-repair detached run `2026-07-27T13-20-49-272Z-phase8-g8-x-ordinary-matrix-r2-471681bb` used retained official Node `20.20.2` and `24.15.0` toolchains and completed with exit `0`, zero stderr, no log truncation, exact temporary-state cleanup, and no stale/unknown reclassification. On each major, the ordinary layers reported:
+- broad layer: `1065` tests, `1064` passed, `1` skipped, `0` failed;
+- transaction/repository layer: `300` tests, `299` passed, `1` skipped, `0` failed;
+- serialized boundary layer: `66/66` passed.
+
+This is `1431` tests per major: `1429` passed, `2` skipped, `0` failed. Both skips are explicit Windows capability skips: symlink/oversize profile-store behavior and executable-mode drift verification. They are not environment failures or reclassified stale runs.
+
+**Managed protected Smoke evidence:** The post-repair detached run `2026-07-27T13-05-15-016Z-phase8-g8-x-smoke-matrix-r2-a1bbb40a` completed with exit `0`, zero stderr, no truncation, and exact temporary-state cleanup on Node `20.20.2` and `24.15.0`. Each major passed all eight protected smoke groups: analysis, analysis CLI, core stdio, HTTP, Pro CLI, doctor, settings, and execute/watch/loop handoff.
+
+**Static, package, dependency, and supply-chain evidence:**
+- `npm run policy:check`, `git diff --check`, `npm ci --ignore-scripts --dry-run`, and `npm ls --all` passed. The diff check emitted only the repository's existing LF/CRLF working-copy warnings.
+- Exact direct versions and lockfile entries agree: `@modelcontextprotocol/sdk@1.29.0`, `jose@6.2.4`, `typescript@5.9.3`, and `yaml@2.9.0`; `package-lock.json` is lockfile version 3.
+- Retained official toolchains report Node `v20.20.2` and `v24.15.0` ready with their recorded official archive SHA-256 values.
+- `npm audit --omit=dev --audit-level=high` reports `0 high`, `0 critical`, and two known moderate transitive findings in the MCP SDK's Hono `serve-static` compatibility line. CodexGPT does not import or mount that API in the production OAuth/MCP path; an incompatible SDK downgrade was rejected.
+- The production dependency license inventory contains 98 packages, only Apache-2.0/BSD-2-Clause/BSD-3-Clause/BlueOak-1.0.0/ISC/MIT identifiers, and no missing license metadata.
+- `npm pack --dry-run --json --ignore-scripts` reports `codexgpt-0.28.6.tgz`, `654` files, `1,419,157` packed bytes, and `7,794,848` unpacked bytes. No archive was created. Package-content tests retain required OAuth/DPAPI/native-host artifacts and exclude tests, internal memory, private OAuth state, backups, credentials, and attack fixtures.
+
+**Documentation and credential evidence:** A code-fence-aware audit found zero broken relative links across 20 changed Markdown files. The final non-test changed-file scan covered 56 files and found no private-key block, JWT-shaped value, known token prefix, Bearer credential, or query credential. Two broad-scan matches were reviewed test-only synthetic redaction/rejection fixtures, not credentials. No secret, complete token, private key, DPAPI blob, Cloudflare token, client registration body, or sensitive local output is recorded here.
+
+**Live evidence retained from G8-U:** Journeys U2–U7 remain accepted. U6 uses a documented evidence substitution because the original Legacy App was deleted: a recreated Legacy App proved current rollback compatibility, exact no-argument setup restored OAuth, and the existing OAuth App proved return continuity. Continuity of the deleted original Legacy App identity is not claimed. U7 retains byte-identical shared/unowned Tunnel refusal and live public-loopback/local-admin boundary evidence. G8-X made no new external-state mutation.
+
+**Adversarial review:** No independent DevSpace agent provider was available, so three separate manual passes were performed and are not represented as multi-agent review. The execution/evidence pass checked run identity, exact majors, stale-run handling, skips, failure provenance, temporary cleanup, and current-tree binding. The security/integrity pass checked that the DNS-race repair preserves mandatory public DNS and HTTPS health, that child output remains bounded/redacted, that dependency/package/license/credential boundaries remain closed, and that no new OAuth or execution authority appears. The operability/rollback pass checked actionable named-tunnel failure precedence, Windows-native behavior, retained Legacy/OAuth route semantics, current documentation truthfulness, and rollback without external-state mutation. No further code defect was found.
+
+**Control and publication boundary:** The local control domain was not run through the DevSpace connector because repository rules require CI or a proven independent native terminal. Exact-head Ubuntu/Windows Node 20/24 Repository policy, Build, Regression, Smoke, and Package remain mandatory before publication. Local G8-X acceptance therefore closes the source-checkout gate, not the exact-head publication gate.
+
+**Risks and limitations:** Bearer access tokens remain replayable until expiry or durable revocation; Core does not claim DPoP, sender-constrained Bearers, Cloudflare Access, end-to-end mTLS, multi-owner tenancy, OIDC ID-token/userinfo behavior, same-user isolation, or an OS sandbox. DPAPI is Windows CurrentUser-only. `full_access`, external processes, Providers, ConPTY, and managed worktrees remain ambient-authority mechanisms. U6's deleted-App identity continuity cannot be recovered or proven. The two moderate non-reachable Hono advisories remain tracked until a compatible MCP SDK line resolves them.
+
+**Rollback:** Revert the bounded `waitForPublicHealth()` diagnostic-race change and the STEP-470 status/memory documentation. That would restore DNS-first failure reporting and re-open local G8-X. No OAuth state, profile, credential, Tunnel, DNS, grant, client, App, remote Git, or deployment rollback is required because STEP-470 changed none of them.
+
+**Next approved action:** Await explicit authorization for reviewed staging, commit, ordinary push, and exact-head CI diagnosis/repair. Release, deployment, credential migration, registry credentials, unrelated Cloudflare/DNS/Tunnel mutation, force push, destructive history, Phase 9, and other gated scope remain unapproved.
+
+## 2026-07-27 — STEP-471 — Neat-freak reconciliation after local G8-X
+
+**Status:** Active project rules, Phase 8 design/plan terminology, the master implementation plan, and the concise memory index now distinguish the completed local source-checkout evidence from the still-pending exact-head publication closure. No runtime behavior, external state, or Git publication state changed.
+
+**Goal:** Remove duplicated STEP-level history from always-loaded rules, graduate completed Journey detail out of the root memory index, eliminate ambiguity between `local G8-X` and full `G8-X / Phase 8 Core closure`, and verify that required files, references, limits, and current next actions remain truthful for the next agent.
+
+**Files changed:** `AGENTS.md`, `Memory.md`, `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, `docs/superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md`, and this archive volume. Source, tests, package metadata, profiles, OAuth state, credentials, Tunnel/DNS, and remote Git state were not changed.
+
+**Implementation:** Compacted the Phase 8 rule boundary and current approved execution boundary in `AGENTS.md` so they retain only durable invariants, the U6/U7 exceptions, current authorization limits, and the pointer to authoritative Phase 8 documents. Compacted `Memory.md` by merging STEP-437–470 into one current-state fact and removing Journey U2–U6 summaries already preserved in append-only archives. Clarified in the Phase 8 design that STEP-470 satisfies only the local source-checkout subset; full G8-X and Phase 8 Core closure still require separately authorized exact-head CI/publication. Aligned the master plan acceptance wording with that split.
+
+**Verification:** `npm run test:focused -- test/auth-documentation.test.mjs test/phase-8-plan-command-contract.test.mjs test/public-cli-help.test.mjs test/package-contents.test.mjs` passed `16/16`. `npm run policy:check` passed. `git diff --check` passed with only existing LF/CRLF working-copy warnings. A code-fence-aware relative-link audit covered 20 changed Markdown files and found `0` broken links. Active non-archive status scanning found no stale `G8-X remains` claim. Credential-pattern scanning found only literal protocol placeholders such as `Bearer resource_metadata="<exact-metadata-url>"`, not credential values.
+
+**Size and governance audit:** `AGENTS.md` decreased to `15,163` bytes and 125 physical lines, below the 15 KiB soft budget; `Memory.md` decreased to `14,195` bytes and 95 physical lines before this entry's final index update, below the practical 18 KB/150-line target and hard 25 KB/200-line limit. `docs/` remains larger than `docs/memory/`, so the knowledge hierarchy is not inverted. Root `AGENTS.md` and `Memory.md` exist; project rules do not require a `CLAUDE.md` symlink, so none was created. Referenced Phase 4–8 specs/plans, review documents, supported entry scripts, toolchain manager, and archive targets exist.
+
+**Adversarial review:** DevSpace exposes no independent agent provider in this workspace, so the result received three separate manual passes rather than a claimed multi-agent review. The knowledge pass checked status consistency and duplicate history; the rules pass checked required files, dead references, authorization boundaries, and size limits; the handoff pass checked that a new agent can identify the completed local evidence, the exact U6 limitation, and the single next authorization boundary without reading historical volumes first. No code or security-boundary defect was found.
+
+**Risks and limitations:** Full Phase 8 closure is not claimed until one exact published head passes Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package. Historical archive statements remain intentionally unchanged. The worktree still contains the complete uncommitted Phase 8 implementation; neat-freak did not stage, commit, push, delete, rename, or reformat unrelated files.
+
+**Rollback:** Revert only the STEP-471 documentation and memory edits. No source, test, dependency, OAuth, Cloudflare, credential, service, registry, or remote Git rollback is required.
+
+**Next approved action:** Await explicit authorization for reviewed staging, commit, ordinary push, and exact-head CI. Publication, release, deployment, credential migration, unrelated Cloudflare/DNS/Tunnel mutation, force push, destructive history, Phase 9, and other gated scope remain unapproved.

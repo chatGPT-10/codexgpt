@@ -972,6 +972,25 @@ export class PersistentAuditStore {
   }
 
   private projectEventV4(event: PersistedAuditEvent): AuditEventProjectionV4 {
+    if (event.schemaVersion === 5) {
+      return {
+        schemaVersion: 4,
+        sourceSchemaVersion: 5,
+        sourceContractVersion: 5,
+        eventId: event.eventId,
+        timestamp: event.timestamp,
+        eventType: event.eventType,
+        requestId: event.requestId,
+        toolName: event.toolName,
+        canonicalAction: event.canonicalAction,
+        repositoryId: null,
+        taskWorktreeId: null,
+        subjectFingerprint: event.subjectFingerprint,
+        contextFingerprint: event.contextFingerprint,
+        resultCode: event.resultCode,
+        counts: event.counts
+      };
+    }
     if (event.schemaVersion === 4) {
       return {
         schemaVersion: 4,

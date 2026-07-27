@@ -48,7 +48,7 @@ Server URL: 粘贴 CodexGPT 复制的完整地址，包括 codexgpt_token
 Authentication: No Authentication / None（若显示该字段）
 ```
 
-完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。Phase 8 的 OAuth 2.1 已完成实施就绪设计，但运行时尚未实现或开放；本指南不声称 ChatGPT Web 支持 OAuth 设置或手动配置静态 Bearer header。
+完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。未发布的 source checkout 已完成本地验证的 Phase 8 Tasks 8A1–8A9、真实 Gate G8-U Journeys U2–U7 和本地 G8-X，并继续通过独立 OAuth App 与 token-free URL 工作；exact-head CI 与 publication 仍未完成。本节只说明保留的 Legacy 兼容 App。不要混用两个 App，也不要把任一路径改成手动 static Bearer。
 
 ## CSP 要保持开启吗？
 

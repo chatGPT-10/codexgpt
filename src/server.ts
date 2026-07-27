@@ -4,6 +4,12 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { maybeOAuthRequestContext } from "./auth/requestContext.js";
+import {
+  enforceOAuthToolScopes,
+  oauthSecuritySchemesForTool,
+  type OAuthToolSecurityRuntime
+} from "./auth/toolSecurity.js";
 import {
   assertFileTransactionConfiguration,
   assertToolContractConfiguration,
@@ -734,6 +740,8 @@ const workspaceSnapshotProviderCountsSchema = z.object({
   other: z.number().int().nonnegative()
 }).strict();
 
+const standardGuidanceProviderSchema = z.lazy(() => standardGuidanceProviderSchemaImpl);
+
 const workspaceSnapshotSummaryProviderResultSchema = z.object({
   text: z.string().min(1),
   workspaceId: z.string().min(1),
@@ -744,7 +752,8 @@ const workspaceSnapshotSummaryProviderResultSchema = z.object({
   skillInventory: z.array(workspaceSnapshotProviderSkillSchema),
   skillCounts: workspaceSnapshotProviderCountsSchema,
   tree: z.string().min(1),
-  gitStatus: z.string().min(1)
+  gitStatus: z.string().min(1),
+  standardGuidance: standardGuidanceProviderSchema.optional()
 }).strict();
 
 const workspaceSnapshotAiProviderResultSchema = z.object({
@@ -2507,7 +2516,7 @@ const openCurrentWorkspaceProviderCountsSchema = z.object({
   other: z.number().int().nonnegative()
 }).strict();
 
-const standardGuidanceProviderSchema = z.object({
+const standardGuidanceProviderSchemaImpl = z.object({
   status: z.enum(["ok", "warning", "unavailable"]),
   instructionChain: z.array(z.object({
     path: z.string().min(1),
@@ -2857,6 +2866,7 @@ function validateWorkspaceSnapshotSummary(
   }
 
   if (
+    !result.standardGuidance &&
     !options.includeSkills &&
     (result.skills.length || result.skillInventory.length || result.skillCounts.total)
   ) {
@@ -4446,6 +4456,7 @@ export interface CodexGPTServerDependencies extends Phase3DServerDependencies {
   ) => ChangeAnalysis | Promise<ChangeAnalysis>;
   policyRuntime?: PolicyRuntime;
   policySessionContextSource?: PolicySessionContextSource;
+  oauthToolSecurity?: OAuthToolSecurityRuntime;
   policyAuditSink?: (event: AuditEventV1) => void | Promise<void>;
   transactionRecoveryCoordinator?: TransactionRecoveryHook;
   workspaceMutationRuntime?: WorkspaceMutationRuntime;
@@ -4584,6 +4595,7 @@ interface ServerMutationRegistration {
 }
 
 const mutationRegistrationByServer = new WeakMap<object, ServerMutationRegistration>();
+const oauthToolSecurityByServer = new WeakMap<object, OAuthToolSecurityRuntime>();
 
 function registerToolCompat(
   server: McpServer,
@@ -4598,11 +4610,25 @@ function registerToolCompat(
         provider: () => handler(args)
       })
     : handler;
+  const oauthToolSecurity = oauthToolSecurityByServer.get(server as object);
+  const authenticatedHandler: CodexToolHandler = oauthToolSecurity
+    ? async (args) => {
+        const context = maybeOAuthRequestContext();
+        if (!context) {
+          return {
+            content: [{ type: "text", text: "CodexGPT refused the tool call because OAuth request identity is unavailable." }],
+            isError: true
+          };
+        }
+        const denied = enforceOAuthToolScopes({ toolName: name, context, runtime: oauthToolSecurity });
+        return denied ?? mutationAwareHandler(args);
+      }
+    : mutationAwareHandler;
   const wrapped = async (args: any) => {
     const started = Date.now();
     try {
       const result = attachStructuredDuration(
-        tagToolResult(await mutationAwareHandler(args ?? {}), name, options),
+        tagToolResult(await authenticatedHandler(args ?? {}), name, options),
         Date.now() - started
       );
       logToolCall(name, result?.isError ? "error" : "ok", started);
@@ -4617,10 +4643,12 @@ function registerToolCompat(
     }
   };
 
-  const securitySchemes = [{ type: "noauth" }];
+  const securitySchemes = oauthToolSecurity
+    ? oauthSecuritySchemesForTool(name)
+    : [{ type: "noauth" }];
   const fullOptions: Record<string, unknown> = {
-    securitySchemes,
     ...options,
+    securitySchemes,
     _meta: {
       securitySchemes,
       ...(options._meta as Record<string, unknown> | undefined)
@@ -4629,16 +4657,37 @@ function registerToolCompat(
 
   const s = server as any;
   if (typeof s.registerTool === "function") {
-    s.registerTool(name, fullOptions, wrapped);
-    return mutationAwareHandler;
+    const registered = s.registerTool(name, fullOptions, wrapped) as Record<string, unknown> | undefined;
+    if (registered && typeof registered === "object") registered.securitySchemes = securitySchemes;
+    return authenticatedHandler;
   }
 
   if (typeof s.tool === "function") {
     s.tool(name, (fullOptions.description as string | undefined) ?? name, fullOptions.inputSchema ?? {}, wrapped);
-    return mutationAwareHandler;
+    return authenticatedHandler;
   }
 
   throw new Error("Unsupported MCP SDK: McpServer has neither registerTool nor tool.");
+}
+
+function installOAuthToolListSecurity(server: McpServer): void {
+  const candidate = server as any;
+  const handlers = candidate.server?._requestHandlers as Map<string, (...args: any[]) => unknown> | undefined;
+  const original = handlers?.get("tools/list");
+  if (!handlers || typeof original !== "function") {
+    throw new Error("OAuth tool metadata requires the MCP tools/list handler.");
+  }
+  handlers.set("tools/list", async (...args: any[]) => {
+    const result = await original(...args) as { tools?: Array<Record<string, unknown>> };
+    if (!result || !Array.isArray(result.tools)) return result;
+    return {
+      ...result,
+      tools: result.tools.map((tool) => ({
+        ...tool,
+        securitySchemes: oauthSecuritySchemesForTool(String(tool.name ?? ""))
+      }))
+    };
+  });
 }
 
 const MINIMAL_TOOL_NAMES = [
@@ -4747,7 +4796,7 @@ function toolNamesForMode(config: CodexGPTConfig): string[] {
     const bashIndex = names.indexOf("bash");
     if (bashIndex !== -1) names.splice(bashIndex, 1);
   }
-  if (config.writeMode !== "workspace") {
+  if (config.authMode !== "oauth" && config.writeMode !== "workspace") {
     for (const writeTool of ["write", "edit", "apply_patch"]) {
       const toolIndex = names.indexOf(writeTool);
       if (toolIndex !== -1) names.splice(toolIndex, 1);
@@ -4848,7 +4897,11 @@ function shouldRegisterTool(config: CodexGPTConfig, name: string): boolean {
     return contractIncludesV2(config.toolContractVersion) && config.toolMode !== "minimal";
   }
   if (name === "bash" && (contractIncludesV3(config.toolContractVersion) || config.bashMode === "off")) return false;
-  if ((name === "write" || name === "edit" || name === "apply_patch") && config.writeMode !== "workspace") return false;
+  if (
+    (name === "write" || name === "edit" || name === "apply_patch") &&
+    config.authMode !== "oauth" &&
+    config.writeMode !== "workspace"
+  ) return false;
   if (name === "codex_sessions") return config.codexSessions !== "off";
   if (name === "read_codex_session") return config.codexSessions === "read";
   if (name === "inspect_workspace" && !config.analysisEnabled) return false;
@@ -5998,8 +6051,12 @@ const HANDOFF_WRITE_ANNOTATIONS = { readOnlyHint: false, openWorldHint: false, d
 
 function workspaceIdentityBinding(source?: PolicySessionContextSource): string | undefined {
   if (!source) return undefined;
+  const identity = currentPolicyIdentity(source);
+  const material = identity.schemaVersion === 2 && identity.kind === "oauth_subject"
+    ? `oauth_subject\0${identity.ownerId}`
+    : JSON.stringify(identity);
   return `identity_${createHash("sha256")
-    .update(JSON.stringify(source.identity), "utf8")
+    .update(material, "utf8")
     .digest("hex")
     .slice(0, 24)}`;
 }
@@ -6166,7 +6223,7 @@ import {
 } from "./policy/integration.js";
 import { baselineNodeCapabilityReport } from "./policy/enforcement.js";
 import { HARD_POLICY_REVISION } from "./policy/hardPolicy.js";
-import type { PolicySessionContextSource } from "./policy/identity.js";
+import { currentPolicyIdentity, type PolicySessionContextSource } from "./policy/identity.js";
 import { describeFilesystemBatchResource, describeGitResource } from "./policy/resources.js";
 import { createDefaultPolicyRuntime } from "./policy/runtime.js";
 import type { AuditEventV1 } from "./policy/types.js";
@@ -6189,6 +6246,9 @@ export function createCodexGPTServer(
   config: CodexGPTConfig,
   dependencies: CodexGPTServerDependencies = {}
 ): McpServer {
+  if (dependencies.oauthToolSecurity && !dependencies.policySessionContextSource) {
+    throw new Error("OAuth tool security requires a request-local policy identity source.");
+  }
   assertFileTransactionConfiguration(config, {
     workspaceMutatorsAtomic: Boolean(
       dependencies.workspaceMutationRuntime &&
@@ -6390,6 +6450,9 @@ export function createCodexGPTServer(
       : undefined
   );
   const server = new McpServer({ name: "CodexGPT", version: "0.28.6" }, { instructions: serverInstructions(config) });
+  if (dependencies.oauthToolSecurity) {
+    oauthToolSecurityByServer.set(server as object, dependencies.oauthToolSecurity);
+  }
   if (semanticManager) {
     const closeServer = server.close.bind(server);
     let semanticClose: Promise<void> | null = null;
@@ -8113,6 +8176,10 @@ export function createCodexGPTServer(
       }>;
       try {
         summary = workspaceSnapshotSummaryProviderResultSchema.parse(rawSummary);
+        const standardMode = (config.guidanceMode ?? "legacy") === "standard";
+        if (standardMode !== Boolean(summary.standardGuidance)) {
+          throw new CodexGPTError("Workspace snapshot provider guidance mode mismatch.");
+        }
         normalizedInventory = validateWorkspaceSnapshotSummary(
           summary,
           workspace,
@@ -11054,5 +11121,6 @@ export function createCodexGPTServer(
     throw new Error("Policy Kernel runtime is required for shadow, enforce, or writable atomic audit mode.");
   }
   if (effectivePolicyRuntime) installPolicyKernel(server, effectivePolicyRuntime);
+  if (dependencies.oauthToolSecurity) installOAuthToolListSecurity(server);
   return server;
 }

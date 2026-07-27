@@ -352,9 +352,52 @@ export type AuditEventV4 =
   | VerificationAuditEventV4
   | RecoveryAuditEventV4;
 
-export type PersistedAuditEvent = AuditEventV2 | AuditEventV3 | AuditEventV4;
+export type AuthStateTransitionV5 =
+  | "installation_owner_created"
+  | "deployment_state_written"
+  | "registry_written"
+  | "deployment_recovered"
+  | "deployment_backup_created"
+  | "signing_key_rotated"
+  | "state_migrated"
+  | "client_registered"
+  | "client_approved"
+  | "client_revoked"
+  | "authorization_requested"
+  | "authorization_approved"
+  | "authorization_denied"
+  | "authorization_expired"
+  | "authorization_code_created"
+  | "authorization_code_exchanged"
+  | "refresh_rotated"
+  | "refresh_replayed"
+  | "grant_revoked"
+  | "grant_expired";
+
+export interface AuthStateAuditEventV5 {
+  schemaVersion: 5;
+  contractVersion: 5;
+  eventId: string;
+  eventType: "auth_state";
+  timestamp: string;
+  requestId: null;
+  toolName: null;
+  canonicalAction: string;
+  bindingId: string | null;
+  incarnationId: string | null;
+  transition: AuthStateTransitionV5;
+  generation: number;
+  stateDigest: string;
+  subjectFingerprint: string;
+  contextFingerprint: string;
+  resultCode: null;
+  counts: Record<string, number>;
+}
+
+export type AuditEventV5 = AuthStateAuditEventV5;
+export type PersistedAuditEvent = AuditEventV2 | AuditEventV3 | AuditEventV4 | AuditEventV5;
 export type AuditEventTypeV3 = AuditEventType | AuditEventV3["eventType"];
-export type AuditEventTypeV4 = AuditEventTypeV3 | NativeAuditEventTypeV4;
+export type AuditEventTypeV4 = AuditEventTypeV3 | NativeAuditEventTypeV4 | AuditEventV5["eventType"];
 
 export interface AuditEnvelopeV1 {
   storeVersion: 1;
@@ -485,8 +528,8 @@ export interface QueryAuditEventsInputV4 {
 
 export interface AuditEventProjectionV4 {
   schemaVersion: 4;
-  sourceSchemaVersion: 2 | 3 | 4;
-  sourceContractVersion: 1 | 2 | 3 | 4 | null;
+  sourceSchemaVersion: 2 | 3 | 4 | 5;
+  sourceContractVersion: 1 | 2 | 3 | 4 | 5 | null;
   eventId: string;
   timestamp: string;
   eventType: AuditEventTypeV4;

@@ -364,6 +364,30 @@ test("workspace_snapshot remains full-mode only and advertises an exact output s
   });
 });
 
+test("workspace_snapshot accepts the default standard-guidance summary shape", async () => {
+  await withTempWorkspace(async (root) => {
+    await withConfigClient(createTestConfig(root, { guidanceMode: "standard" }), {}, async (client) => {
+      const opened = await client.callTool({
+        name: "open_current_workspace",
+        arguments: { include_tree: false }
+      });
+      assert.equal(opened.isError, undefined, JSON.stringify(opened));
+      const workspaceId = opened.structuredContent?.data?.workspace_id;
+      assert.equal(typeof workspaceId, "string");
+
+      const result = await client.callTool({
+        name: "workspace_snapshot",
+        arguments: { workspace_id: workspaceId }
+      });
+      const parsed = parseSnapshotResult(result);
+      assert.equal(result.isError, undefined, JSON.stringify(result));
+      assert.equal(parsed.ok, true);
+      assert.equal(parsed.data.workspace_id, workspaceId);
+      assert.equal(parsed.data.tool_mode, "full");
+    });
+  });
+});
+
 test("workspace_snapshot returns exact nested data with approved defaults", async () => {
   await withTempWorkspace(async (root) => {
     let seenOptions;

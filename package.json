@@ -100,9 +100,10 @@
     "test:control-domain": "node scripts/test-domains.mjs run --domain control"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.4",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "jose": "6.2.4",
     "minimatch": "^10.0.1",
     "typescript": "5.9.3",
     "yaml": "2.9.0",

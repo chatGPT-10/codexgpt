@@ -1,5 +1,5 @@
 import { requestContextV1Schema } from "./schemas.js";
-import type { PolicySessionContextSource } from "./identity.js";
+import { currentPolicyIdentity, type PolicySessionContextSource } from "./identity.js";
 import type { RequestContextV1 } from "./types.js";
 
 export interface PolicyRequestState {
@@ -32,7 +32,7 @@ export function createRequestContext(
     requestId: state.requestId,
     transportKind: source.transportKind,
     transportSessionId,
-    identity: structuredClone(source.identity),
+    identity: structuredClone(currentPolicyIdentity(source)),
     workspaceId: state.workspaceId,
     runtimeProfileId: state.runtimeProfileId,
     permissionProfileId: state.permissionProfileId,

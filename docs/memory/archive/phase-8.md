@@ -239,3 +239,177 @@ The design still requires exact RFC 9207 issuer binding, constrained public-clie
 **Rollback:** Revert this local checkpoint. No remote or external rollback exists because no push, deployment, Tunnel/DNS, ChatGPT, credential, or service mutation occurred.
 
 **Only next action:** Task 8A1. Apply the approved exact dependency pins, add pure auth-mode/deployment-identity/metadata RED tests, and retain `OAUTH_RUNTIME_UNAVAILABLE` until later tasks close.
+
+## 2026-07-26 — STEP-444: Revalidate Task 8A3 and reopen the implementation boundary
+
+**Status:** Task 8A3 is not complete. The public/local Express app factories and their narrow tests exist, but the supported OAuth production startup path cannot reach a usable two-listener state. Task 8A4 remains blocked.
+
+**Goal:** Independently verify the prior Task 8A3 completion claim against the reviewed plan, production entry path, negative security boundaries, and managed Node 20/24 rather than accepting app-factory unit tests as runtime evidence.
+
+**Files changed:**
+
+- `Memory.md`
+- `docs/memory/archive/phase-8.md`
+
+No runtime source, test, dependency, credential, profile, tunnel, DNS, ChatGPT App, staged index, commit, push, or deployment state was changed. Disposable `.ai-bridge/a3-*-verify-*` profile fixtures were removed after execution.
+
+**Confirmed implementation:**
+
+- `src/http/publicApp.ts` and `src/http/localAdminApp.ts` are separate Express factories.
+- Public owner/admin paths return `404`; forwarded Host is not trusted; public root/health use `no-store`; metadata is serialized once per app construction with the frozen 60-second cache headers; `/mcp` returns the stable unavailable response.
+- Listener configuration requires distinct loopback ports.
+- Existing legacy HTTP/security/local-control focused regressions still pass.
+
+**Blocking defects:**
+
+1. `src/http.ts` performs the legacy `CODEXGPT_HTTP_TOKEN` requirement before the OAuth branch. A disposable direct OAuth launch of `dist/http.js` exits with `CODEXGPT_HTTP_TOKEN is required for this HTTP binding` before either listener starts.
+2. `scripts/codexgpt.mjs` always creates a legacy static token unless `--no-auth` is used. Both states conflict with `assertHttpAuthModeCompatibility()` in OAuth mode, so the supported `scripts/codexgpt-entry.mjs start` path cannot correctly launch OAuth.
+3. The launcher probes `http://127.0.0.1:<public-port>/healthz` without the configured OAuth Host header, while the public app correctly requires the exact saved hostname. The supported-entry disposable run timed out without reaching healthy state.
+4. The launcher checks only the public port and has no local-admin port availability or status URL model.
+5. Task 8A3 requires pre-serialized metadata/JWKS plus the exact public-safe 32-active/64-queued/600-per-minute boundary. `src/http/publicApp.ts` has no `/jwks` route and no admission/rate limiter.
+6. `OwnerAdminService` is only a `{ kind: "local-control-cli" }` tag and is not implemented by or connected to the existing current-user local-control adapter.
+7. The Task 8A3 tests instantiate app factories directly. They do not exercise `loadConfig()`, `src/http.ts`, the public entry, both bound ports, launcher health, shutdown, runtime status, or Cloudflare ingress exclusion.
+
+**Exact verification and results:**
+
+- `npm run build` passed.
+- `npm run test:focused -- test/phase-8-listener-separation.test.mjs test/phase-8-public-health.test.mjs test/http-security.test.mjs test/process-local-control-cli.test.mjs test/local-control-protocol.test.mjs test/phase-7-http-reconnect-preview.test.mjs` passed 19/19.
+- Managed toolchain status at `C:\Users\Administrator\AppData\Local\CodexPro\toolchains` reported Node `20.20.2` and `24.15.0` ready.
+- Managed Node 20 and 24 each passed the five Task 8A3 app-factory tests and `npm run build`.
+- Disposable direct `dist/http.js` OAuth launch failed with exit code 1 at the legacy HTTP-token precheck.
+- Disposable supported `codexgpt-entry start --tunnel none` did not become healthy and was terminated by the bounded 12-second test timeout; no test listener remained and all disposable fixtures were removed.
+- `npm run policy:check` passed.
+- `git diff --check` passed with only the repository's existing LF-to-CRLF informational warnings.
+
+**Decision:** Passing app-factory tests is necessary but not sufficient evidence of physical listener separation. Closure requires a supported-entry integration test that proves both loopback sockets bind, public Host behavior works through the launcher probe, local-admin is unreachable through public routing, shutdown closes both sockets, and no legacy credential mode is introduced.
+
+**Rollback:** Revert only this verification correction in `Memory.md` and this archive entry. No production or external state requires rollback.
+
+**Only next action:** Complete Task 8A3 itself. Repair OAuth-aware launcher/config startup, both-port lifecycle/status, JWKS and frozen admission limits, real owner-service wiring, and add the supported-entry integration regression before beginning Task 8A4.
+
+## 2026-07-26 — STEP-445: Complete corrected Task 8A3 physical listener separation
+
+**Status:** Task 8A3 is complete locally after correcting every blocker identified by STEP-444. The supported public entry now reaches and owns two physically distinct loopback listeners in OAuth mode. Task 8A4 is the only next runtime action.
+
+**Goal:** Make listener separation true at the production entry, process, state, socket, routing, lifecycle, and user-status layers—not only in isolated Express factories—while preserving legacy behavior and keeping OAuth MCP authorization unavailable.
+
+**Files changed by this corrected slice:**
+
+- `scripts/codexgpt-entry.mjs`
+- `scripts/codexgpt.mjs`
+- `src/config.ts`
+- `src/http.ts`
+- `src/http/publicApp.ts`
+- `src/http/localAdminApp.ts`
+- `src/http/securityHeaders.ts`
+- `test/phase-8-auth-config.test.mjs`
+- `test/phase-8-listener-separation.test.mjs`
+- `test/phase-8-public-health.test.mjs`
+- `test/phase-8-listener-runtime.test.mjs`
+- active Phase 8 rule/plan/roadmap/memory files
+
+The working tree also contains the already-authorized unstaged Tasks 8A1–8A2 files. No stage, commit, push, release, deployment, real credential migration, Cloudflare/DNS/Tunnel mutation, or real ChatGPT linking occurred.
+
+**Implementation:**
+
+- The public entry detects saved/profile-selected OAuth before applying legacy query-token output compatibility. OAuth launch explicitly carries `CODEXGPT_AUTH_MODE=oauth`, disables query/no-auth credentials, and never creates or prints a legacy static token.
+- The launcher validates both loopback ports before spawn, probes public health with the exact configured OAuth Host using native HTTP rather than a fetch implementation that rewrites Host, probes local-admin health separately, writes the token-free local-admin status URL, and terminates the child on either probe failure.
+- `src/http.ts` applies the legacy token prerequisite only to legacy mode. OAuth startup resolves the reviewed deployment configuration, opens the installation-wide persistent audit, probes Windows DPAPI CurrentUser, initializes or reuses the atomic deployment registry/state under the auth state root, and derives identity/JWKS from the persisted binding/incarnation/key revision instead of hard-coded identifiers.
+- OAuth startup creates one current-user native local-control runtime and exposes it through a concrete `OwnerAdminService` adapter. The local browser app has only static status/health and no mutation route.
+- Public and local-admin servers bind sequentially with explicit listen-error handling. If the second bind loses a race, the already-bound public server closes before startup fails. Shutdown is idempotent and closes both sockets, local control, auth-process evidence, audit, and process registries.
+- The public app has exact configured-Host validation with `trust proxy=false`; forwarded Host is not authority. It exposes only protected-resource/authorization-server metadata, `/jwks`, static `/`, minimal `/healthz`, and the stable unavailable `/mcp` stub. Owner/admin/setup routes are physically absent.
+- Metadata and JWKS are pre-serialized per deployment state revision with `public, max-age=60, must-revalidate` and credential-free CORS. Root, health, overflow, and MCP-unavailable responses are `no-store`.
+- The frozen public-safe admission boundary is active: 32 active, 64 queued, and 600 requests/minute per process/deployment. Overflow returns bounded `429` plus `Retry-After: 1`; no per-request durable audit is connected to this path.
+- Cloudflare launcher paths continue to target only `localBase` (the public port); `localAdminBase` is never passed to cloudflared.
+- OAuth CLI messaging no longer describes the URL as secret or instructs `Authentication: None`; it accurately reports that discovery is ready while MCP authorization remains unavailable in Task 8A3.
+
+**TDD and failure evidence:**
+
+- The first supported-entry regression failed with `ECONNREFUSED`, proving that app-factory tests had not exercised production startup.
+- After the credential-mode fixes, the same test exposed a second defect: Node fetch did not preserve the configured Host override and the launcher timed out on `403 Forbidden: Host is not allowed`. Replacing that probe with native HTTP fixed the authority mismatch without weakening Host validation.
+- The inherited Phase 7 lifecycle architecture test then failed because OAuth introduced a second textual `LocalApprovalRuntimeV3.start` construction. A single shared factory restored one lifecycle construction boundary rather than weakening the regression.
+- The inherited A1 config test still expected permanent `OAUTH_RUNTIME_UNAVAILABLE`; it was updated to accept listener-only OAuth configuration while retaining exact mixed-credential and malformed-local-port failures.
+
+**Exact verification and results:**
+
+- Current Node `npm run build`: pass.
+- Current affected listener/legacy/Phase-7 suite: 24/24 pass.
+- Current auth-state/metadata/DPAPI/mutation/native architecture suite: 50/50 pass.
+- Current public-entry/cloudflared/connector-output suite: 15/15 pass.
+- Final current runtime slice: 3/3 pass, including supported-entry dual bind/restart, second-bind race rollback, and launcher local-port precheck.
+- Managed Node `20.20.2` and `24.15.0`: each passed the 24-test affected listener/legacy/Phase-7 suite before the final race regression; each then passed the final 11-test A3 slice including that regression.
+- Managed Node `20.20.2` and `24.15.0`: build pass on both.
+- Supported-entry runtime evidence proves: exact public Host probing, two distinct loopback sockets, persisted JWKS equality across restart, available current-user local-control channel, token-free output/status, public absence of owner routes, local absence of browser mutation routes, and closure of both sockets.
+- Direct-runtime race evidence proves a local-admin `EADDRINUSE` after public bind closes the public socket before process failure.
+- `npm run policy:check`: `Repository operational policy: PASS`.
+- `git diff --check`: pass; only repository-standard LF-to-CRLF informational warnings.
+- Bounded secret-pattern scan: zero private-key/GitHub/OpenAI/Cloudflare assignment matches.
+- `Memory.md`: 126 lines / 17,480 bytes, below practical limits before this archive append; this archive remains below the 48-KB rollover threshold.
+
+**Adversarial review:**
+
+- Security review attempted public owner-route access, forwarded-Host substitution, CORS crossover, token/query fallback, unsafe health disclosure, and Cloudflare local-admin routing; all fail closed or remain absent.
+- Correctness review exercised first start, restart with the same persisted JWK revision, both-port shutdown, pre-spawn conflict, post-public-bind conflict, and inherited lifecycle architecture; all pass.
+- Compatibility/UX review reran legacy auth/output, HTTP security, Phase 7 reconnect/undo, local-control CLI, public help, Cloudflared integrity, and managed Node builds; no inherited behavior regression remains. No external multi-agent provider was available in this workspace, so these were performed as independent adversarial passes against the completed result.
+
+**Known limits:** DCR, authorization pending/approval state, codes, access/refresh tokens, revoke, browser owner sessions, authorized `/mcp`, setup orchestration, and live ChatGPT/Cloudflare acceptance are not part of 8A3 and remain unavailable. The public `/mcp` response is intentionally `503 OAUTH_RUNTIME_UNAVAILABLE`.
+
+**Rollback:** Revert the STEP-445 runtime/tests/status changes. Existing OAuth state is versioned evidence and must not be deleted automatically; legacy mode remains the explicit no-deletion rollback. No external resource requires rollback.
+
+**Only next action:** Task 8A4. Implement constrained DCR, PKCE authorization, and local owner approval while keeping production token exchange unavailable until Task 8A5.
+
+## 2026-07-26 — STEP-446: Complete Task 8A4 constrained DCR and local owner authorization
+
+**Status:** Task 8A4 is complete locally. The supported OAuth listener now provides constrained public-client registration, exact PKCE authorization, current-user local approval/denial, and cookie-bound one-use authorization-code delivery. Production access/refresh token exchange, revoke semantics, bearer resource middleware, and authorized `/mcp` remain intentionally unavailable until Task 8A5.
+
+**Authority and boundary:** The owner explicitly instructed `@Devspace 执行Task 8A4`. Work stayed inside `D:\Dev\codexpro` and built on the authorized unstaged Tasks 8A1–8A3 tree. No Cloudflare/DNS/Tunnel object, real ChatGPT App, real credential, service, staged index, commit, push, release, or deployment was changed.
+
+**Implementation:**
+
+- Added a project-owned bounded DCR parser and durable client store. It accepts only one exact current ChatGPT callback shape or the documented legacy callback, issues a random 256-bit public client ID with no secret, freezes the Core response/grant/auth/scope ceiling, rejects duplicate/security-sensitive metadata, bounds JSON bytes/depth/property count, expires only unapproved clients, and enforces exact 32-unapproved/16-approved capacity.
+- Added current-user local client listing/revocation so capacity failures have a real recovery path. Revoked/expired client rows stop consuming capacity while durable audit evidence remains; approved clients have no artificial expiry.
+- Added an exact GET/POST authorization guard with bounded query/form parsing, duplicate decoded-parameter rejection, exact client/redirect/resource/scope/state validation, PKCE `S256`, direct-versus-redirect OAuth error boundaries, RFC 9207 `iss`, no client authentication, and ignored bounded unknown extensions.
+- Added process-ephemeral pending authorization and code stores. Pending requests are five-minute, browser-cookie-bound, capped at 32/deployment and 4/client, and expose only safe correlation facts to the existing current-user local-control channel. Approval, denial, expiry, continue, and code consumption are serialized; terminal delivery and authorization codes are sixty-second and one-use.
+- Authorization codes are never stored in plaintext. The runtime stores keyed HMAC hashes and binds consumption to exact client, redirect, resource, PKCE challenge, and scopes.
+- Public waiting/status/continue responses use `no-store`, `no-referrer`, `nosniff`, `frame-ancestors 'none'`, no third-party assets, and a host-only `__Host-` HttpOnly/Secure/SameSite=Lax cookie. Unknown, cross-cookie, duplicate, late, and alternate-route requests are non-oracular.
+- Mounted the pinned SDK auth router only behind project-owned exact route/content-type/rate/error guards and a lookup-only client view. Project-owned `/register`, metadata, and stubs prevent the SDK's broader secret-client registration or metadata defaults from becoming reachable.
+- `/token` and `/revoke` return stable no-store `503 OAUTH_TOKEN_RUNTIME_UNAVAILABLE`; `/mcp` remains unavailable. No incomplete provider method is invoked.
+- Public admission now freezes 64 active/128 queued with 16 active and 32 queued reserved for exact `/mcp`; non-MCP polling and rate work cannot consume the reserved lane.
+- Extended the installation-wide MAC-chained audit transitions for client and authorization state. Registration, approval, denial, expiry, and code publication audit before capability/state publication; audit failure returns a bounded local recovery action and leaves no pending/code success.
+- Extended structured/text redaction for OAuth codes, state, access/refresh tokens, client secrets, PKCE verifiers, bootstrap material, DPAPI-protected values, and private JWK members while preserving public JWK fields.
+- Added exact local-control operations and CLI commands for `oauth-authorizations list|approve|deny` and `oauth-clients list|revoke`. Terminal output escapes untrusted metadata; browser/public routes cannot mutate owner decisions.
+- Added the new Phase 8 tests to the repository's reviewed Windows execution-profile inventory after the ordinary gate correctly detected profile drift.
+
+**Primary files:**
+
+- New: `src/auth/clientStore.ts`, `src/auth/authorizationStore.ts`, `src/auth/oauthProvider.ts`, `src/auth/ownerApproval.ts`, `src/auth/rateLimits.ts`.
+- Runtime/control: `src/http.ts`, `src/http/publicApp.ts`, auth state/audit/error/index modules, local-control schemas/server/client/runtime, `scripts/codexgpt.mjs`, and `src/redact.ts`.
+- Tests: new DCR/authorization/owner/bounds suites plus auth-audit, listener/public admission, SDK contract, redaction, approval-display, and execution-profile regressions.
+
+**Failure evidence and repairs:**
+
+- The first authorization integration run exposed that the project guard was mounted with the wrong Express-relative path assumption; the exact root guard was corrected and the protocol test passed.
+- Adversarial review found that retained revoked rows could permanently consume DCR capacity. Registration now prunes revoked and expired unapproved rows while audit evidence remains durable.
+- Review found that authorization polling could consume all public admission and starve future MCP traffic. Exact `/mcp` active/queue capacity is now reserved and tested.
+- Review found insufficient redaction for OAuth `code/state`, refresh/client-secret/verifier/bootstrap values, DPAPI blobs, and private JWK members. Text and structured redaction now cover those contexts without redacting ordinary non-OAuth `state` fields.
+- The first full ordinary gate failed closed with `TEST_PROFILE_INVENTORY_DRIFT` for seven Phase 8 test files. The manifest now classifies bounded suites as `fast` and the listener runtime as `isolated`; inventory and domain-contract tests pass.
+
+**Verification:**
+
+- Current Node final build and focused post-repair slice: 33/33 pass.
+- Current complete Phase 8/auth/listener integration slice: 83/83 pass.
+- Managed Node `20.20.2` and `24.15.0`: build passes on both; the exact A4 matrix passes 47/47 on each major.
+- Authoritative ordinary execution profiles after inventory repair: `fast`, `safe`, and all non-control `isolated` tests each exit 0. The aggregate `npm run test:ordinary` request exceeded the Devspace 300-second transport window and returned a 502 twice, so closure relies on the same reviewed profile shards run separately rather than treating the transport failure as a product result.
+- `npm run policy:check`: `Repository operational policy: PASS`.
+- `npm pack --dry-run --json`: pass; package includes the new compiled auth/runtime modules and updated CLI.
+- Final `git diff --check`: pass; only expected Git LF-to-CRLF working-copy warnings are emitted. The working tree remains intentionally unstaged with the cumulative authorized Tasks 8A1–8A4 source, tests, and documentation; no stage/commit/push occurred.
+
+**Adversarial review:** Security, state/race, resource-exhaustion, compatibility, and operator-recovery passes were performed independently against the final implementation. No external multi-agent provider was available in this Devspace workspace. The review retained strict redirect/resource/PKCE/owner boundaries, removed one unused owner-rendering helper, hardened durable redirect schema validation, and did not widen token or MCP authority.
+
+**Known limits:** This is not yet a usable ChatGPT MCP connection. Task 8A5 must add access/refresh tokens, revoke/replay behavior, bearer verification, resource middleware, and the first authenticated read-only MCP request. G8-U still must prove current live ChatGPT DCR, RFC 9207 issuer, and cookie-navigation compatibility before Phase 8 closure.
+
+**Rollback:** Revert only the STEP-446 source/test/documentation changes. Existing versioned auth state and audit evidence must not be deleted automatically. Legacy mode remains the explicit no-deletion server rollback; no external resource requires rollback.
+
+**Only next action:** Task 8A5. Implement signed access tokens, rotating opaque refresh tokens, exact resource middleware, revoke/replay handling, and the first authenticated read-only MCP path. Keep live ChatGPT/Cloudflare work, staging, commit, push, release, and deployment separately gated.
+
+**Volume closure:** Phase 8 Volume 1 closes at STEP-446 before the 48-KB rollover threshold. STEP-447 and later entries continue in `phase-8-part-2.md`; this volume remains append-only.

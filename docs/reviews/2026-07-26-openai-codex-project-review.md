@@ -1,6 +1,6 @@
 # CodexGPT 对标 `openai/codex` 的全项目审阅
 
-**状态：** 已完成静态架构与工程审阅；尚未实施本文建议
+**状态：** 历史基线审阅；Phase 8 Tasks 8A1–8A9 已在审阅后本地实现，真实 Gate G8-U 已通过 Journeys U2–U7，STEP-470 已关闭 local G8-X；U6 以重建 Legacy App 兼容性和现有 OAuth App 恢复连续性作为明确证据替代关闭，不宣称被删除旧 App 的身份连续性。U7 已通过 fail-early shared/unowned Tunnel preservation 与 live public/local boundary；exact-head CI/publication 及其他建议仍未完成
 **审阅日期：** 2026-07-26
 **CodexGPT 运行时代码基线：** `b4b041da32be7bfb133495fb30aa851d67d4f216`
 **`openai/codex` 基线：** [`20dafe201d91d4405eef05ecd1db0257f13a9ac8`](https://github.com/openai/codex/tree/20dafe201d91d4405eef05ecd1db0257f13a9ac8)
@@ -17,7 +17,7 @@ CodexGPT 当前最强的部分不是功能数量，而是本地权限边界、�
 4. 沿真实变更边界拆分 `server.ts` 和公共 CLI，并生成纯协议清单，降低误伤安全合同和描述漂移的概率。
 5. 只在用户明确需要运行不受信任代码时，独立评估把现有原生 PowerShell/进程后端置于真实 Windows workspace isolation 下。
 
-F-01/F-02 是对标中直接暴露的 Phase 8 架构缺口；随后对完整草案做的独立对抗审查又发现命令、协议错误、并发、恢复与洪泛边界上的可运行性阻断。它们均已进入配对规格/TDD 计划，摘要见下表，但仍全部“未实现”。配置内核及其他项目建议需要独立授权和逐项验证，不能借本次文档工作进入运行时。
+F-01/F-02 是对标中直接暴露的 Phase 8 架构缺口；随后对完整草案做的独立对抗审查又发现命令、协议错误、并发、恢复与洪泛边界上的可运行性阻断。下表保留 2026-07-26 审阅时的状态快照；审阅后 Tasks 8A1–8A9 已按配对规格/TDD 计划在本地实现、验证并完成完成态对抗性修复，真实 ChatGPT/Cloudflare Gate G8-U 已通过 Journeys U2–U7。U5 live negative/recovery 证明 denial/replay/flood fail closed，并以新 incarnation security reset 恢复 verified backup，未恢复任何旧 authority。STEP-464 修复并通过 U6 的 credential-free dual-route service/protocol round-trip；STEP-467 通过重建 Legacy App 真实读取、精确 OAuth 恢复和现有 OAuth App 恢复后读取完成证据替代，但不宣称被删除旧 Legacy App 的身份连续性。STEP-468 将 shared/unowned Tunnel config 拒绝前移到任何 setup mutation 之前，并通过 live public/local boundary 验收关闭 U7。STEP-470 通过修复后的 managed Node 20/24 ordinary 与 protected Smoke 关闭 local G8-X；exact-head CI/publication、配置内核及其他项目建议仍需要独立授权和逐项验证。
 
 ## 2. 审阅方法与边界
 

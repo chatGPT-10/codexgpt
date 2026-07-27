@@ -137,8 +137,14 @@ test("CI classifies changes, always enforces policy, and bounds full-matrix logs
   );
 });
 
-test("Node test discovery contains only test modules under test", async () => {
+test("Node test discovery contains only test modules and the reviewed Phase 8 helpers under test", async () => {
   const modules = await listTestModules(testRoot);
-  const nonTests = modules.filter((relativePath) => !relativePath.endsWith(".test.mjs"));
-  assert.deepEqual(nonTests, [], `move executable fixtures outside test/: ${nonTests.join(", ")}`);
+  const reviewedHelpers = new Set([
+    "phase-8-auth-test-helpers.mjs",
+    "phase-8-token-test-helpers.mjs"
+  ]);
+  const nonTests = modules.filter((relativePath) => (
+    !relativePath.endsWith(".test.mjs") && !reviewedHelpers.has(relativePath)
+  ));
+  assert.deepEqual(nonTests, [], `move unreviewed executable fixtures outside test/: ${nonTests.join(", ")}`);
 });

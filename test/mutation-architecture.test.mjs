@@ -401,6 +401,18 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "1229:3:writeFileSync:8d3a7e6f2eb6"
     ])
   }),
+  "scripts/oauth-admin.mjs": Object.freeze({
+    purpose: "Phase 8 owner-invoked setup journal, dedicated-tunnel ownership/config, and protected recovery metadata written atomically under CodexGPT-owned state roots.",
+    occurrences: Object.freeze([
+      "mkdirSync:744d9beff523",
+      "openSync:670d040735ed",
+      "writeFileSync:9ccf524371ed",
+      "renameSync:ecb7ec1432a5",
+      "chmodSync:aa6e7b8892f6",
+      "rmSync:44e406745963",
+      "writeFileSync:d190d2673e20"
+    ])
+  }),
   "src/audit/lock.ts": Object.freeze({
     purpose: "Persistent audit lock acquisition, recovery, and quarantine state outside authorized workspaces.",
     occurrences: Object.freeze([
@@ -412,6 +424,28 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "167:9:rmSync:cf0008e967e4",
       "176:5:mkdirSync:618984dbe19f",
       "207:9:renameSync:7bfa23ef4832"
+    ])
+  }),
+  "src/auth/deploymentLock.ts": Object.freeze({
+    purpose: "Phase 8 installation/deployment single-writer ownership records, exact owned release, and verified-dead quarantine under the private auth-state root.",
+    occurrences: Object.freeze([
+      "31:18:openSync:743e6a357fc2",
+      "32:5:writeFileSync:af3ee1c5236c",
+      "62:5:mkdirSync:e962325cbb04",
+      "92:93:unlinkSync:3ffee3f73f04",
+      "126:7:renameSync:2f5133b658fe",
+      "127:7:rmSync:fb9714acc0da",
+      "154:5:mkdirSync:6bc71a2ce770",
+      "179:9:renameSync:e1d1b7411735",
+      "201:7:mkdirSync:d6a78ac1533b",
+      "204:9:renameSync:71916df4d5de",
+      "214:9:rmSync:cf0008e967e4"
+    ])
+  }),
+  "src/auth/runtimeStatus.ts": Object.freeze({
+    purpose: "Phase 8 exact-current-user runtime status cleanup for a verified stopped OAuth process under the private auth-state root.",
+    occurrences: Object.freeze([
+      "rmSync:7cddd5d0ced6"
     ])
   }),
   "src/audit/store.ts": Object.freeze({

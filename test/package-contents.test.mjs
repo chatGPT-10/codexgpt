@@ -58,6 +58,21 @@ test("published package keeps website assets but excludes internal memory archiv
   ]) {
     assert.ok(files.includes(requiredGateRFile), `Published package must retain ${requiredGateRFile}`);
   }
+  for (const requiredOAuthFile of [
+    "scripts/oauth-admin.mjs",
+    "scripts/windows-credential-host.cs",
+    "scripts/windows-credential-host.ps1",
+    "scripts/windows-credential-host-manifest.json",
+    "scripts/windows-credential-host-protocol-v1.json",
+    "dist/auth/index.js",
+    "dist/auth/runtimeStatus.js",
+    "dist/auth/tokenService.js",
+    "dist/http/publicApp.js",
+    "dist/http/localAdminApp.js",
+    "dist/http/oauthMcpRuntime.js"
+  ]) {
+    assert.ok(files.includes(requiredOAuthFile), `Published package must retain ${requiredOAuthFile}`);
+  }
   for (const requiredNativeHostFile of [
     "scripts/windows-conpty-probe-child.mjs",
     "scripts/windows-conpty-worker.ps1",
@@ -116,4 +131,16 @@ test("published package keeps website assets but excludes internal memory archiv
     false,
     "Published package must not contain internal project memory"
   );
+  for (const forbiddenOAuthState of [
+    ".codexgpt/",
+    "oauth/state/",
+    "auth-setup/",
+    "backups/"
+  ]) {
+    assert.equal(
+      files.some((file) => file.startsWith(forbiddenOAuthState)),
+      false,
+      `Published package must not contain private OAuth state under ${forbiddenOAuthState}`
+    );
+  }
 });

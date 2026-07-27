@@ -1,10 +1,10 @@
 # Phase 8 OAuth 2.1 and Public Authentication Usability Design
 
 Date: 2026-07-26
-Status: implementation-ready design; runtime, dependency, credential, publication, and deployment work remain separately gated
+Status: local implementation closure accepted; G8-0 and Tasks 8A1–8A9, authorized Gate G8-U through Journey U7, and STEP-470 local G8-X are complete. U6 closed with a documented evidence substitution because the retained Legacy App was deleted: replacement Legacy rollback compatibility and exact OAuth return continuity passed, while continuity of the deleted Legacy App identity is not claimed. STEP-468 closed U7 with fail-early shared/unowned Tunnel preservation and live public/local boundary evidence. Exact-head CI, publication, and deployment remain separately authorized
 Audience: CodexGPT maintainers and the owner of this personal deployment
 
-This document supersedes the short Phase 8 outline in the master plan for exact Phase 8 behavior. It does not authorize implementation.
+This document supersedes the short Phase 8 outline in the master plan for exact Phase 8 behavior. Implementation authority and external-state authority remain governed by the current project boundary.
 
 Protocol and dependency assumptions were revalidated on 2026-07-26 against current OpenAI Apps SDK authentication guidance, MCP Authorization `2025-11-25`, installed/latest `@modelcontextprotocol/sdk@1.29.0`, and the current project baseline `b4b041da32be7bfb133495fb30aa851d67d4f216`.
 
@@ -852,13 +852,22 @@ Rollout order:
 
 Existing query-token values and the Legacy App remain usable only by explicit legacy mode for at least one compatibility cycle. They are not copied into OAuth state, migrated into refresh tokens, displayed, rotated automatically, or deleted. A later retirement needs an explicit status/warning cycle, successful OAuth/rollback evidence, and separate owner-confirmed deletion.
 
+The workspace profile retains two credential-free route selectors in addition to the active top-level route:
+
+```text
+authRoutes.legacy = { tunnel, hostname, tunnelName, port, optional safe file/path selectors }
+authRoutes.oauth  = { tunnel, hostname, tunnelName, tunnelOwner, port, localAdminPort, optional safe file/path selectors }
+```
+
+Only reviewed routing selectors are allowed. Query tokens, raw Cloudflare tokens, authorization codes, OAuth tokens, DPAPI blobs, private keys, and client/grant state are forbidden in `authRoutes`. The active top-level route must be switched as one mode-specific unit; changing only `authMode` is invalid because it can serve the selected authentication mechanism on the other App's hostname. OAuth issuer/resource continue to derive from `authRoutes.oauth.hostname` while Legacy mode is active.
+
 Switching auth mode requires restarting the CodexGPT server process: stop/start the foreground process with the exact-root command, or restart a separately installed background task if that later feature exists. It does not transform one ChatGPT App into the other. The OAuth App may need one `Scan Tools` refresh or recreation because security metadata can be cached; legacy rollback uses the separately retained Legacy App.
 
 ### 12.3 Rollback
 
 `codexgpt auth rollback --root <canonical-path>`:
 
-- resolves the effective auth-mode origin and sets the workspace profile to explicit `legacy` only when no CLI/current-process/persisted-user environment override wins;
+- resolves the effective auth-mode origin and switches the active route plus workspace profile to explicit `legacy` only when no CLI/current-process/persisted-user environment override wins;
 - on an override, returns `AUTH_MODE_ENV_OVERRIDE` and the exact PowerShell removal/change plus foreground restart action instead of claiming success;
 - prints the URL-secret warning, one exact foreground restart command, and the retained-Legacy-App instruction;
 - leaves OAuth state intact for diagnosis or retry;
@@ -866,6 +875,8 @@ Switching auth mode requires restarting the CodexGPT server process: stop/start 
 - does not alter Cloudflare credentials or tunnel routes;
 - does not delete or rewrite audit history;
 - does not transfer owner-bound artifacts between legacy and OAuth identity domains.
+
+A profile created before `authRoutes` existed fails with `AUTH_LEGACY_ROUTE_MISSING` rather than guessing. One bounded compatibility migration may supply `--legacy-hostname`, `--legacy-tunnel-name`, and `--legacy-public-port` together. Partial input fails closed; the command records only routing facts, never copies the existing query token into the route selector, and subsequent rollback uses the normal no-argument command.
 
 Corrupt OAuth state never triggers automatic fallback. The owner chooses rollback explicitly.
 
@@ -1034,7 +1045,7 @@ On a fresh ChatGPT developer-mode app:
 
 Environment-blocked is not passed.
 
-### G8-X — Closure
+### G8-X — Local and exact-head closure
 
 - all Phase 8 focused tests;
 - inherited auth/Host/Origin/query-token and Policy/Approval/Audit tests;
@@ -1047,6 +1058,8 @@ Environment-blocked is not passed.
 - real ChatGPT live gate;
 - three-way completed-runtime adversarial review and permanent regressions;
 - exact-head Ubuntu/Windows Node 20/24 Repository policy, Build, Regression, Smoke, and Package.
+
+STEP-470 satisfies the local source-checkout subset through focused tests, managed Node 20/24 build/ordinary/Smoke, package and dependency review, real G8-U evidence, and completed-runtime review. It does not satisfy the final exact-head matrix item; full G8-X and Phase 8 Core closure remain pending separately authorized publication and exact-head CI.
 
 A green focused suite, a metadata curl, or a successful token exchange alone is not closure.
 

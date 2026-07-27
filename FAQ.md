@@ -114,7 +114,7 @@ Server URL: paste the complete URL copied by CodexGPT, including codexgpt_token
 Authentication: No Authentication / None (if shown)
 ```
 
-The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. Phase 8 has an implementation-ready OAuth 2.1 design, but OAuth runtime is not implemented or available yet; this guide does not claim ChatGPT Web supports OAuth setup or manual static-Bearer configuration.
+The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. The unreleased source checkout now includes locally verified Phase 8 Tasks 8A1–8A9, live Gate G8-U Journeys U2–U7, and local G8-X through a separate OAuth App and token-free URL; exact-head CI and publication remain incomplete. This section documents only the retained Legacy compatibility App. Do not mix the two Apps or replace either flow with manual static-Bearer configuration.
 
 ## Should CSP stay enabled?
 

@@ -1,7 +1,7 @@
 # Phase 8 OAuth 2.1 and Public Authentication TDD Plan
 
 Date: 2026-07-26
-Status: executable plan; implementation not authorized
+Status: local implementation closure accepted; G8-0 and Tasks 8A1–8A9, authorized Gate G8-U through Journey U7, and STEP-470 local G8-X are complete. U6 closed with a documented evidence substitution: the original retained Legacy App was deleted, so same-App Legacy identity continuity is not claimed; a recreated Legacy App proved rollback compatibility, exact no-argument setup restored OAuth, and the existing OAuth App proved return continuity. STEP-468 closed U7 with fail-early shared/unowned Tunnel refusal plus live public/local boundary evidence. Exact-head CI and publication remain separately authorized
 Paired design: [Phase 8 OAuth 2.1 and Public Authentication Usability Design](../specs/2026-07-24-phase-8-oauth-and-public-auth-design.md)
 
 ## 1. Deliverable
@@ -442,6 +442,8 @@ The public/local route boundary is physical and tested, legacy is unchanged, OAu
 
 ## 8. Task 8A4 — Constrained DCR, PKCE authorization, and local owner approval
 
+**Local status (2026-07-26): complete.** Project-owned bounded DCR, PKCE authorization, current-user local approval/denial, one-use code delivery, exact route/error/security-header contracts, durable client state, process-ephemeral pending/code state, client cleanup, audit-before-publication, redaction, and reserved `/mcp` admission are implemented and verified. `/token`, `/revoke`, and authorized `/mcp` remain unavailable by design until Task 8A5.
+
 ### Goal
 
 Complete registration and owner authorization through one-use codes, but do not yet issue production access/refresh tokens.
@@ -543,7 +545,7 @@ No real ChatGPT app, stable public tunnel, or production token is used yet.
 
 ### Exit
 
-DCR and local owner authorization are complete and bounded; token exchange remains unavailable; Task 8A5 is the only next action.
+DCR and local owner authorization are complete and bounded; this is the completed Task 8A4 checkpoint.
 
 ## 9. Task 8A5 — Signed access tokens, rotating refresh tokens, and resource middleware
 
@@ -912,7 +914,7 @@ From disposable local state and a fake tunnel validator:
 
 ### Exit
 
-The supported CLI/local UI journey is complete and actionable; Task 8A8 is the only next action.
+The supported CLI/local UI journey is complete and actionable; Task 8A8 migration/documentation/package integration is now complete locally.
 
 ## 12. Task 8A8 — Migration, documentation, package, and complete integration
 
@@ -1013,9 +1015,13 @@ git diff --check
 
 Reuse the same verified non-empty `$phase8TestFiles` array when invoking managed Node 20 and 24; never depend on PowerShell or Node shell-glob expansion. Do not start Smoke until the exact ordinary run is terminal, and do not infer terminal status from connector timeout. These pre-review runs do not constitute closure.
 
+### Outcome
+
+Completed locally on 2026-07-26 without Cloudflare/DNS/Tunnel mutation, real ChatGPT linking, credential migration, publication, release, staging, commit, or push. The English and Chinese onboarding, security model, verified Cloudflared guide, design boundary, package inventory, public resource-documentation page, full synthetic OAuth/MCP operator journey, more-than-1,024 refresh-rotation regression, and portable verification-command contract are implemented. Managed Windows Node 20.20.2 and Node 24.15.0 each pass the 150-test Phase 8 set and build; detached ordinary and Smoke matrices are recorded separately as pre-review evidence.
+
 ### Exit
 
-The full local runtime exists, is documented/package-safe, and passes its pre-review integration suites. Task 8A9 is the only next action.
+The full local runtime exists, is documented/package-safe, and passes its pre-review integration suites. At the Task 8A8 checkpoint, Task 8A9 was the only next action.
 
 ## 13. Task 8A9 — Completed-runtime adversarial repair
 
@@ -1077,7 +1083,9 @@ Do not dismiss a finding because a happy-path live check passed. Do not broaden 
 
 ### Exit
 
-All accepted findings are repaired or explicitly blocked with evidence. Re-run all three reviewers against the repaired result. Gate G8-U is the only next action.
+At the Task 8A9 checkpoint, all accepted findings were repaired or explicitly blocked with evidence and the three review passes were rerun; Gate G8-U was then the only next action.
+
+Completed locally on 2026-07-26. Regressions now cover DCR inherited-property injection, exact existing-transport/fingerprint admission for the reserved ES256 lane, duplicate MCP session and Host headers, canonical Origin enforcement, duplicate local-admin cookies, and recoverable local-admin session-capacity handling. Current and managed Node 20.20.2/24.15.0 Phase 8 sets pass 152/152 on each; inherited compatibility passed 70/70; builds, policy, diff, and package dry-run gates passed. The current moderate `@hono/node-server` static-file advisory is documented as non-reachable because no production route imports or mounts its `serve-static` subpath. No external or publication action was performed.
 
 ## 14. Gate G8-U — Live ChatGPT acceptance
 
@@ -1114,6 +1122,8 @@ Any incompatibility blocks G8-U and Phase 8 closure. Return to the paired design
 6. Confirm pure scope change does not request **Scan Tools**; a deliberate descriptor/visibility fixture still does.
 7. Reduce the profile capability, restart, and confirm the next call is a normal config/policy denial with no privilege increase and no OAuth reconnect loop.
 
+Journey U2 accepted through the real `codexgpt-Windows` App at STEP-458: read-only linking, same-client `read→read+write` step-up, real bounded write, reduction denial without reconnect, and deliberate `full→minimal→full` descriptor refresh all passed. The standard-guidance `workspace_snapshot` defect exposed during restoration was repaired with a permanent regression. No App recreation or OAuth identity change occurred.
+
 ### Journey U3 — Restart and refresh
 
 1. Restart CodexGPT without changing hostname/profile.
@@ -1122,12 +1132,18 @@ Any incompatibility blocks G8-U and Phase 8 closure. Return to the paired design
 4. Change only the local-admin port, restart, and confirm the existing grant/refresh remains valid.
 5. Inject one dropped successful refresh response and confirm the deterministic outcome is revoke/relink, not 500/stall.
 
+STEP-460 passed the live runtime/protocol portions: exact same-profile restart, refresh-stable subject/client/grant ownership, same-session workspace reuse after rotation, local-admin `8790→8791→8790` with unchanged binding/incarnation and existing grants, and dropped-response retry yielding `400 invalid_grant` plus `revoked/replay`.
+
+Journey U3 accepted through the real `codexgpt-Windows` App at STEP-461: the existing App resumed after same-profile restart, read live `package.json` data, and owner status remained at zero pending authorization. STEP-460 separately proved refresh-stable owner binding, same-session workspace continuity, local-admin-only port migration, and deterministic `invalid_grant`/relink behavior after a dropped successful refresh response.
+
 ### Journey U4 — Revoke and relink
 
 1. Revoke the current grant locally.
 2. Confirm the next call fails immediately and triggers a safe relink path.
 3. Confirm relink requires local approval and restores service.
 4. Confirm old access and refresh tokens remain unusable.
+
+Journey U4 accepted through the real `codexgpt-Windows` App at STEP-462. The current read/write grant was revoked through the supported owner CLI; the next real App call could not continue with the old authority and entered the local-approval relink flow. A newly approved read-only grant restored service through a real `open_current_workspace` call, while the old grant remained durably `revoked/local`. One overlapping retry left a stale same-client pending request; it conferred no authority and was explicitly denied, leaving zero pending authorizations. Focused revoke/authorization/MCP/owner-binding regressions passed `25/25`.
 
 ### Journey U5 — Negative and recovery
 
@@ -1145,6 +1161,8 @@ Any incompatibility blocks G8-U and Phase 8 closure. Return to the paired design
 - test current-process and persisted-user auth-mode environment overrides;
 - verify exact safe error and next action for each.
 
+Journey U5 accepted at STEP-463. The live deployment rejected a non-ChatGPT DCR redirect, query credentials, tampered signatures, refresh replay, double/cross-cookie continue, and malformed-token/polling floods while an established legitimate MCP transport remained served. A copied Bearer was truthfully accepted twice before expiry because Core has no sender constraint; local revoke then rejected it. Current-process and persisted-user auth-mode overrides returned exact repair commands. Controlled-clock/private-key regressions covered expiry plus wrong issuer/audience/resource/scope/key/time without exporting production secrets. Restoring the latest verified backup created immediately before local grant revoke was accepted only as a security reset: the stable binding, hostname, issuer/resource, ports, and owned Tunnel remained unchanged; the incarnation/key/pepper authority rotated; all prior clients/grants/tokens stayed invalid; and one new disposable client proved the recovered service. The retained ChatGPT OAuth App must relink on its next request.
+
 ### Journey U6 — Cached app and rollback
 
 1. Keep the pre-migration Legacy App and use a separate OAuth App with pre-OAuth tool metadata.
@@ -1155,6 +1173,8 @@ Any incompatibility blocks G8-U and Phase 8 closure. Return to the paired design
 6. Return with the exact idempotent published or source command `auth setup --root D:\Dev\target-repo`; prove it infers the saved hostname/tunnel, candidate-probes before commit, then use the retained OAuth App and prove existing valid OAuth state is recoverable while Legacy App calls fail.
 7. Confirm owner-bound artifacts from one mode are not inherited by the other and reappear only under their original still-valid identity.
 
+STEP-464 repaired and passed the U6 service/protocol round-trip. The original profile shape stored only one active route, so rollback served Legacy authentication on the OAuth hostname and left the Legacy hostname inactive. The repair persists separate credential-free `authRoutes.legacy` and `authRoutes.oauth` selectors, adds one fail-closed migration for pre-route profiles, switches the full active route on rollback, restores the saved OAuth route through the exact no-argument setup command, and prints the required **Scan Tools** instruction. Live evidence passed credential-safe Legacy MCP initialize/tools (`23` tools, no OAuth metadata), OAuth DCR/PKCE/token/MCP (`26` tools with exact schemes), query-token denial, candidate-probe-before-commit, hostname exclusivity, and unchanged binding/incarnation. STEP-465 accepted the OAuth current-client half after the U5 security reset by recreating the invalidated OAuth App and completing a real read. STEP-466 recorded accidental deletion of the retained Legacy App, making same-App identity continuity irrecoverable. STEP-467 then supplied explicit compensating evidence and closed U6 with that deviation: a recreated Legacy App completed a real read of `D:\Dev\codexpro` / `codexgpt` / `0.28.6` while Legacy was exclusively active; exact no-argument setup restored the saved OAuth route; the Legacy hostname became inactive; and the existing OAuth App reopened the workspace and read `package.json`. Items 4 and 7 are accepted for current rollback compatibility only, not for continuity of the deleted original Legacy App identity; item 6 is fully accepted.
+
 ### Journey U7 — Tunnel boundary
 
 - prove Cloudflare ingress reaches only the public loopback port;
@@ -1162,6 +1182,8 @@ Any incompatibility blocks G8-U and Phase 8 closure. Return to the paired design
 - prove the local-admin port is unreachable through the public hostname;
 - prove public Host/forwarded-header attempts cannot reach admin;
 - record that mTLS/Access are not claimed.
+
+Journey U7 accepted at STEP-468. Existing shared or unowned configs are now validated before setup journal, OAuth state, profile, Tunnel, or DNS mutation; refusal preserves the config byte-for-byte and prints one exact command using a new dedicated tunnel name and unused managed config path. The live owned config remained byte-identical across idempotent no-argument setup and contained only `127.0.0.1:8789` plus the final 404 catch-all, never local-admin `8790`. Public health returned the OAuth resource shape, public requests to local-admin routes returned `404`, direct Host substitution returned `403`, forwarded Host/IP/proto headers remained on the public router, public `:8790` was unreachable, and loopback `127.0.0.1:8790` alone returned the local-admin health shape. Cloudflare Access and end-to-end mTLS remain explicitly unclaimed.
 
 All journeys require user-observable evidence with credentials redacted. Measure the number of user-supplied facts, local approvals, restarts, and recovery commands: existing-tunnel setup asks for no inferable fact, normal restart requires zero approval, and each failure presents one primary next command. `environment-blocked` is not `passed`.
 
@@ -1249,6 +1271,6 @@ Never store tokens, codes, private keys, DPAPI plaintext/blobs, Cloudflare crede
 
 ## 18. Current next action
 
-The owner has authorized reconciliation of the reviewed working tree, this gate-order correction, and one local checkpoint commit. That checkpoint establishes the clean Phase 8 implementation base and consumes the staging/commit authorization; it does not authorize push, publication, release, deployment, Cloudflare/DNS/Tunnel mutation, real ChatGPT linking, or real credential migration.
+G8-0 and Tasks 8A1–8A9 are complete locally. Exact dependencies, Windows DPAPI CurrentUser protection, versioned atomic auth state, exact single-writer locks, stable binding/current-incarnation publication, physically separated listeners, constrained DCR/PKCE authorization, strict ES256 access tokens, rotating opaque refresh families, durable replay/revoke/expiry, request-local OAuth policy identity, token/deployment scope intersection, stable OAuth owner domains, exact per-tool OAuth metadata, authenticated MCP read/write/execute paths, one-command setup, current-user local administration, fail-closed Tunnel verification, protected recovery/rebind/no-deletion rollback, migration/security documentation, package boundaries, complete synthetic OAuth/MCP integration, and completed-runtime adversarial repairs are implemented and verified.
 
-After the checkpoint is clean and G8-0 evidence is recorded, Task 8A1 is the only next runtime action. Apply only the approved exact dependency pins, add the RED configuration/metadata tests, and keep explicit OAuth startup at `OAUTH_RUNTIME_UNAVAILABLE` until the later tasks close.
+Gate G8-U is accepted through Journey U7. STEP-467 accepted U6 with a documented evidence substitution after the retained Legacy App was deleted: replacement Legacy compatibility passed, exact no-argument OAuth return passed, and the existing OAuth App completed a post-return read; continuity of the deleted Legacy App identity is explicitly not claimed. STEP-468 closed U7 with fail-early shared/unowned Tunnel preservation and live public/local boundary evidence. STEP-470 accepted local G8-X after one test-first named-Tunnel diagnostic-race repair and post-repair managed Node 20/24 ordinary plus protected Smoke. Exact-head CI, push, publication, release, deployment, unrelated Cloudflare/DNS/Tunnel mutation, and real credential migration remain separately authorized.

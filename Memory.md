@@ -6,50 +6,45 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-26.
-- Package: `codexgpt@0.28.6`; repository: `chatGPT-10/codexgpt`; primary platform: native Windows; WSL remains optional.
-- Phases 0–3 are closed. Reduced Phase 4 closed at `d19e65ba75938c35afa472d23d91d1724fe7fabf` with run `29603060944`; Phase 5 closed at `9aa76b92d7894a2f013b2d6478897907c4010a7e` with run `29698209894`; Phase 6 closed at `31631676fe254962a9a4f14d6e025e3edba82b8d` with run `30033293444`.
-- Phase 7 Core closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with exact-head run `30171313296`. Real App U2–U6 are accepted through STEP-430, final local G7-X passed at STEP-432, and Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package passed on the published exact head.
-- Omitted guidance mode defaults to `standard`; explicit `CODEXGPT_GUIDANCE_MODE=legacy` remains the one-restart rollback. Frozen pre-Phase-6 Apps require one **Scan Tools** refresh or recreation.
-- STEP-436 closes evidence-driven CI optimization Phases 1–3 at `b4b041da32be7bfb133495fb30aa851d67d4f216` with exact-head run `30177507346`: fail-closed Windows test profiles run at 4/2/1 with a strict serial rollback, measured Git fixture setup removes redundant churn, and four repeated matrix `prepack` builds are removed without dropping any Build or Package gate.
-- STEP-437 completes the adversarially reviewed Phase 8 OAuth design/TDD plan and the whole-project comparison against `openai/codex@20dafe201d91d4405eef05ecd1db0257f13a9ac8`. Phase 8 runtime has not started.
-- STEP-438 reconciles public user docs with that Phase 8 status, removes an unverified time-sensitive ChatGPT eligibility claim, and compresses the project rules/index without changing runtime behavior.
-- STEP-439 completes all authorized local G8-0 evidence and a Windows settings-Smoke canonicalization repair; Task 8A1 has not started.
-- STEP-440 corrects the impossible gate ordering: G8-0 freezes standards/SDK/documented-platform assumptions and approved exact dependency candidates, while live RFC 9207/DCR/cookie-navigation acceptance belongs to G8-U after a runnable OAuth vertical slice exists. The reviewed checkpoint establishes the clean Phase 8 base and closes G8-0; Task 8A1 is next.
+- Date: 2026-07-27; package `codexgpt@0.28.6`; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
+- Phases 0–7 Core are closed. Published closure heads/runs are retained below; Phase 7 closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / `30171313296`.
+- STEP-437–470 completed Phase 8 local source-checkout work: Core Tasks 8A1–8A9, real G8-U Journeys U2–U7, documentation reconciliation, and local G8-X. U6 retains the deleted-App evidence substitution; U7 preserves the public-loopback/local-admin boundary; full Phase 8 closure still requires separately authorized exact-head CI/publication.
+- STEP-471 reconciled rules, design terminology, the master plan, and this index after local G8-X; no runtime, external state, or Git publication state changed.
 
 ## Approved execution boundary
 
-The owner has authorized Phase 8 Core runtime/source work, exact production dependencies, Windows DPAPI helper work, and disposable local credential tests. The one-time STEP-440 authority covers reconciliation of the reviewed working tree, the gate-order correction, staging, and one local checkpoint commit; it does not cover push. Cloudflare/DNS/Tunnel mutation, real ChatGPT linking, real credential migration, publication/release/deployment, Task Scheduler, sandbox/egress, later staging/commit/push, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
+The owner has authorized Phase 8 Core and Gate G8-U, including the dedicated OAuth Cloudflare Tunnel/DNS route and real ChatGPT App linking. Credential migration, publication/release/deployment, Task Scheduler, sandbox/egress, staging/commit/push, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
 
 ## Active decisions and constraints
 
 - `AGENTS.md` Section 5 and paired phase documents are the detailed rule sources; this index retains only their current operational conclusions.
 - CodexGPT remains self-hosted: Cloudflare supplies only DNS/TLS/Tunnel while authentication, Host/Origin, path enforcement, and secrets stay local. Native Windows is primary; Git Bash is temporary, and PowerShell support is required.
-- The supported public entry is `scripts/codexgpt-entry.mjs`. Current ChatGPT Web compatibility uses the secret query-token URL unless `CODEXGPT_ALLOW_QUERY_TOKEN=0` selects a capable Bearer client; manual static-Bearer setup for ChatGPT Web is not claimed.
+- The supported public entry is `scripts/codexgpt-entry.mjs`. Legacy mode retains the secret query-token compatibility App; OAuth mode uses a separate App with a token-free URL and forces query-token acceptance off. Manual static-Bearer setup for ChatGPT Web is not claimed.
 - V1/V2/V3/V4/V5 remain exactly 28/31/39/51/52. `full_access` is ambient authority, never isolation; `workspace`, Gate S, and Tasks 4B0–4B6 remain unavailable/deferred.
 - Workspace handles are opaque session-local values and stale/foreign handles fail closed. Atomic and semantic mutations retain Policy, lock-held identity/hash, transaction, audit, and mutation-inventory gates; Gate X stays limited to four typed local Git operations.
 - Use the retained managed Node `v20.20.2`/`v24.15.0` root `%LOCALAPPDATA%\CodexPro\toolchains\`. `test-domains` is authoritative; ordinary runs are detached, control/all need CI or an independent terminal, and cleanup stops/deletes only exact owned evidence.
 - `inheritEnv=false` keeps only bounded Windows paths; arbitrary tokens stay out of children. Runtime-relevant publication requires the exact-head Ubuntu/Windows Node 20/24 matrix and `npm run policy:check` before staging.
 - Phase 6 guidance grants no authority. Phase 7 Core is the owned JS/TS semantic provider with same-handle reads, honest fallback, server-owned rename plans, and no sandbox claim; Serena/LSP remain separately authorized extensions.
-- Phase 8 design/TDD remains the runtime contract: one colocated OAuth authorization/resource server, strict public-client DCR, PKCE S256, RFC 8707/9207, DPAPI CurrentUser, separated public/local-admin listeners, bounded work, and no new tool/execution authority. STEP-440 closes G8-0 on a reviewed clean checkpoint; Task 8A1 is the only next runtime action.
-- Phase 8 setup is canonical-root, dedicated-Tunnel, candidate-probe-before-commit, two-App rollback, and idempotent return to OAuth. Stable binding plus rotating incarnation, fixed-order refresh-family mutations, crash-safe code exchange, and durable installation audit are mandatory.
+- Phase 8 design/TDD remains the runtime contract: one colocated OAuth authorization/resource server, strict public-client DCR, PKCE S256, RFC 8707/9207, DPAPI CurrentUser, separated public/local-admin listeners, bounded work, and no new tool/execution authority. Tasks 8A1–8A9, authorized G8-U Journeys U2–U7, and local G8-X are complete. U6's replacement Legacy App proves current rollback compatibility, not continuity of the deleted original App identity; U7 proves the owned public-loopback Tunnel boundary and fail-early shared/unowned refusal. Exact-head CI/publication remains separate.
+- Phase 8 setup is canonical-root, dedicated-Tunnel, candidate-probe-before-commit, credential-free `authRoutes.legacy|oauth`, full-route two-App rollback, and idempotent return to OAuth. Stable binding plus rotating incarnation, fixed-order refresh-family mutations, crash-safe code exchange, and durable installation audit are mandatory.
 - After OAuth, prioritize configuration provenance, offline diagnostics, current-user Windows background lifecycle, incremental server/CLI/tool-manifest modularization, then full diagnostics. Native isolation is conditional P2 work after a concrete untrusted-code need and a read-only feasibility go decision.
 
 ## Verification evidence
 
-- Published closure runs: Phase 3 `29441752493`/`29443158835`; Phase 4 `29603060944`; Phase 5 `29698209894`; Phase 6 `30033293444`; Phase 7 STEP-415 `30110614307`; STEP-419 `30149210849`; Phase 7 Core closure `30171313296` at `a0b9f46e2297297959527f7570c9cb7942cc8fb3`.
-- Phase 7 STEP-420–STEP-432 completed real App U2–U6 for semantic apply/undo, content and NTFS replacement conflicts, worker cooldown/fallback, hostile-path failure, V4→V5 Scan Tools migration, and final managed Node 20/24 local G7-X. Exact evidence remains in the closed Phase 7 archives.
-- STEP-436 passed Node 20/24 focused regressions, dual-major ordinary/build/eight-domain Smoke, policy/package 47/47, real `prepack`, repository policy, and final three-agent review with no remaining P0–P2. Exact head `b4b041da32be7bfb133495fb30aa851d67d4f216` passed run `30177507346` across Repository policy and Ubuntu/Windows Node 20/24 Build, Package, Regression, and Smoke.
-- STEP-437 is documentation-only: upstream SHA/time and 16 cited source objects were verified, all 22 inherited test paths exist while 31 planned Phase 8 tests are explicitly declared, 14 managed-toolchain commands carry the retained root, and final policy/link/diff/secret results are recorded in the Phase 8 archive.
-- STEP-438 verifies 135 Markdown files and 104 repository-relative links with zero broken links; public README/FAQ wording now distinguishes the completed OAuth design from the unimplemented runtime. Authentication-doc regressions pass 6/6 and the documentation/policy gate passes; exact commands/results are in the Phase 8 archive.
-- STEP-439 freezes SDK `1.29.0` and direct `jose 6.2.4` candidates without editing package files, records zero high/critical plus two explicit moderate `@hono/node-server` findings, verifies 113 registry signatures/11 attestations, passes inherited focused baselines on current/managed Node 20/24, and passes dual-major eight-domain Smoke in run `2026-07-26T08-45-07-943Z-phase8-g8-0-smoke-matrix-fb43daca`.
-- STEP-440 passes repository policy, authentication-documentation 6/6, managed Node 20/24 settings-Smoke compatibility, and `git diff --check`; it records live ChatGPT compatibility as a fail-closed G8-U condition rather than a pre-runtime G8-0 condition.
+- Published closure runs: Phase 3 `29441752493`/`29443158835`; Phase 4 `29603060944`; Phase 5 `29698209894`; Phase 6 `30033293444`; Phase 7 `30171313296` at `a0b9f46e2297297959527f7570c9cb7942cc8fb3`.
+- STEP-436 exact head `b4b041da32be7bfb133495fb30aa851d67d4f216` passed run `30177507346` across Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
+- STEP-437–452 passed Phase 8 Core on managed Node 20/24 (`152/152`), inherited regressions (`70/70`), policy/diff/package checks, and a 653-entry package dry run.
+- STEP-454–463 passed live U2–U5: dedicated Tunnel/App, scope and descriptor lifecycle, restart/refresh, revoke/relink, negative/replay/admission checks, and verified-backup recovery as a new-incarnation security reset.
+- STEP-464–467 passed the Legacy/OAuth route round-trip and U6 current-client evidence. Replacement Legacy compatibility and return-to-OAuth continuity are accepted; continuity of the deleted original Legacy App is not claimed.
+- STEP-468 passed U7: owned ingress remained byte-identical and public-loopback-only, local-admin stayed private, Host/forwarded headers conferred no authority, and managed Node 20/24 boundary tests passed `33/33` on each major.
+- STEP-470 local G8-X passed after one test-first diagnostic-race repair. Post-repair ordinary run `2026-07-27T13-20-49-272Z-phase8-g8-x-ordinary-matrix-r2-471681bb` passed `1429` with `2` explicit Windows capability skips per major; protected Smoke run `2026-07-27T13-05-15-016Z-phase8-g8-x-smoke-matrix-r2-a1bbb40a` passed all eight groups on Node `20.20.2` and `24.15.0`. Policy/diff/lock/dependency/package/link/credential checks passed; the dry package contains `654` files and no private state.
 
 ## Known limitations
 
-- Phase 8 runtime remains unimplemented: public startup still uses the legacy query-token compatibility path; OAuth/DCR/DPAPI/grants/refresh/local admin/setup are not live-validated. Current ChatGPT RFC 9207/DCR/cookie-navigation behavior remains an explicit fail-closed G8-U assumption and is not claimed as observed.
+- Phase 8 Core through Task 8A9, Gate G8-U Journeys U2–U7, and local G8-X are implemented and accepted. U6 retains a documented test deviation because the original Legacy App was deleted; replacement-App compatibility and exact OAuth return continuity passed, but same-App Legacy identity continuity is not claimed. Exact-head CI/publication remains incomplete. U5's security reset correctly made the old OAuth client invalid; no prior client/grant/token authority survived.
+- DPAPI production protection is intentionally Windows CurrentUser-only. Loss of that user profile or its DPAPI material requires explicit security-reset recovery; there is no plaintext, memory, or non-Windows production fallback.
 - Phase 2A has no user-facing approval issuance surface. Phase 4A local approval is not OS isolation.
-- Workspace lifecycle state is process-local; OAuth owner identity and lifecycle persistence remain Phase 8 work.
+- Workspace lifecycle state remains process-local. OAuth installation owner, deployment, grant/family, signing/refresh authority, and client state persist; pending browser authorization/code state remains intentionally process-ephemeral and restart requires a fresh authorization attempt.
 - External processes remain outside the workspace lock. Open-handle checks reduce replacement races but do not provide an OS-wide lock or absolute power-loss durability.
 - Environment narrowing is defense in depth, not credential isolation; same-user children may access account-readable files and system keyrings.
 - Safe Bash timeout does not reliably terminate every Windows descendant process.
@@ -58,27 +53,19 @@ The owner has authorized Phase 8 Core runtime/source work, exact production depe
 - Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - Cached-App migration requires one explicit **Scan Tools** refresh or recreation; transparent refresh is not claimed. U6 proved this by creating a V4 51-tool App before switching the same endpoint to V5.
 - Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. `npm audit` has zero high/critical findings and two moderate transitive findings in the current MCP SDK compatibility line.
-- Ordinary non-semantic `apply_patch` observed `POLICY_CONFIG_INVALID / policy-unavailable` across ChatGPT HTTP tool rotation during U3 fixture preparation. It made no mutation and is not part of the reconnect-stable semantic contract.
-- Hosted exact-head Windows regression fell 16.8% on Node 20 and 29.6% on Node 24 versus Phase 0 run `30174477867`; total Windows jobs fell 11.1% and 25.4%, and Package fell from 15s to 3s. The original 40–70% hosted target was not reached; remaining time is concentrated in intentionally isolated control/process tests and Smoke.
 
 ## Open items
 
-1. Begin Task 8A1 from the STEP-440 clean checkpoint: apply only the approved exact SDK `1.29.0` and direct `jose 6.2.4` pins, add RED configuration/metadata tests, and retain `OAUTH_RUNTIME_UNAVAILABLE`. Do not run live ChatGPT/Cloudflare work before G8-U authority.
+1. After explicit authorization, review/stage the Phase 8 worktree, commit, push normally, and obtain exact-head Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package evidence. Preserve the U6 evidence-substitution note; publication, credential migration, release, and deployment remain separately gated.
 2. After Phase 8, follow the reviewed sequence of configuration provenance, diagnostic foundation, current-user background lifecycle, and incremental modularization. Keep native isolation conditional and keep Serena/LSP, Tasks 4B1–4B6, `workspace`, release/deployment, credential migration, and toolchain-root migration separately gated.
 3. Keep PR 6 as a draft for review; no merge, release, deployment, or further optimization is authorized.
 
 ## Recent summaries
 
-- **STEP-440 — Reconcile the Phase 8 base:** move live RFC 9207/DCR/cookie-navigation acceptance from impossible pre-runtime G8-0 to fail-closed G8-U, verify the reviewed tree, and create one local clean checkpoint without pushing.
-- **STEP-439 — Execute local G8-0 freeze:** verify protocol/dependency/baseline facts and repair Windows settings-Smoke path expectations without starting package/runtime work.
-- **STEP-438 — Reconcile public authentication status:** replace stale “OAuth deferred” wording with the exact design-only/runtime-unavailable state, remove an unverified plan-eligibility assertion, and shrink the project rules/index below their soft limits.
-- **STEP-437 — Complete Phase 8 design and project review:** adversarially repair the executable OAuth TDD plan, bind the whole-project review to `openai/codex@20dafe20`, and sequence the resulting improvements without starting runtime work.
-- **STEP-436 — Close CI optimization Phases 1–3:** exact head `b4b041da` passes run `30177507346`; hosted Windows regression improves 16.8–29.6% and all required gates remain intact.
-- **STEP-435 — Add evidence-first CI profiling:** preserve the former topology while producing bounded exact per-file timing evidence and publish the Phase 0 baseline at `d2e379a5` / run `30174477867`.
-- **STEP-434 — Reconcile after Phase 7 closure:** close the Phase 7 archive volume, update public status text, remove stale Core-candidate wording, and move subsequent maintenance back to the interphase archive.
-- **STEP-433 — Close Phase 7 Core:** publish the reviewed 37-file scope and bind exact head `a0b9f46e2297297959527f7570c9cb7942cc8fb3` to successful CI run `30171313296` across Repository policy and Ubuntu/Windows Node 20/24.
-- **STEP-432 — Pass final local G7-X:** managed Node 20/24 build, 1,246/1,248 ordinary, eight-domain Smoke, package, integrity, dependency/license, and exact-scope gates pass after repairing a Node 20 test-import CPU spin.
-- **STEP-430 — Accept real App U6:** one explicit Scan Tools migration upgrades a recreated V4 51-tool App to V5 and completes the full U1 semantic journey after repairing inventory and partial-project disambiguation regressions.
+- **STEP-471 — Neat-freak after local G8-X:** compact always-loaded rules/index, clarify local versus exact-head closure, and verify links/contracts/budgets.
+- **STEP-470 — Local G8-X:** repair named-Tunnel failure precedence, pass post-repair managed ordinary/Smoke, and close the local source-checkout gate without publication or external-state mutation.
+- **STEP-468 — U7 Tunnel boundary:** refuse shared/unowned configs before mutation and prove the live public/local listener boundary.
+- **STEP-467 — U6 evidence substitution:** prove replacement Legacy compatibility and exact OAuth return continuity without claiming deleted-App identity continuity.
 
 ## Archives
 
@@ -115,7 +102,11 @@ The owner has authorized Phase 8 Core runtime/source work, exact production depe
 - [Closed Phase 7 Volume 1 — STEP-399 through STEP-414](docs/memory/archive/phase-7.md)
 - [Closed Phase 7 Volume 2 — STEP-415 through STEP-425](docs/memory/archive/phase-7-part-2.md)
 - [Closed Phase 7 Volume 3 — STEP-426 through STEP-433](docs/memory/archive/phase-7-part-3.md)
-- [Phase 8 — STEP-437 onward](docs/memory/archive/phase-8.md)
+- [Closed Phase 8 Volume 1 — STEP-437 through STEP-446](docs/memory/archive/phase-8.md)
+- [Closed Phase 8 Volume 2 — STEP-447 through STEP-451](docs/memory/archive/phase-8-part-2.md)
+- [Closed Phase 8 Volume 3 — STEP-452 through STEP-460](docs/memory/archive/phase-8-part-3.md)
+- [Closed Phase 8 Volume 4 — STEP-461 through STEP-469](docs/memory/archive/phase-8-part-4.md)
+- [Phase 8 Volume 5 — STEP-470 through STEP-471](docs/memory/archive/phase-8-part-5.md)
 
 ## Memory maintenance protocol
 

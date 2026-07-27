@@ -226,12 +226,28 @@ export interface RequestIdentityV3 extends Omit<RequestIdentityV1, "schemaVersio
   scopes: PolicyScopeV3[];
 }
 
+export interface OAuthRequestIdentityV2 {
+  schemaVersion: 2;
+  kind: "oauth_subject";
+  authenticationMode: "oauth2";
+  credentialRef: string;
+  credentialRevision: string;
+  subject: string;
+  ownerId: string;
+  tokenId: string;
+  clientRef: string;
+  scopes: PolicyScopeV4[];
+  assuranceLevel: "strong";
+}
+
+export type RequestIdentity = RequestIdentityV1 | RequestIdentityV3 | OAuthRequestIdentityV2;
+
 export interface RequestContextV1 {
   schemaVersion: 1;
   requestId: string;
   transportKind: "stdio" | "streamable_http";
   transportSessionId: string;
-  identity: RequestIdentityV1;
+  identity: RequestIdentity;
   workspaceId: string | null;
   runtimeProfileId: string;
   permissionProfileId: string;
@@ -475,6 +491,7 @@ export interface SessionGrantV1 {
   schemaVersion: 1;
   grantId: string;
   credentialRef: string | null;
+  credentialRevision?: string;
   transportSessionId: string;
   workspaceId: string | null;
   policyRevision: string;

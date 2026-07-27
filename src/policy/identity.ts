@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CodexGPTHome } from "../profileStore.js";
 import { requestIdentityV1Schema } from "./schemas.js";
-import type { PolicyScope, RequestIdentityV1 } from "./types.js";
+import type { PolicyScope, RequestIdentity, RequestIdentityV1 } from "./types.js";
 
 const IDENTITY_KEY_BYTES = 32;
 const BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
@@ -127,7 +127,13 @@ export function identityForSharedSecret(
 export interface PolicySessionContextSource {
   transportKind: "stdio" | "streamable_http";
   transportSessionId(): string;
-  identity: RequestIdentityV1;
+  readonly identity: RequestIdentity;
+  currentIdentity(): RequestIdentity;
+}
+
+export function currentPolicyIdentity(source: PolicySessionContextSource): RequestIdentity {
+  const candidate = source as PolicySessionContextSource & { currentIdentity?: () => RequestIdentity };
+  return typeof candidate.currentIdentity === "function" ? candidate.currentIdentity() : candidate.identity;
 }
 
 export function createStdioPolicySessionSource(input: {
@@ -136,10 +142,12 @@ export function createStdioPolicySessionSource(input: {
 }): PolicySessionContextSource {
   const sessionId = input.sessionId.trim();
   if (!sessionId || sessionId === "pending") throw new Error("STDIO policy session id is invalid.");
+  const identity = Object.freeze(identityForStdio(input.scopes));
   return Object.freeze({
     transportKind: "stdio" as const,
     transportSessionId: () => sessionId,
-    identity: Object.freeze(identityForStdio(input.scopes))
+    identity,
+    currentIdentity: () => identity
   });
 }
 
@@ -158,9 +166,11 @@ export function createHttpPolicySessionSource(input: {
         input.key,
         input.scopes
       );
+  const frozenIdentity = Object.freeze(identity);
   return Object.freeze({
     transportKind: "streamable_http" as const,
     transportSessionId: input.transportSessionId,
-    identity: Object.freeze(identity)
+    identity: frozenIdentity,
+    currentIdentity: () => frozenIdentity
   });
 }

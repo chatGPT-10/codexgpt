@@ -49,7 +49,7 @@ CodexGPT is not a hosted coding service, model proxy, quota bypass, account pool
 - Native Windows is a primary supported environment. WSL is not required. PowerShell is supported; Git Bash remains useful for Bash-oriented workflows.
 - The default public tool contract remains V1. Contracts V2, V3, V4, and the explicit-standard Phase 7 Core V5 surface are advanced opt-ins.
 - Phases 5, 6, and Phase 7 Core are closed on full Ubuntu/Windows Node 20/24 validation matrices. Phase 7 Core closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with exact-head CI run `30171313296`; Contract V5 remains an explicit `standard` opt-in rather than the default public contract.
-- Phase 8 has an implementation-ready OAuth 2.1 design and TDD plan, but its runtime is not implemented or available yet. The supported ChatGPT connection remains the query-token flow below; do not attempt OAuth setup or manual static-Bearer configuration.
+- Phase 8 Tasks 8A1–8A9 are implemented and locally verified in the source checkout: Windows DPAPI CurrentUser state protection, separated public/local listeners, constrained DCR + PKCE S256, ES256 access tokens, rotating refresh families, durable revoke/replay, request-local policy identity, exact per-tool scopes, supported setup/administration/recovery, dedicated Tunnel ownership checks, migration/rollback documentation, package integration, synthetic end-to-end OAuth/MCP coverage, and completed-runtime adversarial repairs. Live Gate G8-U is accepted through Journeys U2–U7, and STEP-470 closed local G8-X with post-repair managed Node 20/24 ordinary and protected Smoke. U6 passed service/protocol rollback, a real recreated-Legacy-App read, exact no-argument OAuth restoration, and a real post-return OAuth App read; the deleted original Legacy App identity is explicitly not claimed as continuous. U7 proved fail-early byte-preserving refusal of shared/unowned Tunnel configs and the live public-loopback/local-admin boundary. Exact-head CI and publication remain pending.
 
 Check the npm badge before installing. Use a source checkout when you specifically need unreleased `main` behavior.
 
@@ -70,15 +70,108 @@ npm run connect -- --root D:\Dev\your-repo
 
 ## Requirements
 
-- Windows 10/11, macOS, or Linux
+- Windows 10/11, macOS, or Linux for the legacy connector; Phase 8 Core OAuth setup currently requires native Windows
 - Node.js 20 or newer
 - Git for Git-aware workflows
-- A ChatGPT account and model surface that exposes Apps / Developer Mode actions
-- A public HTTPS route when ChatGPT Web must reach the local MCP server
+- A ChatGPT account and plan/workspace surface that exposes custom Apps and Developer Mode
+- A stable public HTTPS hostname when ChatGPT Web must reach the local MCP server
 
 For the preferred Windows path, install Node.js and Git for Windows. PowerShell is sufficient for normal setup; WSL is optional.
 
-## Quick start
+## OAuth setup from one exact command
+
+Use a separate OAuth App and retain the existing Legacy App until the live migration is accepted. OAuth setup is workspace-bound: every command must target the exact repository with `--root`.
+
+Published global install:
+
+```powershell
+codexgpt auth setup `
+  --root D:\Dev\your-repo `
+  --hostname mcp.example.com `
+  --tunnel-name codexgpt
+```
+
+Unpublished source checkout:
+
+```powershell
+Set-Location D:\Dev\codexpro
+npm install
+npm run build
+node .\scripts\codexgpt-entry.mjs auth setup `
+  --root D:\Dev\your-repo `
+  --hostname mcp.example.com `
+  --tunnel-name codexgpt
+```
+
+Setup requires a stable named Cloudflare Tunnel. It reuses only a dedicated Tunnel whose ownership marker matches this workspace/deployment, journals resumable phases, starts a candidate on separate loopback ports, and verifies public metadata, JWKS, and health before committing OAuth mode. Cloudflare/DNS changes are printed first and require explicit approval; use `--no-tunnel-changes` for a deterministic no-mutation preflight.
+
+The ChatGPT Server URL is token-free:
+
+```text
+https://mcp.example.com/mcp
+```
+
+In ChatGPT Web, enable Developer Mode, create a custom App, paste that URL, choose OAuth when shown, run **Scan Tools**, and complete the browser flow. The first grant waits for explicit approval on the Windows PC:
+
+```powershell
+codexgpt auth pending --root D:\Dev\your-repo
+codexgpt auth open --root D:\Dev\your-repo
+# or approve the displayed correlation code:
+codexgpt auth approve <correlation-code> --root D:\Dev\your-repo
+```
+
+Normal foreground restart keeps the same issuer, binding, Tunnel, clients, and refresh families:
+
+```powershell
+codexgpt start --root D:\Dev\your-repo
+```
+
+A pure scope change does not require **Scan Tools**. Enabling or removing a tool descriptor/capability requires an exact-root restart first; then use **Scan Tools** once if the App's tool snapshot changed. The old token never gains a newly enabled capability without reauthorization.
+
+Operational commands:
+
+```powershell
+codexgpt auth status --root D:\Dev\your-repo
+codexgpt auth clients --root D:\Dev\your-repo
+codexgpt auth client remove <client-id> --root D:\Dev\your-repo
+codexgpt auth revoke <grant-id> --root D:\Dev\your-repo
+codexgpt auth rotate-signing-key --root D:\Dev\your-repo
+codexgpt auth recover inspect --root D:\Dev\your-repo
+```
+
+Backup restore and `auth reinitialize --revoke-all` preserve the stable binding and dedicated Tunnel, publish a new incarnation/key authority, invalidate all old access/refresh credentials, and force relink. They never revive old grants. DPAPI protection is bound to the current Windows user profile; another user, a lost profile, or same-user malware is outside that protection boundary.
+
+### Two-App rollback and return to OAuth
+
+Do not delete the Legacy App or its credential during Phase 8 Core migration. To roll back, stop the foreground OAuth process, switch only the workspace profile, restart, and use the separately retained Legacy App:
+
+```powershell
+codexgpt auth rollback --root D:\Dev\your-repo
+codexgpt start --root D:\Dev\your-repo
+```
+
+A service restart is not an automatic ChatGPT client rollback. The OAuth App is never given the legacy query-token URL, and OAuth state, keys, grants, clients, audit, Tunnel config, and owner marker are preserved.
+
+Return idempotently to OAuth with the retained OAuth App:
+
+```powershell
+codexgpt auth setup --root D:\Dev\your-repo
+```
+
+The saved hostname, Tunnel, ports, and ownership marker are inferred; the candidate public surface is probed before OAuth mode is committed again. The profile keeps separate credential-free Legacy and OAuth routing selectors, so rollback switches the complete route rather than serving Legacy authentication on the OAuth hostname. Profiles created before this selector split fail closed and require one explicit retained-route migration; credentials are never copied into the route selectors.
+
+If an environment override blocks the profile, remove it before restart:
+
+```powershell
+Remove-Item Env:CODEXGPT_AUTH_MODE -ErrorAction SilentlyContinue
+[Environment]::SetEnvironmentVariable('CODEXGPT_AUTH_MODE', $null, 'User')
+```
+
+The public listener defaults to `127.0.0.1:8787`; local owner administration defaults to the separate `127.0.0.1:8788` and must never be routed through Cloudflare. Quick Tunnels are unsuitable because their hostname changes. Static Bearer configuration for ChatGPT, Cloudflare Access, mTLS, multi-owner tenancy, and OS isolation are not claimed.
+
+Current OpenAI guidance says custom Apps are configured from ChatGPT Web through Apps/Developer Mode and tool metadata is refreshed through **Scan Tools**; availability depends on plan/workspace. It also recommends refresh-token support and, for OIDC providers, advertising `offline_access`. CodexGPT is an OAuth authorization server rather than an OIDC provider and issues rotating refresh tokens. Journeys U2–U4 passed DCR/linking, local approval, scoped reauthorization, descriptor refresh, post-restart refresh continuity, and local revoke/relink. Journey U5 passed live denial, replay, bounded-admission, environment-override, and verified-backup recovery; recovery remains an intentional security reset that preserves the stable binding/hostname/Tunnel while invalidating every prior client/grant/token authority. U6 passed the separate-route Legacy/OAuth round-trip, exact OAuth schemes, query-token denial, a recreated Legacy App read, exact OAuth return, and a post-return read through the existing OAuth App; continuity of the deleted original Legacy App identity is not claimed. U7 passed fail-early byte-preserving refusal of shared/unowned Tunnel configs and the live public-loopback/local-admin boundary. Gate G8-U and local G8-X are complete; exact-head CI/publication remains pending.
+
+## Legacy compatibility quick start (query-token)
 
 ### 1. Install the CLI
 
@@ -113,7 +206,7 @@ Server URL: paste the complete URL copied by CodexGPT
 Authentication: No Authentication / None (if shown)
 ```
 
-Do not remove the `codexgpt_token` query string. The complete URL is password-equivalent and can leak through browser history, clipboard contents, screenshots, logs, or copied links. OAuth is not an available setup path yet; do not substitute manual OAuth or static-Bearer settings.
+Do not remove the `codexgpt_token` query string from this retained Legacy App. The complete URL is password-equivalent and can leak through browser history, clipboard contents, screenshots, logs, or copied links. The source-checkout OAuth path described earlier has separate live G8-U evidence and uses a different retained App with a token-free URL; do not mix the two modes or substitute manual static-Bearer settings.
 
 ### 4. Daily start
 

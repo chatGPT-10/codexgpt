@@ -1,4 +1,9 @@
 import type { PersistentAuditStore } from "../audit/store.js";
+import type {
+  OAuthOwnerApprovalControl,
+  OAuthOwnerClientControl,
+  OAuthOwnerGrantControl
+} from "../auth/ownerApproval.js";
 import { createApprovalLifecycleSinkV3 } from "../audit/lifecycleV3.js";
 import {
   SessionGrantStore,
@@ -14,7 +19,10 @@ import {
 } from "../policy/pendingApprovals.js";
 import {
   LocalApprovalServer,
-  type LocalProcessControlV3
+  type LocalAdminBootstrapControlV3,
+  type LocalProcessControlV3,
+  type OAuthBackupControlV3,
+  type OAuthSigningKeyControlV3
 } from "./localApprovalServer.js";
 import {
   WindowsLocalControlRuntime,
@@ -111,6 +119,36 @@ export class LocalApprovalRuntimeV3 {
   setProcessControl(processes: LocalProcessControlV3 | undefined): void {
     this.#assertOpen();
     this.server.setProcessControl(processes);
+  }
+
+  setOAuthAdminBootstrapControl(control: LocalAdminBootstrapControlV3 | undefined): void {
+    this.#assertOpen();
+    this.server.setOAuthAdminBootstrapControl(control);
+  }
+
+  setOAuthBackupControl(control: OAuthBackupControlV3 | undefined): void {
+    this.#assertOpen();
+    this.server.setOAuthBackupControl(control);
+  }
+
+  setOAuthSigningKeyControl(control: OAuthSigningKeyControlV3 | undefined): void {
+    this.#assertOpen();
+    this.server.setOAuthSigningKeyControl(control);
+  }
+
+  setOAuthAuthorizationControl(control: OAuthOwnerApprovalControl | undefined): void {
+    this.#assertOpen();
+    this.server.setOAuthAuthorizationControl(control);
+  }
+
+  setOAuthClientControl(control: OAuthOwnerClientControl | undefined): void {
+    this.#assertOpen();
+    this.server.setOAuthClientControl(control);
+  }
+
+  setOAuthGrantControl(control: OAuthOwnerGrantControl | undefined): void {
+    this.#assertOpen();
+    this.server.setOAuthGrantControl(control);
   }
 
   async request(input: {

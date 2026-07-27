@@ -2,12 +2,13 @@ const OPENAI_SECRET_PATTERN = /\bsk-[A-Za-z0-9_-]{10,}\b/g;
 const COMMON_TOKEN_PATTERN = /\b(?:sk-ant-[A-Za-z0-9_-]{10,}|gh[opsru]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|npm_[A-Za-z0-9_-]{20,})\b/g;
 const BEARER_TOKEN_PATTERN = /\b(Authorization\s*:\s*Bearer\s+)[A-Za-z0-9._~+/=-]{12,}/gi;
 const CLI_TOKEN_PATTERN = /((?:\bngrok\s+config\s+add-authtoken|\bcloudflared\s+service\s+install|--(?:token|access-token|auth-token|api[_-]?key|authtoken))(?:=|\s+))[A-Za-z0-9._~+/=-]{8,}/gi;
-const QUERY_TOKEN_PATTERN = /([?&](?:codexgpt_token|token|access_token|auth_token|api[_-]?key)=)[^&\s"'`<>]{8,}/gi;
+const QUERY_TOKEN_PATTERN = /([?&](?:codexgpt_token|token|access_token|refresh_token|code|state|client_secret|code_verifier|auth_token|api[_-]?key|bootstrap(?:_key|_nonce)?)=)[^&\s"'`<>]+/gi;
+const OAUTH_SECRET_FIELD_PATTERN = /(["']?(?:access_token|refresh_token|client_secret|code_verifier|browser_binding|bootstrap_key|bootstrap_nonce|protected_signing_private_jwk|protected_refresh_pepper)["']?\s*:\s*)(?:"[^"\r\n]{1,8192}"|'[^'\r\n]{1,8192}'|`[^`\r\n]{1,8192}`|[^,}\s]{1,8192})/gi;
 const CODEXGPT_TOKEN_ASSIGNMENT_PATTERN = /\b(codexgpt_token\s*=\s*)(?:"[^"\r\n]{8,512}"|'[^'\r\n]{8,512}'|`[^`\r\n]{8,512}`|[A-Za-z0-9_./+=-]{8,512})/gi;
 const CODEXGPT_TOKEN_FIELD_PATTERN = /(["']?codexgpt_token["']?\s*:\s*)(?:"[^"\r\n]{8,512}"|'[^'\r\n]{8,512}'|`[^`\r\n]{8,512}`|[A-Za-z0-9_./+=-]{8,512})/gi;
 const SECRET_ASSIGNMENT_PATTERN = /\b[A-Za-z0-9_]{0,64}(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY)[A-Za-z0-9_]{0,64}\s*=\s*(?:"[^"\r\n]{12,512}"|'[^'\r\n]{12,512}'|`[^`\r\n]{12,512}`|[A-Za-z0-9_./+=-]{20,512})/gi;
 const SECRET_FIELD_PATTERN = /(["']?[A-Za-z0-9_]{0,64}(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY)[A-Za-z0-9_]{0,64}["']?\s*:\s*)(?:"[^"\r\n]{12,512}"|'[^'\r\n]{12,512}'|`[^`\r\n]{12,512}`|[A-Za-z0-9_./+=-]{20,512})/gi;
-const SECRET_PATTERNS = [OPENAI_SECRET_PATTERN, COMMON_TOKEN_PATTERN, BEARER_TOKEN_PATTERN, CLI_TOKEN_PATTERN, QUERY_TOKEN_PATTERN, CODEXGPT_TOKEN_ASSIGNMENT_PATTERN, CODEXGPT_TOKEN_FIELD_PATTERN, SECRET_ASSIGNMENT_PATTERN, SECRET_FIELD_PATTERN];
+const SECRET_PATTERNS = [OPENAI_SECRET_PATTERN, COMMON_TOKEN_PATTERN, BEARER_TOKEN_PATTERN, CLI_TOKEN_PATTERN, QUERY_TOKEN_PATTERN, OAUTH_SECRET_FIELD_PATTERN, CODEXGPT_TOKEN_ASSIGNMENT_PATTERN, CODEXGPT_TOKEN_FIELD_PATTERN, SECRET_ASSIGNMENT_PATTERN, SECRET_FIELD_PATTERN];
 const GIT_PATCH_FORBIDDEN_CONTROL_PATTERN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
 
 export interface SanitizedGitPatch {
@@ -39,8 +40,24 @@ export function redactSensitiveText(text: string): string {
     .replace(SECRET_FIELD_PATTERN, (match, prefix) => isPlaceholderSecret(match) ? match : `${prefix}[REDACTED_SECRET]`)
     .replace(BEARER_TOKEN_PATTERN, (_match, prefix) => `${prefix}[REDACTED_SECRET]`)
     .replace(QUERY_TOKEN_PATTERN, (_match, prefix) => `${prefix}[REDACTED_SECRET]`)
+    .replace(OAUTH_SECRET_FIELD_PATTERN, (_match, prefix) => `${prefix}[REDACTED_SECRET]`)
     .replace(OPENAI_SECRET_PATTERN, (match) => isPlaceholderSecret(match) ? match : "[REDACTED_SECRET]")
     .replace(COMMON_TOKEN_PATTERN, (match) => isPlaceholderSecret(match) ? match : "[REDACTED_SECRET]");
+}
+
+const ALWAYS_SENSITIVE_STRUCTURED_KEYS = new Set([
+  "accesstoken", "refreshtoken", "clientsecret", "codeverifier", "browserbinding",
+  "bootstrapkey", "bootstrapnonce", "protectedsigningprivatejwk", "protectedrefreshpepper",
+  "dpapiblob", "credentialciphertext"
+]);
+const OAUTH_CONTEXT_KEYS = new Set([
+  "accesstoken", "refreshtoken", "clientid", "redirecturi", "codechallenge",
+  "codechallengemethod", "granttype", "responsetype", "tokenendpointauthmethod"
+]);
+const JWK_PRIVATE_MEMBERS = new Set(["d", "p", "q", "dp", "dq", "qi", "k"]);
+
+function normalizedStructuredKey(key: string): string {
+  return key.toLocaleLowerCase("en-US").replaceAll("_", "").replaceAll("-", "");
 }
 
 export function redactStructured<T>(value: T, depth = 0): T {
@@ -49,9 +66,18 @@ export function redactStructured<T>(value: T, depth = 0): T {
   if (!value || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map((item) => redactStructured(item, depth + 1)) as T;
 
+  const entries = Object.entries(value);
+  const normalizedKeys = new Set(entries.map(([key]) => normalizedStructuredKey(key)));
+  const oauthContext = [...normalizedKeys].some((key) => OAUTH_CONTEXT_KEYS.has(key));
+  const jwkContext = normalizedKeys.has("kty");
   const out: Record<string, unknown> = {};
-  for (const [key, item] of Object.entries(value)) {
-    out[key] = redactStructured(item, depth + 1);
+  for (const [key, item] of entries) {
+    const normalized = normalizedStructuredKey(key);
+    const sensitive =
+      ALWAYS_SENSITIVE_STRUCTURED_KEYS.has(normalized) ||
+      (oauthContext && (normalized === "code" || normalized === "state")) ||
+      (jwkContext && JWK_PRIVATE_MEMBERS.has(normalized));
+    out[key] = sensitive ? "[REDACTED_SECRET]" : redactStructured(item, depth + 1);
   }
   return out as T;
 }

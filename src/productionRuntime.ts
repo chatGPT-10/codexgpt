@@ -34,7 +34,12 @@ import {
   installServerMutationLifecycle
 } from "./mutations/lifecycle.js";
 import { upgradeCodexGPTSupertool } from "./codexgptSupertool.js";
-import type { PolicySessionContextSource } from "./policy/identity.js";
+import { currentPolicyIdentity, type PolicySessionContextSource } from "./policy/identity.js";
+import type { OAuthToolSecurityRuntime } from "./auth/toolSecurity.js";
+import {
+  ownerIdForPolicyIdentity,
+  policyIdentityOwnershipFacts
+} from "./auth/policyIdentity.js";
 import {
   AtomicTransactionEngine,
   ProcessInstanceRegistry,
@@ -117,6 +122,7 @@ export interface ProductionRuntimeObservation {
 
 export interface ProductionCodexGPTServerOptions {
   policySessionContextSource?: PolicySessionContextSource;
+  oauthToolSecurity?: OAuthToolSecurityRuntime;
   stateRootOptions?: TransactionStateRootOptions;
   observeRuntime?: (value: ProductionRuntimeObservation) => void;
   localApprovalRuntimeV3?: LocalApprovalRuntimeV3;
@@ -142,12 +148,13 @@ interface RuntimeResources {
 
 function noRuntime(
   policySessionContextSource: PolicySessionContextSource | undefined,
+  oauthToolSecurity: OAuthToolSecurityRuntime | undefined,
   lifecycle: ServerMutationLifecycle,
   semanticPreviewStoreV5?: SemanticPreviewStore,
   semanticWorkerHealthV5?: SemanticWorkerHealthRegistry
 ): RuntimeResources {
   return {
-    dependencies: { policySessionContextSource, semanticPreviewStoreV5, semanticWorkerHealthV5 },
+    dependencies: { policySessionContextSource, oauthToolSecurity, semanticPreviewStoreV5, semanticWorkerHealthV5 },
     observation: {
       atomic: false,
       durableAudit: false,
@@ -303,6 +310,7 @@ function composeRuntime(
   if (!atomic && !durableAudit) {
     return noRuntime(
       options.policySessionContextSource,
+      options.oauthToolSecurity,
       lifecycle,
       options.semanticPreviewStoreV5,
       options.semanticWorkerHealthV5
@@ -364,6 +372,7 @@ function composeRuntime(
     }
     const dependencies: CodexGPTServerDependencies = {
       policySessionContextSource: options.policySessionContextSource,
+      oauthToolSecurity: options.oauthToolSecurity,
       transactionRecoveryCoordinator: recovery,
       localApprovalRuntimeV3,
       rootAdmissionRuntimeV3: options.rootAdmissionRuntimeV3,
@@ -398,7 +407,7 @@ function composeRuntime(
         evidenceRevision: inspection.evidenceRevision,
         transportKind: options.policySessionContextSource!.transportKind,
         transportSessionId: options.policySessionContextSource!.transportSessionId(),
-        identity: options.policySessionContextSource!.identity
+        identity: policyIdentityOwnershipFacts(currentPolicyIdentity(options.policySessionContextSource!))
       });
       executionContextFingerprint = contextFingerprint;
       runCommandRuntime = new RunCommandRuntimeV3({
@@ -463,21 +472,24 @@ function composeRuntime(
               await auditStore!.append(event);
               return { eventId: event.eventId, timestamp: event.timestamp };
             },
-            context: () => ({
-              credentialRef: options.policySessionContextSource!.identity.credentialRef,
-              transportSessionId: options.policySessionContextSource!.transportSessionId(),
-              policyRevision: executionInspection!.policyRevision,
-              subjectFingerprint: digest(options.policySessionContextSource!.identity),
-              contextFingerprint: digest({
-                serverId: localApprovalRuntimeV3?.serverId ?? "local-server-unavailable",
-                contractVersion: 3,
-                policyRevision: executionInspection!.policyRevision,
-                evidenceRevision: executionInspection!.evidenceRevision,
-                transportKind: options.policySessionContextSource!.transportKind,
+            context: () => {
+              const identity = currentPolicyIdentity(options.policySessionContextSource!);
+              return {
+                credentialRef: identity.credentialRef,
                 transportSessionId: options.policySessionContextSource!.transportSessionId(),
-                identity: options.policySessionContextSource!.identity
-              })
-            })
+                policyRevision: executionInspection!.policyRevision,
+                subjectFingerprint: digest(policyIdentityOwnershipFacts(identity)),
+                contextFingerprint: digest({
+                  serverId: localApprovalRuntimeV3?.serverId ?? "local-server-unavailable",
+                  contractVersion: 3,
+                  policyRevision: executionInspection!.policyRevision,
+                  evidenceRevision: executionInspection!.evidenceRevision,
+                  transportKind: options.policySessionContextSource!.transportKind,
+                  transportSessionId: options.policySessionContextSource!.transportSessionId(),
+                  identity: policyIdentityOwnershipFacts(identity)
+                })
+              };
+            }
           })
         });
         const manager = processManager;
@@ -517,16 +529,28 @@ function composeRuntime(
         throw new Error("Automatic Contract V4 Git composition requires durable audit and stable session identity.");
       }
       const bootstrap = options.gitBootstrapV4;
-      const contextFingerprint = semanticDigest({
+      const gitIdentity = currentPolicyIdentity(options.policySessionContextSource);
+      const oauthIdentity = gitIdentity.schemaVersion === 2 && gitIdentity.kind === "oauth_subject";
+      const stableOwnerId = ownerIdForPolicyIdentity(gitIdentity);
+      const contextFingerprint = semanticDigest(oauthIdentity ? {
         serverId: localApprovalRuntimeV3?.serverId ?? "local-server-unavailable",
         contractVersion: 4,
         transportKind: options.policySessionContextSource.transportKind,
         transportSessionId: options.policySessionContextSource.transportSessionId(),
-        identity: options.policySessionContextSource.identity
+        ownerId: stableOwnerId
+      } : {
+        serverId: localApprovalRuntimeV3?.serverId ?? "local-server-unavailable",
+        contractVersion: 4,
+        transportKind: options.policySessionContextSource.transportKind,
+        transportSessionId: options.policySessionContextSource.transportSessionId(),
+        identity: gitIdentity
       }).replace(/^sha256:/u, "");
-      const ownerFingerprint = semanticDigest({
+      const ownerFingerprint = semanticDigest(oauthIdentity ? {
         ownerBindingVersion: 1,
-        credentialRef: options.policySessionContextSource.identity.credentialRef
+        ownerId: stableOwnerId
+      } : {
+        ownerBindingVersion: 1,
+        credentialRef: gitIdentity.credentialRef
       }).replace(/^sha256:/u, "");
       automaticGitRegistry = new RepositoryIdentityRegistry({ contextFingerprint });
       automaticGitStateTokens = new GitStateTokenService({
