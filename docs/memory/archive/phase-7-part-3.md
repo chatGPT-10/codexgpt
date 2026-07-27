@@ -326,3 +326,25 @@ This append-only volume continues Phase 7 from STEP-426 after Volume 2 crossed t
 **Rollback:** Revert the seven STEP-432 files listed above. Reverting only the test import order restores the confirmed Node 20 CPU spin and is not a safe test-harness rollback. The product-level compatibility rollback remains explicit `CODEXGPT_GUIDANCE_MODE=legacy`; no state, credential, audit evidence, or toolchain deletion is part of rollback.
 
 **Next action:** Stage only the 37 reviewed Phase 7 files, run staged-boundary policy and secret checks, create one concise English commit, push normally, and bind the exact 40-character head to the complete replacement CI matrix.
+
+## 2026-07-25 — STEP-433: Close Phase 7 Core on exact-head CI
+
+**Status:** Phase 7 Core is formally closed.
+
+**Publication:** The exact reviewed 37-file Phase 7 scope was committed once as `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with message `Complete Phase 7 semantic provider closure` and pushed normally to `origin/main`. The two untracked Phase 8 OAuth records were not staged, committed, or pushed.
+
+**Exact-head verification:** CI run `30171313296` completed successfully for the exact 40-character head. Change classification, Repository policy, Windows Node 20, Ubuntu Node 20, Ubuntu Node 24, and Windows Node 24 all reached terminal success. Each platform job therefore completed its required Build, Regression, Smoke, and Package path under the workflow dependency structure.
+
+**Closure basis:** Phase 7 Core now has all three required evidence classes: implemented and adversarially reviewed backend behavior; real user-observable ChatGPT App G7-U U2–U6 through STEP-430; and final local G7-X plus the replacement exact-head matrix through STEP-432/STEP-433. V1–V4 compatibility, explicit `legacy` rollback, Policy Kernel enforcement, Phase 3 transaction ownership, audit persistence, and package boundaries remain intact.
+
+**Repository state decision:** This STEP-433 evidence is recorded locally but is intentionally not followed by an evidence-only commit. The active rules explicitly prohibit creating another commit solely to record a CI run ID. The published closure head remains the exact code/documentation candidate that CI evaluated.
+
+**Deferred scope:** Phase 7B Serena, Phase 7C direct LSP, Tasks 4B1–4B6, `workspace`, Phase 8, release/deployment, credential migration, toolchain-root migration, force push, destructive history, and unrelated work remain unauthorized or deferred.
+
+**Rollback:** Revert closure commit `a0b9f46e2297297959527f7570c9cb7942cc8fb3` through the normal reviewed Git path if the complete Phase 7 candidate must be withdrawn. For connector compatibility, one restart with explicit `CODEXGPT_GUIDANCE_MODE=legacy` remains the supported product rollback. Do not delete credentials, audit evidence, transaction state, approvals, toolchains, or user workspaces as rollback.
+
+**Next action:** None within the completed Phase 7 Core authorization. Any new implementation phase or release action requires separate authorization.
+
+## Volume closure
+
+Phase 7 Volume 3 is closed at STEP-433. Do not append later interphase maintenance or future-phase work to this file; record between-phase work in the active interphase maintenance archive.

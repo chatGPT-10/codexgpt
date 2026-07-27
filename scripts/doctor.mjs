@@ -61,6 +61,22 @@ function savedProfileCheck() {
   return valid;
 }
 
+function savedProfileUsesOAuth() {
+  if (args.includes("--no-profile")) return false;
+  const root = canonicalRoot();
+  const home = process.env.CODEXGPT_HOME
+    ? path.resolve(process.env.CODEXGPT_HOME)
+    : path.join(os.homedir(), ".codexgpt");
+  const profileId = createHash("sha256").update(root).digest("hex").slice(0, 24);
+  const profilePath = path.join(home, "profiles", `${profileId}.json`);
+  try {
+    const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
+    return profile?.authMode === "oauth" || Boolean(profile?.oauthStateRef || profile?.oauthIssuer || profile?.oauthResource);
+  } catch {
+    return false;
+  }
+}
+
 function savedProfileBashMode() {
   if (args.includes("--no-profile")) return "";
 
@@ -134,5 +150,16 @@ if (args.includes("--shell-check-only")) {
     windowsHide: true
   });
   if (result.error) throw result.error;
-  process.exitCode = result.status === 0 && shellAvailable && profileValid ? 0 : result.status || 1;
+  let oauthStatus = 0;
+  if (savedProfileUsesOAuth()) {
+    const oauth = spawnSync(process.execPath, [path.join(scriptDir, "oauth-admin.mjs"), "doctor", "--root", canonicalRoot()], {
+      cwd: projectRoot,
+      env: { ...process.env, CODEXGPT_ROOT: canonicalRoot() },
+      stdio: "inherit",
+      windowsHide: true
+    });
+    if (oauth.error) throw oauth.error;
+    oauthStatus = oauth.status ?? 1;
+  }
+  process.exitCode = result.status === 0 && oauthStatus === 0 && shellAvailable && profileValid ? 0 : result.status || oauthStatus || 1;
 }

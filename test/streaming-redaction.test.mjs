@@ -3,6 +3,7 @@ import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
 const { StreamingRedactor, OUTPUT_REDACTION_CAPABILITY } = await tsImport("../fixtures/ts-imports/process-output-imports.ts", import.meta.url);
+const { redactSensitiveText, redactStructured } = await tsImport("../src/redact.ts", import.meta.url);
 
 test("known bearer prefix split at every byte boundary is redacted before output", () => {
   const source = Buffer.from("before Authorization: Bearer abcdefghijklmnop after", "utf8");
@@ -35,4 +36,31 @@ test("UTF-8 splits, invalid bytes, ANSI, and log-injection controls are determin
   assert.match(output, /^€�/);
   assert.doesNotMatch(output, /\u001b|\r/);
   assert.equal(OUTPUT_REDACTION_CAPABILITY, "best_effort_known_patterns");
+});
+
+test("OAuth query, response, bootstrap, DPAPI, and private JWK material is redacted", () => {
+  const text = redactSensitiveText(
+    "https://mcp.example.com/callback?code=secret-code&state=secret-state&refresh_token=refresh-value " +
+    '{"access_token":"access-value","code_verifier":"verifier-value","bootstrap_key":"bootstrap-value"}'
+  );
+  for (const secret of ["secret-code", "secret-state", "refresh-value", "access-value", "verifier-value", "bootstrap-value"]) {
+    assert.equal(text.includes(secret), false, secret);
+  }
+
+  const structured = redactStructured({
+    response_type: "code",
+    code: "authorization-code",
+    state: "opaque-state",
+    access_token: "access-token",
+    protectedSigningPrivateJwk: "dpapi-blob",
+    jwk: { kty: "EC", crv: "P-256", x: "public-x", y: "public-y", d: "private-d" },
+    ordinary: { state: "healthy" }
+  });
+  assert.equal(structured.code, "[REDACTED_SECRET]");
+  assert.equal(structured.state, "[REDACTED_SECRET]");
+  assert.equal(structured.access_token, "[REDACTED_SECRET]");
+  assert.equal(structured.protectedSigningPrivateJwk, "[REDACTED_SECRET]");
+  assert.equal(structured.jwk.d, "[REDACTED_SECRET]");
+  assert.equal(structured.jwk.x, "public-x");
+  assert.equal(structured.ordinary.state, "healthy");
 });

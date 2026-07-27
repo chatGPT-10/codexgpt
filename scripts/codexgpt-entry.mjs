@@ -85,10 +85,29 @@ function boolFromValue(value, fallback = false) {
   return ["1", "true", "yes", "y", "on"].includes(String(value).toLowerCase());
 }
 
+function savedProfileAuthMode(argv, env = process.env) {
+  const explicit = env.CODEXGPT_AUTH_MODE?.trim();
+  if (explicit || argv.includes("--no-profile")) return explicit || "";
+  const root = canonicalRoot(argv, env);
+  const profileId = createHash("sha256").update(root).digest("hex").slice(0, 24);
+  const profilePath = path.join(CodexGPTHome(env), "profiles", `${profileId}.json`);
+  try {
+    const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
+    if (!profile || typeof profile !== "object" || Array.isArray(profile)) return "";
+    if (profile.root && profile.root !== root) return "";
+    return typeof profile.authMode === "string" ? profile.authMode.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
 export function connectorAuthOutputEnvironment(argv, env = process.env) {
   const subcommand = argv[0] && !argv[0].startsWith("-") ? argv[0] : "start";
   const connectorCommands = new Set(["start", "stable", "connection-test", "ngrok", "tailscale"]);
   if (!connectorCommands.has(subcommand) || argv.includes("--no-auth")) return env;
+  if (savedProfileAuthMode(argv, env) === "oauth") {
+    return { ...env, CODEXGPT_ALLOW_QUERY_TOKEN: "0" };
+  }
 
   if (!("CODEXGPT_ALLOW_QUERY_TOKEN" in env)) {
     return {
@@ -181,6 +200,11 @@ async function main() {
 
   if (subcommand === "install-cloudflared" || argv.includes("--install-cloudflared")) {
     exitFrom(runNodeScript("cloudflared-installer.mjs", ["install"]));
+    return;
+  }
+
+  if (subcommand === "auth") {
+    exitFrom(runNodeScript("oauth-admin.mjs", argv.slice(1)));
     return;
   }
 

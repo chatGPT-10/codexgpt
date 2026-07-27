@@ -33,6 +33,21 @@ test("public repository metadata points to the current fork while Pages stays on
   assert.match(fs.readFileSync(path.resolve("src\/http.ts"), "utf8"), /const docsUrl = "https:\/\/rebel0789\.github\.io\/codexgpt\/";/);
 });
 
+test("public runtime version matches package and lockfile metadata", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve("package.json"), "utf8"));
+  const lock = JSON.parse(fs.readFileSync(path.resolve("package-lock.json"), "utf8"));
+  assert.equal(lock.version, pkg.version);
+  assert.equal(lock.packages[""].version, pkg.version);
+
+  const escapedVersion = pkg.version.replaceAll(".", "\\.");
+  for (const relativePath of ["src/http.ts", "src/stdio.ts"]) {
+    const source = fs.readFileSync(path.resolve(relativePath), "utf8");
+    assert.match(source, new RegExp(`const CODEXGPT_VERSION = "${escapedVersion}";`));
+  }
+  const serverSource = fs.readFileSync(path.resolve("src/server.ts"), "utf8");
+  assert.match(serverSource, new RegExp(`name: "CodexGPT", version: "${escapedVersion}"`));
+});
+
 test("published package keeps website assets but excludes internal memory archives", () => {
   const result = spawnSync(process.execPath, [npmCliPath(), "pack", "--dry-run", "--json", "--ignore-scripts"], {
     cwd: process.cwd(),
@@ -57,6 +72,21 @@ test("published package keeps website assets but excludes internal memory archiv
     "dist/audit/lifecycleV4.js"
   ]) {
     assert.ok(files.includes(requiredGateRFile), `Published package must retain ${requiredGateRFile}`);
+  }
+  for (const requiredOAuthFile of [
+    "scripts/oauth-admin.mjs",
+    "scripts/windows-credential-host.cs",
+    "scripts/windows-credential-host.ps1",
+    "scripts/windows-credential-host-manifest.json",
+    "scripts/windows-credential-host-protocol-v1.json",
+    "dist/auth/index.js",
+    "dist/auth/runtimeStatus.js",
+    "dist/auth/tokenService.js",
+    "dist/http/publicApp.js",
+    "dist/http/localAdminApp.js",
+    "dist/http/oauthMcpRuntime.js"
+  ]) {
+    assert.ok(files.includes(requiredOAuthFile), `Published package must retain ${requiredOAuthFile}`);
   }
   for (const requiredNativeHostFile of [
     "scripts/windows-conpty-probe-child.mjs",
@@ -116,4 +146,16 @@ test("published package keeps website assets but excludes internal memory archiv
     false,
     "Published package must not contain internal project memory"
   );
+  for (const forbiddenOAuthState of [
+    ".codexgpt/",
+    "oauth/state/",
+    "auth-setup/",
+    "backups/"
+  ]) {
+    assert.equal(
+      files.some((file) => file.startsWith(forbiddenOAuthState)),
+      false,
+      `Published package must not contain private OAuth state under ${forbiddenOAuthState}`
+    );
+  }
 });

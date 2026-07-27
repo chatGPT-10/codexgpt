@@ -78,14 +78,30 @@ test("test domains partition every discovered test and freeze the connector-host
   );
 });
 
-test("process-owning and resource-bounded files are isolated without serializing the main non-Windows suite", async () => {
+test("process-owning and resource-bounded files use the reviewed layered execution topology", async () => {
   const source = await fs.readFile(script, "utf8");
-  assert.match(source, /process\.platform === "win32" \? "1" : undefined/);
   for (const name of expectedSerialProcessTests) assert.match(source, new RegExp(name.replaceAll(".", "\\.")));
-  assert.match(source, /const isolateProcessTests = process\.platform !== "win32" && concurrency !== "1"/);
-  assert.match(source, /const parallelTests = isolateProcessTests/);
-  assert.match(source, /const serialTests = isolateProcessTests/);
-  assert.match(source, /runNodeTests\(serialTests, "1", suiteTemp\.environment\)/);
+  assert.match(source, /buildTestExecutionShards\(domains\[domain\]/);
+  assert.match(source, /validateTestExecutionProfileInventory\(domains\.all/);
+  assert.match(source, /validateTestExecutionPartition\(domains\[domain\], shards\)/);
+  assert.match(source, /CODEXGPT_TEST_TOPOLOGY \?\? "layered"/);
+  assert.match(source, /for \(const shard of shards\)/);
+  assert.match(source, /shard\.concurrency/);
+  assert.match(source, /shard\.name/);
+});
+
+test("optional performance collection keeps the test runner topology and writes only ignored metadata", async () => {
+  const source = await fs.readFile(script, "utf8");
+  assert.match(source, /argv\.includes\("--performance"\)/);
+  assert.match(source, /performanceState\.performance\.path/);
+  assert.match(source, /test-performance-reporter\.mjs/);
+  assert.match(source, /--test-reporter-destination=stdout/);
+  assert.match(source, /CODEXGPT_TEST_PERFORMANCE_DOMAIN/);
+  assert.match(source, /CODEXGPT_TEST_PERFORMANCE_SHARD/);
+  assert.match(source, /prepareTestPerformanceDirectory\(\)/);
+  assert.match(source, /verifyTestPerformanceDirectory\(performanceState\)/);
+  assert.match(source, /validateTestPerformanceReport\(destination/);
+  assert.match(source, /runNodeTests\(\s*shard\.tests,/);
 });
 
 test("connector-backed local execution fails closed for control and all domains", async () => {

@@ -1,6 +1,6 @@
 # Phase 7 Semantic Providers TDD Plan
 
-**Status:** Core implementation and backend acceptance are complete through STEP-423, while STEP-419 remains the latest exact-head matrix. Live U2–U6 journeys are accepted through STEP-430, and final local G7-X passed at STEP-432. Reviewed publication and replacement exact-head CI remain outstanding.
+**Status:** Phase 7 Core is closed. Live U2–U6 journeys are accepted through STEP-430, final local G7-X passed at STEP-432, and exact head `a0b9f46e2297297959527f7570c9cb7942cc8fb3` passed CI run `30171313296` at STEP-433.
 
 **Date:** 2026-07-24
 
@@ -1088,9 +1088,9 @@ Next approved action
 
 Update root `Memory.md` in place with only current state, active decisions, final evidence, limitations, open items, recent summaries, and the archive link. Start a numbered continuation volume before the active archive reaches the configured 80% direct-read threshold.
 
-## 20. Current next action
+## 20. Closure state
 
-Phase 7 Core implementation, backend acceptance, managed Node 20/24 verification, and the STEP-419 exact-head matrix are complete. STEP-420 through STEP-423 repaired the live ChatGPT descriptor/default-root path, process-lifecycle preview continuity, reconnect-stable V5 apply/undo approval, and V5 default-root undo while preserving session-local workspace managers and V1–V4 compatibility. STEP-430 accepts the complete real App U2–U6 evidence, and STEP-432 passes final local G7-X; only reviewed publication and replacement exact-head CI remain.
+Phase 7 Core implementation, backend acceptance, managed Node 20/24 verification, and real App U2–U6 are complete. STEP-432 passed final local G7-X, and STEP-433 published the reviewed scope and verified exact head `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with successful run `30171313296`.
 
 Real ChatGPT App evidence through the supported public named tunnel now includes:
 
@@ -1100,8 +1100,4 @@ Real ChatGPT App evidence through the supported public named tunnel now includes
 - **U5 / STEP-428:** controlled boundary results failed closed, disclosed no sensitive path or content, made no mutation, and used no write, command, or routing authority. Analysis-time source replacement is rejected by post-response snapshot revalidation.
 - **U6 / STEP-430:** a recreated V4 51-tool App received the explicit **Scan Tools**/recreate instruction, refreshed once against the same V5 endpoint, exposed `semantic`, returned a successful 29-Skill/2-MCP inventory, and completed definition, references/read, diagnostics, and 22-candidate ambiguity without Provider setup, preview creation, or mutation. U6 also repaired optional Skill-summary projection and partial-project disambiguation ordering.
 
-The remaining legal sequence is:
-
-1. stage only the reviewed Phase 7 scope, create one concise English commit, push normally, and bind that exact head to terminal Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package success.
-
-Keep Phase 7B Serena, Phase 7C direct LSP, Phase 8, release/deployment, credential migration, force push, destructive history, and unrelated changes outside this sequence. Phase 7 Core closes only when both real user-observable G7-U and the replacement exact-head matrix pass.
+Phase 7 Core has no remaining implementation or closure action. Keep Phase 7B Serena, Phase 7C direct LSP, Phase 8, release/deployment, credential migration, force push, destructive history, and unrelated changes deferred until separately authorized.

@@ -51,6 +51,7 @@ const CSHARP_APIS = new Set([
   "OpenSCManagerW",
   "OpenThreadToken",
   "PeekNamedPipe",
+  "Protect",
   "QueryFullProcessImageNameW",
   "ReadFile",
   "ResizePseudoConsole",
@@ -62,6 +63,7 @@ const CSHARP_APIS = new Set([
   "SetStdHandle",
   "TerminateJobObject",
   "TerminateProcess",
+  "Unprotect",
   "UpdateProcThreadAttribute",
   "WaitForSingleObject",
   "WriteFile"
@@ -70,6 +72,7 @@ const CSHARP_APIS = new Set([
 const POWERSHELL_APIS = Object.freeze([
   Object.freeze({ api: "Add-Type", pattern: /\bAdd-Type\b/g }),
   Object.freeze({ api: "ConvertFrom-Json", pattern: /\bConvertFrom-Json\b/g }),
+  Object.freeze({ api: "CredentialHost.Run", pattern: /\[CodexGptCredentialHost\.CredentialHost\]::Run\s*\(/g }),
   Object.freeze({ api: "System.IO.File.Exists", pattern: /\[System\.IO\.File\]::Exists\s*\(/g }),
   Object.freeze({ api: "System.IO.File.ReadAllText", pattern: /\[System\.IO\.File\]::ReadAllText\s*\(/g }),
   Object.freeze({ api: "LocalControlSpike.Run", pattern: /\[CodexGPT\.Phase4\.LocalControlSpike\]::Run\s*\(/g }),

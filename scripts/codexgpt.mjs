@@ -2,6 +2,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,6 +11,7 @@ import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cloudflaredTunnelArgs } from './cloudflared-installer.mjs';
+import { createFixedAddressLookup, resolvePublicProbeAddress } from './oauth-admin.mjs';
 import { boundedTextArtifact, trimUtf8Bytes } from './output-bounds.mjs';
 import { createOwnedTempRootSync } from './owned-temp-root.mjs';
 
@@ -37,10 +40,23 @@ Usage:
   codexgpt semantic use builtin|none
   codexgpt semantic disable
   codexgpt doctor
+  codexgpt auth setup --root /path/to/repo --hostname mcp.example.com --tunnel-name codexgpt
+  codexgpt auth status --root /path/to/repo
+  codexgpt auth pending|open|clients --root /path/to/repo
+  codexgpt auth approve|deny <correlation-code> --root /path/to/repo
+  codexgpt auth rollback --root /path/to/repo
   codexgpt approvals list --server <server_id>
   codexgpt approvals watch --server <server_id>
   codexgpt approvals approve <approval_id> --server <server_id>
   codexgpt approvals deny <approval_id> --server <server_id>
+  codexgpt oauth-authorizations list --server <server_id>
+  codexgpt oauth-authorizations approve <pending_id> --server <server_id>
+  codexgpt oauth-authorizations deny <pending_id> --server <server_id>
+  codexgpt oauth-clients list --server <server_id>
+  codexgpt oauth-clients revoke <client_id> --server <server_id>
+  codexgpt oauth-grants list --server <server_id>
+  codexgpt oauth-grants revoke <grant_id> --server <server_id>
+  codexgpt oauth-grants revoke-owner --server <server_id>
   codexgpt processes list --server <server_id>
   codexgpt processes terminate <process_id> --server <server_id>
   codexgpt connection-test --root /path/to/repo
@@ -1052,14 +1068,38 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForHealth(url, token, timeoutMs = 15000) {
+function requestHealth(url, token, hostHeader, lookup) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const client = parsed.protocol === 'https:' ? https : http;
+    const request = client.request(parsed, {
+      method: 'GET',
+      lookup,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(hostHeader ? { Host: hostHeader } : {})
+      }
+    }, (response) => {
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        resolve({ status: response.statusCode ?? 0, text });
+      });
+    });
+    request.on('error', reject);
+    request.end();
+  });
+}
+
+async function waitForHealth(url, token, timeoutMs = 15000, hostHeader = '', lookup) {
   const started = Date.now();
   let lastError = '';
   while (Date.now() - started < timeoutMs) {
     try {
-      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (res.ok) return await res.json();
-      lastError = `${res.status} ${await res.text()}`;
+      const response = await requestHealth(url, token, hostHeader, lookup);
+      if (response.status >= 200 && response.status < 300) return JSON.parse(response.text);
+      lastError = `${response.status} ${response.text}`;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
@@ -1347,11 +1387,22 @@ function waitForProcessExit(child) {
   });
 }
 
-async function waitForPublicHealth(publicBase, token, tunnelChild, tunnelLabel = 'tunnel') {
-  const health = waitForHealth(`${publicBase}/healthz`, token, 60000);
+async function waitForPublicHealth(publicBase, token, tunnelChild, tunnelLabel = 'tunnel', usePublicDns = false) {
   const exit = waitForProcessExit(tunnelChild).then(({ code, signal }) => {
     throw new Error(`${tunnelLabel} exited before ${publicBase}/healthz was reachable, code=${code} signal=${signal}`);
   });
+  const health = (async () => {
+    let lookup;
+    if (usePublicDns) {
+      try {
+        lookup = createFixedAddressLookup(await resolvePublicProbeAddress(new URL(publicBase).hostname));
+      } catch (error) {
+        await sleep(1000);
+        throw error;
+      }
+    }
+    return waitForHealth(`${publicBase}/healthz`, token, 60000, '', lookup);
+  })();
   return Promise.race([health, exit]);
 }
 
@@ -2800,13 +2851,17 @@ async function runLoopHandoff(argv) {
   if (finalVerdict !== 'PASS') process.exitCode = 1;
 }
 
-function createConnectorDetails(endpoint, token, localBase = '') {
+function createConnectorDetails(endpoint, token, localBase = '', options = {}) {
   const serverUrl = endpointWithToken(endpoint, token);
+  const localStatusBase = options.localStatusBase ?? localBase;
   return {
     endpoint,
     token,
+    authMode: options.authMode ?? 'legacy',
     serverUrl,
-    localStatusUrl: localBase ? endpointWithToken(`${localBase}/`, token) : '',
+    localStatusUrl: options.authMode === 'oauth'
+      ? ''
+      : localStatusBase ? endpointWithToken(`${localStatusBase}/`, token) : '',
     chatgptSettingsUrl: 'https://chatgpt.com/#settings/Connectors'
   };
 }
@@ -2818,19 +2873,52 @@ function printCreateAppFields(details) {
   console.log('  Description: Local coding workspace bridge for ChatGPT.');
   console.log('  Connection: Server URL');
   console.log(`  Server URL: ${details.serverUrl}`);
-  console.log('  Authentication: No Authentication / None');
+  console.log(`  Authentication: ${details.authMode === 'oauth' ? 'OAuth' : 'No Authentication / None'}`);
   console.log('');
   if (details.token) {
     console.log('If your ChatGPT UI supports custom headers instead, you can use:');
     console.log('');
     console.log(`  Authorization: Bearer ${details.token}`);
-  } else {
+  } else if (details.authMode !== 'oauth') {
     console.log('Authorization: disabled');
   }
 }
 
+function oauthPendingCount(root) {
+  if (!root) return null;
+  const result = spawnSync(process.execPath, [path.join(projectRoot, 'scripts', 'oauth-admin.mjs'), 'status', '--root', root, '--json'], {
+    cwd: projectRoot,
+    env: process.env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 10000
+  });
+  if (result.error || result.status !== 0) return null;
+  try {
+    const status = JSON.parse(result.stdout);
+    return status.live?.authorizations?.filter((entry) => entry.status === 'pending').length ?? 0;
+  } catch {
+    return null;
+  }
+}
+
+function openOAuthAdmin(root) {
+  if (!root) return false;
+  const result = spawnSync(process.execPath, [path.join(projectRoot, 'scripts', 'oauth-admin.mjs'), 'open', '--root', root], {
+    cwd: projectRoot,
+    env: process.env,
+    stdio: 'inherit',
+    windowsHide: true,
+    timeout: 15000
+  });
+  return !result.error && result.status === 0;
+}
+
 function printConnectorBlock(endpoint, token, options = {}) {
-  const details = createConnectorDetails(endpoint, token, options.localBase ?? '');
+  const details = createConnectorDetails(endpoint, token, options.localBase ?? '', {
+    authMode: options.authMode ?? 'legacy',
+    localStatusBase: options.localStatusBase ?? options.localBase ?? ''
+  });
   const { serverUrl } = details;
   const publicHttps = serverUrl.startsWith('https://');
   const shouldCopy = options.copyUrl === true || (options.copyUrl !== false && publicHttps);
@@ -2849,9 +2937,11 @@ function printConnectorBlock(endpoint, token, options = {}) {
   console.log(`  Connector  ${publicHttps ? 'public HTTPS' : 'local HTTP'}`);
   if (copied.ok) {
     console.log(`  URL        copied with ${copied.command}`);
-    console.log('  Secret URL hidden; press u to show it explicitly');
+    if (details.authMode !== 'oauth') console.log('  Secret URL hidden; press u to show it explicitly');
   } else if (shouldCopy) {
-    console.log('  URL        clipboard unavailable; press u to show the secret URL');
+    console.log(details.authMode === 'oauth'
+      ? '  URL        clipboard unavailable; press u to show the URL'
+      : '  URL        clipboard unavailable; press u to show the secret URL');
   } else if (options.copyUrl === false && publicHttps) {
     console.log('  URL        not copied; press c to copy or u to show');
   } else if (!publicHttps) {
@@ -2864,37 +2954,51 @@ function printConnectorBlock(endpoint, token, options = {}) {
   console.log('');
   if (options.connectionTest) {
     console.log(paint('bold', 'Connection test'));
-    console.log('  1. In ChatGPT, open Settings -> Plugins and create a development plugin.');
-    if (publicHttps) {
-      console.log(copied.ok
-        ? '  2. Paste the copied Server URL and choose Authentication: No Authentication.'
-        : '  2. Press u to show the secret Server URL, then paste it and choose Authentication: No Authentication.');
+    if (details.authMode === 'oauth') {
+      console.log('  OAuth discovery and listener separation are ready.');
+      console.log('  MCP authorization remains unavailable until the later Phase 8 OAuth vertical slice.');
     } else {
-      console.log('  2. Paste the Server URL above and choose Authentication: No Authentication.');
+      console.log('  1. In ChatGPT, open Settings -> Plugins and create a development plugin.');
+      if (publicHttps) {
+        console.log(copied.ok
+          ? '  2. Paste the copied Server URL and choose Authentication: No Authentication.'
+          : '  2. Press u to show the secret Server URL, then paste it and choose Authentication: No Authentication.');
+      } else {
+        console.log('  2. Paste the Server URL above and choose Authentication: No Authentication.');
+      }
+      console.log('  3. Watch this terminal for: [CodexGPT] POST /mcp received');
+      console.log('');
+      console.log('  No POST /mcp     ChatGPT or the tunnel did not reach CodexGPT.');
+      console.log('  POST /mcp -> 401 The full Server URL, including codexgpt_token, was not used.');
+      console.log('  POST /mcp -> 2xx The MCP connection reached CodexGPT successfully.');
     }
-    console.log('  3. Watch this terminal for: [CodexGPT] POST /mcp received');
-    console.log('');
-    console.log('  No POST /mcp     ChatGPT or the tunnel did not reach CodexGPT.');
-    console.log('  POST /mcp -> 401 The full Server URL, including codexgpt_token, was not used.');
-    console.log('  POST /mcp -> 2xx The MCP connection reached CodexGPT successfully.');
     console.log('');
   }
-  if (publicHttps && !copied.ok) {
+  if (details.authMode === 'oauth') {
+    const pending = oauthPendingCount(options.root);
+    console.log(pending === null
+      ? 'Approvals: local owner channel unavailable; run codexgpt auth status for the exact repair.'
+      : `Approvals: ${pending} pending link${pending === 1 ? '' : 's'}; press a to open the local approval page.`);
+    console.log('Next: create or refresh the ChatGPT App with this token-free Server URL, then approve the link locally.');
+  } else if (publicHttps && !copied.ok) {
     console.log('Next: press u to show the secret Server URL, then open ChatGPT and choose Authentication: None.');
   } else {
     console.log('Next: press Enter to open ChatGPT, paste the copied Server URL, choose Authentication: None.');
   }
-  console.log('Keys: Enter open | c copy | u show URL | o status | h help | q quit');
-  return { ...details, copied, opened, mode, toolMode: options.toolMode ?? 'standard' };
+  console.log(details.authMode === 'oauth'
+    ? 'Keys: Enter open ChatGPT | a approvals | c copy | u show URL | h help | q quit'
+    : 'Keys: Enter open | c copy | u show URL | o status | h help | q quit');
+  return { ...details, copied, opened, mode, toolMode: options.toolMode ?? 'standard', root: options.root ?? '' };
 }
 
-function printControlHelp() {
+function printControlHelp(authMode = 'legacy') {
   console.log('');
   console.log('Controls');
   console.log('  Enter  open ChatGPT connector settings in your browser');
   console.log('  c      copy Server URL again');
   console.log('  u      print Server URL only');
-  console.log('  o      open local setup/status page');
+  if (authMode === 'oauth') console.log('  a      open the authenticated local OAuth approval page');
+  else console.log('  o      open local setup/status page');
   console.log('  p      print Create App fields');
   console.log('  m      print mode help');
   console.log('  h      show controls');
@@ -3699,6 +3803,38 @@ function saveSettingsFromArgs(root, args, profile) {
   const token = tunnel === 'none'
     ? optionValue(args, profile, 'token', ['CODEXGPT_HTTP_TOKEN', 'CODEBASE_BRIDGE_HTTP_TOKEN'], profile.token ?? '')
     : stableToken(optionValue(args, profile, 'token', ['CODEXGPT_HTTP_TOKEN', 'CODEBASE_BRIDGE_HTTP_TOKEN'], profile.token ?? ''));
+  const authMode = profile.authMode === 'oauth' || profile.authMode === 'legacy' ? profile.authMode : '';
+  const previousAuthRoute = {
+    ...(profile.port ? { port: profile.port } : {}),
+    ...(profile.tunnel ? { tunnel: profile.tunnel } : {}),
+    ...(profile.hostname ? { hostname: profile.hostname } : {}),
+    ...(profile.tunnelName ? { tunnelName: profile.tunnelName } : {}),
+    ...(profile.tunnelOwner ? { tunnelOwner: profile.tunnelOwner } : {}),
+    ...(profile.localAdminPort ? { localAdminPort: profile.localAdminPort } : {}),
+    ...(profile.ngrokConfig ? { ngrokConfig: profile.ngrokConfig } : {}),
+    ...(profile.cloudflareConfig ? { cloudflareConfig: profile.cloudflareConfig } : {}),
+    ...(profile.cloudflareTokenFile ? { cloudflareTokenFile: profile.cloudflareTokenFile } : {}),
+    ...(profile.noInstallCloudflared ? { noInstallCloudflared: true } : {})
+  };
+  const activeAuthRoute = {
+    port,
+    tunnel,
+    ...(hostname ? { hostname } : {}),
+    ...(tunnelName ? { tunnelName } : {}),
+    ...(ngrokConfig ? { ngrokConfig } : {}),
+    ...(cloudflareConfig ? { cloudflareConfig } : {}),
+    ...(cloudflareTokenFile ? { cloudflareTokenFile } : {}),
+    ...(authMode === 'oauth' && profile.tunnelOwner ? { tunnelOwner: profile.tunnelOwner } : {}),
+    ...(authMode === 'oauth' && profile.localAdminPort ? { localAdminPort: profile.localAdminPort } : {}),
+    ...(args.noInstallCloudflared ?? profile.noInstallCloudflared ? { noInstallCloudflared: true } : {})
+  };
+  const authRoutes = { ...(profile.authRoutes ?? {}) };
+  if (!authRoutes.oauth && profile.oauthIssuer && profile.hostname) {
+    try {
+      if (new URL(profile.oauthIssuer).hostname === profile.hostname) authRoutes.oauth = previousAuthRoute;
+    } catch {}
+  }
+  if (authMode) authRoutes[authMode] = activeAuthRoute;
   const savedPath = saveWorkspaceProfile(root, {
     port,
     mode,
@@ -3718,7 +3854,17 @@ function saveSettingsFromArgs(root, args, profile) {
     ...(mode !== 'agent' || args.write !== undefined || profile.write ? { write } : {}),
     ...(toolMode ? { toolMode } : {}),
     ...(widgetDomain ? { widgetDomain } : {}),
+    ...(profile.policyEngine ? { policyEngine: profile.policyEngine } : {}),
+    ...(profile.permissionProfile ? { permissionProfile: profile.permissionProfile } : {}),
     ...(profile.semanticProvider ? { semanticProvider: profile.semanticProvider } : {}),
+    ...(authMode ? { authMode } : {}),
+    ...(Object.keys(authRoutes).length ? { authRoutes } : {}),
+    ...(profile.oauthIssuer ? { oauthIssuer: profile.oauthIssuer } : {}),
+    ...(profile.oauthResource ? { oauthResource: profile.oauthResource } : {}),
+    ...(profile.oauthCredentialProvider ? { oauthCredentialProvider: profile.oauthCredentialProvider } : {}),
+    ...(profile.oauthStateRef ? { oauthStateRef: profile.oauthStateRef } : {}),
+    ...(authMode === 'oauth' && profile.localAdminPort ? { localAdminPort: profile.localAdminPort } : {}),
+    ...(authMode === 'oauth' && profile.tunnelOwner ? { tunnelOwner: profile.tunnelOwner } : {}),
     ...toolCardsProfileEntry(args, profile),
     ...(args.noInstallCloudflared ?? profile.noInstallCloudflared ? { noInstallCloudflared: true } : {})
   });
@@ -3976,7 +4122,11 @@ function runControlPanel(details, cleanup = cleanupChildren) {
       } else if (normalized === 'u') {
         console.log(`\n${details.serverUrl}`);
         writeControlPrompt();
-      } else if (normalized === 'o') {
+      } else if (normalized === 'a' && details.authMode === 'oauth') {
+        const opened = openOAuthAdmin(details.root);
+        console.log(opened ? '\nOpened authenticated local OAuth approvals.' : '\nCould not open local OAuth approvals. Run codexgpt auth status for the exact repair.');
+        writeControlPrompt();
+      } else if (normalized === 'o' && details.authMode !== 'oauth') {
         if (!details.localStatusUrl) {
           console.log('\nNo local status page URL is available for this run.');
         } else {
@@ -3994,7 +4144,7 @@ function runControlPanel(details, cleanup = cleanupChildren) {
         console.log('');
         writeControlPrompt();
       } else if (normalized === 'h' || normalized === '?') {
-        printControlHelp();
+        printControlHelp(details.authMode);
         writeControlPrompt();
       } else if (normalized === 'q') {
         console.log('\nStopping CodexGPT...');
@@ -4059,6 +4209,72 @@ function printLocalApprovals(response, renderLocalApprovalEntry, reveal) {
   console.log(response.approvals.map((entry) => renderLocalApprovalEntry(entry, { reveal })).join('\n\n'));
 }
 
+function printOAuthAuthorizations(response, escapeTerminalText) {
+  const entries = response.oauthAuthorizations ?? [];
+  if (entries.length === 0) {
+    console.log('No OAuth authorizations on this server.');
+    return;
+  }
+  for (const entry of entries) {
+    console.log([
+      `Authorization: ${escapeTerminalText(entry.pendingId)}`,
+      `Correlation: ${escapeTerminalText(entry.correlationCode)}`,
+      `State: ${escapeTerminalText(entry.status)}`,
+      `Workspace: ${escapeTerminalText(entry.canonicalRoot, 32768)}`,
+      `Client: ${escapeTerminalText(entry.clientLabel, 128)} (${escapeTerminalText(entry.clientRef)})`,
+      `Redirect: ${escapeTerminalText(entry.redirectHost + entry.redirectPath, 2304)}`,
+      `Scopes: ${escapeTerminalText(entry.scopes.join(' '), 128)}`,
+      `Configuration match: ${entry.scopesMatchCurrentConfiguration ? 'yes' : 'no'}`,
+      `Expires: ${escapeTerminalText(entry.expiresAt)}`
+    ].join('\n'));
+    console.log('');
+  }
+}
+
+function printOAuthClients(response, escapeTerminalText) {
+  const entries = response.oauthClients ?? [];
+  if (entries.length === 0) {
+    console.log('No OAuth clients on this server.');
+    return;
+  }
+  for (const entry of entries) {
+    console.log([
+      `Client: ${escapeTerminalText(entry.clientId)}`,
+      `Reference: ${escapeTerminalText(entry.clientRef)}`,
+      `Label: ${escapeTerminalText(entry.label, 128)}`,
+      `State: ${escapeTerminalText(entry.status)}`,
+      `Redirect: ${escapeTerminalText(entry.redirectHost + entry.redirectPath, 2304)}`,
+      `Created: ${escapeTerminalText(entry.createdAt)}`,
+      `Expires: ${escapeTerminalText(entry.expiresAt ?? 'not applicable')}`
+    ].join('\n'));
+    console.log('');
+  }
+}
+
+function printOAuthGrants(response, escapeTerminalText) {
+  const entries = response.oauthGrants ?? [];
+  if (entries.length === 0) {
+    console.log('No OAuth grants on this server.');
+    return;
+  }
+  for (const entry of entries) {
+    console.log([
+      `Grant: ${escapeTerminalText(entry.grantId)}`,
+      `Client: ${escapeTerminalText(entry.clientRef)}`,
+      `State: ${escapeTerminalText(entry.status)}`,
+      `Scopes: ${escapeTerminalText(entry.scopes.join(' '), 128)}`,
+      `Grant revision: ${entry.grantRevision}`,
+      `Refresh generation: ${entry.refreshGeneration}`,
+      `Created: ${escapeTerminalText(entry.createdAt)}`,
+      `Last used: ${escapeTerminalText(entry.lastUsedAt)}`,
+      `Idle expiry: ${escapeTerminalText(entry.idleExpiresAt)}`,
+      `Absolute expiry: ${escapeTerminalText(entry.absoluteExpiresAt)}`,
+      `Revoked: ${escapeTerminalText(entry.revokedAt ?? 'not applicable')}`,
+      `Reason: ${escapeTerminalText(entry.revokeReason ?? 'not applicable')}`
+    ].join('\n'));
+    console.log('');
+  }
+}
 async function runLocalControlCli(family, argv) {
   const parsed = parseLocalControlCliArgs(argv);
   const [operation, target, ...extra] = parsed.positionals;
@@ -4091,7 +4307,7 @@ async function runLocalControlCli(family, argv) {
       if (error?.code !== 'ENOENT') throw error;
     }
   }
-  const stateBaseRoot = family === 'approvals' || transactionServerPresent
+  const stateBaseRoot = family === 'approvals' || family === 'oauth-authorizations' || family === 'oauth-clients' || family === 'oauth-grants' || transactionServerPresent
     ? transactionStateRoot
     : undefined;
   const client = new LocalApprovalClient({
@@ -4123,6 +4339,60 @@ async function runLocalControlCli(family, argv) {
     console.log(`${response.code}: ${target}`);
     const entry = response.approvals.find((value) => value.approvalId === target);
     if (entry) console.log(renderLocalApprovalEntry(entry, { reveal: parsed.reveal }));
+    if (!response.ok) process.exitCode = 1;
+    return;
+  }
+  if (family === 'oauth-authorizations' && operation === 'list' && !target) {
+    const response = await client.listOAuthAuthorizations(parsed.serverId);
+    printOAuthAuthorizations(response, escapeTerminalText);
+    return;
+  }
+  if (family === 'oauth-authorizations' && (operation === 'approve' || operation === 'deny')) {
+    if (!target || !/^pending_[A-Za-z0-9_-]{22}$/.test(target)) {
+      throw new Error(`${operation} requires one exact pending_id.`);
+    }
+    const response = operation === 'approve'
+      ? await client.approveOAuthAuthorization(parsed.serverId, target)
+      : await client.denyOAuthAuthorization(parsed.serverId, target);
+    console.log(`${response.code}: ${target}`);
+    printOAuthAuthorizations(response, escapeTerminalText);
+    if (!response.ok) process.exitCode = 1;
+    return;
+  }
+  if (family === 'oauth-clients' && operation === 'list' && !target) {
+    const response = await client.listOAuthClients(parsed.serverId);
+    printOAuthClients(response, escapeTerminalText);
+    return;
+  }
+  if (family === 'oauth-clients' && operation === 'revoke') {
+    if (!target || !/^client_[A-Za-z0-9_-]{43}$/.test(target)) {
+      throw new Error('revoke requires one exact client_id.');
+    }
+    const response = await client.revokeOAuthClient(parsed.serverId, target);
+    console.log(`${response.code}: ${target}`);
+    printOAuthClients(response, escapeTerminalText);
+    if (!response.ok) process.exitCode = 1;
+    return;
+  }
+  if (family === 'oauth-grants' && operation === 'list' && !target) {
+    const response = await client.listOAuthGrants(parsed.serverId);
+    printOAuthGrants(response, escapeTerminalText);
+    return;
+  }
+  if (family === 'oauth-grants' && operation === 'revoke') {
+    if (!target || !/^grant_[a-f0-9]{32}$/.test(target)) {
+      throw new Error('revoke requires one exact grant_id.');
+    }
+    const response = await client.revokeOAuthGrant(parsed.serverId, target);
+    console.log(`${response.code}: ${target}`);
+    printOAuthGrants(response, escapeTerminalText);
+    if (!response.ok) process.exitCode = 1;
+    return;
+  }
+  if (family === 'oauth-grants' && operation === 'revoke-owner' && !target) {
+    const response = await client.revokeOAuthOwnerGrants(parsed.serverId);
+    console.log(response.code);
+    printOAuthGrants(response, escapeTerminalText);
     if (!response.ok) process.exitCode = 1;
     return;
   }
@@ -4212,7 +4482,7 @@ async function main() {
     await runDoctor(argv.slice(1));
     return;
   }
-  if (subcommand === 'approvals' || subcommand === 'processes') {
+  if (subcommand === 'approvals' || subcommand === 'oauth-authorizations' || subcommand === 'oauth-clients' || subcommand === 'oauth-grants' || subcommand === 'processes') {
     await runLocalControlCli(subcommand, argv.slice(1));
     return;
   }
@@ -4256,6 +4526,10 @@ async function main() {
   let profile = args.noProfile ? {} : loadWorkspaceProfile(root);
   profile = await maybeConfigureFirstRun(root, args, profile);
   const effectiveArgs = { ...profile, ...args };
+  const authMode = String(process.env.CODEXGPT_AUTH_MODE ?? profile.authMode ?? 'legacy').trim();
+  if (authMode !== 'legacy' && authMode !== 'oauth') {
+    throw new Error('Authentication mode must be exactly legacy or oauth.');
+  }
   if (profile.profilePath && !args.noProfile) {
     statusLine('ok', `Using saved profile: ${profile.profilePath}`);
     const summary = profileSummary(profile);
@@ -4293,7 +4567,13 @@ async function main() {
   if (args.noAuth && (tunnel !== 'none' || !isLoopbackHost(host))) {
     throw new Error('--no-auth is only allowed with --tunnel none on a loopback host.');
   }
-  const port = String(optionValue(args, profile, 'port', ['CODEXGPT_PORT'], '8787'));
+  const port = normalizePort(optionValue(args, profile, 'port', ['CODEXGPT_PORT'], '8787'));
+  const localAdminPort = authMode === 'oauth'
+    ? normalizePort(String(profile.localAdminPort ?? ''))
+    : '';
+  if (authMode === 'oauth' && localAdminPort === port) {
+    throw new Error('OAuth public and local-admin ports must be distinct.');
+  }
   const bash = optionValue(args, profile, 'bash', ['CODEXGPT_BASH_MODE'], 'safe');
   const bashTranscript = bashTranscriptOption(args, profile);
   const codexSessions = codexSessionsOption(args, profile);
@@ -4309,8 +4589,15 @@ async function main() {
   validateChoice('tool-mode', toolMode, ['minimal', 'standard', 'full']);
   validateChoice('semantic provider', semanticProvider, ['builtin', 'none']);
 
-  let token = args.noAuth ? '' : optionValue(args, profile, 'token', ['CODEXGPT_HTTP_TOKEN', 'CODEBASE_BRIDGE_HTTP_TOKEN'], '');
-  if (!token && !args.noAuth) token = stableToken();
+  if (authMode === 'oauth' && args.noAuth) {
+    throw new Error('--no-auth is incompatible with OAuth mode.');
+  }
+  let token = authMode === 'oauth'
+    ? ''
+    : args.noAuth
+      ? ''
+      : optionValue(args, profile, 'token', ['CODEXGPT_HTTP_TOKEN', 'CODEBASE_BRIDGE_HTTP_TOKEN'], '');
+  if (!token && !args.noAuth && authMode === 'legacy') token = stableToken();
 
   const serverEnv = {
     ...process.env,
@@ -4337,8 +4624,10 @@ async function main() {
     CODEXGPT_SEMANTIC_PROVIDER: semanticProvider,
     CODEXGPT_CONNECTION_TEST: connectionTest ? '1' : '0',
     CODEXGPT_MODE: mode,
+    CODEXGPT_AUTH_MODE: authMode,
     CODEXGPT_TUNNEL_MODE: tunnel === 'none' ? '0' : '1',
-    CODEXGPT_ALLOW_NO_HTTP_TOKEN: args.noAuth ? '1' : '0'
+    CODEXGPT_ALLOW_QUERY_TOKEN: authMode === 'oauth' ? '0' : process.env.CODEXGPT_ALLOW_QUERY_TOKEN,
+    CODEXGPT_ALLOW_NO_HTTP_TOKEN: authMode === 'oauth' ? '0' : args.noAuth ? '1' : '0'
   };
   if (serverEnv.CODEXGPT_SEMANTIC_MODE === 'standard') {
     statusLine('warn', 'Semantic V5 exposes 52 tools. In an existing 51-tool ChatGPT App, choose Scan Tools once or recreate the App.');
@@ -4360,6 +4649,7 @@ async function main() {
   }
 
   await assertPortAvailable(host, port);
+  if (authMode === 'oauth') await assertPortAvailable('127.0.0.1', localAdminPort);
 
   printBox('CodexGPT start', [
     labelValue('Workspace', root),
@@ -4368,6 +4658,7 @@ async function main() {
     labelValue('Codex sessions', codexSessions),
     ...(bashSession ? [labelValue('Bash session', `${bashSession}${requireBashSession ? ' required' : ''}`)] : []),
     labelValue('Local URL', `http://${host}:${port}/mcp`),
+    ...(authMode === 'oauth' ? [labelValue('Local admin', `http://127.0.0.1:${localAdminPort}/`)] : []),
     labelValue(
       'Tunnel',
       tunnel === 'cloudflare'
@@ -4396,10 +4687,21 @@ async function main() {
   process.on('SIGTERM', () => { cleanup(); process.exit(143); });
 
   const localBase = `http://${host}:${port}`;
-  await waitForHealth(`${localBase}/healthz`, token);
+  const localAdminBase = authMode === 'oauth' ? `http://127.0.0.1:${localAdminPort}` : localBase;
+  try {
+    await Promise.all([
+      waitForHealth(`${localBase}/healthz`, token, 15_000, authMode === 'oauth' ? stableHostname : ''),
+      ...(authMode === 'oauth' ? [waitForHealth(`${localAdminBase}/healthz`, '', 15_000)] : [])
+    ]);
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
   statusLine('ok', `Local MCP ready at ${localBase}/mcp`);
   const runtimeOptions = {
     localBase,
+    localAdminBase,
+    authMode,
     tunnel,
     mode,
     toolMode,
@@ -4420,6 +4722,8 @@ async function main() {
     }
     const details = printConnectorBlock(`${localBase}/mcp`, token, {
       localBase,
+      localStatusBase: localAdminBase,
+      authMode,
       copyUrl: args.copyUrl ? true : args.noCopyUrl ? false : undefined,
       openChatgpt: Boolean(args.openChatgpt),
       mode,
@@ -4464,6 +4768,8 @@ async function main() {
     }
     const details = printConnectorBlock(`${publicBase}/mcp`, token, {
       localBase,
+      localStatusBase: localAdminBase,
+      authMode,
       copyUrl: args.noCopyUrl ? false : true,
       openChatgpt: Boolean(args.openChatgpt),
       mode,
@@ -4509,6 +4815,8 @@ async function main() {
     }
     const details = printConnectorBlock(`${publicBase}/mcp`, token, {
       localBase,
+      localStatusBase: localAdminBase,
+      authMode,
       copyUrl: args.noCopyUrl ? false : true,
       openChatgpt: Boolean(args.openChatgpt),
       mode,
@@ -4534,6 +4842,8 @@ async function main() {
     console.error('Downloads: https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/');
     const details = printConnectorBlock(`${localBase}/mcp`, token, {
       localBase,
+      localStatusBase: localAdminBase,
+      authMode,
       copyUrl: args.copyUrl ? true : false,
       openChatgpt: Boolean(args.openChatgpt),
       mode,
@@ -4576,6 +4886,8 @@ async function main() {
     }
     const details = printConnectorBlock(`${publicBase}/mcp`, token, {
       localBase,
+      localStatusBase: localAdminBase,
+      authMode,
       copyUrl: args.noCopyUrl ? false : true,
       openChatgpt: Boolean(args.openChatgpt),
       mode,
@@ -4624,7 +4936,7 @@ async function main() {
     : process.env;
   cloudflared = spawnLogged('cloudflared', cloudflaredPath, cloudflaredArgs, { cwd: root, env: cloudflaredEnv, verbose: verboseLogs });
   try {
-    await waitForPublicHealth(publicBase, token, cloudflared);
+    await waitForPublicHealth(publicBase, token, cloudflared, 'tunnel', true);
   } catch (error) {
     const tail = typeof cloudflared.codexgptLogTail === 'function' ? cloudflared.codexgptLogTail() : '';
     const hint = [
@@ -4645,6 +4957,8 @@ async function main() {
   }
   const details = printConnectorBlock(`${publicBase}/mcp`, token, {
     localBase,
+    localStatusBase: localAdminBase,
+    authMode,
     copyUrl: args.noCopyUrl ? false : true,
     openChatgpt: Boolean(args.openChatgpt),
     mode,

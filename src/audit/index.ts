@@ -14,6 +14,7 @@ export {
   auditEventV2Schema,
   auditEventV3Schema,
   auditEventV4Schema,
+  auditEventV5Schema,
   auditIndexV1Schema,
   auditRetentionStateV1Schema,
   auditSegmentMetadataV1Schema,

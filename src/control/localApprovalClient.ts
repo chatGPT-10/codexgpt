@@ -281,6 +281,50 @@ export class LocalApprovalClient {
     return this.request({ schemaVersion: 3, contractVersion: 3, operation: "processes.terminate", serverId, processId });
   }
 
+  issueOAuthAdminBootstrap(serverId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.admin.bootstrap", serverId });
+  }
+
+  listOAuthAuthorizations(serverId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.authorizations.list", serverId });
+  }
+
+  approveOAuthAuthorization(serverId: string, pendingId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.authorizations.approve", serverId, pendingId });
+  }
+
+  denyOAuthAuthorization(serverId: string, pendingId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.authorizations.deny", serverId, pendingId });
+  }
+
+  listOAuthClients(serverId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.clients.list", serverId });
+  }
+
+  revokeOAuthClient(serverId: string, clientId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.clients.revoke", serverId, clientId });
+  }
+
+  pruneUnapprovedOAuthClients(serverId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.clients.prune_unapproved", serverId });
+  }
+
+  rotateOAuthSigningKey(serverId: string, revokeAll: boolean): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.signing.rotate", serverId, revokeAll });
+  }
+
+  listOAuthGrants(serverId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.grants.list", serverId });
+  }
+
+  revokeOAuthGrant(serverId: string, grantId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.grants.revoke", serverId, grantId });
+  }
+
+  revokeOAuthOwnerGrants(serverId: string): Promise<LocalControlResponseV3> {
+    return this.request({ schemaVersion: 3, contractVersion: 3, operation: "oauth.grants.revoke_owner", serverId });
+  }
+
   async request(raw: LocalControlRequestV3): Promise<LocalControlResponseV3> {
     const request = localControlRequestV3Schema.parse(raw);
     const discovered = await readLocalControlState(this.#stateBaseRoot, request.serverId, this.#processCreationTime);

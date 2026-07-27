@@ -1,4 +1,8 @@
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
+import {
+  credentialRevisionForCredentialRef,
+  credentialRevisionForIdentity
+} from "../auth/policyIdentity.js";
 import { sessionGrantV1Schema } from "./schemas.js";
 import type {
   RequestContextV1,
@@ -29,6 +33,7 @@ export interface ApprovalRequestV1 {
   schemaVersion: 1;
   approvalId: string;
   credentialRef: string | null;
+  credentialRevision: string;
   transportSessionId: string;
   workspaceId: string | null;
   policyRevision: string;
@@ -67,6 +72,7 @@ export function createApprovalRequest(input: CreateApprovalRequestInput): Approv
   if (!Number.isFinite(createdMs)) throw new Error("Approval creation time is invalid.");
   const facts = {
     credentialRef: input.context.identity.credentialRef,
+    credentialRevision: credentialRevisionForIdentity(input.context.identity),
     transportSessionId: input.context.transportSessionId,
     workspaceId: input.context.workspaceId,
     policyRevision: input.context.policyRevision,
@@ -176,6 +182,7 @@ export class SessionGrantStore {
     this.#sequence += 1;
     const binding = {
       credentialRef: input.context.identity.credentialRef,
+      credentialRevision: credentialRevisionForIdentity(input.context.identity),
       transportSessionId: input.context.transportSessionId,
       workspaceId: input.context.workspaceId,
       policyRevision: input.context.policyRevision,
@@ -191,6 +198,7 @@ export class SessionGrantStore {
       schemaVersion: 1,
       grantId: safeHash("grant", binding),
       credentialRef: binding.credentialRef,
+      credentialRevision: binding.credentialRevision,
       transportSessionId: binding.transportSessionId,
       workspaceId: binding.workspaceId,
       policyRevision: binding.policyRevision,
@@ -295,6 +303,7 @@ export class SessionGrantStore {
   #matches(input: MatchGrantInput, grant: SessionGrantV1, now: number): boolean {
     if (!Number.isFinite(now)) return false;
     return grant.credentialRef === input.context.identity.credentialRef &&
+      (grant.credentialRevision ?? credentialRevisionForCredentialRef(grant.credentialRef)) === credentialRevisionForIdentity(input.context.identity) &&
       grant.transportSessionId === input.context.transportSessionId &&
       grant.workspaceId === input.context.workspaceId &&
       grant.policyRevision === input.context.policyRevision &&

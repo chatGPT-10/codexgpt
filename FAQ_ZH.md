@@ -2,9 +2,7 @@
 
 ## 我应该用什么 ChatGPT 账号？
 
-使用能访问 Apps / Developer Mode 的 ChatGPT 账号。OpenAI 当前文档列出的 web 端 Developer Mode 账号范围包括 Pro、Plus、Business、Enterprise 和 Education。
-
-当前测试显示，Free / Go 账号不暴露 CodexGPT 需要的 App 创建流程。
+使用当前界面能显示 Apps、Developer Mode 或连接管理入口的 ChatGPT 账号。可用性会受账号、工作区策略和 rollout 影响；以 ChatGPT 当前界面为准。
 
 CodexGPT 不解锁 Developer Mode，不解锁模型，不绕过账号限制，也不提供账号访问。它只连接你自己的 ChatGPT App 界面和你自己的本地仓库。
 
@@ -34,17 +32,10 @@ codexgpt start
 
 ## ChatGPT 里要打开什么设置？
 
-在 ChatGPT 中打开：
+打开 ChatGPT 当前的 Apps / Plugins 连接管理页面；若界面提供 Developer Mode，先启用它：
 
 ```text
-Settings
--> Security and login
--> Developer mode: on
--> Enforce CSP in developer mode: on
-
-Settings
--> Plugins
--> Create
+Settings -> Plugins / Apps -> + / Create
 ```
 
 创建 Plugin 时使用当前支持的个人 ChatGPT 兼容流程：
@@ -54,10 +45,10 @@ Name: CodexGPT
 Description: Local workspace bridge for ChatGPT coding
 Connection: Server URL
 Server URL: 粘贴 CodexGPT 复制的完整地址，包括 codexgpt_token
-Authentication: No Authentication / None
+Authentication: No Authentication / None（若显示该字段）
 ```
 
-完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。OAuth 2.1 延后实现；本指南不声称 ChatGPT Web 支持手动配置静态 Bearer header。
+完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。未发布的 source checkout 已完成本地验证的 Phase 8 Tasks 8A1–8A9、真实 Gate G8-U Journeys U2–U7 和本地 G8-X，并继续通过独立 OAuth App 与 token-free URL 工作；exact-head CI 与 publication 仍未完成。本节只说明保留的 Legacy 兼容 App。不要混用两个 App，也不要把任一路径改成手动 static Bearer。
 
 ## CSP 要保持开启吗？
 
@@ -99,7 +90,7 @@ codexgpt pro-bundle --root /path/to/repo --copy
 
 账号权限和模型工具能力是两回事。
 
-Plus / Pro 可以暴露 Apps / Developer Mode，但某个具体模型界面仍然可能不能调用连接器或 MCP 工具。遇到这种情况时，用 `codexgpt pro-bundle --copy` 导出上下文，再把计划交给本地代理执行。
+即使当前界面提供 Apps / Developer Mode，某个具体模型界面仍可能不能调用连接器或 MCP 工具。遇到这种情况时，用 `codexgpt pro-bundle --copy` 导出上下文，再把计划交给本地代理执行。
 
 ## ChatGPT 能通过 CodexGPT 看到什么？
 
@@ -200,7 +191,7 @@ Cloudflare quick tunnel 每次重启 URL 都变。把 quick URL 填到 ChatGPT �
 codexgpt connection-test --root /path/to/repo
 ```
 
-这个模式保留 `read`、`tree`、`search` 和 `load_skill`，关闭文件写入、bash 和 tool cards，并记录请求是否到达本地 MCP endpoint。在 ChatGPT 的 `Settings -> Plugins` 创建 development plugin，粘贴包含 `codexgpt_token` query string 的完整 Server URL，并选择 `Authentication: No Authentication / None`。
+这个模式保留 `read`、`tree`、`search` 和 `load_skill`，关闭文件写入、bash 和 tool cards，并记录请求是否到达本地 MCP endpoint。在 ChatGPT 当前的 Apps / Plugins 连接管理页面创建 development plugin，粘贴包含 `codexgpt_token` query string 的完整 Server URL；若显示 Authentication 字段，选择 `No Authentication / None`。
 
 - 没有 `POST /mcp received`：请求没有到达 CodexGPT，检查 ChatGPT Plugins 页面和 tunnel。
 - `POST /mcp -> 401`：没有使用完整 URL、query token 被删除，或凭据与当前 CodexGPT 进程不匹配。

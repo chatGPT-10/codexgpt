@@ -2,9 +2,7 @@
 
 ## Which ChatGPT account should I use?
 
-Use a ChatGPT account with Apps / Developer Mode access. OpenAI currently lists Developer Mode for Pro, Plus, Business, Enterprise, and Education accounts on web.
-
-Current testing shows free and Go accounts do not expose the app flow needed for CodexGPT.
+Use a ChatGPT account whose current UI exposes Apps, Developer Mode, or the connection-management page. Availability can vary with account, workspace policy, and rollout; use the current ChatGPT UI as the source of truth.
 
 CodexGPT does not unlock Developer Mode, unlock models, bypass account limits, or provide account access. It connects to the ChatGPT app surface your account already has.
 
@@ -100,17 +98,10 @@ codexgpt start
 
 ## What do I enable in ChatGPT?
 
-Open ChatGPT and go to:
+Open ChatGPT's current Apps/Plugins connection-management page. If the UI offers Developer Mode, enable it:
 
 ```text
-Settings
--> Security and login
--> Developer mode: on
--> Enforce CSP in developer mode: on
-
-Settings
--> Plugins
--> Create
+Settings -> Plugins / Apps -> + / Create
 ```
 
 When creating the plugin, use the supported personal ChatGPT compatibility flow:
@@ -120,14 +111,14 @@ Name: CodexGPT
 Description: Local workspace bridge for ChatGPT coding
 Connection: Server URL
 Server URL: paste the complete URL copied by CodexGPT, including codexgpt_token
-Authentication: No Authentication / None
+Authentication: No Authentication / None (if shown)
 ```
 
-The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. OAuth 2.1 is deferred; this guide does not claim ChatGPT Web supports manual static-Bearer configuration.
+The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. The unreleased source checkout now includes locally verified Phase 8 Tasks 8A1–8A9, live Gate G8-U Journeys U2–U7, and local G8-X through a separate OAuth App and token-free URL; exact-head CI and publication remain incomplete. This section documents only the retained Legacy compatibility App. Do not mix the two Apps or replace either flow with manual static-Bearer configuration.
 
 ## Should CSP stay enabled?
 
-Yes. Keep Enforce CSP in developer mode enabled.
+If the Developer Mode page displays an Enforce CSP toggle, keep it enabled.
 
 CodexGPT widgets are built for the CSP-enabled path. They do not need unrestricted network access, external fonts, remote scripts, iframes, or third-party images.
 
@@ -257,7 +248,7 @@ codexgpt connection-test --root /path/to/repo
 This keeps `read`, `tree`, `search`, and `load_skill`, but disables file writes,
 bash, and tool cards. In ChatGPT, create the development plugin under
 `Settings -> Plugins`, paste the complete Server URL including its `codexgpt_token`
-query string, and choose `Authentication: No Authentication / None`.
+query string, and, if shown, choose `Authentication: No Authentication / None`.
 
 The terminal output separates the failure boundary:
 

@@ -33,12 +33,13 @@
 
 ## 当前项目状态
 
-- 包元数据当前为 `codexgpt@0.28.6`，`main` 包含尚未发布到 npm 的改动。
-- Phase 5 和 Phase 6 已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。Phase 7 Core 已在本地实现，当前仍处于发布前验证阶段；尚不宣称默认启用或完成 exact-head 关闭。
+- 首个稳定版本为 `codexgpt@1.0.0`；package metadata、runtime 自报版本、Git tag 与 npm `latest` 必须保持一致。
+- Phase 5、Phase 6 和 Phase 7 Core 均已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。Phase 7 Core 的关闭提交为 `a0b9f46e2297297959527f7570c9cb7942cc8fb3`，exact-head CI run 为 `30171313296`；Contract V5 仍是显式 `standard` opt-in，不是默认公开契约。
+- Phase 8 Tasks 8A1–8A9 已在 source checkout 中实现并完成本地验证：Windows DPAPI CurrentUser 状态保护、物理分离的 public/local listener、受限 DCR + PKCE S256、ES256 access token、rotating refresh family、durable revoke/replay、request-local policy identity、精确 per-tool scope、受支持的 setup/本地管理/恢复、专用 Tunnel ownership 检查、迁移与回滚文档、package integration、合成端到端 OAuth/MCP 验证，以及完成态 runtime 对抗性修复。真实 Gate G8-U 已通过 Journeys U2–U7，STEP-470 也已通过修复后的 managed Node 20/24 ordinary 与 protected Smoke 完成本地 G8-X。U6 已通过 service/protocol 双路由回滚、重建 Legacy App 的真实读取、精确无参数 OAuth 恢复，以及恢复后现有 OAuth App 的真实读取；已删除的原 Legacy App 身份连续性不作宣称。U7 已证明 shared/unowned Tunnel config 在任何 mutation 前失败并保持字节不变，同时完成 live public-loopback/local-admin 边界验收。Phase 8 exact-head closure 已在 `55b2b5664aae322ec992968a41c87a289fb75282`、CI run `30274857996` 通过；`1.0.0` 打包这一已验证基线。
 
 ## 安装
 
-CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 账号。OpenAI 当前文档列出的 web 端 Developer Mode 账号范围包括 Pro、Plus、Business、Enterprise 和 Education。
+CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 账号。可用性取决于账户计划、工作区设置和产品 rollout；请以 ChatGPT 当前界面显示的资格为准。
 
 先安装 CLI：
 
@@ -46,7 +47,7 @@ CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 
 npm install -g codexgpt
 ```
 
-GitHub `main` 文档可能早于 npm 发布；用 `npm install -g codexgpt` 前请看 npm badge/version，未发布的 `main` 行为请用下面的 source checkout 方式。
+npm badge 与 package metadata 均应显示 `1.0.0`；只有需要尚未发布的 `main` 行为时，才使用下面的 source checkout 方式。
 
 已有 source checkout 时，使用仓库脚本以保留公开入口层：
 
@@ -63,6 +64,101 @@ npm run connect:setup -- --root D:\Dev\your-repo
 npm run connect -- --root D:\Dev\your-repo
 ```
 
+## OAuth 一条命令设置
+
+迁移期间保留现有 Legacy App，并另外创建 OAuth App。所有 OAuth 命令都必须通过 `--root` 绑定到精确目标仓库。
+
+已发布的全局安装：
+
+```powershell
+codexgpt auth setup `
+  --root D:\Dev\your-repo `
+  --hostname mcp.example.com `
+  --tunnel-name codexgpt
+```
+
+尚未发布的 source checkout：
+
+```powershell
+Set-Location D:\Dev\codexpro
+npm install
+npm run build
+node .\scripts\codexgpt-entry.mjs auth setup `
+  --root D:\Dev\your-repo `
+  --hostname mcp.example.com `
+  --tunnel-name codexgpt
+```
+
+该流程要求稳定的 named Cloudflare Tunnel。它只复用 owner marker 与当前 workspace/deployment 精确匹配的专用 Tunnel；setup journal 支持续跑；OAuth mode 只在 candidate listener 的公开 metadata、JWKS 和 health 完成外部探测后才提交。Cloudflare/DNS 变更会先打印并要求明确批准；使用 `--no-tunnel-changes` 可执行确定性的无外部变更预检。
+
+ChatGPT Server URL 不含 token：
+
+```text
+https://mcp.example.com/mcp
+```
+
+在 ChatGPT Web 中启用 Developer Mode，创建 custom App，粘贴该 URL，选择 OAuth（若界面显示），执行 **Scan Tools**，并完成浏览器授权。首次 grant 必须在 Windows PC 本地批准：
+
+```powershell
+codexgpt auth pending --root D:\Dev\your-repo
+codexgpt auth open --root D:\Dev\your-repo
+# 或批准界面显示的 correlation code：
+codexgpt auth approve <correlation-code> --root D:\Dev\your-repo
+```
+
+正常前台重启保持 issuer、binding、Tunnel、client 和 refresh family 不变：
+
+```powershell
+codexgpt start --root D:\Dev\your-repo
+```
+
+仅 scope 改变不要求 **Scan Tools**。启用或移除 tool descriptor/capability 时，必须先针对精确 `--root` 重启；如果 App 工具快照发生变化，再执行一次 **Scan Tools**。旧 token 不会因为本地新增 capability 而自动获得权限。
+
+常用管理命令：
+
+```powershell
+codexgpt auth status --root D:\Dev\your-repo
+codexgpt auth clients --root D:\Dev\your-repo
+codexgpt auth client remove <client-id> --root D:\Dev\your-repo
+codexgpt auth revoke <grant-id> --root D:\Dev\your-repo
+codexgpt auth rotate-signing-key --root D:\Dev\your-repo
+codexgpt auth recover inspect --root D:\Dev\your-repo
+```
+
+backup restore 与 `auth reinitialize --revoke-all` 会保留 stable binding 和专用 Tunnel，发布新的 incarnation/key authority，使全部旧 access/refresh credential 失效并强制 relink；它们不会复活旧 grant。DPAPI 只绑定当前 Windows user profile；其他用户、丢失的 profile，以及同一用户权限下的恶意进程不在其保护边界内。
+
+### 双 App 回滚与返回 OAuth
+
+Phase 8 Core 迁移期间不得删除 Legacy App 或旧凭据。回滚时，先停止当前 OAuth 前台进程，只切换 workspace profile，重启后使用单独保留的 Legacy App：
+
+```powershell
+codexgpt auth rollback --root D:\Dev\your-repo
+codexgpt start --root D:\Dev\your-repo
+```
+
+服务重启不会自动让 ChatGPT 客户端回滚。OAuth App 不会获得 legacy query-token URL；OAuth state、key、grant、client、audit、Tunnel config 和 owner marker 均保留。
+
+使用保留的 OAuth App 幂等返回 OAuth：
+
+```powershell
+codexgpt auth setup --root D:\Dev\your-repo
+```
+
+命令会推导已保存的 hostname、Tunnel、port 与 ownership marker，并在重新提交 OAuth mode 前探测 candidate public surface。Profile 现在分别保存不含凭据的 `authRoutes.legacy` 与 `authRoutes.oauth`，所以回滚会切换完整 route，而不是只改 `authMode` 后在 OAuth hostname 上运行 Legacy authentication。旧 profile 若缺少 retained Legacy route 会 fail closed，并要求一次显式 route migration；query token 不会被复制进 route selector。
+
+若环境变量覆盖 profile，先清除再重启：
+
+```powershell
+Remove-Item Env:CODEXGPT_AUTH_MODE -ErrorAction SilentlyContinue
+[Environment]::SetEnvironmentVariable('CODEXGPT_AUTH_MODE', $null, 'User')
+```
+
+public listener 默认是 `127.0.0.1:8787`；owner administration 使用物理分离的 `127.0.0.1:8788`，不得通过 Cloudflare 暴露。Quick Tunnel 的 hostname 每次变化，因此不适用。项目不宣称 ChatGPT static Bearer、Cloudflare Access、mTLS、多 owner tenancy 或 OS isolation。
+
+截至 2026-07-26，OpenAI 官方说明要求在 ChatGPT Web 的 Apps/Developer Mode 中创建 custom App，并通过 **Scan Tools** 刷新工具；可用性取决于 plan/workspace。官方同时建议支持 refresh token，并对 OIDC provider 建议声明 `offline_access`。CodexGPT 是 OAuth authorization server 而不是 OIDC provider，并签发 rotating refresh token。Journeys U2–U4 已通过 DCR/连接、本地批准、scope reauthorization、descriptor refresh、post-restart refresh continuity 与本地 revoke/relink。Journey U5 已通过真实 denial、replay、bounded admission、环境变量覆盖与 verified-backup recovery；Recovery 仍是有意的 security reset：stable binding、hostname 与 Tunnel 保持不变，所有旧 client/grant/token authority 失效。U6 已通过 separate-route Legacy/OAuth round-trip、exact OAuth schemes、query-token denial、重建 Legacy App 的真实读取、精确 OAuth 返回，以及现有 OAuth App 的返回后读取；已删除的原 Legacy App 身份连续性不作宣称。U7 已通过 shared/unowned Tunnel config 的 fail-early 字节保持拒绝和 live public-loopback/local-admin 边界验收。Gate G8-U、本地 G8-X 与 exact-head Ubuntu/Windows Node 20/24 CI 均已完成，关闭基线为 `55b2b5664aae322ec992968a41c87a289fb75282` / run `30274857996`。
+
+## Legacy query-token 兼容设置
+
 进入你想让 ChatGPT 工作的仓库，然后运行 setup：
 
 ```bash
@@ -70,9 +166,9 @@ cd /path/to/your/repo
 codexgpt setup
 ```
 
-CodexGPT 会尝试复制包含 `codexgpt_token` query 凭据的完整 ChatGPT Server URL，但启动日志默认隐藏这个秘密 URL。剪贴板不可用时，在 CodexGPT 终端按 `u` 显式显示。先到 `Settings -> Security and login` 打开 Developer mode，再到 `Settings -> Plugins` 创建连接，粘贴完整 URL，并选择 `Authentication: No Authentication / None`。
+CodexGPT 会尝试复制包含 `codexgpt_token` query 凭据的完整 ChatGPT Server URL，但启动日志默认隐藏这个秘密 URL。剪贴板不可用时，在 CodexGPT 终端按 `u` 显式显示。在 ChatGPT 当前的 Apps / Plugins 连接管理页面创建连接；若界面提供 Developer Mode，先启用它。粘贴完整 URL；若表单显示 Authentication，选择 `No Authentication / None`。
 
-当前支持的个人 ChatGPT 兼容方案使用这个 URL-token 流程，OAuth 2.1 仍延后实现。请把完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交这个 URL。
+本节只描述保留的 Legacy App URL-token 流程，不要删除其中的 `codexgpt_token`。前文的 source-checkout OAuth 路径已有独立真实 G8-U 证据，并使用另一个保留的 App 与 token-free URL；不要混用两种模式，也不要改成手动 static Bearer。请把 Legacy App 的完整 URL 当成等同密码的秘密：它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交这个 URL。
 
 以后同一个仓库日常启动只需要：
 
@@ -96,7 +192,7 @@ CodexGPT 适合已经有 ChatGPT Apps / Developer Mode 权限并希望做本地�
 - 想在某些模型不能调用工具时，导出一个持久上下文包给它做规划。
 - 想把 ChatGPT 的计划交给 Codex、OpenCode、Pi 或自定义本地代理执行。
 
-当前测试显示，ChatGPT Free / Go 账号不暴露 CodexGPT 需要的 Apps / Developer Mode 创建流程。请使用 ChatGPT 中能看到 Apps / Developer Mode 的账号层级。
+请以 ChatGPT 当前界面是否显示 Apps / Developer Mode 或连接管理入口为准。可用性会受账号、工作区策略和 rollout 影响，CodexGPT 不会解锁这些能力。
 
 ## 它能做什么
 
@@ -171,20 +267,13 @@ npx codexgpt@latest start --root /absolute/path/to/your/repo
 
 ## ChatGPT 中的 App 设置
 
-先在 ChatGPT 打开 Developer Mode：
+打开 ChatGPT 当前的 Apps / Plugins 连接管理页面；若界面提供 Developer Mode，先启用它：
 
 ```text
-ChatGPT Settings
--> Security and login
--> Developer mode: on
--> Enforce CSP in developer mode: on
-
-ChatGPT Settings
--> Plugins
--> Create
+ChatGPT Settings -> Plugins / Apps -> + / Create
 ```
 
-保留 CSP 开启。CodexGPT 的卡片和小组件就是按 CSP 开启的路径设计的，不需要远程脚本、外部字体、iframe 或第三方图片。
+若当前 Developer Mode 页面显示 CSP 开关，保持开启。CodexGPT 的卡片和小组件就是按 CSP 开启的路径设计的，不需要远程脚本、外部字体、iframe 或第三方图片。
 
 在创建 Plugin 页面填写：
 
@@ -193,7 +282,7 @@ Name: CodexGPT
 Description: Local workspace bridge for ChatGPT coding
 Connection: Server URL
 Server URL: 粘贴 CodexGPT 自动复制的完整地址，包括 codexgpt_token query string
-Authentication: No Authentication / None
+Authentication: No Authentication / None（若显示该字段）
 ```
 
 不要删除 URL 的 query string。这个完整 URL 就是当前个人 ChatGPT 兼容流程的凭据；ChatGPT Web 不需要、也不应按照本指南手动配置静态 Bearer header。
@@ -624,7 +713,7 @@ q      停止 CodexGPT
 核心结论：
 
 - 需要能访问 Apps / Developer Mode 的 ChatGPT 账号。
-- Free / Go 在当前测试中不支持这个 App 创建流程。
+- 可用性以当前 Apps / Developer Mode 或连接管理入口为准，并受账号、工作区策略和 rollout 影响。
 - CodexGPT 不绕过任何速率限制。
 - 某些 Pro / planning 模型界面不能直接连接 MCP 工具，使用 `pro-bundle` 作为上下文回退。
 - quick tunnel 每次重启 URL 会变。

@@ -38,7 +38,7 @@ function binaryName() {
   return process.platform === "win32" ? "cloudflared.exe" : "cloudflared";
 }
 
-function installPath() {
+export function managedCloudflaredInstallPath() {
   return path.join(CodexGPTHome(), "bin", binaryName());
 }
 
@@ -65,7 +65,7 @@ function cloudflaredVersion(binaryPath) {
   return `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
 }
 
-function verifiedInstalledVersion(binaryPath) {
+export function verifiedInstalledCloudflaredVersion(binaryPath) {
   if (!fs.existsSync(binaryPath)) return "";
   const asset = cloudflaredAsset();
   if (!asset.archive) {
@@ -160,8 +160,8 @@ function replaceInstalledBinary(sourcePath, destination) {
 }
 
 export async function installVerifiedCloudflared({ ensureOnly = false } = {}) {
-  const destination = installPath();
-  const installed = verifiedInstalledVersion(destination);
+  const destination = managedCloudflaredInstallPath();
+  const installed = verifiedInstalledCloudflaredVersion(destination);
   if (installed && ensureOnly) {
     console.error(`[codexgpt] Verified cloudflared already installed: ${installed}`);
     return destination;
@@ -185,8 +185,8 @@ export async function installVerifiedCloudflared({ ensureOnly = false } = {}) {
 async function main() {
   const command = process.argv[2] || "ensure";
   if (command === "status") {
-    const destination = installPath();
-    const installed = verifiedInstalledVersion(destination);
+    const destination = managedCloudflaredInstallPath();
+    const installed = verifiedInstalledCloudflaredVersion(destination);
     if (!installed) {
       console.error(`[codexgpt] Pinned cloudflared ${CLOUDFLARED_RELEASE.version} is not installed at ${destination}.`);
       process.exitCode = 1;

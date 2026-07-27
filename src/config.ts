@@ -5,6 +5,14 @@ import { DEFAULT_ANALYSIS_LIMITS, type AnalysisLimits } from "./analysis/types.j
 import type { RiskClass } from "./policy/types.js";
 import type { ChangeSetRetentionConfig } from "./changesets/types.js";
 import { resolveGuidanceMode, type GuidanceMode } from "./guidance/mode.js";
+import {
+  assertHttpAuthModeCompatibility,
+  resolveHttpAuthMode,
+  resolveOAuthDeploymentConfiguration,
+  resolveOAuthRootSelection
+} from "./auth/configuration.js";
+import type { AuthModeSource, HttpAuthMode } from "./auth/types.js";
+import { profileIdForRoot, readWorkspaceProfile, type WorkspaceProfile } from "./profileStore.js";
 
 export type BashMode = "off" | "safe" | "full";
 export type BashTranscriptMode = "compact" | "full";
@@ -41,12 +49,20 @@ export interface AuditRetentionConfig {
   maxClosedBytes: number;
 }
 
+export interface ConfigLoadOptions {
+  persistedUserAuthMode?: string;
+  workspaceProfile?: WorkspaceProfile;
+  platform?: NodeJS.Platform;
+}
+
 export interface CodexGPTConfig {
   defaultRoot: string;
   allowedRoots: string[];
   host: string;
   port: number;
   widgetDomain: string;
+  authMode: HttpAuthMode;
+  authModeSource: AuthModeSource;
   authToken?: string;
   requireHttpToken: boolean;
   allowedHosts: string[];
@@ -638,12 +654,21 @@ function allowedOriginsFrom(value: string | undefined): string[] {
   }))];
 }
 
-export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
+export function loadConfig(
+  argv = process.argv.slice(2),
+  options: ConfigLoadOptions = {}
+): CodexGPTConfig {
   const args = parseArgs(argv);
 
   const rootFromArgs = typeof args.root === "string" ? args.root : undefined;
   const root = rootFromArgs ?? process.env.CODEXGPT_ROOT ?? process.env.CODEBASE_BRIDGE_REPO_ROOT ?? process.cwd();
   const defaultRoot = toRealDir(root);
+  const workspaceProfile = options.workspaceProfile ?? readWorkspaceProfile(defaultRoot);
+  const resolvedAuthMode = resolveHttpAuthMode({
+    currentProcess: process.env.CODEXGPT_AUTH_MODE,
+    persistedUser: options.persistedUserAuthMode,
+    profile: workspaceProfile.authMode
+  });
 
   const allowRootArgs = Array.isArray(args["allow-root"])
     ? args["allow-root"]
@@ -724,6 +749,47 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
   const allowedHosts = allowedHostsFrom(allowedHostHints.join(","), host);
   const allowedOrigins = allowedOriginsFrom(process.env.CODEXGPT_ALLOWED_ORIGINS);
   const allowQueryToken = boolFrom(process.env.CODEXGPT_ALLOW_QUERY_TOKEN, false);
+  assertHttpAuthModeCompatibility({
+    mode: resolvedAuthMode.mode,
+    allowQueryToken,
+    allowNoHttpToken: allowNoToken,
+    legacyTokenPresent: Boolean(authToken)
+  });
+  if (resolvedAuthMode.mode === "oauth") {
+    resolveOAuthRootSelection({
+      explicitRoot: rootFromArgs ? defaultRoot : undefined,
+      currentDirectory: toRealDir(process.cwd()),
+      matchingProfileRoot: workspaceProfile.root,
+      platform: options.platform ?? process.platform
+    });
+    resolveOAuthDeploymentConfiguration({
+      canonicalRoot: defaultRoot,
+      profileId: profileIdForRoot(defaultRoot),
+      hostname: workspaceProfile.hostname ?? "",
+      issuer: workspaceProfile.oauthIssuer,
+      resource: workspaceProfile.oauthResource,
+      platform: options.platform ?? process.platform,
+      tunnel: workspaceProfile.tunnel ?? "",
+      tunnelName: workspaceProfile.tunnelName ?? "",
+      tunnelOwner: workspaceProfile.tunnelOwner ?? "",
+      publicHost: host,
+      publicPort: strictNumberFrom(
+        "OAuth public port",
+        portArg ?? process.env.CODEXGPT_PORT ?? process.env.PORT ?? workspaceProfile.port,
+        8787,
+        1,
+        65535
+      ),
+      localAdminHost: "127.0.0.1",
+      localAdminPort: strictNumberFrom(
+        "OAuth local-admin port",
+        workspaceProfile.localAdminPort,
+        8788,
+        1,
+        65535
+      )
+    });
+  }
   const bashSessionId = bashSessionIdFrom(bashSessionArg ?? process.env.CODEXGPT_BASH_SESSION_ID);
   const requireBashSession = boolFrom(requireBashSessionArg ?? process.env.CODEXGPT_REQUIRE_BASH_SESSION, false);
   if (requireBashSession && !bashSessionId) {
@@ -736,6 +802,8 @@ export function loadConfig(argv = process.argv.slice(2)): CodexGPTConfig {
     host,
     port: numberFrom(portArg ?? process.env.CODEXGPT_PORT ?? process.env.PORT, 8787, 1, 65535),
     widgetDomain: widgetDomainFrom(widgetDomainArg ?? process.env.CODEXGPT_WIDGET_DOMAIN),
+    authMode: resolvedAuthMode.mode,
+    authModeSource: resolvedAuthMode.source,
     authToken,
     requireHttpToken,
     allowedHosts,

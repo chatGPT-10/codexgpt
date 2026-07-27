@@ -1,7 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 import fsp from "node:fs/promises";
 import type { PathGuard, Workspace } from "../guard.js";
-import type { PolicySessionContextSource } from "../policy/identity.js";
+import { currentPolicyIdentity, type PolicySessionContextSource } from "../policy/identity.js";
 import { describeFilesystemBatchResource } from "../policy/resources.js";
 import type { FilesystemBatchResourceV1 } from "../policy/types.js";
 import {
@@ -85,9 +85,10 @@ export function createSupertoolUndoChangeSetAdapterV2(
 }
 
 function ownerMaterial(source: PolicySessionContextSource): { kind: string; value: string } {
-  const subject = source.identity.subject?.trim();
+  const identity = currentPolicyIdentity(source);
+  const subject = identity.subject?.trim();
   if (subject) return { kind: "subject", value: subject };
-  const credentialRef = source.identity.credentialRef?.trim();
+  const credentialRef = identity.credentialRef?.trim();
   if (credentialRef) return { kind: "credential", value: credentialRef };
   let transportSessionId = "";
   try {

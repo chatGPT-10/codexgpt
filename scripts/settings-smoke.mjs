@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
@@ -34,13 +35,13 @@ function runFail(args, env, pattern) {
 }
 
 async function readProfile(root, home) {
-  const realRoot = await fs.realpath(root);
+  const realRoot = realpathSync(root);
   const id = createHash('sha256').update(realRoot).digest('hex').slice(0, 24);
   return JSON.parse(await fs.readFile(path.join(home, 'profiles', `${id}.json`), 'utf8'));
 }
 
 async function runtimeStatusPath(root, home) {
-  const realRoot = await fs.realpath(root);
+  const realRoot = realpathSync(root);
   const id = createHash('sha256').update(realRoot).digest('hex').slice(0, 24);
   return path.join(home, 'runtime', `${id}.json`);
 }
@@ -288,7 +289,7 @@ run([
   'ngrok.yml'
 ], env);
 const policyProfile = await readProfile(policyRoot, home);
-const realPolicyRoot = await fs.realpath(policyRoot);
+const realPolicyRoot = realpathSync(policyRoot);
 if (policyProfile.write !== 'handoff' || policyProfile.hostname !== 'policy.ngrok-free.app' || policyProfile.ngrokConfig !== path.join(realPolicyRoot, 'ngrok.yml')) {
   throw new Error(`settings policy profile did not normalize write/path values: ${JSON.stringify(policyProfile)}`);
 }
@@ -417,6 +418,7 @@ runFail([
 
 const runtimePort = await getFreePort();
 const runtimePath = await runtimeStatusPath(runtimeRoot, home);
+let stoppedRuntimePid;
 run([
   'settings',
   'set',
@@ -434,15 +436,28 @@ await withStartedCodexGPT([
   runtimeRoot
 ], env, async (child) => {
   const runtime = await waitForJson(runtimePath, (data) => data.toolCards === true && data.pid === child.pid, 'tool-cards runtime status');
+  stoppedRuntimePid = child.pid;
   if (runtime.toolCards !== true || runtime.pid !== child.pid) {
     throw new Error(`runtime status did not persist toolCards: ${JSON.stringify(runtime)}`);
   }
 });
-try {
-  await fs.access(runtimePath);
-  throw new Error('runtime status was not cleared after launcher SIGTERM');
-} catch (error) {
-  if (error?.code !== 'ENOENT') throw error;
+if (process.platform === 'win32') {
+  try {
+    const staleRuntime = JSON.parse(await fs.readFile(runtimePath, 'utf8'));
+    if (staleRuntime.pid !== stoppedRuntimePid) {
+      throw new Error(`forced Windows termination left an unexpected runtime record: ${JSON.stringify(staleRuntime)}`);
+    }
+    await fs.rm(runtimePath, { force: true });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+} else {
+  try {
+    await fs.access(runtimePath);
+    throw new Error('runtime status was not cleared after launcher SIGTERM');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
 }
 
 const quitRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codexgpt-settings-quit-'));
@@ -666,7 +681,7 @@ const ngrokFailure = runFail([
   'codexgpt-ngrok-env-token',
   '--no-copy-url'
 ], { ...env, NGROK_CONFIG: 'new-ngrok.yml' }, /Recent ngrok output/);
-const realNgrokRoot = await fs.realpath(ngrokRoot);
+const realNgrokRoot = realpathSync(ngrokRoot);
 if (!ngrokFailure.includes(`--config|${path.join(realNgrokRoot, 'new-ngrok.yml')}`) || ngrokFailure.includes('old-ngrok.yml')) {
   throw new Error(`ngrok start did not let env config override saved profile\n${ngrokFailure}`);
 }

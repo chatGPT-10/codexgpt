@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { minimatch } from "minimatch";
+import {
+  credentialRevisionForCredentialRef,
+  credentialRevisionForIdentity
+} from "../auth/policyIdentity.js";
 import { evaluateHardPolicy } from "./hardPolicy.js";
 import { policyDecisionV1Schema } from "./schemas.js";
 import type {
@@ -302,6 +306,7 @@ export function missingCapabilities(
 function grantMatches(input: EvaluatePolicyInput, grant: SessionGrantV1): boolean {
   const now = Date.parse(input.now);
   return grant.credentialRef === input.context.identity.credentialRef &&
+    (grant.credentialRevision ?? credentialRevisionForCredentialRef(grant.credentialRef)) === credentialRevisionForIdentity(input.context.identity) &&
     grant.transportSessionId === input.context.transportSessionId &&
     grant.workspaceId === input.context.workspaceId &&
     grant.policyRevision === input.context.policyRevision &&
