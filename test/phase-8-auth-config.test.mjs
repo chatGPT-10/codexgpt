@@ -85,7 +85,7 @@ test("auth mode resolver is strict and preserves exact precedence and source", (
 test("OAuth root selection requires an explicit root or an exact current-directory profile", () => {
   const root = path.win32.normalize("D:/Dev/repository");
   assert.equal(
-    resolveOAuthRootSelection({ explicitRoot: root, currentDirectory: path.dirname(root) }),
+    resolveOAuthRootSelection({ explicitRoot: root, currentDirectory: path.win32.dirname(root) }),
     root
   );
   assert.equal(
@@ -93,7 +93,7 @@ test("OAuth root selection requires an explicit root or an exact current-directo
     root
   );
   assert.throws(
-    () => resolveOAuthRootSelection({ currentDirectory: path.dirname(root), matchingProfileRoot: root, platform: "win32" }),
+    () => resolveOAuthRootSelection({ currentDirectory: path.win32.dirname(root), matchingProfileRoot: root, platform: "win32" }),
     (error) => error?.code === "OAUTH_ROOT_REQUIRED"
   );
   assert.throws(
