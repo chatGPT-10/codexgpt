@@ -6449,7 +6449,7 @@ export function createCodexGPTServer(
         })
       : undefined
   );
-  const server = new McpServer({ name: "CodexGPT", version: "0.28.6" }, { instructions: serverInstructions(config) });
+  const server = new McpServer({ name: "CodexGPT", version: "1.0.0" }, { instructions: serverInstructions(config) });
   if (dependencies.oauthToolSecurity) {
     oauthToolSecurityByServer.set(server as object, dependencies.oauthToolSecurity);
   }

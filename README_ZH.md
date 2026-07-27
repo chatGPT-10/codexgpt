@@ -33,9 +33,9 @@
 
 ## 当前项目状态
 
-- 包元数据当前为 `codexgpt@0.28.6`，`main` 包含尚未发布到 npm 的改动。
+- 首个稳定版本为 `codexgpt@1.0.0`；package metadata、runtime 自报版本、Git tag 与 npm `latest` 必须保持一致。
 - Phase 5、Phase 6 和 Phase 7 Core 均已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。Phase 7 Core 的关闭提交为 `a0b9f46e2297297959527f7570c9cb7942cc8fb3`，exact-head CI run 为 `30171313296`；Contract V5 仍是显式 `standard` opt-in，不是默认公开契约。
-- Phase 8 Tasks 8A1–8A9 已在 source checkout 中实现并完成本地验证：Windows DPAPI CurrentUser 状态保护、物理分离的 public/local listener、受限 DCR + PKCE S256、ES256 access token、rotating refresh family、durable revoke/replay、request-local policy identity、精确 per-tool scope、受支持的 setup/本地管理/恢复、专用 Tunnel ownership 检查、迁移与回滚文档、package integration、合成端到端 OAuth/MCP 验证，以及完成态 runtime 对抗性修复。真实 Gate G8-U 已通过 Journeys U2–U7，STEP-470 也已通过修复后的 managed Node 20/24 ordinary 与 protected Smoke 完成本地 G8-X。U6 已通过 service/protocol 双路由回滚、重建 Legacy App 的真实读取、精确无参数 OAuth 恢复，以及恢复后现有 OAuth App 的真实读取；已删除的原 Legacy App 身份连续性不作宣称。U7 已证明 shared/unowned Tunnel config 在任何 mutation 前失败并保持字节不变，同时完成 live public-loopback/local-admin 边界验收。Exact-head CI 与 publication 仍待完成。
+- Phase 8 Tasks 8A1–8A9 已在 source checkout 中实现并完成本地验证：Windows DPAPI CurrentUser 状态保护、物理分离的 public/local listener、受限 DCR + PKCE S256、ES256 access token、rotating refresh family、durable revoke/replay、request-local policy identity、精确 per-tool scope、受支持的 setup/本地管理/恢复、专用 Tunnel ownership 检查、迁移与回滚文档、package integration、合成端到端 OAuth/MCP 验证，以及完成态 runtime 对抗性修复。真实 Gate G8-U 已通过 Journeys U2–U7，STEP-470 也已通过修复后的 managed Node 20/24 ordinary 与 protected Smoke 完成本地 G8-X。U6 已通过 service/protocol 双路由回滚、重建 Legacy App 的真实读取、精确无参数 OAuth 恢复，以及恢复后现有 OAuth App 的真实读取；已删除的原 Legacy App 身份连续性不作宣称。U7 已证明 shared/unowned Tunnel config 在任何 mutation 前失败并保持字节不变，同时完成 live public-loopback/local-admin 边界验收。Phase 8 exact-head closure 已在 `55b2b5664aae322ec992968a41c87a289fb75282`、CI run `30274857996` 通过；`1.0.0` 打包这一已验证基线。
 
 ## 安装
 
@@ -47,7 +47,7 @@ CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 
 npm install -g codexgpt
 ```
 
-GitHub `main` 文档可能早于 npm 发布；用 `npm install -g codexgpt` 前请看 npm badge/version，未发布的 `main` 行为请用下面的 source checkout 方式。
+npm badge 与 package metadata 均应显示 `1.0.0`；只有需要尚未发布的 `main` 行为时，才使用下面的 source checkout 方式。
 
 已有 source checkout 时，使用仓库脚本以保留公开入口层：
 
@@ -155,7 +155,7 @@ Remove-Item Env:CODEXGPT_AUTH_MODE -ErrorAction SilentlyContinue
 
 public listener 默认是 `127.0.0.1:8787`；owner administration 使用物理分离的 `127.0.0.1:8788`，不得通过 Cloudflare 暴露。Quick Tunnel 的 hostname 每次变化，因此不适用。项目不宣称 ChatGPT static Bearer、Cloudflare Access、mTLS、多 owner tenancy 或 OS isolation。
 
-截至 2026-07-26，OpenAI 官方说明要求在 ChatGPT Web 的 Apps/Developer Mode 中创建 custom App，并通过 **Scan Tools** 刷新工具；可用性取决于 plan/workspace。官方同时建议支持 refresh token，并对 OIDC provider 建议声明 `offline_access`。CodexGPT 是 OAuth authorization server 而不是 OIDC provider，并签发 rotating refresh token。Journeys U2–U4 已通过 DCR/连接、本地批准、scope reauthorization、descriptor refresh、post-restart refresh continuity 与本地 revoke/relink。Journey U5 已通过真实 denial、replay、bounded admission、环境变量覆盖与 verified-backup recovery；Recovery 仍是有意的 security reset：stable binding、hostname 与 Tunnel 保持不变，所有旧 client/grant/token authority 失效。U6 已通过 separate-route Legacy/OAuth round-trip、exact OAuth schemes、query-token denial、重建 Legacy App 的真实读取、精确 OAuth 返回，以及现有 OAuth App 的返回后读取；已删除的原 Legacy App 身份连续性不作宣称。U7 已通过 shared/unowned Tunnel config 的 fail-early 字节保持拒绝和 live public-loopback/local-admin 边界验收。Gate G8-U 与本地 G8-X 已完成；exact-head CI/publication 仍待完成。
+截至 2026-07-26，OpenAI 官方说明要求在 ChatGPT Web 的 Apps/Developer Mode 中创建 custom App，并通过 **Scan Tools** 刷新工具；可用性取决于 plan/workspace。官方同时建议支持 refresh token，并对 OIDC provider 建议声明 `offline_access`。CodexGPT 是 OAuth authorization server 而不是 OIDC provider，并签发 rotating refresh token。Journeys U2–U4 已通过 DCR/连接、本地批准、scope reauthorization、descriptor refresh、post-restart refresh continuity 与本地 revoke/relink。Journey U5 已通过真实 denial、replay、bounded admission、环境变量覆盖与 verified-backup recovery；Recovery 仍是有意的 security reset：stable binding、hostname 与 Tunnel 保持不变，所有旧 client/grant/token authority 失效。U6 已通过 separate-route Legacy/OAuth round-trip、exact OAuth schemes、query-token denial、重建 Legacy App 的真实读取、精确 OAuth 返回，以及现有 OAuth App 的返回后读取；已删除的原 Legacy App 身份连续性不作宣称。U7 已通过 shared/unowned Tunnel config 的 fail-early 字节保持拒绝和 live public-loopback/local-admin 边界验收。Gate G8-U、本地 G8-X 与 exact-head Ubuntu/Windows Node 20/24 CI 均已完成，关闭基线为 `55b2b5664aae322ec992968a41c87a289fb75282` / run `30274857996`。
 
 ## Legacy query-token 兼容设置
 

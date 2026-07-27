@@ -86,3 +86,25 @@ This is `1431` tests per major: `1429` passed, `2` skipped, `0` failed. Both ski
 **Rollback:** Revert the bounded canonical-root ordering change, the new regression/platform annotations, and the STEP-472 memory entry. That would restore the Ubuntu CI failures without changing any runtime state or external service.
 
 **Next approved action:** Stage, commit, and push the final STEP-472 test correction normally, then verify a third exact-head CI run. Release, deployment, credential migration, unrelated Cloudflare/DNS/Tunnel mutation, force push, destructive history, Phase 9, and unrelated scope remain unapproved.
+
+## 2026-07-27 — STEP-473 — CodexGPT 1.0.0 release preparation
+
+**Status:** Phase 8 exact-head closure is complete at `55b2b5664aae322ec992968a41c87a289fb75282` / CI run `30274857996`. The owner has authorized the first stable `1.0.0` release. Package/runtime/documentation versioning is being prepared for a new reviewed exact-head release candidate; no tag, GitHub Release, npm publication, runtime deployment, credential migration, or external service mutation has occurred yet.
+
+**Goal:** Publish the currently verified Phase 8 baseline as the first stable CodexGPT release without allowing package metadata, runtime self-reporting, Git tag, GitHub Release, or npm `latest` to diverge.
+
+**Files changed:** `package.json`, `package-lock.json`, `src/http.ts`, `src/stdio.ts`, `src/server.ts`, `test/package-contents.test.mjs`, `CHANGELOG.md`, `README.md`, `README_ZH.md`, `AGENTS.md`, `Memory.md`, `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, and this archive volume. Historical point-in-time version references remain unchanged.
+
+**Implementation:** Bumped package and lockfile metadata from `0.28.6` to `1.0.0`; updated all three public runtime version surfaces; added a package contract test that binds package, lockfile, HTTP, stdio, and MCP server versions; promoted the accumulated Unreleased changelog to `1.0.0 - 2026-07-27`; and reconciled active English/Chinese onboarding, rules, master-plan state, and memory with the completed Phase 8 exact-head evidence.
+
+**Registry state:** `npm view codexgpt version dist-tags --json` returned registry `E404`, so no public `codexgpt` package was visible from the current client. `npm whoami` returned `ENEEDAUTH`; the local npm client is not authenticated. No npm token or registry credential was searched for, printed, stored, or added to the repository. GitHub CLI authentication remains available for repository operations.
+
+**Local release gates:** The version/documentation/package focused suite passed `10/10`; the package/version contract passed `3/3` on managed Node `20.20.2` and `24.15.0`; TypeScript build, repository policy, `git diff --check`, secret-pattern scanning, package-lock-only synchronization, and `npm publish --dry-run --access public` passed. The detached protected Smoke run `2026-07-27T15-09-28-524Z-release-1-0-0-smoke-88273bd4` completed with exit code `0` on both managed Node majors and cleaned its temporary state. The package dry run contains `654` files, is approximately `1.4 MB` packed / `7.8 MB` unpacked, and reports `codexgpt@1.0.0`. `npm audit` reports zero high/critical findings and two existing moderate transitive findings in the MCP SDK compatibility line; the available forced fix would downgrade the pinned SDK and is not accepted for this release.
+
+**Remaining release gates:** Publish the reviewed release-candidate commit and obtain exact-head Ubuntu/Windows Node 20/24 CI. Only after that passes may PR 6 be marked ready and merged to `main`; the merged exact head must pass its required CI before creating `v1.0.0`. npm publication must use an explicitly authenticated owner session and must be verified by checking that npm `latest` equals `1.0.0` before public announcement.
+
+**Risks and limitations:** A GitHub tag without a working npm package would break the documented `npx codexgpt@latest` onboarding path, so the release must not be represented as complete while npm authentication is absent. The release changes versioning and documentation only; it grants no new runtime authority and does not change OAuth, Tunnel, credential, workspace, or execution policy behavior.
+
+**Rollback:** Before tag/publication, revert the bounded release-preparation commit. After publication, do not rewrite or delete `v1.0.0`; publish a corrective patch version instead.
+
+**Next approved action:** Complete local release gates, stage/commit/push the `1.0.0` candidate, verify exact-head CI, merge PR 6 to `main`, verify the merged exact head, then authenticate npm and publish/tag/release in an order that keeps npm `latest`, Git tag, and GitHub Release aligned.

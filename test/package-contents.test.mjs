@@ -33,6 +33,21 @@ test("public repository metadata points to the current fork while Pages stays on
   assert.match(fs.readFileSync(path.resolve("src\/http.ts"), "utf8"), /const docsUrl = "https:\/\/rebel0789\.github\.io\/codexgpt\/";/);
 });
 
+test("public runtime version matches package and lockfile metadata", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve("package.json"), "utf8"));
+  const lock = JSON.parse(fs.readFileSync(path.resolve("package-lock.json"), "utf8"));
+  assert.equal(lock.version, pkg.version);
+  assert.equal(lock.packages[""].version, pkg.version);
+
+  const escapedVersion = pkg.version.replaceAll(".", "\\.");
+  for (const relativePath of ["src/http.ts", "src/stdio.ts"]) {
+    const source = fs.readFileSync(path.resolve(relativePath), "utf8");
+    assert.match(source, new RegExp(`const CODEXGPT_VERSION = "${escapedVersion}";`));
+  }
+  const serverSource = fs.readFileSync(path.resolve("src/server.ts"), "utf8");
+  assert.match(serverSource, new RegExp(`name: "CodexGPT", version: "${escapedVersion}"`));
+});
+
 test("published package keeps website assets but excludes internal memory archives", () => {
   const result = spawnSync(process.execPath, [npmCliPath(), "pack", "--dry-run", "--json", "--ignore-scripts"], {
     cwd: process.cwd(),

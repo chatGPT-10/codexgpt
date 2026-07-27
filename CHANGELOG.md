@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- Added the locally verified Phase 8 OAuth Core through Tasks 8A1–8A9, completed live Gate G8-U Journeys U2–U7, and closed local Gate G8-X on managed Node 20/24 ordinary plus protected Smoke: Windows DPAPI CurrentUser protection, versioned atomic auth state, physically separated public/local listeners, constrained public-client DCR with PKCE S256 and resource binding, strict ES256 access tokens, authenticated rotating opaque refresh families, durable replay/revoke/expiry handling, request-local OAuth policy identity, exact tool scopes and step-up, supported setup/local administration/recovery, two-App Legacy/OAuth rollback, fail-early dedicated-Tunnel ownership enforcement, and live restart/revoke/relink/recovery/rollback/Tunnel-boundary acceptance. U6 retains the explicit deleted-Legacy-App evidence substitution; exact-head CI, publication, release, and deployment remain pending.
+- No changes yet.
+
+## 1.0.0 - 2026-07-27
+
+- Released the first stable CodexGPT version after completing Phase 8 OAuth Core through Tasks 8A1–8A9, live Gate G8-U Journeys U2–U7, local Gate G8-X, and exact-head Ubuntu/Windows Node 20/24 CI: Windows DPAPI CurrentUser protection, versioned atomic auth state, physically separated public/local listeners, constrained public-client DCR with PKCE S256 and resource binding, strict ES256 access tokens, authenticated rotating opaque refresh families, durable replay/revoke/expiry handling, request-local OAuth policy identity, exact tool scopes and step-up, supported setup/local administration/recovery, two-App Legacy/OAuth rollback, fail-early dedicated-Tunnel ownership enforcement, and live restart/revoke/relink/recovery/rollback/Tunnel-boundary acceptance. U6 retains the explicit deleted-Legacy-App evidence substitution.
 - Added Phase 7 Core behind explicit `standard` Contract V5: one zero-setup JavaScript/TypeScript `semantic` tool for definitions, references, one-file diagnostics, and complete rename previews; a bounded owned worker using TypeScript 5.9.3; honest lexical fallback; single-use `semantic_preview_id` application through the existing approval/atomic transaction/audit/change-set/undo path; local status/disable commands; and exact V1/V2/V3/V4 compatibility. Serena and direct LSP remain unimplemented, unbundled post-Core extensions.
 - Fixed two cached-App acceptance defects: overlong installed Skill summaries are now omitted instead of collapsing `codexgpt_inventory`, and ambiguous rename requests in partial repositories return bounded candidates before the complete-coverage write gate, without creating a preview or modifying files.
 - Fixed source-checkout CLI help so it consistently routes users through the supported `scripts/codexgpt-entry.mjs` public entry, with a runtime regression that also binds the published `codexgpt` bin mapping.
@@ -61,7 +65,7 @@
 - Blocked raw newline and carriage-return command separators in safe bash mode before whitespace normalization, including through the stable `codexgpt` supertool wrapper.
 - Corrected docs to describe Developer Mode account eligibility as broader than Plus/Pro while keeping the model/tool-surface limitation explicit.
 
-## 0.28.6 (main, pending npm latest)
+## 0.28.6
 
 - Added the stable `codexgpt` supertool wrapper for advanced connector-cache/custom workflows, while preserving tool/write/bash mode gates.
 - Hardened direct HTTP auth defaults, local `--no-auth`, token redaction, search parsing, selected-path Pro exports, and handoff polling state.

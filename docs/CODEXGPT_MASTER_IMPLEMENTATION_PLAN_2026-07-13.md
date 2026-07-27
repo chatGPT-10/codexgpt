@@ -5,12 +5,12 @@
 > 核对日期：2026-07-27
 > 状态：当前权威实施路线
 > 工作区：`D:\Dev\codexpro`
-> 基线版本：`codexgpt@0.28.6`
-> 当前阶段：Phase 1–7 Core 已关闭；Phase 8 G8-0 与 Tasks 8A1–8A9 已在本地完成，Windows DPAPI、atomic auth state、双 listener、constrained DCR/PKCE authorization、ES256 access/rotating refresh、durable revoke/replay、request-local policy/scope enforcement、精确 tool metadata、supported setup/local administration、fail-closed Tunnel verification、protected recovery/rebind、no-deletion rollback、migration/security documentation、package boundary、complete synthetic OAuth/MCP integration 与完成态 adversarial repairs 已实现；当前本地 checkpoint 基线仍为 `949fed0301dfc22a6dd84b8d9b3c62393d7aad2d`，本次工作树尚未提交
+> 基线版本：`codexgpt@1.0.0`
+> 当前阶段：Phase 1–8 Core 已关闭。Phase 8 G8-0、Tasks 8A1–8A9、真实 Gate G8-U Journeys U2–U7、本地 G8-X 与 exact-head Ubuntu/Windows Node 20/24 CI 均已完成；关闭基线为 `55b2b5664aae322ec992968a41c87a289fb75282`，CI run 为 `30274857996`。当前工作是将该验证基线版本化并发布为 `codexgpt@1.0.0`。
 >
-> 下一动作：在明确授权后 reviewed stage/commit/push，并取得 exact-head CI；STEP-470 已完成 Phase 8 Gate G8-X 本地关闭，Gate G8-U 已通过 Journeys U2–U7，U6 以“重建 Legacy App 兼容性通过、被删除旧 App 身份连续性不宣称”的证据替代完成验收
+> 下一动作：完成 `1.0.0` release candidate 的 reviewed verification、exact-head CI、合入 `main`、Git tag/GitHub Release 与 npm `latest` 发布；随后仅按单独授权推进 post-Phase-8 backlog。U6 继续保留“重建 Legacy App 兼容性通过、被删除旧 App 身份连续性不宣称”的证据替代。
 >
-> 授权状态：Phase 1 → Policy Kernel → Phase 2A–Phase 7 Core 已完成；Phase 8 Core 与 Gate G8-U 已授权，专用 OAuth Tunnel/App 已建立，Journeys U2–U7 已关闭。U6 已通过双路由 service/protocol、重建 Legacy App 真实读取、精确无参数 OAuth 恢复和现有 OAuth App 恢复后读取；原 Legacy App 已删除，因此不宣称同一旧 App 身份连续性。U7 已证明 public loopback-only ingress、local-admin exclusion、Host/forwarded-header fail-closed 与 shared/unowned config byte preservation。真实凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、release/deployment、Phase 7B/7C、staging/commit/push、force push 与破坏性历史操作仍单独受控
+> 授权状态：Phase 1 → Policy Kernel → Phase 2A–Phase 8 Core 已完成；当前明确授权 `1.0.0` 的版本化、reviewed stage/commit/push、CI、合并、tag、GitHub Release 与 npm package publication。真实凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、运行环境 deployment、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
