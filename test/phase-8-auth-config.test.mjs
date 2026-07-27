@@ -157,6 +157,37 @@ test("deployment configuration derives stable issuer/resource and ordered scopes
   assert.deepEqual(resolveEnabledOAuthScopes({ executeEnabled: true }), ["codexgpt:read", "codexgpt:execute"]);
 });
 
+test("deployment root canonicality follows host path syntax without weakening Windows roots", () => {
+  const base = {
+    profileId: "a".repeat(24),
+    hostname: "mcp.example.com",
+    platform: "win32",
+    tunnel: "cloudflare-named",
+    tunnelName: "codexgpt-oauth",
+    tunnelOwner: "codexgpt",
+    publicHost: "127.0.0.1",
+    publicPort: 8787,
+    localAdminHost: "127.0.0.1",
+    localAdminPort: 8788
+  };
+  const canonicalRoot = "/tmp/codexgpt-repository";
+  if (process.platform === "win32") {
+    assert.throws(
+      () => resolveOAuthDeploymentConfiguration({ ...base, canonicalRoot }),
+      (error) => error?.code === "OAUTH_DEPLOYMENT_INVALID"
+    );
+    return;
+  }
+  assert.equal(
+    resolveOAuthDeploymentConfiguration({ ...base, canonicalRoot }).canonicalRoot,
+    canonicalRoot
+  );
+  assert.throws(
+    () => resolveOAuthDeploymentConfiguration({ ...base, canonicalRoot: "/tmp/../codexgpt-repository" }),
+    (error) => error?.code === "OAUTH_DEPLOYMENT_INVALID"
+  );
+});
+
 test("one issuer/resource/hostname cannot bind to a conflicting canonical root", () => {
   const existing = resolveOAuthDeploymentConfiguration({
     canonicalRoot: path.win32.normalize("D:/Dev/one"),
@@ -173,6 +204,7 @@ test("one issuer/resource/hostname cannot bind to a conflicting canonical root",
   });
   const conflicting = resolveOAuthDeploymentConfiguration({
     ...existing,
+    platform: "win32",
     canonicalRoot: path.win32.normalize("D:/Dev/two"),
     profileId: "b".repeat(24),
     publicPort: 9797,

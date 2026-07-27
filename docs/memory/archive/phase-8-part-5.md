@@ -64,3 +64,25 @@ This is `1431` tests per major: `1429` passed, `2` skipped, `0` failed. Both ski
 **Rollback:** Revert only the STEP-471 documentation and memory edits. No source, test, dependency, OAuth, Cloudflare, credential, service, registry, or remote Git rollback is required.
 
 **Next approved action:** Await explicit authorization for reviewed staging, commit, ordinary push, and exact-head CI. Publication, release, deployment, credential migration, unrelated Cloudflare/DNS/Tunnel mutation, force push, destructive history, Phase 9, and other gated scope remain unapproved.
+
+## 2026-07-27 — STEP-472 — Exact-head CI portability repair
+
+**Status:** The reviewed Phase 8 snapshot was committed and pushed at `32063df4b49b4db31cb8da45fca33f035530da2b`. Exact-head CI run `30273084546` passed Repository policy but failed Ubuntu Node 20/24. The failure is diagnosed and repaired locally; a replacement exact-head run is required before Phase 8 publication closure is claimed.
+
+**Goal:** Preserve the native-Windows Phase 8 security boundary while making the complete test contract honest on Ubuntu CI, then publish only the minimal repair needed to obtain an exact-head cross-platform result.
+
+**Files changed:** `src/auth/configuration.ts`, `test/phase-8-auth-config.test.mjs`, `test/phase-8-auth-doctor.test.mjs`, `Memory.md`, and this archive volume. No OAuth profile, credential, grant, client, Tunnel, DNS, registry, service, scheduled task, or deployment state was changed.
+
+**Initial publication and failure evidence:** The ordinary push advanced `origin/codex/ci-performance-phase1-3` through planning commit `949fed0` and Phase 8 implementation commit `32063df`. Exact-head run `30273084546` bound to the full SHA above. Repository policy passed. Ubuntu Node 20 and Node 24 failed because `path.win32.isAbsolute("/tmp/...")` also returns `true`, so the canonical-root guard selected Win32 normalization before POSIX normalization and rejected every real POSIX temporary workspace. Two independent test assumptions were also exposed: one simulated-Windows configuration reconstruction omitted `platform: "win32"`, and one doctor integration test exercised native Windows DPAPI/OAuth capability without an explicit non-Windows skip.
+
+**Test-first repair:** A focused regression test first reproduced the path-ordering defect. The first naive repair simply preferred `path.posix`; adversarial review rejected it because a real Windows process could then accept `/foo`, which Win32 treats as drive-root-relative rather than an absolute canonical workspace. The final implementation uses POSIX semantics only when the actual host is non-Windows and the supplied path is POSIX-absolute; otherwise it retains Win32 absolute-path normalization. This preserves production Windows rejection while allowing Ubuntu to exercise synthetic Windows capability over real POSIX temporary roots. The conflicting-root test now states its simulated `platform: "win32"` explicitly. The managed-cloudflared doctor integration test is skipped only outside Windows with an explicit native-capability reason; platform-independent doctor delegation remains tested everywhere.
+
+**Verification:** `npm run test:focused -- test/phase-8-auth-config.test.mjs test/phase-8-auth-doctor.test.mjs` passed `11/11` on native Windows. `npm run build`, `git diff --check`, and `npm run policy:check` passed. The Windows-focused test asserts that `/tmp/...` remains rejected on Windows; the replacement Ubuntu exact-head run must exercise and validate the non-Windows POSIX branch.
+
+**Adversarial review:** No independent DevSpace agent provider is available. Three manual passes were performed. The security pass found and removed the naive Windows `/foo` acceptance regression. The portability pass separated actual host path syntax from simulated OAuth capability and identified the missing explicit platform plus native-only doctor assumption. The publication pass confirmed the repair is limited to one guard and two tests, does not weaken the native Windows capability gate, introduces no credential material, and requires a new exact published head rather than reusing the failed run.
+
+**Risks and limitations:** The non-Windows POSIX branch exists to make pure and synthetic Phase 8 contracts testable; production OAuth remains native-Windows-only and still fails closed when `platform !== "win32"`. The doctor test skip does not claim Linux OAuth support. Exact-head closure remains incomplete until the replacement run passes Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
+
+**Rollback:** Revert the bounded canonical-root ordering change, the new regression/platform annotations, and the STEP-472 memory entry. That would restore the Ubuntu CI failures without changing any runtime state or external service.
+
+**Next approved action:** Stage, commit, and push the STEP-472 repair normally, then verify a new exact-head CI run. Release, deployment, credential migration, unrelated Cloudflare/DNS/Tunnel mutation, force push, destructive history, Phase 9, and unrelated scope remain unapproved.

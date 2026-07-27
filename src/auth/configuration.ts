@@ -174,10 +174,10 @@ export function resolveEnabledOAuthScopes(
 }
 
 function assertAbsoluteCanonicalRoot(root: string): void {
-  const pathApi = path.win32.isAbsolute(root)
-    ? path.win32
-    : path.posix.isAbsolute(root)
-      ? path.posix
+  const pathApi = process.platform !== "win32" && path.posix.isAbsolute(root)
+    ? path.posix
+    : path.win32.isAbsolute(root)
+      ? path.win32
       : undefined;
   if (!pathApi || pathApi.normalize(root) !== root) {
     throw authConfigurationError(
