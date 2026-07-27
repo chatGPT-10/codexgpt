@@ -108,3 +108,25 @@ This is `1431` tests per major: `1429` passed, `2` skipped, `0` failed. Both ski
 **Rollback:** Before tag/publication, revert the bounded release-preparation commit. After publication, do not rewrite or delete `v1.0.0`; publish a corrective patch version instead.
 
 **Next approved action:** Complete local release gates, stage/commit/push the `1.0.0` candidate, verify exact-head CI, merge PR 6 to `main`, verify the merged exact head, then authenticate npm and publish/tag/release in an order that keeps npm `latest`, Git tag, and GitHub Release aligned.
+
+## 2026-07-27 — STEP-474 — CodexGPT 1.0.0 release closure and neat-freak reconciliation
+
+**Status:** Complete. The first stable release is public and internally consistent. PR 6 merged to `main` as `9131c393da3a1eb3c9514710b0b1569f55dd5acb`; exact-head CI run `30283923175` passed; npm `latest`, annotated tag `v1.0.0`, and the GitHub Release all resolve to that commit. No runtime deployment, credential migration, Cloudflare/DNS/Tunnel mutation, service installation, or post-`1.0.0` implementation occurred.
+
+**Goal:** Close the release without leaving active rules, security policy, implementation planning, or project memory in the pre-publication state, while preserving the append-only historical record of the earlier unauthenticated and pending-release gates.
+
+**Files changed:** `AGENTS.md`, `Memory.md`, `SECURITY.md`, `docs/CODEXGPT_MASTER_IMPLEMENTATION_PLAN_2026-07-13.md`, and this archive volume. `README.md`, `README_ZH.md`, `CHANGELOG.md`, `PUBLIC_LAUNCH_CHECKLIST.md`, FAQs, domain/setup documentation, source, tests, package metadata, and dependencies were reviewed and required no change.
+
+**Implementation:** Replaced the consumed release authorization in `AGENTS.md` with the durable immutable-release and no-implicit-post-release rules; updated `Memory.md` from release-candidate state to the public release, removed completed PR/npm open items, and retained only the next explicit authorization decision; advanced the master plan to version `2.6` and moved its current action to the reviewed post-Phase-8 backlog; corrected `SECURITY.md` so the supported-version policy is meaningful after `1.0.0`; and closed the Phase 8 Volume 5 index at STEP-474.
+
+**Exact release evidence:** Release-candidate commit `ca701b6a0f464427b89d828f906b4199636feae5` passed run `30282382963`. PR 6 merged at `2026-07-27T16:15:50Z`. `node scripts/exact-head-ci.mjs verify --head 9131c393da3a1eb3c9514710b0b1569f55dd5acb` returned run `30283923175` with successful Repository policy and Ubuntu/Windows Node 20/24 jobs. `npm view codexgpt version dist-tags gitHead --json` returned `version=1.0.0`, `latest=1.0.0`, and matching `gitHead`. `git ls-remote origin refs/heads/main refs/tags/v1.0.0 refs/tags/v1.0.0^{}` showed `main` and the dereferenced annotated tag at the same commit. `gh release view v1.0.0` reported a public, non-draft, non-prerelease release published at `2026-07-27T17:54:34Z`. `npm exec --yes --package=codexgpt@1.0.0 -- codexgpt --version` returned `1.0.0`.
+
+**Documentation and policy verification:** `npm run policy:check` reported `Repository operational policy: PASS`; `git diff --check` passed; active-document stale-state scans found no remaining unauthenticated, pending-merge, or pre-release next-action claims; relative Markdown links in active rules, memory, README, security policy, and the master plan resolved; `AGENTS.md` remained 125 lines and below 15 KB, `Memory.md` remained 100 lines and below 18 KB, and this archive volume remained below the 48 KB rollover threshold. No secret value, npm token, password, OTP, recovery code, or credential material was recorded.
+
+**Adversarial review:** A separate post-edit review removed exact release evidence from `AGENTS.md` because rules should contain durable behavior rather than publication history, collapsed a redundant gated-scope item out of `Memory.md`, and kept detailed release facts in the memory evidence/archive layers. No remaining P0–P2 documentation, rule, path, or release-consistency defect was found.
+
+**Risks and limitations:** npm versions and Git tags are treated as immutable. GitHub reports the Release object itself is not platform-locked immutable, so project policy remains the controlling safeguard: do not edit the published artifact identity or move/delete `v1.0.0`; publish a new semantic version for corrections. The public npm package exposes the intentionally packaged source/build artifacts listed by the 654-file package contract. This STEP changes documentation only and grants no new authority.
+
+**Rollback:** Revert only the STEP-474 documentation reconciliation if its wording is wrong. Do not unpublish `codexgpt@1.0.0`, rewrite `v1.0.0`, or alter the published release to simulate rollback; corrections to the released software require a new version.
+
+**Next approved action:** No implementation slice is implicitly approved. The owner may explicitly authorize a reviewed docs-only commit/push for this reconciliation or select the next minimal post-`1.0.0` slice from the recorded priority order.

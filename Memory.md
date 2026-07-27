@@ -6,15 +6,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-27; release candidate `codexgpt@1.0.0`; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
+- Date: 2026-07-27; stable release `codexgpt@1.0.0` is published; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
 - Phases 0–8 Core are closed. Phase 7 closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / `30171313296`; Phase 8 closed at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
 - STEP-437–472 completed Phase 8 Core, real G8-U Journeys U2–U7, local G8-X, portability repairs, and exact-head Ubuntu/Windows Node 20/24 CI. U6 retains the deleted-App evidence substitution; U7 preserves the public-loopback/local-admin boundary.
-- STEP-471 reconciled rules, design terminology, the master plan, and this index after local G8-X; no runtime, external state, or Git publication state changed.
-- STEP-472 publication attempts at `32063df4b49b4db31cb8da45fca33f035530da2b` / `30273084546` and `5874c93382488a0eb9f3969da57f7a30ec7e105a` / `30274322791` exposed one Ubuntu path-syntax defect plus three platform-specific test assumptions; final head `55b2b5664aae322ec992968a41c87a289fb75282` passed exact-head run `30274857996`.
+- STEP-473 prepared and locally verified the bounded `1.0.0` package. STEP-474 closed publication: PR 6 merged to `main` at `9131c393da3a1eb3c9514710b0b1569f55dd5acb`, and npm `latest`, annotated tag `v1.0.0`, and the GitHub Release align to that commit.
 
 ## Approved execution boundary
 
-The owner has explicitly authorized the `1.0.0` release cycle: versioning, reviewed stage/commit/push, exact-head CI, merge to `main`, Git tag/GitHub Release, and npm publication. Credential migration, runtime deployment, Task Scheduler, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
+The `1.0.0` release cycle is complete. No post-`1.0.0` implementation or deployment is implicitly authorized. Credential migration, runtime deployment, Task Scheduler, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
 
 ## Active decisions and constraints
 
@@ -40,7 +39,8 @@ The owner has explicitly authorized the `1.0.0` release cycle: versioning, revie
 - STEP-468 passed U7: owned ingress remained byte-identical and public-loopback-only, local-admin stayed private, Host/forwarded headers conferred no authority, and managed Node 20/24 boundary tests passed `33/33` on each major.
 - STEP-470 local G8-X passed after one test-first diagnostic-race repair. Post-repair ordinary run `2026-07-27T13-20-49-272Z-phase8-g8-x-ordinary-matrix-r2-471681bb` passed `1429` with `2` explicit Windows capability skips per major; protected Smoke run `2026-07-27T13-05-15-016Z-phase8-g8-x-smoke-matrix-r2-a1bbb40a` passed all eight groups on Node `20.20.2` and `24.15.0`. Policy/diff/lock/dependency/package/link/credential checks passed; the dry package contains `654` files and no private state.
 - STEP-472 initial exact-head run `30273084546` at `32063df4b49b4db31cb8da45fca33f035530da2b` exposed the POSIX/Win32 root classification defect; repair run `30274322791` exposed one final synthetic-path test assumption. Final head `55b2b5664aae322ec992968a41c87a289fb75282` passed run `30274857996` across Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
-- STEP-473 local `1.0.0` gates passed: focused release contracts `10/10`, managed Node 20/24 package contracts `3/3` each, build, policy, diff/secret checks, package-lock synchronization, 654-file package dry run, publish dry run, and detached protected Smoke exit `0` on both managed majors. npm remains unauthenticated.
+- STEP-473 local `1.0.0` gates passed: focused release contracts `10/10`, managed Node 20/24 package contracts `3/3` each, build, policy, diff/secret checks, package-lock synchronization, 654-file package dry run, publish dry run, and detached protected Smoke exit `0` on both managed majors.
+- STEP-474 release closure passed: release-candidate head `ca701b6a0f464427b89d828f906b4199636feae5` passed run `30282382963`; PR 6 merged as `9131c393da3a1eb3c9514710b0b1569f55dd5acb`; merged exact-head run `30283923175` passed Repository policy and Ubuntu/Windows Node 20/24; npm reports `version=latest=1.0.0` with matching `gitHead`; remote `v1.0.0` dereferences to the same commit; and the GitHub Release is public.
 
 ## Known limitations
 
@@ -59,12 +59,11 @@ The owner has explicitly authorized the `1.0.0` release cycle: versioning, revie
 
 ## Open items
 
-1. Stage, commit, and push the locally verified `1.0.0` release candidate; obtain exact-head CI, merge PR 6 to `main`, verify the merged head, then create `v1.0.0`, GitHub Release, and npm `latest`. The local npm client is currently unauthenticated; no registry credential is stored in the repository.
-2. After `1.0.0`, follow the reviewed sequence of configuration provenance, diagnostic foundation, current-user background lifecycle, and incremental modularization. Keep native isolation conditional and keep Serena/LSP, Tasks 4B1–4B6, `workspace`, runtime deployment, credential migration, and toolchain-root migration separately gated.
-3. PR 6 is the current release integration path; it may be marked ready and merged only after the release candidate exact-head gates pass.
+1. Select and explicitly authorize the next post-`1.0.0` slice from the reviewed sequence: configuration provenance, diagnostic foundation, current-user background lifecycle, then incremental modularization. Native isolation, Serena/LSP, Tasks 4B1–4B6, `workspace`, runtime deployment, credential migration, and toolchain-root migration remain separately gated.
 
 ## Recent summaries
 
+- **STEP-474 — `1.0.0` release closure and reconciliation:** publish the verified package, align npm/tag/GitHub Release to the merged exact head, and remove stale release-pending state from active rules, security policy, plan, and memory.
 - **STEP-473 — `1.0.0` release preparation:** align package/runtime/docs versioning, bind version consistency in tests, and prepare the verified Phase 8 baseline for main/tag/npm publication.
 - **STEP-472 — Exact-head CI portability repair:** preserve Win32 canonical-root rejection, classify POSIX roots only on non-Windows hosts, make all synthetic Win32 path operations explicit, and close exact-head CI at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
 - **STEP-471 — Neat-freak after local G8-X:** compact always-loaded rules/index, clarify local versus exact-head closure, and verify links/contracts/budgets.
@@ -111,7 +110,7 @@ The owner has explicitly authorized the `1.0.0` release cycle: versioning, revie
 - [Closed Phase 8 Volume 2 — STEP-447 through STEP-451](docs/memory/archive/phase-8-part-2.md)
 - [Closed Phase 8 Volume 3 — STEP-452 through STEP-460](docs/memory/archive/phase-8-part-3.md)
 - [Closed Phase 8 Volume 4 — STEP-461 through STEP-469](docs/memory/archive/phase-8-part-4.md)
-- [Phase 8 Volume 5 — STEP-470 through STEP-471](docs/memory/archive/phase-8-part-5.md)
+- [Closed Phase 8 Volume 5 — STEP-470 through STEP-474](docs/memory/archive/phase-8-part-5.md)
 
 ## Memory maintenance protocol
 

@@ -4,7 +4,7 @@ CodexGPT exposes a local workspace to an MCP client. Treat it like a developer t
 
 ## Supported Version
 
-Security fixes target the latest published version only until the project reaches `1.0.0`.
+Security fixes target the latest published version. Older releases are unsupported unless a release note explicitly states otherwise.
 
 Feature-specific notes follow GitHub `main`; npm users should check the published version before relying on a new command.
 

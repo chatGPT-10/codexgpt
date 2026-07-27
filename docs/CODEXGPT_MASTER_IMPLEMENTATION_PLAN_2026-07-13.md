@@ -1,16 +1,16 @@
 # CodexGPT 总体实施计划
 
-> 版本：2.5
+> 版本：2.6
 > 生效日期：2026-07-13
 > 核对日期：2026-07-27
 > 状态：当前权威实施路线
 > 工作区：`D:\Dev\codexpro`
 > 基线版本：`codexgpt@1.0.0`
-> 当前阶段：Phase 1–8 Core 已关闭。Phase 8 G8-0、Tasks 8A1–8A9、真实 Gate G8-U Journeys U2–U7、本地 G8-X 与 exact-head Ubuntu/Windows Node 20/24 CI 均已完成；关闭基线为 `55b2b5664aae322ec992968a41c87a289fb75282`，CI run 为 `30274857996`。当前工作是将该验证基线版本化并发布为 `codexgpt@1.0.0`。
+> 当前阶段：Phase 1–8 Core 已关闭。Phase 8 关闭基线为 `55b2b5664aae322ec992968a41c87a289fb75282` / CI `30274857996`；首个稳定版本 `codexgpt@1.0.0` 已从 `main` merge commit `9131c393da3a1eb3c9514710b0b1569f55dd5acb` 发布，merged exact-head CI `30283923175`、npm `latest`、annotated tag `v1.0.0` 与 GitHub Release 均对齐该提交。
 >
-> 下一动作：完成 `1.0.0` release candidate 的 reviewed verification、exact-head CI、合入 `main`、Git tag/GitHub Release 与 npm `latest` 发布；随后仅按单独授权推进 post-Phase-8 backlog。U6 继续保留“重建 Legacy App 兼容性通过、被删除旧 App 身份连续性不宣称”的证据替代。
+> 下一动作：不自动进入下一实施阶段；由 owner 从已审阅的 post-Phase-8 backlog 中明确选择并授权下一个最小切片，默认优先级为 configuration provenance、diagnostic foundation、current-user background lifecycle、incremental modularization。U6 继续保留“重建 Legacy App 兼容性通过、被删除旧 App 身份连续性不宣称”的证据替代。
 >
-> 授权状态：Phase 1 → Policy Kernel → Phase 2A–Phase 8 Core 已完成；当前明确授权 `1.0.0` 的版本化、reviewed stage/commit/push、CI、合并、tag、GitHub Release 与 npm package publication。真实凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、运行环境 deployment、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
+> 授权状态：Phase 1 → Policy Kernel → Phase 2A–Phase 8 Core 与 `1.0.0` 发布均已完成。当前没有隐含的 post-`1.0.0` 实施或 deployment 授权；真实凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、运行环境 deployment、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
