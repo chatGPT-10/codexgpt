@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.0.4 - 2026-07-28
+
+- Fixed explicit configured user-Skill loading: long metadata descriptions no longer collapse a successful load into an internal error, and bounded Skill discovery distinguishes actual `SKILL.md` candidates from unrelated plugin-cache entries.
+
 ## 1.0.3 - 2026-07-28
 
 - Raised the OAuth token endpoint limits to 120 requests per approved client and 240 per deployment per 15 minutes so ChatGPT's observed refresh cadence no longer disconnects a healthy session, while preserving access-token lifetime, single-use refresh rotation, replay revocation, and bounded deployment work.

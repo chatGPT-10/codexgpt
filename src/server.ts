@@ -1198,7 +1198,9 @@ function normalizeLoadSkillRequest(
 function normalizeLoadSkillItem(value: SkillInventoryItem): LoadSkillData["skill"] {
   return loadSkillSkillSchema.parse({
     name: value.name,
-    description: value.description ?? null,
+    description: value.description && value.description.length <= CODEXGPT_INVENTORY_SKILL_DESCRIPTION_LIMIT
+      ? value.description
+      : null,
     source: value.source,
     path: value.path
   });
@@ -6449,7 +6451,7 @@ export function createCodexGPTServer(
         })
       : undefined
   );
-  const server = new McpServer({ name: "CodexGPT", version: "1.0.3" }, { instructions: serverInstructions(config) });
+  const server = new McpServer({ name: "CodexGPT", version: "1.0.4" }, { instructions: serverInstructions(config) });
   if (dependencies.oauthToolSecurity) {
     oauthToolSecurityByServer.set(server as object, dependencies.oauthToolSecurity);
   }

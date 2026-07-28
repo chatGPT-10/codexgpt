@@ -1,6 +1,6 @@
 {
   "name": "codexgpt",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Windows-first, self-hosted MCP tools that connect ChatGPT to one local repository through a loopback server and an optional HTTPS tunnel.",
   "type": "module",
   "license": "MIT",
