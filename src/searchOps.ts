@@ -56,11 +56,24 @@ async function runRipgrep(config: CodexGPTConfig, guard: PathGuard, workspace: W
 
   return new Promise((resolve, reject) => {
     const child = spawn("rg", args, { cwd: workspace.root, env: { ...process.env, NO_COLOR: "1" } });
-    let stdout = "";
+    let stdout = Buffer.alloc(0);
     let stderr = "";
+    let outputTruncated = false;
     child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-      if (stdout.length > config.maxOutputBytes) child.kill("SIGTERM");
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      const remaining = config.maxOutputBytes - stdout.length;
+      if (remaining <= 0) {
+        outputTruncated = true;
+        child.kill("SIGTERM");
+        return;
+      }
+      if (bytes.length > remaining) {
+        stdout = Buffer.concat([stdout, bytes.subarray(0, remaining)]);
+        outputTruncated = true;
+        child.kill("SIGTERM");
+        return;
+      }
+      stdout = Buffer.concat([stdout, bytes]);
     });
     child.stderr.on("data", (chunk) => {
       stderr += String(chunk);
@@ -72,9 +85,11 @@ async function runRipgrep(config: CodexGPTConfig, guard: PathGuard, workspace: W
         return;
       }
       const matches: Array<{ path: string; line: number; text: string }> = [];
-      const lines = stdout.split("\n").filter(Boolean);
+      const lines = stdout.toString("utf8").split("\n");
+      if (outputTruncated) lines.pop();
       let visibleMatches = 0;
       for (const line of lines) {
+        if (!line) continue;
         const value = JSON.parse(line);
         if (value.type !== "match") continue;
         const absPath = path.resolve(value.data?.path?.text ?? "");
@@ -87,7 +102,7 @@ async function runRipgrep(config: CodexGPTConfig, guard: PathGuard, workspace: W
         matches.push({ path: rel || ".", line: Number(value.data?.line_number ?? 0), text: redactSensitiveText(truncateLine(lineText)) });
       }
       const text = matches.map((m) => `${m.path}:${m.line}: ${m.text}`).join("\n") || "No matches.";
-      resolve({ text, matches, truncated: visibleMatches > matches.length || stdout.length > config.maxOutputBytes, used: "ripgrep" });
+      resolve({ text, matches, truncated: visibleMatches > matches.length || outputTruncated, used: "ripgrep" });
     });
   });
 }

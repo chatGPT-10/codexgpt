@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -241,6 +244,25 @@ test("search advertises exact outputSchema and returns nested real lexical resul
     assert.equal("text" in parsed.data, false);
     assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("registerCodexTool")));
   });
+});
+
+const ripgrepAvailable = process.platform === "win32"
+  ? spawnSync("where", ["rg"], { stdio: "ignore" }).status === 0
+  : spawnSync("rg", ["--version"], { stdio: "ignore" }).status === 0;
+
+test("search truncates an oversized ripgrep JSON record without crashing the server", { skip: !ripgrepAvailable }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-search-long-line-"));
+  try {
+    await fs.writeFile(path.join(root, "bundle.js"), `needle ${"x".repeat(100_000)}`);
+    await withInMemoryClient({}, async (client) => {
+      const parsed = parseSearchResult(await client.callTool({ name: "search", arguments: { query: "needle", max_results: 5 } }));
+      assert.equal(parsed.ok, true);
+      assert.equal(parsed.data.truncated, true);
+      assert.equal(parsed.data.used, "ripgrep");
+    }, { defaultRoot: root, allowedRoots: [root], maxOutputBytes: 4096 });
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
 });
 
 test("search preserves exact injected analysis when structured search is requested", async () => {

@@ -89,3 +89,94 @@ The original 40–70% hosted-run target was not fully reached. The remaining Win
 **Risk and rollback:** This is a one-line process-argument correction plus version/documentation binding. Before npm publication, revert the release commit. After publication, keep `1.0.1` and `v1.0.1` immutable; any further correction requires a new semantic version.
 
 **Next action:** Commit and push the reviewed release candidate, require exact-head Ubuntu/Windows Node 20/24 CI, then create `v1.0.1`, publish npm `latest`, create the GitHub Release, and verify all public identities align.
+
+## 2026-07-28 — STEP-476: Repair recurring OAuth connection interruption caused by listener collision
+
+**Status:** Operational repair complete. The current `D:\Dev\codexpro` OAuth route is healthy on a distinct listener pair and both CodexGPT deployments can run concurrently. No source implementation, OAuth client identity, grant, signing key, binding, incarnation, or workspace authority changed.
+
+**Goal:** Determine why ChatGPT intermittently returned `We couldn't connect your account. Please try again.` and restore stable access without stopping or modifying the separately running CodexGPT workspace.
+
+**Confirmed root cause:** `auth status` initially reported `runtime: null`, and a fresh launch failed because `127.0.0.1:8789` was already in use. Windows process inspection proved that PID `6256` was another globally installed CodexGPT OAuth HTTP process, owned by launcher PID `13856`, serving `codexgpt.drliang.uk` on `8789/8790`. The `D:\Dev\codexpro` profile also selected `8789/8790` for `codexpro-oauth.drliang.uk`. Its tunnel therefore had no live origin and returned Cloudflare `530`, while the other hostname returned `200`. This was a deterministic local listener collision, not DPAPI loss, OAuth grant expiry, or a ChatGPT account defect.
+
+**Operational repair:** Re-ran the reviewed OAuth setup for the current canonical root with public/local-admin ports `8791/8792`, the existing hostname `codexpro-oauth.drliang.uk`, the existing tunnel `codexpro-oauth-20260726`, and a dedicated owned config under ignored `.ai-bridge/diagnostics/`. Tunnel/DNS selection remained the same; only the local ingress target changed. The candidate public metadata probe passed before mode commit. The corrected runtime was then launched through the repository's owned detached runner with request logging enabled. The other deployment was not terminated or reconfigured.
+
+**Exact verification and results:**
+
+- `node scripts/codexgpt-entry.mjs auth doctor --root D:/Dev/codexpro` before repair: profile, DPAPI, state, cloudflared, ingress, and ownership passed; runtime/local-admin/owner-control/public-OAuth were stopped or not applicable.
+- First detached launch `2026-07-28T08-03-21-753Z-oauth-runtime-diagnostic-8371e88a`: exited `1`; stderr recorded `Local port 8789 is already in use on 127.0.0.1`.
+- Windows listener/process inspection: `8789/8790` belonged to the separate CodexGPT process tree; its public hostname returned `200`, while `codexpro-oauth.drliang.uk/healthz` returned `530`.
+- Ports `8791/8792` were free before mutation.
+- `auth setup` on `8791/8792`: local MCP ready, named tunnel started, external OAuth probe passed, and the noninteractive candidate stopped cleanly after configuration.
+- Corrected detached run `2026-07-28T08-06-56-092Z-oauth-runtime-fixed-979fdd64`: running with active worker lease.
+- Final `auth status`: runtime PID `4148`, local-admin `http://127.0.0.1:8792`, unchanged binding `binding_e9caab9de8b70c9ea37dc3e35822705d`, unchanged incarnation `incarnation_6da5f4355e306fb79d9ca015b2dbdbcb`, existing approved ChatGPT client, and existing active read grant at refresh generation `20`.
+- Final `auth doctor`: all ten checks passed, including DPAPI, tunnel ownership, exact runtime identity, local admin, owner control, and public OAuth.
+- Final public checks: both `codexpro-oauth.drliang.uk/healthz` and `codexgpt.drliang.uk/healthz` returned `200` concurrently.
+- Final listener check: the separate deployment retained `8789/8790`; this workspace owns `8791/8792`.
+- Publication alignment check: npm `version`/`latest`/`gitHead`, local `HEAD`, and `v1.0.1^{}` all resolve to `87fdd4e61519fdcded1cc6d67df7ff600df1b3b3`.
+
+**Files changed:** Tracked documentation only: `Memory.md` and this archive. Ignored operational evidence/config: `.ai-bridge/diagnostics/codexpro-oauth-8791.yml` plus its owner marker and `.ai-bridge/runs/` evidence. Runtime profile and OAuth state remain under the existing current-user CodexGPT state roots. Source files: none.
+
+**Adversarial review:** Checked alternative explanations including expired/revoked grant, DPAPI failure, stale runtime identity, Cloudflare outage, hostname/Host confusion, forced relink, and accidental termination of the other deployment. Evidence rejects those alternatives: the client/grant remained active, DPAPI/state checks passed, the competing hostname stayed healthy, the failed launch named the occupied port, and assigning distinct ports made both routes healthy simultaneously. No independent agent provider was available in DevSpace, so this is a manual security/correctness/operability review rather than a claimed multi-agent result.
+
+**Risks and limitations:** The running process is currently held by the repository's owned detached runner, not by a reviewed Windows logon/startup lifecycle. It will not survive reboot automatically and must not be represented as a Task Scheduler or service implementation. A future setup can still collide if an operator explicitly reuses another deployment's ports; the durable operational rule is one public/local-admin pair per concurrent deployment.
+
+**Rollback:** Stop exact run `2026-07-28T08-06-56-092Z-oauth-runtime-fixed-979fdd64`, restore the prior `8789/8790` route only after the competing deployment has released those ports, regenerate the prior owned ingress, and restart. Do not kill or reconfigure the separate deployment as part of this rollback.
+
+**Next action:** Use the existing ChatGPT OAuth App normally and confirm a real tool call updates `lastUsedAt`. A reviewed current-user Windows background lifecycle remains separately gated; no Task Scheduler/service installation is authorized by this STEP.
+
+## 2026-07-28 — STEP-477: Consolidate onto one OAuth hostname and decommission the redundant deployment
+
+**Status:** Primary-service consolidation passed. The redundant local runtime, Cloudflare Tunnel, saved profile, setup journal, and tunnel credential are removed. The independent Cloudflare DNS record `codexpro-oauth.drliang.uk` remains and returns `530`; deletion of that exact DNS record is the only unfinished external action because the execution environment blocked the authenticated destructive DNS API request.
+
+**Goal:** Keep only `codexgpt.drliang.uk` as the ChatGPT-facing OAuth endpoint while preserving explicit workspace switching between `D:\Codex\chatgpt上下文插件` and `D:\Dev\codexpro`. Remove the duplicate listener pair and prevent the former `codexpro-oauth.drliang.uk` deployment from restarting through saved configuration.
+
+**Migration and verification before deletion:**
+
+- Confirmed from `WorkspaceManager.openWorkspace()` that switching is permitted only inside startup `allowedRoots`; the prior primary process did not authorize `D:\Dev\codexpro`.
+- Stopped the exact former `codexgpt.drliang.uk` process tree after verifying its command identity.
+- Restarted the primary service through owned detached run `2026-07-28T08-20-10-960Z-codexgpt-primary-0a476f19` using the published `codexgpt@1.0.1` entrypoint, default root `D:\Codex\chatgpt上下文插件`, and explicit `--allow-root D:/Dev/codexpro`.
+- Primary OAuth binding `binding_8f3aabd3992d464ff9a3c30c91c7e013`, incarnation `incarnation_160046f67876889fd3b03973807e7c6b`, approved ChatGPT client, and active read/write/execute grants survived the restart.
+- `https://codexgpt.drliang.uk/healthz` returned `200`.
+- A real `codexgpt-Windows.open_workspace` call opened `D:\Dev\codexpro` successfully and returned a session workspace handle. This proves the retained App can switch to the project through the single hostname.
+
+**Redundant deployment removal:**
+
+- Stopped exact owned run `2026-07-28T08-06-56-092Z-oauth-runtime-fixed-979fdd64`; ports `8791/8792` no longer listen.
+- Deleted Cloudflare Tunnel `codexpro-oauth-20260726` / `1a32acd1-ad71-4388-a610-0404c917ed7d`; subsequent tunnel listing contains no matching tunnel.
+- Deleted the `D:\Dev\codexpro` workspace profile through the supported `settings delete --yes` command.
+- Removed the exact setup journal and confirmed the tunnel credential file is absent.
+- Final local `auth status --root D:/Dev/codexpro --json` reports `configured: false`, `runtime: null`, and no hostname/resource/tunnel selector.
+
+**Remaining external record:** Cloudflare documents DNS records and Tunnel resources as independent. After Tunnel deletion, `codexpro-oauth.drliang.uk` still resolves at the Cloudflare edge and returns `530`. An authenticated API deletion was prepared using the existing account certificate without displaying its token, but the execution environment's safety layer blocked the destructive DNS request. No attempt was made to bypass that control. The exact DNS record must be deleted in Cloudflare DNS before the hostname is fully absent.
+
+**Historical local state:** The no-deletion OAuth recovery store still contains the inactive historical binding directory for the removed deployment. It has no profile, runtime, Tunnel, credential file, or healthy public route. Manual mutation of the shared deployment registry was intentionally not performed because no reviewed decommission primitive exists and an ad hoc registry edit could corrupt the retained primary OAuth deployment.
+
+**Files changed:** Tracked documentation only: `Memory.md` and this archive. Source files: none. Ignored prior diagnostic config/evidence may remain under `.ai-bridge/`; it is not referenced by any saved profile or active Tunnel.
+
+**Adversarial review:** Checked the highest-risk failure modes: deleting the wrong Tunnel, losing the retained ChatGPT grant, assuming unrestricted workspace switching, leaving the duplicate runtime alive, reusing the conflicting ports, and corrupting the shared OAuth registry. Exact tunnel ID/name checks, real connector workspace opening, post-stop listener inspection, profile/status verification, and preservation of the primary binding reject those failures. The DNS record was explicitly not reported as deleted.
+
+**Rollback:** The redundant Tunnel/profile deletion is intentionally destructive and has no automatic rollback. The retained primary deployment can continue serving both authorized roots. Recreating the deleted hostname would require a new reviewed Tunnel/DNS/profile setup and is not part of this STEP.
+
+**Next action:** Delete the single Cloudflare DNS record `codexpro-oauth.drliang.uk`, then verify DNS no longer resolves and HTTPS no longer reaches Cloudflare for that hostname. Separately, a reviewed current-user Windows background lifecycle remains gated.
+
+## 2026-07-28 — STEP-478: Remove the retired runtime record without disturbing the primary OAuth deployment
+
+**Status:** Passed. The user reported recurrent ChatGPT connection interruption. Live inspection proved the active primary OAuth service was healthy; one inactive `D:\Dev\codexpro` runtime record remained and pointed to the retired hostname and local port `8791`. It was removed after exact-identity verification.
+
+**Goal:** Eliminate the stale local runtime selector that could misdirect future status/start operations, without deleting the shared Tunnel configuration directory or changing the current OAuth client, grants, binding, DNS, Tunnel, or server process.
+
+**Implementation:** Deleted only the exact stale runtime JSON record after checking that its root was `D:\Dev\codexpro`, endpoint used the retired hostname, and local base was `127.0.0.1:8791`. The nearby Tunnel configuration was retained because the active primary cloudflared process uses it.
+
+**Verification:** `auth doctor --root D:/Codex/chatgpt上下文插件` passed OAuth profile/state, Tunnel ingress/ownership, exact runtime identity, local-admin, and public OAuth checks. Local-admin and public health endpoints each returned `200`; the deleted stale record remained absent.
+
+**Risk and rollback:** This removes inactive local metadata only. If historical inspection is needed, the retired deployment is already documented in STEP-477; recreating its runtime record is neither required nor supported. No live connection was restarted or invalidated.
+
+**Next action:** Use the retained ChatGPT App normally. If interruptions recur after this cleanup, capture the approximate time and the App-side error so the next investigation can correlate it with Tunnel and runtime events rather than infer a cause from an idle healthy snapshot.
+
+## 2026-07-28 — STEP-479: Prevent oversized ripgrep records from terminating the HTTP service
+
+**Status:** Fixed and release-prepared. A live diagnostic reproduced the connection loss: a search hit in a generated extension bundle produced a record larger than the bounded capture; the prior parser attempted to parse the partial JSON line and the HTTP process exited.
+
+**Implementation:** Ripgrep output is now capped by bytes. When the cap ends in a partial record, only that final record is discarded and search reports truncation. Complete records still parse strictly, so corrupted backend output is not silently accepted.
+
+**Verification:** The ripgrep-specific oversized-record regression passed, along with the focused search suite, TypeScript build, policy check, and independent adversarial re-review.

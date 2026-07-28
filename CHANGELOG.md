@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- No changes yet.
+- Fixed ripgrep search output handling so a bounded, partially captured oversized JSON record is discarded and reported as truncated instead of crashing the local HTTP service.
 
 ## 1.0.1 - 2026-07-28
 

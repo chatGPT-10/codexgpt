@@ -6,14 +6,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-28; stable release `codexgpt@1.0.0` is published and the reviewed `1.0.1` OAuth launcher correction is locally release-ready; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
+- Date: 2026-07-28; stable release `codexgpt@1.0.1` is published at `87fdd4e61519fdcded1cc6d67df7ff600df1b3b3`; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
 - Phases 0–8 Core are closed. Phase 7 closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / `30171313296`; Phase 8 closed at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
 - STEP-437–472 completed Phase 8 Core, real G8-U Journeys U2–U7, local G8-X, portability repairs, and exact-head Ubuntu/Windows Node 20/24 CI. U6 retains the deleted-App evidence substitution; U7 preserves the public-loopback/local-admin boundary.
 - STEP-473 prepared and locally verified the bounded `1.0.0` package. STEP-474 closed publication: PR 6 merged to `main` at `9131c393da3a1eb3c9514710b0b1569f55dd5acb`, and npm `latest`, annotated tag `v1.0.0`, and the GitHub Release align to that commit.
 
 ## Approved execution boundary
 
-The owner explicitly authorized the bounded `1.0.1` launcher correction, commit, push, and npm publication. No other post-`1.0.0` implementation or deployment is authorized. Credential migration, runtime deployment, Task Scheduler, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
+The owner explicitly authorized and completed the bounded `1.0.1` launcher correction and publication. STEP-476 repaired the OAuth listener collision; STEP-477 authorizes consolidation onto `codexgpt.drliang.uk` and decommissioning of the redundant `codexpro-oauth.drliang.uk` deployment. No other post-`1.0.1` implementation or deployment is authorized. Credential migration, Task Scheduler/service installation, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
 
 ## Active decisions and constraints
 
@@ -41,6 +41,11 @@ The owner explicitly authorized the bounded `1.0.1` launcher correction, commit,
 - STEP-472 initial exact-head run `30273084546` at `32063df4b49b4db31cb8da45fca33f035530da2b` exposed the POSIX/Win32 root classification defect; repair run `30274322791` exposed one final synthetic-path test assumption. Final head `55b2b5664aae322ec992968a41c87a289fb75282` passed run `30274857996` across Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
 - STEP-473 local `1.0.0` gates passed: focused release contracts `10/10`, managed Node 20/24 package contracts `3/3` each, build, policy, diff/secret checks, package-lock synchronization, 654-file package dry run, publish dry run, and detached protected Smoke exit `0` on both managed majors.
 - STEP-474 release closure passed: release-candidate head `ca701b6a0f464427b89d828f906b4199636feae5` passed run `30282382963`; PR 6 merged as `9131c393da3a1eb3c9514710b0b1569f55dd5acb`; merged exact-head run `30283923175` passed Repository policy and Ubuntu/Windows Node 20/24; npm reports `version=latest=1.0.0` with matching `gitHead`; remote `v1.0.0` dereferences to the same commit; and the GitHub Release is public.
+- STEP-475 publication is aligned: local `HEAD`, `origin/main`, annotated `v1.0.1`, and npm `latest`/`gitHead` all resolve to `87fdd4e61519fdcded1cc6d67df7ff600df1b3b3`.
+- STEP-476 diagnosed the recurring ChatGPT connection interruption as a local listener collision: another live CodexGPT OAuth deployment owned `127.0.0.1:8789/8790`, while this workspace profile also selected those ports. The current route was moved temporarily to owned `8791/8792`; both public hostnames returned `200`, `auth doctor` passed every check, and the existing binding/incarnation/client/grant authority was unchanged.
+- STEP-477 consolidated onto `codexgpt.drliang.uk`: the primary service now starts with explicit `--allow-root D:/Dev/codexpro`, a real `codexgpt-Windows.open_workspace` call opened `D:\Dev\codexpro`, the redundant `8791/8792` runtime was stopped, tunnel `codexpro-oauth-20260726` was deleted, and its profile/setup journal/tunnel credential were removed. The independent Cloudflare DNS record remains and currently returns `530`; deleting that exact record is the only external cleanup still pending.
+- STEP-478 removed the one stale inactive runtime record left by the redundant deployment after verifying it targeted the retired hostname and `8791`. The retained primary OAuth profile, Tunnel ownership, authorization state, local-admin health, and public MCP health all passed immediately afterward.
+- STEP-479 fixed the production search crash caused by a bounded ripgrep JSON record ending mid-line. The parser now caps output by bytes, drops only the confirmed incomplete final record, and keeps complete malformed records fail-closed; focused regression, build, policy, and independent review passed before the `1.0.2` release flow.
 
 ## Known limitations
 
@@ -59,11 +64,14 @@ The owner explicitly authorized the bounded `1.0.1` launcher correction, commit,
 
 ## Open items
 
-1. Publish and verify `codexgpt@1.0.1` from the reviewed launcher correction, then return to explicit authorization for the next post-release slice. Native isolation, Serena/LSP, Tasks 4B1–4B6, `workspace`, runtime deployment, credential migration, and toolchain-root migration remain separately gated.
+1. Delete the remaining Cloudflare DNS record `codexpro-oauth.drliang.uk`; its runtime, Tunnel, profile, setup journal, and tunnel credential are already gone. The single active service is `codexgpt.drliang.uk` on `8789/8790`, managed by detached run `2026-07-28T08-20-10-960Z-codexgpt-primary-0a476f19`, with `D:\Dev\codexpro` explicitly allowed for workspace switching. A reviewed current-user Windows background lifecycle, native isolation, Serena/LSP, Tasks 4B1–4B6, credential migration, and toolchain-root migration remain separately gated.
 
 ## Recent summaries
 
-- **STEP-475 — `1.0.1` OAuth launcher correction:** pass the canonical `--root` to the packaged OAuth HTTP child, bind the regression and version surfaces, and complete local release gates.
+- **STEP-477 — Single-domain consolidation:** restart `codexgpt.drliang.uk` with explicit access to `D:\Dev\codexpro`, verify real workspace switching, stop and remove the redundant runtime/Tunnel/profile, and isolate the remaining DNS-record deletion.
+- **STEP-478 — Stale runtime cleanup:** remove the retired `D:\Dev\codexpro` runtime record only; preserve the shared Tunnel configuration used by the active primary service and revalidate the complete OAuth path.
+- **STEP-476 — OAuth listener-collision recovery:** identify the competing CodexGPT process, move this workspace's owned route from `8789/8790` to `8791/8792`, regenerate the dedicated ingress, and verify both deployments concurrently.
+- **STEP-475 — `1.0.1` OAuth launcher correction:** pass the canonical `--root` to the packaged OAuth HTTP child, bind the regression and version surfaces, publish `1.0.1`, and align npm/tag/source at `87fdd4e61519fdcded1cc6d67df7ff600df1b3b3`.
 - **STEP-474 — `1.0.0` release closure and reconciliation:** publish the verified package, align npm/tag/GitHub Release to the merged exact head, and remove stale release-pending state from active rules, security policy, plan, and memory.
 - **STEP-473 — `1.0.0` release preparation:** align package/runtime/docs versioning, bind version consistency in tests, and prepare the verified Phase 8 baseline for main/tag/npm publication.
 - **STEP-472 — Exact-head CI portability repair:** preserve Win32 canonical-root rejection, classify POSIX roots only on non-Windows hosts, make all synthetic Win32 path operations explicit, and close exact-head CI at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
