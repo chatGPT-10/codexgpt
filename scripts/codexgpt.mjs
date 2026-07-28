@@ -4675,7 +4675,7 @@ async function main() {
 
   const verboseLogs = Boolean(args.logRequests || process.env.CODEXGPT_LOG_REQUESTS === '1');
   statusLine('wait', 'Starting local MCP server');
-  const server = spawnLogged('codexgpt', process.execPath, [httpPath], { cwd: projectRoot, env: serverEnv, verbose: verboseLogs });
+  const server = spawnLogged('codexgpt', process.execPath, [httpPath, '--root', root], { cwd: projectRoot, env: serverEnv, verbose: verboseLogs });
   let cloudflared;
   let cleanupTunnelCredentials = () => {};
   const cleanup = () => {

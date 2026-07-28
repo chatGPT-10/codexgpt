@@ -78,6 +78,15 @@ test("auth command parser keeps nested operations and exact targets", () => {
   assert.match(authUsage(), /--confirm-forced-relink/);
 });
 
+test("global launcher passes the explicit canonical root to the OAuth HTTP child", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "scripts", "codexgpt.mjs"), "utf8");
+  assert.match(
+    source,
+    /spawnLogged\('codexgpt', process\.execPath, \[httpPath, '--root', root\]/,
+    "The packaged launcher must pass --root to dist/http.js because OAuth rejects environment-only root selection."
+  );
+});
+
 test("settings capability changes preserve the complete OAuth profile selectors", (t) => {
   const root = tempRoot();
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-auth-settings-home-"));

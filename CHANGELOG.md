@@ -4,6 +4,10 @@
 
 - No changes yet.
 
+## 1.0.1 - 2026-07-28
+
+- Fixed the packaged global launcher so OAuth HTTP children receive the explicit canonical `--root` required by the fail-closed OAuth root-selection boundary. This prevents `codexgpt auth setup` from exiting before local health becomes available when the command is installed from npm and run for a workspace outside the package directory.
+
 ## 1.0.0 - 2026-07-27
 
 - Released the first stable CodexGPT version after completing Phase 8 OAuth Core through Tasks 8A1–8A9, live Gate G8-U Journeys U2–U7, local Gate G8-X, and exact-head Ubuntu/Windows Node 20/24 CI: Windows DPAPI CurrentUser protection, versioned atomic auth state, physically separated public/local listeners, constrained public-client DCR with PKCE S256 and resource binding, strict ES256 access tokens, authenticated rotating opaque refresh families, durable replay/revoke/expiry handling, request-local OAuth policy identity, exact tool scopes and step-up, supported setup/local administration/recovery, two-App Legacy/OAuth rollback, fail-early dedicated-Tunnel ownership enforcement, and live restart/revoke/relink/recovery/rollback/Tunnel-boundary acceptance. U6 retains the explicit deleted-Legacy-App evidence substitution.

@@ -6,14 +6,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-27; stable release `codexgpt@1.0.0` is published; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
+- Date: 2026-07-28; stable release `codexgpt@1.0.0` is published and the reviewed `1.0.1` OAuth launcher correction is locally release-ready; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
 - Phases 0–8 Core are closed. Phase 7 closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / `30171313296`; Phase 8 closed at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
 - STEP-437–472 completed Phase 8 Core, real G8-U Journeys U2–U7, local G8-X, portability repairs, and exact-head Ubuntu/Windows Node 20/24 CI. U6 retains the deleted-App evidence substitution; U7 preserves the public-loopback/local-admin boundary.
 - STEP-473 prepared and locally verified the bounded `1.0.0` package. STEP-474 closed publication: PR 6 merged to `main` at `9131c393da3a1eb3c9514710b0b1569f55dd5acb`, and npm `latest`, annotated tag `v1.0.0`, and the GitHub Release align to that commit.
 
 ## Approved execution boundary
 
-The `1.0.0` release cycle is complete. No post-`1.0.0` implementation or deployment is implicitly authorized. Credential migration, runtime deployment, Task Scheduler, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
+The owner explicitly authorized the bounded `1.0.1` launcher correction, commit, push, and npm publication. No other post-`1.0.0` implementation or deployment is authorized. Credential migration, runtime deployment, Task Scheduler, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
 
 ## Active decisions and constraints
 
@@ -59,10 +59,11 @@ The `1.0.0` release cycle is complete. No post-`1.0.0` implementation or deploym
 
 ## Open items
 
-1. Select and explicitly authorize the next post-`1.0.0` slice from the reviewed sequence: configuration provenance, diagnostic foundation, current-user background lifecycle, then incremental modularization. Native isolation, Serena/LSP, Tasks 4B1–4B6, `workspace`, runtime deployment, credential migration, and toolchain-root migration remain separately gated.
+1. Publish and verify `codexgpt@1.0.1` from the reviewed launcher correction, then return to explicit authorization for the next post-release slice. Native isolation, Serena/LSP, Tasks 4B1–4B6, `workspace`, runtime deployment, credential migration, and toolchain-root migration remain separately gated.
 
 ## Recent summaries
 
+- **STEP-475 — `1.0.1` OAuth launcher correction:** pass the canonical `--root` to the packaged OAuth HTTP child, bind the regression and version surfaces, and complete local release gates.
 - **STEP-474 — `1.0.0` release closure and reconciliation:** publish the verified package, align npm/tag/GitHub Release to the merged exact head, and remove stale release-pending state from active rules, security policy, plan, and memory.
 - **STEP-473 — `1.0.0` release preparation:** align package/runtime/docs versioning, bind version consistency in tests, and prepare the verified Phase 8 baseline for main/tag/npm publication.
 - **STEP-472 — Exact-head CI portability repair:** preserve Win32 canonical-root rejection, classify POSIX roots only on non-Windows hosts, make all synthetic Win32 path operations explicit, and close exact-head CI at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.

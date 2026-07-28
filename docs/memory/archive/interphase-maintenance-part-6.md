@@ -73,3 +73,19 @@ Commit `b4b041da32be7bfb133495fb30aa851d67d4f216` passed exact-head run `3017750
 Against Phase 0 run `30174477867`, Windows Node 20 Regression changed from 787s to 655s (`-16.8%`) and its total job from 1,130s to 1,005s (`-11.1%`). Windows Node 24 Regression changed from 729s to 513s (`-29.6%`) and its total job from 1,100s to 821s (`-25.4%`). The Package step changed from 15s to 3s on both majors. Exact report wall totals were 785,828ms to 652,595ms (`-17.0%`) on Node 20 and 726,983ms to 509,749ms (`-29.9%`) on Node 24 while the inventory increased from 227 to 229 files.
 
 The original 40–70% hosted-run target was not fully reached. The remaining Windows cost is dominated by intentionally isolated control/process tests and the unchanged full Smoke journey; weakening those boundaries would trade correctness for a headline number. PR 6 remains draft. Per the project rule, this final run-id update stays local and no evidence-only follow-up commit is created.
+
+## 2026-07-28 — STEP-475: Prepare CodexGPT 1.0.1 OAuth launcher correction
+
+**Status:** Local release candidate complete; commit, push, exact-head CI, tag, GitHub Release, and npm publication are pending.
+
+**Goal:** Correct the published `1.0.0` global launcher so `codexgpt auth setup --root <workspace>` can start the fail-closed OAuth HTTP child from an npm installation. The launcher previously set `CODEXGPT_ROOT` but omitted the explicit child `--root` required by OAuth root selection, causing the child to exit before local health and surfacing only a timeout.
+
+**Files changed:** `scripts/codexgpt.mjs`, `test/phase-8-auth-cli.test.mjs`, package/lock/runtime version surfaces, `CHANGELOG.md`, `README.md`, `README_ZH.md`, `Memory.md`, and this archive.
+
+**Implementation:** Pass `[httpPath, '--root', root]` to the packaged HTTP child; add a regression that freezes the explicit canonical-root handoff; bump package, lockfile, HTTP, stdio, and MCP server versions to `1.0.1`; document the patch release without changing OAuth authority, Tunnel ownership, tool contracts, or workspace permissions.
+
+**Local verification:** Focused OAuth/package regressions passed `33/33`; managed Node `20.20.2` and `24.15.0` each passed `24/24`; TypeScript build, repository policy, `git diff --check`, 654-file package dry run, and `npm publish --dry-run --access public` passed. One initial managed-matrix invocation failed before tests because duplicate CLI arguments made `--major` the executable; the corrected command passed on both managed majors.
+
+**Risk and rollback:** This is a one-line process-argument correction plus version/documentation binding. Before npm publication, revert the release commit. After publication, keep `1.0.1` and `v1.0.1` immutable; any further correction requires a new semantic version.
+
+**Next action:** Commit and push the reviewed release candidate, require exact-head Ubuntu/Windows Node 20/24 CI, then create `v1.0.1`, publish npm `latest`, create the GitHub Release, and verify all public identities align.
