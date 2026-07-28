@@ -4,7 +4,11 @@ import type { OAuthDeploymentIdentity, OAuthScope } from "../auth/types.js";
 import { OAuthClientStore, parseDynamicClientRegistration } from "../auth/clientStore.js";
 import { AuthorizationStore } from "../auth/authorizationStore.js";
 import { AuthConfigurationError, OAuthProtocolError } from "../auth/errors.js";
-import { CORE_OAUTH_RATE_LIMITS, FixedWindowRateLimiter } from "../auth/rateLimits.js";
+import {
+  CORE_OAUTH_RATE_LIMITS,
+  FixedWindowRateLimiter,
+  type OAuthTokenEndpointDiagnostics
+} from "../auth/rateLimits.js";
 import {
   CodexOAuthProvider,
   createAuthorizationContinueHandler,
@@ -57,6 +61,7 @@ export interface PublicOAuthAppOptions {
   admission?: Partial<PublicAdmissionLimits>;
   now?: () => number;
   oauthRuntime?: PublicOAuthRuntime;
+  tokenDiagnostics?: OAuthTokenEndpointDiagnostics;
 }
 
 export interface PublicAdmissionLimits {
@@ -96,14 +101,26 @@ function sendSerialized(res: Response, response: ReturnType<typeof metadataRespo
   res.status(200).send(response.body);
 }
 
-function rejectBusy(res: Response): void {
+function rejectBusy(
+  req: Request,
+  res: Response,
+  tokenDiagnostics?: OAuthTokenEndpointDiagnostics
+): void {
   res.setHeader("Retry-After", "1");
   applyNoStore(res);
   res.status(429).json({ error: "temporarily_unavailable" });
+  if (req.path === "/token") {
+    tokenDiagnostics?.record({
+      grantType: "unknown",
+      status: 429,
+      reason: "public_admission_limit"
+    });
+  }
 }
 
 export function createPublicAdmissionMiddleware(
-  overrides: Partial<PublicAdmissionLimits> = {}
+  overrides: Partial<PublicAdmissionLimits> = {},
+  tokenDiagnostics?: OAuthTokenEndpointDiagnostics
 ): (req: Request, res: Response, next: NextFunction) => void {
   const limits: PublicAdmissionLimits = {
     ...DEFAULT_ADMISSION_LIMITS,
@@ -165,7 +182,7 @@ export function createPublicAdmissionMiddleware(
     if (!mcp) {
       windowCount += 1;
       if (windowCount > limits.perMinute) {
-        rejectBusy(res);
+        rejectBusy(req, res, tokenDiagnostics);
         return;
       }
     }
@@ -177,7 +194,7 @@ export function createPublicAdmissionMiddleware(
     const totalQueued = mcpQueue.length + generalQueue.length;
     const generalCapacity = limits.queued - limits.reservedMcpQueued;
     if (totalQueued >= limits.queued || (!mcp && generalQueue.length >= generalCapacity)) {
-      rejectBusy(res);
+      rejectBusy(req, res, tokenDiagnostics);
       return;
     }
     const queue = mcp ? mcpQueue : generalQueue;
@@ -204,7 +221,7 @@ export function createPublicOAuthApp(options: PublicOAuthAppOptions): express.Ex
     }
     next();
   });
-  app.use(createPublicAdmissionMiddleware(options.admission));
+  app.use(createPublicAdmissionMiddleware(options.admission, options.tokenDiagnostics));
 
   const protectedResource = metadataResponse(
     buildProtectedResourceMetadata(options.identity, options.enabledScopes)
@@ -333,7 +350,8 @@ export function createPublicOAuthApp(options: PublicOAuthAppOptions): express.Ex
     const machineBody = express.raw({ type: "application/x-www-form-urlencoded", limit: "8kb" });
     app.post("/token", machineBody, createTokenEndpointHandler(options.identity, {
       provider,
-      now: options.now
+      now: options.now,
+      diagnostics: options.tokenDiagnostics
     }));
     app.all("/token", (_req, res) => {
       applyNoStore(res);

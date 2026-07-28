@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import http from "node:http";
 import test from "node:test";
 import { once } from "node:events";
@@ -51,12 +52,16 @@ async function setup(options = {}) {
     grants,
     now: options.now
   });
+  const tokenDiagnostics = new foundation.auth.OAuthTokenEndpointDiagnostics({
+    now: options.now
+  });
   const app = createPublicOAuthApp({
     identity,
     enabledScopes: ["codexgpt:read"],
     publicJwks: [initialized.state.activePublicJwk],
     now: options.now,
-    oauthRuntime: { clients, authorizations, tokens }
+    oauthRuntime: { clients, authorizations, tokens },
+    tokenDiagnostics
   });
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -68,6 +73,7 @@ async function setup(options = {}) {
     authorizations,
     grants,
     tokens,
+    tokenDiagnostics,
     port,
     async close() {
       await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
@@ -136,6 +142,63 @@ function cookieFrom(response) {
   const setCookie = response.headers["set-cookie"];
   assert.ok(Array.isArray(setCookie) && setCookie.length === 1);
   return setCookie[0].split(";", 1)[0];
+}
+
+const LIVE_STYLE_VERIFIER = "v".repeat(43);
+const LIVE_STYLE_CHALLENGE = createHash("sha256")
+  .update(LIVE_STYLE_VERIFIER)
+  .digest("base64url");
+
+async function issueInitialTokens(runtime, client) {
+  const started = await request(
+    runtime.port,
+    authorizePath(runtime, client, {
+      state: "live_style_12345678",
+      code_challenge: LIVE_STYLE_CHALLENGE
+    })
+  );
+  assert.equal(started.status, 200, started.text);
+  const cookie = cookieFrom(started);
+  const pending = (await runtime.authorizations.listSafe())
+    .find((entry) => entry.status === "pending");
+  assert.ok(pending);
+  assert.equal(await runtime.authorizations.approve(pending.pendingId), true);
+  const continued = await request(
+    runtime.port,
+    `/authorize/continue/${pending.pendingId}`,
+    { headers: { Cookie: cookie } }
+  );
+  assert.equal(continued.status, 302);
+  const code = new URL(continued.headers.location).searchParams.get("code");
+  assert.ok(code);
+
+  const response = await request(runtime.port, "/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: client.client_id,
+      code,
+      code_verifier: LIVE_STYLE_VERIFIER,
+      redirect_uri: client.redirect_uris[0],
+      resource: runtime.identity.resource
+    }).toString()
+  });
+  assert.equal(response.status, 200, response.text);
+  return JSON.parse(response.text);
+}
+
+async function refreshTokens(runtime, client, refreshToken) {
+  return request(runtime.port, "/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: client.client_id,
+      refresh_token: refreshToken,
+      resource: runtime.identity.resource
+    }).toString()
+  });
 }
 
 test("authorization requires exact client, resource, scopes, state, and PKCE S256", async () => {
@@ -450,6 +513,124 @@ test("token and revoke routes are mounted exactly and reject invalid clients wit
       });
       assert.equal(response.status, 404, path);
     }
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("one code exchange plus live-style refresh cadence stays below the bounded client limit", async () => {
+  let now = Date.parse("2026-07-28T12:00:00.000Z");
+  const runtime = await setup({ now: () => now });
+  try {
+    const client = await register(runtime);
+    let current = await issueInitialTokens(runtime, client);
+
+    for (let index = 0; index < 72; index += 1) {
+      now += 5_000;
+      const response = await refreshTokens(runtime, client, current.refresh_token);
+      assert.equal(response.status, 200, `refresh ${index + 1}: ${response.text}`);
+      const next = JSON.parse(response.text);
+      assert.notEqual(next.refresh_token, current.refresh_token);
+      current = next;
+    }
+
+    let snapshot = runtime.tokenDiagnostics.snapshot();
+    assert.equal(snapshot.totalRequests, 73);
+    assert.equal(
+      snapshot.entries.find(
+        (entry) =>
+          entry.grantType === "refresh_token" &&
+          entry.status === 200 &&
+          entry.reason === "success"
+      )?.count,
+      72
+    );
+
+    for (let index = 72; index < 119; index += 1) {
+      const response = await refreshTokens(runtime, client, current.refresh_token);
+      assert.equal(response.status, 200, `refresh ${index + 1}: ${response.text}`);
+      current = JSON.parse(response.text);
+    }
+
+    const tokenAtLimit = current.refresh_token;
+    const limited = await refreshTokens(runtime, client, tokenAtLimit);
+    assert.equal(limited.status, 429);
+    assert.deepEqual(JSON.parse(limited.text), { error: "temporarily_unavailable" });
+    assert.ok(Number(limited.headers["retry-after"]) > 0);
+    assert.equal(runtime.grants.listSafe()[0].refreshGeneration, 119);
+
+    snapshot = runtime.tokenDiagnostics.snapshot();
+    assert.equal(snapshot.totalRequests, 121);
+    assert.equal(
+      snapshot.entries.find(
+        (entry) =>
+          entry.grantType === "refresh_token" &&
+          entry.status === 429 &&
+          entry.reason === "token_client_limit"
+      )?.count,
+      1
+    );
+
+    now = Date.parse("2026-07-28T12:15:00.000Z");
+    const recovered = await refreshTokens(runtime, client, tokenAtLimit);
+    assert.equal(recovered.status, 200, recovered.text);
+    assert.equal(runtime.grants.listSafe()[0].refreshGeneration, 120);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("multiple clients share the deployment token limit without rotating the rejected refresh token", async () => {
+  let now = Date.parse("2026-07-28T13:00:00.000Z");
+  const runtime = await setup({ now: () => now });
+  try {
+    const clients = [
+      await register(runtime),
+      await register(runtime),
+      await register(runtime)
+    ];
+    const current = [];
+    for (const client of clients) {
+      current.push(await issueInitialTokens(runtime, client));
+    }
+
+    for (let index = 0; index < 119; index += 1) {
+      const response = await refreshTokens(runtime, clients[0], current[0].refresh_token);
+      assert.equal(response.status, 200, `client 1 refresh ${index + 1}: ${response.text}`);
+      current[0] = JSON.parse(response.text);
+    }
+    for (let index = 0; index < 118; index += 1) {
+      const response = await refreshTokens(runtime, clients[1], current[1].refresh_token);
+      assert.equal(response.status, 200, `client 2 refresh ${index + 1}: ${response.text}`);
+      current[1] = JSON.parse(response.text);
+    }
+
+    const tokenAtLimit = current[2].refresh_token;
+    const thirdClientRef = runtime.clients.listSafe().find(
+      (entry) => entry.clientId === clients[2].client_id
+    ).clientRef;
+    const limited = await refreshTokens(runtime, clients[2], tokenAtLimit);
+    assert.equal(limited.status, 429);
+    assert.deepEqual(JSON.parse(limited.text), { error: "temporarily_unavailable" });
+    assert.equal(runtime.grants.listSafe().find(
+      (grant) => grant.clientRef === thirdClientRef
+    ).refreshGeneration, 0);
+    assert.equal(
+      runtime.tokenDiagnostics.snapshot().entries.find(
+        (entry) =>
+          entry.grantType === "unknown" &&
+          entry.status === 429 &&
+          entry.reason === "token_deployment_limit"
+      )?.count,
+      1
+    );
+
+    now = Date.parse("2026-07-28T13:15:00.000Z");
+    const recovered = await refreshTokens(runtime, clients[2], tokenAtLimit);
+    assert.equal(recovered.status, 200, recovered.text);
+    assert.equal(runtime.grants.listSafe().find(
+      (grant) => grant.clientRef === thirdClientRef
+    ).refreshGeneration, 1);
   } finally {
     await runtime.close();
   }

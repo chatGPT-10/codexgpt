@@ -180,3 +180,46 @@ The original 40–70% hosted-run target was not fully reached. The remaining Win
 **Implementation:** Ripgrep output is now capped by bytes. When the cap ends in a partial record, only that final record is discarded and search reports truncation. Complete records still parse strictly, so corrupted backend output is not silently accepted.
 
 **Verification:** The ripgrep-specific oversized-record regression passed, along with the focused search suite, TypeScript build, policy check, and independent adversarial re-review.
+
+## 2026-07-28 — STEP-480: Repair recurring OAuth refresh-limit disconnects
+
+**Status:** Local source repair complete and post-result reviewed. No commit, push, publication, deployment, Cloudflare mutation, credential migration, or live ChatGPT App mutation was performed.
+
+**Goal:** Prevent the active ChatGPT OAuth client from being disconnected after several minutes when its observed refresh cadence exhausts the prior shared `30 requests / 15 minutes / client` token-endpoint limit. Preserve bounded work, refresh-token rotation, replay revocation, the 10-minute access-token lifetime, and the public/local-admin trust boundary.
+
+**Files changed:** `src/auth/rateLimits.ts`, `src/auth/oauthProvider.ts`, `src/http/publicApp.ts`, `src/http/localAdminApp.ts`, `src/http.ts`, `test/phase-8-oauth-bounds.test.mjs`, `test/phase-8-authorization.test.mjs`, `test/phase-8-auth-ui.test.mjs`, `test/phase-8-public-health.test.mjs`, `docs/superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md`, `Memory.md`, and this archive.
+
+**Implementation:** Raised the fixed token endpoint ceilings from `30` to `120` per approved client and from `120` to `240` per deployment per 15-minute window. The change is deliberately limited to capacity: authorization-code exchange and refresh remain in the same bounded window, refresh tokens still rotate once, replay still revokes the family, and access-token lifetime is unchanged. Added an in-memory diagnostic aggregator capped at 32 fixed-dimension entries with saturated counters. It records only endpoint, normalized grant type, HTTP status, fixed internal reason, count, and first/last observation times; it stores no client, grant, token, request, address, or credential identifier. Token client/deployment limits and public admission now have distinct reasons. Pre-parse limit decisions use the truthful `unknown` grant type. Diagnostics are unavailable from public and unauthenticated health endpoints and appear only in the existing session-protected loopback `/api/status` response.
+
+**Test-first evidence:** The first focused run failed exactly because `OAuthTokenEndpointDiagnostics` did not exist, token limits remained `30/120`, and local diagnostics were absent. After implementation, the endpoint regression proves one code exchange plus 72 refreshes at the observed five-second cadence succeeds; the 120th per-client token request succeeds, the 121st returns `429` with `Retry-After`, the rejected request does not rotate generation, and the same refresh token succeeds when the fixed window resets. A separate three-client sequence proves 240 deployment requests succeed, request 241 returns `token_deployment_limit` before rotation, and the same token succeeds after reset. Public-admission rejection records `public_admission_limit`; the bounded diagnostic inventory never exceeds 32 entries.
+
+**Exact verification and results:**
+
+- `npm run build`: passed.
+- `npm run test:focused -- test/phase-8-oauth-bounds.test.mjs test/phase-8-authorization.test.mjs test/phase-8-auth-ui.test.mjs test/phase-8-public-health.test.mjs test/phase-8-refresh-revoke.test.mjs test/phase-8-token-exchange.test.mjs`: passed `36/36`.
+- `node scripts/toolchain-manager.mjs matrix --major all -- node --test ...`: the same focused OAuth matrix passed `36/36` on managed Node `20.20.2` and `36/36` on managed Node `24.15.0`.
+- The broader eight-file OAuth regression passed `49/49` before the final review additions.
+- `npm run policy:check`: passed.
+- `git diff --check`: passed with only the repository's expected LF-to-CRLF warnings.
+- Changed-file credential-shape scan: no matches.
+- `npm run smoke`: blocked by a pre-existing exact-head release inconsistency, not this change: `package.json` is `1.0.2` while `src/stdio.ts`, `src/http.ts`, and `src/server.ts` still advertise `1.0.1`; the compatibility smoke stopped after its first two passing groups. The mismatch exists at `HEAD` and was intentionally not mixed into this OAuth repair.
+
+**Adversarial review:** Two independent result reviews found no remaining blocker, P1, or P2 after correction. Their initial P2 findings were repaired: the design explanation was moved outside the limits table; precise diagnostics were moved from unauthenticated local health to authenticated admin status; public admission 429 gained a fixed reason; deployment pre-parse `unknown` semantics were documented; and a real 240/241 multi-client endpoint regression was added.
+
+**Why and user impact:** The server cannot make the external ChatGPT client refresh less often. The measured client produced about 29 successful refreshes in six minutes, equivalent to roughly 72 per 15 minutes, so the old limit was guaranteed to disconnect a healthy session. A 120-request client ceiling supplies bounded headroom without weakening token security, while the 240-request deployment ceiling keeps aggregate work finite. If a future disconnect occurs, authenticated local counters can distinguish capacity from protocol errors instead of inferring the cause from a generic public 429.
+
+**Risks and limitations:** This is not deployed and has not completed a real 20-minute ChatGPT acceptance run. A public client ID is not a secret, so targeted request exhaustion remains possible; deployment and public-admission ceilings still bound work but do not claim network-flood resistance. Fixed-window behavior remains intentional. Full Smoke and publication gates remain blocked until the separately scoped baseline version mismatch is reconciled.
+
+**Rollback:** Revert the STEP-480 source, test, design, and memory changes before any deployment. No durable auth state schema or credential changes require migration.
+
+**Next action:** With separate approval, reconcile the baseline version surfaces, run full Smoke and the required exact-head Ubuntu/Windows Node 20/24 gates, deploy the reviewed build, then use the real ChatGPT App for at least 20 minutes and inspect authenticated local diagnostics for any `token_client_limit`, `token_deployment_limit`, or `public_admission_limit` event.
+
+### STEP-480 correction — `1.0.3` identity, full local gates, and deployment ownership blocker
+
+The package/source mismatch was first aligned to `1.0.2`, but adversarial review correctly rejected deploying new behavior under the already published immutable `1.0.2` identity. The candidate is now versioned `1.0.3` across `package.json`, the root lockfile entries, HTTP/STDIO runtime constants, MCP server metadata, and `CHANGELOG.md`. This correction supersedes the earlier statement that the baseline version mismatch still blocks Smoke.
+
+Managed full local gates passed before the final version-only correction: detached ordinary run `2026-07-28T12-22-03-278Z-step480-ordinary-final-d6653960` exited `0`, retained all `431,236` stdout bytes, and passed `1,437` tests with `2` established capability skips on each of Node `20.20.2` and `24.15.0`. Detached Smoke run `2026-07-28T12-38-54-354Z-step480-smoke-final-dcda2db4` exited `0` and passed all eight groups on each managed major. After the `1.0.3` version-only correction, focused package/version tests passed `3/3`, build passed, and the managed Node 20/24 package test matrix advanced successfully to the subsequent local Smoke command. That combined foreground command exceeded the connector timeout while Smoke continued to terminal completion, so its final Smoke exit code was not captured and is not claimed as a separate accepted gate.
+
+`npm publish --dry-run --access public` for the interim `1.0.2` identity built the expected 654-file tarball but returned nonzero because npm correctly refuses to overwrite the already published immutable version. No publication occurred. The unpublished `1.0.3` candidate has not been published or deployed.
+
+Deployment inspection also corrected the assumed process owner. The prior detached run `2026-07-28T08-20-10-960Z-codexgpt-primary-0a476f19` is stale with a process-identity mismatch and cannot authorize stopping the current listener. The live service was manually started from a user PowerShell terminal through the published entrypoint; its own CLI states that the operator must press `q` in that terminal to stop it. Project rules forbid substituting an unowned PID kill. Deployment therefore remains blocked until the owner explicitly authorizes commit/push for exact-head CI and stops the live runtime from its owning terminal. Current `auth doctor` still passes all eleven checks against binding `binding_8f3aabd3992d464ff9a3c30c91c7e013`; no runtime, client, grant, Tunnel, DNS, or credential state has changed.

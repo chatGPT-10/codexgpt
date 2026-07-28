@@ -10,10 +10,11 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 - Phases 0–8 Core are closed. Phase 7 closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / `30171313296`; Phase 8 closed at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
 - STEP-437–472 completed Phase 8 Core, real G8-U Journeys U2–U7, local G8-X, portability repairs, and exact-head Ubuntu/Windows Node 20/24 CI. U6 retains the deleted-App evidence substitution; U7 preserves the public-loopback/local-admin boundary.
 - STEP-473 prepared and locally verified the bounded `1.0.0` package. STEP-474 closed publication: PR 6 merged to `main` at `9131c393da3a1eb3c9514710b0b1569f55dd5acb`, and npm `latest`, annotated tag `v1.0.0`, and the GitHub Release align to that commit.
+- STEP-480 prepares an unpublished `1.0.3` repair for the recurring OAuth refresh disconnect without changing token lifetime or rotation: token limits are now 120/client and 240/deployment per 15 minutes, and authenticated local diagnostics distinguish token/client/deployment/public-admission outcomes.
 
 ## Approved execution boundary
 
-The owner explicitly authorized and completed the bounded `1.0.1` launcher correction and publication. STEP-476 repaired the OAuth listener collision; STEP-477 authorizes consolidation onto `codexgpt.drliang.uk` and decommissioning of the redundant `codexpro-oauth.drliang.uk` deployment. No other post-`1.0.1` implementation or deployment is authorized. Credential migration, Task Scheduler/service installation, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
+The owner explicitly authorized and completed the bounded `1.0.1` launcher correction and publication. STEP-476 repaired the OAuth listener collision; STEP-477 authorized consolidation onto `codexgpt.drliang.uk`; STEP-480 authorizes only the local OAuth refresh-limit/diagnostics source repair. Deployment, publication, commit, push, and unrelated post-release work remain unapproved. Credential migration, Task Scheduler/service installation, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
 
 ## Active decisions and constraints
 
@@ -46,6 +47,7 @@ The owner explicitly authorized and completed the bounded `1.0.1` launcher corre
 - STEP-477 consolidated onto `codexgpt.drliang.uk`: the primary service now starts with explicit `--allow-root D:/Dev/codexpro`, a real `codexgpt-Windows.open_workspace` call opened `D:\Dev\codexpro`, the redundant `8791/8792` runtime was stopped, tunnel `codexpro-oauth-20260726` was deleted, and its profile/setup journal/tunnel credential were removed. The independent Cloudflare DNS record remains and currently returns `530`; deleting that exact record is the only external cleanup still pending.
 - STEP-478 removed the one stale inactive runtime record left by the redundant deployment after verifying it targeted the retired hostname and `8791`. The retained primary OAuth profile, Tunnel ownership, authorization state, local-admin health, and public MCP health all passed immediately afterward.
 - STEP-479 fixed the production search crash caused by a bounded ripgrep JSON record ending mid-line. The parser now caps output by bytes, drops only the confirmed incomplete final record, and keeps complete malformed records fail-closed; focused regression, build, policy, and independent review passed before the `1.0.2` release flow.
+- STEP-480 OAuth refresh repair passed focused `36/36` and the same `36/36` on managed Node `20.20.2` and `24.15.0`, TypeScript build, policy, diff, credential-shape scan, and independent post-result reviews. Detached ordinary run `2026-07-28T12-22-03-278Z-step480-ordinary-final-d6653960` passed `1,437` with `2` capability skips per managed major; detached Smoke run `2026-07-28T12-38-54-354Z-step480-smoke-final-dcda2db4` passed all eight groups per major. The candidate is now honestly versioned `1.0.3`; no deployment or real 20-minute ChatGPT acceptance run has occurred.
 
 ## Known limitations
 
@@ -65,9 +67,11 @@ The owner explicitly authorized and completed the bounded `1.0.1` launcher corre
 ## Open items
 
 1. Delete the remaining Cloudflare DNS record `codexpro-oauth.drliang.uk`; its runtime, Tunnel, profile, setup journal, and tunnel credential are already gone. The single active service is `codexgpt.drliang.uk` on `8789/8790`, managed by detached run `2026-07-28T08-20-10-960Z-codexgpt-primary-0a476f19`, with `D:\Dev\codexpro` explicitly allowed for workspace switching. A reviewed current-user Windows background lifecycle, native isolation, Serena/LSP, Tasks 4B1–4B6, credential migration, and toolchain-root migration remain separately gated.
+2. Before deploying STEP-480, commit and push the reviewed `1.0.3` candidate with explicit approval, require its exact-head Ubuntu/Windows Node 20/24 CI, and stop the current manually launched OAuth runtime from its owning terminal with `q`; the stale prior runner cannot authorize a stop. Then deploy and run at least 20 minutes of real ChatGPT use while checking authenticated diagnostics for client/deployment/admission 429.
 
 ## Recent summaries
 
+- **STEP-480 — `1.0.3` OAuth refresh-limit candidate:** raise the measured-safe client/deployment token ceilings to `120/240` per 15 minutes, retain rotating refresh/replay semantics, expose bounded credential-free counters only to an authenticated loopback admin session, and await exact-head CI plus an owned runtime stop before deployment.
 - **STEP-477 — Single-domain consolidation:** restart `codexgpt.drliang.uk` with explicit access to `D:\Dev\codexpro`, verify real workspace switching, stop and remove the redundant runtime/Tunnel/profile, and isolate the remaining DNS-record deletion.
 - **STEP-478 — Stale runtime cleanup:** remove the retired `D:\Dev\codexpro` runtime record only; preserve the shared Tunnel configuration used by the active primary service and revalidate the complete OAuth path.
 - **STEP-476 — OAuth listener-collision recovery:** identify the competing CodexGPT process, move this workspace's owned route from `8789/8790` to `8791/8792`, regenerate the dedicated ingress, and verify both deployments concurrently.
@@ -78,7 +82,6 @@ The owner explicitly authorized and completed the bounded `1.0.1` launcher corre
 - **STEP-471 — Neat-freak after local G8-X:** compact always-loaded rules/index, clarify local versus exact-head closure, and verify links/contracts/budgets.
 - **STEP-470 — Local G8-X:** repair named-Tunnel failure precedence, pass post-repair managed ordinary/Smoke, and close the local source-checkout gate without publication or external-state mutation.
 - **STEP-468 — U7 Tunnel boundary:** refuse shared/unowned configs before mutation and prove the live public/local listener boundary.
-- **STEP-467 — U6 evidence substitution:** prove replacement Legacy compatibility and exact OAuth return continuity without claiming deleted-App identity continuity.
 
 ## Archives
 

@@ -55,6 +55,81 @@ test("fixed-window limiter is bounded and resets exactly at the window boundary"
   assert.equal(limiter.consume("a").allowed, true);
 });
 
+test("OAuth token endpoint diagnostics stay bounded and contain only fixed safe dimensions", () => {
+  let now = Date.parse("2026-07-28T12:00:00.000Z");
+  const diagnostics = new auth.OAuthTokenEndpointDiagnostics({ now: () => now });
+  diagnostics.record({ grantType: "authorization_code", status: 200, reason: "success" });
+  now += 12_500;
+  diagnostics.record({ grantType: "refresh_token", status: 200, reason: "success" });
+  diagnostics.record({ grantType: "refresh_token", status: 429, reason: "token_client_limit" });
+
+  assert.deepEqual(diagnostics.snapshot(), {
+    startedAt: "2026-07-28T12:00:00.000Z",
+    totalRequests: 3,
+    entries: [
+      {
+        endpoint: "/token",
+        grantType: "authorization_code",
+        status: 200,
+        reason: "success",
+        count: 1,
+        firstSeenAt: "2026-07-28T12:00:00.000Z",
+        lastSeenAt: "2026-07-28T12:00:00.000Z"
+      },
+      {
+        endpoint: "/token",
+        grantType: "refresh_token",
+        status: 200,
+        reason: "success",
+        count: 1,
+        firstSeenAt: "2026-07-28T12:00:12.500Z",
+        lastSeenAt: "2026-07-28T12:00:12.500Z"
+      },
+      {
+        endpoint: "/token",
+        grantType: "refresh_token",
+        status: 429,
+        reason: "token_client_limit",
+        count: 1,
+        firstSeenAt: "2026-07-28T12:00:12.500Z",
+        lastSeenAt: "2026-07-28T12:00:12.500Z"
+      }
+    ]
+  });
+  const serialized = JSON.stringify(diagnostics.snapshot());
+  for (const forbidden of [
+    "clientId",
+    "familyHandle",
+    "refreshToken",
+    "accessToken",
+    "client_AAAAA",
+    "family_deadbeef",
+  ]) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
+  }
+
+  const grantTypes = ["authorization_code", "refresh_token", "unknown"];
+  const statuses = [200, 400, 429, 503];
+  const reasons = [
+    "success",
+    "token_deployment_limit",
+    "token_client_limit",
+    "invalid_request",
+    "invalid_client",
+    "invalid_grant",
+    "invalid_scope",
+    "invalid_target",
+    "temporarily_unavailable"
+  ];
+  for (const grantType of grantTypes) {
+    for (const status of statuses) {
+      for (const reason of reasons) diagnostics.record({ grantType, status, reason });
+    }
+  }
+  assert.ok(diagnostics.snapshot().entries.length <= 32);
+  assert.equal(diagnostics.snapshot().totalRequests, 111);
+});
+
 test("all frozen OAuth Core limits remain exact", () => {
   assert.equal(auth.DCR_BODY_MAX_BYTES, 16 * 1024);
   assert.equal(auth.DCR_MAX_PROPERTIES, 32);
@@ -69,4 +144,12 @@ test("all frozen OAuth Core limits remain exact", () => {
   assert.equal(auth.OAUTH_CODE_LIFETIME_MS, 60 * 1000);
   assert.equal(auth.OAUTH_QUERY_FORM_MAX_BYTES, 8 * 1024);
   assert.equal(auth.OAUTH_QUERY_FORM_MAX_PARAMETERS, 24);
+  assert.deepEqual(auth.CORE_OAUTH_RATE_LIMITS.tokenClient, {
+    windowMs: 15 * 60 * 1000,
+    maximum: 120
+  });
+  assert.deepEqual(auth.CORE_OAUTH_RATE_LIMITS.tokenDeployment, {
+    windowMs: 15 * 60 * 1000,
+    maximum: 240
+  });
 });

@@ -7,6 +7,7 @@ import {
   createPublicAdmissionMiddleware,
   createPublicOAuthApp
 } from "../dist/http/publicApp.js";
+import { OAuthTokenEndpointDiagnostics } from "../dist/auth/rateLimits.js";
 
 const publicJwks = [{
   kty: "EC",
@@ -117,6 +118,29 @@ test("public admission bounds active, queued, and per-minute work", async () => 
     const rateLimited = await request(port, "/fast");
     assert.equal(rateLimited.status, 429);
   });
+});
+
+test("public admission records a credential-free reason when it rejects /token", async () => {
+  const diagnostics = new OAuthTokenEndpointDiagnostics();
+  const bounded = express();
+  bounded.use(
+    createPublicAdmissionMiddleware(
+      { active: 1, queued: 0, perMinute: 1 },
+      diagnostics
+    )
+  );
+  bounded.post("/token", (_req, res) => res.json({ ok: true }));
+
+  await withServer(bounded, async (port) => {
+    assert.equal((await request(port, "/token", "POST")).status, 200);
+    assert.equal((await request(port, "/token", "POST")).status, 429);
+  });
+  assert.equal(
+    diagnostics.snapshot().entries.find(
+      (entry) => entry.reason === "public_admission_limit"
+    )?.count,
+    1
+  );
 });
 
 test("public admission reserves active, queued, and rate capacity for exact /mcp", async () => {
