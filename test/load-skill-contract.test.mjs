@@ -18,7 +18,8 @@ const {
   LOAD_SKILL_TRUNCATED_WARNING,
   createLoadSkillFailure,
   createLoadSkillSuccess,
-  loadSkillOutputSchema
+  loadSkillOutputSchema,
+  loadSkillStandardOutputSchema
 } = schemaModule ?? {};
 
 function createTestConfig(root, overrides = {}) {
@@ -145,6 +146,11 @@ function sampleLoadData(overrides = {}) {
 function parseLoadSkillResult(result) {
   assert.equal(typeof loadSkillOutputSchema?.parse, "function");
   return loadSkillOutputSchema.parse(result.structuredContent);
+}
+
+function parseStandardLoadSkillResult(result) {
+  assert.equal(typeof loadSkillStandardOutputSchema?.parse, "function");
+  return loadSkillStandardOutputSchema.parse(result.structuredContent);
 }
 
 function assertLoadSkillFailure(result, code, details) {
@@ -657,6 +663,41 @@ test("load_skill distinguishes not-found ambiguity and bounded-resolution failur
       const parsed = parseLoadSkillResult(exact);
       assert.equal(parsed.ok, true);
       assert.equal(parsed.data.resolution_truncated, true);
+    });
+  });
+});
+
+test("load_skill resolves an explicit user Skill with long metadata despite plugin-cache noise", async () => {
+  await withTempWorkspace(async (root) => {
+    const codexDir = path.join(root, ".codex-test");
+    await writeSkill(codexDir, "skills/neat-freak", "neat-freak", "# User skill\n", "x".repeat(600));
+    const noiseDir = path.join(codexDir, "plugins", "cache", "noise");
+    await fs.mkdir(noiseDir, { recursive: true });
+    await Promise.all(Array.from({ length: 1_001 }, (_, index) =>
+      fs.writeFile(path.join(noiseDir, `entry-${index}.txt`), "not a Skill", "utf8")
+    ));
+
+    await withConfigClient(createTestConfig(root, { codexDir, guidanceMode: "standard" }), {}, async (client) => {
+      const exact = await callTool(client, "load_skill", {
+        name: "neat-freak",
+        source: "user",
+        path: "$CODEX_DIR/skills/neat-freak/SKILL.md",
+        include_global_skills: true
+      });
+      const exactParsed = parseStandardLoadSkillResult(exact);
+      assert.equal(exactParsed.ok, true, JSON.stringify(exact));
+      assert.equal(exactParsed.data.skill.path, "$CODEX_DIR/skills/neat-freak/SKILL.md");
+      assert.equal(exactParsed.data.skill.description, null);
+
+      const byName = await callTool(client, "load_skill", {
+        name: "neat-freak",
+        source: "user",
+        include_global_skills: true
+      });
+      const byNameParsed = parseStandardLoadSkillResult(byName);
+      assert.equal(byNameParsed.ok, true, JSON.stringify(byName));
+      assert.equal(byNameParsed.data.skill.path, "$CODEX_DIR/skills/neat-freak/SKILL.md");
+      assert.equal(byNameParsed.data.text.includes("# User skill"), true);
     });
   });
 });

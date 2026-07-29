@@ -9,7 +9,7 @@ Do not present CodexGPT as a fully reviewed public ChatGPT app until it has gone
 
 ## Release Gate
 
-Run these before tagging a release:
+Run the local and exact-head CI gates before publishing or tagging a release:
 
 ```bash
 npm install --package-lock-only
@@ -17,10 +17,28 @@ npm run build
 npm run smoke
 npm pack --dry-run
 codexgpt doctor --tunnel none
-npm view codexgpt version dist-tags --json
 ```
 
-After publishing, do not announce npm availability until the `latest` dist-tag matches `package.json`.
+Publishing to npm is only one part of a public release. After publishing, do not call the release complete or announce it until all of these identities agree:
+
+1. `npm view codexgpt@<version> version gitHead --json` reports the intended immutable source commit, and `npm view codexgpt dist-tags --json` reports `<version>` as `latest`.
+2. The exact npm `gitHead` has passed the required Ubuntu/Windows Node 20/24 exact-head CI matrix.
+3. The exact npm `gitHead` is reachable from the GitHub default branch.
+4. An annotated `v<version>` Git tag dereferences to the exact npm `gitHead`; project policy forbids moving or deleting an existing release tag.
+5. A public, non-draft, non-prerelease GitHub Release exists for that tag and is marked latest when it is the newest stable version.
+6. The default-branch package metadata, runtime version surfaces, changelog, bilingual README status, and supported-version guidance identify the same current release.
+
+Use fresh public-state checks; a successful `npm publish` command or local tag alone is not completion evidence. On PowerShell, quote peeled tag refs. `gh release view` confirms one Release object, while `gh release list` confirms which stable Release GitHub marks latest:
+
+```bash
+npm view codexgpt@<version> version gitHead --json
+npm view codexgpt dist-tags --json
+git ls-remote origin refs/heads/main refs/tags/v<version> "refs/tags/v<version>^{}"
+gh release view v<version>
+gh release list --limit 10
+```
+
+If an already-published historical npm version did not pass these gates, do not rewrite history or describe it as closed. Preserve its exact npm `gitHead`, mark any reconstructed GitHub record as superseded, disclose the failed/missing gate in its notes, and publish fixes only under a newer semantic version.
 
 The tarball must not include:
 

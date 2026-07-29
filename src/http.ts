@@ -52,6 +52,7 @@ import {
   OAuthOwnerApprovalService,
   OAuthOwnerClientService,
   OAuthOwnerGrantService,
+  OAuthTokenEndpointDiagnostics,
   OAuthTokenService,
   PersistentAuthStateAuditAppender,
   createProductionCredentialStore,
@@ -479,7 +480,7 @@ const LOCAL_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 6
   <rect x="8" y="8" width="48" height="48" rx="12" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".38"/>
   <path d="M38.4 40.3c-1.8 1.1-3.9 1.7-6.3 1.7-6.1 0-10.3-4.2-10.3-10s4.2-10 10.4-10c2.4 0 4.5.6 6.2 1.7l-2.1 4.1c-1.1-.7-2.3-1-3.8-1-2.9 0-4.9 2.1-4.9 5.2s2 5.2 4.9 5.2c1.5 0 2.8-.4 3.9-1.1l2 4.2Z" fill="#ffffff"/>
 </svg>`;
-const CODEXGPT_VERSION = "1.0.1";
+const CODEXGPT_VERSION = "1.0.4";
 
 function printHelp(): void {
   console.log(`CodexGPT MCP HTTP server
@@ -1619,6 +1620,7 @@ async function main(): Promise<void> {
         keyManager: authCoordinator.keyManager,
         grants: oauthGrants
       });
+      const oauthTokenDiagnostics = new OAuthTokenEndpointDiagnostics();
       oauthMcpRuntime = new OAuthReadOnlyMcpRuntime({
         config,
         identity,
@@ -1660,6 +1662,7 @@ async function main(): Promise<void> {
         enabledScopes,
         publicJwks: [state.activePublicJwk, ...state.previousPublicJwks],
         allowedOrigins: config.allowedOrigins,
+        tokenDiagnostics: oauthTokenDiagnostics,
         oauthRuntime: {
           clients: oauthClients,
           authorizations: oauthAuthorizations,
@@ -1670,7 +1673,8 @@ async function main(): Promise<void> {
       const localAdminApp = createLocalAdminApp({
         ownerAdminService,
         sessions: localAdminSessions,
-        origin: localAdminOrigin
+        origin: localAdminOrigin,
+        tokenDiagnostics: oauthTokenDiagnostics
       });
       const listen = (
         app: express.Express,

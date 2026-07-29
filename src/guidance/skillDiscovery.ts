@@ -165,18 +165,22 @@ async function collectSkillFiles(root: string, maxCandidates: number, maxDepth: 
   const files: string[] = [];
   let truncated = false;
   let inspected = 0;
+  const maxInspectedEntries = Math.max(64, maxCandidates * 16);
   async function walk(directory: string, depth: number): Promise<void> {
     if (depth < 0 || truncated) return;
-    const remaining = Math.max(1, maxCandidates - inspected);
+    const remaining = Math.max(1, maxInspectedEntries - inspected);
     const bounded = await boundedDirents(directory, remaining);
     const entries = bounded.entries;
     if (bounded.truncated) truncated = true;
     entries.sort((left, right) => left.name.localeCompare(right.name));
     for (const entry of entries) {
-      if (inspected >= maxCandidates) { truncated = true; return; }
+      if (inspected >= maxInspectedEntries) { truncated = true; return; }
       inspected += 1;
       const abs = path.join(directory, entry.name);
-      if (entry.isFile() && entry.name === "SKILL.md") files.push(abs);
+      if (entry.isFile() && entry.name === "SKILL.md") {
+        if (files.length >= maxCandidates) { truncated = true; return; }
+        files.push(abs);
+      }
       else if (entry.isDirectory() || entry.isSymbolicLink()) await walk(abs, depth - 1);
       if (truncated) return;
     }

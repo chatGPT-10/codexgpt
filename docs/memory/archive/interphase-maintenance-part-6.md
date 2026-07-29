@@ -180,3 +180,124 @@ The original 40–70% hosted-run target was not fully reached. The remaining Win
 **Implementation:** Ripgrep output is now capped by bytes. When the cap ends in a partial record, only that final record is discarded and search reports truncation. Complete records still parse strictly, so corrupted backend output is not silently accepted.
 
 **Verification:** The ripgrep-specific oversized-record regression passed, along with the focused search suite, TypeScript build, policy check, and independent adversarial re-review.
+
+## 2026-07-28 — STEP-480: Repair recurring OAuth refresh-limit disconnects
+
+**Status:** Local source repair complete and post-result reviewed. No commit, push, publication, deployment, Cloudflare mutation, credential migration, or live ChatGPT App mutation was performed.
+
+**Goal:** Prevent the active ChatGPT OAuth client from being disconnected after several minutes when its observed refresh cadence exhausts the prior shared `30 requests / 15 minutes / client` token-endpoint limit. Preserve bounded work, refresh-token rotation, replay revocation, the 10-minute access-token lifetime, and the public/local-admin trust boundary.
+
+**Files changed:** `src/auth/rateLimits.ts`, `src/auth/oauthProvider.ts`, `src/http/publicApp.ts`, `src/http/localAdminApp.ts`, `src/http.ts`, `test/phase-8-oauth-bounds.test.mjs`, `test/phase-8-authorization.test.mjs`, `test/phase-8-auth-ui.test.mjs`, `test/phase-8-public-health.test.mjs`, `docs/superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md`, `Memory.md`, and this archive.
+
+**Implementation:** Raised the fixed token endpoint ceilings from `30` to `120` per approved client and from `120` to `240` per deployment per 15-minute window. The change is deliberately limited to capacity: authorization-code exchange and refresh remain in the same bounded window, refresh tokens still rotate once, replay still revokes the family, and access-token lifetime is unchanged. Added an in-memory diagnostic aggregator capped at 32 fixed-dimension entries with saturated counters. It records only endpoint, normalized grant type, HTTP status, fixed internal reason, count, and first/last observation times; it stores no client, grant, token, request, address, or credential identifier. Token client/deployment limits and public admission now have distinct reasons. Pre-parse limit decisions use the truthful `unknown` grant type. Diagnostics are unavailable from public and unauthenticated health endpoints and appear only in the existing session-protected loopback `/api/status` response.
+
+**Test-first evidence:** The first focused run failed exactly because `OAuthTokenEndpointDiagnostics` did not exist, token limits remained `30/120`, and local diagnostics were absent. After implementation, the endpoint regression proves one code exchange plus 72 refreshes at the observed five-second cadence succeeds; the 120th per-client token request succeeds, the 121st returns `429` with `Retry-After`, the rejected request does not rotate generation, and the same refresh token succeeds when the fixed window resets. A separate three-client sequence proves 240 deployment requests succeed, request 241 returns `token_deployment_limit` before rotation, and the same token succeeds after reset. Public-admission rejection records `public_admission_limit`; the bounded diagnostic inventory never exceeds 32 entries.
+
+**Exact verification and results:**
+
+- `npm run build`: passed.
+- `npm run test:focused -- test/phase-8-oauth-bounds.test.mjs test/phase-8-authorization.test.mjs test/phase-8-auth-ui.test.mjs test/phase-8-public-health.test.mjs test/phase-8-refresh-revoke.test.mjs test/phase-8-token-exchange.test.mjs`: passed `36/36`.
+- `node scripts/toolchain-manager.mjs matrix --major all -- node --test ...`: the same focused OAuth matrix passed `36/36` on managed Node `20.20.2` and `36/36` on managed Node `24.15.0`.
+- The broader eight-file OAuth regression passed `49/49` before the final review additions.
+- `npm run policy:check`: passed.
+- `git diff --check`: passed with only the repository's expected LF-to-CRLF warnings.
+- Changed-file credential-shape scan: no matches.
+- `npm run smoke`: blocked by a pre-existing exact-head release inconsistency, not this change: `package.json` is `1.0.2` while `src/stdio.ts`, `src/http.ts`, and `src/server.ts` still advertise `1.0.1`; the compatibility smoke stopped after its first two passing groups. The mismatch exists at `HEAD` and was intentionally not mixed into this OAuth repair.
+
+**Adversarial review:** Two independent result reviews found no remaining blocker, P1, or P2 after correction. Their initial P2 findings were repaired: the design explanation was moved outside the limits table; precise diagnostics were moved from unauthenticated local health to authenticated admin status; public admission 429 gained a fixed reason; deployment pre-parse `unknown` semantics were documented; and a real 240/241 multi-client endpoint regression was added.
+
+**Why and user impact:** The server cannot make the external ChatGPT client refresh less often. The measured client produced about 29 successful refreshes in six minutes, equivalent to roughly 72 per 15 minutes, so the old limit was guaranteed to disconnect a healthy session. A 120-request client ceiling supplies bounded headroom without weakening token security, while the 240-request deployment ceiling keeps aggregate work finite. If a future disconnect occurs, authenticated local counters can distinguish capacity from protocol errors instead of inferring the cause from a generic public 429.
+
+**Risks and limitations:** This is not deployed and has not completed a real 20-minute ChatGPT acceptance run. A public client ID is not a secret, so targeted request exhaustion remains possible; deployment and public-admission ceilings still bound work but do not claim network-flood resistance. Fixed-window behavior remains intentional. Full Smoke and publication gates remain blocked until the separately scoped baseline version mismatch is reconciled.
+
+**Rollback:** Revert the STEP-480 source, test, design, and memory changes before any deployment. No durable auth state schema or credential changes require migration.
+
+**Next action:** With separate approval, reconcile the baseline version surfaces, run full Smoke and the required exact-head Ubuntu/Windows Node 20/24 gates, deploy the reviewed build, then use the real ChatGPT App for at least 20 minutes and inspect authenticated local diagnostics for any `token_client_limit`, `token_deployment_limit`, or `public_admission_limit` event.
+
+### STEP-480 correction — `1.0.3` identity, full local gates, and deployment ownership blocker
+
+The package/source mismatch was first aligned to `1.0.2`, but adversarial review correctly rejected deploying new behavior under the already published immutable `1.0.2` identity. The candidate is now versioned `1.0.3` across `package.json`, the root lockfile entries, HTTP/STDIO runtime constants, MCP server metadata, and `CHANGELOG.md`. This correction supersedes the earlier statement that the baseline version mismatch still blocks Smoke.
+
+Managed full local gates passed before the final version-only correction: detached ordinary run `2026-07-28T12-22-03-278Z-step480-ordinary-final-d6653960` exited `0`, retained all `431,236` stdout bytes, and passed `1,437` tests with `2` established capability skips on each of Node `20.20.2` and `24.15.0`. Detached Smoke run `2026-07-28T12-38-54-354Z-step480-smoke-final-dcda2db4` exited `0` and passed all eight groups on each managed major. After the `1.0.3` version-only correction, focused package/version tests passed `3/3`, build passed, and the managed Node 20/24 package test matrix advanced successfully to the subsequent local Smoke command. That combined foreground command exceeded the connector timeout while Smoke continued to terminal completion, so its final Smoke exit code was not captured and is not claimed as a separate accepted gate.
+
+`npm publish --dry-run --access public` for the interim `1.0.2` identity built the expected 654-file tarball but returned nonzero because npm correctly refuses to overwrite the already published immutable version. No publication occurred. The unpublished `1.0.3` candidate has not been published or deployed.
+
+Deployment inspection also corrected the assumed process owner. The prior detached run `2026-07-28T08-20-10-960Z-codexgpt-primary-0a476f19` is stale with a process-identity mismatch and cannot authorize stopping the current listener. The live service was manually started from a user PowerShell terminal through the published entrypoint; its own CLI states that the operator must press `q` in that terminal to stop it. Project rules forbid substituting an unowned PID kill. Deployment therefore remains blocked until the owner explicitly authorizes commit/push for exact-head CI and stops the live runtime from its owning terminal. Current `auth doctor` still passes all eleven checks against binding `binding_8f3aabd3992d464ff9a3c30c91c7e013`; no runtime, client, grant, Tunnel, DNS, or credential state has changed.
+
+### STEP-480 correction — exact-head CI passed; npm MFA blocks publication
+
+The owner explicitly authorized branch, commit, push, draft PR, exact-head CI, npm publication, and later service replacement. Commit `a7435dba11a6cf187c0d3611d54510f746444359` (`fix: bound OAuth refresh cadence`) is on `codex/step480-oauth-refresh`; draft PR #7 is `https://github.com/chatGPT-10/codexgpt/pull/7`. Its exact-head CI run `30361606961` completed successfully across Repository policy, Ubuntu Node 20/24, and Windows Node 20/24 Build/Regression/Smoke/Package checks.
+
+The authorized `npm publish --access public` built the `codexgpt@1.0.3` 654-file package successfully but npm returned `EOTP`: the account requires a one-time browser authentication before publication. No package was published. This is an account-level MFA boundary and was not bypassed. The current live process remains untouched until the owner completes the CLI authentication, publication succeeds, and presses `q` in its owning terminal for the approved runtime replacement.
+
+### STEP-480 correction — published `1.0.3` and reviewed runtime restored
+
+The owner completed the npm CLI authentication and published from `D:\Dev\codexpro` using the explicit public npm registry command. Registry verification reports `version = 1.0.3`, `dist-tags.latest = 1.0.3`, and `gitHead = a7435dba11a6cf187c0d3611d54510f746444359`, exactly matching the commit that passed exact-head CI run `30361606961`.
+
+The owner then stopped the prior manually owned runtime by entering `q` in its original terminal. Before replacement, `auth status` reported no runtime and neither `8789` nor `8790` was listening. The reviewed source checkout was started through exact owned detached run `2026-07-28T13-27-14-640Z-codexgpt-step480-1-0-3-b8b05ee2` with the existing `D:\Codex\chatgpt上下文插件` OAuth profile and explicit `--allow-root D:/Dev/codexpro`. `auth doctor` passed all checks, including DPAPI, managed cloudflared, tunnel ownership, exact runtime identity, local admin, owner control, and public OAuth. `https://codexgpt.drliang.uk/healthz` returned `{"ok":true,"name":"CodexGPT","authMode":"oauth","mcpAvailable":true}`, and `node dist/http.js --version` returned `1.0.3`.
+
+Existing approved client and OAuth state were retained; no credential, Tunnel, DNS, or profile migration occurred. The remaining acceptance evidence is a real ChatGPT session of at least 20 minutes. If a disconnect recurs, inspect the authenticated local diagnostic counters before altering capacity again. No follow-up Git commit was created because these are post-commit operational evidence only.
+
+## 2026-07-28 — STEP-481: Repair explicit user-Skill loading without expanding workspace authority
+
+**Status:** Local source repair and `1.0.4` release-candidate verification passed. Commit, push, exact-head CI, publication, deployment, runtime restart, profile change, credential migration, Tunnel/DNS mutation, and allowed-workspace-root expansion remain pending.
+
+**Goal:** Restore loading of the configured user-level `neat-freak` Skill from `$CODEX_DIR/skills` when exact-path loading reported `INTERNAL_ERROR` and name-based loading reported `SKILL_RESOLUTION_LIMIT_REACHED`.
+
+**Files changed:** `src/guidance/skillDiscovery.ts`, `src/server.ts`, `test/load-skill-contract.test.mjs`, `Memory.md`, and this archive.
+
+**Implementation:** Kept user/global Skill reads inside the configured canonical `$CODEX_DIR/skills` boundary; they do not use or widen workspace `allowedRoots`. Global discovery now distinguishes actual `SKILL.md` candidates from inspected filesystem entries and retains a bounded inspected-entry ceiling at sixteen times the candidate limit. This prevents a large plugin cache of unrelated files from falsely exhausting the Skill candidate budget. Load-result normalization now maps a description exceeding the public 500-character metadata limit to `null`, matching the established inventory behavior, while retaining the safely loaded Skill body and exact sanitized selector.
+
+**Test-first evidence and verification:** A new integration regression creates a configured user Skill with a 600-character description plus 1,001 non-Skill plugin-cache files. Before the repair, exact-path loading returned `INTERNAL_ERROR`; name loading returned `SKILL_RESOLUTION_LIMIT_REACHED`. After the repair, both return the configured `$CODEX_DIR/skills/neat-freak/SKILL.md` selector and body. The adversarial review found that the previous 20-entry scan-bound test no longer represented the deliberate `max(64, candidates × 16)` inspected-entry ceiling, so it now creates 81 non-Skill entries for a five-candidate limit and proves truthful truncation. `npm run test:focused -- test/load-skill-contract.test.mjs test/skill-global-privacy.test.mjs test/load-skill-resource.test.mjs test/skill-discovery-target.test.mjs` passed 27/27. `node scripts/toolchain-manager.mjs matrix --major all --root C:\\Users\\Administrator\\AppData\\Local\\CodexPro\\toolchains -- npm run build` passed on Node 20.20.2 and 24.15.0. `npm run policy:check` and `git diff --check` passed. A source-level live fixture against `C:\\Users\\Administrator\\.codex` confirmed exact and bare-name `neat-freak` loads both succeed and global discovery completes without truncation.
+
+**Why and user impact:** A configured personal Skill is user intent, not workspace authority. Its isolated root can therefore be safely read only through explicit opt-in selectors, but normal metadata must not turn a successful read into a generic loader failure. Separating candidate count from cache noise preserves bounded work while allowing users to invoke the Skills they installed.
+
+**Risks and limitations:** The public result omits descriptions longer than 500 characters; the Skill body remains available, so this affects only compact metadata display. Discovery still fails closed once the bounded number of actual Skill candidates or inspected filesystem entries is reached. The running `1.0.3` service has not been replaced and therefore does not contain this local checkout repair.
+
+**Rollback:** Revert the three source/test files. No user Skill, runtime state, profile, workspace authorization, credential, or network configuration was modified.
+
+**Next action:** Commit/push the reviewed `1.0.4` candidate, require exact-head CI, publish only after that gate succeeds, then replace the exact owned runtime. Do not add the user Codex directory to `--allow-root` or enable `--allow-home` as a workaround.
+
+### STEP-481 correction — `1.0.4` publication and replacement runtime complete
+
+The owner authorized publication and runtime replacement. Commit `48fb3f5334cb286df2af7adf56ddddbbcfc41406` (`fix: load configured user skills`) was pushed to `codex/step480-oauth-refresh`; exact-head CI run `30373608845` passed Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package checks. The npm registry reports `codexgpt@1.0.4`, `latest = 1.0.4`, and matching `gitHead` at that commit.
+
+The former exact owned `1.0.3` run `2026-07-28T13-27-14-640Z-codexgpt-step480-1-0-3-b8b05ee2` was stopped through `long-task-runner stop --run`; no raw PID or unrelated service was terminated. One initial replacement attempt included an extra command separator and failed closed with `spawn -- ENOENT`; it changed no profile, credential, Tunnel, DNS, or allowed root. The corrected exact owned `1.0.4` run `2026-07-28T16-16-24-285Z-codexgpt-step481-user-skill-1-0-4-ba0b359d` uses the existing `D:\Codex\chatgpt上下文插件` OAuth profile, explicit `--allow-root D:/Dev/codexpro`, managed Node 24, and the verified cloudflared path. Local public-MCP health with the stable Host, local-admin health, and `https://codexgpt.drliang.uk/healthz` each returned `200`; public health reports `authMode: oauth` and `mcpAvailable: true`.
+
+No user Codex root was added to workspace authorization, no `--allow-home` option was enabled, and no credential/profile/Tunnel/DNS state was migrated. ChatGPT Apps with frozen tool inventories still need one explicit **Scan Tools** refresh or recreation before testing the repaired Skill.
+
+**Files changed:** Tracked documentation only: `Memory.md` and this archive. Ignored detached-run evidence resides under `.ai-bridge/runs/`. Source files: none after the released commit.
+
+**Risks and limitations:** Health checks prove the replacement process, OAuth local/admin boundary, and public HTTPS route; they do not constitute a ChatGPT-side `load_skill` invocation. The source-level real global-Skill fixture and release regressions prove that behavior. The new process remains an owned detached run, not a reviewed persistent Windows service.
+
+**Rollback:** Stop only exact run `2026-07-28T16-16-24-285Z-codexgpt-step481-user-skill-1-0-4-ba0b359d`, then restart the prior reviewed source/package only after verifying its exact version and listener availability. Do not widen workspace roots as a rollback substitute.
+
+**Next action:** In ChatGPT, refresh the App tool inventory once if it is cached, then invoke `load_skill` with `neat-freak` or the exact selector. Keep the remaining DNS cleanup and persistent lifecycle work separately authorized.
+
+## 2026-07-28 — STEP-482: Reconcile user-Skill guidance after the `1.0.4` release
+
+**Status:** Passed. Active English/Chinese user guidance now explains the bounded, explicit configured-user Skill path without implying workspace-root expansion or a required tool-inventory refresh.
+
+**Goal:** Make the `1.0.4` repair discoverable to a new user while preserving the Phase 6 security boundary: global/user Skill reads require a deliberate request and must not be described as `--allow-root` or `--allow-home` access.
+
+**Files changed:** `README.md`, `README_ZH.md`, `FAQ.md`, `FAQ_ZH.md`, `Memory.md`, and this archive. Source files: none.
+
+**Implementation:** The Phase 6 guidance sections and FAQs now state that `load_skill` can select a configured user Skill with `source: "user"` plus either its name or a displayed selector such as `$CODEX_DIR/skills/neat-freak/SKILL.md`. The text explicitly says this is a bounded read of configured user-Skill roots and does not widen workspace access or alter `--allow-root`. The memory open item now correctly keeps the outstanding real 20-minute OAuth acceptance check and removes the inaccurate implication that a behavior-only `1.0.4` patch itself needs **Scan Tools**.
+
+**Verification:** Confirmed `package.json`, runtime release records, `CHANGELOG.md`, npm-published `1.0.4` state, and the exact-head release evidence all agree. Inspected the standard-mode parser: `source: "user"` is an explicit global selector and defaults global discovery on for that request; exact `$CODEX_DIR/skills/.../SKILL.md` and name selection are covered by the `1.0.4` load-skill integration regression. Checked all paths cited by `AGENTS.md`; each exists. `Memory.md` remains within its practical 150-line/18-KB target, and this archive remains below its 48-KB continuation threshold.
+
+**Rules audit:** Project and global `AGENTS.md` are present; no parent-level project rule file exists. `AGENTS.md` is the project authority, so no unsupported `CLAUDE.md`/symlink was created. `.gitignore` excludes local env files, ignored runtime evidence, and logs. No active non-archive Markdown relative-time wording was introduced; archived historical occurrences remain deliberately historical.
+
+**Risks and limitations:** This documentation check does not replace a real ChatGPT `load_skill` call or the pending 20-minute OAuth acceptance observation. It makes no profile, credential, Tunnel, DNS, allowed-root, npm, Git, or runtime mutation.
+
+**Rollback:** Revert only the six documented files. No code or persistent runtime state changes require rollback.
+
+**Next action:** Invoke `load_skill` from ChatGPT with `source: "user"` and `neat-freak` (or its exact displayed selector), then retain normal use for at least 20 minutes before treating the OAuth refresh acceptance item as closed.
+
+### STEP-482 correction — clarify the Scan Tools condition
+
+Earlier STEP-481 wording that advised a general App inventory refresh before testing the repaired Skill was overbroad. The `1.0.4` change is behavior-only and does not alter the `load_skill` descriptor, so an App that already exposes `load_skill` needs no **Scan Tools** action to receive the new backend behavior. Refresh or recreation remains necessary only for an old/frozen App inventory that lacks the Phase 6 `load_skill` tool itself. This correction does not alter the release, runtime, or security boundary.
+
+### STEP-482 correction — compact the memory index
+
+The index retained only STEP-477 through STEP-482 summaries because they contain the active hostname/DNS cleanup, current runtime, and current acceptance context. Superseded STEP-468 and STEP-470 through STEP-476 summaries remain preserved in their linked append-only archive volumes, so deleting them from the always-loaded index loses no operational evidence while restoring practical context headroom.

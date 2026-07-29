@@ -6,14 +6,16 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-28; stable release `codexgpt@1.0.1` is published at `87fdd4e61519fdcded1cc6d67df7ff600df1b3b3`; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
+- Date: 2026-07-29; current npm release `codexgpt@1.0.4` is published at `48fb3f5334cb286df2af7adf56ddddbbcfc41406` (`latest` and npm `gitHead` verified); its exact-head CI and reviewed runtime replacement are complete. GitHub reconciliation is incomplete: default `main` has `1.0.2` package metadata but `1.0.1` runtime/README state, GitHub Latest Release is `v1.0.1`, and `v1.0.2`–`v1.0.4` tags/Releases are absent. The historical `1.0.2` npm commit failed CI and had mismatched runtime version surfaces, so it may be recorded only as superseded, never as a closed release; repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
 - Phases 0–8 Core are closed. Phase 7 closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / `30171313296`; Phase 8 closed at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
 - STEP-437–472 completed Phase 8 Core, real G8-U Journeys U2–U7, local G8-X, portability repairs, and exact-head Ubuntu/Windows Node 20/24 CI. U6 retains the deleted-App evidence substitution; U7 preserves the public-loopback/local-admin boundary.
 - STEP-473 prepared and locally verified the bounded `1.0.0` package. STEP-474 closed publication: PR 6 merged to `main` at `9131c393da3a1eb3c9514710b0b1569f55dd5acb`, and npm `latest`, annotated tag `v1.0.0`, and the GitHub Release align to that commit.
+- STEP-480 published and deployed `1.0.3` for the recurring OAuth refresh disconnect without changing token lifetime or rotation: token limits are 120/client and 240/deployment per 15 minutes, and authenticated local diagnostics distinguish token/client/deployment/public-admission outcomes.
+- STEP-481 published and deployed `1.0.4` for explicit user-Skill loading: `$CODEX_DIR/skills` remains its own opt-in canonical root, oversized public descriptions no longer cause `INTERNAL_ERROR`, and non-Skill plugin-cache entries no longer consume the Skill-candidate limit. Focused regressions, managed Node 20/24 build, policy, exact-head CI, npm publication, and OAuth runtime replacement passed.
 
 ## Approved execution boundary
 
-The owner explicitly authorized and completed the bounded `1.0.1` launcher correction and publication. STEP-476 repaired the OAuth listener collision; STEP-477 authorizes consolidation onto `codexgpt.drliang.uk` and decommissioning of the redundant `codexpro-oauth.drliang.uk` deployment. No other post-`1.0.1` implementation or deployment is authorized. Credential migration, Task Scheduler/service installation, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
+The owner explicitly authorized and completed the bounded `1.0.1` launcher correction, the STEP-480 `1.0.3` OAuth refresh repair, and the STEP-481 `1.0.4` user-Skill repair, including publication and reviewed runtime replacement. STEP-476 repaired the OAuth listener collision; STEP-477 authorized consolidation onto `codexgpt.drliang.uk`. Further implementation, deployment changes, credential migration, Task Scheduler/service installation, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
 
 ## Active decisions and constraints
 
@@ -31,21 +33,9 @@ The owner explicitly authorized and completed the bounded `1.0.1` launcher corre
 
 ## Verification evidence
 
-- Published closure runs: Phase 3 `29441752493`/`29443158835`; Phase 4 `29603060944`; Phase 5 `29698209894`; Phase 6 `30033293444`; Phase 7 `30171313296` at `a0b9f46e2297297959527f7570c9cb7942cc8fb3`.
-- STEP-436 exact head `b4b041da32be7bfb133495fb30aa851d67d4f216` passed run `30177507346` across Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
-- STEP-437–452 passed Phase 8 Core on managed Node 20/24 (`152/152`), inherited regressions (`70/70`), policy/diff/package checks, and a 653-entry package dry run.
-- STEP-454–463 passed live U2–U5: dedicated Tunnel/App, scope and descriptor lifecycle, restart/refresh, revoke/relink, negative/replay/admission checks, and verified-backup recovery as a new-incarnation security reset.
-- STEP-464–467 passed the Legacy/OAuth route round-trip and U6 current-client evidence. Replacement Legacy compatibility and return-to-OAuth continuity are accepted; continuity of the deleted original Legacy App is not claimed.
-- STEP-468 passed U7: owned ingress remained byte-identical and public-loopback-only, local-admin stayed private, Host/forwarded headers conferred no authority, and managed Node 20/24 boundary tests passed `33/33` on each major.
-- STEP-470 local G8-X passed after one test-first diagnostic-race repair. Post-repair ordinary run `2026-07-27T13-20-49-272Z-phase8-g8-x-ordinary-matrix-r2-471681bb` passed `1429` with `2` explicit Windows capability skips per major; protected Smoke run `2026-07-27T13-05-15-016Z-phase8-g8-x-smoke-matrix-r2-a1bbb40a` passed all eight groups on Node `20.20.2` and `24.15.0`. Policy/diff/lock/dependency/package/link/credential checks passed; the dry package contains `654` files and no private state.
-- STEP-472 initial exact-head run `30273084546` at `32063df4b49b4db31cb8da45fca33f035530da2b` exposed the POSIX/Win32 root classification defect; repair run `30274322791` exposed one final synthetic-path test assumption. Final head `55b2b5664aae322ec992968a41c87a289fb75282` passed run `30274857996` across Repository policy and Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package.
-- STEP-473 local `1.0.0` gates passed: focused release contracts `10/10`, managed Node 20/24 package contracts `3/3` each, build, policy, diff/secret checks, package-lock synchronization, 654-file package dry run, publish dry run, and detached protected Smoke exit `0` on both managed majors.
-- STEP-474 release closure passed: release-candidate head `ca701b6a0f464427b89d828f906b4199636feae5` passed run `30282382963`; PR 6 merged as `9131c393da3a1eb3c9514710b0b1569f55dd5acb`; merged exact-head run `30283923175` passed Repository policy and Ubuntu/Windows Node 20/24; npm reports `version=latest=1.0.0` with matching `gitHead`; remote `v1.0.0` dereferences to the same commit; and the GitHub Release is public.
-- STEP-475 publication is aligned: local `HEAD`, `origin/main`, annotated `v1.0.1`, and npm `latest`/`gitHead` all resolve to `87fdd4e61519fdcded1cc6d67df7ff600df1b3b3`.
-- STEP-476 diagnosed the recurring ChatGPT connection interruption as a local listener collision: another live CodexGPT OAuth deployment owned `127.0.0.1:8789/8790`, while this workspace profile also selected those ports. The current route was moved temporarily to owned `8791/8792`; both public hostnames returned `200`, `auth doctor` passed every check, and the existing binding/incarnation/client/grant authority was unchanged.
-- STEP-477 consolidated onto `codexgpt.drliang.uk`: the primary service now starts with explicit `--allow-root D:/Dev/codexpro`, a real `codexgpt-Windows.open_workspace` call opened `D:\Dev\codexpro`, the redundant `8791/8792` runtime was stopped, tunnel `codexpro-oauth-20260726` was deleted, and its profile/setup journal/tunnel credential were removed. The independent Cloudflare DNS record remains and currently returns `530`; deleting that exact record is the only external cleanup still pending.
-- STEP-478 removed the one stale inactive runtime record left by the redundant deployment after verifying it targeted the retired hostname and `8791`. The retained primary OAuth profile, Tunnel ownership, authorization state, local-admin health, and public MCP health all passed immediately afterward.
-- STEP-479 fixed the production search crash caused by a bounded ripgrep JSON record ending mid-line. The parser now caps output by bytes, drops only the confirmed incomplete final record, and keeps complete malformed records fail-closed; focused regression, build, policy, and independent review passed before the `1.0.2` release flow.
+- Phase 3–7 closures and Phase 8 Core/U2–U7/G8-X evidence are archived; Phase 8 exact-head closure is `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`. The published `1.0.0` baseline, `1.0.1` launcher correction, and their release evidence are likewise archived.
+- STEP-476–478 resolved the listener collision, consolidated the surviving profile at `codexgpt.drliang.uk` with access to `D:\Dev\codexpro`, removed the redundant deployment, and retained only the separately authorized DNS cleanup.
+- STEP-479 prevents a truncated oversized ripgrep JSON record from terminating HTTP. STEP-480 passed focused and managed Node 20/24 checks, full ordinary/Smoke, exact-head CI `30361606961`, npm publication, and reviewed `1.0.3` runtime replacement. STEP-481 exact-head CI `30373608845` passed; its active owned `1.0.4` run is `2026-07-28T16-16-24-285Z-codexgpt-step481-user-skill-1-0-4-ba0b359d`.
 
 ## Known limitations
 
@@ -64,21 +54,18 @@ The owner explicitly authorized and completed the bounded `1.0.1` launcher corre
 
 ## Open items
 
-1. Delete the remaining Cloudflare DNS record `codexpro-oauth.drliang.uk`; its runtime, Tunnel, profile, setup journal, and tunnel credential are already gone. The single active service is `codexgpt.drliang.uk` on `8789/8790`, managed by detached run `2026-07-28T08-20-10-960Z-codexgpt-primary-0a476f19`, with `D:\Dev\codexpro` explicitly allowed for workspace switching. A reviewed current-user Windows background lifecycle, native isolation, Serena/LSP, Tasks 4B1–4B6, credential migration, and toolchain-root migration remain separately gated.
+1. Reconcile the already published `1.0.2`–`1.0.4` source commits onto GitHub `main` with a merge that preserves the exact npm commits as ancestors; do not squash or rebase. Create annotated exact tags and public Releases at the npm `gitHead` values, mark `1.0.2` explicitly superseded with its failed-CI/runtime-version mismatch disclosed, and verify GitHub Latest is `1.0.4`. Project policy forbids moving/deleting an existing release tag; npm publication alone is not full public-release closure.
+2. Delete the remaining Cloudflare DNS record `codexpro-oauth.drliang.uk`; its runtime, Tunnel, profile, setup journal, and tunnel credential are already gone. The single active service is `codexgpt.drliang.uk` on `8789/8790`, managed by detached run `2026-07-28T16-16-24-285Z-codexgpt-step481-user-skill-1-0-4-ba0b359d`, with `D:\Dev\codexpro` explicitly allowed for workspace switching. A reviewed current-user Windows background lifecycle, native isolation, Serena/LSP, Tasks 4B1–4B6, credential migration, and toolchain-root migration remain separately gated.
+3. Use the published `1.0.4` ChatGPT App normally for at least 20 minutes. The repaired user Skill can be invoked by exact `$CODEX_DIR/skills/neat-freak/SKILL.md` selector or by `neat-freak`; this behavior-only patch does not itself require Scan Tools. If a disconnect recurs, inspect authenticated local diagnostics for `token_client_limit`, `token_deployment_limit`, or `public_admission_limit` before changing any ceiling.
 
 ## Recent summaries
 
+- **STEP-483 — Public-release alignment audit:** npm `latest` and per-version `gitHead` values are correct through `1.0.4`, but GitHub `main` and public tag/Release objects stop earlier; update the authority docs and require source/tag/Release alignment before calling future npm publications complete.
+- **STEP-481 — `1.0.4` User Skill loader release:** preserve the isolated global-Skill boundary while making exact and name-based user Skill loading resilient to long frontmatter descriptions and noisy plugin caches; exact-head CI, npm publication, and the replacement OAuth runtime are complete.
+- **STEP-482 — User-Skill documentation reconciliation:** document the bounded explicit `source: "user"` loading path in the bilingual README/FAQ, correct the unnecessary Scan Tools suggestion for a behavior-only patch, and retain the outstanding 20-minute OAuth acceptance check.
+- **STEP-480 — `1.0.3` OAuth refresh-limit release:** raise the measured-safe client/deployment token ceilings to `120/240` per 15 minutes, retain rotating refresh/replay semantics, and expose bounded credential-free counters only to an authenticated loopback admin session. Exact-head CI, npm publication, and reviewed runtime replacement are complete; real 20-minute ChatGPT acceptance remains pending.
 - **STEP-477 — Single-domain consolidation:** restart `codexgpt.drliang.uk` with explicit access to `D:\Dev\codexpro`, verify real workspace switching, stop and remove the redundant runtime/Tunnel/profile, and isolate the remaining DNS-record deletion.
 - **STEP-478 — Stale runtime cleanup:** remove the retired `D:\Dev\codexpro` runtime record only; preserve the shared Tunnel configuration used by the active primary service and revalidate the complete OAuth path.
-- **STEP-476 — OAuth listener-collision recovery:** identify the competing CodexGPT process, move this workspace's owned route from `8789/8790` to `8791/8792`, regenerate the dedicated ingress, and verify both deployments concurrently.
-- **STEP-475 — `1.0.1` OAuth launcher correction:** pass the canonical `--root` to the packaged OAuth HTTP child, bind the regression and version surfaces, publish `1.0.1`, and align npm/tag/source at `87fdd4e61519fdcded1cc6d67df7ff600df1b3b3`.
-- **STEP-474 — `1.0.0` release closure and reconciliation:** publish the verified package, align npm/tag/GitHub Release to the merged exact head, and remove stale release-pending state from active rules, security policy, plan, and memory.
-- **STEP-473 — `1.0.0` release preparation:** align package/runtime/docs versioning, bind version consistency in tests, and prepare the verified Phase 8 baseline for main/tag/npm publication.
-- **STEP-472 — Exact-head CI portability repair:** preserve Win32 canonical-root rejection, classify POSIX roots only on non-Windows hosts, make all synthetic Win32 path operations explicit, and close exact-head CI at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
-- **STEP-471 — Neat-freak after local G8-X:** compact always-loaded rules/index, clarify local versus exact-head closure, and verify links/contracts/budgets.
-- **STEP-470 — Local G8-X:** repair named-Tunnel failure precedence, pass post-repair managed ordinary/Smoke, and close the local source-checkout gate without publication or external-state mutation.
-- **STEP-468 — U7 Tunnel boundary:** refuse shared/unowned configs before mutation and prove the live public/local listener boundary.
-- **STEP-467 — U6 evidence substitution:** prove replacement Legacy compatibility and exact OAuth return continuity without claiming deleted-App identity continuity.
 
 ## Archives
 
@@ -88,7 +75,8 @@ The owner explicitly authorized and completed the bounded `1.0.1` launcher corre
 - [Closed interphase maintenance Part 3 — STEP-368 through STEP-375](docs/memory/archive/interphase-maintenance-part-3.md)
 - [Closed interphase maintenance Part 4 — STEP-376 through STEP-384](docs/memory/archive/interphase-maintenance-part-4.md)
 - [Closed interphase maintenance Part 5 — STEP-385 through STEP-435](docs/memory/archive/interphase-maintenance-part-5.md)
-- [Interphase maintenance Part 6 — STEP-436](docs/memory/archive/interphase-maintenance-part-6.md)
+- [Closed interphase maintenance Part 6 — STEP-436 and STEP-475–482](docs/memory/archive/interphase-maintenance-part-6.md)
+- [Interphase maintenance Part 7 — STEP-483](docs/memory/archive/interphase-maintenance-part-7.md)
 - [Phase 1 Volume 1 — STEP-073 through STEP-139](docs/memory/archive/phase-1.md)
 - [Closed Phase 1 Volume 2 — STEP-140 through STEP-151](docs/memory/archive/phase-1-part-2.md)
 - [Closed Phase 1 Volume 3 — STEP-152 through STEP-165](docs/memory/archive/phase-1-part-3.md)

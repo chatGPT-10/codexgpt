@@ -70,7 +70,7 @@ Use explicit tools such as `read`, `search`, `edit`, `bash`, and `show_changes` 
 
 Normal `standard` mode enables project guidance by default. Workspace open returns bounded root `AGENTS.md` text and a compact catalog of workspace Skills that are eligible for implicit use. Before the first mutation, and again after switching to another subtree, ChatGPT should call `codex_context(target_path)` to obtain the exact root-to-target instruction chain and target-scoped Skill catalog.
 
-A matching Skill is loaded lazily and remains instruction text only. Skill scripts do not run automatically, declared dependencies are not installed or treated as verified, and neither AGENTS nor Skills can enable tools, widen roots, approve mutations, or bypass Policy, Approval, Audit, blocked paths, or execution modes. User/plugin Skills remain excluded unless a call explicitly opts into global discovery.
+A matching Skill is loaded lazily and remains instruction text only. Skill scripts do not run automatically, declared dependencies are not installed or treated as verified, and neither AGENTS nor Skills can enable tools, widen roots, approve mutations, or bypass Policy, Approval, Audit, blocked paths, or execution modes. User/plugin Skills remain excluded unless a call explicitly opts into global discovery. A deliberate user-Skill read uses `load_skill` with `source: "user"` plus its `name` or a displayed selector such as `$CODEX_DIR/skills/neat-freak/SKILL.md`; this is a bounded read of configured user-Skill roots, not workspace access expansion.
 
 `--tool-mode minimal` does not expose `codex_context`. When guidance mode is omitted, minimal mode therefore uses the exact `legacy` compatibility projection; explicitly requesting `CODEXGPT_GUIDANCE_MODE=standard` with minimal mode fails at startup. Apps created before the Phase 6 tool update may need one **Scan Tools** refresh or recreation.
 
@@ -114,7 +114,7 @@ Server URL: paste the complete URL copied by CodexGPT, including codexgpt_token
 Authentication: No Authentication / None (if shown)
 ```
 
-The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. The unreleased source checkout now includes locally verified Phase 8 Tasks 8A1–8A9, live Gate G8-U Journeys U2–U7, and local G8-X through a separate OAuth App and token-free URL; exact-head CI and publication remain incomplete. This section documents only the retained Legacy compatibility App. Do not mix the two Apps or replace either flow with manual static-Bearer configuration.
+The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. The published Phase 8 baseline completed Tasks 8A1–8A9, live Gate G8-U Journeys U2–U7, local G8-X, and exact-head CI; the current npm release is `1.0.4`. OAuth uses a separate App and token-free URL. This section documents only the retained Legacy compatibility App. Do not mix the two Apps or replace either flow with manual static-Bearer configuration.
 
 ## Should CSP stay enabled?
 
@@ -219,19 +219,19 @@ codexgpt start --mode handoff --no-bash
 
 ## Which tunnel should I choose?
 
-Use this rule:
+For the recommended OAuth path, use the dedicated Cloudflare named Tunnel created or verified by `codexgpt auth setup`. The choices below apply only to the retained Legacy query-token App:
 
 ```text
-Fast demo:              Cloudflare quick tunnel
-Recommended stable URL: ngrok free dev domain
-Custom domain:          Cloudflare named tunnel
-Tailnet users:           Tailscale Funnel
+Fast Legacy demo:       Cloudflare quick tunnel
+Simple Legacy stable:   ngrok free dev domain
+Legacy custom domain:   Cloudflare named tunnel
+Legacy tailnet users:   Tailscale Funnel
 No public tunnel:       local-only mode, only for clients that can reach localhost
 ```
 
 Cloudflare quick tunnel URLs change on restart. If you put a quick-mode URL into ChatGPT, you must edit the ChatGPT app Server URL every time you restart the tunnel.
 
-For most users, the better path is a free ngrok dev domain. Create a free ngrok account, find your assigned dev domain under Universal Gateway -> Domains, and save that hostname during `codexgpt setup`.
+For a simple Legacy stable URL, create a free ngrok account, find your assigned dev domain under Universal Gateway -> Domains, and save that hostname during `codexgpt setup`.
 
 If you own a domain, use Cloudflare named tunnels and route DNS to a hostname like `codexgpt.example.com`.
 

@@ -48,7 +48,7 @@ Server URL: 粘贴 CodexGPT 复制的完整地址，包括 codexgpt_token
 Authentication: No Authentication / None（若显示该字段）
 ```
 
-完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。未发布的 source checkout 已完成本地验证的 Phase 8 Tasks 8A1–8A9、真实 Gate G8-U Journeys U2–U7 和本地 G8-X，并继续通过独立 OAuth App 与 token-free URL 工作；exact-head CI 与 publication 仍未完成。本节只说明保留的 Legacy 兼容 App。不要混用两个 App，也不要把任一路径改成手动 static Bearer。
+完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。已发布的 Phase 8 baseline 完成了 Tasks 8A1–8A9、真实 Gate G8-U Journeys U2–U7、本地 G8-X 与 exact-head CI；当前 npm 版本为 `1.0.4`。OAuth 使用独立 App 与 token-free URL。本节只说明保留的 Legacy 兼容 App。不要混用两个 App，也不要把任一路径改成手动 static Bearer。
 
 ## CSP 要保持开启吗？
 
@@ -82,7 +82,7 @@ codexgpt pro-bundle --root /path/to/repo --copy
 
 普通 `standard` 模式默认启用项目指导。首次打开 workspace 时会返回有界的根 `AGENTS.md` 正文和可隐式使用的 workspace Skill 简表；首次修改前，以及切换到另一个子树后，ChatGPT 应调用 `codex_context(target_path)`，获取精确的 root-to-target 指令链和目标范围内的 Skill catalog。
 
-匹配 Skill 只会按需读取，并且始终只是指令文本。Skill 脚本不会自动执行，声明的依赖不会自动安装或视为已验证；AGENTS 和 Skills 都不能启用工具、扩大 root、批准修改，也不能绕过 Policy、Approval、Audit、blocked path 或执行模式。user/plugin Skills 只有显式请求全局发现时才会出现。
+匹配 Skill 只会按需读取，并且始终只是指令文本。Skill 脚本不会自动执行，声明的依赖不会自动安装或视为已验证；AGENTS 和 Skills 都不能启用工具、扩大 root、批准修改，也不能绕过 Policy、Approval、Audit、blocked path 或执行模式。user/plugin Skills 只有显式请求全局发现时才会出现。若要有意读取用户级 Skill，请在 `load_skill` 中传入 `source: "user"`，并提供其 `name` 或显示出来的 selector，例如 `$CODEX_DIR/skills/neat-freak/SKILL.md`；这只是对配置用户 Skill root 的有界读取，不会扩大 workspace 访问范围。
 
 `--tool-mode minimal` 不暴露 `codex_context`。因此省略 guidance 配置时，minimal 模式使用精确的 `legacy` 兼容投影；若显式组合 `CODEXGPT_GUIDANCE_MODE=standard` 与 minimal，启动会失败。Phase 6 工具更新前创建的 App 可能需要执行一次 **Scan Tools** 或重建。
 
@@ -165,19 +165,19 @@ codexgpt start --mode handoff --no-bash
 
 ## 选择哪种 tunnel？
 
-按这个规则选：
+推荐的 OAuth 路径使用 `codexgpt auth setup` 创建或验证的专用 Cloudflare named Tunnel。下面的选择仅适用于保留的 Legacy query-token App：
 
 ```text
-快速 demo：          Cloudflare quick tunnel
-推荐稳定 URL：       ngrok free dev domain
-自定义域名：          Cloudflare named tunnel
-Tailnet 用户：        Tailscale Funnel
+Legacy 快速 demo：   Cloudflare quick tunnel
+Legacy 简单稳定 URL：ngrok free dev domain
+Legacy 自定义域名：  Cloudflare named tunnel
+Legacy Tailnet：      Tailscale Funnel
 无公网 URL：          local-only，只适合能访问 localhost 的 MCP 客户端
 ```
 
 Cloudflare quick tunnel 每次重启 URL 都变。把 quick URL 填到 ChatGPT 后，每次重启都要改 ChatGPT App 的 Server URL。
 
-大多数用户建议用 ngrok free dev domain。创建免费 ngrok 账号，在 Universal Gateway -> Domains 找到分配给你的 dev domain，并在 `codexgpt setup` 里保存。
+如果需要简单的 Legacy 稳定 URL，创建免费 ngrok 账号，在 Universal Gateway -> Domains 找到分配给你的 dev domain，并在 `codexgpt setup` 里保存。
 
 如果你有自己的域名，用 Cloudflare named tunnel，把 DNS 路由到例如 `codexgpt.example.com` 的主机名。
 
@@ -270,7 +270,7 @@ CodexGPT 使用 ChatGPT 的官方 Developer Mode / MCP App 接入路径，让你
 
 CodexGPT 是本地开发桥，不是操作系统级沙箱。
 
-只在你信任的仓库里使用。公网 tunnel 保持 token auth 开启。保持 safe bash，除非你明确知道为什么需要 full bash。公网暴露前先读 [SECURITY.md](SECURITY.md)。
+只在你信任的仓库里使用。OAuth 公网路径必须保持 OAuth grant 校验；Legacy query-token URL 必须按密码保护。保持 safe bash，除非你明确知道为什么需要 full bash。公网暴露前先读 [SECURITY.md](SECURITY.md)。
 
 ## 保存的设置在哪里？
 

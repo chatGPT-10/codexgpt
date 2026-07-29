@@ -68,11 +68,11 @@ test("scan truncation is truthful and exact path resolution remains direct", asy
   });
 });
 
-test("configured global discovery bounds inspected entries even when they contain no Skill files", async () => {
+test("configured global discovery bounds inspected entries at sixteen times the Skill candidate limit", async () => {
   assert.ok(discovery);
   const codexDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "phase6-global-scan-bound-")));
   try {
-    for (let index = 0; index < 20; index += 1) {
+    for (let index = 0; index < 81; index += 1) {
       await fs.mkdir(path.join(codexDir, "skills", `empty-${String(index).padStart(2, "0")}`), { recursive: true });
     }
     const result = await discovery.discoverExplicitGlobalSkills({ codexDir, maxCandidates: 5, maxSkills: 5, blockedGlobs: [] });

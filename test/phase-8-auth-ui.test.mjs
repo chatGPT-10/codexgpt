@@ -82,8 +82,28 @@ test("local admin UI requires fragment bootstrap, cookie, Origin, and CSRF", asy
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = server.address().port;
   const origin = `http://127.0.0.1:${port}`;
+  const tokenDiagnostics = {
+    snapshot: () => ({
+      startedAt: "2026-07-28T12:00:00.000Z",
+      totalRequests: 3,
+      entries: [{
+        endpoint: "/token",
+        grantType: "refresh_token",
+        status: 429,
+        reason: "token_client_limit",
+        count: 1,
+        firstSeenAt: "2026-07-28T12:01:00.000Z",
+        lastSeenAt: "2026-07-28T12:01:00.000Z"
+      }]
+    })
+  };
   server.removeAllListeners("request");
-  server.on("request", createLocalAdminApp({ ownerAdminService: service, sessions, origin }));
+  server.on("request", createLocalAdminApp({
+    ownerAdminService: service,
+    sessions,
+    origin,
+    tokenDiagnostics
+  }));
   t.after(() => new Promise((resolve) => server.close(resolve)));
 
   const root = await request(port, "/");
@@ -95,6 +115,10 @@ test("local admin UI requires fragment bootstrap, cookie, Origin, and CSRF", asy
   assert.equal(adminScript.status, 200);
   assert.match(adminScript.headers["content-type"], /^(?:text|application)\/javascript\b/);
   assert.equal(adminScript.headers["x-content-type-options"], "nosniff");
+
+  const health = await request(port, "/healthz");
+  assert.equal(health.status, 200);
+  assert.equal(JSON.parse(health.text).oauthTokenDiagnostics, undefined);
 
   const unauthorized = await request(port, "/api/status");
   assert.equal(unauthorized.status, 401);
@@ -115,6 +139,10 @@ test("local admin UI requires fragment bootstrap, cookie, Origin, and CSRF", asy
   const status = await request(port, "/api/status", { headers: { Cookie: cookie } });
   assert.equal(status.status, 200, status.text);
   assert.equal(JSON.parse(status.text).authorizations[0].correlationCode, "ABCD-EFGH");
+  assert.deepEqual(
+    JSON.parse(status.text).oauthTokenDiagnostics,
+    tokenDiagnostics.snapshot()
+  );
 
   const pendingId = `pending_${"A".repeat(22)}`;
   const noCsrf = await request(port, `/api/authorizations/${pendingId}/approve`, {

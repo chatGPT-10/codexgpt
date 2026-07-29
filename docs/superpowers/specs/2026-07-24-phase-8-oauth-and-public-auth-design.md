@@ -1,7 +1,7 @@
 # Phase 8 OAuth 2.1 and Public Authentication Usability Design
 
 Date: 2026-07-26
-Status: local implementation closure accepted; G8-0 and Tasks 8A1–8A9, authorized Gate G8-U through Journey U7, and STEP-470 local G8-X are complete. U6 closed with a documented evidence substitution because the retained Legacy App was deleted: replacement Legacy rollback compatibility and exact OAuth return continuity passed, while continuity of the deleted Legacy App identity is not claimed. STEP-468 closed U7 with fail-early shared/unowned Tunnel preservation and live public/local boundary evidence. Exact-head CI, publication, and deployment remain separately authorized
+Status: Phase 8 Core is closed. G8-0 and Tasks 8A1–8A9, authorized Gate G8-U through Journey U7, STEP-470 local G8-X, and exact-head CI `30274857996` are complete; `1.0.0` published this baseline. U6 closed with a documented evidence substitution because the retained Legacy App was deleted: replacement Legacy rollback compatibility and exact OAuth return continuity passed, while continuity of the deleted Legacy App identity is not claimed. STEP-468 closed U7 with fail-early shared/unowned Tunnel preservation and live public/local boundary evidence. The explicitly authorized `1.0.3` and `1.0.4` npm/runtime repairs are also complete; their outstanding GitHub source/tag/Release reconciliation does not authorize further deployment or unrelated external-state changes.
 Audience: CodexGPT maintainers and the owner of this personal deployment
 
 This document supersedes the short Phase 8 outline in the master plan for exact Phase 8 behavior. Implementation authority and external-state authority remain governed by the current project boundary.
@@ -71,7 +71,7 @@ codexgpt auth setup `
   --tunnel-name codexgpt-target
 ```
 
-Unpublished source checkout:
+Source checkout (development or branch-specific build):
 
 ```powershell
 node D:\Dev\codexpro\scripts\codexgpt-entry.mjs auth setup `
@@ -913,7 +913,7 @@ Core freezes these default ceilings; Gate G8-0 may change a value only by updati
 | Refresh family | 8 active per client, 64 per deployment; 90-day idle, 365-day absolute |
 | Refresh envelope | 1-byte version, 128-bit random family handle, 64-bit generation, 256-bit nonce, 256-bit HMAC; 512-byte encoded-token ceiling |
 | Signing keys | 1 active + at most 4 retained public JWKs; no retained previous private key |
-| OAuth rate limits | DCR 20/hour deployment; authorize 120/15 min deployment and 20/15 min client; token 120/15 min deployment and 30/15 min client; revoke 60/15 min deployment and 20/15 min client |
+| OAuth rate limits | DCR 20/hour deployment; authorize 120/15 min deployment and 20/15 min client; token 240/15 min deployment and 120/15 min client; revoke 60/15 min deployment and 20/15 min client |
 | Public admission | 64 active + 128 queued requests per deployment; 16 active + 32 queued positions reserved for `/mcp`; overflow is bounded 429 with `Retry-After` and no identity oracle |
 | Bearer verification | cheap length/ASCII/three-base64url-segment/decoded-header checks precede crypto; 8 ES256 verifications active + 32 queued; 2 active + 8 queued positions reserved for an exact previously validated keyed token fingerprint on an existing transport |
 | Bearer abuse | 120 failed new-token validations/minute/deployment with burst 30; 256 keyed negative fingerprints retained for at most 60 seconds; exhaustion never evicts the reserved established-token path |
@@ -923,6 +923,8 @@ Core freezes these default ceilings; Gate G8-0 may change a value only by updati
 | Invalid-event aggregation | 64 deployment/error-class buckets; first event plus one bounded summary per 5-minute window, never one durable write per hostile request |
 | Audit | 8 KiB per auth event; existing configured retention defaults remain 30 days and 100 MiB closed segments |
 | Recovery | 3 verified backups per state document and 64 MiB total auth quarantine; overflow blocks mutation and gives cleanup guidance |
+
+The token limits include authorization-code exchange and refresh requests in the same fixed window. The per-client ceiling is sized above the observed ChatGPT refresh cadence while remaining bounded; it does not weaken refresh rotation, replay detection, or access-token lifetime. The process keeps only bounded, credential-free counters by grant type, HTTP status, and fixed internal reason. Pre-parse admission or deployment-limit rejections truthfully use the `unknown` grant type. Those counters are exposed only after authentication on the loopback local-admin status API, never by either unauthenticated health endpoint or the public listener, and contain no client, grant, token, request, or network identifier.
 
 All byte limits use UTF-8 encoded bytes before normalization; percent decoding, Unicode normalization, content-type/charset validation, and duplicate detection occur under the same raw-input budget. Rate-limit responses do not reveal whether a client, token, or pending ID exists.
 

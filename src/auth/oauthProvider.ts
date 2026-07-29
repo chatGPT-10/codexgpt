@@ -17,6 +17,9 @@ import { AuthConfigurationError, OAuthProtocolError } from "./errors.js";
 import {
   CORE_OAUTH_RATE_LIMITS,
   FixedWindowRateLimiter,
+  type OAuthTokenEndpointDiagnostics,
+  type OAuthTokenDiagnosticGrantType,
+  type OAuthTokenDiagnosticReason,
   type RateLimitDecision
 } from "./rateLimits.js";
 import type { OAuthTokenService } from "./tokenService.js";
@@ -29,6 +32,14 @@ export const OAUTH_QUERY_VALUE_MAX_BYTES = 4096;
 
 const AUTHORIZATION_LOCALS = "codexgptAuthorization";
 const UNKNOWN_SAFE_ERROR = Object.freeze({ error: "authorization_unavailable" });
+const TOKEN_DIAGNOSTIC_ERROR_REASONS = new Set([
+  "invalid_request",
+  "invalid_client",
+  "invalid_grant",
+  "invalid_scope",
+  "invalid_target",
+  "temporarily_unavailable"
+]);
 
 export interface AuthorizationRouteOptions {
   identity: OAuthDeploymentIdentity;
@@ -485,6 +496,7 @@ export function createAuthorizationContinueHandler(options: AuthorizationRouteOp
 export interface TokenRouteOptions {
   provider: CodexOAuthProvider;
   now?: () => number;
+  diagnostics?: OAuthTokenEndpointDiagnostics;
 }
 
 const TOKEN_STANDARD_PARAMETERS = new Set([
@@ -581,14 +593,21 @@ function protocolErrorShape(error: unknown): {
   return { oauthCode: value.oauthCode, statusCode: value.statusCode, message: value.message };
 }
 
-function machineError(res: Response, error: unknown): void {
+function machineError(
+  res: Response,
+  error: unknown
+): { status: number; reason: OAuthTokenDiagnosticReason } {
   applyMachineSecurityHeaders(res);
   const protocol = protocolErrorShape(error);
   if (protocol) {
     res.status(protocol.statusCode).json({ error: protocol.oauthCode, error_description: protocol.message });
-    return;
+    const reason = TOKEN_DIAGNOSTIC_ERROR_REASONS.has(protocol.oauthCode)
+      ? protocol.oauthCode as OAuthTokenDiagnosticReason
+      : "temporarily_unavailable";
+    return { status: protocol.statusCode, reason };
   }
   res.status(503).json({ error: "temporarily_unavailable" });
+  return { status: 503, reason: "temporarily_unavailable" };
 }
 
 export function createTokenEndpointHandler(
@@ -599,20 +618,35 @@ export function createTokenEndpointHandler(
   const clientLimit = new FixedWindowRateLimiter(CORE_OAUTH_RATE_LIMITS.tokenClient, { now: options.now });
   return async (req, res) => {
     applyMachineSecurityHeaders(res);
+    let grantType: OAuthTokenDiagnosticGrantType = "unknown";
     const deploymentDecision = deploymentLimit.consume("deployment");
     if (!deploymentDecision.allowed) {
       res.setHeader("Retry-After", String(deploymentDecision.retryAfterSeconds));
       res.status(429).json({ error: "temporarily_unavailable" });
+      options.diagnostics?.record({
+        grantType,
+        status: 429,
+        reason: "token_deployment_limit"
+      });
       return;
     }
     try {
       const parameters = parseMachineForm(req);
+      grantType = parameters.grant_type === "authorization_code" ||
+        parameters.grant_type === "refresh_token"
+        ? parameters.grant_type
+        : "unknown";
       rejectForbiddenClientAuthentication(parameters);
       const clientId = requireClientId(parameters);
       const clientDecision = clientLimit.consume(clientId);
       if (!clientDecision.allowed) {
         res.setHeader("Retry-After", String(clientDecision.retryAfterSeconds));
         res.status(429).json({ error: "temporarily_unavailable" });
+        options.diagnostics?.record({
+          grantType,
+          status: 429,
+          reason: "token_client_limit"
+        });
         return;
       }
       const client = await options.provider.approvedClient(clientId);
@@ -660,8 +694,10 @@ export function createTokenEndpointHandler(
         throw new OAuthProtocolError("invalid_request", "The OAuth grant type is invalid.");
       }
       res.status(200).json(tokens);
+      options.diagnostics?.record({ grantType, status: 200, reason: "success" });
     } catch (error) {
-      machineError(res, error);
+      const diagnostic = machineError(res, error);
+      options.diagnostics?.record({ grantType, ...diagnostic });
     }
   };
 }

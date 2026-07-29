@@ -6,6 +6,7 @@ import {
   LocalAdminSessionManager,
   parseLocalAdminCookie
 } from "../auth/localAdminSession.js";
+import type { OAuthTokenEndpointDiagnostics } from "../auth/rateLimits.js";
 import { applyBaseSecurityHeaders, applyNoStore } from "./securityHeaders.js";
 
 export interface OwnerAdminService {
@@ -65,6 +66,7 @@ export interface LocalAdminAppOptions {
   ownerAdminService: OwnerAdminService;
   sessions: LocalAdminSessionManager;
   origin: string;
+  tokenDiagnostics?: Pick<OAuthTokenEndpointDiagnostics, "snapshot">;
 }
 
 const ROOT_BODY = `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CodexGPT local administration</title><link rel="stylesheet" href="/admin.css"></head><body><main><h1>CodexGPT local administration</h1><p id="status">This page is local to this PC. Open it with <code>codexgpt auth open --root &lt;workspace&gt;</code>.</p><section id="content" hidden><h2>Pending links</h2><div id="pending"></div><details><summary>Clients and grants</summary><h2>Clients</h2><div id="clients"></div><h2>Grants</h2><div id="grants"></div></details></section></main><script src="/admin.js" defer></script></body></html>`;
@@ -195,7 +197,10 @@ export function createLocalAdminApp(options: LocalAdminAppOptions): express.Expr
       res.json({
         authorizations: authorizations.oauthAuthorizations ?? [],
         clients: clients.oauthClients ?? [],
-        grants: grants.oauthGrants ?? []
+        grants: grants.oauthGrants ?? [],
+        ...(options.tokenDiagnostics
+          ? { oauthTokenDiagnostics: options.tokenDiagnostics.snapshot() }
+          : {})
       });
     } catch (error) {
       res.status(503).json({ code: errorCode(error) });
