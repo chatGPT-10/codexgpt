@@ -51,7 +51,7 @@ CodexGPT is not a hosted coding service, model proxy, quota bypass, account pool
 - Phases 5, 6, and Phase 7 Core are closed on full Ubuntu/Windows Node 20/24 validation matrices. Phase 7 Core closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with exact-head CI run `30171313296`; Contract V5 remains an explicit `standard` opt-in rather than the default public contract.
 - Phase 8 Tasks 8A1–8A9 are implemented and locally verified in the source checkout: Windows DPAPI CurrentUser state protection, separated public/local listeners, constrained DCR + PKCE S256, ES256 access tokens, rotating refresh families, durable revoke/replay, request-local policy identity, exact per-tool scopes, supported setup/administration/recovery, dedicated Tunnel ownership checks, migration/rollback documentation, package integration, synthetic end-to-end OAuth/MCP coverage, and completed-runtime adversarial repairs. Live Gate G8-U is accepted through Journeys U2–U7, and STEP-470 closed local G8-X with post-repair managed Node 20/24 ordinary and protected Smoke. U6 passed service/protocol rollback, a real recreated-Legacy-App read, exact no-argument OAuth restoration, and a real post-return OAuth App read; the deleted original Legacy App identity is explicitly not claimed as continuous. U7 proved fail-early byte-preserving refusal of shared/unowned Tunnel configs and the live public-loopback/local-admin boundary. Phase 8 exact-head closure passed at `55b2b5664aae322ec992968a41c87a289fb75282` in CI run `30274857996`; `1.0.0` packages this verified baseline.
 
-The npm badge and package metadata should both report `1.0.4`. Use a source checkout only when you specifically need unreleased `main` behavior.
+The npm badge and package metadata should both report `1.0.4`. Use a source checkout for development, verification of a specific commit or branch, or changes not included in the npm package; check its package version and commit before relying on it.
 
 For an existing source checkout, keep the public entry layer by using the repository scripts:
 
@@ -91,7 +91,7 @@ codexgpt auth setup `
   --tunnel-name codexgpt
 ```
 
-Unpublished source checkout:
+Source checkout (development or branch-specific build):
 
 ```powershell
 Set-Location D:\Dev\codexpro
@@ -264,7 +264,7 @@ Phase 6 project guidance is enabled by default. Start normally:
 codexgpt start
 ```
 
-The first workspace-open result includes bounded root `AGENTS.md` instructions and an implicit-eligible workspace Skill catalog. Before the first mutation, ChatGPT calls `codex_context(target_path)` to load the exact root-to-target instruction chain and target-scoped `.agents/skills` catalog, then may load at most one matching Skill with the same returned `target_path`. Skill bodies and `references/`, `scripts/`, or `assets/` text remain lazy; nothing in a Skill executes automatically. User/plugin Skills remain excluded unless a tool call explicitly opts into global discovery.
+The first workspace-open result includes bounded root `AGENTS.md` instructions and an implicit-eligible workspace Skill catalog. Before the first mutation, ChatGPT calls `codex_context(target_path)` to load the exact root-to-target instruction chain and target-scoped `.agents/skills` catalog, then may load at most one matching Skill with the same returned `target_path`. Skill bodies and `references/`, `scripts/`, or `assets/` text remain lazy; nothing in a Skill executes automatically. User/plugin Skills remain excluded unless a tool call explicitly opts into global discovery. To deliberately load a configured user Skill, call `load_skill` with `source: "user"` and either its `name` or its displayed selector such as `$CODEX_DIR/skills/neat-freak/SKILL.md`; this read is limited to configured user-Skill roots and does not add a workspace root or change `--allow-root`.
 
 An App created before the Phase 6 tool update may retain a frozen tool snapshot. Run **Scan Tools** once or recreate that App; transparent refresh is not claimed. The stable `codexgpt` supertool remains a compatibility path for `open` and `codex_context` when present in the cached snapshot. To roll back with the same binary, restart with:
 
@@ -387,8 +387,8 @@ Useful surface controls:
 
 Default safety properties include:
 
-- Public tunnel mode requires a CodexGPT HTTP token.
-- The public CLI uses the complete query-token Server URL for personal ChatGPT compatibility.
+- OAuth public mode requires a valid OAuth grant and uses a token-free ChatGPT Server URL.
+- The retained Legacy public CLI uses the complete query-token Server URL for personal ChatGPT compatibility; treat that URL as password-equivalent.
 - The local HTTP listener defaults to `127.0.0.1`.
 - Generic source writes are exposed only in workspace write mode.
 - Safe Bash blocks broad shell patterns and sensitive/build/cache paths.

@@ -47,7 +47,7 @@ CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 
 npm install -g codexgpt
 ```
 
-npm badge 与 package metadata 均应显示 `1.0.4`；只有需要尚未发布的 `main` 行为时，才使用下面的 source checkout 方式。
+npm badge 与 package metadata 均应显示 `1.0.4`。source checkout 用于开发、验证特定 commit/branch，或使用 npm package 尚未包含的改动；依赖它之前先核对 package version 与 commit。
 
 已有 source checkout 时，使用仓库脚本以保留公开入口层：
 
@@ -77,7 +77,7 @@ codexgpt auth setup `
   --tunnel-name codexgpt
 ```
 
-尚未发布的 source checkout：
+源码检出（开发或分支版本）：
 
 ```powershell
 Set-Location D:\Dev\codexpro
@@ -220,7 +220,7 @@ ChatGPT Web 可以操作：
 
 默认 `CODEXGPT_TOOL_MODE=standard`，只暴露常用编码循环、`codexgpt_self_test`、`show_changes`、上下文导出和 handoff。演示时可以用 `--tool-mode minimal`，需要完整兼容工具时用 `--tool-mode full`。
 
-默认工具数量较少是故意的：ChatGPT 面对少量高信号工具时更稳定。Phase 6 项目指导现在默认启用，直接运行 `codexgpt start` 即可。首次 workspace open 会自动返回有界的根 `AGENTS.md` 正文和仅含 implicit-eligible workspace Skill 的 catalog；首次修改前，ChatGPT 必须调用 `codex_context(target_path)` 获取精确的 root-to-target 指令链和 target-scoped `.agents/skills`，再用返回的同一个 `target_path` 最多加载一个匹配 Skill。Skill 正文及 `references/`、`scripts/`、`assets/` 文本按需加载，任何脚本、依赖或 metadata 都不会自动执行。user/plugin Skills 默认不暴露，只有显式 `include_global_skills=true` 才扫描。
+默认工具数量较少是故意的：ChatGPT 面对少量高信号工具时更稳定。Phase 6 项目指导现在默认启用，直接运行 `codexgpt start` 即可。首次 workspace open 会自动返回有界的根 `AGENTS.md` 正文和仅含 implicit-eligible workspace Skill 的 catalog；首次修改前，ChatGPT 必须调用 `codex_context(target_path)` 获取精确的 root-to-target 指令链和 target-scoped `.agents/skills`，再用返回的同一个 `target_path` 最多加载一个匹配 Skill。Skill 正文及 `references/`、`scripts/`、`assets/` 文本按需加载，任何脚本、依赖或 metadata 都不会自动执行。user/plugin Skills 默认不暴露，只有工具调用显式请求 global discovery（例如 `include_global_skills=true` 或 `source: "user"`）才扫描。要有意加载已配置的用户级 Skill，请在 `load_skill` 中传入 `source: "user"`，并提供其 `name` 或显示出来的 selector，例如 `$CODEX_DIR/skills/neat-freak/SKILL.md`；该读取只限于配置的用户 Skill root，不会增加 workspace root，也不会改变 `--allow-root`。
 
 Phase 6 更新前创建的 App 可能保留冻结的旧工具快照；此时需要执行一次 **Scan Tools** 或重建该 App，不宣称透明自动刷新。若旧快照中已有稳定的 `codexgpt` supertool，它仍可兼容调用 `open` 和 `codex_context`。同一二进制回滚只需设置 `$env:CODEXGPT_GUIDANCE_MODE = "legacy"` 并重启。`codexgpt doctor` 会报告 readiness、无效 metadata、命名冲突及 scan/catalog 截断。省略该变量时现在使用 `standard`；由于 `minimal` 不暴露 `codex_context`，省略 guidance 配置的 `--tool-mode minimal` 会使用精确的 legacy 兼容投影，显式 `standard + minimal` 则在启动时失败。
 
@@ -374,14 +374,14 @@ codexgpt pro-apply --root /absolute/path/to/your/repo --file plan.md
 
 如果你的 ChatGPT 账号已经在 Web 产品里提供 GPT-5.5 或更强模型，并且该模型界面可以调用 Developer Mode Apps，CodexGPT 可以让它通过 MCP 使用本地仓库工具。CodexGPT 不提供、不代理、不转售、也不解锁模型。
 
-## 稳定 URL 怎么选
+## Legacy query-token 的稳定 URL 怎么选
 
-ChatGPT App 需要一个可访问的 Server URL。你有三个常用选择：
+推荐的 OAuth 路径只使用前文 `codexgpt auth setup` 创建或验证的专用 Cloudflare named Tunnel。若你仍保留 Legacy query-token App，它有三个常用 URL 选择：
 
 ```text
-Cloudflare quick tunnel   最快演示路径。每次重启 URL 都变。
-ngrok free dev domain     推荐给大多数用户。免费账号给一个稳定 dev domain。
-Cloudflare named tunnel   适合已有自定义域名的用户。
+Cloudflare quick tunnel   Legacy 最快演示路径。每次重启 URL 都变。
+ngrok free dev domain     Legacy 的简单稳定 URL。免费账号给一个 dev domain。
+Cloudflare named tunnel   Legacy 自定义域名路径；OAuth 请使用 auth setup。
 ```
 
 ### Cloudflare quick tunnel
@@ -396,7 +396,7 @@ codexgpt start
 
 ### ngrok free dev domain
 
-推荐给大多数用户。创建一个免费 ngrok 账号，在 ngrok Dashboard 的 Universal Gateway -> Domains 找到你的 dev domain，比如：
+如果需要简单的 Legacy 稳定 URL，创建一个免费 ngrok 账号，在 ngrok Dashboard 的 Universal Gateway -> Domains 找到你的 dev domain，比如：
 
 ```text
 your-name.ngrok-free.dev
@@ -623,8 +623,8 @@ CodexGPT 是本地开发桥，不是操作系统级沙箱。
 
 默认安全行为：
 
-- 公网 tunnel 默认需要私有 CodexGPT token。
-- 受支持的公开 CLI 默认使用个人 ChatGPT query-token 兼容流程；只有能主动发送 Bearer header 的高级兼容客户端才应显式设置 `CODEXGPT_ALLOW_QUERY_TOKEN=0`。
+- OAuth 公网模式要求有效 OAuth grant，ChatGPT Server URL 不含 token。
+- 保留的 Legacy 公开 CLI 使用个人 ChatGPT query-token 兼容流程；该完整 URL 等同密码。只有能主动发送 Bearer header 的高级兼容客户端才应显式设置 `CODEXGPT_ALLOW_QUERY_TOKEN=0`。
 - 写入限制在配置的工作区 root 内。
 - 常见敏感路径会被拒绝：`.env`、私钥、`.git`、`node_modules`、生成目录、缓存目录。
 - symlink 逃逸会被阻止。

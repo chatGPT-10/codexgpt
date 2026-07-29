@@ -257,3 +257,47 @@ Existing approved client and OAuth state were retained; no credential, Tunnel, D
 **Rollback:** Revert the three source/test files. No user Skill, runtime state, profile, workspace authorization, credential, or network configuration was modified.
 
 **Next action:** Commit/push the reviewed `1.0.4` candidate, require exact-head CI, publish only after that gate succeeds, then replace the exact owned runtime. Do not add the user Codex directory to `--allow-root` or enable `--allow-home` as a workaround.
+
+### STEP-481 correction — `1.0.4` publication and replacement runtime complete
+
+The owner authorized publication and runtime replacement. Commit `48fb3f5334cb286df2af7adf56ddddbbcfc41406` (`fix: load configured user skills`) was pushed to `codex/step480-oauth-refresh`; exact-head CI run `30373608845` passed Repository policy plus Ubuntu/Windows Node 20/24 Build, Regression, Smoke, and Package checks. The npm registry reports `codexgpt@1.0.4`, `latest = 1.0.4`, and matching `gitHead` at that commit.
+
+The former exact owned `1.0.3` run `2026-07-28T13-27-14-640Z-codexgpt-step480-1-0-3-b8b05ee2` was stopped through `long-task-runner stop --run`; no raw PID or unrelated service was terminated. One initial replacement attempt included an extra command separator and failed closed with `spawn -- ENOENT`; it changed no profile, credential, Tunnel, DNS, or allowed root. The corrected exact owned `1.0.4` run `2026-07-28T16-16-24-285Z-codexgpt-step481-user-skill-1-0-4-ba0b359d` uses the existing `D:\Codex\chatgpt上下文插件` OAuth profile, explicit `--allow-root D:/Dev/codexpro`, managed Node 24, and the verified cloudflared path. Local public-MCP health with the stable Host, local-admin health, and `https://codexgpt.drliang.uk/healthz` each returned `200`; public health reports `authMode: oauth` and `mcpAvailable: true`.
+
+No user Codex root was added to workspace authorization, no `--allow-home` option was enabled, and no credential/profile/Tunnel/DNS state was migrated. ChatGPT Apps with frozen tool inventories still need one explicit **Scan Tools** refresh or recreation before testing the repaired Skill.
+
+**Files changed:** Tracked documentation only: `Memory.md` and this archive. Ignored detached-run evidence resides under `.ai-bridge/runs/`. Source files: none after the released commit.
+
+**Risks and limitations:** Health checks prove the replacement process, OAuth local/admin boundary, and public HTTPS route; they do not constitute a ChatGPT-side `load_skill` invocation. The source-level real global-Skill fixture and release regressions prove that behavior. The new process remains an owned detached run, not a reviewed persistent Windows service.
+
+**Rollback:** Stop only exact run `2026-07-28T16-16-24-285Z-codexgpt-step481-user-skill-1-0-4-ba0b359d`, then restart the prior reviewed source/package only after verifying its exact version and listener availability. Do not widen workspace roots as a rollback substitute.
+
+**Next action:** In ChatGPT, refresh the App tool inventory once if it is cached, then invoke `load_skill` with `neat-freak` or the exact selector. Keep the remaining DNS cleanup and persistent lifecycle work separately authorized.
+
+## 2026-07-28 — STEP-482: Reconcile user-Skill guidance after the `1.0.4` release
+
+**Status:** Passed. Active English/Chinese user guidance now explains the bounded, explicit configured-user Skill path without implying workspace-root expansion or a required tool-inventory refresh.
+
+**Goal:** Make the `1.0.4` repair discoverable to a new user while preserving the Phase 6 security boundary: global/user Skill reads require a deliberate request and must not be described as `--allow-root` or `--allow-home` access.
+
+**Files changed:** `README.md`, `README_ZH.md`, `FAQ.md`, `FAQ_ZH.md`, `Memory.md`, and this archive. Source files: none.
+
+**Implementation:** The Phase 6 guidance sections and FAQs now state that `load_skill` can select a configured user Skill with `source: "user"` plus either its name or a displayed selector such as `$CODEX_DIR/skills/neat-freak/SKILL.md`. The text explicitly says this is a bounded read of configured user-Skill roots and does not widen workspace access or alter `--allow-root`. The memory open item now correctly keeps the outstanding real 20-minute OAuth acceptance check and removes the inaccurate implication that a behavior-only `1.0.4` patch itself needs **Scan Tools**.
+
+**Verification:** Confirmed `package.json`, runtime release records, `CHANGELOG.md`, npm-published `1.0.4` state, and the exact-head release evidence all agree. Inspected the standard-mode parser: `source: "user"` is an explicit global selector and defaults global discovery on for that request; exact `$CODEX_DIR/skills/.../SKILL.md` and name selection are covered by the `1.0.4` load-skill integration regression. Checked all paths cited by `AGENTS.md`; each exists. `Memory.md` remains within its practical 150-line/18-KB target, and this archive remains below its 48-KB continuation threshold.
+
+**Rules audit:** Project and global `AGENTS.md` are present; no parent-level project rule file exists. `AGENTS.md` is the project authority, so no unsupported `CLAUDE.md`/symlink was created. `.gitignore` excludes local env files, ignored runtime evidence, and logs. No active non-archive Markdown relative-time wording was introduced; archived historical occurrences remain deliberately historical.
+
+**Risks and limitations:** This documentation check does not replace a real ChatGPT `load_skill` call or the pending 20-minute OAuth acceptance observation. It makes no profile, credential, Tunnel, DNS, allowed-root, npm, Git, or runtime mutation.
+
+**Rollback:** Revert only the six documented files. No code or persistent runtime state changes require rollback.
+
+**Next action:** Invoke `load_skill` from ChatGPT with `source: "user"` and `neat-freak` (or its exact displayed selector), then retain normal use for at least 20 minutes before treating the OAuth refresh acceptance item as closed.
+
+### STEP-482 correction — clarify the Scan Tools condition
+
+Earlier STEP-481 wording that advised a general App inventory refresh before testing the repaired Skill was overbroad. The `1.0.4` change is behavior-only and does not alter the `load_skill` descriptor, so an App that already exposes `load_skill` needs no **Scan Tools** action to receive the new backend behavior. Refresh or recreation remains necessary only for an old/frozen App inventory that lacks the Phase 6 `load_skill` tool itself. This correction does not alter the release, runtime, or security boundary.
+
+### STEP-482 correction — compact the memory index
+
+The index retained only STEP-477 through STEP-482 summaries because they contain the active hostname/DNS cleanup, current runtime, and current acceptance context. Superseded STEP-468 and STEP-470 through STEP-476 summaries remain preserved in their linked append-only archive volumes, so deleting them from the always-loaded index loses no operational evidence while restoring practical context headroom.

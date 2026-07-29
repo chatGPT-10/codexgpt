@@ -1,16 +1,16 @@
 # CodexGPT 总体实施计划
 
-> 版本：2.6
+> 版本：2.7
 > 生效日期：2026-07-13
-> 核对日期：2026-07-27
+> 核对日期：2026-07-29
 > 状态：当前权威实施路线
 > 工作区：`D:\Dev\codexpro`
-> 基线版本：`codexgpt@1.0.0`
-> 当前阶段：Phase 1–8 Core 已关闭。Phase 8 关闭基线为 `55b2b5664aae322ec992968a41c87a289fb75282` / CI `30274857996`；首个稳定版本 `codexgpt@1.0.0` 已从 `main` merge commit `9131c393da3a1eb3c9514710b0b1569f55dd5acb` 发布，merged exact-head CI `30283923175`、npm `latest`、annotated tag `v1.0.0` 与 GitHub Release 均对齐该提交。
+> 当前 npm 版本：`codexgpt@1.0.4`
+> 当前阶段：Phase 1–8 Core 已关闭。Phase 8 关闭基线为 `55b2b5664aae322ec992968a41c87a289fb75282` / CI `30274857996`；`1.0.3` OAuth refresh 修复与 `1.0.4` user-Skill 修复已分别在 `a7435dba11a6cf187c0d3611d54510f746444359` / CI `30361606961` 和 `48fb3f5334cb286df2af7adf56ddddbbcfc41406` / CI `30373608845` 完成 npm 发布与 reviewed runtime replacement。2026-07-29 审计确认 GitHub 默认分支只有 `1.0.2` package metadata，而 runtime/README 仍为 `1.0.1`；GitHub Latest Release 也是 `v1.0.1`，并缺少 `v1.0.2`–`v1.0.4` 标签和对应 Releases。历史 `1.0.2` commit 的 CI 失败且 runtime version surfaces 不一致，只能如实记录为已被替代，不能补写为完整 closure。
 >
-> 下一动作：不自动进入下一实施阶段；由 owner 从已审阅的 post-Phase-8 backlog 中明确选择并授权下一个最小切片，默认优先级为 configuration provenance、diagnostic foundation、current-user background lifecycle、incremental modularization。U6 继续保留“重建 Legacy App 兼容性通过、被删除旧 App 身份连续性不宣称”的证据替代。
+> 下一动作：先完成已发布 `1.0.2`–`1.0.4` 的 GitHub source/tag/Release 对齐并逐项验证；之后不自动进入下一实施阶段，由 owner 从已审阅的 post-Phase-8 backlog 中明确选择并授权下一个最小切片。U6 继续保留“重建 Legacy App 兼容性通过、被删除旧 App 身份连续性不宣称”的证据替代。
 >
-> 授权状态：Phase 1 → Policy Kernel → Phase 2A–Phase 8 Core 与 `1.0.0` 发布均已完成。当前没有隐含的 post-`1.0.0` 实施或 deployment 授权；真实凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、运行环境 deployment、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
+> 授权状态：Phase 1 → Policy Kernel → Phase 2A–Phase 8 Core、`1.0.0`–`1.0.4` 的已记录有界修复与 npm/runtime 发布均已完成；这不构成进一步 post-`1.0.4` 实施或 deployment 授权。真实凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
@@ -107,7 +107,7 @@ mcp.<user-domain>
 | Phase 5 | 正式关闭 | closure head `9aa76b92d7894a2f013b2d6478897907c4010a7e` 通过 exact-head run `29698209894`；后续 Gate X 修复经 PR #4 合并到 `main`，STEP-379/380 follow-up head `576029b37c8b147e3fd1d0e383ba3bbdaa4f6ee4` 通过 run `29780813295` 的完整矩阵 |
 | Phase 6 | 已关闭 | closure head `31631676fe254962a9a4f14d6e025e3edba82b8d` 的 run `30033293444` 已通过 Repository policy 与 Ubuntu/Windows Node 20/24 Build、Regression、Smoke、Package |
 | Phase 7 | Core 已正式关闭 | owned-worker 零配置 JS/TS、symbol locator、exact inherited V5=52、quality-labeled fallback、approval/identity-bound atomic rename 已实现；真实 ChatGPT U2–U6 已通过 STEP-430，最终本地 G7-X 已通过 STEP-432，closure head `a0b9f46e2297297959527f7570c9cb7942cc8fb3` 与 run `30171313296` 已通过完整矩阵 |
-| Phase 8 | 本地实现关闭；exact-head publication 待授权 | G8-0、Tasks 8A1–8A9、专用 OAuth Tunnel/App、Journeys U2–U7 与 STEP-470 local G8-X 已通过；U6 保留删除旧 Legacy App 后的证据替代，不宣称旧 App 身份连续性；exact-head CI、publication/deployment 尚未完成 |
+| Phase 8 | 正式关闭 | G8-0、Tasks 8A1–8A9、专用 OAuth Tunnel/App、Journeys U2–U7 与 STEP-470 local G8-X 已通过；U6 保留删除旧 Legacy App 后的证据替代，不宣称旧 App 身份连续性；closure head `55b2b5664aae322ec992968a41c87a289fb75282` 与 run `30274857996` 已通过完整矩阵，`1.0.0` 发布了该基线 |
 | Phase 9 | 未批准 | Subagents 继续保留独立批准门 |
 
 Phase 0.5 已验证的外部入口事实：公开 `https://codexgpt.drliang.uk/healthz` 已通过 Cloudflare 到达本地 CodexGPT，Host 校验通过后在认证层返回预期的 `401 Unauthorized`。
@@ -121,7 +121,7 @@ Phase 0.5 已验证的外部入口事实：公开 `https://codexgpt.drliang.uk/h
 5. 完整 Server URL 是秘密，可能通过历史记录、剪贴板、截图、日志或转发链接泄露。
 6. `CODEXGPT_ALLOW_QUERY_TOKEN=0` 只适用于能主动发送 `Authorization: Bearer` 的兼容客户端。
 7. 服务端 Bearer 支持仍保留，但文档不能声称 ChatGPT Web 支持手工静态 Bearer 配置。
-8. OAuth 2.1 是当前 Phase 8 标准化方向。G8-0 与 Tasks 8A1–8A9 已在本地完成：DPAPI、atomic auth state、双 listener、constrained DCR/PKCE、ES256 access/rotating refresh、durable revoke/replay、request-local policy/scope enforcement、精确 tool metadata、supported setup/local administration、Tunnel ownership verification、protected recovery/rebind、no-deletion rollback、migration/security documentation、package boundary、complete synthetic OAuth/MCP integration 与完成态 adversarial repairs 已实现。真实 ChatGPT/Cloudflare 联调、凭据迁移、发布与外部门禁仍须单独获批。
+8. OAuth 2.1 是已关闭的 Phase 8 标准化路径。DPAPI、atomic auth state、双 listener、constrained DCR/PKCE、ES256 access/rotating refresh、durable revoke/replay、request-local policy/scope enforcement、精确 tool metadata、supported setup/local administration、Tunnel ownership verification、protected recovery/rebind、no-deletion rollback、migration/security documentation、package boundary、complete synthetic OAuth/MCP integration 与完成态 adversarial repairs 已实现；真实 ChatGPT G8-U Journeys U2–U7、Cloudflare U7 boundary、exact-head CI、`1.0.0` baseline publication 及明确授权的 `1.0.3`/`1.0.4` npm/runtime 修复均已完成。真实凭据迁移、无关 Cloudflare/Tunnel/DNS 变更和进一步 deployment 仍须单独获批；当前仅需补齐既有 `1.0.2`–`1.0.4` GitHub source/tag/Release 对齐。
 9. 非 loopback 和 Tunnel 模式必须在没有认证时 fail closed；Host 和 Origin 校验必须在本地执行。
 
 ### 2.3 当前配置事实
@@ -1048,7 +1048,7 @@ Core 关闭至少要求：symbol-only 自然语言无需 pre-search 的 JS/TS de
 
 ## 16. Phase 8 — OAuth 2.1 与公网认证强化
 
-**当前状态：** 2026-07-26 [详细规格](superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md)和[可执行 TDD 计划](superpowers/plans/2026-07-24-phase-8-oauth-and-public-auth.md)控制 Phase 8 Core 的精确行为和 G8-0 至 G8-X 顺序。G8-0、Tasks 8A1–8A9 与 STEP-470 local G8-X 已本地完成，专用 OAuth Tunnel/App 已建立；真实 current-client fresh link、Journeys U2–U7 已通过。U5 verified-backup restore 作为 security reset 保留 stable binding/hostname/owned Tunnel、轮换 incarnation并清空旧 authority。U6 通过双路由 service/protocol、重建 Legacy App 真实读取、精确无参数 OAuth 恢复和现有 OAuth App 恢复后读取；原 Legacy App 已删除，因此以明确证据替代关闭，不宣称旧 App 身份连续性。U7 通过 fail-early shared/unowned config preservation 与 live public/local Tunnel boundary。下一动作是在单独授权后 reviewed stage/commit/push 和 exact-head CI；publication/deployment 仍另行授权。相关的全项目差距与后续排序见 [`openai/codex` 对标审阅](reviews/2026-07-26-openai-codex-project-review.md)和[Phase 8 后项目改进计划](superpowers/plans/2026-07-26-post-phase-8-project-improvement-plan.md)。
+**当前状态：** 2026-07-26 [详细规格](superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md)和[可执行 TDD 计划](superpowers/plans/2026-07-24-phase-8-oauth-and-public-auth.md)控制 Phase 8 Core 的精确行为和 G8-0 至 G8-X 顺序。G8-0、Tasks 8A1–8A9、真实 current-client fresh link、Journeys U2–U7、STEP-470 local G8-X 与 closure exact-head CI `30274857996` 均已完成。U5 verified-backup restore 作为 security reset 保留 stable binding/hostname/owned Tunnel、轮换 incarnation并清空旧 authority。U6 通过双路由 service/protocol、重建 Legacy App 真实读取、精确无参数 OAuth 恢复和现有 OAuth App 恢复后读取；原 Legacy App 已删除，因此以明确证据替代关闭，不宣称旧 App 身份连续性。U7 通过 fail-early shared/unowned config preservation 与 live public/local Tunnel boundary。Phase 8 baseline 已由 `1.0.0` 发布；后续明确授权的 `1.0.3` refresh 修复与 `1.0.4` user-Skill 修复也已通过各自 exact-head CI、npm 发布和 reviewed runtime replacement。相关的全项目差距与后续排序见 [`openai/codex` 对标审阅](reviews/2026-07-26-openai-codex-project-review.md)和[Phase 8 后项目改进计划](superpowers/plans/2026-07-26-post-phase-8-project-improvement-plan.md)。
 
 ### 16.1 目标
 
@@ -1371,4 +1371,4 @@ Phase 1 Slice 28 codexgpt
   → every matrix job completed Build, 456-test Regression, Smoke, and Package checks; Phase 1 is formally closed
 ```
 
-Phase 1–7 Core 已正式关闭；Phase 6 closure head `31631676fe254962a9a4f14d6e025e3edba82b8d` 的 exact-head run `30033293444` 与 Phase 7 Core closure head `a0b9f46e2297297959527f7570c9cb7942cc8fb3` 的 run `30171313296` 均已通过完整矩阵。CI 优化 head `b4b041da32be7bfb133495fb30aa851d67d4f216` 的 run `30177507346` 也已通过；本地 Phase 8 checkpoint 为 `949fed0301dfc22a6dd84b8d9b3c62393d7aad2d`，当前工作树尚未提交。Phase 8 G8-0、Tasks 8A1–8A9、Gate G8-U fresh link/Journeys U2–U7 与 STEP-470 local G8-X 已完成；U6 记录了原 Legacy App 删除后的证据替代，不宣称同一旧 App 身份连续性，U7 已通过 live Tunnel boundary 与 fail-early shared/unowned config preservation。下一动作是在明确授权后 reviewed stage/commit/push 与 exact-head CI。Reduced Phase 4 的 4B0、Task 4B1–4B6、sandbox authority、`workspace`、Phase 7B/7C、Phase 9、生产部署、真实凭据迁移、无关外部变更和破坏性数据/历史操作仍未授权。
+Phase 1–8 Core 已正式关闭；Phase 6 closure head `31631676fe254962a9a4f14d6e025e3edba82b8d` / run `30033293444`、Phase 7 Core closure head `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / run `30171313296` 与 Phase 8 closure head `55b2b5664aae322ec992968a41c87a289fb75282` / run `30274857996` 均已通过完整矩阵。首个稳定版本 `1.0.0` 已完成 npm/tag/GitHub Release closure；明确授权的 `1.0.1`–`1.0.4` 补丁已发布到 npm，其中当前 `latest` 为 `1.0.4`，对应 `48fb3f5334cb286df2af7adf56ddddbbcfc41406` / run `30373608845`。2026-07-29 公共状态审计发现 GitHub `main` 是三裂状态：commit/package metadata 为 `1.0.2`，runtime/README 为 `1.0.1`，GitHub Latest Release 为 `v1.0.1`，且缺少 `v1.0.2`–`v1.0.4` tags/Releases。`1.0.2` 的 run `30352571177` 失败且 runtime version surfaces 未对齐，不得补写为完整 release gate；下一动作是用保留 npm 原始 SHA 的 merge commit 对齐 `main`，将 `1.0.2` 明确记录为 superseded，再正常关闭 `1.0.3`/`1.0.4` GitHub Releases。Reduced Phase 4 的 4B0、Task 4B1–4B6、sandbox authority、`workspace`、Phase 7B/7C、Phase 9、进一步生产部署、真实凭据迁移、无关外部变更和破坏性数据/历史操作仍未授权。

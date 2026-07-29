@@ -1,7 +1,7 @@
 # Phase 8 OAuth 2.1 and Public Authentication Usability Design
 
 Date: 2026-07-26
-Status: local implementation closure accepted; G8-0 and Tasks 8A1–8A9, authorized Gate G8-U through Journey U7, and STEP-470 local G8-X are complete. U6 closed with a documented evidence substitution because the retained Legacy App was deleted: replacement Legacy rollback compatibility and exact OAuth return continuity passed, while continuity of the deleted Legacy App identity is not claimed. STEP-468 closed U7 with fail-early shared/unowned Tunnel preservation and live public/local boundary evidence. Exact-head CI, publication, and deployment remain separately authorized
+Status: Phase 8 Core is closed. G8-0 and Tasks 8A1–8A9, authorized Gate G8-U through Journey U7, STEP-470 local G8-X, and exact-head CI `30274857996` are complete; `1.0.0` published this baseline. U6 closed with a documented evidence substitution because the retained Legacy App was deleted: replacement Legacy rollback compatibility and exact OAuth return continuity passed, while continuity of the deleted Legacy App identity is not claimed. STEP-468 closed U7 with fail-early shared/unowned Tunnel preservation and live public/local boundary evidence. The explicitly authorized `1.0.3` and `1.0.4` npm/runtime repairs are also complete; their outstanding GitHub source/tag/Release reconciliation does not authorize further deployment or unrelated external-state changes.
 Audience: CodexGPT maintainers and the owner of this personal deployment
 
 This document supersedes the short Phase 8 outline in the master plan for exact Phase 8 behavior. Implementation authority and external-state authority remain governed by the current project boundary.
@@ -71,7 +71,7 @@ codexgpt auth setup `
   --tunnel-name codexgpt-target
 ```
 
-Unpublished source checkout:
+Source checkout (development or branch-specific build):
 
 ```powershell
 node D:\Dev\codexpro\scripts\codexgpt-entry.mjs auth setup `
