@@ -618,7 +618,7 @@ export async function listFiles(
   return files;
 }
 
-export async function readTextFile(
+async function readTextFileBody(
   config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
@@ -654,6 +654,26 @@ export async function readTextFile(
     sha256: sha256(text),
     truncated
   };
+}
+
+export async function readTextFile(
+  config: CodexGPTConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  filePath: string,
+  options: { startLine?: number; endLine?: number; maxBytes?: number } = {}
+): Promise<ReadFileResult> {
+  return toolExecutionPipelineForGuard(guard).execute<ReadFileResult>({
+    toolName: "read",
+    arguments: Object.freeze({
+      workspace_id: workspace.id,
+      path: filePath,
+      ...(options.startLine !== undefined ? { start_line: options.startLine } : {}),
+      ...(options.endLine !== undefined ? { end_line: options.endLine } : {}),
+      ...(options.maxBytes !== undefined ? { max_bytes: options.maxBytes } : {})
+    }),
+    body: () => readTextFileBody(config, guard, workspace, filePath, options)
+  });
 }
 
 export async function writeTextFile(
