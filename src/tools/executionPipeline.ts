@@ -174,6 +174,19 @@ function normalizeOutcome<T>(candidate: unknown): ToolPipelineOutcome<T> {
   throw new ToolPipelineProtocolError("Tool finalizer returned an inconsistent outcome.");
 }
 
+function normalizeFinalizedOutcome<T>(
+  candidate: unknown,
+  prior: ToolPipelineOutcome<T>
+): ToolPipelineOutcome<T> {
+  const normalized = normalizeOutcome<T>(candidate);
+  if (normalized.ok !== prior.ok) {
+    throw new ToolPipelineProtocolError(
+      "Tool finalizer cannot change success or failure classification."
+    );
+  }
+  return normalized;
+}
+
 /**
  * Minimal DSH-inspired execution pipeline for CodexGPT.
  *
@@ -284,7 +297,10 @@ export class ToolExecutionPipeline {
 
     if (request.finalize !== undefined) {
       try {
-        outcome = normalizeOutcome<T>(request.finalize(execution, outcome));
+        outcome = normalizeFinalizedOutcome<T>(
+          request.finalize(execution, outcome),
+          outcome
+        );
       } catch (error) {
         outcome = failure(error);
       }
