@@ -6,7 +6,11 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
 const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
-const { ToolExecutionPipeline } = await tsImport("../src/tools/executionPipeline.ts", import.meta.url);
+const { repoTree } = await tsImport("../src/fsOps.ts", import.meta.url);
+const { toolExecutionPipelineForGuard } = await tsImport(
+  "../src/tools/executionPipelineScope.ts",
+  import.meta.url
+);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   TREE_ERROR_MESSAGES,
@@ -261,36 +265,62 @@ test("tree advertises the exact output schema and returns a valid real success e
   });
 });
 
-test("tree traverses the injected execution pipeline without changing its public contract", async () => {
+test("tree filesystem execution traverses the PathGuard-scoped pipeline without changing its public contract", async () => {
   const seen = [];
-  const pipeline = new ToolExecutionPipeline();
-  pipeline.usePre((execution) => {
-    seen.push({
-      toolName: execution.toolName,
-      arguments: execution.arguments
-    });
-    return { kind: "allow" };
-  });
+  let disposePipelineHook;
 
-  await withInMemoryClient({ toolExecutionPipeline: pipeline }, async (client) => {
-    const result = await client.callTool({
-      name: "tree",
-      arguments: { path: "src/tools/schemas", max_depth: 1, max_entries: 20 }
-    });
-    const parsed = parseTreeResult(result);
+  try {
+    await withInMemoryClient(
+      {
+        treeResultProvider: async (context) => {
+          if (disposePipelineHook === undefined) {
+            disposePipelineHook = toolExecutionPipelineForGuard(context.guard).usePre((execution) => {
+              seen.push({
+                toolName: execution.toolName,
+                arguments: execution.arguments
+              });
+              return { kind: "allow" };
+            });
+          }
+          return repoTree(context.config, context.guard, context.workspace, context.options);
+        }
+      },
+      async (client) => {
+        const result = await client.callTool({
+          name: "tree",
+          arguments: { path: "src/tools/schemas", max_depth: 1, max_entries: 20 }
+        });
+        const parsed = parseTreeResult(result);
 
-    assert.equal(result.isError, undefined);
-    assert.equal(parsed.ok, true);
-    assert.equal(parsed.error, null);
-    assert.equal(parsed.data.root, process.cwd());
-    assert.equal(parsed.data.entries, 20);
-    assert.equal(parsed.data.truncated, true);
-  });
+        assert.equal(result.isError, undefined);
+        assert.equal(parsed.ok, true);
+        assert.equal(parsed.error, null);
+        assert.equal(parsed.data.root, process.cwd());
+        assert.equal(parsed.data.entries, 20);
+        assert.equal(parsed.data.truncated, true);
+      }
+    );
+  } finally {
+    disposePipelineHook?.();
+  }
 
-  assert.deepEqual(seen, [{
-    toolName: "tree",
-    arguments: { path: "src/tools/schemas", max_depth: 1, max_entries: 20 }
-  }]);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].toolName, "tree");
+  assert.match(seen[0].arguments.workspace_id, /^ws_/);
+  assert.deepEqual(
+    {
+      path: seen[0].arguments.path,
+      max_depth: seen[0].arguments.max_depth,
+      include_hidden: seen[0].arguments.include_hidden,
+      max_entries: seen[0].arguments.max_entries
+    },
+    {
+      path: "src/tools/schemas",
+      max_depth: 1,
+      include_hidden: false,
+      max_entries: 20
+    }
+  );
 });
 
 test("tree maps an unknown explicit workspace to WORKSPACE_NOT_FOUND", async () => {
