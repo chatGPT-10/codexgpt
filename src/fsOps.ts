@@ -12,6 +12,7 @@ import {
   type FileMetadataV1,
   type TransactionRequestOperationV1
 } from "./transactions/index.js";
+import { toolExecutionPipelineForGuard } from "./tools/executionPipelineScope.js";
 
 export interface TreeOptions {
   path?: string;
@@ -512,7 +513,7 @@ function isHiddenName(name: string): boolean {
   return name.startsWith(".") && name !== "." && name !== "..";
 }
 
-export async function repoTree(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, options: TreeOptions): Promise<TreeResult> {
+async function repoTreeBody(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, options: TreeOptions): Promise<TreeResult> {
   const target = guard.resolve(workspace, options.path ?? ".");
   const stat = await fsp.stat(target.absPath);
   if (!stat.isDirectory()) {
@@ -559,6 +560,20 @@ export async function repoTree(config: CodexGPTConfig, guard: PathGuard, workspa
   await walk(target.absPath, target.relPath === "." ? "" : target.relPath, 0, "");
   if (truncated) lines.push(`...[tree truncated after ${entries} entries]`);
   return { text: lines.join("\n"), entries, truncated };
+}
+
+export async function repoTree(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, options: TreeOptions): Promise<TreeResult> {
+  return toolExecutionPipelineForGuard(guard).execute<TreeResult>({
+    toolName: "tree",
+    arguments: Object.freeze({
+      workspace_id: workspace.id,
+      path: options.path ?? ".",
+      max_depth: options.maxDepth,
+      include_hidden: options.includeHidden,
+      max_entries: options.maxEntries
+    }),
+    body: () => repoTreeBody(config, guard, workspace, options)
+  });
 }
 
 export async function listFiles(
