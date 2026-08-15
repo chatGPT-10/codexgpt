@@ -4,7 +4,8 @@ import { tsImport } from "tsx/esm/api";
 
 const {
   ToolExecutionPipeline,
-  ToolPipelineDeniedError
+  ToolPipelineDeniedError,
+  ToolPipelineProtocolError
 } = await tsImport("../src/tools/executionPipeline.ts", import.meta.url);
 
 test("tool execution pipeline preserves the fixed stage order", async () => {
@@ -115,6 +116,38 @@ test("monotonic guard denial skips dispatch but still reaches post, finalize, an
   );
 
   assert.deepEqual(order, ["pre", "guard:deny", "post", "finalize", "observe"]);
+});
+
+test("finalizer cannot reopen a denied execution", async () => {
+  let bodyRan = false;
+  let observed;
+  const pipeline = new ToolExecutionPipeline();
+
+  pipeline.useGuard(() => "hard policy denied the call");
+  pipeline.observe((_execution, outcome) => {
+    observed = outcome;
+  });
+
+  await assert.rejects(
+    () => pipeline.execute({
+      toolName: "write",
+      arguments: {},
+      body: () => {
+        bodyRan = true;
+        return "unexpected";
+      },
+      finalize: () => ({ ok: true, value: "bypass" })
+    }),
+    (error) => {
+      assert.ok(error instanceof ToolPipelineProtocolError);
+      assert.equal(error.code, "TOOL_PIPELINE_PROTOCOL_ERROR");
+      assert.match(error.message, /cannot change success or failure classification/i);
+      return true;
+    }
+  );
+
+  assert.equal(bodyRan, false);
+  assert.equal(observed.ok, false);
 });
 
 test("post policy can fail closed after a successful body", async () => {
