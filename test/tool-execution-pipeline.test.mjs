@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { tsImport } from "tsx/esm/api";
 
@@ -7,6 +10,12 @@ const {
   ToolPipelineDeniedError,
   ToolPipelineProtocolError
 } = await tsImport("../src/tools/executionPipeline.ts", import.meta.url);
+const { readTextFile } = await tsImport("../src/fsOps.ts", import.meta.url);
+const { PathGuard } = await tsImport("../src/guard.ts", import.meta.url);
+const { toolExecutionPipelineForGuard } = await tsImport(
+  "../src/tools/executionPipelineScope.ts",
+  import.meta.url
+);
 
 test("tool execution pipeline preserves the fixed stage order", async () => {
   const order = [];
@@ -265,4 +274,62 @@ test("registration disposers affect future calls without mutating an in-flight s
     body: () => "third-call"
   }), "third-call");
   assert.deepEqual(seen, ["first", "late"]);
+});
+
+test("read filesystem execution crosses the PathGuard-scoped pipeline without changing read semantics", async () => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "codexgpt-read-pipeline-"));
+  const root = await fs.realpath(temp);
+  const workspace = {
+    id: "ws_read_pipeline_contract",
+    root,
+    openedAt: new Date(0).toISOString()
+  };
+  const guard = new PathGuard({ blockedGlobs: [] });
+  const pipeline = toolExecutionPipelineForGuard(guard);
+  const seen = [];
+  const dispose = pipeline.usePre((execution) => {
+    seen.push({
+      toolName: execution.toolName,
+      arguments: execution.arguments
+    });
+    return { kind: "allow" };
+  });
+
+  try {
+    await fs.writeFile(path.join(root, "sample.txt"), "alpha\nbeta\ngamma\n", "utf8");
+    const result = await readTextFile(
+      { maxReadBytes: 1024 },
+      guard,
+      workspace,
+      "sample.txt",
+      { startLine: 2, endLine: 3, maxBytes: 1024 }
+    );
+
+    assert.deepEqual(result, {
+      path: "sample.txt",
+      text: "2 | beta\n3 | gamma",
+      startLine: 2,
+      endLine: 3,
+      totalLines: 4,
+      bytes: 17,
+      sha256: result.sha256,
+      truncated: true
+    });
+    assert.match(result.sha256, /^[a-f0-9]{64}$/);
+    assert.deepEqual(seen, [
+      {
+        toolName: "read",
+        arguments: {
+          workspace_id: workspace.id,
+          path: "sample.txt",
+          start_line: 2,
+          end_line: 3,
+          max_bytes: 1024
+        }
+      }
+    ]);
+  } finally {
+    dispose();
+    await fs.rm(temp, { recursive: true, force: true });
+  }
 });
