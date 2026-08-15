@@ -6,6 +6,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
 const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
+const { ToolExecutionPipeline } = await tsImport("../src/tools/executionPipeline.ts", import.meta.url);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   TREE_ERROR_MESSAGES,
@@ -258,6 +259,38 @@ test("tree advertises the exact output schema and returns a valid real success e
     assert.deepEqual(parsed.meta.warnings, []);
     assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("common.ts")));
   });
+});
+
+test("tree traverses the injected execution pipeline without changing its public contract", async () => {
+  const seen = [];
+  const pipeline = new ToolExecutionPipeline();
+  pipeline.usePre((execution) => {
+    seen.push({
+      toolName: execution.toolName,
+      arguments: execution.arguments
+    });
+    return { kind: "allow" };
+  });
+
+  await withInMemoryClient({ toolExecutionPipeline: pipeline }, async (client) => {
+    const result = await client.callTool({
+      name: "tree",
+      arguments: { path: "src/tools/schemas", max_depth: 1, max_entries: 20 }
+    });
+    const parsed = parseTreeResult(result);
+
+    assert.equal(result.isError, undefined);
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.error, null);
+    assert.equal(parsed.data.root, process.cwd());
+    assert.equal(parsed.data.entries, 20);
+    assert.equal(parsed.data.truncated, true);
+  });
+
+  assert.deepEqual(seen, [{
+    toolName: "tree",
+    arguments: { path: "src/tools/schemas", max_depth: 1, max_entries: 20 }
+  }]);
 });
 
 test("tree maps an unknown explicit workspace to WORKSPACE_NOT_FOUND", async () => {
