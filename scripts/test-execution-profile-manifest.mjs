@@ -165,6 +165,7 @@ streaming-redaction.test.mjs
 test-domain-classification.test.mjs
 test-execution-profiles.test.mjs
 test-performance-reporter.test.mjs
+tool-execution-pipeline.test.mjs
 tree-contract.test.mjs
 undo-change-set.test.mjs
 verification-run-command-integration.test.mjs
