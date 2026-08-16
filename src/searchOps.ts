@@ -7,6 +7,7 @@ import { CodexGPTError, PathGuard } from "./guard.js";
 import { listFiles, textScanByteLimit } from "./fsOps.js";
 import { redactSensitiveText } from "./redact.js";
 import { searchWorkspaceStructured, type AnalysisSearchIntent, type StructuredSearchResult } from "./analysis/index.js";
+import { toolExecutionPipelineForGuard } from "./tools/executionPipelineScope.js";
 
 export interface SearchOptions {
   query: string;
@@ -146,20 +147,14 @@ async function runNodeSearch(config: CodexGPTConfig, guard: PathGuard, workspace
   return { text, matches, truncated: visibleMatches > matches.length, used: "node" };
 }
 
-export async function searchWorkspace(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, rawOptions: Partial<SearchOptions>): Promise<SearchResult> {
-  const query = rawOptions.symbol?.toString() || rawOptions.query?.toString() || "";
-  if (!query) throw new CodexGPTError("query is required.");
-  const options: SearchOptions = {
-    query,
-    regex: Boolean(rawOptions.regex),
-    root: rawOptions.root,
-    glob: rawOptions.glob,
-    includeHidden: Boolean(rawOptions.includeHidden),
-    maxResults: Math.max(1, Math.min(rawOptions.maxResults ?? config.maxSearchResults, config.maxSearchResults)),
-    intent: rawOptions.intent,
-    symbol: rawOptions.symbol,
-    includeTests: rawOptions.includeTests
-  };
+async function searchWorkspaceBody(
+  config: CodexGPTConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  rawOptions: Partial<SearchOptions>,
+  options: SearchOptions,
+  query: string
+): Promise<SearchResult> {
   let lexical: SearchResult;
   if (await commandExists("rg")) {
     lexical = await runRipgrep(config, guard, workspace, options);
@@ -205,4 +200,36 @@ export async function searchWorkspace(config: CodexGPTConfig, guard: PathGuard, 
     };
   }
   return lexical;
+}
+
+export async function searchWorkspace(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, rawOptions: Partial<SearchOptions>): Promise<SearchResult> {
+  const query = rawOptions.symbol?.toString() || rawOptions.query?.toString() || "";
+  if (!query) throw new CodexGPTError("query is required.");
+  const options: SearchOptions = {
+    query,
+    regex: Boolean(rawOptions.regex),
+    root: rawOptions.root,
+    glob: rawOptions.glob,
+    includeHidden: Boolean(rawOptions.includeHidden),
+    maxResults: Math.max(1, Math.min(rawOptions.maxResults ?? config.maxSearchResults, config.maxSearchResults)),
+    intent: rawOptions.intent,
+    symbol: rawOptions.symbol,
+    includeTests: rawOptions.includeTests
+  };
+  return toolExecutionPipelineForGuard(guard).execute<SearchResult>({
+    toolName: "search",
+    arguments: Object.freeze({
+      workspace_id: workspace.id,
+      query: options.query,
+      regex: options.regex,
+      path: options.root ?? ".",
+      ...(options.glob !== undefined ? { glob: options.glob } : {}),
+      include_hidden: options.includeHidden,
+      max_results: options.maxResults,
+      ...(options.intent !== undefined ? { intent: options.intent } : {}),
+      ...(options.symbol !== undefined ? { symbol: options.symbol } : {}),
+      ...(options.includeTests !== undefined ? { include_tests: options.includeTests } : {})
+    }),
+    body: () => searchWorkspaceBody(config, guard, workspace, rawOptions, options, query)
+  });
 }
