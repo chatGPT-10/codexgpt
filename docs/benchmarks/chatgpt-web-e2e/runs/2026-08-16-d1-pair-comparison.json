@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "pair_complete_partial_tool_traces",
+  "observed_at": "2026-08-16T22:31:00+02:00",
+  "case_id": "D1",
+  "controls": {
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "node_major": 24,
+    "oauth_mode": "oauth_cross_transport",
+    "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+    "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "fresh_target_per_variant": true,
+    "same_bootstrap_contract": true,
+    "same_case_prompt": true
+  },
+  "baseline": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-d1-baseline-successor.json",
+    "server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-d1b45a7c",
+    "workspace_id": "ws_4280eff024b52d97384e6897c1c49d02",
+    "tool_trace_provided": true,
+    "tool_trace_complete": false,
+    "task_success": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": null,
+    "verification_completed": true,
+    "runtime_stopped": true
+  },
+  "candidate": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-d1-candidate-successor.json",
+    "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-d1c82f6e",
+    "workspace_id": "ws_e0f53efcdd7e8f13b526515a1e85ca93",
+    "tool_trace_provided": true,
+    "tool_trace_complete": false,
+    "task_success": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": null,
+    "verification_completed": true,
+    "runtime_stopped": true
+  },
+  "comparison": {
+    "task_success": "tie_pass",
+    "workspace_bootstrap": "tie_pass",
+    "verification_completion": "tie_pass",
+    "tool_call_efficiency": "not_comparable_incomplete_tool_traces",
+    "wrong_tool_call_rate": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": "tie_1_each",
+    "mutation_retries": null,
+    "p1_effect_for_d1": "not_demonstrated"
+  },
+  "campaign_decision": "D1 is complete. Both variants implement the same compatible optional offset, add direct tests, pass 6/6 focused verification, and review the same two-file change. Partial activity panels prevent efficiency or retry comparison. Proceed to D2 under the owner's Phase 0 authorization."
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "completed_partial_ui_trace",
+  "observed_at": "2026-08-17T00:25:30+02:00",
+  "server_run_id": "2026-08-16T22-21-25-560Z-step508-g2-candidate-successor-0289cfbf",
+  "server_variant": "candidate_successor",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-4989f9c6",
+  "chatgpt_surface": "fresh ChatGPT Web conversation using the configured CodexGPT App codexgpt-Windows-233",
+  "chat_url": "https://chatgpt.com/c/6a8237fe-5c3c-83eb-939e-fd3efc1f9570",
+  "tool_trace_provided": true,
+  "tool_trace_complete": false,
+  "tool_trace_completeness": "partial_expanded_ui_with_latest_input_output_mispair",
+  "case_result": {
+    "case_id": "G2",
+    "workspace_id": "ws_69292ba79815ca7bef0f2450300a82aa",
+    "workspace_bootstrap_completed": true,
+    "metrics": {
+      "task_success": true,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": 1,
+      "mutation_retries": null,
+      "verification_completed": true
+    },
+    "observed_partial_tool_calls": [
+      { "visible_order": 1, "tool": "list_resources", "intent": "app_resource_discovery", "outcome": "visible_row" },
+      { "visible_order": 2, "tool": "open_workspace", "intent": "workspace_bootstrap", "outcome": "success", "context_fetch": true },
+      { "visible_order": 3, "tool": "list_resources", "intent": "app_resource_discovery", "outcome": "visible_row" },
+      { "visible_order": 4, "tool": "list_resources", "intent": "app_resource_discovery", "outcome": "visible_row" },
+      { "visible_order": 5, "tool": "read", "intent": "targeted_read", "outcome": "success" },
+      { "visible_order": 6, "tool": "write", "intent": "test_mutation", "outcome": "success", "path": "test/redact-sensitive-lines.test.mjs" },
+      { "visible_order": 7, "tool": "bash", "intent": "focused_red_test", "outcome": "expected_failure" },
+      { "visible_order": 8, "tool": "edit", "intent": "source_mutation", "outcome": "failed_exact_match" },
+      { "visible_order": 9, "tool": "edit", "intent": "source_mutation", "outcome": "success", "path": "src/redact.ts" },
+      { "visible_order": 10, "tool": "bash", "intent": "verification", "outcome": "reported_success_with_mispaired_output" }
+    ],
+    "success_criteria": {
+      "tests_for_line_bound_redaction_and_invalid_max_lines_precede_implementation": true,
+      "existing_redact_sensitive_text_logic_is_reused": true,
+      "focused_tests_build_and_final_diff_review_complete": true
+    },
+    "observed_answer_summary": [
+      "Created four focused tests for LF/CRLF/CR bounding, redaction, and invalid maxLines before implementation.",
+      "Confirmed RED because the helper was absent, then inserted a positive-integer guard and a line-bound result passed to redactSensitiveText without duplicating patterns.",
+      "Reported 4/4 focused, 8/8 focused plus existing redaction regression, build, policy, and final two-file diff success; independent frozen-Node verification confirmed 8/8, TypeScript build, and the diff."
+    ],
+    "notes": "The ten-row panel's final bash verification input is paired with a read output and omits the reported build/policy/final review rows, so it is incomplete. The failed exact edit proves a retry occurred but not a complete exact attempt total; wrong/redundant/total/retry metrics remain null."
+  },
+  "runtime_cleanup": {
+    "stop_requested": true,
+    "final_status": "stopped",
+    "final_identity": "stop_recorded",
+    "stopped_at": "2026-08-16T22:26:00.500Z",
+    "listeners_after_stop": 0
+  },
+  "campaign_decision": "Candidate-successor G2 passes all task and verification criteria; mispaired partial activity evidence does not support exact efficiency or retry counts."
+}

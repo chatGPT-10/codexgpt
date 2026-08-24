@@ -1,7 +1,7 @@
 # Phase 2B Workspace Lifecycle Design
 
 Date: 2026-07-14
-Status: approved for implementation by the recorded Phase 2B authorization
+Status: implemented historical Phase 2B contract; STEP-490 real ChatGPT Web evidence requires a separately approved compatibility redesign before further benchmark work
 Primary platform: native Windows
 
 ## 1. Problem statement
@@ -14,7 +14,9 @@ Phase 2A established request identity and policy context, but the current worksp
 - workspace bindings have no close, expiry, revocation, or cleanup lifecycle;
 - a transport session can therefore reuse a workspace identifier created by another session.
 
-The essential Phase 2B change is to turn a workspace from a process-level convenience record into a session-scoped authorization capability.
+The essential Phase 2B change was to turn a workspace from a process-level convenience record into a session-scoped authorization capability.
+
+> 2026-08-16 compatibility note: STEP-490 real ChatGPT Web baseline A1 proved that the client may rotate MCP transport/session between consecutive tool calls. `open_workspace` succeeded, but the returned handle immediately failed with `WORKSPACE_NOT_FOUND` on the next explicit `read`. The invariants below therefore describe the current implemented Phase 2B behavior, not the required successor UX contract. Do not bypass the failure with the default workspace or unbound cross-session reuse; any successor design must separately preserve opaque capability semantics, OAuth identity/policy binding, bounded lifetime/revocation, and fail-closed behavior. Evidence: `docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-baseline-a1.json`.
 
 ## 2. Security invariants
 

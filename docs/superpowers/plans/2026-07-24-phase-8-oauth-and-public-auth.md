@@ -822,7 +822,7 @@ codexgpt auth setup --root D:\Dev\target-repo --hostname mcp.example.com --tunne
 Unpublished source-checkout setup:
 
 ```powershell
-node D:\Dev\codexpro\scripts\codexgpt-entry.mjs auth setup --root D:\Dev\target-repo --hostname mcp.example.com --tunnel-name codexgpt-oauth
+node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs auth setup --root D:\Dev\target-repo --hostname mcp.example.com --tunnel-name codexgpt-oauth
 ```
 
 `auth setup` defaults to existing saved dedicated-tunnel values and asks only for facts that cannot be inferred. `--root` can be omitted only when cwd has one exact matching saved profile. With an owner-marked dedicated tunnel it is zero-prompt. On a cold start it previews the exact Cloudflare login/tunnel/DNS/ingress plan and asks once before external mutation. `--no-tunnel-changes` is deterministic and prints exact remaining commands; noninteractive creation requires explicit `--provision-tunnel` and pre-existing valid Cloudflare login material. It journals `preflight -> candidate-local-state -> login-required -> tunnel-created -> dns-routed -> ingress-written -> candidate-listener-started -> external-probe -> mode-committed -> foreground-running|configured-no-start` and resumes idempotently. All local/DPAPI/lock/port/cloudflared checks and candidate state precede external mutation. The real public metadata/Host/resource probe runs only against the exact candidate listener/tunnel; profile mode commits afterward. Failure stops the exact candidate, preserves the journal, and leaves profile mode unchanged. Interactive success keeps the verified candidate as the foreground server; `--no-start` and noninteractive success stop it and print the exact source/global start command.
@@ -831,7 +831,7 @@ After `auth rollback`, returning to OAuth uses the same idempotent command with 
 
 ```powershell
 codexgpt auth setup --root D:\Dev\target-repo
-node D:\Dev\codexpro\scripts\codexgpt-entry.mjs auth setup --root D:\Dev\target-repo
+node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs auth setup --root D:\Dev\target-repo
 ```
 
 It reruns preflight/candidate/public probe and commits OAuth only on success. This is the only supported resume path; direct profile editing is not documented as recovery.
@@ -841,7 +841,7 @@ It reruns preflight/candidate/public probe and commits OAuth only on success. Th
 Assert:
 
 - public entry routes every auth command without bypassing its protections;
-- source-checkout setup executed from `D:\Dev\codexpro` for another explicit root creates/reads state only for the target root;
+- source-checkout setup executed from `D:\Dev\codexgpt` for another explicit root creates/reads state only for the target root;
 - setup succeeds from a valid saved owner-marked dedicated-tunnel profile with no redundant prompts;
 - cold-start setup uses the same entry command, requires one explicit external-change confirmation, survives the browser login handoff, and resumes each journal phase without duplicate tunnel/DNS/key/state creation;
 - failure injection after every journal phase proves no legacy listener is probed, no candidate survives unexpectedly, and `authMode` remains unchanged until the real external probe passes;

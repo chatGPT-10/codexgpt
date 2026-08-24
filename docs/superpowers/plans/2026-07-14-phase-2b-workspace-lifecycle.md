@@ -1,5 +1,7 @@
 # Phase 2B Workspace Lifecycle Implementation Plan
 
+> **Status:** Historical completed implementation plan. Do not reuse this plan as the next implementation action: STEP-490 real ChatGPT Web evidence showed that the implemented session-local handle model can break when the client rotates MCP transport between consecutive tool calls. A successor continuity design/plan requires separate approval and must preserve opaque handles, identity/policy binding, TTL/revocation, and fail-closed behavior. Evidence: `docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-baseline-a1.json`.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace process-global deterministic workspace identifiers with session-scoped opaque lifecycle handles that can be closed, expired, and invalidated without breaking the one-cycle omitted-`workspace_id` compatibility path.

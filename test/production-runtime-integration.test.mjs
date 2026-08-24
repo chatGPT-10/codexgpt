@@ -603,7 +603,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "open_current_workspace", "open_workspace", "read", "write", "edit",
         "apply_patch", "show_changes"
       ],
-      descriptorHash: "821e302337d5cf9558bf07d81b47b95bdeac640d9bafd1033db255d8cf6b4785"
+      descriptorHash: "f6f303e642eafca20b6b311368b990047ffaa695fff5b6434e6bcc3df0a76f63"
     },
     standard: {
       names: [
@@ -613,7 +613,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "apply_patch", "show_changes", "read_handoff", "wait_for_handoff",
         "export_pro_context", "handoff_to_agent"
       ],
-      descriptorHash: "4160c3ce78bcd89008f5326c2b51e81dde638c97c2141cdd56dbd8863760653d",
+      descriptorHash: "73d0ff8fb1adfd08b60af9e8448c20697687ca789ae8e6da0bfc56965575f29c",
       directCallHash: "4b9f283f897448d722dbd348389adb86c1acb2b4e2f0c88b8db250cbd1ec95d3",
       supertoolCallHash: "4b9f283f897448d722dbd348389adb86c1acb2b4e2f0c88b8db250cbd1ec95d3",
       supertoolEnvelope: {
@@ -631,7 +631,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "export_pro_context", "codex_sessions", "read_codex_session",
         "handoff_to_agent", "handoff_to_codex"
       ],
-      descriptorHash: "41b423fb1d9ee6d45a48dfee97d08c4ab39f493b6df9d8ae53d034c64a1446dc"
+      descriptorHash: "384e71c76ed689d8286d6c51869775e03cae400c772542e49df39021ac4a81e1"
     },
     connection: {
       names: [
@@ -641,7 +641,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "show_changes", "read_handoff", "wait_for_handoff", "codex_context",
         "codex_sessions", "read_codex_session"
       ],
-      descriptorHash: "f3a4748732a1fd144c2f74b01762cb64f82211877e619e994dccb114f856ce8e"
+      descriptorHash: "f845b31b7aa1df00141a72eb3e0d1661f869b72b60e3645230edd8eb1ca7c070"
     }
   });
   assert.deepEqual(

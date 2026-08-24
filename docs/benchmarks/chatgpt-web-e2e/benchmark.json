@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "name": "CodexGPT ChatGPT Web E2E benchmark",
+  "created_at": "2026-08-16",
+  "purpose": "Measure whether CodexGPT changes improve real ChatGPT Web task execution rather than only internal architecture.",
+  "target_workspace": {
+    "repository": "chatGPT-10/codexgpt",
+    "ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "rule": "The target project presented to ChatGPT stays pinned to this ref for both server variants. Mutation cases use a fresh disposable worktree reset from this ref."
+  },
+  "server_variants": {
+    "baseline": {
+      "label": "origin/main before P1 pipeline slice",
+      "ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1"
+    },
+    "candidate": {
+      "label": "P1 tool execution pipeline slice 1",
+      "ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e"
+    }
+  },
+  "shared_server_overlay": {
+    "manifest": "successor-overlay.json",
+    "label": "step493-oauth-cross-transport-workspace-successor",
+    "applies_from_case": "A2",
+    "rule": "Apply the exact same reviewed workspace-successor overlay to both server base refs before running A2 onward. The overlay path/status/hash set must match the manifest exactly so the P1 slice remains the intended A/B variable."
+  },
+  "isolation_rule": "Run every case in a fresh disposable worktree of the same target workspace ref. From A2 onward both server base refs receive the exact same reviewed shared_server_overlay; the P1 server base ref remains the only intended A/B variable. Do not benchmark by pointing each server variant at its own source checkout.",
+  "runtime_bootstrap": {
+    "tool": "open_workspace",
+    "target_root_placeholder": "{TARGET_ROOT}",
+    "case_prompt_placeholder": "{CASE_PROMPT}",
+    "required_for_every_case": true,
+    "require_workspace_id_for_followup": true,
+    "counts_as_context_fetch": true,
+    "instruction_template": "先调用 open_workspace 打开 {TARGET_ROOT}。后续本任务所有项目工具调用都必须显式使用返回的 workspace_id，不要使用默认 workspace。完成 workspace 绑定后，再执行下面的 benchmark task：\n\n{CASE_PROMPT}"
+  },
+  "metrics": [
+    "task_success",
+    "wrong_tool_calls",
+    "redundant_tool_calls",
+    "total_tool_calls",
+    "context_fetch_calls",
+    "mutation_retries",
+    "verification_completed"
+  ],
+  "primary_kpis": [
+    "task_success_rate",
+    "wrong_tool_call_rate",
+    "verification_completion_rate"
+  ],
+  "cases": [
+    {
+      "id": "A1",
+      "category": "A",
+      "title": "Project purpose and entry points",
+      "task_type": "read_only",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "这个项目是做什么的？请指出主要运行入口、HTTP/stdio 入口，以及我正常从源码启动它时最应该看的 package.json script。只读取回答所需的最少文件。",
+      "verification_required": false,
+      "success_criteria": [
+        "Correctly explains the repository purpose without inventing an external relay.",
+        "Identifies the public entry script and the HTTP/stdio source or build entry points with repository evidence.",
+        "Avoids broad full-repository reads after exact paths are known."
+      ],
+      "preferred_tool_intents": ["workspace_context", "targeted_read", "targeted_search"],
+      "avoid_tool_intents": ["broad_repeated_tree", "unrelated_mutation", "full_file_read_when_range_is_known"]
+    },
+    {
+      "id": "A2",
+      "category": "A",
+      "title": "Security boundary summary",
+      "task_type": "read_only",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "根据仓库当前实现，概括 workspace、PathGuard、Policy、transaction/audit 在本地安全边界中的职责，并指出哪一层不能被 Cloudflare 替代。给出关键实现文件，不要展开读取无关目录。",
+      "verification_required": false,
+      "success_criteria": [
+        "Separates workspace authority, path enforcement, policy, transaction, and audit responsibilities.",
+        "States that Cloudflare does not replace local authorization/security enforcement.",
+        "Names relevant implementation files or directories supported by the target worktree."
+      ],
+      "preferred_tool_intents": ["workspace_context", "targeted_search", "targeted_read"],
+      "avoid_tool_intents": ["server_config_for_code_question", "broad_repeated_tree", "mutation"]
+    },
+    {
+      "id": "B1",
+      "category": "B",
+      "title": "Workspace capability definition and callers",
+      "task_type": "read_only",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "找到 WorkspaceManager / workspace capability 的核心实现位置和所有主要调用点。先定位 definition/references，再只读取解释调用关系所需的范围。",
+      "verification_required": false,
+      "success_criteria": [
+        "Finds the authoritative workspace lifecycle implementation.",
+        "Finds the main server or domain call sites without claiming lexical matches are complete semantic references.",
+        "Uses narrow reads after navigation."
+      ],
+      "preferred_tool_intents": ["semantic_navigation", "lexical_fallback", "targeted_read"],
+      "avoid_tool_intents": ["read_unknown_path", "whole_server_read", "repeated_equivalent_search"]
+    },
+    {
+      "id": "B2",
+      "category": "B",
+      "title": "Skill loading path and tests",
+      "task_type": "read_only",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "定位显式 user Skill 加载的实现、入口和覆盖它的测试。说明从 selector 到实际读取 Skill 文件的调用链，只读必要范围。",
+      "verification_required": false,
+      "success_criteria": [
+        "Locates the user Skill selector/loading implementation and relevant tests.",
+        "Explains the call chain without treating catalog metadata as Skill body execution.",
+        "Avoids unrelated Phase 6 documentation reads once code paths are found."
+      ],
+      "preferred_tool_intents": ["targeted_search", "semantic_navigation", "targeted_read"],
+      "avoid_tool_intents": ["broad_tree_after_match", "load_skill_for_repository_code", "mutation"]
+    },
+    {
+      "id": "C1",
+      "category": "C",
+      "title": "Fix seeded OAuth query redaction regression",
+      "task_type": "mutation",
+      "setup": "In the disposable target worktree, remove only the QUERY_TOKEN_PATTERN replacement from redactSensitiveText in src/redact.ts, then confirm test/streaming-redaction.test.mjs fails. Do not change the benchmark server ref.",
+      "prompt": "test/streaming-redaction.test.mjs 现在失败。定位根因并做最小修复；不要削弱 secret redaction。修复后运行最窄相关测试并检查 diff。",
+      "verification_required": true,
+      "success_criteria": [
+        "Restores query-token redaction rather than weakening the test.",
+        "Runs the focused streaming redaction test successfully.",
+        "Inspects the resulting diff and changes only the seeded regression or an equivalent minimal correction."
+      ],
+      "preferred_tool_intents": ["focused_test", "targeted_read", "atomic_or_exact_mutation", "verification", "git_diff"],
+      "avoid_tool_intents": ["edit_test_to_pass", "broad_test_before_root_cause", "start_process_for_bounded_test"]
+    },
+    {
+      "id": "C2",
+      "category": "C",
+      "title": "Fix seeded output truncation regression",
+      "task_type": "mutation",
+      "setup": "In the disposable target worktree, change the OutputRing.read result field `truncated: requested < earliest` to `truncated: false` in src/process/outputRing.ts, then confirm test/process-output-ring.test.mjs fails.",
+      "prompt": "test/process-output-ring.test.mjs 有一个 truncation 相关失败。找到物理原因并修复实现，不要改测试规避。修复后运行该 focused test，并检查最终 diff。",
+      "verification_required": true,
+      "success_criteria": [
+        "Restores correct truncation reporting when requested output has been evicted.",
+        "Runs test/process-output-ring.test.mjs successfully.",
+        "Reviews the final diff and does not introduce unrelated process changes."
+      ],
+      "preferred_tool_intents": ["focused_test", "targeted_read", "exact_mutation", "verification", "git_diff"],
+      "avoid_tool_intents": ["edit_test_to_pass", "whole_process_directory_read", "persistent_process_for_bounded_test"]
+    },
+    {
+      "id": "D1",
+      "category": "D",
+      "title": "Small exact helper change",
+      "task_type": "mutation",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "给 src/process/outputRing.ts 的 latestSequence() 增加一个可选 offset 参数，默认 0，并返回当前 sequence + offset；保持现有调用兼容。只更新直接相关测试，运行 focused test 并检查 diff。",
+      "verification_required": true,
+      "success_criteria": [
+        "Implements the optional parameter without breaking no-argument callers.",
+        "Adds or updates focused test coverage for default and non-zero offset behavior.",
+        "Focused verification passes and final diff is reviewed."
+      ],
+      "preferred_tool_intents": ["targeted_search", "targeted_read", "exact_mutation", "focused_test", "git_diff"],
+      "avoid_tool_intents": ["multi_file_broad_refactor", "unrelated_formatting", "start_process_for_bounded_test"]
+    },
+    {
+      "id": "D2",
+      "category": "D",
+      "title": "Tool description clarification",
+      "task_type": "mutation",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "只修改 search 工具的用户可见 description：明确 exact text/error/config lookup 优先用 search，并避免暗示它能提供确定的 semantic references。更新直接约束 description 的测试；运行 focused test 并检查 diff。",
+      "verification_required": true,
+      "success_criteria": [
+        "Changes only the search description and its direct contract test unless another file is strictly required.",
+        "Description distinguishes lexical lookup from semantic certainty.",
+        "Focused contract test passes and diff is reviewed."
+      ],
+      "preferred_tool_intents": ["targeted_search", "targeted_read", "exact_mutation", "focused_test", "git_diff"],
+      "avoid_tool_intents": ["runtime_refactor", "schema_change", "broad_tool_catalog_rewrite"]
+    },
+    {
+      "id": "E1",
+      "category": "E",
+      "title": "Rename output ring public symbol",
+      "task_type": "mutation",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "把 OutputRing.latestSequence 重命名为 currentSequence，并更新仓库内所有引用和直接测试。不要保留双 API。完成后运行相关 focused tests，再检查 diff 中是否还有旧符号引用。",
+      "verification_required": true,
+      "success_criteria": [
+        "Renames the definition and all repository references consistently.",
+        "Relevant focused tests pass.",
+        "A final exact search finds no unintended old symbol references and diff is reviewed."
+      ],
+      "preferred_tool_intents": ["semantic_references", "atomic_patch", "focused_test", "final_exact_search", "git_diff"],
+      "avoid_tool_intents": ["blind_global_replace", "read_every_match_full_file", "skip_verification"]
+    },
+    {
+      "id": "E2",
+      "category": "E",
+      "title": "Rename internal redaction helper",
+      "task_type": "mutation",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "把 src/redact.ts 内部的 isPlaceholderSecret 重命名为 isRedactionPlaceholder，并更新同文件引用。行为必须完全不变；运行直接相关 focused test 并检查 diff。",
+      "verification_required": true,
+      "success_criteria": [
+        "Renames only the internal helper and its call sites.",
+        "Redaction behavior remains unchanged under focused tests.",
+        "Final diff contains no unrelated formatting or security-policy change."
+      ],
+      "preferred_tool_intents": ["definition_and_references", "exact_mutation", "focused_test", "git_diff"],
+      "avoid_tool_intents": ["broad_repository_replace", "security_behavior_change", "full_suite_before_focused_test"]
+    },
+    {
+      "id": "F1",
+      "category": "F",
+      "title": "Review seeded secret-redaction regression",
+      "task_type": "read_only",
+      "setup": "In the disposable target worktree, remove QUERY_TOKEN_PATTERN redaction from redactSensitiveText and leave the change uncommitted. Do not tell ChatGPT which line is wrong.",
+      "prompt": "检查当前未提交变化，按风险优先找潜在问题。只报告有证据的问题，给出文件/位置、影响和建议验证方法；不要修改文件。",
+      "verification_required": false,
+      "success_criteria": [
+        "Identifies the loss of query-token redaction as a security regression.",
+        "Uses git status/diff as primary evidence rather than scanning unrelated history.",
+        "Does not mutate the worktree."
+      ],
+      "preferred_tool_intents": ["git_status", "git_diff", "targeted_read"],
+      "avoid_tool_intents": ["mutation", "broad_tree", "full_test_suite_without_need"]
+    },
+    {
+      "id": "F2",
+      "category": "F",
+      "title": "Review mixed intended and accidental changes",
+      "task_type": "read_only",
+      "setup": "In the disposable target worktree, make one harmless README wording edit and separately change OutputRing.read `truncated` to always false; leave both uncommitted.",
+      "prompt": "review 当前未提交修改，区分低风险文档变化和可能影响行为的代码变化。指出最需要阻止合入的问题以及最窄验证命令；不要修改文件。",
+      "verification_required": false,
+      "success_criteria": [
+        "Prioritizes the output truncation behavior regression over the harmless documentation edit.",
+        "Suggests the focused output-ring test as verification evidence.",
+        "Does not change files or stage anything."
+      ],
+      "preferred_tool_intents": ["git_status", "git_diff", "targeted_read", "test_discovery"],
+      "avoid_tool_intents": ["mutation", "stage", "commit", "broad_history_scan"]
+    },
+    {
+      "id": "G1",
+      "category": "G",
+      "title": "Add small OutputRing capability",
+      "task_type": "mutation",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "给 OutputRing 增加 retainedBytes() 只读方法，返回当前 ring 中保留的字节数。先写直接测试，再做最小实现；运行 focused test、build，并检查 diff。",
+      "verification_required": true,
+      "success_criteria": [
+        "Adds a focused failing test before the minimal implementation.",
+        "retainedBytes() reports retained bytes before and after eviction correctly.",
+        "Focused test and build pass, followed by diff review."
+      ],
+      "preferred_tool_intents": ["targeted_read", "test_first", "exact_mutation", "focused_test", "build", "git_diff"],
+      "avoid_tool_intents": ["unrelated_process_refactor", "skip_red_test", "persistent_process_for_build"]
+    },
+    {
+      "id": "G2",
+      "category": "G",
+      "title": "Add bounded redaction helper",
+      "task_type": "mutation",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "在 src/redact.ts 新增 exported helper redactSensitiveLines(text, maxLines)，先按换行截到最多 maxLines 行，再复用现有 redactSensitiveText；maxLines 必须是正整数。先写 focused tests，再实现，运行验证并检查 diff。",
+      "verification_required": true,
+      "success_criteria": [
+        "Adds tests for line bounding, redaction, and invalid maxLines before implementation.",
+        "Reuses existing redaction logic rather than duplicating secret patterns.",
+        "Focused tests and build pass and final diff is reviewed."
+      ],
+      "preferred_tool_intents": ["targeted_read", "test_first", "exact_mutation", "focused_test", "build", "git_diff"],
+      "avoid_tool_intents": ["duplicate_secret_patterns", "broad_refactor", "skip_build"]
+    },
+    {
+      "id": "H1",
+      "category": "H",
+      "title": "Persistent process lifecycle",
+      "task_type": "process",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "启动 `node fixtures/runner-long-lived-child.mjs 120000` 作为长任务，读取到 ready 输出后再读取一次新增输出状态，然后明确终止该进程并确认它不再运行。不要用 bounded run_command 等它两分钟。",
+      "verification_required": true,
+      "success_criteria": [
+        "Uses the persistent-process path rather than a bounded command wait.",
+        "Reads output incrementally without repeatedly replaying the entire buffer.",
+        "Terminates the owned process and confirms terminal state."
+      ],
+      "preferred_tool_intents": ["start_process", "read_process_output", "stop_process", "process_state_check"],
+      "avoid_tool_intents": ["run_command_for_long_lived_process", "repeat_full_buffer_reads", "leave_process_running"]
+    },
+    {
+      "id": "H2",
+      "category": "H",
+      "title": "Long process plus targeted inspection",
+      "task_type": "process",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "启动 `node fixtures/runner-long-lived-child.mjs 120000`，读取 ready 后，在它仍运行时定位这个 fixture 脚本为什么会在 120 秒前保持存活、定时器触发后又可以自然退出；只读相关文件。不要真的等满两分钟，解释后终止进程并确认 cleanup。",
+      "verification_required": true,
+      "success_criteria": [
+        "Starts and observes the persistent process correctly.",
+        "Reads only the relevant fixture source and correctly explains that the pending setTimeout keeps the event loop alive until its callback runs, after which the script has no remaining work and may exit naturally.",
+        "Terminates the owned process early and confirms cleanup."
+      ],
+      "preferred_tool_intents": ["start_process", "read_process_output", "targeted_read", "stop_process"],
+      "avoid_tool_intents": ["broad_tree", "run_command_wait", "orphan_process"]
+    },
+    {
+      "id": "I1",
+      "category": "I",
+      "title": "Single-file change-set rollback",
+      "task_type": "rollback",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "在 README.md 增加一行临时 benchmark 标记，确认产生 change set 和 diff，然后使用 CodexGPT 的 change-set undo 能力撤销它。最后确认工作区恢复到修改前状态；不要用 git reset/checkout。",
+      "verification_required": true,
+      "success_criteria": [
+        "Creates the requested change through a mutation tool and records the returned change set.",
+        "Uses change-set undo rather than destructive Git rollback.",
+        "Confirms the final diff is empty relative to the starting worktree."
+      ],
+      "preferred_tool_intents": ["exact_mutation", "show_changes", "undo_change_set", "final_git_diff"],
+      "avoid_tool_intents": ["git_reset", "git_checkout_file", "manual_inverse_edit_instead_of_undo"]
+    },
+    {
+      "id": "I2",
+      "category": "I",
+      "title": "Multi-file atomic rollback",
+      "task_type": "rollback",
+      "setup": "Fresh pinned target worktree; no extra changes.",
+      "prompt": "用一次原子 patch 在 README.md 和 FAQ.md 各增加同一个临时 benchmark 标记，检查 diff，然后撤销对应 change set。最后验证两个文件都恢复且没有残留变化。",
+      "verification_required": true,
+      "success_criteria": [
+        "Uses one atomic multi-file mutation rather than two unrelated writes when supported.",
+        "Reviews the change before rollback and uses the returned change set for undo.",
+        "Confirms both files return to the original state with no residual diff."
+      ],
+      "preferred_tool_intents": ["atomic_patch", "show_changes", "undo_change_set", "final_git_diff"],
+      "avoid_tool_intents": ["separate_non_atomic_writes", "git_reset", "skip_final_verification"]
+    }
+  ]
+}

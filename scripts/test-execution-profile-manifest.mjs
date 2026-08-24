@@ -22,6 +22,8 @@ audit-transaction-participant.test.mjs
 auth-documentation.test.mjs
 backend-discovery.test.mjs
 bash-contract.test.mjs
+chatgpt-web-benchmark-contract.test.mjs
+chatgpt-web-benchmark-runtime.test.mjs
 bridge-writer-transaction.test.mjs
 change-set-schema-and-crypto.test.mjs
 change-set-store.test.mjs
@@ -54,6 +56,7 @@ load-skill-resource-windows.test.mjs
 load-skill-resource.test.mjs
 local-control-protocol.test.mjs
 native-host-architecture.test.mjs
+oauth-cross-transport-workspace-capability.test.mjs
 open-current-workspace-contract.test.mjs
 open-workspace-contract.test.mjs
 output-bounds.test.mjs

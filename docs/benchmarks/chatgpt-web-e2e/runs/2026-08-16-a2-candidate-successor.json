@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "completed_partial_tool_trace",
+  "observed_at": "2026-08-16T18:39:00+02:00",
+  "server_run_id": "2026-08-16T16-21-06-335Z-step495-a2-candidate-successor-96433fbb",
+  "server_variant": "candidate_successor",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-f4d7fabe",
+  "chatgpt_surface": "fresh ChatGPT Web conversation using the configured CodexGPT App",
+  "tool_trace_provided": false,
+  "case_result": {
+    "case_id": "A2",
+    "workspace_id": "ws_f563182bbddac39675be72decf302ea6",
+    "workspace_bootstrap_completed": true,
+    "metrics": {
+      "task_success": true,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": 1,
+      "mutation_retries": 0,
+      "verification_completed": null
+    },
+    "success_criteria": {
+      "separates_workspace_pathguard_policy_transaction_audit": true,
+      "states_cloudflare_does_not_replace_local_security_enforcement": true,
+      "names_relevant_implementation_files": true,
+      "avoids_unrelated_directory_expansion": true
+    },
+    "observed_answer_summary": [
+      "Workspace was described as the authorized-root/filesystem-authority layer with opaque workspace handles and lifecycle checks.",
+      "PathGuard was separated as canonical path/object containment and path-level safety inside the authorized workspace.",
+      "Policy was described as the local identity/resource/risk/approval/enforcement decision layer with fail-closed enforcement_unavailable behavior.",
+      "Transaction and audit were described as the atomic/recoverable mutation-integrity and durable integrity-evidence layer, including required audit participants and rollback/recovery behavior.",
+      "The response explicitly stated that Cloudflare provides DNS/TLS/Tunnel/ingress and cannot replace local authorization/security enforcement or the other local host security layers.",
+      "The response named src/guard.ts, src/policy/hardPolicy.ts, src/policy/evaluator.ts, src/policy/runtime.ts, src/transactions/engine.ts, src/audit/store.ts, src/audit/runtime.ts, src/audit/transactionParticipant.ts, and src/server.ts as key implementation files."
+    ],
+    "notes": "The user supplied the final fresh-conversation assistant answer, not the ChatGPT UI/tool-call trace. The answer satisfies all A2 success criteria and explicitly reports that project calls reused the returned workspace_id and did not use the default workspace. Per benchmark rules, wrong_tool_calls, redundant_tool_calls, and total_tool_calls remain null rather than being inferred. The mandatory bootstrap establishes context_fetch_calls=1; this read-only case has mutation_retries=0 and verification_completed=null."
+  },
+  "runtime_cleanup": {
+    "stop_requested": true,
+    "final_status": "stopped",
+    "stopped_at": "2026-08-16T16:39:28.618Z"
+  },
+  "campaign_decision": "Candidate-successor A2 task success is established. The matched baseline-successor A2 also passed, but neither side includes a complete ChatGPT UI/tool-call trace, so A2 supports no claim of P1 improvement or regression in tool-call efficiency. Close the A2 pair and do not infer efficiency from answer length or wording."
+}

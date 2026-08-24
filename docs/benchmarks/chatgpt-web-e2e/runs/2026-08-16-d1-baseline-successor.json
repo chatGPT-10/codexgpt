@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "completed_partial_ui_trace",
+  "observed_at": "2026-08-16T22:25:00+02:00",
+  "server_run_id": "2026-08-16T20-22-16-651Z-step501-d1-baseline-successor-f2e6bfcc",
+  "server_variant": "baseline_successor",
+  "server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-d1b45a7c",
+  "chatgpt_surface": "fresh ChatGPT Web conversation using the configured CodexGPT App codexgpt-Windows-233",
+  "chat_url": "https://chatgpt.com/c/WEB:ed0acba0-2d18-436a-9bc1-dcbeed27c39c",
+  "tool_trace_provided": true,
+  "tool_trace_complete": false,
+  "tool_trace_completeness": "partial_expanded_ui",
+  "case_result": {
+    "case_id": "D1",
+    "workspace_id": "ws_4280eff024b52d97384e6897c1c49d02",
+    "workspace_bootstrap_completed": true,
+    "metrics": {
+      "task_success": true,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": 1,
+      "mutation_retries": null,
+      "verification_completed": true
+    },
+    "observed_partial_tool_calls": [
+      { "visible_order": 1, "tool": "open_workspace", "intent": "workspace_bootstrap", "outcome": "success", "context_fetch": true },
+      { "visible_order": 2, "tool": "show_changes", "intent": "git_diff", "outcome": "success", "context_fetch": false },
+      { "visible_order": 3, "tool": "write", "intent": "test_mutation", "outcome": "success", "path": "test/process-output-ring-latest-sequence.test.mjs", "context_fetch": false },
+      { "visible_order": 4, "tool": "edit", "intent": "exact_mutation", "outcome": "success", "path": "src/process/outputRing.ts", "context_fetch": false },
+      { "visible_order": 5, "tool": "read", "intent": "targeted_read", "outcome": "success", "path": "test/process-output-ring-latest-sequence.test.mjs", "context_fetch": false }
+    ],
+    "success_criteria": {
+      "optional_offset_preserves_no_argument_callers": true,
+      "focused_tests_cover_default_and_nonzero_offset": true,
+      "focused_verification_and_final_diff_review_complete": true
+    },
+    "observed_answer_summary": [
+      "Changed latestSequence to latestSequence(offset = 0) returning this.#next + offset.",
+      "Added a direct focused test covering default and offset=2 behavior after the existing secret fixture rejected edits.",
+      "Reported TDD RED and final 6/6 focused regression pass; independent frozen-Node verification confirmed the result.",
+      "The final answer explicitly states that the final workspace-change check found only M src/process/outputRing.ts and ?? test/process-output-ring-latest-sequence.test.mjs, with no stage, commit, or push."
+    ],
+    "notes": "The expanded panel omits searches, failed test-edit attempts, the RED/final test calls, and final diff rows, so exact efficiency and mutation-retry metrics remain null. The visible narrative explicitly records CRLF mismatch and secret-protection failures, but an incomplete trace cannot establish an exact retry total."
+  },
+  "runtime_cleanup": {
+    "stop_requested": true,
+    "final_status": "stopped",
+    "final_identity": "stop_recorded",
+    "stopped_at": "2026-08-16T20:25:52.248Z",
+    "listeners_after_stop": 0
+  },
+  "campaign_decision": "Baseline-successor D1 passes all task and verification criteria; partial activity evidence does not support exact efficiency or retry counts."
+}

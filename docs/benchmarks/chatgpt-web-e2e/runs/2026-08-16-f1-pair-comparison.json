@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "case_id": "F1",
+  "status": "completed_pair_reviewed",
+  "controls": { "baseline_server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1", "candidate_server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e", "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1", "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json", "node": "24.15.0", "auth_mode": "oauth", "configured_root_mode": "oauth_cross_transport", "fresh_target_per_variant": true, "fresh_chat_per_variant": true, "identical_seed": true },
+  "baseline": { "result_file": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-f1-baseline-successor.json", "task_success": true, "verification_completed": null, "tool_trace_provided": true, "tool_trace_complete": false, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": 1, "mutation_retries": null },
+  "candidate": { "result_file": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-f1-candidate-successor.json", "task_success": true, "verification_completed": null, "tool_trace_provided": true, "tool_trace_complete": true, "wrong_tool_calls": 0, "redundant_tool_calls": 0, "total_tool_calls": 6, "context_fetch_calls": 1, "mutation_retries": 0 },
+  "comparison": { "task_success": "tie_pass", "verification_completion": null, "tool_call_efficiency": "not_comparable_incomplete_baseline_tool_trace", "wrong_tool_call_rate": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": "tie_1_each", "mutation_retries": null, "p1_effect_for_f1": "not_demonstrated" },
+  "notes": "Both variants independently identify the seeded security regression from the current diff and leave their targets unchanged. Candidate has a complete six-action semantic trace, but baseline activity rows are mispaired, so pair-level efficiency remains unscored."
+}

@@ -235,6 +235,10 @@ test("search advertises exact outputSchema and returns nested real lexical resul
   await withInMemoryClient({}, async (client) => {
     const listed = await client.listTools();
     const descriptor = listed.tools.find((tool) => tool.name === "search");
+    assert.equal(
+      descriptor?.description,
+      "Use search for exact text, strings, error messages, configuration keys, and lexical symbol occurrences. Use tree to discover an unknown filename or directory. When the semantic tool is available, use semantic for definitions, references, diagnostics, or rename impact. Do not present lexical search results as certain semantic definitions or references. Prefer one targeted search instead of repeated broad searches."
+    );
     assert.ok(descriptor?.outputSchema);
     assert.deepEqual(new Set(descriptor.outputSchema.required), new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"]));
 

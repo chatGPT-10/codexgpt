@@ -36,6 +36,10 @@ import {
 import { upgradeCodexGPTSupertool } from "./codexgptSupertool.js";
 import { currentPolicyIdentity, type PolicySessionContextSource } from "./policy/identity.js";
 import type { OAuthToolSecurityRuntime } from "./auth/toolSecurity.js";
+import type {
+  WorkspaceCapabilityRegistry,
+  OAuthWorkspaceCapabilityPrincipalV1
+} from "./workspace/capabilityRegistry.js";
 import {
   ownerIdForPolicyIdentity,
   policyIdentityOwnershipFacts
@@ -54,6 +58,7 @@ import {
 } from "./transactions/index.js";
 import {
   createCodexGPTServer,
+  disposeCodexGPTServerLocalState,
   type CodexGPTServerDependencies
 } from "./server.js";
 import { contractIncludesV3, contractIncludesV4 } from "./tools/contracts/index.js";
@@ -123,6 +128,8 @@ export interface ProductionRuntimeObservation {
 export interface ProductionCodexGPTServerOptions {
   policySessionContextSource?: PolicySessionContextSource;
   oauthToolSecurity?: OAuthToolSecurityRuntime;
+  configuredRootWorkspaceRegistry?: WorkspaceCapabilityRegistry;
+  workspaceCapabilityPrincipal?: () => Readonly<OAuthWorkspaceCapabilityPrincipalV1>;
   stateRootOptions?: TransactionStateRootOptions;
   observeRuntime?: (value: ProductionRuntimeObservation) => void;
   localApprovalRuntimeV3?: LocalApprovalRuntimeV3;
@@ -149,12 +156,21 @@ interface RuntimeResources {
 function noRuntime(
   policySessionContextSource: PolicySessionContextSource | undefined,
   oauthToolSecurity: OAuthToolSecurityRuntime | undefined,
+  configuredRootWorkspaceRegistry: WorkspaceCapabilityRegistry | undefined,
+  workspaceCapabilityPrincipal: (() => Readonly<OAuthWorkspaceCapabilityPrincipalV1>) | undefined,
   lifecycle: ServerMutationLifecycle,
   semanticPreviewStoreV5?: SemanticPreviewStore,
   semanticWorkerHealthV5?: SemanticWorkerHealthRegistry
 ): RuntimeResources {
   return {
-    dependencies: { policySessionContextSource, oauthToolSecurity, semanticPreviewStoreV5, semanticWorkerHealthV5 },
+    dependencies: {
+      policySessionContextSource,
+      oauthToolSecurity,
+      configuredRootWorkspaceRegistry,
+      workspaceCapabilityPrincipal,
+      semanticPreviewStoreV5,
+      semanticWorkerHealthV5
+    },
     observation: {
       atomic: false,
       durableAudit: false,
@@ -311,6 +327,8 @@ function composeRuntime(
     return noRuntime(
       options.policySessionContextSource,
       options.oauthToolSecurity,
+      options.configuredRootWorkspaceRegistry,
+      options.workspaceCapabilityPrincipal,
       lifecycle,
       options.semanticPreviewStoreV5,
       options.semanticWorkerHealthV5
@@ -373,6 +391,8 @@ function composeRuntime(
     const dependencies: CodexGPTServerDependencies = {
       policySessionContextSource: options.policySessionContextSource,
       oauthToolSecurity: options.oauthToolSecurity,
+      configuredRootWorkspaceRegistry: options.configuredRootWorkspaceRegistry,
+      workspaceCapabilityPrincipal: options.workspaceCapabilityPrincipal,
       transactionRecoveryCoordinator: recovery,
       localApprovalRuntimeV3,
       rootAdmissionRuntimeV3: options.rootAdmissionRuntimeV3,
@@ -1004,6 +1024,7 @@ function installRuntimeDisposal(server: McpServer, runtime: RuntimeResources): v
 }
 
 export async function disposeProductionCodexGPTServer(server: McpServer): Promise<void> {
+  await disposeCodexGPTServerLocalState(server);
   await productionDisposers.get(server)?.();
 }
 

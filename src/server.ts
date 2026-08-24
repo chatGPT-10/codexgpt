@@ -87,6 +87,10 @@ import {
   type Workspace,
   type WorkspaceManagerOptions
 } from "./guard.js";
+import type {
+  WorkspaceCapabilityRegistry,
+  OAuthWorkspaceCapabilityPrincipalV1
+} from "./workspace/capabilityRegistry.js";
 import {
   repoTree,
   readTextFile,
@@ -4459,6 +4463,8 @@ export interface CodexGPTServerDependencies extends Phase3DServerDependencies {
   policyRuntime?: PolicyRuntime;
   policySessionContextSource?: PolicySessionContextSource;
   oauthToolSecurity?: OAuthToolSecurityRuntime;
+  configuredRootWorkspaceRegistry?: WorkspaceCapabilityRegistry;
+  workspaceCapabilityPrincipal?: () => Readonly<OAuthWorkspaceCapabilityPrincipalV1>;
   policyAuditSink?: (event: AuditEventV1) => void | Promise<void>;
   transactionRecoveryCoordinator?: TransactionRecoveryHook;
   workspaceMutationRuntime?: WorkspaceMutationRuntime;
@@ -4598,6 +4604,11 @@ interface ServerMutationRegistration {
 
 const mutationRegistrationByServer = new WeakMap<object, ServerMutationRegistration>();
 const oauthToolSecurityByServer = new WeakMap<object, OAuthToolSecurityRuntime>();
+const localStateDisposerByServer = new WeakMap<object, () => Promise<void>>();
+
+export async function disposeCodexGPTServerLocalState(server: McpServer): Promise<void> {
+  await localStateDisposerByServer.get(server as object)?.();
+}
 
 function registerToolCompat(
   server: McpServer,
@@ -5733,13 +5744,18 @@ export function serverInstructions(config: CodexGPTConfig): string {
       : "5. Use bash only for meaningful verification commands such as npm test, npm run build, lint, typecheck, or an existing project script.";
 
   const standardGuidance = (config.guidanceMode ?? "legacy") === "standard";
+  const crossTransportWorkspaceGuidance =
+    config.authMode === "oauth" &&
+    (config.oauthWorkspaceCapabilityMode ?? "oauth_cross_transport") === "oauth_cross_transport";
   return [
     "CodexGPT connects ChatGPT to one local development workspace.",
     "",
     "Preferred workflow:",
     "1. Start with open_current_workspace. Use open_workspace only when the user gives a different root or asks to switch folders.",
     standardGuidance
-      ? "1a. In ChatGPT Web/App, omit workspace_id on subsequent default-workspace tool calls; workspace handles are transport-session scoped and must not be reused across MCP sessions."
+      ? crossTransportWorkspaceGuidance
+        ? "1a. In OAuth ChatGPT Web/App, explicitly reuse the workspace_id returned by open_current_workspace/open_workspace on subsequent project tool calls, including after MCP transport rotation. If the user selected a non-default root, never omit that workspace_id or substitute the configured default workspace. Reopen only after WORKSPACE_NOT_FOUND (for example after close, expiry, revoke/policy invalidation, or service restart)."
+        : "1a. In legacy/query-token or STDIO session-local mode, omit workspace_id on subsequent default-workspace tool calls; workspace handles must not be reused across MCP sessions."
       : "",
     "2. Follow any AGENTS.md-style instructions returned by the workspace open call before editing files.",
     standardGuidance
@@ -6248,6 +6264,14 @@ export function createCodexGPTServer(
   config: CodexGPTConfig,
   dependencies: CodexGPTServerDependencies = {}
 ): McpServer {
+  const sharedWorkspaceRegistryConfigured = Boolean(dependencies.configuredRootWorkspaceRegistry);
+  const sharedWorkspacePrincipalConfigured = Boolean(dependencies.workspaceCapabilityPrincipal);
+  if (sharedWorkspaceRegistryConfigured !== sharedWorkspacePrincipalConfigured) {
+    throw new Error("Shared workspace capability registry and principal source must be configured together.");
+  }
+  if (sharedWorkspaceRegistryConfigured && config.authMode !== "oauth") {
+    throw new Error("Shared workspace capability registry is OAuth-only.");
+  }
   if (dependencies.oauthToolSecurity && !dependencies.policySessionContextSource) {
     throw new Error("OAuth tool security requires a request-local policy identity source.");
   }
@@ -6296,6 +6320,8 @@ export function createCodexGPTServer(
     beforeWorkspaceUse: transactionRecoveryCoordinator
       ? (canonicalRoot) => transactionRecoveryCoordinator.ensureWorkspaceReady(canonicalRoot)
       : undefined,
+    configuredRootRegistry: dependencies.configuredRootWorkspaceRegistry,
+    capabilityPrincipal: dependencies.workspaceCapabilityPrincipal,
     confirmedRoots: dependencies.rootAdmissionRuntimeV3,
     taskWorktrees: dependencies.taskWorktreeAuthorityV4
   });
@@ -6455,17 +6481,19 @@ export function createCodexGPTServer(
   if (dependencies.oauthToolSecurity) {
     oauthToolSecurityByServer.set(server as object, dependencies.oauthToolSecurity);
   }
-  if (semanticManager) {
+  {
     const closeServer = server.close.bind(server);
-    let semanticClose: Promise<void> | null = null;
+    let localDisposePromise: Promise<void> | null = null;
+    const disposeLocalState = (): Promise<void> => {
+      if (localDisposePromise) return localDisposePromise;
+      workspaces.dispose("transport_closed");
+      localDisposePromise = semanticManager ? semanticManager.dispose() : Promise.resolve();
+      return localDisposePromise;
+    };
+    localStateDisposerByServer.set(server as object, disposeLocalState);
     server.close = async () => {
-      try {
-        workspaces.revokeAll("transport_closed");
-        await closeServer();
-      } finally {
-        semanticClose ??= semanticManager.dispose();
-        await semanticClose;
-      }
+      await disposeLocalState();
+      await closeServer();
     };
   }
   if (dependencies.workspaceMutationRuntime) {
@@ -7853,7 +7881,7 @@ export function createCodexGPTServer(
     "close_workspace",
     {
       title: "Close Workspace",
-      description: "Close one session-scoped workspace handle. The handle becomes unusable immediately; reopen the workspace to obtain a new workspace_id.",
+      description: "Close one opaque workspace capability handle. The handle becomes unusable immediately; reopen the workspace to obtain a new workspace_id.",
       inputSchema: {
         workspace_id: z.string()
           .regex(/^ws_[0-9a-f]{32}$/)
@@ -8499,7 +8527,8 @@ export function createCodexGPTServer(
     "search",
     {
       title: "Search Files",
-      description: "Use this for targeted verification or code lookup. Prefer one specific final search instead of repeated broad verification searches.",
+      description:
+        "Use search for exact text, strings, error messages, configuration keys, and lexical symbol occurrences. Use tree to discover an unknown filename or directory. When the semantic tool is available, use semantic for definitions, references, diagnostics, or rename impact. Do not present lexical search results as certain semantic definitions or references. Prefer one targeted search instead of repeated broad searches.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         query: z.string().describe("Text or regex to search for."),

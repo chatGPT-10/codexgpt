@@ -9,8 +9,10 @@ import { tsImport } from "tsx/esm/api";
 
 const guardModule = await tsImport("../src/guard.ts", import.meta.url);
 const serverModule = await tsImport("../src/server.ts", import.meta.url);
+const workspaceCapabilityModule = await tsImport("../src/workspace/capabilityRegistry.ts", import.meta.url);
 const { WorkspaceManager, workspaceKeyForRoot } = guardModule;
 const { createCodexGPTServer } = serverModule;
+const { WorkspaceCapabilityRegistry } = workspaceCapabilityModule;
 
 function configFor(root, overrides = {}) {
   return {
@@ -405,6 +407,88 @@ test("atomic read-only server recovers before issuing a workspace handle", async
     } finally {
       await connection.close();
     }
+  });
+});
+
+test("shared configured-root capacity projects through the existing WORKSPACE_OPEN_FAILED contract", async () => {
+  await withTempWorkspace(async (root) => {
+    const firstRoot = path.join(root, "first");
+    const secondRoot = path.join(root, "second");
+    await fs.mkdir(firstRoot);
+    await fs.mkdir(secondRoot);
+    const principal = {
+      authDomain: "oauth",
+      deploymentBindingId: "binding_11111111111111111111111111111111",
+      deploymentIncarnationId: "incarnation_11111111111111111111111111111111",
+      ownerRef: "owner_ref_a",
+      clientRef: "client_ref_a",
+      resource: "https://mcp.example.invalid/mcp",
+      grantId: "grant_11111111111111111111111111111111",
+      grantRevision: 0
+    };
+    const registry = new WorkspaceCapabilityRegistry({
+      ttlMs: 60_000,
+      maxPerPrincipal: 1,
+      maxActive: 2
+    });
+    const connection = await createServerClient(
+      serverConfigFor(root, { authMode: "oauth" }),
+      {
+        configuredRootWorkspaceRegistry: registry,
+        workspaceCapabilityPrincipal: () => principal
+      }
+    );
+    try {
+      const first = structured(await connection.client.callTool({
+        name: "open_workspace",
+        arguments: { root: firstRoot, include_tree: false }
+      }));
+      assert.equal(first.ok, true, JSON.stringify(first));
+      const second = structured(await connection.client.callTool({
+        name: "open_workspace",
+        arguments: { root: secondRoot, include_tree: false }
+      }));
+      assert.equal(second.ok, false, JSON.stringify(second));
+      assert.equal(second.error.code, "WORKSPACE_OPEN_FAILED");
+      const stillLive = structured(await connection.client.callTool({
+        name: "tree",
+        arguments: { workspace_id: first.data.workspace_id, max_depth: 1 }
+      }));
+      assert.equal(stillLive.ok, true, JSON.stringify(stillLive));
+    } finally {
+      await connection.close();
+      registry.dispose();
+    }
+  });
+});
+
+test("server composition rejects shared workspace capability dependencies outside OAuth or when only half is configured", async () => {
+  await withTempWorkspace(async (root) => {
+    const registry = new WorkspaceCapabilityRegistry({ ttlMs: 60_000 });
+    const principal = () => ({
+      authDomain: "oauth",
+      deploymentBindingId: "binding_11111111111111111111111111111111",
+      deploymentIncarnationId: "incarnation_11111111111111111111111111111111",
+      ownerRef: "owner_ref_a",
+      clientRef: "client_ref_a",
+      resource: "https://mcp.example.invalid/mcp",
+      grantId: "grant_11111111111111111111111111111111",
+      grantRevision: 0
+    });
+    assert.throws(
+      () => createCodexGPTServer(serverConfigFor(root), {
+        configuredRootWorkspaceRegistry: registry,
+        workspaceCapabilityPrincipal: principal
+      }),
+      /OAuth-only/
+    );
+    assert.throws(
+      () => createCodexGPTServer(serverConfigFor(root, { authMode: "oauth" }), {
+        configuredRootWorkspaceRegistry: registry
+      }),
+      /configured together/
+    );
+    registry.dispose();
   });
 });
 

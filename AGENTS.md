@@ -98,7 +98,7 @@ Memory rules:
 
 ### 5.6 Workspace
 
-- Public `workspace_id` values are random opaque, session-local handles. Every lifecycle domain owns its `WorkspaceManager`; only `resolveWorkspace()` holds omitted-ID compatibility. Foreign, stale, closed, expired, or policy-stale handles fail closed without leakage, and `close_workspace` stays off the read-only connection-test surface.
+- `workspace_id` values are random opaque capabilities, never path-derived. OAuth configured-root handles may cross MCP transport rotation only within one running deployment runtime for the exact incarnation/owner/client/grant+revision/resource/policy tuple. Foreign lookup/close is non-destructive; close/TTL/policy/grant/incarnation/restart fail closed; explicit misses never default. Legacy/query-token, STDIO, confirmed-root, and task-worktree lifecycles are unchanged. `CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE=session_local` is rollback; `close_workspace` stays off read-only connection tests.
 
 ### 5.7 Mutation inventory
 
@@ -115,6 +115,7 @@ The following rules are mandatory and are enforced by `npm run policy:check` plu
 - Recovery may defer only for an exact live mutation lock returning `TRANSACTION_BUSY`; all other recovery errors fail closed. Mutation review identity must use repository path, syscall type, and a normalized semantic AST/call digest; never use timestamps or monotonic file IDs.
 - Diagnose CI with `scripts/exact-head-ci.mjs` or `scripts/ci-failure-summary.mjs`, bounded user/config state, and ignored `.ai-bridge/` evidence. A phase closes only on its closure SHA's exact-head CI; never create a follow-up repository commit solely to record the run ID. Runtime changes need the complete Ubuntu/Windows Node 20/24 matrix; docs need the documentation/policy gate. `npm run policy:check` is required before staging and in every CI path, including documentation-only changes.
 - Large single files must be read through explicit line ranges. Scan ceilings never enlarge connector response ceilings.
+- Real ChatGPT Web behavior claims use `docs/benchmarks/chatgpt-web-e2e/`. From A2 onward both fixed server refs must apply the exact shared `successor-overlay.json`; when the UI/tool trace is absent, leave tool-efficiency metrics unscored rather than inferring them from prose.
 
 ### 5.9 Phase 4 design boundary
 
@@ -134,7 +135,7 @@ The following rules are mandatory and are enforced by `npm run policy:check` plu
 
 ### 5.13 Phase 8 design boundary
 
-- Follow the 2026-07-26 Phase 8 [spec](docs/superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md) and [plan](docs/superpowers/plans/2026-07-24-phase-8-oauth-and-public-auth.md). Phase 8 Core is closed: G8-0, Tasks 8A1–8A9, real G8-U Journeys U2–U7, local G8-X, and exact-head Ubuntu/Windows Node 20/24 CI passed at `55b2b5664aae322ec992968a41c87a289fb75282` / run `30274857996`. Preserve the U6 deleted-App evidence substitution, U7 public-loopback/local-admin boundary, `legacy|oauth` exclusivity, credential-free `authRoutes`, two-App rollback via `auth setup --root`, Windows DPAPI CurrentUser, strict DCR/PKCE and token/session bounds, durable revoke/replay, request-local policy identity, no-deletion recovery, no new execution authority, and exact V1–V5 counts `28/31/39/51/52`.
+- Follow the Phase 8 [spec](docs/superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md) and [plan](docs/superpowers/plans/2026-07-24-phase-8-oauth-and-public-auth.md). Preserve the U6 deleted-App evidence substitution, U7 public-loopback/local-admin boundary, `legacy|oauth` exclusivity, credential-free `authRoutes`, two-App rollback via `auth setup --root`, Windows DPAPI CurrentUser, strict DCR/PKCE and token/session bounds, durable revoke/replay, request-local policy identity, no-deletion recovery, no new execution authority, and exact V1–V5 counts `28/31/39/51/52`; closure SHA/CI evidence lives in `Memory.md` and the archive.
 - The [`openai/codex` review](docs/reviews/2026-07-26-openai-codex-project-review.md) and [post-Phase-8 improvement plan](docs/superpowers/plans/2026-07-26-post-phase-8-project-improvement-plan.md) are advisory only and grant no implementation authority.
 
 ## 6. Documentation map
@@ -178,6 +179,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phases 1–8 Core are closed. Phase 7 Core closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / run `30171313296`; Phase 8 Core closed at `55b2b5664aae322ec992968a41c87a289fb75282` / run `30274857996`. Phase 4's 4B0 stays blocked/non-production; `workspace` and Tasks 4B1–4B6 stay deferred. Preserve verified Node toolchains; use `Memory.md` for current evidence and next action.
+Phases 1–8 Core are closed; exact closure SHAs, CI runs, and release/runtime evidence live in `Memory.md` and `docs/memory/archive/`. Phase 4's 4B0 remains blocked/non-production; `workspace` and Tasks 4B1–4B6 remain deferred. Preserve the verified Node toolchains. No further implementation or deployment is implicitly authorized.
 
-The npm releases `codexgpt@1.0.0` through `codexgpt@1.0.4` are published and immutable; corrections require a new semantic version. `1.0.3` and `1.0.4` were explicitly authorized bounded repairs, not blanket post-`1.0.0` authority. No further implementation or deployment is implicitly authorized. U6 proves replacement Legacy compatibility and OAuth return continuity, not recovery of the deleted original App identity. Credential migration, unrelated Cloudflare/Tunnel/DNS mutation, Phase 7B/7C installs, Task Scheduler/service, sandbox/egress, runtime deployment, destructive history, Phase 9, and unrelated scope remain gated. Do not create an evidence-only commit solely to record a CI run ID.
+The published `codexgpt@1.0.0`–`1.0.4` releases are immutable; corrections require a new semantic version. Credential migration, unrelated Cloudflare/Tunnel/DNS mutation, Phase 7B/7C installs, Task Scheduler/service, sandbox/egress, runtime deployment, destructive history, Phase 9, and unrelated scope remain gated. Do not create an evidence-only commit solely to record a CI run ID.

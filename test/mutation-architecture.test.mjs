@@ -106,6 +106,12 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "appendFile:bbcb885992d0"
     ])
   }),
+  "scripts/chatgpt-web-benchmark-runtime.mjs": Object.freeze({
+    purpose: "Benchmark-only dependency junction from an exact clean isolated checkout to the already-validated source node_modules root; existing mismatches fail closed and post-link realpath must equal the approved dependency root.",
+    occurrences: Object.freeze([
+      "symlink:9bafd30f0a24"
+    ])
+  }),
   "scripts/exact-head-ci.mjs": Object.freeze({
     purpose: "Ignored .ai-bridge exact-head CI evidence outside tracked repository state.",
     occurrences: Object.freeze([

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "case_id": "F1",
+  "status": "completed_partial_tool_trace",
+  "observed_at": "2026-08-16T23:38:00+02:00",
+  "server_run_id": "2026-08-16T21-34-30-281Z-step505-f1-baseline-successor-c6111bf9",
+  "server_variant": "baseline_successor",
+  "server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-44680c4b",
+  "chat_url": "https://chatgpt.com/c/6a822d23-3150-83ed-982e-8bd9379e4e48",
+  "tool_trace_provided": true,
+  "tool_trace_complete": false,
+  "case_result": {
+    "workspace_id": "ws_8fd2e66af4600e9eb7037e9a7bf38be5",
+    "workspace_bootstrap_completed": true,
+    "metrics": { "task_success": true, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": 1, "mutation_retries": null, "verification_completed": null },
+    "success_criteria": { "identifies_query_token_redaction_security_regression": true, "uses_status_diff_as_primary_evidence": true, "does_not_mutate_worktree": true },
+    "observed_partial_tool_calls": [
+      { "visible_order": 1, "tool": "open_workspace", "intent": "workspace_bootstrap", "outcome": "success", "context_fetch": true },
+      { "visible_order": 2, "tool": "show_changes", "intent": "git_diff_review", "outcome": "success", "context_fetch": false },
+      { "visible_order": 3, "tool": "bash", "intent": "focused_regression_test", "outcome": "expected_seed_failure_3_pass_1_fail", "context_fetch": false },
+      { "visible_order": 4, "tool": "show_changes", "intent": "final_read_only_state_check", "outcome": "success", "context_fetch": false }
+    ],
+    "answer_evidence": "Reported one P1/high credential-disclosure regression at src/redact.ts, explained the QUERY_TOKEN_PATTERN detection/redaction split, cited the direct 3/4 focused-test failure on secret-code, described affected output paths, recommended focused verification, and explicitly reported no mutation.",
+    "notes": "The cumulative activity modal exposed numbered rows but paired later search inputs with bash/show_changes outputs, so it does not provide a stable one-to-one complete semantic trace. Criterion-level answer evidence and independent target inspection support task success only; unsupported efficiency and retry metrics remain null. Wrapper list_resources calls are not CodexGPT child actions."
+  },
+  "independent_target_evidence": { "status": "M src/redact.ts only", "seed_diff": "one deletion of redactSensitiveText QUERY_TOKEN_PATTERN replacement", "focused_test": "3 passed, 1 failed at secret-code", "diff_check": "passed" },
+  "runtime_cleanup": { "final_status": "stopped", "final_identity": "stop_recorded", "stopped_at": "2026-08-16T21:38:50.832Z", "listeners_after_stop": 0 }
+}

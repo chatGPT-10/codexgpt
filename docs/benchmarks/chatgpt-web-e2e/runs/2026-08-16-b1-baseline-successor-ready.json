@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "evidence_kind": "successor_adjusted_ab_b1_baseline_ready",
+  "status": "ready_for_fresh_chatgpt_web",
+  "observed_at": "2026-08-16T19:35+02:00",
+  "formal_benchmark_scored": false,
+  "shared_server_overlay": {
+    "manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "label": "step493-oauth-cross-transport-workspace-successor",
+    "entries": 6,
+    "content_matches_step493_runtime": true
+  },
+  "server_variants": {
+    "baseline_successor": {
+      "base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+      "checkout_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-7ee3f966",
+      "overlay_exact": true,
+      "package_identity_matches": true,
+      "build_passed": true,
+      "dependency_root": "D:\\Dev\\codexgpt\\node_modules"
+    },
+    "candidate_successor": {
+      "base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+      "checkout_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-bfd1b56c",
+      "overlay_exact": true,
+      "package_identity_matches": true,
+      "build_passed": true,
+      "dependency_root": "D:\\Dev\\codexgpt\\node_modules"
+    }
+  },
+  "fairness": {
+    "baseline_candidate_core_successor_overlay_identical": true,
+    "candidate_runtime_started": false,
+    "rule": "Both server base refs use the exact shared six-path successor overlay. B1 uses a fresh clean target at the fixed target ref; only the historical P1 candidate base-ref is intended to differ."
+  },
+  "case": {
+    "case_id": "B1",
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-316f3b60",
+    "target_clean": true,
+    "server_variant": "baseline_successor",
+    "server_run_id": "2026-08-16T17-34-15-637Z-step497-b1-baseline-successor-4b2502d1",
+    "runtime_mode": "oauth_cross_transport",
+    "health": {
+      "runner_status": "running",
+      "runner_identity": "worker_lease_active",
+      "loopback_only_ports": [8789, 8790],
+      "local_admin_http_status": 200,
+      "local_public_unauthenticated_http_status": 403,
+      "public_health_http_status": 200,
+      "public_auth_mode": "oauth",
+      "public_mcp_available": true
+    },
+    "prompt_sent": false,
+    "workspace_bootstrap_completed": null,
+    "metrics": {
+      "task_success": null,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": null,
+      "mutation_retries": null,
+      "verification_completed": null
+    }
+  },
+  "notes": "B1 baseline is prepared but not executed or scored. A local non-benchmark preflight mistakenly passed an unsupported status token to codexgpt-entry; it entered the start path and was terminated by the Devspace timeout. A subsequent listener check found no 8789/8790 residue before the owned detached baseline runtime was started. Formal B1 still requires one fresh ChatGPT Web conversation using the fixed bootstrap and unchanged B1 prompt, with the full UI/tool trace preserved if available."
+}

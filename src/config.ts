@@ -24,6 +24,7 @@ export type ToolContractVersion = 1 | 2 | 3 | 4 | 5;
 export type PersistedMutationContractVersion = 1 | 2 | 3;
 export type SemanticMode = "legacy" | "standard";
 export type SemanticProviderSelection = "builtin" | "none";
+export type OAuthWorkspaceCapabilityMode = "session_local" | "oauth_cross_transport";
 
 export function persistedMutationContractVersion(
   version: ToolContractVersion
@@ -103,6 +104,7 @@ export interface CodexGPTConfig {
   maxHttpSessions: number;
   httpSessionTtlMs: number;
   workspaceTtlMs?: number;
+  oauthWorkspaceCapabilityMode?: OAuthWorkspaceCapabilityMode;
   blockedGlobs: string[];
   contextDir: string;
   toolCards: boolean;
@@ -331,6 +333,13 @@ function semanticModeFrom(value: string | undefined): SemanticMode {
   if (!normalized || normalized === "legacy") return "legacy";
   if (normalized === "standard") return "standard";
   throw new Error("CODEXGPT_SEMANTIC_MODE must be legacy or standard.");
+}
+
+function oauthWorkspaceCapabilityModeFrom(value: string | undefined): OAuthWorkspaceCapabilityMode {
+  const normalized = value?.trim();
+  if (!normalized || normalized === "oauth_cross_transport") return "oauth_cross_transport";
+  if (normalized === "session_local") return "session_local";
+  throw new Error("CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE must be session_local or oauth_cross_transport.");
 }
 
 function semanticProviderFrom(value: string | undefined): SemanticProviderSelection {
@@ -922,6 +931,9 @@ export function loadConfig(
       numberFrom(process.env.CODEXGPT_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
       60_000,
       24 * 60 * 60_000
+    ),
+    oauthWorkspaceCapabilityMode: oauthWorkspaceCapabilityModeFrom(
+      process.env.CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE
     ),
     blockedGlobs: [...DEFAULT_BLOCKED_GLOBS, ...extraBlockedGlobs],
     contextDir: contextDirFrom(process.env.CODEXGPT_CONTEXT_DIR),

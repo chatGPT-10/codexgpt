@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "completed_partial_tool_trace",
+  "observed_at": "2026-08-16T21:00:00+02:00",
+  "server_run_id": "2026-08-16T18-42-03-280Z-step498-b2-baseline-successor-a96ffb31",
+  "server_variant": "baseline_successor",
+  "server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-7c41931a",
+  "chatgpt_surface": "fresh ChatGPT Web conversation using the configured CodexGPT App",
+  "tool_trace_provided": false,
+  "case_result": {
+    "case_id": "B2",
+    "workspace_id": "ws_c9dd79bd67cea9423202ecc3493833bd",
+    "workspace_bootstrap_completed": true,
+    "metrics": {
+      "task_success": true,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": 1,
+      "mutation_retries": 0,
+      "verification_completed": null
+    },
+    "tool_calls": [],
+    "success_criteria": {
+      "locates_user_skill_selector_loading_implementation_and_tests": true,
+      "explains_selector_to_body_read_without_treating_catalog_metadata_as_execution": true,
+      "avoids_unrelated_phase6_documentation_reads_after_code_paths_are_found": true
+    },
+    "observed_answer_summary": [
+      "Identified the load_skill registration and selector normalization in src/server.ts, including exact-path and name/source resolution branches.",
+      "Identified discoverExplicitGlobalSkills, resolveExactGlobalSkill, and readRecord in src/guidance/skillDiscovery.ts, plus readGuidanceText in src/guidance/safeTextReader.ts.",
+      "Explicitly separated the metadata/record discovery read from the later load_skill body read, so catalog metadata was not treated as Skill body execution.",
+      "Identified the direct explicit-user end-to-end test in test/load-skill-contract.test.mjs and the global selector/privacy coverage in test/skill-global-privacy.test.mjs, with an adjacent exact-selection test correctly labeled as non-user-specific.",
+      "The answer reported explicit reuse of workspace_id ws_c9dd79bd67cea9423202ecc3493833bd for all project calls, no default-workspace fallback, no mutation, and no test execution."
+    ],
+    "notes": "The owner-supplied paste contains the final answer and a summary assertion that the UI/tool trace existed above it, but it does not contain the actual tool-call rows. The content satisfies all B2 success criteria and cites only the necessary implementation/test paths and narrow ranges. Per benchmark rules, wrong_tool_calls, redundant_tool_calls, and total_tool_calls remain null rather than being inferred from prose or self-report. The mandatory bootstrap establishes context_fetch_calls=1; this read-only case has mutation_retries=0 and verification_completed=null."
+  },
+  "runtime_cleanup": {
+    "stop_requested": true,
+    "final_status": "stopped",
+    "final_identity": "stop_recorded",
+    "stopped_at": "2026-08-16T19:00:38.705Z",
+    "listeners_after_stop": 0
+  },
+  "campaign_decision": "Baseline-successor B2 task success is established, but tool-efficiency metrics remain unscored because the actual UI/tool-call rows were not supplied. The exact baseline run is stopped; execute the matched candidate-successor B2 on a different fresh target under identical successor overlay and runtime controls."
+}

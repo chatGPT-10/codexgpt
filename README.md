@@ -56,7 +56,7 @@ The npm badge and package metadata should both report `1.0.4`. Use a source chec
 For an existing source checkout, keep the public entry layer by using the repository scripts:
 
 ```powershell
-Set-Location D:\Dev\codexpro
+Set-Location D:\Dev\codexgpt
 npm install
 npm run build
 npm run connect:setup -- --root D:\Dev\your-repo
@@ -94,7 +94,7 @@ codexgpt auth setup `
 Source checkout (development or branch-specific build):
 
 ```powershell
-Set-Location D:\Dev\codexpro
+Set-Location D:\Dev\codexgpt
 npm install
 npm run build
 node .\scripts\codexgpt-entry.mjs auth setup `
@@ -382,6 +382,14 @@ Useful surface controls:
 --mode pro
 --tunnel none
 ```
+
+## Workspace sessions
+
+`workspace_id` is a random opaque capability handle, not a repository-path hash. In OAuth mode, configured-root handles are owned by one running deployment runtime and can be explicitly reused across ChatGPT Web MCP transport rotation only for the same deployment incarnation, owner, OAuth client, grant/revision, resource, and policy revision. A copied handle from another principal fails with the same bounded unavailable result and cannot close or extend the legitimate capability.
+
+`close_workspace` invalidates a handle immediately. Idle handles expire according to `CODEXGPT_WORKSPACE_TTL_MS`; when unset, the timeout follows `CODEXGPT_HTTP_SESSION_TTL_MS` (normally 30 minutes), and successful use refreshes the idle deadline. Restarting the OAuth runtime/service clears configured-root capabilities, while a normal access-token refresh inside the same grant does not change their authority.
+
+Legacy/query-token HTTP and STDIO keep their historical session/process-local behavior. During the compatibility period, omitting `workspace_id` can select only the current server session's configured default root. In OAuth mode, after explicitly opening a non-default root, keep passing the returned `workspace_id`; an unresolved explicit handle never falls back to the default workspace. `CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE=session_local` temporarily restores the old OAuth lifecycle.
 
 ## Security model
 

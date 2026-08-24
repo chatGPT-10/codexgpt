@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "evidence_kind": "workspace_successor_a1_connector_regression",
+  "status": "passed_continuity_probe",
+  "observed_at": "2026-08-16T17:10:43+02:00",
+  "server_run_id": "2026-08-16T15-08-53-956Z-step494-successor-a1-5e67c1fa",
+  "server_variant": "successor_working_tree",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "server_working_tree_uncommitted": true,
+  "server_source_identity": {
+    "src/config.ts": "821f167369113b9ac7dba815ccb889b84228f843ea98f1feed914dca9c5951bb",
+    "src/guard.ts": "71cccef9eed7893ae41f63763fe7266f13bc0d620159bb7be5709701fd6c7f04",
+    "src/http/oauthMcpRuntime.ts": "5ed86066b5834241e29ade6ac61cef010b905dd4bfa813ca5f2ea21a8ea8e32d",
+    "src/productionRuntime.ts": "3982c7e64dcfdb60593cbb20b704b2d3333eb44185fec3f1de70f01e3cf38c17",
+    "src/server.ts": "d8767ed43d6a8f5e5774b25110a4ad40d5782ae6c9a46ec8be06aaeaaa49e746",
+    "src/workspace/capabilityRegistry.ts": "92c43e7741a63582fd3f24d968ef0c9fb64d52dfdb41c24a0cec0703e3ef617f"
+  },
+  "runtime_mode": "oauth_cross_transport",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-d6e52e6e",
+  "chatgpt_surface": "current ChatGPT connector invocation using the configured CodexGPT App",
+  "fresh_conversation": false,
+  "formal_benchmark_scored": false,
+  "case_result": {
+    "case_id": "A1",
+    "workspace_id": "ws_b7ea7abb9d1b518608670427840f00b3",
+    "workspace_bootstrap_completed": true,
+    "transport_rotation_observed": null,
+    "tool_calls": [
+      {
+        "sequence": 1,
+        "tool": "open_workspace",
+        "intent": "workspace_context",
+        "outcome": "success",
+        "returned_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-d6e52e6e"
+      },
+      {
+        "sequence": 2,
+        "tool": "read",
+        "intent": "targeted_read",
+        "path": "package.json",
+        "workspace_id_reused": true,
+        "outcome": "success",
+        "returned_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-d6e52e6e",
+        "returned_sha256": "0cd11b64bb241b6ed3a49db6a3ea650df48b3b68b17aec2edd89a65722f7cc01"
+      }
+    ],
+    "target_package_json_sha256": "0cd11b64bb241b6ed3a49db6a3ea650df48b3b68b17aec2edd89a65722f7cc01",
+    "default_profile_package_json_sha256": "477b8b8c6d67380c8ec97acee861e50c2c5ec39b29f2b8103597fa0a0a6600d0",
+    "no_default_root_fallback": true,
+    "second_open_workspace_required": false,
+    "workspace_continuity_regression_passed": true,
+    "notes": "The configured CodexGPT App returned an opaque workspace_id for the exact pinned non-default target. The next connector call explicitly reused that same handle for read(package.json) and succeeded. The returned root was the pinned target. The read result SHA-256 exactly matched the target package.json and differed from the configured profile/default-root package.json, directly excluding default fallback. The connector API does not expose the underlying MCP transport/session id, so this run does not claim that transport rotation was observed. Forced two-transport rotation is covered separately by STEP-493 integration tests."
+  },
+  "campaign_decision": "The real connector continuity defect observed in STEP-490 no longer reproduces on the successor working tree, and the no-default-fallback condition is proven. This current-conversation probe is not a fresh-conversation A1 benchmark score, so do not start A2/candidate scoring in this STEP. Run the fixed bootstrap plus verbatim A1 prompt once in a fresh ChatGPT Web conversation before resuming scored Phase 0 cases."
+}

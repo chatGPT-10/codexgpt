@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "ready",
+  "prepared_at": "2026-08-16T18:21:00+02:00",
+  "server_run_id": "2026-08-16T16-21-06-335Z-step495-a2-candidate-successor-96433fbb",
+  "server_variant": "candidate_successor",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-f4d7fabe",
+  "target_clean": true,
+  "runtime_mode": "oauth_cross_transport",
+  "preflight": {
+    "candidate_exact_head": true,
+    "package_identity_matches": true,
+    "exact_overlay_matches": true,
+    "shared_dependency_root_matches": true,
+    "typescript_build_passed": true,
+    "runtime_status": "running",
+    "worker_lease_active": true,
+    "oauth_mode": true,
+    "public_mcp_available": true,
+    "admin_health_status": 200,
+    "unauthenticated_public_loopback_status": 403,
+    "listeners_loopback_only": true
+  },
+  "case": {
+    "case_id": "A2",
+    "prompt": "根据仓库当前实现，概括 workspace、PathGuard、Policy、transaction/audit 在本地安全边界中的职责，并指出哪一层不能被 Cloudflare 替代。给出关键实现文件，不要展开读取无关目录。",
+    "workspace_bootstrap_required": true,
+    "require_explicit_workspace_id_for_followup": true
+  },
+  "notes": "The matched baseline-successor A2 runtime was stopped by exact run ID before candidate startup. This candidate uses the same OAuth profile, Node 24.15.0, target ref, bootstrap contract, and exact STEP-493 successor overlay as the baseline-successor variant. Only the historical baseline-vs-P1 server base ref differs."
+}

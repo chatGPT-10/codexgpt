@@ -7,6 +7,11 @@ import { minimatch } from "minimatch";
 import type { CodexGPTConfig } from "./config.js";
 import { expandHome } from "./config.js";
 import { ProtectedRootPolicy } from "./access/protectedRoots.js";
+import {
+  WorkspaceCapabilityRegistry,
+  type OAuthWorkspaceCapabilityPrincipalV1,
+  type WorkspaceCapabilityRevocationEvent
+} from "./workspace/capabilityRegistry.js";
 
 export interface Workspace {
   id: string;
@@ -178,6 +183,8 @@ export interface WorkspaceManagerOptions {
   randomBytes?: (size: number) => Buffer;
   maxTombstones?: number;
   beforeWorkspaceUse?: (canonicalRoot: string) => void;
+  configuredRootRegistry?: WorkspaceCapabilityRegistry;
+  capabilityPrincipal?: () => Readonly<OAuthWorkspaceCapabilityPrincipalV1>;
   confirmedRoots?: {
     getWorkspace(id: string): Workspace;
     listWorkspaces(): Workspace[];
@@ -206,6 +213,9 @@ export class WorkspaceManager {
   private readonly now: () => number;
   private readonly randomBytes: (size: number) => Buffer;
   private readonly beforeWorkspaceUse: (canonicalRoot: string) => void;
+  private readonly configuredRootRegistry?: WorkspaceCapabilityRegistry;
+  private readonly capabilityPrincipal?: () => Readonly<OAuthWorkspaceCapabilityPrincipalV1>;
+  private readonly configuredRootUnsubscribe?: () => void;
   private readonly ttlMs: number;
   private readonly maxTombstones: number;
   private readonly confirmedRoots?: WorkspaceManagerOptions["confirmedRoots"];
@@ -223,6 +233,14 @@ export class WorkspaceManager {
     this.now = options.now ?? Date.now;
     this.randomBytes = options.randomBytes ?? nodeRandomBytes;
     this.beforeWorkspaceUse = options.beforeWorkspaceUse ?? (() => undefined);
+    this.configuredRootRegistry = options.configuredRootRegistry;
+    this.capabilityPrincipal = options.capabilityPrincipal;
+    if (this.configuredRootRegistry && !this.capabilityPrincipal) {
+      throw new CodexGPTError("Shared workspace capability registry requires a request-local OAuth principal source.");
+    }
+    this.configuredRootUnsubscribe = this.configuredRootRegistry?.onWorkspaceRevoked((event) => {
+      this.emitSharedConfiguredRootRevocation(event);
+    });
     this.ttlMs = Math.max(
       60_000,
       Math.min(24 * 60 * 60_000, config.workspaceTtlMs ?? config.httpSessionTtlMs ?? 30 * 60_000)
@@ -256,8 +274,17 @@ export class WorkspaceManager {
       );
     }
 
-    this.beforeWorkspaceUse(realRoot);
     const key = workspaceKeyForRoot(realRoot);
+    if (this.configuredRootRegistry) {
+      return this.configuredRootRegistry.issueOrReuse(
+        { root: realRoot, workspaceKey: key },
+        this.currentCapabilityPrincipal(),
+        this.policyRevision(),
+        this.beforeWorkspaceUse
+      );
+    }
+
+    this.beforeWorkspaceUse(realRoot);
     const existingId = this.workspaceIdsByKey.get(key);
     if (existingId) {
       const existing = this.records.get(existingId);
@@ -292,7 +319,16 @@ export class WorkspaceManager {
       throw new CodexGPTError("workspace_id is required. Call open_workspace first.");
     }
     this.pruneExpired();
-    const record = this.records.get(id);
+    if (this.configuredRootRegistry) {
+      const configured = this.configuredRootRegistry.resolve(
+        id,
+        this.currentCapabilityPrincipal(),
+        this.policyRevision(),
+        this.beforeWorkspaceUse
+      );
+      if (configured) return configured;
+    }
+    const record = this.configuredRootRegistry ? undefined : this.records.get(id);
     if (!record) {
       try {
         const confirmed = this.confirmedRoots?.getWorkspace(id);
@@ -324,7 +360,15 @@ export class WorkspaceManager {
       throw new CodexGPTError("workspace_id is required. Call open_workspace first.");
     }
     this.pruneExpired();
-    const record = this.records.get(id);
+    if (this.configuredRootRegistry) {
+      const configured = this.configuredRootRegistry.close(
+        id,
+        this.currentCapabilityPrincipal(),
+        this.policyRevision()
+      );
+      if (configured) return configured;
+    }
+    const record = this.configuredRootRegistry ? undefined : this.records.get(id);
     if (!record) {
       try {
         const closed = this.confirmedRoots?.closeWorkspace(id);
@@ -356,9 +400,11 @@ export class WorkspaceManager {
 
   listWorkspaces(): Workspace[] {
     this.pruneExpired();
-    const configured = [...this.records.values()]
-      .filter((record) => this.recordMatchesCurrentBinding(record))
-      .map((record) => ({ ...record.workspace }));
+    const configured = this.configuredRootRegistry
+      ? this.configuredRootRegistry.list(this.currentCapabilityPrincipal(), this.policyRevision())
+      : [...this.records.values()]
+          .filter((record) => this.recordMatchesCurrentBinding(record))
+          .map((record) => ({ ...record.workspace }));
     let confirmed: Workspace[] = [];
     try { confirmed = this.confirmedRoots?.listWorkspaces().map((workspace) => ({ ...workspace })) ?? []; } catch { }
     let tasks: Workspace[] = [];
@@ -368,8 +414,10 @@ export class WorkspaceManager {
 
   revokeAll(reason: WorkspaceRevocationReason = "transport_closed"): void {
     const revokedAt = new Date(this.now()).toISOString();
-    for (const record of [...this.records.values()]) {
-      this.revokeRecord(record, reason, revokedAt);
+    if (!this.configuredRootRegistry) {
+      for (const record of [...this.records.values()]) {
+        this.revokeRecord(record, reason, revokedAt);
+      }
     }
     try {
       for (const workspace of this.confirmedRoots?.listWorkspaces() ?? []) {
@@ -386,11 +434,17 @@ export class WorkspaceManager {
   }
 
   revokeForPolicyRevision(activePolicyRevision: string): void {
+    this.configuredRootRegistry?.revokeForPolicyRevision(activePolicyRevision);
     const revokedAt = new Date(this.now()).toISOString();
     for (const record of [...this.records.values()]) {
       if (record.policyRevision === activePolicyRevision) continue;
       this.revokeRecord(record, "policy_revision_changed", revokedAt);
     }
+  }
+
+  dispose(reason: WorkspaceRevocationReason = "transport_closed"): void {
+    this.revokeAll(reason);
+    this.configuredRootUnsubscribe?.();
   }
 
   onWorkspaceRevoked(
@@ -403,33 +457,43 @@ export class WorkspaceManager {
   workspaceBindingDigest(id: string): string {
     const workspace = this.getWorkspace(id);
     const record = this.records.get(id);
+    const sharedFacts = this.configuredRootRegistry?.bindingFacts(
+      id,
+      this.currentCapabilityPrincipal(),
+      this.policyRevision()
+    );
     return `sha256:${createHash("sha256").update(JSON.stringify({
       domain: "codexgpt.workspace.semantic-binding.v1",
       workspaceId: workspace.id,
-      workspaceKey: record?.key ?? workspaceKeyForRoot(workspace.root),
+      workspaceKey: sharedFacts?.workspaceKey ?? record?.key ?? workspaceKeyForRoot(workspace.root),
       openedAt: workspace.openedAt,
       accessClass: workspace.accessClass ?? null,
       access: workspace.access ?? null,
       leaseId: workspace.leaseId ?? null,
       idleExpiresAt: workspace.idleExpiresAt ?? null,
       absoluteExpiresAt: workspace.absoluteExpiresAt ?? null,
-      transportSessionId: record?.transportSessionId ?? this.currentTransportSessionId(),
-      identityBinding: record?.identityBinding ?? this.identityBinding,
-      policyRevision: record?.policyRevision ?? this.policyRevision()
+      transportSessionId: sharedFacts ? "oauth-cross-transport" : record?.transportSessionId ?? this.currentTransportSessionId(),
+      identityBinding: sharedFacts?.principalDigest ?? record?.identityBinding ?? this.identityBinding,
+      policyRevision: sharedFacts?.policyRevision ?? record?.policyRevision ?? this.policyRevision()
     }), "utf8").digest("hex")}`;
   }
 
   workspaceAuthorityDigest(id: string): string {
     const workspace = this.getWorkspace(id);
     const record = this.records.get(id);
+    const sharedFacts = this.configuredRootRegistry?.bindingFacts(
+      id,
+      this.currentCapabilityPrincipal(),
+      this.policyRevision()
+    );
     return `sha256:${createHash("sha256").update(JSON.stringify({
       domain: "codexgpt.workspace.semantic-authority.v1",
-      workspaceKey: record?.key ?? workspaceKeyForRoot(workspace.root),
+      workspaceKey: sharedFacts?.workspaceKey ?? record?.key ?? workspaceKeyForRoot(workspace.root),
       accessClass: workspace.accessClass ?? null,
       access: workspace.access ?? null,
       leaseId: workspace.leaseId ?? null,
-      identityBinding: record?.identityBinding ?? this.identityBinding,
-      policyRevision: record?.policyRevision ?? this.policyRevision()
+      identityBinding: sharedFacts?.principalDigest ?? record?.identityBinding ?? this.identityBinding,
+      policyRevision: sharedFacts?.policyRevision ?? record?.policyRevision ?? this.policyRevision()
     }), "utf8").digest("hex")}`;
   }
 
@@ -460,6 +524,32 @@ export class WorkspaceManager {
   private touch(record: WorkspaceRecord): Workspace {
     record.expiresAtMs = this.now() + this.ttlMs;
     return { ...record.workspace };
+  }
+
+  private currentCapabilityPrincipal(): Readonly<OAuthWorkspaceCapabilityPrincipalV1> {
+    const principal = this.capabilityPrincipal?.();
+    if (!principal) {
+      throw new CodexGPTError("Workspace OAuth capability principal is unavailable.");
+    }
+    return principal;
+  }
+
+  private emitSharedConfiguredRootRevocation(event: WorkspaceCapabilityRevocationEvent): void {
+    const compatible: WorkspaceRevocationEvent = {
+      id: event.id,
+      key: event.key,
+      reason: event.reason
+    };
+    for (const listener of this.revocationListeners) {
+      try {
+        const pending = listener(compatible);
+        if (pending && typeof (pending as PromiseLike<void>).then === "function") {
+          void Promise.resolve(pending).catch(() => undefined);
+        }
+      } catch {
+        // Shared-registry revocation remains authoritative even if an observer fails.
+      }
+    }
   }
 
   private currentTransportSessionId(): string {

@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "passed",
+  "observed_at": "2026-08-16T17:15+02:00",
+  "server_run_id": "2026-08-16T15-08-53-956Z-step494-successor-a1-5e67c1fa",
+  "server_variant": "successor_working_tree",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "server_working_tree_uncommitted": true,
+  "runtime_mode": "oauth_cross_transport",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-d6e52e6e",
+  "chatgpt_surface": "fresh ChatGPT Web conversation using the existing CodexGPT App",
+  "chatgpt_model_label": null,
+  "evidence_source": "user-supplied fresh-conversation assistant result after the fixed benchmark bootstrap",
+  "case_result": {
+    "case_id": "A1",
+    "workspace_id": "ws_b7ea7abb9d1b518608670427840f00b3",
+    "workspace_bootstrap_completed": true,
+    "transport_rotation_observed": null,
+    "metrics": {
+      "task_success": true,
+      "wrong_tool_calls": 0,
+      "redundant_tool_calls": 0,
+      "total_tool_calls": 4,
+      "context_fetch_calls": 1,
+      "mutation_retries": 0,
+      "verification_completed": null
+    },
+    "tool_calls": [
+      {
+        "sequence": 1,
+        "tool": "open_workspace",
+        "intent": "workspace_context",
+        "outcome": "success",
+        "wrong": false,
+        "redundant": false,
+        "context_fetch": true
+      },
+      {
+        "sequence": 2,
+        "tool": "read",
+        "intent": "targeted_read",
+        "path": "package.json",
+        "workspace_id_reused": true,
+        "outcome": "success",
+        "wrong": false,
+        "redundant": false,
+        "context_fetch": false
+      },
+      {
+        "sequence": 3,
+        "tool": "read",
+        "intent": "targeted_read",
+        "path": "src/stdio.ts",
+        "workspace_id_reused": true,
+        "outcome": "success",
+        "wrong": false,
+        "redundant": false,
+        "context_fetch": false
+      },
+      {
+        "sequence": 4,
+        "tool": "read",
+        "intent": "targeted_read",
+        "path": "src/http.ts",
+        "workspace_id_reused": true,
+        "outcome": "success",
+        "wrong": false,
+        "redundant": false,
+        "context_fetch": false
+      }
+    ],
+    "success_criteria": {
+      "repository_purpose_correct": true,
+      "public_cli_and_http_stdio_entries_identified": true,
+      "broad_unnecessary_reads_avoided": true,
+      "same_explicit_workspace_id_reused": true,
+      "workspace_not_found_reproduced": false,
+      "default_workspace_fallback_used": false,
+      "second_open_workspace_required": false
+    },
+    "notes": "The fresh ChatGPT Web result identified CodexGPT as a Windows-first self-hosted MCP local-development bridge, named scripts/codexgpt-entry.mjs as the supported public CLI, identified src/stdio.ts and src/http.ts plus their built/bin entry points, and correctly prioritized npm run connect for normal source-checkout use. It explicitly reported reusing ws_b7ea7abb9d1b518608670427840f00b3 for all follow-up reads, no WORKSPACE_NOT_FOUND, and only three necessary file reads after open_workspace. The connector surface does not expose the MCP transport/session identifier, so transport_rotation_observed remains null rather than inferred. The earlier same-runtime current-conversation probe independently proved the first explicit package.json read was bound to the pinned target and not the profile/default root by exact root and SHA-256 comparison."
+  },
+  "runtime_cleanup": {
+    "exact_run_stopped": true,
+    "stopped_at": "2026-08-16T15:15:56.033Z"
+  },
+  "campaign_decision": "The STEP-490 real-client workspace continuity regression gate is passed on the STEP-493 successor working tree. Phase 0 is no longer blocked by A1. A2/candidate scoring was not started in STEP-494 because the repository authorization boundary still requires a separate owner decision to resume those benchmark cases."
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "not_run",
+  "run_id": null,
+  "started_at": null,
+  "completed_at": null,
+  "chatgpt_model_label": null,
+  "server_variant": null,
+  "server_ref": null,
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "configuration_fingerprint": null,
+  "notes": "",
+  "case_results": [
+    { "case_id": "A1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "A2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "B1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "B2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "C1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "C2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "D1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "D2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "E1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "E2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "F1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "F2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "G1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "G2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "H1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "H2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "I1", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" },
+    { "case_id": "I2", "target_workspace_root": null, "workspace_bootstrap_completed": null, "metrics": { "task_success": null, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": null, "mutation_retries": null, "verification_completed": null }, "tool_calls": [], "notes": "" }
+  ],
+  "aggregate": {
+    "task_success_rate": null,
+    "wrong_tool_call_rate": null,
+    "verification_completion_rate": null,
+    "mean_total_tool_calls": null,
+    "mean_context_fetch_calls": null,
+    "mean_mutation_retries": null
+  }
+}

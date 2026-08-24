@@ -10,6 +10,7 @@ import {
   disposeProductionCodexGPTServer
 } from "../productionRuntime.js";
 import {
+  currentOAuthRequestContext,
   runWithOAuthRequestContext,
   type OAuthRequestContext
 } from "../auth/requestContext.js";
@@ -21,6 +22,10 @@ import { contractIncludesV3 } from "../tools/contracts/index.js";
 import type { PublicOAuthMcpRuntime } from "./publicApp.js";
 import type { SemanticPreviewStore } from "../semantic/previewStore.js";
 import type { SemanticWorkerHealthRegistry } from "../semantic/builtin/typescriptProvider.js";
+import {
+  WorkspaceCapabilityRegistry,
+  type OAuthWorkspaceCapabilityPrincipalV1
+} from "../workspace/capabilityRegistry.js";
 
 interface TransportBinding {
   ownerRef: string;
@@ -82,6 +87,21 @@ function bindingFor(context: Readonly<OAuthRequestContext>): Readonly<TransportB
   });
 }
 
+function workspaceCapabilityPrincipal(
+  context: Readonly<OAuthRequestContext>
+): Readonly<OAuthWorkspaceCapabilityPrincipalV1> {
+  return Object.freeze({
+    authDomain: "oauth" as const,
+    deploymentBindingId: context.bindingId,
+    deploymentIncarnationId: context.incarnationId,
+    ownerRef: context.ownerRef,
+    clientRef: context.clientRef,
+    resource: context.resource,
+    grantId: context.grantId,
+    grantRevision: context.grantRevision
+  });
+}
+
 function sameBinding(record: Readonly<TransportBinding>, context: Readonly<OAuthRequestContext>): boolean {
   return record.ownerRef === context.ownerRef &&
     record.clientRef === context.clientRef &&
@@ -122,6 +142,7 @@ export class OAuthReadOnlyMcpRuntime implements PublicOAuthMcpRuntime {
   readonly #semanticWorkerHealthV5?: SemanticWorkerHealthRegistry;
   readonly #now: () => number;
   readonly #transports = new Map<string, TransportRecord>();
+  readonly #workspaceCapabilities?: WorkspaceCapabilityRegistry;
   readonly #pruneTimer: NodeJS.Timeout;
   #closed = false;
 
@@ -133,6 +154,12 @@ export class OAuthReadOnlyMcpRuntime implements PublicOAuthMcpRuntime {
     this.#semanticPreviewStoreV5 = options.semanticPreviewStoreV5;
     this.#semanticWorkerHealthV5 = options.semanticWorkerHealthV5;
     this.#now = options.now ?? Date.now;
+    if ((this.#config.oauthWorkspaceCapabilityMode ?? "oauth_cross_transport") === "oauth_cross_transport") {
+      this.#workspaceCapabilities = new WorkspaceCapabilityRegistry({
+        ttlMs: this.#config.workspaceTtlMs ?? this.#config.httpSessionTtlMs,
+        now: this.#now
+      });
+    }
     this.#pruneTimer = setInterval(
       () => this.#prune(),
       Math.min(this.#config.httpSessionTtlMs, 60_000)
@@ -227,6 +254,7 @@ export class OAuthReadOnlyMcpRuntime implements PublicOAuthMcpRuntime {
     const records = [...this.#transports.values()];
     this.#transports.clear();
     await Promise.allSettled(records.map((record) => this.#disposeRecord(record)));
+    this.#workspaceCapabilities?.dispose();
   }
 
   sessionCount(): number {
@@ -250,6 +278,10 @@ export class OAuthReadOnlyMcpRuntime implements PublicOAuthMcpRuntime {
           identity: this.#identity,
           enabledScopes: this.#enabledScopes
         },
+        configuredRootWorkspaceRegistry: this.#workspaceCapabilities,
+        workspaceCapabilityPrincipal: this.#workspaceCapabilities
+          ? () => workspaceCapabilityPrincipal(currentOAuthRequestContext())
+          : undefined,
         gitBootstrapV4: gitBootstrapV4 ?? undefined,
         localApprovalRuntimeV3: contractIncludesV3(this.#config.toolContractVersion)
           ? this.#localApprovalRuntimeV3
@@ -328,6 +360,7 @@ export class OAuthReadOnlyMcpRuntime implements PublicOAuthMcpRuntime {
 
   #prune(): void {
     const now = this.#now();
+    this.#workspaceCapabilities?.pruneExpired();
     for (const [sessionId, record] of this.#transports) {
       if (now - record.lastSeenAt > this.#config.httpSessionTtlMs) {
         this.#transports.delete(sessionId);

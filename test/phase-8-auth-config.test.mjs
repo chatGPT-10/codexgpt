@@ -358,7 +358,8 @@ test("loadConfig keeps legacy default, rejects mixed credentials, and activates 
         CODEXGPT_ALLOW_NO_HTTP_TOKEN: undefined,
         CODEXGPT_HTTP_TOKEN: undefined,
         CODEBASE_BRIDGE_HTTP_TOKEN: undefined,
-        CODEXGPT_TUNNEL_MODE: undefined
+        CODEXGPT_TUNNEL_MODE: undefined,
+        CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE: undefined
       },
       () => {
         const oauth = loadConfig(["--root", root], {
@@ -369,12 +370,45 @@ test("loadConfig keeps legacy default, rejects mixed credentials, and activates 
         assert.equal(oauth.authModeSource, "current-process");
         assert.equal(oauth.authToken, undefined);
         assert.equal(oauth.allowQueryToken, false);
+        assert.equal(oauth.oauthWorkspaceCapabilityMode, "oauth_cross_transport");
         assert.throws(
           () => loadConfig(["--root", root], {
             workspaceProfile: oauthProfile(root, { localAdminPort: "not-a-port" }),
             platform: "win32"
           }),
           /OAuth local-admin port/
+        );
+      }
+    );
+
+    withEnvironment(
+      {
+        CODEXGPT_AUTH_MODE: "legacy",
+        CODEXGPT_ALLOW_QUERY_TOKEN: undefined,
+        CODEXGPT_ALLOW_NO_HTTP_TOKEN: "1",
+        CODEXGPT_HTTP_TOKEN: undefined,
+        CODEBASE_BRIDGE_HTTP_TOKEN: undefined,
+        CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE: "session_local"
+      },
+      () => {
+        const rollback = loadConfig(["--root", root, "--bash", "off", "--write", "off"]);
+        assert.equal(rollback.oauthWorkspaceCapabilityMode, "session_local");
+      }
+    );
+
+    withEnvironment(
+      {
+        CODEXGPT_AUTH_MODE: "legacy",
+        CODEXGPT_ALLOW_QUERY_TOKEN: undefined,
+        CODEXGPT_ALLOW_NO_HTTP_TOKEN: "1",
+        CODEXGPT_HTTP_TOKEN: undefined,
+        CODEBASE_BRIDGE_HTTP_TOKEN: undefined,
+        CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE: "global"
+      },
+      () => {
+        assert.throws(
+          () => loadConfig(["--root", root, "--bash", "off", "--write", "off"]),
+          /CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE/
         );
       }
     );

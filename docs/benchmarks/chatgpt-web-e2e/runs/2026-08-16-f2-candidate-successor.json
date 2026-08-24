@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "case_id": "F2",
+  "status": "completed_partial_tool_trace",
+  "server_run_id": "2026-08-16T21-51-07-535Z-step506-f2-candidate-successor-1ecb2efc",
+  "server_variant": "candidate_successor",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-3c08d0d9",
+  "chat_url": "https://chatgpt.com/c/6a8230e2-6c48-83eb-82dd-2939829e06ec",
+  "tool_trace_provided": true,
+  "tool_trace_complete": false,
+  "case_result": {
+    "workspace_id": "ws_44e83e06c5b67e12e10971a97c94efdd",
+    "workspace_bootstrap_completed": true,
+    "metrics": { "task_success": true, "wrong_tool_calls": null, "redundant_tool_calls": null, "total_tool_calls": null, "context_fetch_calls": 1, "mutation_retries": null, "verification_completed": null },
+    "success_criteria": { "prioritizes_output_truncation_regression": true, "suggests_focused_output_ring_test": true, "does_not_modify_or_stage": true },
+    "answer_evidence": "Marked the OutputRing change as the sole blocker, explained silent loss of truncation signaling, classified README as documentation-only, ran the narrow process-output-ring test at 4/5, and reported the unchanged two-file unstaged status.",
+    "notes": "The cumulative modal paired the bash test input with a show_changes output, so it is not a stable one-to-one semantic trace. Criterion-level evidence supports task success; efficiency and retry metrics remain null."
+  },
+  "independent_target_evidence": { "status": "M README.md and M src/process/outputRing.ts only; no staged changes", "seed": "harmless README wording plus truncated always false", "focused_test": "4 passed, 1 failed at page.truncated false !== true", "diff_check": "passed" },
+  "runtime_cleanup": { "final_status": "stopped", "final_identity": "stop_recorded", "stopped_at": "2026-08-16T21:53:06.773Z", "listeners_after_stop": 0 }
+}

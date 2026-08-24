@@ -52,7 +52,7 @@ npm badge 与 package metadata 均应显示 `1.0.4`。source checkout 用于开�
 已有 source checkout 时，使用仓库脚本以保留公开入口层：
 
 ```powershell
-Set-Location D:\Dev\codexpro
+Set-Location D:\Dev\codexgpt
 npm install
 npm run build
 npm run connect:setup -- --root D:\Dev\your-repo
@@ -80,7 +80,7 @@ codexgpt auth setup `
 源码检出（开发或分支版本）：
 
 ```powershell
-Set-Location D:\Dev\codexpro
+Set-Location D:\Dev\codexgpt
 npm install
 npm run build
 node .\scripts\codexgpt-entry.mjs auth setup `
@@ -611,11 +611,11 @@ codexgpt processes terminate <process_id> --server <server_id>
 
 ## 工作区会话
 
-`workspace_id` 是只属于一个 MCP Server 会话的随机不透明句柄，不再由仓库路径哈希推导。同一活动会话重复打开同一 root 会复用本会话句柄；另一个 HTTP transport session 或 STDIO Server 进程会获得不同句柄，也不能使用或列出前一个会话的工作区。
+`workspace_id` 是随机不透明 capability handle，不由仓库路径哈希推导。OAuth 模式默认使用 deployment-runtime-scoped 的 configured-root registry：同一个 deployment incarnation、owner、OAuth client、grant/revision、resource 和 policy revision 下，`open_workspace` 返回的句柄可以跨 ChatGPT Web 的 MCP transport rotation 继续显式复用；transport/session id 本身不再是 OAuth continuity authority。不同 owner/client/grant/incarnation/resource 复制同一个句柄仍会得到统一的 unavailable 结果，也不能借 lookup/close 破坏合法句柄。
 
-调用 `close_workspace` 可以立即使句柄失效。空闲句柄按 `CODEXGPT_WORKSPACE_TTL_MS` 过期；未设置时跟随 `CODEXGPT_HTTP_SESSION_TTL_MS`，通常为 30 分钟，成功使用会刷新空闲期限。
+调用 `close_workspace` 可以立即使句柄失效。空闲句柄按 `CODEXGPT_WORKSPACE_TTL_MS` 过期；未设置时跟随 `CODEXGPT_HTTP_SESSION_TTL_MS`，通常为 30 分钟，成功使用会刷新空闲期限。OAuth service/runtime restart 会清空这类 configured-root capability，重启后需要重新 `open_workspace` 一次；正常 access-token refresh 不会改变同一 grant 的句柄 authority。
 
-为保留一个兼容周期，省略 `workspace_id` 的工具仍只会解析当前会话自己的默认 root，不会恢复跨会话共享。
+Legacy/query-token 和 STDIO 仍保持原来的 session/process-local 行为。一个兼容周期内，省略 `workspace_id` 仍只会解析当前 server session 的默认 root；但 OAuth 下如果用户已经显式打开非默认 root，后续调用应继续显式传入返回的 `workspace_id`，不得用省略参数回退到默认 root。需要临时回滚 OAuth continuity 时可设置 `CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE=session_local`。
 
 ## 安全边界
 

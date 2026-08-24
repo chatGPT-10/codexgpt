@@ -175,11 +175,11 @@ Use `CODEXGPT_WRITE_MODE=off` when you want direct `write` and `edit` tools remo
 
 ## Are workspace IDs shared across ChatGPT sessions?
 
-No. A `workspace_id` is now a random opaque handle owned by one MCP server session: one HTTP transport session, or one STDIO process session. Opening the same root inside the same active session reuses that session's handle, but another session receives a different handle and cannot use or list the first session's workspaces.
+OAuth configured-root handles can now survive MCP transport/session rotation **inside the same authorization principal**, but they are not globally shared. A `workspace_id` remains random and opaque. Resolution requires the same deployment incarnation, owner, OAuth client, grant/revision, resource, and policy revision; another owner/client/grant cannot reuse or close a copied handle. Normal access-token refresh within the same grant does not change that authority.
 
-Use `close_workspace` to invalidate a handle immediately. Reopening the root creates a new handle. Idle handles expire after `CODEXGPT_WORKSPACE_TTL_MS`; the default is the HTTP session TTL, normally 30 minutes, and successful use refreshes the idle deadline.
+Use `close_workspace` to invalidate a handle immediately. Reopening the root creates a new handle. Idle handles expire after `CODEXGPT_WORKSPACE_TTL_MS`; the default is the HTTP session TTL, normally 30 minutes, and successful use refreshes the idle deadline. A CodexGPT OAuth runtime/service restart clears these configured-root handles, so open the workspace once again after restart.
 
-For one compatibility cycle, an omitted `workspace_id` still selects only that session's configured default root. It does not restore cross-session sharing.
+Legacy/query-token HTTP and STDIO keep the historical session/process-local behavior. For one compatibility cycle, an omitted `workspace_id` still selects only the current server session's configured default root. In OAuth mode, if you explicitly opened a non-default root, subsequent project calls should keep passing that returned `workspace_id`; an unresolved explicit handle never falls back to the default workspace. `CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE=session_local` temporarily restores the historical OAuth behavior.
 
 ## Can CodexGPT bind bash to a specific session id?
 

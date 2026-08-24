@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "pair_complete_partial_tool_trace",
+  "observed_at": "2026-08-16T20:09:00+02:00",
+  "case_id": "B1",
+  "controls": {
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "node_major": 24,
+    "oauth_mode": "oauth_cross_transport",
+    "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+    "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "fresh_target_per_variant": true,
+    "same_bootstrap_contract": true,
+    "same_case_prompt": true
+  },
+  "baseline": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-b1-baseline-successor.json",
+    "server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-316f3b60",
+    "workspace_id": "ws_ed0cbdcb9dca495a8b142a7f5808af76",
+    "task_success": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": 0,
+    "verification_completed": null,
+    "runtime_stopped": true
+  },
+  "candidate": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-b1-candidate-successor.json",
+    "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-b30ce20b",
+    "workspace_id": "ws_def18a98be71260263329a6bf825b197",
+    "task_success": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": 0,
+    "verification_completed": null,
+    "runtime_stopped": true
+  },
+  "comparison": {
+    "task_success": "tie_pass",
+    "workspace_bootstrap": "tie_pass",
+    "tool_call_efficiency": "not_comparable_missing_tool_traces",
+    "wrong_tool_call_rate": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": "tie_1_each",
+    "mutation_retries": "tie_0_each",
+    "p1_effect_for_b1": "not_demonstrated"
+  },
+  "campaign_decision": "B1 is complete. Both successor-adjusted variants satisfy the B1 content success criteria, but neither fresh Web run includes the complete UI/tool trace, so B1 provides no defensible evidence that the P1 ToolExecutionPipeline slice improved or regressed navigation/tool-call efficiency. Do not infer efficiency from answer length, detail, or reported tool names. The next benchmark case in sequence is B2 and remains unstarted by this record."
+}

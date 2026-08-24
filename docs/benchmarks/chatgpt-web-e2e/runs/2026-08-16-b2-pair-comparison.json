@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "pair_complete_mixed_tool_trace",
+  "observed_at": "2026-08-16T21:33:00+02:00",
+  "case_id": "B2",
+  "controls": {
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "node_major": 24,
+    "oauth_mode": "oauth_cross_transport",
+    "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+    "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "fresh_target_per_variant": true,
+    "same_bootstrap_contract": true,
+    "same_case_prompt": true
+  },
+  "baseline": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-b2-baseline-successor.json",
+    "server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-7c41931a",
+    "workspace_id": "ws_c9dd79bd67cea9423202ecc3493833bd",
+    "tool_trace_provided": false,
+    "task_success": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": 0,
+    "verification_completed": null,
+    "runtime_stopped": true
+  },
+  "candidate": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-b2-candidate-successor.json",
+    "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-9e79d66d",
+    "workspace_id": "ws_90f992ba502afcb5532b61a91f26d1c3",
+    "tool_trace_provided": true,
+    "task_success": true,
+    "wrong_tool_calls": 0,
+    "redundant_tool_calls": 0,
+    "total_tool_calls": 2,
+    "context_fetch_calls": 1,
+    "mutation_retries": 0,
+    "verification_completed": null,
+    "runtime_stopped": true
+  },
+  "comparison": {
+    "task_success": "tie_pass",
+    "workspace_bootstrap": "tie_pass",
+    "tool_call_efficiency": "not_comparable_missing_baseline_tool_trace",
+    "wrong_tool_call_rate": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": "tie_1_each",
+    "mutation_retries": "tie_0_each",
+    "p1_effect_for_b2": "not_demonstrated"
+  },
+  "campaign_decision": "B2 is complete. Both successor-adjusted variants satisfy all B2 success criteria. The candidate has a complete two-call UI trace with zero wrong and redundant calls, but the baseline trace rows are absent, so the pair cannot support a comparative efficiency conclusion. Do not interpret this as evidence that P1 had no effect or a positive effect. Stop here; C1 requires a separate user decision."
+}
