@@ -15,6 +15,23 @@ interface ProcessReservation {
   terminal: boolean;
 }
 
+export class OutputTerminalQuotaExceededError extends Error {
+  readonly code = "OUTPUT_TERMINAL_QUOTA_EXCEEDED";
+  readonly scope: "session" | "server";
+
+  constructor(scope: "session" | "server", message: string) {
+    super(message);
+    this.name = "OutputTerminalQuotaExceededError";
+    this.scope = scope;
+  }
+}
+
+export function isOutputTerminalQuotaExceededError(error: unknown): error is OutputTerminalQuotaExceededError {
+  return error instanceof Error &&
+    (error as { code?: unknown }).code === "OUTPUT_TERMINAL_QUOTA_EXCEEDED" &&
+    ((error as { scope?: unknown }).scope === "session" || (error as { scope?: unknown }).scope === "server");
+}
+
 export class OutputQuotaManager {
   readonly #processes = new Map<string, ProcessReservation>();
   readonly #limits: Required<Omit<OutputQuotaOptions, "onOutputOverflow" | "sessionOutputReservationBytes">>;
@@ -56,8 +73,8 @@ export class OutputQuotaManager {
     if (record.terminal) return;
     const server = [...this.#processes.values()].filter((value) => value.terminal).length;
     const session = [...this.#processes.values()].filter((value) => value.terminal && value.sessionId === record.sessionId).length;
-    if (session >= this.#limits.maxSessionRecords) throw new Error("Transport session terminal-record quota exceeded.");
-    if (server >= this.#limits.maxServerRecords) throw new Error("Server terminal-record quota exceeded.");
+    if (session >= this.#limits.maxSessionRecords) throw new OutputTerminalQuotaExceededError("session", "Transport session terminal-record quota exceeded.");
+    if (server >= this.#limits.maxServerRecords) throw new OutputTerminalQuotaExceededError("server", "Server terminal-record quota exceeded.");
     record.terminal = true;
   }
 

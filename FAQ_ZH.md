@@ -304,6 +304,8 @@ codexgpt settings delete --yes
 
 显示设置时，保存的 token 会被打码。
 
+要只读查看哪个启动配置来源生效，运行 `codexgpt config explain --json`；要同时检查环境和运行条件，运行 `codexgpt doctor --json`。两者都只把秘密值显示为 `set` 或 `missing`。实际选中的 `CODEBASE_BRIDGE_HTTP_TOKEN`、`CODEBASE_BRIDGE_REPO_ROOT` 和 `CODEXGPT_HOSTNAME` 兼容输入都会得到不包含原值的 PowerShell 命令，用于迁移到对应的 canonical `CODEXGPT_*` 名称。实际选中的 `NGROK_DOMAIN` 会单独保留为 mode-ambiguous 来源：名称只指向 ngrok，但既有作用域覆盖所有 tunnel 模式；目前没有安排迁移警告。
+
 ## CodexGPT 能帮助 ChatGPT 维持上下文吗？
 
 可以帮助，但方式是显式文件和上下文包，不是隐藏记忆。

@@ -65,12 +65,23 @@ function publicPosition(text: string, offset: number): { line: number; column: n
   };
 }
 
-function createService(files: WorkerFile[]) {
+function createService(files: WorkerFile[], rootPaths?: readonly string[]) {
   const snapshots = new Map(files.map((file) => [virtualPath(file), file.text]));
   const hasLibraryAssets = files.some((file) => file.asset === true);
-  const rootNames = files
-    .filter((file) => file.asset !== true && !file.path.toLowerCase().endsWith(".json"))
-    .map((file) => virtualPath(file));
+  const rootNames = rootPaths === undefined
+    ? files
+        .filter((file) => file.asset !== true && !file.path.toLowerCase().endsWith(".json"))
+        .map((file) => virtualPath(file))
+    : [...new Set([
+        ...rootPaths.map((rootPath) => virtualPath({ path: rootPath })),
+        ...files
+          .filter((file) =>
+            file.asset !== true &&
+            file.path.replace(/\\/gu, "/").startsWith("node_modules/") &&
+            /\.d\.(?:ts|mts|cts)$/iu.test(file.path)
+          )
+          .map((file) => virtualPath(file))
+      ])];
   const defaultCompilerOptions: ts.CompilerOptions = {
     allowJs: true,
     checkJs: false,
@@ -191,8 +202,12 @@ let cachedService: {
   snapshots: Map<string, string>;
 } | null = null;
 
-function serviceKey(files: readonly WorkerFile[]): string {
+function serviceKey(files: readonly WorkerFile[], rootPaths?: readonly string[]): string {
   const hash = createHash("sha256");
+  for (const rootPath of rootPaths ?? []) {
+    hash.update("root:", "utf8");
+    hash.update(rootPath.replace(/\\/gu, "/"), "utf8");
+  }
   for (const file of files) {
     const normalizedPath = file.path.replace(/\\/gu, "/");
     hash.update(file.asset === true ? "1" : "0", "utf8");
@@ -206,13 +221,13 @@ function serviceKey(files: readonly WorkerFile[]): string {
   return hash.digest("hex");
 }
 
-function serviceForFiles(files: WorkerFile[]) {
-  const key = serviceKey(files);
+function serviceForFiles(files: WorkerFile[], rootPaths?: readonly string[]) {
+  const key = serviceKey(files, rootPaths);
   if (cachedService?.key === key) {
     return { service: cachedService.service, snapshots: cachedService.snapshots, cacheHit: true };
   }
   cachedService?.service.dispose();
-  const created = createService(files);
+  const created = createService(files, rootPaths);
   cachedService = { key, ...created };
   return { ...created, cacheHit: false };
 }
@@ -251,7 +266,11 @@ function validIdentifier(value: string): boolean {
 }
 
 function execute(request: WorkerRequest) {
-  const { service, snapshots, cacheHit } = serviceForFiles(request.files);
+  // Diagnostics are target-local.  Keep every virtual snapshot available for
+  // module resolution, but root the TypeScript program at the requested file
+  // so unrelated repository files do not consume the bounded worker deadline.
+  const rootPaths = request.operation === "diagnostics" ? [request.target.path] : undefined;
+  const { service, snapshots, cacheHit } = serviceForFiles(request.files, rootPaths);
   const targetName = virtualPath({ path: request.target.path });
   const targetText = snapshots.get(targetName);
   if (targetText === undefined) throw new Error("Target source is unavailable.");

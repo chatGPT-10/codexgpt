@@ -2,8 +2,14 @@ import { isIP } from "node:net";
 import path from "node:path";
 import { domainToASCII } from "node:url";
 import { authConfigurationError } from "./errors.js";
+import {
+  ConfigResolutionError,
+  resolveConfigValue,
+  type ResolvedValue
+} from "../configResolver.js";
 import { createOAuthListenerConfig, parseHttpAuthMode } from "./schemas.js";
 import type {
+  AuthModeSource,
   HttpAuthMode,
   OAuthCapabilitySelection,
   OAuthDeploymentConfiguration,
@@ -16,6 +22,7 @@ export interface AuthModeResolutionInput {
   currentProcess?: string;
   persistedUser?: string;
   profile?: string;
+  profileFile?: string;
 }
 
 export interface OAuthRootSelectionInput {
@@ -46,27 +53,84 @@ function normalized(value: string | undefined): string | undefined {
   return value === undefined ? undefined : value.trim();
 }
 
-export function resolveHttpAuthMode(input: AuthModeResolutionInput): Readonly<ResolvedHttpAuthMode> {
+export function resolveHttpAuthModeValue(
+  input: AuthModeResolutionInput
+): Readonly<ResolvedValue<HttpAuthMode>> {
   const currentProcess = normalized(input.currentProcess);
   const persistedUser = normalized(input.persistedUser);
   const profile = normalized(input.profile);
+  return resolveConfigValue({
+    key: "auth.mode",
+    currentProcess: currentProcess === undefined
+      ? []
+      : [{
+          value: currentProcess,
+          origin: {
+            kind: "environment",
+            variable: "CODEXGPT_AUTH_MODE",
+            scope: "current-process"
+          }
+        }],
+    persistedUser: persistedUser === undefined
+      ? []
+      : [{
+          value: persistedUser,
+          origin: {
+            kind: "environment",
+            variable: "CODEXGPT_AUTH_MODE",
+            scope: "persisted-user"
+          }
+        }],
+    profile: profile === undefined
+      ? []
+      : [{
+          value: profile,
+          origin: {
+            kind: "profile",
+            file: input.profileFile ?? "<canonical-root-profile>",
+            jsonPath: "$.authMode"
+          }
+        }],
+    defaultValue: "legacy",
+    defaultRule: "legacy remains the compatibility default",
+    parse: (value, origin) => parseHttpAuthMode(
+      String(value),
+      origin.kind === "environment"
+        ? `${origin.scope === "persisted-user" ? "Persisted user " : ""}${origin.variable}`
+        : origin.kind === "profile"
+          ? "Workspace profile authMode"
+          : "auth.mode"
+    ),
+    restartRequired: true,
+    remediation: "Set auth.mode to exactly legacy or oauth at the reported source."
+  });
+}
 
-  const parsed = {
-    currentProcess: currentProcess === undefined ? undefined : parseHttpAuthMode(currentProcess, "CODEXGPT_AUTH_MODE"),
-    persistedUser: persistedUser === undefined ? undefined : parseHttpAuthMode(persistedUser, "Persisted user CODEXGPT_AUTH_MODE"),
-    profile: profile === undefined ? undefined : parseHttpAuthMode(profile, "Workspace profile authMode")
-  };
+function authModeSourceFromOrigin(origin: ResolvedValue<HttpAuthMode>["origin"]): AuthModeSource {
+  if (origin.kind === "environment") return origin.scope;
+  if (origin.kind === "profile") return "profile";
+  return "default";
+}
 
-  if (parsed.currentProcess !== undefined) {
-    return Object.freeze({ mode: parsed.currentProcess, source: "current-process" });
+export function resolveHttpAuthMode(input: AuthModeResolutionInput): Readonly<ResolvedHttpAuthMode> {
+  try {
+    const resolved = resolveHttpAuthModeValue(input);
+    return Object.freeze({
+      mode: resolved.value,
+      source: authModeSourceFromOrigin(resolved.origin)
+    });
+  } catch (error) {
+    if (
+      error instanceof ConfigResolutionError &&
+      error.code === "CONFIG_VALUE_INVALID" &&
+      error.cause instanceof Error &&
+      "code" in error.cause &&
+      error.cause.code === "AUTH_MODE_INVALID"
+    ) {
+      throw error.cause;
+    }
+    throw error;
   }
-  if (parsed.persistedUser !== undefined) {
-    return Object.freeze({ mode: parsed.persistedUser, source: "persisted-user" });
-  }
-  if (parsed.profile !== undefined) {
-    return Object.freeze({ mode: parsed.profile, source: "profile" });
-  }
-  return Object.freeze({ mode: "legacy", source: "default" });
 }
 
 export function assertHttpAuthModeCompatibility(input: {

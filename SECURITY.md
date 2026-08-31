@@ -194,6 +194,8 @@ V3 R3 actions create a bounded pending request but do not execute. A separate lo
 
 `run_command` and `start_process` under `full_access` run with the current Windows user's ambient authority. They may read, modify, delete, encode, or transmit anything that account can reach. The fixed clean child environment and known-pattern streaming redaction reduce accidental exposure but do not isolate account-readable files, keyrings, credentials, registry, devices, brokers, or network and do not provide DLP.
 
+V5 `codexgpt(action="verify_change")` never runs automatically and accepts only server-confirmed project check categories, not caller-selected command text. When explicitly invoked, it delegates each selected check to the same registered `run_command` `full_access` path and therefore inherits the ambient-authority limits above. Treat the repository's scripts, dependencies, compilers, and executables as trusted code; the required whole-workspace diff checklist is review guidance, not process isolation or semantic proof.
+
 Process IDs are random owner-bound handles. Lifetime, timeout, interrupt, resize, input, output, termination, and server-close guarantees apply only to processes that remain members of the exact native Job. Local emergency commands can list or terminate those recorded processes even when the remote transport is unavailable. They do not kill unrelated processes and do not claim control over WMI, COM, service, scheduler, or other broker-created escapes.
 
 `open_full_access_workspace` is a brokered confirmed-root admission path, not permission for an ambient child. It requires an exact local approval, stable Windows object identity, hard-link count 1 for ordinary confirmed-root files, fixed absolute lease expiry, PathGuard checks, atomic transactions for supported writes, and audit. It does not persistently widen global `allowedRoots`.
@@ -235,7 +237,8 @@ The HMAC chain detects accidental damage and untrusted modification that does no
 ## Hard Rules
 
 - Do not run public tunnels with `--no-auth`.
-- Public tunnel mode and non-loopback binds fail closed if `CODEXGPT_HTTP_TOKEN` is missing.
+- Public tunnel mode and non-loopback binds fail closed unless `CODEXGPT_HTTP_TOKEN` or the retained `CODEBASE_BRIDGE_HTTP_TOKEN` compatibility input supplies the selected token.
+- `CODEBASE_BRIDGE_HTTP_TOKEN` is migration-only compatibility. Prefer `CODEXGPT_HTTP_TOKEN`; use `codexgpt config explain --json` or `codexgpt doctor --json` for a value-free migration command. Neither diagnostic prints the token.
 - Legacy mode uses the personal query-token compatibility flow when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. OAuth mode forces query-token acceptance off and exposes a token-free Server URL.
 - The copied Server URL contains `codexgpt_token`; select `Authentication: None / No Authentication` in ChatGPT for this personal compatibility flow.
 - Public startup logs keep the credential-bearing Server URL hidden by default. Display it only through an explicit local action such as pressing `u` or printing the Create App fields.

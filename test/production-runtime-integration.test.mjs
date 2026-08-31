@@ -21,6 +21,7 @@ import {
   connectProductionCodexGPTServer,
   createProductionCodexGPTServer
 } from "../dist/productionRuntime.js";
+import { registeredToolDefinitions } from "../dist/server.js";
 
 function withEnv(changes, action) {
   const previous = new Map();
@@ -261,6 +262,35 @@ test("production session close preserves an injected process-lifecycle approval 
   const server = createProductionCodexGPTServer(config, options);
   await server.close();
   assert.equal(closeCalls, 0);
+}));
+
+test("production registration exposes one immutable definition for every direct tool", () => fixture(async ({ workspaceRoot, stateHome }) => {
+  const config = configFor(workspaceRoot, stateHome, {
+    toolContractVersion: "1",
+    policyEngineMode: "legacy",
+    fileTransactions: "legacy",
+    auditMode: "off"
+  });
+  const server = createProductionCodexGPTServer(config, productionOptions(stateHome, {
+    policySessionContextSource: sourceFor(config, "production-tool-definition-registry")
+  }));
+  try {
+    const directNames = Object.keys(server._registeredTools).sort();
+    const definitions = registeredToolDefinitions(server);
+    assert.deepEqual(definitions.map((definition) => definition.name).sort(), directNames);
+    for (const definition of definitions) {
+      assert.equal(Object.isFrozen(definition), true);
+      assert.equal(typeof definition.inputSchema.parse, "function");
+      assert.equal(typeof definition.outputSchema.parse, "function");
+    }
+    for (const name of ["read", "tree", "search", "edit", "apply_patch"]) {
+      const description = server._registeredTools[name]?.description;
+      assert.match(description, /Use when:/, `${name} positive guidance`);
+      assert.match(description, /Do not use when:/, `${name} negative guidance`);
+    }
+  } finally {
+    await server.close();
+  }
 }));
 
 test("Gate R production wiring fails closed outside contract 4 or before startup recovery", () => fixture(async ({ workspaceRoot, stateHome }) => {
@@ -603,7 +633,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "open_current_workspace", "open_workspace", "read", "write", "edit",
         "apply_patch", "show_changes"
       ],
-      descriptorHash: "f6f303e642eafca20b6b311368b990047ffaa695fff5b6434e6bcc3df0a76f63"
+        descriptorHash: "435b2c9d7119d94aa77946ea5efcb43adf51030af6e953504abeeb1a8a626e1c"
     },
     standard: {
       names: [
@@ -613,7 +643,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "apply_patch", "show_changes", "read_handoff", "wait_for_handoff",
         "export_pro_context", "handoff_to_agent"
       ],
-      descriptorHash: "73d0ff8fb1adfd08b60af9e8448c20697687ca789ae8e6da0bfc56965575f29c",
+        descriptorHash: "d4e50d6e4da737675b586dd9864e38e850a65e1c89778a6d82309bfb93f34780",
       directCallHash: "4b9f283f897448d722dbd348389adb86c1acb2b4e2f0c88b8db250cbd1ec95d3",
       supertoolCallHash: "4b9f283f897448d722dbd348389adb86c1acb2b4e2f0c88b8db250cbd1ec95d3",
       supertoolEnvelope: {
@@ -631,7 +661,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "export_pro_context", "codex_sessions", "read_codex_session",
         "handoff_to_agent", "handoff_to_codex"
       ],
-      descriptorHash: "384e71c76ed689d8286d6c51869775e03cae400c772542e49df39021ac4a81e1"
+        descriptorHash: "5bf6b9befdd1d8964a58601f24d2417398566b4e2b7407f41fd17ffe2f7180d0"
     },
     connection: {
       names: [
@@ -641,7 +671,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "show_changes", "read_handoff", "wait_for_handoff", "codex_context",
         "codex_sessions", "read_codex_session"
       ],
-      descriptorHash: "f845b31b7aa1df00141a72eb3e0d1661f869b72b60e3645230edd8eb1ca7c070"
+        descriptorHash: "446f8a8bdda2ff64f56a5cfc9708ee9d4f6d25b308af65f7698e3e551acf39fa"
     }
   });
   assert.deepEqual(

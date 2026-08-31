@@ -6,6 +6,7 @@ import {
   standardSkillCatalogEntrySchema,
   standardSkillScanSchema
 } from "./guidance.js";
+import { workspaceContextSnapshotSchema } from "../../context/workspaceContext.js";
 
 export const OPEN_CURRENT_WORKSPACE_ERROR_MESSAGES = {
   DEFAULT_ROOT_NOT_FOUND: "The configured default workspace root does not exist.",
@@ -63,7 +64,8 @@ export const openCurrentWorkspaceStandardDataSchema = z.object({
   instruction_chain: z.array(guidanceInstructionFileSchema).max(256),
   instruction_diagnostics: z.array(guidanceDiagnosticSchema).max(256),
   skill_catalog: z.array(standardSkillCatalogEntrySchema).max(500),
-  skill_scan: standardSkillScanSchema
+  skill_scan: standardSkillScanSchema,
+  context_snapshot: workspaceContextSnapshotSchema
 }).strict();
 
 export const openCurrentWorkspaceDataSchema = z.union([

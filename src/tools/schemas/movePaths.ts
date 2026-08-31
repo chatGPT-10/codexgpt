@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import { changeWorkflowStateSchema } from "./changeWorkflow.js";
 
 const workspaceIdSchema = z.string().min(1).max(160);
 const safeRelativePathSchema = z.string().min(1).max(4_096).refine((value) => {
@@ -34,7 +35,7 @@ export const movePathsTransactionSchema = z.object({
   committed_at: z.string().datetime({ offset: true })
 }).strict();
 
-export const movePathsDataSchema = z.object({
+const movePathsDataBaseSchema = z.object({
   workspace_id: workspaceIdSchema,
   root: z.string().min(1).max(32_768),
   preview: z.boolean(),
@@ -48,7 +49,9 @@ export const movePathsDataSchema = z.object({
   total_files: z.number().int().positive().max(64),
   total_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   transaction: movePathsTransactionSchema.nullable()
-}).strict().superRefine((value, context) => {
+}).strict();
+
+export const movePathsDataSchema = movePathsDataBaseSchema.superRefine((value, context) => {
   if (value.total_files !== value.moves.length) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["total_files"], message: "total_files must equal moves.length." });
   }
@@ -162,6 +165,34 @@ export const movePathsOutputSchema = movePathsOutputBaseSchema.superRefine((valu
 
 export type MovePathsData = z.infer<typeof movePathsDataSchema>;
 export type MovePathsStructuredResult = z.infer<typeof movePathsOutputBaseSchema>;
+
+const movePathsDataBaseSchemaV5 = movePathsDataBaseSchema.extend({
+  workflow: changeWorkflowStateSchema.optional()
+}).strict();
+
+export const movePathsDataSchemaV5 = movePathsDataBaseSchemaV5.superRefine((value, context) => {
+  const { workflow: _workflow, ...legacy } = value;
+  const parsed = movePathsDataSchema.safeParse(legacy);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) context.addIssue(issue);
+  }
+});
+
+export const movePathsOutputShapeV5 = {
+  ...movePathsOutputShape,
+  data: movePathsDataSchemaV5.nullable()
+};
+
+const movePathsOutputBaseSchemaV5 = z.object(movePathsOutputShapeV5).strict();
+
+export const movePathsOutputSchemaV5 = movePathsOutputBaseSchemaV5.superRefine((value, context) => {
+  if (value.ok && (value.data === null || value.error !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful V5 move requires data and no error." });
+  }
+  if (!value.ok && (value.data !== null || value.error === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed V5 move requires an error and no data." });
+  }
+});
 
 export function createMovePathsSuccess(data: MovePathsData, durationMs = 0): MovePathsStructuredResult {
   return movePathsOutputSchema.parse({

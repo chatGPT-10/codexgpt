@@ -12,6 +12,7 @@ interface OutputWaiter {
   reject: (error: Error) => void;
   signal?: AbortSignal;
   abort?: () => void;
+  timer?: NodeJS.Timeout;
 }
 
 export interface OutputRingCursor {
@@ -109,17 +110,25 @@ export class OutputRing {
     return this.#waiters.size;
   }
 
-  waitForChange(input: { sequence: number; signal?: AbortSignal }): Promise<{ sequence: number; eof: boolean }> {
+  waitForChange(input: { sequence: number; timeoutMs?: number; signal?: AbortSignal }): Promise<{ sequence: number; eof: boolean }> {
+    if (input.timeoutMs !== undefined && (!Number.isSafeInteger(input.timeoutMs) || input.timeoutMs < 0 || input.timeoutMs > 30_000)) throw new Error("Output wait timeout is invalid.");
     if (this.#next > input.sequence || this.#eof) return Promise.resolve({ sequence: this.#next, eof: this.#eof });
+    if (input.timeoutMs === 0) return Promise.resolve({ sequence: this.#next, eof: this.#eof });
     return new Promise((resolve, reject) => {
       const waiter: OutputWaiter = { sequence: input.sequence, resolve, reject, signal: input.signal };
       waiter.abort = () => {
-        this.#waiters.delete(waiter);
+        if (!this.#removeWaiter(waiter)) return;
         reject(new Error("Output wait aborted."));
       };
-      if (input.signal?.aborted) return waiter.abort();
-      input.signal?.addEventListener("abort", waiter.abort, { once: true });
       this.#waiters.add(waiter);
+      input.signal?.addEventListener("abort", waiter.abort, { once: true });
+      if (input.signal?.aborted) return waiter.abort();
+      if (input.timeoutMs !== undefined) {
+        waiter.timer = setTimeout(() => {
+          if (!this.#removeWaiter(waiter)) return;
+          resolve({ sequence: this.#next, eof: this.#eof });
+        }, input.timeoutMs);
+      }
     });
   }
 
@@ -142,10 +151,23 @@ export class OutputRing {
   #wake(): void {
     for (const waiter of [...this.#waiters]) {
       if (this.#next <= waiter.sequence && !this.#eof) continue;
-      this.#waiters.delete(waiter);
-      waiter.signal?.removeEventListener("abort", waiter.abort!);
+      this.#removeWaiter(waiter);
       waiter.resolve({ sequence: this.#next, eof: this.#eof });
     }
+  }
+
+  notifyChange(): void {
+    for (const waiter of [...this.#waiters]) {
+      this.#removeWaiter(waiter);
+      waiter.resolve({ sequence: this.#next, eof: this.#eof });
+    }
+  }
+
+  #removeWaiter(waiter: OutputWaiter): boolean {
+    if (!this.#waiters.delete(waiter)) return false;
+    if (waiter.timer) clearTimeout(waiter.timer);
+    waiter.signal?.removeEventListener("abort", waiter.abort!);
+    return true;
   }
 }
 

@@ -50,6 +50,18 @@ import {
   type CanonicalToolV4Addition
 } from "./tools/contracts/index.js";
 import {
+  defineTool,
+  renderToolDescription,
+  toolSelectionContract,
+  type ToolDefinition
+} from "./tools/runtime/definition.js";
+import { ToolDefinitionRegistry } from "./tools/runtime/registry.js";
+import {
+  ToolExecutionCoordinator,
+  ToolRuntimePipeline,
+  ToolRuntimeStageError
+} from "./tools/runtime/pipeline.js";
+import {
   createOpenFullAccessWorkspaceFailure,
   createOpenFullAccessWorkspaceSuccess,
   openFullAccessWorkspaceInputV1Schema,
@@ -60,24 +72,32 @@ import {
   createExecutionFailure,
   interruptProcessInputV1Schema,
   interruptProcessOutputShape,
+  interruptProcessOutputShapeV5,
   listProcessesInputV1Schema,
   listProcessesOutputShape,
+  listProcessesOutputShapeV5,
   readProcessOutputInputV1Schema,
   readProcessOutputOutputShape,
   readProcessOutputOutputShapeV4,
+  readProcessOutputOutputShapeV5,
   resizeProcessTerminalInputV1Schema,
   resizeProcessTerminalOutputShape,
+  resizeProcessTerminalOutputShapeV5,
   runCommandInputV1Schema,
   runCommandInputV4Schema,
   runCommandOutputShape,
   runCommandOutputShapeV4,
+  runCommandOutputShapeV5,
   startProcessInputV1Schema,
   startProcessInputV4Schema,
   startProcessOutputShape,
+  startProcessOutputShapeV5,
   terminateProcessInputV1Schema,
   terminateProcessOutputShape,
+  terminateProcessOutputShapeV5,
   writeProcessInputV1Schema,
   writeProcessInputOutputShape,
+  writeProcessInputOutputShapeV5,
   type ExecutionToolName
 } from "./tools/schemas/execution.js";
 import {
@@ -124,6 +144,7 @@ import {
   semanticInputSchema
 } from "./tools/schemas/semantic.js";
 import { searchWorkspace, type SearchOptions, type SearchResult } from "./searchOps.js";
+import { NavigationService } from "./navigation/service.js";
 import { probeBashAvailability, runBash, type BashResult } from "./bashOps.js";
 import {
   gitDiff,
@@ -155,6 +176,24 @@ import {
   type WaitForHandoffLimits,
   type WorkspaceSummary
 } from "./workspaceOps.js";
+import {
+  buildWorkspaceContextSnapshot,
+  renderWorkspaceContextSnapshot,
+  type WorkspaceContextSnapshot
+} from "./context/workspaceContext.js";
+import { detectProject } from "./context/projectDetector.js";
+import {
+  ChangeWorkflowError,
+  ChangeWorkflowService,
+  mutationWorkflowFacts,
+  type ChangeWorkflowRunRequest
+} from "./workflows/changeWorkflow.js";
+import {
+  createVerifyChangeFailure,
+  createVerifyChangeSuccess,
+  verifyChangeInputV1Schema,
+  type VerifyChangeErrorCode
+} from "./tools/schemas/changeWorkflow.js";
 import {
   ProContextOperationError,
   buildProContext,
@@ -378,6 +417,7 @@ import {
   showChangesAnalysisSchema,
   showChangesDataSchema,
   showChangesOutputShape,
+  showChangesOutputShapeV5,
   type ShowChangesAnalysis,
   type ShowChangesFailureInput
 } from "./tools/schemas/showChanges.js";
@@ -405,6 +445,7 @@ import {
   writeDataSchema,
   writeOutputShape,
   writeOutputShapeV2,
+  writeOutputShapeV5,
   type WriteTransactionErrorCode,
   type WriteFailureInput
 } from "./tools/schemas/write.js";
@@ -418,6 +459,7 @@ import {
   editDataSchema,
   editOutputShape,
   editOutputShapeV2,
+  editOutputShapeV5,
   type EditTransactionErrorCode,
   type EditFailureInput
 } from "./tools/schemas/edit.js";
@@ -4041,6 +4083,9 @@ function validateToolArgs(name: string, options: Record<string, unknown>, args: 
   const strictV3Schema = V3_INPUT_SCHEMAS[name];
   if (strictV3Schema) return strictV3Schema.parse(args ?? {});
   const inputSchema = options.inputSchema;
+  if (inputSchema && typeof (inputSchema as { parse?: unknown }).parse === "function") {
+    return (inputSchema as z.ZodTypeAny).parse(args ?? {});
+  }
   if (!inputSchema || typeof inputSchema !== "object" || Array.isArray(inputSchema)) return args ?? {};
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const [key, value] of Object.entries(inputSchema)) {
@@ -4099,12 +4144,82 @@ function descriptorOptionsForConfig(config: CodexGPTConfig, options: Record<stri
   return { ...options, _meta: meta };
 }
 
-function toolCallLoggingEnabled(): boolean {
-  return process.env.CODEXGPT_LOG_TOOL_CALLS === "1" || process.env.CODEXGPT_LOG_REQUESTS === "1";
+function toolCallLoggingEnabled(server: McpServer): boolean {
+  return toolCallLoggingByServer.get(server as object) === true;
 }
 
-function logToolCall(name: string, status: "ok" | "error", started: number): void {
-  if (!toolCallLoggingEnabled()) return;
+async function buildOpenWorkspaceContext(
+  config: CodexGPTConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  summary: {
+    agentsPath?: string;
+    gitStatus: string;
+    standardGuidance?: z.infer<typeof standardGuidanceProviderSchema>;
+  }
+): Promise<WorkspaceContextSnapshot | null> {
+  if (!summary.standardGuidance) return null;
+  const projectIo = guardedProjectDetectionIo(config, guard, workspace);
+  return buildWorkspaceContextSnapshot({
+    workspace,
+    gitStatus: summary.gitStatus,
+    instructionFiles: summary.standardGuidance.instructionChain.map((file) => file.path),
+    skills: summary.standardGuidance.skillCatalog.map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      source: skill.source,
+      applicability: skill.implicitEligible ? "implicit" as const : "load_on_request" as const
+    })),
+    capabilities: {
+      semantic: contractIncludesV5(config.toolContractVersion) && config.semanticMode === "standard" && config.toolMode !== "minimal",
+      persistentProcess: contractIncludesV3(config.toolContractVersion) && config.toolMode === "full" && !config.connectionTest
+    },
+    ...projectIo
+  });
+}
+
+function guardedProjectDetectionIo(
+  config: CodexGPTConfig,
+  guard: PathGuard,
+  workspace: Workspace
+): {
+  readText(relativePath: string, maxBytes: number): Promise<string | null>;
+  fileExists(relativePath: string): Promise<boolean>;
+} {
+  return {
+    readText: async (relativePath, maxBytes) => {
+      try {
+        const numbered = (await readTextFile(config, guard, workspace, relativePath, { maxBytes })).text;
+        return numbered.split("\n").map((line) => line.replace(/^\s*\d+ \| ?/u, "")).join("\n");
+      } catch {
+        return null;
+      }
+    },
+    fileExists: async (relativePath) => {
+      try {
+        const resolved = guard.resolve(workspace, relativePath);
+        const stat = await fsp.lstat(resolved.absPath);
+        return stat.isFile() && !stat.isSymbolicLink();
+      } catch {
+        return false;
+      }
+    }
+  };
+}
+
+async function detectWorkspaceCommands(
+  config: CodexGPTConfig,
+  guard: PathGuard,
+  workspace: Workspace
+) {
+  return (await detectProject({
+    root: workspace.root,
+    ...guardedProjectDetectionIo(config, guard, workspace)
+  })).commands;
+}
+
+function logToolCall(server: McpServer, name: string, status: "ok" | "error", started: number): void {
+  if (!toolCallLoggingEnabled(server)) return;
   console.error(`[CodexGPTTool] ${name} ${status} ${Date.now() - started}ms`);
 }
 
@@ -4159,7 +4274,15 @@ function registerToolCardResource(server: McpServer, config: CodexGPTConfig): vo
   }
 }
 
-type CodexToolHandler = (args: any) => Promise<any> | any;
+type CodexToolHandlerExtra = { signal?: AbortSignal };
+type CodexToolHandler = (args: any, extra?: CodexToolHandlerExtra) => Promise<any> | any;
+
+function projectToolHandlerExtra(extra: unknown): CodexToolHandlerExtra | undefined {
+  if (!extra || typeof extra !== "object" || !("signal" in extra)) return undefined;
+  const signal = (extra as { signal?: unknown }).signal;
+  if (!signal || typeof signal !== "object") return undefined;
+  return Object.freeze({ signal: signal as AbortSignal });
+}
 
 export interface TreeProviderContext {
   config: CodexGPTConfig;
@@ -4602,69 +4725,300 @@ interface ServerMutationRegistration {
   toolNames: ReadonlySet<string>;
 }
 
+interface ServerChangeWorkflowRegistration {
+  service: ChangeWorkflowService;
+  ownerBinding(): string | null;
+}
+
 const mutationRegistrationByServer = new WeakMap<object, ServerMutationRegistration>();
 const oauthToolSecurityByServer = new WeakMap<object, OAuthToolSecurityRuntime>();
+const toolCallLoggingByServer = new WeakMap<object, boolean>();
 const localStateDisposerByServer = new WeakMap<object, () => Promise<void>>();
+const toolDefinitionRegistryByServer = new WeakMap<object, ToolDefinitionRegistry>();
+const workspaceManagerByServer = new WeakMap<object, WorkspaceManager>();
+const policyRuntimeByServer = new WeakMap<object, PolicyRuntime>();
+const toolExecutionCoordinatorByServer = new WeakMap<object, ToolExecutionCoordinator>();
+const changeWorkflowRegistrationByServer = new WeakMap<object, ServerChangeWorkflowRegistration>();
+
+const ROUTING_DESCRIPTION_TOOLS = new Set<string>([
+  "read",
+  "write",
+  "tree",
+  "search",
+  "semantic",
+  "workspace_snapshot",
+  "inspect_workspace",
+  "codex_context",
+  "edit",
+  "apply_patch",
+  "run_command",
+  "start_process"
+]);
+
+const runtimeToolResultSchema = z.custom<any>((value) => (
+  typeof value === "object" && value !== null && Array.isArray((value as { content?: unknown }).content)
+), "Tool handler must return an MCP tool result.");
+
+class ProjectedToolResultError extends Error {
+  constructor(readonly result: any) {
+    super("Tool call returned a projected denial.");
+    this.name = "ProjectedToolResultError";
+  }
+}
+
+function projectedToolResult(error: unknown): any | undefined {
+  let candidate = error;
+  const seen = new Set<unknown>();
+  while (candidate && typeof candidate === "object" && !seen.has(candidate)) {
+    seen.add(candidate);
+    if (candidate instanceof ProjectedToolResultError) return candidate.result;
+    candidate = candidate instanceof ToolRuntimeStageError ? candidate.cause : undefined;
+  }
+  return undefined;
+}
+
+function runtimeErrorCause(error: unknown): unknown {
+  let candidate = error;
+  const seen = new Set<unknown>();
+  while (candidate instanceof ToolRuntimeStageError && !seen.has(candidate)) {
+    seen.add(candidate);
+    candidate = candidate.cause;
+  }
+  return candidate;
+}
+
+function runtimeInputSchema(name: string, options: Record<string, unknown>): z.ZodTypeAny {
+  return z.any().transform((value) => validateToolArgs(name, options, value));
+}
+
+export function registeredToolDefinitions(server: McpServer): readonly ToolDefinition[] {
+  return toolDefinitionRegistryByServer.get(server as object)?.list() ?? Object.freeze([]);
+}
 
 export async function disposeCodexGPTServerLocalState(server: McpServer): Promise<void> {
   await localStateDisposerByServer.get(server as object)?.();
 }
 
+function appendToolText(result: any, text: string): any {
+  if (!result || typeof result !== "object" || !Array.isArray(result.content)) return result;
+  const content = result.content.map((item: any, index: number) => (
+    index === 0 && item?.type === "text" && typeof item.text === "string"
+      ? { ...item, text: `${item.text}\n\n${text}` }
+      : item
+  ));
+  return { ...result, content };
+}
+
+async function attachChangeWorkflowProjection(
+  config: CodexGPTConfig,
+  server: McpServer,
+  toolName: string,
+  args: unknown,
+  workspace: Workspace | Readonly<{ deferredError: unknown }> | undefined,
+  result: any
+): Promise<any> {
+  if (!contractIncludesV5(config.toolContractVersion) || result?.isError === true) return result;
+  if (!workspace || !("id" in workspace) || !("root" in workspace)) return result;
+  const registration = changeWorkflowRegistrationByServer.get(server as object);
+  const ownerBinding = registration?.ownerBinding();
+  if (!registration || !ownerBinding) return result;
+  const structured = result?.structuredContent;
+  if (!structured || typeof structured !== "object" || Array.isArray(structured)) return result;
+  const input = args && typeof args === "object" && !Array.isArray(args)
+    ? args as Record<string, unknown>
+    : {};
+
+  try {
+    const facts = mutationWorkflowFacts(toolName, structured);
+    if (facts) {
+      const workflow = await registration.service.recordApplied({
+        workspace,
+        ownerBinding,
+        changeSetId: facts.changeSetId,
+        changedFiles: facts.changedFiles,
+        verificationAvailable: Boolean(registeredToolHandler(server, "run_command"))
+      });
+      const data = structured.data as Record<string, unknown>;
+      const projected = {
+        ...result,
+        structuredContent: { ...structured, data: { ...data, workflow } }
+      };
+      return appendToolText(
+        projected,
+        `Next: call codexgpt action=verify_change for confirmed checks, then show_changes with change_set_id=${facts.changeSetId}. No verification command ran automatically.`
+      );
+    }
+
+    if (toolName === "show_changes" && typeof input.change_set_id === "string" && structured.ok === true) {
+      const data = structured.data as Record<string, unknown>;
+      const workflow = registration.service.markReviewed({
+        workspace,
+        ownerBinding,
+        changeSetId: input.change_set_id,
+        includeDiff: data.include_diff === true,
+        markReviewed: data.review_marked === true,
+        checkpointHit: data.review_checkpoint_hit === true,
+        scopePath: typeof input.path === "string" && input.path.trim() ? input.path.trim() : null,
+        reviewedPaths: Array.isArray(data.changed_files)
+          ? changedPathsFromStatus(data.changed_files.filter((value): value is string => typeof value === "string"))
+          : []
+      });
+      return {
+        ...result,
+        structuredContent: { ...structured, data: { ...data, workflow } }
+      };
+    }
+  } catch {
+    // The committed mutation or ordinary review remains valid if the optional
+    // workflow projection cannot be derived. Never rewrite a successful
+    // domain result after the mutation boundary has completed.
+    if (toolName === "show_changes" && typeof input.change_set_id === "string") {
+      return appendToolText(result, "The diff review is valid, but the requested change workflow could not be linked or updated.");
+    }
+    if (mutationWorkflowFacts(toolName, structured)) {
+      return appendToolText(result, "The mutation committed, but workflow next-state is unavailable; inspect the diff with show_changes.");
+    }
+  }
+  return result;
+}
+
 function registerToolCompat(
+  config: CodexGPTConfig,
   server: McpServer,
   name: string,
   options: Record<string, unknown>,
-  handler: (args: any) => Promise<any> | any
+  handler: CodexToolHandler
 ): CodexToolHandler {
+  const {
+    __codexgptStrictInputSchema: _strictInputSchema,
+    __codexgptSkipMutationProvider: skipMutationProvider,
+    ...publicOptionsWithoutGuidance
+  } = options;
+  const optionsWithGuidance = ROUTING_DESCRIPTION_TOOLS.has(name)
+    ? {
+        ...publicOptionsWithoutGuidance,
+        description: renderToolDescription(
+          name,
+          String(publicOptionsWithoutGuidance.description ?? name)
+        )
+      }
+    : publicOptionsWithoutGuidance;
   const mutationRegistration = mutationRegistrationByServer.get(server as object);
-  const mutationAwareHandler: CodexToolHandler = mutationRegistration?.toolNames.has(name)
-    ? (args) => mutationRegistration.runtime.invokeProvider({
+  const mutationAwareHandler: CodexToolHandler = !skipMutationProvider && mutationRegistration?.toolNames.has(name)
+    ? (args, extra) => mutationRegistration.runtime.invokeProvider({
         requiresMutation: name !== "codexgpt_self_test",
-        provider: () => handler(args)
+        provider: () => handler(args, extra)
       })
     : handler;
   const oauthToolSecurity = oauthToolSecurityByServer.get(server as object);
-  const authenticatedHandler: CodexToolHandler = oauthToolSecurity
-    ? async (args) => {
-        const context = maybeOAuthRequestContext();
-        if (!context) {
-          return {
-            content: [{ type: "text", text: "CodexGPT refused the tool call because OAuth request identity is unavailable." }],
-            isError: true
-          };
-        }
-        const denied = enforceOAuthToolScopes({ toolName: name, context, runtime: oauthToolSecurity });
-        return denied ?? mutationAwareHandler(args);
+  const selection = toolSelectionContract(name);
+  const registry = toolDefinitionRegistryByServer.get(server as object);
+  if (!registry) throw new Error("Tool definition registry is unavailable for this server.");
+  const definition = defineTool({
+    ...selection,
+    inputSchema: runtimeInputSchema(name, options),
+    outputSchema: runtimeToolResultSchema,
+    handler: async (args: any, context) => mutationAwareHandler(args, context.extra as CodexToolHandlerExtra | undefined)
+  });
+  registry.register(definition);
+
+  const coordinator = toolExecutionCoordinatorByServer.get(server as object);
+  if (!coordinator) throw new Error("Tool execution coordinator is unavailable for this server.");
+  const pipeline = new ToolRuntimePipeline<Workspace | Readonly<{ deferredError: unknown }>, any>({
+    authorize: async () => {
+      if (!oauthToolSecurity) return;
+      const context = maybeOAuthRequestContext();
+      if (!context) {
+        throw new ProjectedToolResultError({
+          content: [{ type: "text", text: "CodexGPT refused the tool call because OAuth request identity is unavailable." }],
+          isError: true
+        });
       }
-    : mutationAwareHandler;
-  const wrapped = async (args: any) => {
-    const started = Date.now();
-    try {
-      const result = attachStructuredDuration(
-        tagToolResult(await authenticatedHandler(args ?? {}), name, options),
-        Date.now() - started
+      const denied = enforceOAuthToolScopes({ toolName: name, context, runtime: oauthToolSecurity });
+      if (denied) throw new ProjectedToolResultError(denied);
+    },
+    resolveWorkspace: async (context) => {
+      const workspaces = workspaceManagerByServer.get(server as object);
+      if (!workspaces) return undefined;
+      const args = context.input && typeof context.input === "object"
+        ? context.input as Record<string, unknown>
+        : {};
+      try {
+        return workspaces.resolveWorkspace(
+          typeof args.workspace_id === "string" ? args.workspace_id : undefined
+        );
+      } catch (deferredError) {
+        // Existing handlers and Policy resource resolvers own the stable public
+        // failure projection.  Retain the failed pre-resolution in context so
+        // the P1 workspace stage is real without replacing those contracts.
+        return Object.freeze({ deferredError });
+      }
+    },
+    policy: async (context, next) => {
+      const runtime = policyRuntimeByServer.get(server as object);
+      if (!runtime) return next();
+      const args = context.input && typeof context.input === "object"
+        ? context.input as Record<string, unknown>
+        : {};
+      return executeWithPolicyKernel(
+        name,
+        args,
+        context.extra,
+        async () => next() as Promise<any>,
+        runtime
       );
-      logToolCall(name, result?.isError ? "error" : "ok", started);
-      return result;
-    } catch (error) {
-      const result = attachStructuredDuration(
-        tagToolResult(errorResult(error), name, options),
-        Date.now() - started
+    },
+    // Local approval is enforced inside the Policy Kernel.  Reaching this
+    // stage proves Policy allowed the call (and any required approval) to
+    // proceed to the domain handler.
+    approve: async () => undefined,
+    audit: async (_context, outcome) => {
+      const status = outcome.ok && !(outcome.value as { isError?: unknown })?.isError
+        ? "ok"
+        : "error";
+      logToolCall(server, name, status, Date.now() - outcome.durationMs);
+    },
+    render: async (context, outcome) => {
+      if (outcome.ok) {
+        if (isPolicyToolFailure(outcome.value)) return outcome.value;
+        const projected = await attachChangeWorkflowProjection(
+          config,
+          server,
+          name,
+          context.input,
+          context.workspace,
+          tagToolResult(outcome.value, name, optionsWithGuidance)
+        );
+        return attachStructuredDuration(
+          projected,
+          outcome.durationMs
+        );
+      }
+      const projected = projectedToolResult(outcome.error);
+      return attachStructuredDuration(
+        tagToolResult(projected ?? errorResult(runtimeErrorCause(outcome.error)), name, optionsWithGuidance),
+        outcome.durationMs
       );
-      logToolCall(name, "error", started);
-      return result;
     }
+  }, coordinator);
+
+  const wrapped: CodexToolHandler = async (args: any, rawExtra?: unknown) => {
+    const extra = projectToolHandlerExtra(rawExtra);
+    return pipeline.execute(definition, args ?? {}, {
+      ...(extra?.signal !== undefined ? { signal: extra.signal } : {}),
+      ...(extra !== undefined ? { extra } : {})
+    });
   };
 
   const securitySchemes = oauthToolSecurity
     ? oauthSecuritySchemesForTool(name)
     : [{ type: "noauth" }];
   const fullOptions: Record<string, unknown> = {
-    ...options,
+    ...optionsWithGuidance,
     securitySchemes,
     _meta: {
       securitySchemes,
-      ...(options._meta as Record<string, unknown> | undefined)
+      ...(optionsWithGuidance._meta as Record<string, unknown> | undefined)
     }
   };
 
@@ -4672,12 +5026,12 @@ function registerToolCompat(
   if (typeof s.registerTool === "function") {
     const registered = s.registerTool(name, fullOptions, wrapped) as Record<string, unknown> | undefined;
     if (registered && typeof registered === "object") registered.securitySchemes = securitySchemes;
-    return authenticatedHandler;
+    return wrapped;
   }
 
   if (typeof s.tool === "function") {
     s.tool(name, (fullOptions.description as string | undefined) ?? name, fullOptions.inputSchema ?? {}, wrapped);
-    return authenticatedHandler;
+    return wrapped;
   }
 
   throw new Error("Unsupported MCP SDK: McpServer has neither registerTool nor tool.");
@@ -4935,13 +5289,12 @@ function registerCodexTool(
   handler: CodexToolHandler
 ): void {
   if (!shouldRegisterTool(config, name)) return;
-  const validatedHandler: CodexToolHandler = (args) => handler(validateToolArgs(name, options, args));
-  const { __codexgptStrictInputSchema: _strictInputSchema, ...descriptorOptions } = options;
   const mutationAwareHandler = registerToolCompat(
+    config,
     server,
     name,
-    descriptorOptionsForConfig(config, descriptorOptions),
-    validatedHandler
+    descriptorOptionsForConfig(config, options),
+    handler
   );
   rememberRegisteredTool(server, name);
   rememberRegisteredToolHandler(server, name, mutationAwareHandler);
@@ -4999,7 +5352,7 @@ const V3_CONTRACT_TOOL_DEFINITIONS: readonly V3ContractToolDefinition[] = Object
   {
     name: "run_command",
     title: "Run Command",
-    description: "Run one structured command through the selected V3 execution authority and return bounded retained output.",
+    description: "Run one finite full_access command with bounded retained output. This is ambient authority, not a sandbox.",
     inputSchema: runCommandInputV1Schema,
     outputSchema: runCommandOutputShape,
     annotations: V3_EXECUTION_ANNOTATIONS
@@ -5007,7 +5360,7 @@ const V3_CONTRACT_TOOL_DEFINITIONS: readonly V3ContractToolDefinition[] = Object
   {
     name: "start_process",
     title: "Start Process",
-    description: "Start one bounded persistent process through the selected V3 execution authority.",
+    description: "Start one owned full_access process with a bounded lifetime. Use ConPTY for terminal-dependent Windows interaction, consume incremental output with next_cursor, and terminate the process when finished. This is ambient authority, not a sandbox.",
     inputSchema: startProcessInputV1Schema,
     outputSchema: startProcessOutputShape,
     annotations: V3_EXECUTION_ANNOTATIONS
@@ -5015,7 +5368,7 @@ const V3_CONTRACT_TOOL_DEFINITIONS: readonly V3ContractToolDefinition[] = Object
   {
     name: "read_process_output",
     title: "Read Process Output",
-    description: "Read a bounded page from a process owned by this transport and identity context.",
+    description: "Read one bounded incremental output page from a process owned by this transport and identity context. Pass the previous non-null next_cursor to avoid replay. With positive wait_ms and no unread output, an owned record whose output has not reached eof can hold the call for up to 30 seconds until output arrives, process state or lifecycle finalization changes, or the timeout expires. Persistent processes are created only by start_process in full tool mode; an exited, failed, or terminated record can remain eof=false while cleanup finalizes, while eof=true never waits.",
     inputSchema: readProcessOutputInputV1Schema,
     outputSchema: readProcessOutputOutputShape,
     annotations: V3_READ_ANNOTATIONS
@@ -5062,6 +5415,17 @@ const V3_CONTRACT_TOOL_DEFINITIONS: readonly V3ContractToolDefinition[] = Object
   }
 ]);
 
+const V5_PROCESS_OUTPUT_SHAPES: Readonly<Record<string, Record<string, z.ZodTypeAny>>> = Object.freeze({
+  run_command: runCommandOutputShapeV5,
+  start_process: startProcessOutputShapeV5,
+  read_process_output: readProcessOutputOutputShapeV5,
+  write_process_input: writeProcessInputOutputShapeV5,
+  interrupt_process: interruptProcessOutputShapeV5,
+  terminate_process: terminateProcessOutputShapeV5,
+  resize_process_terminal: resizeProcessTerminalOutputShapeV5,
+  list_processes: listProcessesOutputShapeV5
+});
+
 function disabledV3ToolResult(name: CanonicalToolV3Addition): any {
   if (name === "open_full_access_workspace") {
     const structured = createOpenFullAccessWorkspaceFailure("LOCAL_ROOT_APPROVAL_REQUIRED", {
@@ -5088,28 +5452,34 @@ function registerV3ContractTools(
 ): void {
   if (!contractIncludesV3(config.toolContractVersion)) return;
   for (const inheritedDefinition of V3_CONTRACT_TOOL_DEFINITIONS) {
-    const definition = !contractIncludesV4(config.toolContractVersion)
+    const inheritedVersionDefinition = !contractIncludesV4(config.toolContractVersion)
       ? inheritedDefinition
       : inheritedDefinition.name === "run_command"
         ? {
             ...inheritedDefinition,
-            description: "Run one structured command, optionally as an exact-candidate verification, and return bounded retained output.",
+            description: "Run one finite full_access command with bounded retained output and optional exact-candidate verification. This is ambient authority, not a sandbox.",
             inputSchema: runCommandInputV4Schema,
             outputSchema: runCommandOutputShapeV4
           }
         : inheritedDefinition.name === "start_process"
           ? {
               ...inheritedDefinition,
-              description: "Start one bounded persistent process, optionally bound to an exact candidate verification workspace.",
+              description: "Start one owned full_access process with a bounded lifetime and optional exact-candidate verification. Use ConPTY for terminal-dependent Windows interaction, consume incremental output with next_cursor, and terminate the process when finished. This is ambient authority, not a sandbox.",
               inputSchema: startProcessInputV4Schema
             }
           : inheritedDefinition.name === "read_process_output"
             ? {
                 ...inheritedDefinition,
-                description: "Read bounded process output and V4 terminal verification evidence owned by this context.",
+                description: "Read one bounded incremental output page and V4 terminal verification evidence owned by this context. Pass the previous non-null next_cursor to avoid replay. With positive wait_ms and no unread output, an owned record whose output has not reached eof can hold the call for up to 30 seconds until output arrives, process state or lifecycle finalization changes, or the timeout expires. Persistent processes are created only by start_process in full tool mode; an exited, failed, or terminated record can remain eof=false while verification and audit finalize, while eof=true never waits.",
                 outputSchema: readProcessOutputOutputShapeV4
               }
             : inheritedDefinition;
+    const definition = contractIncludesV5(config.toolContractVersion) && V5_PROCESS_OUTPUT_SHAPES[inheritedDefinition.name]
+      ? {
+          ...inheritedVersionDefinition,
+          outputSchema: V5_PROCESS_OUTPUT_SHAPES[inheritedDefinition.name]
+        }
+      : inheritedVersionDefinition;
     const rootAdmissionHandler = definition.name === "open_full_access_workspace" && dependencies.rootAdmissionRuntimeV3
       ? async (args: Record<string, unknown>) => {
           const startedAt = Date.now();
@@ -5766,6 +6136,9 @@ export function serverInstructions(config: CodexGPTConfig): string {
     contractIncludesV5(config.toolContractVersion)
       ? "5a. For a request to inspect rename impact, call semantic(rename_preview) and stop without applying. For an explicit request to complete the rename, obtain a fresh preview and pass its opaque preview_id directly to apply_patch; never quote, narrate, or expose that token in natural-language output. After apply, verify with diagnostics/show_changes and use undo_change_set if rollback is requested."
       : "",
+    contractIncludesV5(config.toolContractVersion)
+      ? "5b. Use run_command only for a bounded command expected to exit. Use full-mode start_process for persistent or interactive work, pass each non-null next_cursor back as cursor, and terminate the owned process when finished. In V5 process results, state is canonical and status is its compatibility alias."
+      : "",
     "6. Keep tool calls minimal. Prefer one targeted search plus show_changes instead of repeated broad inspection calls.",
     config.codexSessions !== "off"
       ? `7. Codex session history access is enabled in ${config.codexSessions} mode. Use it only when the user asks for local Codex session history.`
@@ -6037,8 +6410,8 @@ function previewText(value: string, maxLines = 40, maxChars = 12_000): string {
 function changedStatusLines(status: string): string[] {
   return status
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && line !== "(no output)" && !line.startsWith("##"));
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() && line.trim() !== "(no output)" && !line.trimStart().startsWith("##"));
 }
 
 function changedPathsFromStatus(lines: string[]): string[] {
@@ -6233,7 +6606,8 @@ function buildServerConfigData(
 import { upgradeCodexGPTSupertool } from "./codexgptSupertool.js";
 import {
   authorizedGitEventV4,
-  installPolicyKernel,
+  executeWithPolicyKernel,
+  isPolicyToolFailure,
   PolicyInputUnavailableError,
   type PolicyRuntime,
   type PolicyRuntimeDiagnostics,
@@ -6257,6 +6631,7 @@ import {
   undoChangeSetInputV2Schema,
   undoChangeSetInputV5Schema,
   undoChangeSetOutputShape,
+  undoChangeSetOutputShapeV5,
   type UndoChangeSetData
 } from "./tools/schemas/undoChangeSet.js";
 
@@ -6331,6 +6706,9 @@ export function createCodexGPTServer(
         previews: dependencies.semanticPreviewStoreV5,
         workerHealth: dependencies.semanticWorkerHealthV5
       })
+    : null;
+  const navigationService = semanticManager
+    ? new NavigationService(config, guard, semanticManager)
     : null;
   const invalidateWorkspaceCaches = (workspaceId: string): void => {
     invalidateWorkspaceAnalysis(workspaceId);
@@ -6478,6 +6856,29 @@ export function createCodexGPTServer(
       : undefined
   );
   const server = new McpServer({ name: "CodexGPT", version: "1.0.4" }, { instructions: serverInstructions(config) });
+  toolDefinitionRegistryByServer.set(server as object, new ToolDefinitionRegistry());
+  toolExecutionCoordinatorByServer.set(server as object, new ToolExecutionCoordinator());
+  workspaceManagerByServer.set(server as object, workspaces);
+  if (contractIncludesV5(config.toolContractVersion)) {
+    changeWorkflowRegistrationByServer.set(server as object, {
+      service: new ChangeWorkflowService({
+        commandProvider: (workspace) => detectWorkspaceCommands(config, guard, workspace as Workspace)
+      }),
+      ownerBinding: () => {
+        if (!dependencies.policySessionContextSource || !dependencies.changeSetOwnerBindingKey) return null;
+        try {
+          return changeSetOwnerBinding(
+            dependencies.policySessionContextSource,
+            dependencies.changeSetOwnerBindingKey
+          );
+        } catch {
+          return null;
+        }
+      }
+    });
+  }
+  if (effectivePolicyRuntime) policyRuntimeByServer.set(server as object, effectivePolicyRuntime);
+  toolCallLoggingByServer.set(server as object, config.logToolCalls === true);
   if (dependencies.oauthToolSecurity) {
     oauthToolSecurityByServer.set(server as object, dependencies.oauthToolSecurity);
   }
@@ -6923,20 +7324,10 @@ export function createCodexGPTServer(
   registeredToolNamesByServer.set(server as object, []);
   phase3dIntegration.registerTools((name, options, handler) => {
     if (name === "undo_change_set") return;
-    const policyEntry = {
-      inputSchema: options.inputSchema,
-      handler: handler as CodexToolHandler
-    };
-    if (effectivePolicyRuntime) {
-      installPolicyKernel({ _registeredTools: { [name]: policyEntry } }, effectivePolicyRuntime);
-    }
-    server.registerTool(
-      name,
-      options as Parameters<typeof server.registerTool>[1],
-      policyEntry.handler as Parameters<typeof server.registerTool>[2]
-    );
-    rememberRegisteredToolHandler(server, name, policyEntry.handler as CodexToolHandler);
-    registeredToolNamesByServer.get(server as object)?.push(name);
+    registerCodexTool(config, server, name, {
+      ...options,
+      __codexgptSkipMutationProvider: true
+    }, handler as CodexToolHandler);
   });
   registerV3ContractTools(config, server, dependencies);
   registerV4ContractTools(config, server, dependencies, workspaces, guard);
@@ -6948,7 +7339,7 @@ export function createCodexGPTServer(
       {
         title: "Semantic Code",
         description:
-          "Find symbol definitions and references, report TypeScript/JavaScript diagnostics, or preview a safe symbol rename. Use semantic for code meaning, search for text/regex, and inspect_workspace for a repository overview. Do not ask the user to choose a Provider.",
+          "Use operation=navigate (or the V5 codexgpt navigate_code alias) for one bounded server-routed code location request across semantic, lexical fallback, and file discovery. Use the legacy semantic operations for exact provider control, diagnostics, and safe rename previews. Provider and fallback quality are always explicit.",
         inputSchema: semanticInputDescriptorShape,
         __codexgptStrictInputSchema: semanticInputSchema,
         annotations: {
@@ -6967,7 +7358,9 @@ export function createCodexGPTServer(
         try {
           const parsed = semanticInputSchema.parse(args);
           const workspace = workspaces.resolveWorkspace(parsed.workspace_id);
-          const result = await semanticManager.execute(workspace, parsed);
+          const result = parsed.operation === "navigate"
+            ? await navigationService!.execute(workspace, parsed)
+            : await semanticManager.execute(workspace, parsed);
           const publicDetails = "diff_preview" in result.result
             ? `\nFiles: ${result.result.affected_file_count}; edits: ${result.result.edit_count}\n\n${result.result.diff_preview}`
             : Array.isArray(result.result.locations)
@@ -6976,7 +7369,9 @@ export function createCodexGPTServer(
                 ? `\nReturned: ${result.returned_count}; omitted: ${result.omitted_count}\n${result.result.diagnostics.map((item: any) => `${item.path}:${item.range.start.line}:${item.range.start.column} ${item.severity} ${item.code} ${item.message}`).join("\n")}`
                 : Array.isArray(result.result.candidates)
                   ? `\nCandidates: ${result.returned_count}; omitted: ${result.omitted_count}\n${result.result.candidates.map((item: any) => `${item.path}:${item.range.start.line}:${item.range.start.column}`).join("\n")}`
-                  : "";
+                  : Array.isArray(result.result.matches)
+                    ? `\nReturned: ${result.returned_count}; omitted: ${result.omitted_count}; fallback: ${result.result.fallback}\n${result.result.matches.map((item: any) => `${item.path}:${item.line}${item.column ? `:${item.column}` : ""} ${item.kind}`).join("\n")}`
+                    : "";
           return textResult(
             `# Semantic Code\n\nProvider: ${result.actual_provider}\nQuality: ${result.result_quality}\nState: ${result.state}\nNext: ${result.next_action}${publicDetails}`,
             createSemanticSuccess(result)
@@ -7017,7 +7412,7 @@ export function createCodexGPTServer(
     {
       title: "CodexGPT Supertool",
       description:
-        "Stable wrapper for advanced ChatGPT connector setups. Pass action plus args to call an already-registered CodexGPT tool without changing the visible schema; it cannot call tools disabled by the current mode.",
+        "Stable wrapper for advanced ChatGPT connector setups. Pass action plus args to call an already-registered CodexGPT tool without changing the visible schema. In V5, action=navigate_code routes to semantic operation=navigate; aliases cannot bypass tools disabled by the current mode.",
       inputSchema: {
         action: z.string().optional().describe("Action or registered tool name. Use list_actions to see what this server mode allows."),
         args: z.record(z.any()).optional().describe("Arguments for the selected action. Same shape as the wrapped CodexGPT tool.")
@@ -7029,7 +7424,7 @@ export function createCodexGPTServer(
         "openai/toolInvocation/invoked": "CodexGPT supertool action complete"
       }
     },
-    async (args) => {
+    async (args, extra) => {
       const action = normalizeSupertoolAction(args.action);
       const names = registeredToolNames(server).filter((name) => name !== SUPERTOOL_NAME);
       if (action === "list_actions" || action === "help") {
@@ -7076,7 +7471,7 @@ export function createCodexGPTServer(
           : {};
       let result: any;
       try {
-        result = await handler(childArgs);
+        result = await handler(childArgs, extra);
       } catch (error) {
         result = errorResult(error);
       }
@@ -7941,7 +8336,7 @@ export function createCodexGPTServer(
     {
       title: "Open Current Workspace",
       description:
-        "Use this once at the start to open the configured default workspace without accepting a path. Do not call open_workspace after this unless switching roots.",
+        "Use this once at the start to open the configured default workspace and receive a bounded project, Git, guidance, capability, and command snapshot. Lazy-load full details only when needed. Do not call open_workspace after this unless switching roots.",
       inputSchema: {
         include_tree: z.boolean().optional().describe("Include a compact file tree. Default: false for speed."),
         max_depth: z.number().int().min(1).max(8).optional().describe("Tree depth when include_tree=true. Default: 2."),
@@ -7981,6 +8376,7 @@ export function createCodexGPTServer(
           guard,
           options
         );
+        const contextSnapshot = await buildOpenWorkspaceContext(config, guard, workspace, summary);
         const data = openCurrentWorkspaceDataSchema.parse({
           workspace_id: workspace.id,
           root: workspace.root,
@@ -7994,11 +8390,14 @@ export function createCodexGPTServer(
           bash_mode: config.bashMode,
           write_mode: config.writeMode,
           tool_mode: config.toolMode,
-          ...(summary.standardGuidance ? standardGuidanceWireData(summary.standardGuidance) : {})
+          ...(summary.standardGuidance ? {
+            ...standardGuidanceWireData(summary.standardGuidance),
+            context_snapshot: contextSnapshot
+          } : {})
         });
 
         return textResult(
-          summary.text,
+          contextSnapshot ? renderWorkspaceContextSnapshot(contextSnapshot) : summary.text,
           createOpenCurrentWorkspaceSuccess(data, Date.now() - startedAt)
         );
       } catch (error) {
@@ -8027,11 +8426,11 @@ export function createCodexGPTServer(
     {
       title: "Open Workspace",
       description:
-        "Open a local project directory as a CodexGPT workspace. Returns a workspace_id plus git status, AGENTS.md, and a compact file tree.",
+        "Open a local project directory and return a bounded project, Git, guidance, capability, and command snapshot. Use tree, codex_context, load_skill, or git_diff only when the task needs those lazy details.",
       inputSchema: {
         root: z.string().optional().describe("Project directory to open. Omit to use CODEXGPT_ROOT/current working directory. Supports ~/ paths."),
         path: z.string().optional().describe("Alias for root. Useful for clients that naturally send path instead of root."),
-        include_tree: z.boolean().optional().describe("Include a compact file tree. Default: true."),
+        include_tree: z.boolean().optional().describe("Include a compact file tree. Default: false; request it only when the bounded context snapshot is insufficient."),
         max_depth: z.number().int().min(1).max(8).optional().describe("Tree depth. Default: 3."),
         max_files: z.number().int().min(1).max(3000).optional().describe("Alias for maximum tree entries. Default: 500."),
         include_skills: z.boolean().optional().describe("Discover skills by name/description. Default: false for speed."),
@@ -8073,7 +8472,7 @@ export function createCodexGPTServer(
 
       try {
         const options: OpenWorkspaceSummaryOptions = {
-          includeTree: args.include_tree !== false,
+          includeTree: parseBool(args.include_tree, false),
           maxDepth: limitInt(args.max_depth, 3, 1, 8),
           maxEntries: limitInt(args.max_files, 500, 1, 3000),
           includeSkills: parseBool(args.include_skills, false),
@@ -8092,6 +8491,7 @@ export function createCodexGPTServer(
           guard,
           options
         );
+        const contextSnapshot = await buildOpenWorkspaceContext(config, guard, workspace, summary);
         const data = openWorkspaceDataSchema.parse({
           workspace_id: workspace.id,
           root: workspace.root,
@@ -8105,11 +8505,14 @@ export function createCodexGPTServer(
           bash_mode: config.bashMode,
           write_mode: config.writeMode,
           tool_mode: config.toolMode,
-          ...(summary.standardGuidance ? standardGuidanceWireData(summary.standardGuidance) : {})
+          ...(summary.standardGuidance ? {
+            ...standardGuidanceWireData(summary.standardGuidance),
+            context_snapshot: contextSnapshot
+          } : {})
         });
 
         return textResult(
-          summary.text,
+          contextSnapshot ? renderWorkspaceContextSnapshot(contextSnapshot) : summary.text,
           createOpenWorkspaceSuccess(data, Date.now() - startedAt)
         );
       } catch {
@@ -8470,7 +8873,7 @@ export function createCodexGPTServer(
     "tree",
     {
       title: "File Tree",
-      description: "List files and directories inside the workspace, excluding blocked paths.",
+      description: "Return a bounded workspace file and directory tree, excluding blocked paths.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         path: z.string().optional().describe("Directory relative to workspace root. Default: ."),
@@ -8528,7 +8931,7 @@ export function createCodexGPTServer(
     {
       title: "Search Files",
       description:
-        "Use search for exact text, strings, error messages, configuration keys, and lexical symbol occurrences. Use tree to discover an unknown filename or directory. When the semantic tool is available, use semantic for definitions, references, diagnostics, or rename impact. Do not present lexical search results as certain semantic definitions or references. Prefer one targeted search instead of repeated broad searches.",
+        "Return bounded lexical workspace matches. Lexical matches are evidence, not semantic certainty; prefer one targeted query over repeated broad queries.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         query: z.string().describe("Text or regex to search for."),
@@ -8620,7 +9023,7 @@ export function createCodexGPTServer(
     "read",
     {
       title: "Read File",
-      description: "Read a specific text file with line numbers. Avoid rereading files after write/edit/apply_patch unless exact final content is needed.",
+      description: "Read one bounded text file or line range with line numbers. Avoid rereading after a mutation unless exact final content is needed.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         path: z.string().describe("File path relative to workspace root."),
@@ -8698,7 +9101,11 @@ export function createCodexGPTServer(
             }
           : {})
       },
-      outputSchema: contractIncludesV2(config.toolContractVersion) ? writeOutputShapeV2 : writeOutputShape,
+      outputSchema: contractIncludesV5(config.toolContractVersion)
+        ? writeOutputShapeV5
+        : contractIncludesV2(config.toolContractVersion)
+          ? writeOutputShapeV2
+          : writeOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -8848,7 +9255,7 @@ export function createCodexGPTServer(
     "edit",
     {
       title: "Edit File",
-      description: "Apply a targeted exact text replacement inside a workspace text file. Returns a unified diff.",
+      description: "Apply one bounded exact text replacement inside a workspace file and return its unified diff.",
       inputSchema: {
         workspace_id: z.string().optional().describe("Workspace id from open_workspace. Omit to use default workspace."),
         path: z.string().describe("File path relative to workspace root."),
@@ -8863,7 +9270,11 @@ export function createCodexGPTServer(
             }
           : {})
       },
-      outputSchema: contractIncludesV2(config.toolContractVersion) ? editOutputShapeV2 : editOutputShape,
+      outputSchema: contractIncludesV5(config.toolContractVersion)
+        ? editOutputShapeV5
+        : contractIncludesV2(config.toolContractVersion)
+          ? editOutputShapeV2
+          : editOutputShape,
       annotations: LOCAL_WRITE_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -9016,8 +9427,8 @@ export function createCodexGPTServer(
     {
       title: "Apply Patch",
       description: contractIncludesV5(config.toolContractVersion)
-        ? "Apply one unified diff or consume one exact server-owned semantic rename preview. The two forms are mutually exclusive and every target is revalidated before one atomic transaction."
-        : "Apply one unified diff patch inside the workspace. Paths are validated before applying. Prefer edit for tiny replacements and apply_patch for multi-file diffs.",
+        ? "Apply one unified diff or one exact server-owned semantic rename preview after revalidating every target in one atomic transaction."
+        : "Apply one validated unified diff inside the workspace in one atomic transaction.",
       inputSchema: contractIncludesV5(config.toolContractVersion)
         ? applyPatchInputDescriptorShapeV5
         : {
@@ -9702,9 +10113,17 @@ export function createCodexGPTServer(
         staged: z.boolean().optional().describe("Show staged diff. Default: false."),
         include_diff: z.boolean().optional().describe("Include the unified diff. Default: true."),
         since: z.enum(["last_shown", "workspace"]).optional().describe("Use last_shown to suppress unchanged repeated reviews. Default: last_shown."),
-        mark_reviewed: z.boolean().optional().describe("Update the last-shown review checkpoint after this call. Default: true.")
+        mark_reviewed: z.boolean().optional().describe("Update the last-shown review checkpoint after this call. Default: true."),
+        ...(contractIncludesV5(config.toolContractVersion)
+          ? {
+              change_set_id: z.string().regex(/^cs_[a-f0-9]{32}$/u).optional()
+                .describe("Optional V5 workflow change-set id to link a whole-workspace diff review.")
+            }
+          : {})
       },
-      outputSchema: showChangesOutputShape,
+      outputSchema: contractIncludesV5(config.toolContractVersion)
+        ? showChangesOutputShapeV5
+        : showChangesOutputShape,
       annotations: READ_ONLY_ANNOTATIONS,
       _meta: {
         ...toolCardMeta(),
@@ -11076,7 +11495,9 @@ export function createCodexGPTServer(
         ...(contractIncludesV5(config.toolContractVersion)
           ? { __codexgptStrictInputSchema: undoInputSchema }
           : {}),
-        outputSchema: undoChangeSetOutputShape,
+        outputSchema: contractIncludesV5(config.toolContractVersion)
+          ? undoChangeSetOutputShapeV5
+          : undoChangeSetOutputShape,
         annotations: LOCAL_WRITE_ANNOTATIONS,
         _meta: {
           ...toolCardMeta(),
@@ -11147,11 +11568,130 @@ export function createCodexGPTServer(
     );
   }
 
-  upgradeCodexGPTSupertool(server, config.toolContractVersion);
+  const verifyChangeHandler = async (rawArgs: Record<string, unknown>, extra?: unknown): Promise<any> => {
+    const startedAt = Date.now();
+    const parsed = verifyChangeInputV1Schema.safeParse(rawArgs);
+    const safeDetails = {
+      ...(typeof rawArgs.workspace_id === "string" && rawArgs.workspace_id.length <= 160
+        ? { workspace_id: rawArgs.workspace_id }
+        : {}),
+      ...(typeof rawArgs.change_set_id === "string" && /^cs_[a-f0-9]{32}$/u.test(rawArgs.change_set_id)
+        ? { change_set_id: rawArgs.change_set_id }
+        : {})
+    };
+    const failureResult = (code: VerifyChangeErrorCode, details: Record<string, unknown> = safeDetails): any => {
+      const structured = createVerifyChangeFailure(code, details as any, Date.now() - startedAt);
+      return {
+        ...textResult(`Change verification failed.\nCode: ${code}\n${structured.error?.message ?? "Verification failed."}`, structured as unknown as Record<string, unknown>),
+        isError: true
+      };
+    };
+    if (!parsed.success) return failureResult("INVALID_CHECK_SELECTION");
+
+    let workspace: Workspace;
+    try {
+      workspace = workspaces.resolveWorkspace(parsed.data.workspace_id);
+    } catch {
+      return failureResult("WORKSPACE_NOT_FOUND", safeDetails);
+    }
+    const registration = changeWorkflowRegistrationByServer.get(server as object);
+    const ownerBinding = registration?.ownerBinding();
+    const runCommandHandler = registeredToolHandler(server, "run_command");
+    if (!registration || !ownerBinding || !runCommandHandler) {
+      return failureResult("VERIFICATION_UNAVAILABLE", safeDetails);
+    }
+
+    try {
+      const verified = await registration.service.verify({
+        workspace,
+        ownerBinding,
+        changeSetId: parsed.data.change_set_id,
+        checks: parsed.data.checks,
+        timeoutMs: parsed.data.timeout_ms,
+        runCheck: async (request: ChangeWorkflowRunRequest) => {
+          const child = await runCommandHandler({
+            command: request.commandSpec,
+            cwd: { kind: "absolute_local", path: request.cwd },
+            mode: "full_access",
+            timeout_ms: request.timeoutMs
+          }, projectToolHandlerExtra(extra));
+          if (isPolicyToolFailure(child)) throw new ProjectedToolResultError(child);
+          const structured = child?.structuredContent;
+          if (!structured || typeof structured !== "object" || Array.isArray(structured)) {
+            throw new ChangeWorkflowError("CHILD_RESULT_INVALID", "run_command returned no structured content.", request.check);
+          }
+          const data = structured.data && typeof structured.data === "object" && !Array.isArray(structured.data)
+            ? structured.data as Record<string, unknown>
+            : null;
+          const error = structured.error && typeof structured.error === "object" && !Array.isArray(structured.error)
+            ? structured.error as Record<string, unknown>
+            : null;
+          if (structured.ok === true && !data) {
+            throw new ChangeWorkflowError("CHILD_RESULT_INVALID", "run_command returned invalid success data.", request.check);
+          }
+          const output = data?.output && typeof data.output === "object" && !Array.isArray(data.output)
+            ? data.output as Record<string, unknown>
+            : null;
+          const chunks = Array.isArray(output?.chunks) ? output.chunks : [];
+          const outputSummary = chunks.flatMap((chunk) => {
+            if (!chunk || typeof chunk !== "object" || Array.isArray(chunk)) return [];
+            const text = (chunk as Record<string, unknown>).text;
+            return typeof text === "string" ? [text] : [];
+          }).join("").trim();
+          const errorSummary = typeof error?.message === "string" ? error.message : "Verification command failed.";
+          const exitCode = typeof data?.exit_code === "number" ? data.exit_code : null;
+          const passed = structured.ok === true && data?.status === "exited" && exitCode === 0;
+          return {
+            status: passed ? "passed" as const : "failed" as const,
+            exitCode,
+            processId: typeof data?.process_id === "string" ? data.process_id : null,
+            summary: (outputSummary || errorSummary).slice(0, 2_000)
+          };
+        }
+      });
+      const overallStatus = verified.checks.every((check) => check.status === "passed") ? "passed" as const : "failed" as const;
+      const structured = createVerifyChangeSuccess({
+        workspace_id: workspace.id,
+        change_set_id: parsed.data.change_set_id,
+        workflow: verified.workflow,
+        checks: verified.checks,
+        overall_status: overallStatus,
+        next_action: {
+          tool: "show_changes",
+          args: {
+            workspace_id: workspace.id,
+            change_set_id: parsed.data.change_set_id,
+            include_diff: true,
+            mark_reviewed: true
+          }
+        }
+      }, Date.now() - startedAt);
+      return textResult(
+        `Change verification ${overallStatus}. Review the whole-workspace diff with show_changes for unexpected files, formatting, generated artifacts, dependency changes, and accidental deletion before treating the workflow as ready.`,
+        structured as unknown as Record<string, unknown>
+      );
+    } catch (error) {
+      const projected = projectedToolResult(error);
+      if (projected) return projected;
+      if (error instanceof ChangeWorkflowError) {
+        const code: VerifyChangeErrorCode = error.code === "WORKFLOW_RESULT_INVALID"
+          ? "INTERNAL_ERROR"
+          : error.code;
+        return failureResult(code, {
+          ...safeDetails,
+          ...(error.check ? { check: error.check } : {})
+        });
+      }
+      return failureResult("INTERNAL_ERROR", safeDetails);
+    }
+  };
+
+  upgradeCodexGPTSupertool(server, config.toolContractVersion, {
+    verifyChange: verifyChangeHandler
+  });
   if ((policyEngineMode !== "legacy" || requiresAtomicAuditWrapper) && !effectivePolicyRuntime) {
     throw new Error("Policy Kernel runtime is required for shadow, enforce, or writable atomic audit mode.");
   }
-  if (effectivePolicyRuntime) installPolicyKernel(server, effectivePolicyRuntime);
   if (dependencies.oauthToolSecurity) installOAuthToolListSecurity(server);
   return server;
 }

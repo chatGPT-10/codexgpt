@@ -39,6 +39,9 @@ function waitForListening(child) {
 }
 
 function waitForExit(child, timeoutMs = 5000) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve({ code: child.exitCode, signal: child.signalCode, stderr: '' });
+  }
   return new Promise((resolve, reject) => {
     let stderr = '';
     const timer = setTimeout(() => {
@@ -354,6 +357,7 @@ try {
     root,
     tunnel: 'cloudflare-named',
     hostname: 'stale.example.com',
+    tunnelName: 'stale-smoke-tunnel',
     cloudflareToken: staleCloudflareToken,
     cloudflareTokenFile: path.join(root, 'stale-cloudflare-token')
   }, null, 2), 'utf8');
@@ -682,6 +686,9 @@ const badNoAuthExit = await waitForExit(badNoAuth);
 if (badNoAuthExit.code === 0 || !badNoAuthExit.stderr.includes('--no-auth is only allowed')) {
   throw new Error(`non-loopback --no-auth was not rejected\n${badNoAuthExit.stderr}`);
 }
+let cliStdout = '';
+let cliStderr = '';
+let cliExit = '';
 const cliChild = spawn(process.execPath, [
   'scripts/codexgpt.mjs',
   'start',
@@ -704,8 +711,21 @@ const cliChild = spawn(process.execPath, [
   },
   stdio: ['ignore', 'pipe', 'pipe']
 });
+cliChild.stderr.on('data', (chunk) => {
+  cliStderr += String(chunk);
+});
+cliChild.stdout.on('data', (chunk) => {
+  cliStdout += String(chunk);
+});
+cliChild.on('exit', (code, signal) => {
+  cliExit = `exit code=${code} signal=${signal}`;
+});
 try {
-  await waitForHealthJson(`http://127.0.0.1:${cliPort}/healthz`);
+  try {
+    await waitForHealthJson(`http://127.0.0.1:${cliPort}/healthz`, 20_000);
+  } catch (error) {
+    throw new Error(`${error instanceof Error ? error.message : String(error)}\n${cliExit}\n${cliStdout}\n${cliStderr}`);
+  }
   const expectedCliCodexDir = path.join(await fs.realpath(cliRoot), '.codex');
   await withClient(`http://127.0.0.1:${cliPort}/mcp`, async (client) => {
     const config = await callTool(client, 'server_config');
@@ -743,7 +763,11 @@ connectionTestChild.stderr.on('data', (chunk) => {
   connectionTestStderr += String(chunk);
 });
 try {
-  await waitForHealthJson(`http://127.0.0.1:${connectionTestPort}/healthz`);
+  try {
+    await waitForHealthJson(`http://127.0.0.1:${connectionTestPort}/healthz`, 20_000);
+  } catch (error) {
+    throw new Error(`${error instanceof Error ? error.message : String(error)}\n${connectionTestStderr}`);
+  }
   const tools = await listTools(`http://127.0.0.1:${connectionTestPort}/mcp`);
   const names = toolNames(tools);
   for (const expected of ['read', 'tree', 'search', 'load_skill']) {

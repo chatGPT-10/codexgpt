@@ -237,7 +237,7 @@ test("search advertises exact outputSchema and returns nested real lexical resul
     const descriptor = listed.tools.find((tool) => tool.name === "search");
     assert.equal(
       descriptor?.description,
-      "Use search for exact text, strings, error messages, configuration keys, and lexical symbol occurrences. Use tree to discover an unknown filename or directory. When the semantic tool is available, use semantic for definitions, references, diagnostics, or rename impact. Do not present lexical search results as certain semantic definitions or references. Prefer one targeted search instead of repeated broad searches."
+      "Return bounded lexical workspace matches. Lexical matches are evidence, not semantic certainty; prefer one targeted query over repeated broad queries. Use when: Exact text, strings, error messages, configuration keys, or lexical symbol occurrences are needed. Do not use when: An unknown filename or directory must be discovered; use tree. Semantic definitions or references are needed and semantic is available."
     );
     assert.ok(descriptor?.outputSchema);
     assert.deepEqual(new Set(descriptor.outputSchema.required), new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"]));

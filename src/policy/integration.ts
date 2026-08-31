@@ -451,3 +451,31 @@ export function installPolicyKernel(server: unknown, runtime: PolicyRuntime): vo
 
   installedServers.add(server as object);
 }
+
+/**
+ * Run one already-validated tool handler through the same fail-closed Policy
+ * Kernel used by MCP registrations.  The P1 tool runtime uses this adapter so
+ * direct tools and the closed-world supertool share one policy/audit path
+ * without duplicating the security kernel implementation.
+ */
+export async function executeWithPolicyKernel(
+  toolName: string,
+  args: Record<string, unknown>,
+  extra: unknown,
+  handler: RegisteredToolEntry["handler"],
+  runtime: PolicyRuntime
+): Promise<ToolCallResult> {
+  if (runtime.mode === "legacy" || toolName === "codexgpt") {
+    return handler(args, extra);
+  }
+  const holder: ServerWithRegisteredTools = {
+    _registeredTools: {
+      [toolName]: {
+        inputSchema: {} as z.ZodTypeAny,
+        handler
+      }
+    }
+  };
+  installPolicyKernel(holder, runtime);
+  return holder._registeredTools[toolName].handler(args, extra);
+}

@@ -43,6 +43,52 @@ test("standard guidance promotes existing codex_context without changing legacy 
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
 
+test("P2 open tools return one bounded bootstrap snapshot and keep details lazy by default", async () => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "p2-workspace-context-")));
+  try {
+    await fs.writeFile(path.join(root, "AGENTS.md"), "PRIVATE FULL INSTRUCTION BODY");
+    await fs.writeFile(path.join(root, "package.json"), JSON.stringify({
+      packageManager: "npm@11.0.0",
+      scripts: { build: "tsc", test: "node --test", typecheck: "tsc --noEmit" },
+      devDependencies: { typescript: "^5.9.0" }
+    }));
+    await fs.writeFile(path.join(root, "tsconfig.json"), "{}");
+    const skillDir = path.join(root, ".agents", "skills", "p2-workflow");
+    await fs.mkdir(skillDir, { recursive: true });
+    await fs.writeFile(path.join(skillDir, "SKILL.md"), "---\nname: p2-workflow\ndescription: Use for P2 workspace work.\n---\nLAZY SKILL BODY");
+
+    await withClient(config(root), async (client) => {
+      for (const request of [
+        { name: "open_current_workspace", arguments: {} },
+        { name: "open_workspace", arguments: { root } }
+      ]) {
+        const opened = await client.callTool(request);
+        assert.equal(opened.structuredContent.ok, true, JSON.stringify(opened.structuredContent));
+        const data = opened.structuredContent.data;
+        const snapshot = data.context_snapshot;
+        assert.equal(data.tree, null);
+        assert.equal(snapshot.workspace.id, data.workspace_id);
+        assert.equal(snapshot.workspace.root, root);
+        assert.equal(snapshot.project.package_manager.value, "npm");
+        assert.equal(snapshot.project.package_manager.confidence, "confirmed");
+        assert.ok(snapshot.project.languages.some((item) => item.value === "typescript"));
+        assert.deepEqual(snapshot.project.commands.build.map((item) => item.value), ["npm run build"]);
+        assert.deepEqual(snapshot.project.commands.test.map((item) => item.value), ["npm run test"]);
+        assert.deepEqual(snapshot.guidance.instruction_files, ["AGENTS.md"]);
+        assert.equal(snapshot.guidance.available_skills[0].name, "p2-workflow");
+        assert.equal("text" in snapshot.guidance, false);
+        assert.equal(snapshot.budget.actual_chars, JSON.stringify(snapshot).length);
+        assert.ok(snapshot.budget.actual_chars <= snapshot.budget.max_chars);
+        const modelText = opened.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
+        assert.match(modelText, /Workspace Context Snapshot/);
+        assert.doesNotMatch(modelText, /PRIVATE FULL INSTRUCTION BODY|LAZY SKILL BODY/);
+      }
+    });
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("standard codex_context returns target instruction chain and matching target Skill catalog with quiet defaults", async () => {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "phase6-context-")));
   try {

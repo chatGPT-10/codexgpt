@@ -48,16 +48,17 @@ function configFor(root) {
     "--root", root,
     "--bash", "off",
     "--write", "workspace",
-    "--tool-mode", "standard"
+    "--tool-mode", "full"
   ]));
 }
 
-function allowRuntime() {
+function allowRuntime(deniedTools = new Set()) {
   let sequence = 0;
   return {
     mode: "enforce",
     authorize(toolName) {
       sequence += 1;
+      const denied = deniedTools.has(toolName);
       const eventId = `event_${sequence.toString(16).padStart(32, "0")}`;
       const authorizationEvent = {
         schemaVersion: 2,
@@ -76,8 +77,8 @@ function allowRuntime() {
         policyRevision: "policy-semantic-apply",
         resourceSummary: "phase7 semantic apply fixture",
         resourceFingerprint: "a".repeat(64),
-        outcome: "allow",
-        reasonCode: null,
+        outcome: denied ? "deny" : "allow",
+        reasonCode: denied ? "POLICY_DENIED" : null,
         safeRuleIds: [],
         approvalState: "not_required",
         grantId: null,
@@ -88,8 +89,8 @@ function allowRuntime() {
         decision: {
           schemaVersion: 1,
           decisionId: `decision-${sequence}`,
-          outcome: "allow",
-          reasonCode: null,
+          outcome: denied ? "deny" : "allow",
+          reasonCode: denied ? "POLICY_DENIED" : null,
           policyRevision: "policy-semantic-apply",
           resourceFingerprint: `sha256:${"a".repeat(64)}`,
           requiredApproval: null,
@@ -117,6 +118,11 @@ test("registered V5 semantic preview applies atomically once and publishes a cha
   const workspaceRoot = path.join(root, "workspace");
   await fs.mkdir(workspaceRoot);
   await fs.writeFile(path.join(workspaceRoot, "value.ts"), "export const value = 1;\n");
+  await fs.writeFile(path.join(workspaceRoot, "package.json"), JSON.stringify({
+    name: "workflow-fixture",
+    private: true,
+    scripts: { test: "node --test" }
+  }));
   const config = configFor(workspaceRoot);
   const guard = new PathGuard(config);
   const registry = new ProcessInstanceRegistry(stateRoot);
@@ -195,7 +201,9 @@ test("registered V5 semantic preview applies atomically once and publishes a cha
     },
     async dispose() {}
   };
-  const policyRuntime = allowRuntime();
+  const deniedTools = new Set();
+  const policyRuntime = allowRuntime(deniedTools);
+  const verificationCalls = [];
   const server = createCodexGPTServer(config, {
     workspaceMutationRuntime: mutationRuntime,
     changeSetOwnerBindingKey: Buffer.alloc(32, 5),
@@ -223,7 +231,59 @@ test("registered V5 semantic preview applies atomically once and publishes a cha
       gitCapabilityAvailable: true,
       contractV4MigrationAvailable: true
     },
-    semanticManagerV5: semanticManager
+    semanticManagerV5: semanticManager,
+    showChangesStatusProvider: async () => " M value.ts",
+    showChangesDiffProvider: async () => "diff --git a/value.ts b/value.ts\n--- a/value.ts\n+++ b/value.ts\n@@ -1 +1 @@\n-export const value = 1;\n+export const renamed = 1;",
+    v3ToolHandlers: {
+      run_command(args) {
+        verificationCalls.push(args);
+        return {
+          content: [{ type: "text", text: "tests passed" }],
+          structuredContent: {
+            codexgpt_tool: "run_command",
+            codexgpt_title: "Run Command",
+            ok: true,
+            data: {
+              process_id: `process_${"1".repeat(32)}`,
+              status: "exited",
+              exit_code: 0,
+              termination_reason: null,
+              backend: {
+                backend_id: "workflow-test",
+                command_kind: "powershell",
+                executable_identity: "2".repeat(64),
+                terminal: "pipes"
+              },
+              authority: {
+                mode: "full_access",
+                workspace_boundary_enforced: false,
+                filesystem_scope: "current_user_unrestricted",
+                filesystem_isolation: "none",
+                credential_isolation: "none",
+                registry_isolation: "none",
+                network_isolation: "none",
+                process_tree_control: "job_object_members_only",
+                broker_escape_resistance: "none",
+                host_writeback: "possible",
+                redaction: "best_effort_known_patterns"
+              },
+              output: {
+                chunks: [{ stream: "stdout", text: "tests passed\n", bytes: 13 }],
+                next_cursor: null,
+                truncated: false,
+                eof: true,
+                returned_bytes: 13
+              },
+              started_at: "2026-08-31T00:00:00.000Z",
+              ended_at: "2026-08-31T00:00:01.000Z",
+              verification_receipt: null
+            },
+            error: null,
+            meta: { schemaVersion: 1, durationMs: 1, warnings: [] }
+          }
+        };
+      }
+    }
   });
   try {
     const preview = await server._registeredTools.semantic.handler({
@@ -235,6 +295,74 @@ test("registered V5 semantic preview applies atomically once and publishes a cha
     const previewId = preview.structuredContent.data.result.preview_id;
     const applied = await server._registeredTools.apply_patch.handler({ semantic_preview_id: previewId });
     assert.equal(applied.structuredContent.ok, true);
+    const workflow = applied.structuredContent.data.workflow;
+    assert.equal(workflow.stage, "applied");
+    assert.equal(workflow.verification.auto_run, false);
+    assert.deepEqual(workflow.verification.recommended.map((item) => item.check), ["test"]);
+    assert.deepEqual(workflow.review.inspection_checklist, [
+      "unexpected_files",
+      "formatting",
+      "generated_artifacts",
+      "dependency_changes",
+      "accidental_deletion"
+    ]);
+    assert.equal(verificationCalls.length, 0);
+    const changeSetId = applied.structuredContent.data.transaction.change_set_id;
+
+    deniedTools.add("run_command");
+    const denied = await server._registeredTools.codexgpt.handler({
+      action: "verify_change",
+      args: {
+        workspace_id: applied.structuredContent.data.workspace_id,
+        change_set_id: changeSetId,
+        checks: ["test"]
+      }
+    });
+    assert.equal(denied.isError, true);
+    assert.equal(denied.structuredContent, undefined);
+    assert.match(denied.content[0].text, /refused|denied|policy/iu);
+    assert.equal(verificationCalls.length, 0);
+    deniedTools.delete("run_command");
+
+    const verified = await server._registeredTools.codexgpt.handler({
+      action: "verify_change",
+      args: {
+        workspace_id: applied.structuredContent.data.workspace_id,
+        change_set_id: changeSetId,
+        checks: ["test"]
+      }
+    });
+    assert.equal(verified.structuredContent.ok, true);
+    assert.equal(verified.structuredContent.codexgpt_super_action, "verify_change");
+    assert.equal(verified.structuredContent.data.workflow.stage, "verified");
+    assert.equal(verified.structuredContent.data.workflow.ready, false);
+    assert.equal(verificationCalls.length, 1);
+    assert.deepEqual(verificationCalls[0].command, {
+      kind: "powershell",
+      script: "& npm run test\nexit $LASTEXITCODE",
+      edition: "auto"
+    });
+
+    const reviewed = await server._registeredTools.show_changes.handler({
+      workspace_id: applied.structuredContent.data.workspace_id,
+      change_set_id: changeSetId,
+      include_diff: true,
+      mark_reviewed: true,
+      since: "workspace"
+    });
+    assert.equal(reviewed.structuredContent.ok, true);
+    assert.equal(reviewed.structuredContent.data.workflow.complete, true);
+    assert.equal(reviewed.structuredContent.data.workflow.ready, true);
+    const unlinked = await server._registeredTools.show_changes.handler({
+      workspace_id: applied.structuredContent.data.workspace_id,
+      change_set_id: `cs_${"f".repeat(32)}`,
+      include_diff: true,
+      mark_reviewed: true,
+      since: "workspace"
+    });
+    assert.equal(unlinked.structuredContent.ok, true);
+    assert.equal("workflow" in unlinked.structuredContent.data, false);
+    assert.match(unlinked.content[0].text, /workflow could not be linked or updated/u);
     assert.match(await fs.readFile(path.join(workspaceRoot, "value.ts"), "utf8"), /renamed/);
     assert.equal(store.list(engine.workspaceStateKey(workspaceRoot)).length, 1);
     const replay = await server._registeredTools.apply_patch.handler({ semantic_preview_id: previewId });

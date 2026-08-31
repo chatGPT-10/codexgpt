@@ -138,6 +138,10 @@ The following rules are mandatory and are enforced by `npm run policy:check` plu
 - Follow the Phase 8 [spec](docs/superpowers/specs/2026-07-24-phase-8-oauth-and-public-auth-design.md) and [plan](docs/superpowers/plans/2026-07-24-phase-8-oauth-and-public-auth.md). Preserve the U6 deleted-App evidence substitution, U7 public-loopback/local-admin boundary, `legacy|oauth` exclusivity, credential-free `authRoutes`, two-App rollback via `auth setup --root`, Windows DPAPI CurrentUser, strict DCR/PKCE and token/session bounds, durable revoke/replay, request-local policy identity, no-deletion recovery, no new execution authority, and exact V1–V5 counts `28/31/39/51/52`; closure SHA/CI evidence lives in `Memory.md` and the archive.
 - The [`openai/codex` review](docs/reviews/2026-07-26-openai-codex-project-review.md) and [post-Phase-8 improvement plan](docs/superpowers/plans/2026-07-26-post-phase-8-project-improvement-plan.md) are advisory only and grant no implementation authority.
 
+### 5.14 Roadmap P5 process-experience boundary
+
+- Follow the paired P5 [spec](docs/superpowers/specs/2026-08-31-p5-long-task-process-experience-design.md) and [plan](docs/superpowers/plans/2026-08-31-p5-long-task-process-experience.md). Preserve exact direct counts `28/31/39/51/52`, V3/V4 wire compatibility, and the existing `full_access` Policy/approval/audit boundary. V5 `state` is canonical and `status` is an equal migration alias; `starting` is truthful but never a false successful `start_process` result. Cursor/wait/Job-tree/cleanup use the retained process kernel. No App refresh, Web efficiency claim, deployment, publication, service install, or new execution authority is implied.
+
 ## 6. Documentation map
 
 - `Memory.md` indexes current state and `docs/memory/archive/` append-only history.
@@ -179,6 +183,6 @@ Distinguish clearly between:
 
 ## 9. Current approved execution boundary
 
-Phases 1–8 Core are closed; exact closure SHAs, CI runs, and release/runtime evidence live in `Memory.md` and `docs/memory/archive/`. Phase 4's 4B0 remains blocked/non-production; `workspace` and Tasks 4B1–4B6 remain deferred. Preserve the verified Node toolchains. No further implementation or deployment is implicitly authorized.
+Phases 1–8 Core and the roadmap's P1–P5 local implementation are closed after their recorded project gates; exact closure SHAs, CI runs, and release/runtime evidence live in `Memory.md` and `docs/memory/archive/`. Phase 4's 4B0 remains blocked/non-production; `workspace` and Tasks 4B1–4B6 remain deferred. Preserve the verified Node toolchains. No further implementation or deployment is implicitly authorized.
 
 The published `codexgpt@1.0.0`–`1.0.4` releases are immutable; corrections require a new semantic version. Credential migration, unrelated Cloudflare/Tunnel/DNS mutation, Phase 7B/7C installs, Task Scheduler/service, sandbox/egress, runtime deployment, destructive history, Phase 9, and unrelated scope remain gated. Do not create an evidence-only commit solely to record a CI run ID.

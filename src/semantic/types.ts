@@ -1,6 +1,12 @@
-export type SemanticCapability = "definition" | "references" | "diagnostics" | "rename_preview";
+export type SemanticCapability = "definition" | "references" | "diagnostics" | "rename_preview" | "navigate";
 export type SemanticProviderSelection = "builtin" | "none";
-export type SemanticActualProvider = "builtin-typescript" | "builtin-lexical" | "none";
+export type SemanticActualProvider =
+  | "builtin-typescript"
+  | "builtin-lexical"
+  | "ripgrep"
+  | "node"
+  | "builtin-file-index"
+  | "none";
 export type SemanticState = "ready" | "fallback" | "unsupported" | "cooldown" | "unavailable";
 export type SemanticResultQuality = "semantic" | "lexical";
 

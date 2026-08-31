@@ -14,7 +14,7 @@ import {
   queryAuditEventsInputV3Schema,
   queryAuditEventsResultV3Schema
 } from "../../audit/schemas.js";
-import { applyPatchOutputSchema, applyPatchOutputSchemaV2 } from "./applyPatch.js";
+import { applyPatchOutputSchema, applyPatchOutputSchemaV2, applyPatchOutputSchemaV5 } from "./applyPatch.js";
 import { bashOutputSchema } from "./bash.js";
 import { closeWorkspaceOutputSchema } from "./closeWorkspace.js";
 import { codexContextOutputSchema } from "./codexContext.js";
@@ -22,7 +22,7 @@ import { codexgptInventoryOutputSchema } from "./codexgptInventory.js";
 import { codexgptSelfTestOutputSchema } from "./codexgptSelfTest.js";
 import { codexSessionsOutputSchema } from "./codexSessions.js";
 import { createToolMeta, toolErrorSchema, toolMetaSchema } from "./common.js";
-import { editOutputSchema, editOutputSchemaV2 } from "./edit.js";
+import { editOutputSchema, editOutputSchemaV2, editOutputSchemaV5 } from "./edit.js";
 import { exportProContextOutputSchema } from "./exportProContext.js";
 import { gitDiffOutputSchema, gitDiffOutputSchemaV4 } from "./gitDiff.js";
 import { gitStatusOutputSchema, gitStatusOutputSchemaV4 } from "./gitStatus.js";
@@ -38,23 +38,28 @@ import { readCodexSessionOutputSchema } from "./readCodexSession.js";
 import { readHandoffOutputSchema } from "./readHandoff.js";
 import { searchOutputSchema } from "./search.js";
 import { serverConfigOutputSchema } from "./serverConfig.js";
-import { showChangesOutputSchema } from "./showChanges.js";
+import { showChangesOutputSchema, showChangesOutputSchemaV5 } from "./showChanges.js";
 import { treeOutputSchema } from "./tree.js";
 import { waitForHandoffOutputSchema } from "./waitForHandoff.js";
 import { workspaceSnapshotOutputSchema } from "./workspaceSnapshot.js";
-import { writeOutputSchema, writeOutputSchemaV2 } from "./write.js";
+import { writeOutputSchema, writeOutputSchemaV2, writeOutputSchemaV5 } from "./write.js";
 import {
   undoChangeSetInputV2Schema,
-  undoChangeSetOutputSchema
+  undoChangeSetOutputSchema,
+  undoChangeSetOutputSchemaV5
 } from "./undoChangeSet.js";
-import { movePathsOutputSchema } from "./movePaths.js";
+import { movePathsOutputSchema, movePathsOutputSchemaV5 } from "./movePaths.js";
 import {
   queryAuditEventsOutputSchema,
   queryAuditEventsOutputSchemaV3 as queryAuditEventsToolOutputSchemaV3,
   queryAuditEventsOutputSchemaV4 as queryAuditEventsToolOutputSchemaV4
 } from "./queryAuditEvents.js";
 import { openFullAccessWorkspaceOutputSchema } from "./openFullAccessWorkspace.js";
-import { EXECUTION_OUTPUT_SCHEMAS, EXECUTION_OUTPUT_SCHEMAS_V4 } from "./execution.js";
+import {
+  EXECUTION_OUTPUT_SCHEMAS,
+  EXECUTION_OUTPUT_SCHEMAS_V4,
+  EXECUTION_OUTPUT_SCHEMAS_V5
+} from "./execution.js";
 import { gitLogOutputSchemaV4 } from "./gitLog.js";
 import { gitBranchOutputSchemaV4 } from "./gitBranch.js";
 import { gitCreateBranchOutputSchemaV4 } from "./gitCreateBranch.js";
@@ -68,6 +73,7 @@ import { getTaskWorktreeOutputSchemaV4 } from "./getTaskWorktree.js";
 import { mergeTaskWorktreeOutputSchemaV4 } from "./mergeTaskWorktree.js";
 import { removeTaskWorktreeOutputSchemaV4 } from "./removeTaskWorktree.js";
 import { semanticOutputSchema } from "./semantic.js";
+import { verifyChangeOutputSchema } from "./changeWorkflow.js";
 
 export const CANONICAL_CODEXGPT_CHILD_TOOLS_V1 = CONTRACT_V1_CHILD_TOOLS;
 export const CANONICAL_CODEXGPT_CHILD_TOOLS_V2 = CONTRACT_V2_CHILD_TOOLS;
@@ -114,6 +120,13 @@ export const CODEXGPT_ACTION_ALIASES = Object.freeze({
 
 export type CodexGPTAlias = keyof typeof CODEXGPT_ACTION_ALIASES;
 export type CodexGPTAction = CanonicalCodexGPTChildTool | CodexGPTAlias;
+
+export const CODEXGPT_ACTION_ALIASES_V5 = Object.freeze({
+  ...CODEXGPT_ACTION_ALIASES,
+  navigate_code: "semantic"
+} satisfies Record<string, CanonicalCodexGPTChildToolV5>);
+
+export type CodexGPTAliasV5 = keyof typeof CODEXGPT_ACTION_ALIASES_V5;
 
 const canonicalToolSchema = z.enum(CANONICAL_CODEXGPT_CHILD_TOOLS);
 const canonicalToolSet = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS);
@@ -1118,6 +1131,13 @@ const canonicalToolSchemaV5 = z.enum(
 const canonicalToolSetV5 = new Set<string>(CANONICAL_CODEXGPT_CHILD_TOOLS_V5);
 const childOutputSchemasV5 = Object.freeze({
   ...childOutputSchemasV4,
+  ...EXECUTION_OUTPUT_SCHEMAS_V5,
+  apply_patch: applyPatchOutputSchemaV5,
+  edit: editOutputSchemaV5,
+  move_paths: movePathsOutputSchemaV5,
+  show_changes: showChangesOutputSchemaV5,
+  undo_change_set: undoChangeSetOutputSchemaV5,
+  write: writeOutputSchemaV5,
   semantic: semanticOutputSchema
 } satisfies Record<CanonicalCodexGPTChildToolV5, z.ZodTypeAny>);
 
@@ -1125,7 +1145,7 @@ export const CODEXGPT_CHILD_OUTPUT_SCHEMAS_V5 = childOutputSchemasV5;
 
 export function resolveCodexGPTActionV5(action: string): CanonicalCodexGPTChildToolV5 | null {
   if (canonicalToolSetV5.has(action)) return action as CanonicalCodexGPTChildToolV5;
-  const alias = CODEXGPT_ACTION_ALIASES[action as CodexGPTAlias];
+  const alias = CODEXGPT_ACTION_ALIASES_V5[action as CodexGPTAliasV5];
   return alias && canonicalToolSetV5.has(alias) ? alias : null;
 }
 
@@ -1153,7 +1173,9 @@ const codexgptErrorSchemaV5 = z.union([
 
 const codexgptListActionsDataSchemaV5 = z.object({
   actions: z.array(canonicalToolSchemaV5),
-  action_count: z.number().int().nonnegative()
+  action_count: z.number().int().nonnegative(),
+  workflow_actions: z.tuple([z.literal("verify_change")]),
+  workflow_action_count: z.literal(1)
 }).strict().superRefine((value, context) => {
   if (value.action_count !== value.actions.length) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["action_count"], message: "action_count must equal actions.length." });
@@ -1167,7 +1189,7 @@ const codexgptListActionsDataSchemaV5 = z.object({
   }
 });
 
-const codexgptOwnedOutputSchemaV5 = z.object({
+const codexgptListActionsOutputSchemaV5 = z.object({
   codexgpt_tool: z.literal("codexgpt"),
   codexgpt_title: z.literal("CodexGPT"),
   ok: z.boolean(),
@@ -1182,6 +1204,11 @@ const codexgptOwnedOutputSchemaV5 = z.object({
     context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed CodexGPT V5 results require an error and no data." });
   }
 });
+
+const codexgptOwnedOutputSchemaV5 = z.union([
+  codexgptListActionsOutputSchemaV5,
+  verifyChangeOutputSchema
+]);
 
 export const codexgptOutputShapeV5 = {
   codexgpt_tool: z.union([z.literal("codexgpt"), canonicalToolSchemaV5]),
@@ -1230,11 +1257,16 @@ export function createCodexGPTListActionsSuccessV5(
     if (!canonicalToolSetV5.has(action)) throw new Error("Invalid canonical CodexGPT V5 child action.");
   }
   uniqueActions.sort();
-  return codexgptOwnedOutputSchemaV5.parse({
+  return codexgptListActionsOutputSchemaV5.parse({
     codexgpt_tool: "codexgpt",
     codexgpt_title: "CodexGPT",
     ok: true,
-    data: { actions: uniqueActions, action_count: uniqueActions.length },
+    data: {
+      actions: uniqueActions,
+      action_count: uniqueActions.length,
+      workflow_actions: ["verify_change"],
+      workflow_action_count: 1
+    },
     error: null,
     meta: createToolMeta(durationMs)
   });
@@ -1254,7 +1286,7 @@ export function createCodexGPTFailureV5(
     : failure.code === "INTERNAL_ERROR"
       ? {}
       : { action: safePublicAction(failure.details.action), wrapped_tool: failure.details.wrapped_tool };
-  return codexgptOwnedOutputSchemaV5.parse({
+  return codexgptListActionsOutputSchemaV5.parse({
     codexgpt_tool: "codexgpt",
     codexgpt_title: "CodexGPT",
     ok: false,

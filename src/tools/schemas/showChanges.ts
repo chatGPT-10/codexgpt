@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import { changeWorkflowStateSchema } from "./changeWorkflow.js";
 
 export const SHOW_CHANGES_ANALYSIS_WARNING =
   "Change analysis was unavailable; Git review data is still complete." as const;
@@ -303,6 +304,34 @@ export const showChangesOutputSchema = showChangesOutputBaseSchema.superRefine((
 export type ShowChangesAnalysis = z.infer<typeof showChangesAnalysisSchema>;
 export type ShowChangesData = z.infer<typeof showChangesDataSchema>;
 export type ShowChangesStructuredResult = z.infer<typeof showChangesOutputBaseSchema>;
+
+const showChangesDataBaseSchemaV5 = showChangesDataBaseSchema.extend({
+  workflow: changeWorkflowStateSchema.optional()
+}).strict();
+
+export const showChangesDataSchemaV5 = showChangesDataBaseSchemaV5.superRefine((value, context) => {
+  const { workflow: _workflow, ...legacy } = value;
+  const parsed = showChangesDataSchema.safeParse(legacy);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) context.addIssue(issue);
+  }
+});
+
+export const showChangesOutputShapeV5 = {
+  ...showChangesOutputShape,
+  data: showChangesDataSchemaV5.nullable()
+};
+
+const showChangesOutputBaseSchemaV5 = z.object(showChangesOutputShapeV5).strict();
+
+export const showChangesOutputSchemaV5 = showChangesOutputBaseSchemaV5.superRefine((value, context) => {
+  if (value.ok && (value.data === null || value.error !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful V5 show_changes requires data and no error." });
+  }
+  if (!value.ok && (value.data !== null || value.error === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed V5 show_changes requires an error and no data." });
+  }
+});
 
 export type ShowChangesFailureInput =
   | { code: "WORKSPACE_NOT_FOUND"; details: { workspace_id: string } }

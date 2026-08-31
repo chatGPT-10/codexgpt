@@ -10,6 +10,7 @@ const {
   normalizeOAuthHostname,
   resolveEnabledOAuthScopes,
   resolveHttpAuthMode,
+  resolveHttpAuthModeValue,
   resolveOAuthDeploymentConfiguration,
   resolveOAuthRootSelection
 } = await tsImport("../src/auth/configuration.ts", import.meta.url);
@@ -79,6 +80,53 @@ test("auth mode resolver is strict and preserves exact precedence and source", (
   assert.throws(
     () => resolveHttpAuthMode({ currentProcess: "legacy", profile: "mixed" }),
     (error) => error?.code === "AUTH_MODE_INVALID"
+  );
+});
+
+test("auth mode exposes the shared structured configuration origin", () => {
+  const current = resolveHttpAuthModeValue({
+    currentProcess: "oauth",
+    persistedUser: "legacy",
+    profile: "legacy",
+    profileFile: "D:\\CodexGPT\\profiles\\project.json"
+  });
+  assert.equal(current.value, "oauth");
+  assert.deepEqual(current.origin, {
+    kind: "environment",
+    variable: "CODEXGPT_AUTH_MODE",
+    scope: "current-process"
+  });
+
+  const profile = resolveHttpAuthModeValue({
+    profile: "oauth",
+    profileFile: "D:\\CodexGPT\\profiles\\project.json"
+  });
+  assert.deepEqual(profile.origin, {
+    kind: "profile",
+    file: "D:\\CodexGPT\\profiles\\project.json",
+    jsonPath: "$.authMode"
+  });
+  assert.equal(profile.restartRequired, true);
+});
+
+test("auth mode preserves the existing invalid-profile user text", () => {
+  assert.throws(
+    () => resolveHttpAuthMode({ profile: "invalid" }),
+    (error) => error?.code === "AUTH_MODE_INVALID" && error.message === "Workspace profile authMode must be exactly legacy or oauth."
+  );
+});
+
+test("auth mode structured errors include a safe actionable remediation", () => {
+  assert.throws(
+    () => resolveHttpAuthModeValue({ currentProcess: "invalid" }),
+    (error) => {
+      assert.equal(error.code, "CONFIG_VALUE_INVALID");
+      assert.equal(
+        error.toJSON().remediation,
+        "Set auth.mode to exactly legacy or oauth at the reported source."
+      );
+      return true;
+    }
   );
 });
 
@@ -414,5 +462,159 @@ test("loadConfig keeps legacy default, rejects mixed credentials, and activates 
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig --no-profile skips profile loading and ignores supplied profile values", () => {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-no-profile-config-")));
+  let reads = 0;
+  try {
+    const ignoredProfile = loadConfig(["--root", root, "--no-profile", "--bash", "off", "--write", "off"], {
+      environment: {},
+      cwd: root,
+      workspaceProfile: { authMode: "invalid", bash: "full" }
+    });
+    const config = loadConfig(["--root", root, "--no-profile", "--bash", "off", "--write", "off"], {
+      environment: {},
+      cwd: root,
+      profileLoader: () => {
+        reads += 1;
+        throw new Error("profile loader must not run");
+      }
+    });
+    assert.equal(reads, 0);
+    assert.equal(ignoredProfile.authMode, "legacy");
+    assert.equal(config.authMode, "legacy");
+    assert.equal(config.authModeSource, "default");
+    assert.equal(config.bashMode, "off");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig uses only explicitly supplied environment and cwd inputs", () => {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-explicit-config-")));
+  try {
+    withEnvironment({ CODEXGPT_BASH_MODE: "full", CODEXGPT_WRITE_MODE: "off" }, () => {
+      const config = loadConfig([], {
+        environment: {},
+        cwd: root,
+        workspaceProfile: {}
+      });
+      assert.equal(config.defaultRoot, root);
+      assert.equal(config.bashMode, "safe");
+      assert.equal(config.writeMode, "workspace");
+    });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig resolves relative roots against the explicitly supplied cwd", () => {
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-relative-root-")));
+  const workspace = path.join(base, "workspace");
+  fs.mkdirSync(workspace);
+  try {
+    const config = loadConfig([], {
+      environment: { CODEXGPT_ROOT: "workspace" },
+      cwd: base,
+      workspaceProfile: {}
+    });
+    assert.equal(config.defaultRoot, fs.realpathSync.native(workspace));
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig uses Windows case-insensitive lookup for every explicit environment key", () => {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-win-env-")));
+  try {
+    const config = loadConfig(["--root", root], {
+      environment: {
+        codexgpt_bash_mode: "full",
+        codexgpt_write_mode: "off"
+      },
+      cwd: root,
+      platform: "win32",
+      workspaceProfile: {}
+    });
+    assert.equal(config.bashMode, "full");
+    assert.equal(config.writeMode, "off");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig ignores shadowed and unrelated Windows environment casing conflicts", () => {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-shadowed-win-env-")));
+  try {
+    const config = loadConfig(["--root", root], {
+      environment: {
+        CODEXGPT_ROOT: "D:\\shadowed-one",
+        codexgpt_root: "D:\\shadowed-two",
+        PATH: "D:\\one",
+        Path: "D:\\two"
+      },
+      cwd: root,
+      platform: "win32",
+      workspaceProfile: {}
+    });
+    assert.equal(config.defaultRoot, root);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig rejects a conflicting Windows environment key when it is consumed", () => {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-used-win-env-")));
+  try {
+    assert.throws(
+      () => loadConfig(["--root", root], {
+        environment: { CODEXGPT_BASH_MODE: "full", codexgpt_bash_mode: "off" },
+        cwd: root,
+        platform: "win32",
+        workspaceProfile: {}
+      }),
+      (error) => error.code === "CONFIG_SOURCE_CONFLICT" && error.key === "CODEXGPT_BASH_MODE"
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig default profile lookup uses the explicitly supplied environment", () => {
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-profile-env-root-")));
+  const ambientHome = fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-profile-env-home-"));
+  try {
+    withEnvironment({ CODEXGPT_HOME: ambientHome }, () => {
+      saveWorkspaceProfile(root, { version: 2, root, authMode: "legacy" });
+      const config = loadConfig(["--root", root], {
+        environment: {},
+        cwd: root
+      });
+      assert.equal(config.authMode, "legacy");
+      assert.equal(config.authModeSource, "default");
+    });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(ambientHome, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig resolves an explicit relative profile home against the explicit cwd", () => {
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-relative-profile-home-")));
+  const root = path.join(base, "workspace");
+  fs.mkdirSync(root);
+  const environment = { CODEXGPT_HOME: "state" };
+  const profilePath = path.join(base, "state", "profiles", `${profileIdForRoot(root)}.json`);
+  fs.mkdirSync(path.dirname(profilePath), { recursive: true });
+  fs.writeFileSync(profilePath, `${JSON.stringify({ version: 2, root, authMode: "legacy", bash: "off" })}\n`);
+  try {
+    const config = loadConfig(["--root", root], { environment, cwd: base });
+    assert.equal(config.authModeSource, "profile");
+    assert.equal(profilePathForRoot(root, environment, base), profilePath);
+    assert.equal(readWorkspaceProfile(root, environment, base).profilePath, profilePath);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
   }
 });

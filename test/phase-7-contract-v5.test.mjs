@@ -64,7 +64,7 @@ test("V5 is exact V4 plus one semantic tool and inherited predicates include V5"
   assert.deepEqual(contracts.v5ToolsForProjection({ version: 5, mode: "full", connectionTest: true }), []);
 });
 
-test("semantic input is a strict operation-discriminated union", () => {
+test("semantic input remains a strict operation union", () => {
   assert.ok(semanticSchema);
   const definition = {
     operation: "definition",

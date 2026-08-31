@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import {
+  navigationRequestShape,
+  navigationResultSchema,
+  refineNavigationRequest
+} from "./navigation.js";
 
 const publicPositionLocatorSchema = z.object({
   kind: z.literal("position"),
@@ -57,11 +62,21 @@ const renamePreviewSchema = z.object({
   ...commonWorkspace
 }).strict();
 
-export const semanticInputSchema = z.discriminatedUnion("operation", [
+const legacySemanticInputSchema = z.discriminatedUnion("operation", [
   definitionSchema,
   referencesSchema,
   diagnosticsSchema,
   renamePreviewSchema
+]);
+
+const navigationInputSchema = z.object({
+  operation: z.literal("navigate"),
+  ...navigationRequestShape
+}).strict().superRefine(refineNavigationRequest);
+
+export const semanticInputSchema = z.union([
+  legacySemanticInputSchema,
+  navigationInputSchema
 ]);
 
 const semanticLocatorDescriptorSchema = z.object({
@@ -79,7 +94,9 @@ const semanticLocatorDescriptorSchema = z.object({
 // and permissive. Exact operation/locator combinations and identifier grammar
 // remain enforced by semanticInputSchema before dispatch.
 export const semanticInputDescriptorShape = {
-  operation: z.enum(["definition", "references", "diagnostics", "rename_preview"]),
+  operation: z.enum(["definition", "references", "diagnostics", "rename_preview", "navigate"]),
+  intent: navigationRequestShape.intent.optional(),
+  query: navigationRequestShape.query,
   locator: semanticLocatorDescriptorSchema.optional(),
   path: z.string().min(1).max(240).optional(),
   severity: z.enum(["error", "warning", "information", "hint"]).optional(),
@@ -141,14 +158,22 @@ const resultSchema = z.union([
     candidates: z.array(locationSchema).max(50),
     needs_disambiguation: z.literal(true)
   }).strict(),
-  renamePreviewResultSchema
+  renamePreviewResultSchema,
+  navigationResultSchema
 ]);
 
 export const semanticDataSchema = z.object({
   requested_provider: z.enum(["builtin", "none"]),
-  actual_provider: z.enum(["builtin-typescript", "builtin-lexical", "none"]),
+  actual_provider: z.enum([
+    "builtin-typescript",
+    "builtin-lexical",
+    "ripgrep",
+    "node",
+    "builtin-file-index",
+    "none"
+  ]),
   state: z.enum(["ready", "fallback", "unsupported", "cooldown", "unavailable"]),
-  capability: z.enum(["definition", "references", "diagnostics", "rename_preview"]),
+  capability: z.enum(["definition", "references", "diagnostics", "rename_preview", "navigate"]),
   language: z.string().min(1).max(80),
   partial: z.boolean(),
   omitted_count: z.number().int().nonnegative(),

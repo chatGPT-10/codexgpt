@@ -256,6 +256,8 @@ codexgpt start
 
 The standard surface supports repository reads, search, scoped writes/edits, guarded patches, Git review, and safe verification.
 
+For an ordinary code-location request, use `semantic` with `operation: "navigate"` (or V5 `codexgpt` with `action: "navigate_code"`; its `args` need only the intent/query fields). The server routes `definition`, `references`, `implementation`, `text`, `file`, and `diagnostics` intent across the owned semantic provider, bounded lexical search, and file discovery. Use raw `tree` only when you specifically need hierarchy and raw `search` only when you specifically need lexical occurrences. Mutation and process boundaries remain separate: `write` replaces a whole file, `edit` performs one exact replacement, `apply_patch` coordinates multiple locations, `run_command` performs finite verification, and full-mode `start_process` owns persistent or interactive work. Selection guidance grants no authority and bypasses no approval.
+
 ### Phase 6 project guidance
 
 Phase 6 project guidance is enabled by default. Start normally:
@@ -264,7 +266,9 @@ Phase 6 project guidance is enabled by default. Start normally:
 codexgpt start
 ```
 
-The first workspace-open result includes bounded root `AGENTS.md` instructions and an implicit-eligible workspace Skill catalog. Before the first mutation, ChatGPT calls `codex_context(target_path)` to load the exact root-to-target instruction chain and target-scoped `.agents/skills` catalog, then may load at most one matching Skill with the same returned `target_path`. Skill bodies and `references/`, `scripts/`, or `assets/` text remain lazy; nothing in a Skill executes automatically. User/plugin Skills remain excluded unless a tool call explicitly opts into global discovery. To deliberately load a configured user Skill, call `load_skill` with `source: "user"` and either its `name` or its displayed selector such as `$CODEX_DIR/skills/neat-freak/SKILL.md`; this read is limited to configured user-Skill roots and does not add a workspace root or change `--allow-root`.
+The first `open_current_workspace` or `open_workspace` call now returns a bounded `context_snapshot`: workspace/platform identity; detected root manifests and languages; package manager plus build/test/lint/typecheck commands with exact `source` and `confirmed|inferred` confidence; a compact Git summary; instruction paths and Skill metadata; and semantic/persistent-process availability. The snapshot is capped at 12,000 serialized characters, reports any omitted metadata, and keeps `open_workspace` tree discovery off unless explicitly requested. This gives ChatGPT enough bootstrap information for the first useful code action without a routine `tree` + `package.json` + `AGENTS.md` + `git_status` preamble.
+
+The bounded text projection and `context_snapshot` contain no instruction or Skill body; the standard structured compatibility fields remain available to existing clients. Before a target-specific mutation, ChatGPT may call `codex_context(target_path)` for the exact root-to-target instruction chain, then load at most one matching Skill with `load_skill`; `tree` and `git_diff` are also lazy detail tools. Skill bodies and `references/`, `scripts/`, or `assets/` text remain lazy and never execute automatically. User/plugin Skills remain excluded unless a call explicitly opts into global discovery. To deliberately load a configured user Skill, call `load_skill` with `source: "user"` and either its `name` or its displayed selector such as `$CODEX_DIR/skills/neat-freak/SKILL.md`; this read is limited to configured user-Skill roots and does not add a workspace root or change `--allow-root`.
 
 An App created before the Phase 6 tool update may retain a frozen tool snapshot. Run **Scan Tools** once or recreate that App; transparent refresh is not claimed. The stable `codexgpt` supertool remains a compatibility path for `open` and `codex_context` when present in the cached snapshot. To roll back with the same binary, restart with:
 
@@ -278,6 +282,14 @@ Run `codexgpt doctor` to see readiness, invalid metadata, collisions, and scan/c
 ### Phase 7 Core semantic navigation
 
 Phase 7 Core adds an explicit-standard Contract V5 with one zero-setup `semantic` tool for JavaScript and TypeScript. It supports `definition`, `references`, one-file `diagnostics`, and `rename_preview`. A symbol locator may omit the path only when the symbol resolves uniquely; ambiguous names return bounded candidates instead of guessing. Results use workspace-relative paths and report `actual_provider` plus `result_quality` so lexical fallback is never presented as semantic certainty.
+
+P3 adds the compatible high-level `navigate` operation without adding a 53rd direct tool or changing the exact V1-V5 counts `28/31/39/51/52`. Every normalized match reports the actual `provider`, `quality`, `fallback`, and `truncated` state. TypeScript definitions/references use the owned semantic provider; Python or unavailable/crashed/stale semantic requests degrade to freshly bounded lexical evidence labelled `lexical_fallback`; text and filename discovery route directly to their appropriate lexical backend; diagnostics never invent a lexical substitute. Existing `definition`, `references`, `diagnostics`, and `rename_preview` calls remain unchanged.
+
+P4 closes the mutation loop without adding a direct tool. A committed V5 `write`, `edit`, `apply_patch`, `move_paths`, or `undo_change_set` result includes `data.workflow`: the exact change set, changed paths, current confirmed project checks, and pending diff review. Nothing runs automatically. When Contract V5, the `codexgpt` wrapper, and an eligible `full_access` execution profile are available, explicitly call `codexgpt(action="verify_change")` with only the returned check categories; the server re-resolves current confirmed P2 commands and invokes the existing Policy/approval/audit-protected `run_command` path. This does not require full tool mode: standard tool mode already exposes the finite `run_command` path, while the execution profile and local approval still govern whether it can run. Then call `show_changes` with the same `change_set_id`, `include_diff=true`, and `mark_reviewed=true`. The returned checklist requires inspecting the full diff for unexpected files, formatting, generated artifacts, dependency changes, and accidental deletion; it does not claim heuristic automatic approval. The workflow is `complete` after terminal verification plus whole-workspace diff inspection, and `ready` only when verification passed. V1-V4 remain exact, and V5 still has 52 direct tools.
+
+P5 completes the local long-task/process experience without adding tools or authority. V5 process successes use the shared lifecycle `starting | running | exited | failed | terminated`; `state` is canonical and the retained `status` field is an equal compatibility alias. `list_processes` can truthfully show `starting` while backend start and required start audit are incomplete, but `start_process` returns only after `running`. Startup revocation, workspace/transport close, expiry, explicit termination, and server shutdown join the owned process lifecycle and Job-tree cleanup. V3/V4 wire shapes remain exact.
+
+An existing V5 App with the stable open-schema `codexgpt` wrapper can use `action: "navigate_code"` immediately after the server update. Calling `semantic(operation="navigate")` directly requires one separately authorized **Scan Tools** refresh or App recreation so ChatGPT receives the additive descriptor fields; this repository change does not perform that refresh.
 
 Enable the builtin engine for this workspace, restart, then run **Scan Tools** once in an existing 51-tool ChatGPT App or recreate the App:
 
@@ -361,15 +373,28 @@ This keeps the read/search surface, disables writes and Bash, and logs whether r
 codexgpt setup
 codexgpt start
 codexgpt stable --hostname mcp.example.com --tunnel-name codexgpt
-codexgpt doctor
+codexgpt doctor [--json]
 codexgpt semantic status --verbose
 codexgpt semantic use builtin
 codexgpt semantic disable
 codexgpt connection-test --root <repo>
 codexgpt settings
+codexgpt config explain [auth.mode] --root <repo> [--json]
 codexgpt inspect --root <repo>
 codexgpt review --root <repo>
 ```
+
+`config explain` is read-only: it resolves the same startup plan without starting a server, probing a port, or creating a profile. Text output shows why each public input won and the safe restart command; `--json` also returns the complete effective runtime snapshot. Secret values are always represented only as `set` or `missing`, including overridden token sources.
+
+`doctor --json` returns machine-readable diagnostics and embeds that exact same secret-redacted `config explain` document under `configuration`; the supported public CLI also adds its Bash, saved-profile, and OAuth wrapper checks. `ok` is false and the command exits non-zero when any structured check has status `fail`.
+
+The compatibility variable `CODEBASE_BRIDGE_HTTP_TOKEN` remains readable for the migration window. When it is the selected token source, `config explain` and `doctor` emit `CONFIG_COMPATIBILITY_INPUT` with a secret-free PowerShell migration command to `CODEXGPT_HTTP_TOKEN`; the configured token itself is never included. A selected canonical source produces no compatibility warning.
+
+The compatibility variable `CODEBASE_BRIDGE_REPO_ROOT` also remains readable for the migration window. The supported public entry uses it for workspace and saved-profile selection only when neither `--root` nor `CODEXGPT_ROOT` is present. `config explain` and `doctor` preserve that source and return the value-free PowerShell migration command `$env:CODEXGPT_ROOT = $env:CODEBASE_BRIDGE_REPO_ROOT; Remove-Item Env:CODEBASE_BRIDGE_REPO_ROOT`; the selected canonical or CLI root produces no compatibility warning.
+
+`CODEXGPT_HOSTNAME` remains a value-equivalent compatibility input for `CODEXGPT_PUBLIC_HOSTNAME`. When selected, the public entry preserves its original source while keeping the effective hostname and public fingerprint unchanged; `config explain` and `doctor` return `$env:CODEXGPT_PUBLIC_HOSTNAME = $env:CODEXGPT_HOSTNAME; Remove-Item Env:CODEXGPT_HOSTNAME` without embedding the hostname value. `--hostname`, `--url`, or `CODEXGPT_PUBLIC_HOSTNAME` still wins without a compatibility warning.
+
+`NGROK_DOMAIN` remains value-equivalent to `CODEXGPT_PUBLIC_HOSTNAME`, including outside ngrok mode. The public entry now preserves that original source, and `config explain` plus the configuration inside `doctor --json` classify it as mode-ambiguous: its name says ngrok, but its established effective scope is all tunnel modes. No removal or migration warning is scheduled in this step; use `CODEXGPT_PUBLIC_HOSTNAME` for new configuration. CLI, canonical, and `CODEXGPT_HOSTNAME` inputs retain their existing precedence.
 
 Useful surface controls:
 
@@ -427,6 +452,15 @@ $env:CODEXGPT_AUDIT_RETENTION_BYTES = "104857600"
 ```
 
 V3 and V4 require enforce-mode policy, persistent audit, atomic state, strict permission profiles, and local approval support. They do not provide an OS sandbox, credential isolation, or unrestricted remote Git commands.
+
+For V3–V5 process work, choose by workload lifetime:
+
+- Use `run_command` only for one bounded command expected to exit, such as tests, builds, lint, or typecheck. Standard tool mode exposes this finite path; never use it to keep a server, watcher, or REPL alive.
+- Use `start_process` for a dev server, watcher, or interactive REPL. It is available only in full tool mode. On Windows, choose ConPTY when terminal interaction is required, pass every non-null `next_cursor` to `read_process_output`, and call `terminate_process` when the owned process is no longer needed.
+
+Both paths use `full_access` ambient current-user authority and are not sandboxes. A positive `read_process_output.wait_ms` can wait for output or lifecycle finalization for at most 30 seconds; terminal records return immediately once `eof=true`.
+
+In V5 results, read `state` as the lifecycle source of truth; `status` is retained only as an equal migration alias. `list_processes` may briefly report `starting`, while `start_process` itself succeeds only with `running`. Reuse each non-null `output.next_cursor` as the next call's `cursor`; `max_bytes` bounds each page, and output is not replayed from the beginning unless the cursor is omitted.
 
 Managed task worktrees preserve the branch, commits, and private stashes for recovery. Merge preparation is typed and bounded; it does not merge into the primary worktree automatically. External Git processes and unrelated Git processes can still race with CodexGPT because workflow isolation is not process or credential isolation.
 

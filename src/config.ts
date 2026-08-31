@@ -1,6 +1,8 @@
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { inspect } from "node:util";
 import { DEFAULT_ANALYSIS_LIMITS, type AnalysisLimits } from "./analysis/types.js";
 import type { RiskClass } from "./policy/types.js";
 import type { ChangeSetRetentionConfig } from "./changesets/types.js";
@@ -11,8 +13,10 @@ import {
   resolveOAuthDeploymentConfiguration,
   resolveOAuthRootSelection
 } from "./auth/configuration.js";
-import type { AuthModeSource, HttpAuthMode } from "./auth/types.js";
+import type { AuthModeSource, HttpAuthMode, OAuthDeploymentConfiguration } from "./auth/types.js";
+import { ConfigResolutionError, resolveConfigBootstrap } from "./configResolver.js";
 import { profileIdForRoot, readWorkspaceProfile, type WorkspaceProfile } from "./profileStore.js";
+import { resolveTransactionStateRoot } from "./transactions/stateRoot.js";
 
 export type BashMode = "off" | "safe" | "full";
 export type BashTranscriptMode = "compact" | "full";
@@ -54,6 +58,11 @@ export interface ConfigLoadOptions {
   persistedUserAuthMode?: string;
   workspaceProfile?: WorkspaceProfile;
   platform?: NodeJS.Platform;
+  filesystemPlatform?: NodeJS.Platform;
+  environment?: Readonly<Record<string, string | undefined>>;
+  cwd?: string;
+  profileLoader?: (root: string) => WorkspaceProfile;
+  homeDir?: string;
 }
 
 export interface CodexGPTConfig {
@@ -118,6 +127,42 @@ export interface CodexGPTConfig {
   maxInstructionTotalBytes: number;
   maxSkillCandidates: number;
   maxSkillCatalogChars: number;
+  transactionStateRoot: string | null;
+  logRequests: boolean;
+  logToolCalls: boolean;
+  oauthDeployment?: Readonly<OAuthDeploymentConfiguration>;
+}
+
+export interface EffectiveConfigSnapshot {
+  readonly effective: CodexGPTConfig;
+  readonly publicFingerprint: string;
+  integrityProof(key: string): string;
+  toJSON(): Readonly<{
+    effective: Readonly<Record<string, unknown>>;
+    publicFingerprint: string;
+  }>;
+}
+
+export type ConfigFingerprintErrorCode =
+  | "CONFIG_FINGERPRINT_INVALID"
+  | "CONFIG_FINGERPRINT_MISMATCH"
+  | "CONFIG_INTEGRITY_INVALID"
+  | "CONFIG_INTEGRITY_MISMATCH";
+
+export class ConfigFingerprintError extends Error {
+  readonly name = "ConfigFingerprintError";
+
+  constructor(
+    readonly code: ConfigFingerprintErrorCode,
+    readonly remediation: string,
+    message: string
+  ) {
+    super(message);
+  }
+
+  toJSON(): Readonly<{ code: ConfigFingerprintErrorCode; remediation: string }> {
+    return Object.freeze({ code: this.code, remediation: this.remediation });
+  }
 }
 
 const DEFAULT_BLOCKED_GLOBS = [
@@ -239,9 +284,9 @@ function splitRoots(value: string | undefined): string[] {
   return splitList(value, path.delimiter);
 }
 
-function toRealDir(input: string): string {
+function toRealDir(input: string, cwd = process.cwd()): string {
   const expanded = expandHome(input);
-  const resolved = path.resolve(expanded);
+  const resolved = path.resolve(cwd, expanded);
   if (!fs.existsSync(resolved)) {
     throw new Error(`Directory does not exist: ${resolved}`);
   }
@@ -252,9 +297,46 @@ function toRealDir(input: string): string {
   return fs.realpathSync.native(resolved);
 }
 
-function toCanonicalPath(input: string): string {
-  const resolved = path.resolve(expandHome(input));
+function toCanonicalPath(input: string, cwd = process.cwd()): string {
+  const resolved = path.resolve(cwd, expandHome(input));
   return fs.existsSync(resolved) ? fs.realpathSync.native(resolved) : resolved;
+}
+
+function environmentSnapshot(
+  input: Readonly<Record<string, string | undefined>>,
+  platform: NodeJS.Platform
+): Readonly<Record<string, string | undefined>> {
+  if (platform !== "win32") {
+    return Object.freeze(Object.fromEntries(Object.entries(input).filter((entry) => entry[1] !== undefined)));
+  }
+  const candidates = new Map<string, ReadonlyArray<readonly [string, string]>>();
+  for (const [name, value] of Object.entries(input)) {
+    if (value === undefined) continue;
+    const key = name.toLocaleUpperCase("en-US");
+    candidates.set(key, Object.freeze([...(candidates.get(key) ?? []), Object.freeze([name, value] as const)]));
+  }
+  const target = Object.freeze(Object.create(null)) as Readonly<Record<string, string | undefined>>;
+  return new Proxy(target, {
+    get: (_target, property) => {
+      if (typeof property !== "string") return undefined;
+      const matches = candidates.get(property.toLocaleUpperCase("en-US")) ?? [];
+      if (matches.length > 1) {
+        const origins = matches.map(([name]) => ({
+          kind: "environment" as const,
+          variable: name,
+          scope: "current-process" as const
+        }));
+        throw new ConfigResolutionError(
+          "CONFIG_SOURCE_CONFLICT",
+          property,
+          origins,
+          `Keep exactly one Windows environment spelling for ${property}.`,
+          `Configuration ${property} has multiple current-process environment sources: ${matches.map(([name]) => name).join(", ")}. Keep exactly one Windows environment spelling for ${property}.`
+        );
+      }
+      return matches[0]?.[1];
+    }
+  });
 }
 
 function numberFrom(value: string | undefined, fallback: number, min: number, max: number): number {
@@ -667,16 +749,33 @@ export function loadConfig(
   argv = process.argv.slice(2),
   options: ConfigLoadOptions = {}
 ): CodexGPTConfig {
+  const cwd = options.cwd ?? process.cwd();
+  const platform = options.platform ?? process.platform;
+  const environmentInput = options.environment ?? process.env;
+  const bootstrap = resolveConfigBootstrap({
+    argv,
+    environment: environmentInput,
+    cwd,
+    platform,
+    filesystemPlatform: options.filesystemPlatform ?? process.platform
+  });
+  const environment = environmentSnapshot(environmentInput, platform);
   const args = parseArgs(argv);
 
-  const rootFromArgs = typeof args.root === "string" ? args.root : undefined;
-  const root = rootFromArgs ?? process.env.CODEXGPT_ROOT ?? process.env.CODEBASE_BRIDGE_REPO_ROOT ?? process.cwd();
-  const defaultRoot = toRealDir(root);
-  const workspaceProfile = options.workspaceProfile ?? readWorkspaceProfile(defaultRoot);
+  const rootFromArgs = bootstrap.origins.get("root")?.kind === "cli"
+    ? bootstrap.effective.rootInput
+    : undefined;
+  const defaultRoot = toRealDir(bootstrap.effective.rootInput, cwd);
+  const workspaceProfile = bootstrap.effective.noProfile
+    ? {}
+    : options.workspaceProfile ?? (options.profileLoader
+      ? options.profileLoader(defaultRoot)
+      : readWorkspaceProfile(defaultRoot, environment, cwd));
   const resolvedAuthMode = resolveHttpAuthMode({
-    currentProcess: process.env.CODEXGPT_AUTH_MODE,
+    currentProcess: environment.CODEXGPT_AUTH_MODE,
     persistedUser: options.persistedUserAuthMode,
-    profile: workspaceProfile.authMode
+    profile: workspaceProfile.authMode,
+    profileFile: workspaceProfile.profilePath
   });
 
   const allowRootArgs = Array.isArray(args["allow-root"])
@@ -685,13 +784,13 @@ export function loadConfig(
       ? [args["allow-root"]]
       : [];
   const envAllowedRoots = [
-    ...splitRoots(process.env.CODEXGPT_ALLOWED_ROOTS),
-    ...splitRoots(process.env.CODEBASE_BRIDGE_ALLOWED_ROOTS)
+    ...splitRoots(environment.CODEXGPT_ALLOWED_ROOTS),
+    ...splitRoots(environment.CODEBASE_BRIDGE_ALLOWED_ROOTS)
   ];
 
-  const allowHome = process.env.CODEXGPT_ALLOW_HOME === "1" || args["allow-home"] === true;
+  const allowHome = environment.CODEXGPT_ALLOW_HOME === "1" || args["allow-home"] === true;
   const requestedAllowed = [defaultRoot, ...allowRootArgs, ...envAllowedRoots, ...(allowHome ? [os.homedir()] : [])];
-  const allowedRoots = [...new Set(requestedAllowed.map(toRealDir))];
+  const allowedRoots = [...new Set(requestedAllowed.map((root) => toRealDir(root, cwd)))];
 
   const portArg = typeof args.port === "string" ? args.port : undefined;
   const hostArg = typeof args.host === "string" ? args.host : undefined;
@@ -717,13 +816,13 @@ export function loadConfig(
     ? args["tool-contract-version"]
     : undefined;
   const toolModeArg = typeof args["tool-mode"] === "string" ? args["tool-mode"] : undefined;
-  const toolMode = toolModeFrom(toolModeArg ?? process.env.CODEXGPT_TOOL_MODE);
-  const guidanceModeInput = process.env.CODEXGPT_GUIDANCE_MODE;
+  const toolMode = toolModeFrom(toolModeArg ?? environment.CODEXGPT_TOOL_MODE);
+  const guidanceModeInput = environment.CODEXGPT_GUIDANCE_MODE;
   const guidanceMode = guidanceModeInput === undefined && toolMode === "minimal"
     ? "legacy"
     : resolveGuidanceMode(guidanceModeInput);
-  const semanticMode = semanticModeFrom(process.env.CODEXGPT_SEMANTIC_MODE);
-  const explicitToolContractVersion = toolContractVersionArg ?? process.env.CODEXGPT_TOOL_CONTRACT_VERSION;
+  const semanticMode = semanticModeFrom(environment.CODEXGPT_SEMANTIC_MODE);
+  const explicitToolContractVersion = toolContractVersionArg ?? environment.CODEXGPT_TOOL_CONTRACT_VERSION;
   if (semanticMode === "standard" && explicitToolContractVersion !== undefined && explicitToolContractVersion.trim() !== "5") {
     throw new Error("CODEXGPT_SEMANTIC_MODE=standard contradicts an explicit tool contract other than V5.");
   }
@@ -740,51 +839,52 @@ export function loadConfig(
       : typeof args["tool-cards"] === "string"
         ? args["tool-cards"]
         : undefined;
-  const extraBlockedGlobs = splitList(process.env.CODEXGPT_BLOCKED_GLOBS, ",");
-  const host = hostArg ?? process.env.CODEXGPT_HOST ?? process.env.HOST ?? "127.0.0.1";
-  const authToken = process.env.CODEXGPT_HTTP_TOKEN ?? process.env.CODEBASE_BRIDGE_HTTP_TOKEN;
-  const allowNoToken = boolFrom(process.env.CODEXGPT_ALLOW_NO_HTTP_TOKEN, false) && isLoopbackHost(host);
+  const extraBlockedGlobs = splitList(environment.CODEXGPT_BLOCKED_GLOBS, ",");
+  const host = hostArg ?? environment.CODEXGPT_HOST ?? environment.HOST ?? "127.0.0.1";
+  const authToken = environment.CODEXGPT_HTTP_TOKEN ?? environment.CODEBASE_BRIDGE_HTTP_TOKEN;
+  const allowNoToken = boolFrom(environment.CODEXGPT_ALLOW_NO_HTTP_TOKEN, false) && isLoopbackHost(host);
   const requireHttpToken =
     (!authToken && !allowNoToken) ||
-    boolFrom(process.env.CODEXGPT_REQUIRE_HTTP_TOKEN, false) ||
-    boolFrom(process.env.CODEXGPT_TUNNEL_MODE, false) ||
+    boolFrom(environment.CODEXGPT_REQUIRE_HTTP_TOKEN, false) ||
+    boolFrom(environment.CODEXGPT_TUNNEL_MODE, false) ||
     (!isLoopbackHost(host) && !allowNoToken);
   const allowedHostHints = [
-    process.env.CODEXGPT_ALLOWED_HOSTS,
-    process.env.CODEXGPT_PUBLIC_HOSTNAME,
-    process.env.CODEXGPT_HOSTNAME,
-    process.env.NGROK_DOMAIN
+    environment.CODEXGPT_ALLOWED_HOSTS,
+    environment.CODEXGPT_PUBLIC_HOSTNAME,
+    environment.CODEXGPT_HOSTNAME,
+    environment.NGROK_DOMAIN
   ].filter((value): value is string => Boolean(value));
   const allowedHosts = allowedHostsFrom(allowedHostHints.join(","), host);
-  const allowedOrigins = allowedOriginsFrom(process.env.CODEXGPT_ALLOWED_ORIGINS);
-  const allowQueryToken = boolFrom(process.env.CODEXGPT_ALLOW_QUERY_TOKEN, false);
+  const allowedOrigins = allowedOriginsFrom(environment.CODEXGPT_ALLOWED_ORIGINS);
+  const allowQueryToken = boolFrom(environment.CODEXGPT_ALLOW_QUERY_TOKEN, false);
   assertHttpAuthModeCompatibility({
     mode: resolvedAuthMode.mode,
     allowQueryToken,
     allowNoHttpToken: allowNoToken,
     legacyTokenPresent: Boolean(authToken)
   });
+  let oauthDeployment: Readonly<OAuthDeploymentConfiguration> | undefined;
   if (resolvedAuthMode.mode === "oauth") {
     resolveOAuthRootSelection({
       explicitRoot: rootFromArgs ? defaultRoot : undefined,
-      currentDirectory: toRealDir(process.cwd()),
+      currentDirectory: toRealDir(cwd, cwd),
       matchingProfileRoot: workspaceProfile.root,
-      platform: options.platform ?? process.platform
+      platform
     });
-    resolveOAuthDeploymentConfiguration({
+    oauthDeployment = resolveOAuthDeploymentConfiguration({
       canonicalRoot: defaultRoot,
       profileId: profileIdForRoot(defaultRoot),
       hostname: workspaceProfile.hostname ?? "",
       issuer: workspaceProfile.oauthIssuer,
       resource: workspaceProfile.oauthResource,
-      platform: options.platform ?? process.platform,
+      platform,
       tunnel: workspaceProfile.tunnel ?? "",
       tunnelName: workspaceProfile.tunnelName ?? "",
       tunnelOwner: workspaceProfile.tunnelOwner ?? "",
       publicHost: host,
       publicPort: strictNumberFrom(
         "OAuth public port",
-        portArg ?? process.env.CODEXGPT_PORT ?? process.env.PORT ?? workspaceProfile.port,
+        portArg ?? environment.CODEXGPT_PORT ?? environment.PORT ?? workspaceProfile.port,
         8787,
         1,
         65535
@@ -799,8 +899,8 @@ export function loadConfig(
       )
     });
   }
-  const bashSessionId = bashSessionIdFrom(bashSessionArg ?? process.env.CODEXGPT_BASH_SESSION_ID);
-  const requireBashSession = boolFrom(requireBashSessionArg ?? process.env.CODEXGPT_REQUIRE_BASH_SESSION, false);
+  const bashSessionId = bashSessionIdFrom(bashSessionArg ?? environment.CODEXGPT_BASH_SESSION_ID);
+  const requireBashSession = boolFrom(requireBashSessionArg ?? environment.CODEXGPT_REQUIRE_BASH_SESSION, false);
   if (requireBashSession && !bashSessionId) {
     throw new Error("CODEXGPT_REQUIRE_BASH_SESSION requires CODEXGPT_BASH_SESSION_ID or --bash-session.");
   }
@@ -809,8 +909,8 @@ export function loadConfig(
     defaultRoot,
     allowedRoots,
     host,
-    port: numberFrom(portArg ?? process.env.CODEXGPT_PORT ?? process.env.PORT, 8787, 1, 65535),
-    widgetDomain: widgetDomainFrom(widgetDomainArg ?? process.env.CODEXGPT_WIDGET_DOMAIN),
+    port: numberFrom(portArg ?? environment.CODEXGPT_PORT ?? environment.PORT, 8787, 1, 65535),
+    widgetDomain: widgetDomainFrom(widgetDomainArg ?? environment.CODEXGPT_WIDGET_DOMAIN),
     authMode: resolvedAuthMode.mode,
     authModeSource: resolvedAuthMode.source,
     authToken,
@@ -818,26 +918,26 @@ export function loadConfig(
     allowedHosts,
     allowedOrigins,
     allowQueryToken,
-    bashMode: bashModeFrom(bashArg ?? process.env.CODEXGPT_BASH_MODE),
-    bashTranscript: bashTranscriptFrom(bashTranscriptArg ?? process.env.CODEXGPT_BASH_TRANSCRIPT),
+    bashMode: bashModeFrom(bashArg ?? environment.CODEXGPT_BASH_MODE),
+    bashTranscript: bashTranscriptFrom(bashTranscriptArg ?? environment.CODEXGPT_BASH_TRANSCRIPT),
     bashSessionId,
     requireBashSession,
-    codexSessions: codexSessionsFrom(codexSessionsArg ?? process.env.CODEXGPT_CODEX_SESSIONS),
-    codexDir: toCanonicalPath(codexDirArg || process.env.CODEXGPT_CODEX_DIR || path.join(os.homedir(), ".codex")),
-    writeMode: writeModeFrom(writeArg ?? process.env.CODEXGPT_WRITE_MODE),
+    codexSessions: codexSessionsFrom(codexSessionsArg ?? environment.CODEXGPT_CODEX_SESSIONS),
+    codexDir: toCanonicalPath(codexDirArg || environment.CODEXGPT_CODEX_DIR || path.join(os.homedir(), ".codex"), cwd),
+    writeMode: writeModeFrom(writeArg ?? environment.CODEXGPT_WRITE_MODE),
     fileTransactions: fileTransactionModeFrom(
-      fileTransactionsArg ?? process.env.CODEXGPT_FILE_TRANSACTIONS
+      fileTransactionsArg ?? environment.CODEXGPT_FILE_TRANSACTIONS
     ),
     toolContractVersion: toolContractVersionFrom(
       semanticMode === "standard" ? "5" : explicitToolContractVersion
     ),
     toolMode,
-    policyEngineMode: policyEngineModeFrom(policyEngineArg ?? process.env.CODEXGPT_POLICY_ENGINE),
-    auditMode: auditModeFrom(auditModeArg ?? process.env.CODEXGPT_AUDIT_MODE),
+    policyEngineMode: policyEngineModeFrom(policyEngineArg ?? environment.CODEXGPT_POLICY_ENGINE),
+    auditMode: auditModeFrom(auditModeArg ?? environment.CODEXGPT_AUDIT_MODE),
     auditRetention: {
-      maxAgeDays: numberFrom(process.env.CODEXGPT_AUDIT_RETENTION_DAYS, 30, 1, 365),
+      maxAgeDays: numberFrom(environment.CODEXGPT_AUDIT_RETENTION_DAYS, 30, 1, 365),
       maxClosedBytes: numberFrom(
-        process.env.CODEXGPT_AUDIT_RETENTION_BYTES,
+        environment.CODEXGPT_AUDIT_RETENTION_BYTES,
         100 * 1024 * 1024,
         1024 * 1024,
         2 * 1024 * 1024 * 1024
@@ -846,116 +946,136 @@ export function loadConfig(
     changeSetRetention: {
       maxPlaintextBytesPerChangeSet: strictNumberFrom(
         "CODEXGPT_CHANGE_SET_MAX_PLAINTEXT_BYTES",
-        process.env.CODEXGPT_CHANGE_SET_MAX_PLAINTEXT_BYTES,
+        environment.CODEXGPT_CHANGE_SET_MAX_PLAINTEXT_BYTES,
         8 * 1024 * 1024,
         1024,
         64 * 1024 * 1024
       ),
       maxInstallationCiphertextBytes: strictNumberFrom(
         "CODEXGPT_CHANGE_SET_MAX_INSTALLATION_BYTES",
-        process.env.CODEXGPT_CHANGE_SET_MAX_INSTALLATION_BYTES,
+        environment.CODEXGPT_CHANGE_SET_MAX_INSTALLATION_BYTES,
         128 * 1024 * 1024,
         1024 * 1024,
         2 * 1024 * 1024 * 1024
       ),
       maxActivePerWorkspace: strictNumberFrom(
         "CODEXGPT_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE",
-        process.env.CODEXGPT_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE,
+        environment.CODEXGPT_CHANGE_SET_MAX_ACTIVE_PER_WORKSPACE,
         20,
         1,
         1000
       ),
       activeRetentionMs: strictNumberFrom(
         "CODEXGPT_CHANGE_SET_RETENTION_MS",
-        process.env.CODEXGPT_CHANGE_SET_RETENTION_MS,
+        environment.CODEXGPT_CHANGE_SET_RETENTION_MS,
         24 * 60 * 60_000,
         60_000,
         30 * 24 * 60 * 60_000
       ),
       tombstoneRetentionMs: strictNumberFrom(
         "CODEXGPT_CHANGE_SET_TOMBSTONE_RETENTION_MS",
-        process.env.CODEXGPT_CHANGE_SET_TOMBSTONE_RETENTION_MS,
+        environment.CODEXGPT_CHANGE_SET_TOMBSTONE_RETENTION_MS,
         30 * 24 * 60 * 60_000,
         24 * 60 * 60_000,
         365 * 24 * 60 * 60_000
       )
     },
-    permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? process.env.CODEXGPT_PERMISSION_PROFILE),
-    localFileAccess: localFileAccessFrom(process.env.CODEXGPT_LOCAL_FILE_ACCESS),
-    executionProfile: executionProfileFrom(process.env.CODEXGPT_EXECUTION_PROFILE),
-    executionDependencies: executionDependenciesFrom(process.env.CODEXGPT_EXECUTION_DEPENDENCIES),
-    gitMode: gitModeFrom(process.env.CODEXGPT_GIT_MODE),
-    gitIntegrations: gitIntegrationsFrom(process.env.CODEXGPT_GIT_INTEGRATIONS),
+    permissionProfileId: permissionProfileIdFrom(permissionProfileArg ?? environment.CODEXGPT_PERMISSION_PROFILE),
+    localFileAccess: localFileAccessFrom(environment.CODEXGPT_LOCAL_FILE_ACCESS),
+    executionProfile: executionProfileFrom(environment.CODEXGPT_EXECUTION_PROFILE),
+    executionDependencies: executionDependenciesFrom(environment.CODEXGPT_EXECUTION_DEPENDENCIES),
+    gitMode: gitModeFrom(environment.CODEXGPT_GIT_MODE),
+    gitIntegrations: gitIntegrationsFrom(environment.CODEXGPT_GIT_INTEGRATIONS),
     taskWorktreeRoot: path.resolve(
-      process.env.CODEXGPT_TASK_WORKTREE_ROOT ??
-      path.join(process.env.LOCALAPPDATA ?? os.homedir(), "CodexGPT", "worktrees")
+      cwd,
+      environment.CODEXGPT_TASK_WORKTREE_ROOT ??
+      path.join(environment.LOCALAPPDATA ?? os.homedir(), "CodexGPT", "worktrees")
     ),
-    taskWorktreeMaxCount: numberFrom(process.env.CODEXGPT_TASK_WORKTREE_MAX_COUNT, 32, 1, 128),
-    taskWorktreeMaxFiles: numberFrom(process.env.CODEXGPT_TASK_WORKTREE_MAX_FILES, 100_000, 1, 1_000_000),
+    taskWorktreeMaxCount: numberFrom(environment.CODEXGPT_TASK_WORKTREE_MAX_COUNT, 32, 1, 128),
+    taskWorktreeMaxFiles: numberFrom(environment.CODEXGPT_TASK_WORKTREE_MAX_FILES, 100_000, 1, 1_000_000),
     taskWorktreeMaxBytes: numberFrom(
-      process.env.CODEXGPT_TASK_WORKTREE_MAX_BYTES,
+      environment.CODEXGPT_TASK_WORKTREE_MAX_BYTES,
       2 * 1024 * 1024 * 1024,
       1024 * 1024,
       16 * 1024 * 1024 * 1024
     ),
-    inheritEnv: process.env.CODEXGPT_INHERIT_ENV === "1",
-    maxReadBytes: numberFrom(process.env.CODEXGPT_MAX_READ_BYTES, 250_000, 4_000, 2_000_000),
-    maxWriteBytes: numberFrom(process.env.CODEXGPT_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),
+    inheritEnv: environment.CODEXGPT_INHERIT_ENV === "1",
+    maxReadBytes: numberFrom(environment.CODEXGPT_MAX_READ_BYTES, 250_000, 4_000, 2_000_000),
+    maxWriteBytes: numberFrom(environment.CODEXGPT_MAX_WRITE_BYTES, 1_000_000, 1_000, 10_000_000),
     moveMaxFileBytes: strictNumberFrom(
       "CODEXGPT_MOVE_MAX_FILE_BYTES",
-      process.env.CODEXGPT_MOVE_MAX_FILE_BYTES,
+      environment.CODEXGPT_MOVE_MAX_FILE_BYTES,
       64 * 1024 * 1024,
       1,
       1024 * 1024 * 1024
     ),
     moveMaxTotalBytes: strictNumberFrom(
       "CODEXGPT_MOVE_MAX_TOTAL_BYTES",
-      process.env.CODEXGPT_MOVE_MAX_TOTAL_BYTES,
+      environment.CODEXGPT_MOVE_MAX_TOTAL_BYTES,
       256 * 1024 * 1024,
       1,
       4 * 1024 * 1024 * 1024
     ),
     moveHashConcurrency: strictNumberFrom(
       "CODEXGPT_MOVE_HASH_CONCURRENCY",
-      process.env.CODEXGPT_MOVE_HASH_CONCURRENCY,
+      environment.CODEXGPT_MOVE_HASH_CONCURRENCY,
       4,
       1,
       16
     ),
-    maxOutputBytes: numberFrom(process.env.CODEXGPT_MAX_OUTPUT_BYTES, 120_000, 4_000, 2_000_000),
-    maxSearchResults: numberFrom(process.env.CODEXGPT_MAX_SEARCH_RESULTS, 200, 5, 2_000),
-    maxHttpSessions: numberFrom(process.env.CODEXGPT_MAX_HTTP_SESSIONS, 64, 1, 512),
-    httpSessionTtlMs: numberFrom(process.env.CODEXGPT_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
+    maxOutputBytes: numberFrom(environment.CODEXGPT_MAX_OUTPUT_BYTES, 120_000, 4_000, 2_000_000),
+    maxSearchResults: numberFrom(environment.CODEXGPT_MAX_SEARCH_RESULTS, 200, 5, 2_000),
+    maxHttpSessions: numberFrom(environment.CODEXGPT_MAX_HTTP_SESSIONS, 64, 1, 512),
+    httpSessionTtlMs: numberFrom(environment.CODEXGPT_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
     workspaceTtlMs: numberFrom(
-      process.env.CODEXGPT_WORKSPACE_TTL_MS,
-      numberFrom(process.env.CODEXGPT_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
+      environment.CODEXGPT_WORKSPACE_TTL_MS,
+      numberFrom(environment.CODEXGPT_HTTP_SESSION_TTL_MS, 30 * 60_000, 60_000, 24 * 60 * 60_000),
       60_000,
       24 * 60 * 60_000
     ),
     oauthWorkspaceCapabilityMode: oauthWorkspaceCapabilityModeFrom(
-      process.env.CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE
+      environment.CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE
     ),
     blockedGlobs: [...DEFAULT_BLOCKED_GLOBS, ...extraBlockedGlobs],
-    contextDir: contextDirFrom(process.env.CODEXGPT_CONTEXT_DIR),
-    toolCards: boolFrom(toolCardsArg ?? process.env.CODEXGPT_TOOL_CARDS, false),
-    connectionTest: boolFrom(process.env.CODEXGPT_CONNECTION_TEST, false),
-    analysisEnabled: boolFrom(process.env.CODEXGPT_ANALYSIS, true),
+    contextDir: contextDirFrom(environment.CODEXGPT_CONTEXT_DIR),
+    toolCards: boolFrom(toolCardsArg ?? environment.CODEXGPT_TOOL_CARDS, false),
+    connectionTest: boolFrom(environment.CODEXGPT_CONNECTION_TEST, false),
+    analysisEnabled: boolFrom(environment.CODEXGPT_ANALYSIS, true),
     analysisLimits: {
-      maxInventoryFiles: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_INVENTORY_FILES, DEFAULT_ANALYSIS_LIMITS.maxInventoryFiles, 100, 100_000),
-      maxAnalyzedFiles: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_ANALYZED_FILES, DEFAULT_ANALYSIS_LIMITS.maxAnalyzedFiles, 10, 50_000),
-      maxScannedBytes: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_SCANNED_BYTES, DEFAULT_ANALYSIS_LIMITS.maxScannedBytes, 1_000_000, 512 * 1024 * 1024),
-      maxSymbols: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_SYMBOLS, DEFAULT_ANALYSIS_LIMITS.maxSymbols, 100, 1_000_000),
-      maxRelationships: numberFrom(process.env.CODEXGPT_ANALYSIS_MAX_RELATIONSHIPS, DEFAULT_ANALYSIS_LIMITS.maxRelationships, 100, 2_000_000)
+      maxInventoryFiles: numberFrom(environment.CODEXGPT_ANALYSIS_MAX_INVENTORY_FILES, DEFAULT_ANALYSIS_LIMITS.maxInventoryFiles, 100, 100_000),
+      maxAnalyzedFiles: numberFrom(environment.CODEXGPT_ANALYSIS_MAX_ANALYZED_FILES, DEFAULT_ANALYSIS_LIMITS.maxAnalyzedFiles, 10, 50_000),
+      maxScannedBytes: numberFrom(environment.CODEXGPT_ANALYSIS_MAX_SCANNED_BYTES, DEFAULT_ANALYSIS_LIMITS.maxScannedBytes, 1_000_000, 512 * 1024 * 1024),
+      maxSymbols: numberFrom(environment.CODEXGPT_ANALYSIS_MAX_SYMBOLS, DEFAULT_ANALYSIS_LIMITS.maxSymbols, 100, 1_000_000),
+      maxRelationships: numberFrom(environment.CODEXGPT_ANALYSIS_MAX_RELATIONSHIPS, DEFAULT_ANALYSIS_LIMITS.maxRelationships, 100, 2_000_000)
     },
     guidanceMode,
     semanticMode,
     semanticProvider: semanticMode === "standard"
-      ? semanticProviderFrom(process.env.CODEXGPT_SEMANTIC_PROVIDER)
+      ? semanticProviderFrom(environment.CODEXGPT_SEMANTIC_PROVIDER)
       : "builtin",
-    instructionFallbacks: instructionFallbacksFrom(process.env.CODEXGPT_INSTRUCTION_FALLBACKS),
-    maxInstructionTotalBytes: numberFrom(process.env.CODEXGPT_MAX_INSTRUCTION_TOTAL_BYTES, 32_768, 1_000, 200_000),
-    maxSkillCandidates: numberFrom(process.env.CODEXGPT_MAX_SKILL_CANDIDATES, 1_000, 1, 10_000),
-    maxSkillCatalogChars: numberFrom(process.env.CODEXGPT_MAX_SKILL_CATALOG_CHARS, 8_000, 1_000, 32_000)
+    instructionFallbacks: instructionFallbacksFrom(environment.CODEXGPT_INSTRUCTION_FALLBACKS),
+    maxInstructionTotalBytes: numberFrom(environment.CODEXGPT_MAX_INSTRUCTION_TOTAL_BYTES, 32_768, 1_000, 200_000),
+    maxSkillCandidates: numberFrom(environment.CODEXGPT_MAX_SKILL_CANDIDATES, 1_000, 1, 10_000),
+    maxSkillCatalogChars: numberFrom(environment.CODEXGPT_MAX_SKILL_CATALOG_CHARS, 8_000, 1_000, 32_000),
+    transactionStateRoot:
+      platform === "win32" &&
+      !environment.CODEXGPT_HOME?.trim() &&
+      !environment.LOCALAPPDATA?.trim()
+        ? null
+        : resolveTransactionStateRoot({
+            platform,
+            env: {
+              CODEXGPT_HOME: environment.CODEXGPT_HOME,
+              LOCALAPPDATA: environment.LOCALAPPDATA,
+              XDG_STATE_HOME: environment.XDG_STATE_HOME
+            },
+            homeDir: options.homeDir ?? os.homedir()
+          }),
+    logRequests: environment.CODEXGPT_LOG_REQUESTS === "1",
+    logToolCalls:
+      environment.CODEXGPT_LOG_TOOL_CALLS === "1" ||
+      environment.CODEXGPT_LOG_REQUESTS === "1",
+    oauthDeployment
   };
   if (
     config.toolContractVersion !== 3 &&
@@ -990,4 +1110,130 @@ export function loadConfig(
   }
   assertAuditConfiguration(config, { durableStoreAvailable: true });
   return config;
+}
+
+function freezeConfigValue<T>(value: T, seen = new Set<object>()): T {
+  if (value === null || typeof value !== "object") return value;
+  if (seen.has(value)) throw new Error("Effective configuration must not contain cycles.");
+  seen.add(value);
+  for (const nested of Object.values(value)) freezeConfigValue(nested, seen);
+  seen.delete(value);
+  return Object.freeze(value);
+}
+
+function publicConfigProjection(config: CodexGPTConfig): Readonly<Record<string, unknown>> {
+  const projection: Record<string, unknown> = {};
+  for (const key of Object.keys(config).sort()) {
+    projection[key] = key === "authToken"
+      ? config.authToken ? "set" : "missing"
+      : config[key as keyof CodexGPTConfig];
+  }
+  return freezeConfigValue(projection);
+}
+
+function canonicalConfigValue(value: unknown, seen = new Set<object>()): unknown {
+  if (value === undefined) return ["undefined"];
+  if (value === null) return ["null"];
+  if (typeof value === "string") return ["string", value];
+  if (typeof value === "boolean") return ["boolean", value];
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("Effective configuration contains a non-finite number.");
+    return ["number", Object.is(value, -0) ? "-0" : value];
+  }
+  if (typeof value !== "object" || seen.has(value)) {
+    throw new Error("Effective configuration contains an unsupported or cyclic value.");
+  }
+  seen.add(value);
+  const encoded = Array.isArray(value)
+    ? ["array", value.map((item) => canonicalConfigValue(item, seen))]
+    : [
+        "object",
+        Object.keys(value as Record<string, unknown>)
+          .sort()
+          .map((key) => [key, canonicalConfigValue((value as Record<string, unknown>)[key], seen)])
+      ];
+  seen.delete(value);
+  return encoded;
+}
+
+export function loadResolvedConfig(
+  argv = process.argv.slice(2),
+  options: ConfigLoadOptions = {}
+): EffectiveConfigSnapshot {
+  const effective = freezeConfigValue(loadConfig(argv, options));
+  const publicProjection = publicConfigProjection(effective);
+  const publicFingerprint = createHash("sha256")
+    .update(JSON.stringify(["codexgpt-effective-config-v1", canonicalConfigValue(publicProjection)]))
+    .digest("hex");
+  const publicJson = Object.freeze({ effective: publicProjection, publicFingerprint });
+  const exactEncoding = JSON.stringify([
+    "codexgpt-effective-config-integrity-v1",
+    canonicalConfigValue(effective)
+  ]);
+  const integrityProof = (key: string): string => {
+    if (!/^[a-f0-9]{64}$/u.test(key)) {
+      throw new ConfigFingerprintError(
+        "CONFIG_INTEGRITY_INVALID",
+        "Stop the foreground server, then rerun the same codexgpt start command.",
+        "The launcher supplied an invalid configuration integrity key."
+      );
+    }
+    return createHmac("sha256", Buffer.from(key, "hex")).update(exactEncoding).digest("hex");
+  };
+  const snapshot = {
+    effective,
+    publicFingerprint,
+    integrityProof,
+    toJSON: () => publicJson,
+    [inspect.custom]: () => publicJson
+  };
+  return Object.freeze(snapshot);
+}
+
+export function assertExpectedConfigFingerprint(
+  snapshot: EffectiveConfigSnapshot,
+  expected: string | undefined,
+  root = snapshot.effective.defaultRoot
+): void {
+  if (expected === undefined || expected === "") return;
+  void root;
+  const restart = "Stop the foreground server, then rerun the same codexgpt start command.";
+  if (!/^[a-f0-9]{64}$/u.test(expected)) {
+    throw new ConfigFingerprintError(
+      "CONFIG_FINGERPRINT_INVALID",
+      restart,
+      `The launcher supplied an invalid configuration fingerprint. ${restart}`
+    );
+  }
+  if (snapshot.publicFingerprint !== expected) {
+    throw new ConfigFingerprintError(
+      "CONFIG_FINGERPRINT_MISMATCH",
+      restart,
+      `The server resolved a different effective configuration than its launcher. ${restart}`
+    );
+  }
+}
+
+export function assertExpectedConfigIntegrity(
+  snapshot: EffectiveConfigSnapshot,
+  expected: string | undefined,
+  key: string | undefined
+): void {
+  if ((expected === undefined || expected === "") && (key === undefined || key === "")) return;
+  const restart = "Stop the foreground server, then rerun the same codexgpt start command.";
+  if (!/^[a-f0-9]{64}$/u.test(expected ?? "") || !/^[a-f0-9]{64}$/u.test(key ?? "")) {
+    throw new ConfigFingerprintError(
+      "CONFIG_INTEGRITY_INVALID",
+      restart,
+      `The launcher supplied an invalid configuration integrity proof. ${restart}`
+    );
+  }
+  const actual = snapshot.integrityProof(key!);
+  if (!timingSafeEqual(Buffer.from(actual, "hex"), Buffer.from(expected!, "hex"))) {
+    throw new ConfigFingerprintError(
+      "CONFIG_INTEGRITY_MISMATCH",
+      restart,
+      `The server resolved a different complete effective configuration than its launcher. ${restart}`
+    );
+  }
 }

@@ -44,9 +44,10 @@ test("builtin resolves the Phase 7 live journey and repository-scale diagnostics
       });
       assert.equal(warm.result.locations[0].path, "scripts/long-task-runner.mjs");
       const warmLimitMs = process.env.CODEXGPT_SEMANTIC_LATENCY_GATE === "1" ? 1_000 : 2_000;
+      const warmDurationMs = performance.now() - warmStarted;
       assert.ok(
-        performance.now() - warmStarted <= warmLimitMs,
-        `warm repository definition exceeded ${warmLimitMs} ms`
+        warmDurationMs <= warmLimitMs,
+        `warm repository definition took ${warmDurationMs.toFixed(1)} ms and exceeded ${warmLimitMs} ms`
       );
 
       const definition = result.result.locations[0];

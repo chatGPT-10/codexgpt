@@ -11,10 +11,12 @@ import { createToolMeta } from "../tools/schemas/common.js";
 import {
   readProcessOutputOutputSchema,
   readProcessOutputOutputSchemaV4,
+  readProcessOutputOutputSchemaV5,
   runCommandInputV1Schema,
   runCommandInputV4Schema,
   runCommandOutputSchema,
   runCommandOutputSchemaV4,
+  runCommandOutputSchemaV5,
   startProcessInputV1Schema,
   startProcessInputV4Schema
 } from "../tools/schemas/execution.js";
@@ -33,7 +35,7 @@ import { OutputCursorCodec } from "./outputCursor.js";
 import { OutputQuotaManager } from "./outputQuota.js";
 import { OutputRing } from "./outputRing.js";
 import { StreamingRedactor } from "./streamingRedactor.js";
-import { contractIncludesV4 } from "../tools/contracts/index.js";
+import { contractIncludesV4, contractIncludesV5 } from "../tools/contracts/index.js";
 import {
   FULL_ACCESS_PROCESS_AUTHORITY_V3,
   FULL_ACCESS_PROCESS_WARNING_V3
@@ -140,8 +142,12 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
     this.#candidateWorkspaces = runtime;
   }
 
-  get toolContractVersion(): 3 | 4 {
-    return contractIncludesV4(this.#options.config.toolContractVersion) ? 4 : 3;
+  get toolContractVersion(): 3 | 4 | 5 {
+    return contractIncludesV5(this.#options.config.toolContractVersion)
+      ? 5
+      : contractIncludesV4(this.#options.config.toolContractVersion)
+        ? 4
+        : 3;
   }
 
   async beginPersistentVerification(
@@ -307,13 +313,16 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
         release: reservation.release
       };
       const output = this.#page(record, { sequence: 0, offset: 0 }, FIRST_PAGE_BYTES);
-      const data = { process_id: processId, status, exit_code: exitCode, termination_reason: timedOut ? "timeout" : null,
+      const v5 = contractIncludesV5(this.#options.config.toolContractVersion);
+      const data = { process_id: processId, status, ...(v5 ? { state: status } : {}), exit_code: exitCode, termination_reason: timedOut ? "timeout" : null,
         backend: { backend_id: resolved.backend.backendId, command_kind: resolved.command.kind, executable_identity: resolved.backend.sha256, terminal: "none" }, authority: FULL_ACCESS_PROCESS_AUTHORITY_V3, output,
         started_at: new Date(started).toISOString(), ended_at: new Date(this.#now()).toISOString(),
         ...(contractIncludesV4(this.#options.config.toolContractVersion) ? { verification_receipt: null } : {}) };
-    const schema = contractIncludesV4(this.#options.config.toolContractVersion)
-        ? runCommandOutputSchemaV4
-        : runCommandOutputSchema;
+      const schema = v5
+        ? runCommandOutputSchemaV5
+        : contractIncludesV4(this.#options.config.toolContractVersion)
+          ? runCommandOutputSchemaV4
+          : runCommandOutputSchema;
       const structured = schema.parse({ codexgpt_tool: "run_command", codexgpt_title: "Run Command", ok: true, data, error: null, meta: createToolMeta(this.#now() - started, [FULL_ACCESS_PROCESS_WARNING_V3]) }) as Record<string, unknown>;
       attachExecutionAuditFacts(structured, {
         resultCode: status === "exited" && exitCode === 0 ? "OK" : "COMMAND_FAILED",
@@ -380,6 +389,7 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
     const data = {
       process_id: processId,
       status: record.status,
+      ...(contractIncludesV5(this.toolContractVersion) ? { state: record.status } : {}),
       output,
       ...(contractIncludesV4(this.toolContractVersion)
         ? {
@@ -388,9 +398,11 @@ export class RunCommandRuntimeV3 implements ToolResourceResolver {
           }
         : {})
     };
-    const schema = contractIncludesV4(this.toolContractVersion)
-      ? readProcessOutputOutputSchemaV4
-      : readProcessOutputOutputSchema;
+    const schema = contractIncludesV5(this.toolContractVersion)
+      ? readProcessOutputOutputSchemaV5
+      : contractIncludesV4(this.toolContractVersion)
+        ? readProcessOutputOutputSchemaV4
+        : readProcessOutputOutputSchema;
     return schema.parse({ codexgpt_tool: "read_process_output", codexgpt_title: "Read Process Output", ok: true, data, error: null, meta: createToolMeta() }) as Record<string, unknown>;
   }
 

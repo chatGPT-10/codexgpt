@@ -73,7 +73,7 @@ Before announcing broadly:
 Suggested golden prompts:
 
 ```text
-Use CodexGPT. Call server_config, then open_current_workspace with include_tree=false. Read README.md and summarize the project without editing files.
+Use CodexGPT. Call open_current_workspace once and use its context_snapshot. Read README.md and summarize the project without editing files. Do not call server_config, tree, or git_status unless the open result reports a connection or context problem.
 ```
 
 ```text

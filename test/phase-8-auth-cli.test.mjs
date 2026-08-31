@@ -82,8 +82,8 @@ test("global launcher passes the explicit canonical root to the OAuth HTTP child
   const source = fs.readFileSync(path.join(projectRoot, "scripts", "codexgpt.mjs"), "utf8");
   assert.match(
     source,
-    /spawnLogged\('codexgpt', process\.execPath, \[httpPath, '--root', root\]/,
-    "The packaged launcher must pass --root to dist/http.js because OAuth rejects environment-only root selection."
+    /spawnLogged\('codexgpt', process\.execPath, \[httpPath, '--root', root,\s*\.\.\.\(args\.noProfile/,
+    "The packaged launcher must pass --root and the resolved no-profile bootstrap to dist/http.js because OAuth rejects environment-only root selection."
   );
 });
 

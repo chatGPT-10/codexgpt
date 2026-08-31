@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolContractVersion } from "./config.js";
 import { isPolicyToolFailure } from "./policy/integration.js";
+import { verifyChangeOutputSchema } from "./tools/schemas/changeWorkflow.js";
 import {
   CANONICAL_CODEXGPT_CHILD_TOOLS,
   CANONICAL_CODEXGPT_CHILD_TOOLS_V2,
@@ -228,9 +229,26 @@ function actionNames(structuredContent: Record<string, unknown>): string[] {
     : [];
 }
 
+function workflowActionNames(structuredContent: Record<string, unknown>): string[] {
+  const data = structuredContent.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return [];
+  const actions = (data as Record<string, unknown>).workflow_actions;
+  return Array.isArray(actions) && actions.every((value) => typeof value === "string")
+    ? actions
+    : [];
+}
+
+export interface CodexGPTSupertoolOptions {
+  verifyChange?: (
+    args: Record<string, unknown>,
+    extra?: unknown
+  ) => ToolCallResult | Promise<ToolCallResult>;
+}
+
 export function upgradeCodexGPTSupertool(
   server: unknown,
-  contractVersion?: ToolContractVersion
+  contractVersion?: ToolContractVersion,
+  options: CodexGPTSupertoolOptions = {}
 ): void {
   const candidate = server as Partial<ServerWithRegisteredTools>;
   const tools = candidate._registeredTools;
@@ -245,9 +263,13 @@ export function upgradeCodexGPTSupertool(
   const contract = contractFor(tools, contractVersion);
 
   supertool.title = "CodexGPT Supertool";
-  supertool.description =
-    "Stable closed-world wrapper for already-registered CodexGPT tools. " +
-    "Call list_actions first; aliases cannot bypass the current tool, write, Bash, analysis, or Codex Session gates.";
+  supertool.description = contractVersion === 5
+    ? "Stable closed-world wrapper for already-registered CodexGPT tools. " +
+      "Call list_actions first; in V5, navigate_code routes to semantic operation=navigate for one bounded semantic/lexical/file lookup. " +
+      "The V5 verify_change workflow action runs only server-confirmed project checks when explicitly requested. " +
+      "Aliases cannot bypass the current tool, write, Bash, analysis, or Codex Session gates."
+    : "Stable closed-world wrapper for already-registered CodexGPT tools. " +
+      "Call list_actions first; aliases cannot bypass the current tool, write, Bash, analysis, or Codex Session gates.";
   supertool.inputSchema = codexgptInputSchema;
   supertool.outputSchema = contract.outputSchema;
   supertool.annotations = {
@@ -278,10 +300,36 @@ export function upgradeCodexGPTSupertool(
           content: [{
             type: "text",
             text: `Available CodexGPT actions (${actionCount(structuredContent)}):\n` +
-              actionNames(structuredContent).join("\n")
+              actionNames(structuredContent).join("\n") +
+              (workflowActionNames(structuredContent).length
+                ? `\nWorkflow actions:\n${workflowActionNames(structuredContent).join("\n")}`
+                : "")
           }],
           structuredContent
         };
+      } catch {
+        return wrapperFailureResult(contract, { code: "INTERNAL_ERROR", details: {} }, startedAt);
+      }
+    }
+
+    const rawArgs = input.args && typeof input.args === "object" && !Array.isArray(input.args)
+      ? input.args as Record<string, unknown>
+      : {};
+    if (action === "verify_change") {
+      if (contractVersion !== 5 || !options.verifyChange) {
+        return wrapperFailureResult(contract, {
+          code: "ACTION_NOT_AVAILABLE",
+          details: { action }
+        }, startedAt);
+      }
+      try {
+        const result = await options.verifyChange(rawArgs, extra);
+        if (isPolicyToolFailure(result)) return result;
+        const parsed = verifyChangeOutputSchema.safeParse(result?.structuredContent);
+        if (!parsed.success) {
+          return wrapperFailureResult(contract, { code: "INTERNAL_ERROR", details: {} }, startedAt);
+        }
+        return { ...result, structuredContent: parsed.data };
       } catch {
         return wrapperFailureResult(contract, { code: "INTERNAL_ERROR", details: {} }, startedAt);
       }
@@ -296,7 +344,19 @@ export function upgradeCodexGPTSupertool(
       }, startedAt);
     }
 
-    const args = input.args ?? {};
+    if (
+      action === "navigate_code" &&
+      rawArgs.operation !== undefined &&
+      rawArgs.operation !== "navigate"
+    ) {
+      return wrapperFailureResult(contract, {
+        code: "ACTION_ARGUMENTS_INVALID",
+        details: { action, wrapped_tool: wrappedTool }
+      }, startedAt);
+    }
+    const args = action === "navigate_code"
+      ? { ...rawArgs, operation: "navigate" }
+      : rawArgs;
     const parsedArgs = target.inputSchema.safeParse(args);
     if (!parsedArgs.success) {
       return wrapperFailureResult(contract, {

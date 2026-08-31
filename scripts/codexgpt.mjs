@@ -11,9 +11,22 @@ import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cloudflaredTunnelArgs } from './cloudflared-installer.mjs';
+import {
+  createConfigExplanation,
+  explainInput,
+  formatConfigExplanationText
+} from './config-explain.mjs';
 import { createFixedAddressLookup, resolvePublicProbeAddress } from './oauth-admin.mjs';
 import { boundedTextArtifact, trimUtf8Bytes } from './output-bounds.mjs';
 import { createOwnedTempRootSync } from './owned-temp-root.mjs';
+import {
+  parseWorkspaceProfileJson,
+  WorkspaceProfileValidationError
+} from './workspace-profile-schema.mjs';
+import {
+  deleteWorkspaceProfileFilesSync,
+  saveWorkspaceProfileFileSync
+} from './workspace-profile-persistence.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNTRACKED_FILE_HASH_BYTES = 64 * 1024;
@@ -36,10 +49,11 @@ Usage:
   codexgpt start
   codexgpt start --root /path/to/repo
   codexgpt settings
+  codexgpt config explain [--json]
   codexgpt semantic status [--verbose]
   codexgpt semantic use builtin|none
   codexgpt semantic disable
-  codexgpt doctor
+  codexgpt doctor [--json]
   codexgpt auth setup --root /path/to/repo --hostname mcp.example.com --tunnel-name codexgpt
   codexgpt auth status --root /path/to/repo
   codexgpt auth pending|open|clients --root /path/to/repo
@@ -205,8 +219,13 @@ Workspace settings:
   codexgpt settings use
   codexgpt settings delete --yes
 
+Configuration explanation (read-only; secrets show only set/missing):
+  codexgpt config explain --root /path/to/repo
+  codexgpt config explain auth.mode --root /path/to/repo --json
+
 Preflight diagnostics:
   codexgpt doctor
+  codexgpt doctor --json
 
 Ngrok stable URL mode:
   codexgpt ngrok --root /path/to/repo --hostname your-domain.ngrok-free.dev
@@ -390,6 +409,22 @@ function parseArgs(argv) {
     }
   }
   return out;
+}
+
+function replaceSingleValueOption(argv, option, value) {
+  const replaced = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const raw = argv[index];
+    if (raw === option) {
+      const next = argv[index + 1];
+      if (next && !next.startsWith('--')) index += 1;
+      continue;
+    }
+    if (raw.startsWith(`${option}=`)) continue;
+    replaced.push(raw);
+  }
+  replaced.push(option, value);
+  return replaced;
 }
 
 function expandHome(input) {
@@ -664,9 +699,10 @@ function readJsonFile(filePath) {
 function loadWorkspaceProfile(root) {
   const profilePath = profilePathForRoot(root);
   if (!fs.existsSync(profilePath)) return {};
-  const profile = readJsonFile(profilePath);
-  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) return {};
-  if (profile.root && profile.root !== root) return {};
+  const profile = parseWorkspaceProfileJson(fs.readFileSync(profilePath, 'utf8'), {
+    expectedRoot: root,
+    profilePath
+  });
   return { ...profile, profilePath };
 }
 
@@ -677,36 +713,27 @@ function listWorkspaceProfiles() {
     .filter((name) => name.endsWith('.json'))
     .map((name) => {
       const profilePath = path.join(dir, name);
-      const profile = readJsonFile(profilePath);
-      if (!profile || typeof profile !== 'object' || Array.isArray(profile) || !profile.root) return null;
+      const profile = parseWorkspaceProfileJson(fs.readFileSync(profilePath, 'utf8'), { profilePath });
+      if (profilePathForRoot(profile.root) !== profilePath) {
+        throw new WorkspaceProfileValidationError(
+          '$.root',
+          'must hash to the filename that stores this profile.',
+          { profilePath }
+        );
+      }
       return { ...profile, profilePath };
     })
-    .filter(Boolean)
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
 }
 
 function deleteWorkspaceProfile(root) {
   const filePath = profilePathForRoot(root);
-  if (!fs.existsSync(filePath)) return false;
-  fs.rmSync(filePath, { force: true });
-  return true;
+  return deleteWorkspaceProfileFilesSync(filePath);
 }
 
 function saveWorkspaceProfile(root, profile) {
-  const dir = profileDir();
   const filePath = profilePathForRoot(root);
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const payload = {
-    version: 1,
-    root,
-    updatedAt: new Date().toISOString(),
-    ...profile
-  };
-  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
-  try {
-    fs.chmodSync(filePath, 0o600);
-  } catch {}
-  return filePath;
+  return saveWorkspaceProfileFileSync(filePath, root, profile).profilePath;
 }
 
 function saveRuntimeConnection(root, details, options = {}) {
@@ -729,7 +756,8 @@ function saveRuntimeConnection(root, details, options = {}) {
     requireBashSession: Boolean(options.requireBashSession),
     write: options.write ?? '',
     toolMode: options.toolMode ?? '',
-    toolCards: Boolean(options.toolCards)
+    toolCards: Boolean(options.toolCards),
+    configFingerprint: options.configFingerprint ?? ''
   };
   fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
   try {
@@ -794,6 +822,225 @@ function optionBool(args, profile, field, envNames = [], fallback = false) {
   return fallback;
 }
 
+function cliExplainCandidate(args, field, argument, argv = [], aliases = []) {
+  const accepted = new Set([argument, ...aliases]);
+  let actualArgument = argument;
+  for (const raw of argv) {
+    const option = raw.startsWith('--') ? raw.split('=', 1)[0] : '';
+    if (accepted.has(option)) actualArgument = option;
+  }
+  return { present: args[field] !== undefined, source: { kind: 'cli', argument: actualArgument } };
+}
+
+function environmentExplainCandidate(variable) {
+  return {
+    present: process.env[variable] !== undefined && process.env[variable] !== '',
+    source: { kind: 'environment', variable, scope: 'current-process' }
+  };
+}
+
+function compatibilityEnvironmentExplainCandidate(variable, replacement, remediation) {
+  return {
+    present: process.env[variable] !== undefined && process.env[variable] !== '',
+    source: {
+      kind: 'compatibility',
+      source: `current-process environment ${variable}`,
+      removeAfter: 'the configuration resolver migration window'
+    },
+    compatibility: { replacement, remediation }
+  };
+}
+
+function modeAmbiguousCompatibilityEnvironmentExplainCandidate(variable, namedTunnelMode) {
+  return {
+    present: process.env[variable] !== undefined && process.env[variable] !== '',
+    source: {
+      kind: 'compatibility',
+      source: `current-process environment ${variable}`,
+      removeAfter: 'not scheduled',
+      classification: 'mode-ambiguous',
+      namedTunnelMode,
+      effectiveScope: 'all-tunnel-modes'
+    }
+  };
+}
+
+function profileExplainCandidate(profile, field, jsonPath = `$.${field}`) {
+  return {
+    present: profile?.[field] !== undefined && profile[field] !== '',
+    source: {
+      kind: 'profile',
+      file: profile?.profilePath ?? '(profile unavailable)',
+      jsonPath
+    }
+  };
+}
+
+function defaultExplainSource(rule) {
+  return { kind: 'default', rule };
+}
+
+function optionExplanation(input) {
+  return explainInput({
+    key: input.key,
+    value: input.value,
+    secret: input.secret,
+    candidates: [
+      cliExplainCandidate(input.args, input.field, input.argument, input.argv, input.aliases),
+      ...input.envNames.map(environmentExplainCandidate),
+      profileExplainCandidate(input.profile, input.field, input.jsonPath)
+    ],
+    fallback: input.fallback
+  });
+}
+
+function buildConfigExplainInputs(context) {
+  const { argv, args, profile, root, runtime, authMode, tunnel, stableHostname, mode,
+    localAdminPort, bash, bashTranscript, codexSessions, codexDir, bashSession, requireBashSession,
+    write, toolMode, widgetDomain, toolCards, semanticMode, semanticProvider, token } = context;
+  const inputs = [];
+  const addOption = (key, value, field, argument, envNames, rule, extra = {}) => inputs.push(optionExplanation({
+    key, value, field, argument, envNames, argv, args, profile, fallback: defaultExplainSource(rule), ...extra
+  }));
+
+  inputs.push(explainInput({
+    key: 'workspace.root',
+    value: root,
+    candidates: [
+      cliExplainCandidate(args, 'root', '--root', argv),
+      environmentExplainCandidate('CODEXGPT_ROOT'),
+      compatibilityEnvironmentExplainCandidate(
+        'CODEBASE_BRIDGE_REPO_ROOT',
+        '--root or CODEXGPT_ROOT',
+        '$env:CODEXGPT_ROOT = $env:CODEBASE_BRIDGE_REPO_ROOT; Remove-Item Env:CODEBASE_BRIDGE_REPO_ROOT'
+      )
+    ],
+    fallback: defaultExplainSource('current working directory')
+  }));
+  inputs.push(explainInput({
+    key: 'profile.disabled',
+    value: Boolean(args.noProfile),
+    candidates: [cliExplainCandidate(args, 'noProfile', '--no-profile', argv)],
+    fallback: defaultExplainSource('workspace profile loading enabled')
+  }));
+  inputs.push(explainInput({
+    key: 'auth.mode',
+    value: authMode,
+    candidates: [
+      environmentExplainCandidate('CODEXGPT_AUTH_MODE'),
+      profileExplainCandidate(profile, 'authMode')
+    ],
+    fallback: defaultExplainSource('legacy authentication mode')
+  }));
+
+  const tokenCandidates = [];
+  if (authMode === 'oauth') {
+    tokenCandidates.push({ present: true, source: defaultExplainSource('OAuth mode does not use the legacy HTTP token') });
+  } else if (args.noAuth) {
+    tokenCandidates.push({ present: true, source: { kind: 'cli', argument: '--no-auth' } });
+  } else {
+    tokenCandidates.push(
+      cliExplainCandidate(args, 'token', '--token', argv),
+      environmentExplainCandidate('CODEXGPT_HTTP_TOKEN'),
+      compatibilityEnvironmentExplainCandidate(
+        'CODEBASE_BRIDGE_HTTP_TOKEN',
+        'CODEXGPT_HTTP_TOKEN',
+        '$env:CODEXGPT_HTTP_TOKEN = $env:CODEBASE_BRIDGE_HTTP_TOKEN; Remove-Item Env:CODEBASE_BRIDGE_HTTP_TOKEN'
+      ),
+      profileExplainCandidate(profile, 'token')
+    );
+  }
+  inputs.push(explainInput({
+    key: 'auth.token',
+    value: token,
+    secret: true,
+    candidates: tokenCandidates,
+    fallback: defaultExplainSource('generated for this invocation when legacy authentication requires a token')
+  }));
+
+  addOption('server.host', runtime.host, 'host', '--host', ['CODEXGPT_HOST'], 'loopback-only local bind host');
+  addOption('server.port', runtime.port, 'port', '--port', ['CODEXGPT_PORT'], 'CodexGPT local port default');
+  addOption('connector.mode', mode, 'mode', '--mode', ['CODEXGPT_MODE'], 'agent connector mode', {
+    aliases: ['--agent', '--handoff', '--pro-planning', '--pro']
+  });
+  addOption('tunnel.mode', tunnel, 'tunnel', '--tunnel', ['CODEXGPT_TUNNEL'], 'Cloudflare quick tunnel');
+  inputs.push(explainInput({
+    key: 'tunnel.hostname',
+    value: stableHostname,
+    candidates: [
+      cliExplainCandidate(args, 'hostname', '--hostname', argv),
+      cliExplainCandidate(args, 'url', '--url', argv),
+      environmentExplainCandidate('CODEXGPT_PUBLIC_HOSTNAME'),
+      compatibilityEnvironmentExplainCandidate(
+        'CODEXGPT_HOSTNAME',
+        'CODEXGPT_PUBLIC_HOSTNAME',
+        '$env:CODEXGPT_PUBLIC_HOSTNAME = $env:CODEXGPT_HOSTNAME; Remove-Item Env:CODEXGPT_HOSTNAME'
+      ),
+      modeAmbiguousCompatibilityEnvironmentExplainCandidate('NGROK_DOMAIN', 'ngrok'),
+      profileExplainCandidate(profile, 'hostname')
+    ],
+    fallback: defaultExplainSource('no stable public hostname')
+  }));
+  inputs.push(explainInput({
+    key: 'filesystem.allowedRoots',
+    value: runtime.allowedRoots,
+    candidates: args.allowRoots.length
+      ? [{ present: true, source: { kind: 'cli', argument: '--allow-root' } }]
+      : [],
+    fallback: defaultExplainSource('workspace root is always allowed')
+  }));
+  inputs.push(explainInput({
+    key: 'filesystem.allowHome',
+    value: Boolean(args.allowHome || boolFromValue(process.env.CODEXGPT_ALLOW_HOME, false)),
+    candidates: [
+      cliExplainCandidate(args, 'allowHome', '--allow-home', argv),
+      environmentExplainCandidate('CODEXGPT_ALLOW_HOME')
+    ],
+    fallback: defaultExplainSource('home-directory expansion disabled')
+  }));
+  addOption('shell.bash', runtime.bashMode, 'bash', '--bash', ['CODEXGPT_BASH_MODE'], 'safe Bash policy', {
+    aliases: ['--no-bash']
+  });
+  addOption('shell.transcript', runtime.bashTranscript, 'bashTranscript', '--bash-transcript', ['CODEXGPT_BASH_TRANSCRIPT'], 'compact Bash transcript', {
+    aliases: ['--compact-bash-transcript', '--full-bash-transcript']
+  });
+  addOption('shell.session', runtime.bashSessionId ?? '', 'bashSession', '--bash-session', ['CODEXGPT_BASH_SESSION_ID'], 'no required session label');
+  addOption('shell.requireSession', runtime.requireBashSession, 'requireBashSession', '--require-bash-session', ['CODEXGPT_REQUIRE_BASH_SESSION'], 'Bash session matching disabled');
+  addOption('codex.sessions', runtime.codexSessions, 'codexSessions', '--codex-sessions', ['CODEXGPT_CODEX_SESSIONS'], 'Codex session history disabled', {
+    aliases: ['--codex-sessions-read']
+  });
+  addOption('codex.directory', runtime.codexDir, 'codexDir', '--codex-dir', ['CODEXGPT_CODEX_DIR'], 'current user Codex directory');
+  addOption('write.mode', runtime.writeMode, 'write', '--write', ['CODEXGPT_WRITE_MODE'], `mode-derived ${mode} write policy`);
+  addOption('tools.mode', runtime.toolMode, 'toolMode', '--tool-mode', ['CODEXGPT_TOOL_MODE'], 'standard tool surface');
+  addOption('tools.widgetDomain', runtime.widgetDomain, 'widgetDomain', '--widget-domain', ['CODEXGPT_WIDGET_DOMAIN'], 'bundled widget origin');
+  addOption('tools.cards', runtime.toolCards, 'toolCards', '--tool-cards', ['CODEXGPT_TOOL_CARDS'], 'tool cards disabled');
+  inputs.push(explainInput({
+    key: 'semantic.mode',
+    value: runtime.semanticMode,
+    candidates: [environmentExplainCandidate('CODEXGPT_SEMANTIC_MODE')],
+    fallback: defaultExplainSource('profile semantic provider and tool mode')
+  }));
+  addOption('semantic.provider', runtime.semanticProvider, 'semanticProvider', '--semantic-provider', ['CODEXGPT_SEMANTIC_PROVIDER'], 'built-in semantic provider');
+  inputs.push(explainInput({
+    key: 'logging.requests',
+    value: runtime.logRequests,
+    candidates: [
+      cliExplainCandidate(args, 'logRequests', '--log-requests', argv),
+      environmentExplainCandidate('CODEXGPT_LOG_REQUESTS')
+    ],
+    fallback: defaultExplainSource('request logging disabled')
+  }));
+  if (authMode === 'oauth') {
+    inputs.push(explainInput({
+      key: 'oauth.localAdminPort',
+      value: localAdminPort,
+      candidates: [profileExplainCandidate(profile, 'localAdminPort')],
+      fallback: defaultExplainSource('OAuth setup must provide a distinct local-admin port')
+    }));
+  }
+  return inputs;
+}
+
 function hasToolCardsInput(args, profile = {}) {
   return args.toolCards !== undefined || profile.toolCards !== undefined || (process.env.CODEXGPT_TOOL_CARDS !== undefined && process.env.CODEXGPT_TOOL_CARDS !== '');
 }
@@ -840,6 +1087,102 @@ function codexSessionsOption(args, profile = {}) {
 
 function stableToken(existing = '') {
   return existing || randomBytes(24).toString('hex');
+}
+
+function buildRuntimeServerEnvironment(input) {
+  const environment = {
+    ...input.baseEnvironment,
+    CODEXGPT_ROOT: input.root,
+    CODEXGPT_ALLOWED_ROOTS: input.allowRoots.join(path.delimiter),
+    CODEXGPT_HOST: input.host,
+    CODEXGPT_PORT: input.port,
+    CODEXGPT_BASH_MODE: input.bash,
+    CODEXGPT_BASH_TRANSCRIPT: input.bashTranscript,
+    CODEXGPT_BASH_SESSION_ID: input.bashSession,
+    CODEXGPT_REQUIRE_BASH_SESSION: input.requireBashSession ? '1' : '0',
+    CODEXGPT_CODEX_SESSIONS: input.codexSessions,
+    CODEXGPT_WRITE_MODE: input.write,
+    CODEXGPT_TOOL_MODE: input.toolMode,
+    CODEXGPT_WIDGET_DOMAIN: input.widgetDomain,
+    CODEXGPT_TOOL_CARDS: input.toolCards ? '1' : '0',
+    CODEXGPT_SEMANTIC_MODE: input.semanticMode,
+    CODEXGPT_SEMANTIC_PROVIDER: input.semanticProvider,
+    CODEXGPT_CONNECTION_TEST: input.connectionTest ? '1' : '0',
+    CODEXGPT_MODE: input.mode,
+    CODEXGPT_AUTH_MODE: input.authMode,
+    CODEXGPT_TUNNEL_MODE: input.tunnel === 'none' ? '0' : '1',
+    CODEXGPT_ALLOW_QUERY_TOKEN: input.authMode === 'oauth' ? '0' : input.baseEnvironment.CODEXGPT_ALLOW_QUERY_TOKEN,
+    CODEXGPT_ALLOW_NO_HTTP_TOKEN: input.authMode === 'oauth' ? '0' : input.noAuth ? '1' : '0'
+  };
+  if (input.codexDir) environment.CODEXGPT_CODEX_DIR = input.codexDir;
+  if (input.logRequests) environment.CODEXGPT_LOG_REQUESTS = '1';
+  if (input.allowHome) environment.CODEXGPT_ALLOW_HOME = '1';
+  if (input.token) environment.CODEXGPT_HTTP_TOKEN = input.token;
+  else delete environment.CODEXGPT_HTTP_TOKEN;
+  delete environment.CODEXGPT_EXPECTED_CONFIG_FINGERPRINT;
+  delete environment.CODEXGPT_EXPECTED_CONFIG_INTEGRITY;
+  delete environment.CODEXGPT_CONFIG_INTEGRITY_KEY;
+  return environment;
+}
+
+async function resolveRuntimeConfigSnapshot(root, environment, options = {}) {
+  const configPath = path.join(projectRoot, 'dist', 'config.js');
+  const resolverPath = path.join(projectRoot, 'dist', 'configResolver.js');
+  if (!fs.existsSync(configPath) || !fs.existsSync(resolverPath)) {
+    throw new Error(`Missing built configuration modules. Run npm install && npm run build first.`);
+  }
+  const [{ loadResolvedConfig }, { resolveConfigBootstrap }] = await Promise.all([
+    import(pathToFileURL(configPath).href),
+    import(pathToFileURL(resolverPath).href)
+  ]);
+  const platform = process.platform;
+  const bootstrapArgv = options.argv ?? ['--root', root, ...(options.noProfile ? ['--no-profile'] : [])];
+  resolveConfigBootstrap({
+    argv: bootstrapArgv,
+    environment,
+    cwd: projectRoot,
+    platform,
+    filesystemPlatform: platform
+  });
+  return loadResolvedConfig(['--root', root, ...(options.noProfile ? ['--no-profile'] : [])], {
+    environment,
+    cwd: projectRoot,
+    platform,
+    filesystemPlatform: platform
+  });
+}
+
+async function resolveLauncherBootstrap(argv, environment = process.env, cwd = process.cwd()) {
+  const resolverPath = path.join(projectRoot, 'dist', 'configResolver.js');
+  if (!fs.existsSync(resolverPath)) {
+    throw new Error('Missing built configuration modules. Run npm install && npm run build first.');
+  }
+  const { resolveConfigBootstrap } = await import(pathToFileURL(resolverPath).href);
+  return resolveConfigBootstrap({
+    argv,
+    environment,
+    cwd,
+    platform: process.platform,
+    filesystemPlatform: process.platform
+  });
+}
+
+function readRuntimeConnectionRecord(root) {
+  try {
+    const runtime = readJsonFile(runtimeStatusPathForRoot(root));
+    if (!runtime || typeof runtime !== 'object' || Array.isArray(runtime)) return {};
+    if (runtime.version !== 1 || runtime.root !== root) return {};
+    if (!Number.isInteger(runtime.pid) || runtime.pid <= 0) return {};
+    if (!/^[a-f0-9]{64}$/.test(runtime.configFingerprint ?? '')) return {};
+    try {
+      process.kill(runtime.pid, 0);
+    } catch {
+      return {};
+    }
+    return runtime;
+  } catch {
+    return {};
+  }
 }
 
 function cloudflaredBinName() {
@@ -1446,8 +1789,38 @@ function shellCommandPreview(parts) {
   return parts.map((part) => {
     const text = String(part);
     if (/^[A-Za-z0-9_./:@=+-]+$/.test(text)) return text;
-    return `'${text.replace(/'/g, "'\\''")}'`;
+    return process.platform === 'win32'
+      ? `'${text.replace(/'/g, "''")}'`
+      : `'${text.replace(/'/g, "'\\''")}'`;
   }).join(' ');
+}
+
+function restartCommandPreview(argv, root) {
+  const omittedFlags = new Set(['--json', '--print-env', '--print-env-only']);
+  const filtered = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const raw = argv[index];
+    const option = raw.startsWith('--') ? raw.split('=', 1)[0] : '';
+    const secretOption = /(?:token|secret|password|private-key)/i.test(option);
+    if (option === '--root' || omittedFlags.has(option) || secretOption) {
+      if (!raw.includes('=') && argv[index + 1] && !argv[index + 1].startsWith('--') && option !== '--json' && option !== '--print-env' && option !== '--print-env-only') {
+        index += 1;
+      }
+      continue;
+    }
+    filtered.push(raw);
+  }
+  return shellCommandPreview(['codexgpt', 'start', ...filtered, '--root', root]);
+}
+
+function runtimeOwnsEndpoint(runtime, host, port) {
+  try {
+    const endpoint = new URL(runtime.localBase);
+    const endpointHost = endpoint.hostname === '[::1]' ? '::1' : endpoint.hostname;
+    return endpoint.protocol === 'http:' && endpointHost === host && endpoint.port === String(port);
+  } catch {
+    return false;
+  }
 }
 
 function redactForLog(value) {
@@ -1466,7 +1839,7 @@ function redactForLog(value) {
 function redactEnvObject(env) {
   const out = {};
   for (const [key, value] of Object.entries(env)) {
-    out[key] = /(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY)/i.test(key)
+    out[key] = /(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY|CODEXGPT_CONFIG_INTEGRITY_KEY)/i.test(key)
       ? '<redacted>'
       : redactForLog(String(value));
   }
@@ -1765,7 +2138,7 @@ function workspaceRelativePath(root, absolutePath) {
 
 async function commitWorkspaceWrites(root, writes, toolName) {
   const [configModule, guardModule, fsOpsModule, mutationModule] = await localMutationModules();
-  const config = configModule.loadConfig([...process.argv.slice(2), '--root', root]);
+  const config = configModule.loadConfig(replaceSingleValueOption(process.argv.slice(2), '--root', root));
   const guard = new guardModule.PathGuard(config);
   const workspaces = new guardModule.WorkspaceManager(config);
   const workspace = workspaces.openWorkspace(root);
@@ -3082,12 +3455,13 @@ async function runDoctor(argv) {
     return;
   }
 
-  const root = realDir(args.root ?? process.env.CODEXGPT_ROOT ?? process.cwd());
-  const profile = args.noProfile ? {} : loadWorkspaceProfile(root);
+  const bootstrap = await resolveLauncherBootstrap(argv);
+  const root = realDir(bootstrap.effective.rootInput);
+  const profile = bootstrap.effective.noProfile ? {} : loadWorkspaceProfile(root);
   const effectiveArgs = { ...profile, ...args };
   const tunnel = optionValue(args, profile, 'tunnel', ['CODEXGPT_TUNNEL'], 'cloudflare');
   const host = optionValue(args, profile, 'host', ['CODEXGPT_HOST'], '127.0.0.1');
-  const port = String(optionValue(args, profile, 'port', ['CODEXGPT_PORT'], '8787'));
+  const port = normalizePort(String(optionValue(args, profile, 'port', ['CODEXGPT_PORT'], '8787')));
   const mode = optionValue(args, profile, 'mode', ['CODEXGPT_MODE'], 'agent');
   const bash = optionValue(args, profile, 'bash', ['CODEXGPT_BASH_MODE'], 'safe');
   const rawWrite = optionValue(args, profile, 'write', ['CODEXGPT_WRITE_MODE'], mode === 'agent' ? 'workspace' : 'handoff');
@@ -3106,6 +3480,61 @@ async function runDoctor(argv) {
     ?? process.env.NGROK_DOMAIN
     ?? profile.hostname
     ?? '';
+  const authMode = String(process.env.CODEXGPT_AUTH_MODE ?? profile.authMode ?? 'legacy').trim();
+  if (authMode !== 'legacy' && authMode !== 'oauth') {
+    throw new Error('Authentication mode must be exactly legacy or oauth.');
+  }
+  const localAdminPort = authMode === 'oauth'
+    ? normalizePort(String(profile.localAdminPort ?? ''))
+    : '';
+  const allowRoots = [root, ...(args.allowRoots ?? [])].map(realDir);
+  const bashTranscript = bashTranscriptOption(args, profile);
+  const codexSessions = codexSessionsOption(args, profile);
+  const codexDir = resolveCodexDir(root, optionValue(args, profile, 'codexDir', ['CODEXGPT_CODEX_DIR'], ''));
+  const { bashSession, requireBashSession } = bashSessionOptions(args, profile);
+  const widgetDomain = optionValue(args, profile, 'widgetDomain', ['CODEXGPT_WIDGET_DOMAIN'], 'https://rebel0789.github.io');
+  const toolCards = optionBool(args, profile, 'toolCards', ['CODEXGPT_TOOL_CARDS'], false);
+  const semanticProvider = optionValue(args, profile, 'semanticProvider', ['CODEXGPT_SEMANTIC_PROVIDER'], 'builtin');
+  const semanticMode = process.env.CODEXGPT_SEMANTIC_MODE === 'legacy'
+    ? 'legacy'
+    : process.env.CODEXGPT_SEMANTIC_MODE === 'standard'
+      ? 'standard'
+      : profile.semanticProvider && toolMode !== 'minimal'
+        ? 'standard'
+        : 'legacy';
+  const configuredToken = optionValue(args, profile, 'token', ['CODEXGPT_HTTP_TOKEN', 'CODEBASE_BRIDGE_HTTP_TOKEN'], '');
+  const plannedToken = authMode === 'oauth' || args.noAuth ? '' : configuredToken || 'doctor-planned-token';
+  const doctorServerEnv = buildRuntimeServerEnvironment({
+    baseEnvironment: process.env,
+    root,
+    allowRoots,
+    host,
+    port,
+    bash,
+    bashTranscript,
+    bashSession,
+    requireBashSession,
+    codexSessions,
+    write,
+    toolMode,
+    widgetDomain,
+    toolCards,
+    semanticMode,
+    semanticProvider,
+    connectionTest: false,
+    mode,
+    authMode,
+    tunnel,
+    noAuth: Boolean(args.noAuth),
+    codexDir,
+    logRequests: Boolean(args.logRequests || process.env.CODEXGPT_LOG_REQUESTS === '1'),
+    allowHome: Boolean(args.allowHome),
+    token: plannedToken
+  });
+  const runtimeConfigSnapshot = await resolveRuntimeConfigSnapshot(root, doctorServerEnv, {
+    noProfile: Boolean(args.noProfile),
+    argv
+  });
   const httpPath = path.join(projectRoot, 'dist', 'http.js');
   const serverPath = path.join(projectRoot, 'dist', 'server.js');
   const cloudflaredPath = localOrPathCommand(
@@ -3119,18 +3548,21 @@ async function runDoctor(argv) {
   const checks = [];
 
   function record(status, label, detail) {
-    checks.push(status);
-    doctorLine(status, label, detail);
+    checks.push(Object.freeze({ status, label, detail: String(detail ?? '') }));
+    if (!args.json) doctorLine(status, label, detail);
   }
 
-  console.log('');
-  printBox('CodexGPT doctor', [
-    labelValue('Workspace', root),
-    labelValue('Mode', `${mode}  tools=${toolMode}  write=${write}  bash=${bash}`),
-    labelValue('Tunnel', tunnel),
-    ...(stableHostname ? [labelValue('Hostname', stableHostname)] : []),
-    ...(profile.profilePath ? [labelValue('Profile', profile.profilePath)] : [])
-  ]);
+  if (!args.json) {
+    console.log('');
+    printBox('CodexGPT doctor', [
+      labelValue('Workspace', root),
+      labelValue('Mode', `${mode}  tools=${toolMode}  write=${write}  bash=${bash}`),
+      labelValue('Tunnel', tunnel),
+      labelValue('Config fingerprint', runtimeConfigSnapshot.publicFingerprint),
+      ...(stableHostname ? [labelValue('Hostname', stableHostname)] : []),
+      ...(profile.profilePath ? [labelValue('Profile', profile.profilePath)] : [])
+    ]);
+  }
 
   record(compareMajorVersion(process.versions.node, 20) ? 'ok' : 'fail', 'Node', `v${process.versions.node} (requires >=20)`);
   record(fs.existsSync(httpPath) && fs.existsSync(serverPath) ? 'ok' : 'fail', 'Build artifacts', fs.existsSync(httpPath) ? 'dist ready' : 'missing dist/http.js; run npm install && npm run build');
@@ -3140,6 +3572,19 @@ async function runDoctor(argv) {
   record(['off', 'safe', 'full'].includes(bash) ? 'ok' : 'fail', 'Bash mode', ['off', 'safe', 'full'].includes(bash) ? bash : '--bash must be off, safe, or full');
   record(!writeError && ['off', 'handoff', 'workspace'].includes(write) ? 'ok' : 'fail', 'Write mode', writeError || write);
   record(['minimal', 'standard', 'full'].includes(toolMode) ? 'ok' : 'fail', 'Tool mode', ['minimal', 'standard', 'full'].includes(toolMode) ? toolMode : '--tool-mode must be minimal, standard, or full');
+  const savedRuntime = readRuntimeConnectionRecord(root);
+  const restartCommand = restartCommandPreview(argv, root);
+  if (savedRuntime.configFingerprint) {
+    record(
+      savedRuntime.configFingerprint === runtimeConfigSnapshot.publicFingerprint ? 'ok' : 'warn',
+      'Config match',
+      savedRuntime.configFingerprint === runtimeConfigSnapshot.publicFingerprint
+        ? 'current configuration matches the live runtime record'
+        : `current configuration differs from the live runtime record; stop it, then run: ${restartCommand}`
+    );
+  } else {
+    record('ok', 'Config match', 'no live runtime record; comparison skipped');
+  }
   const guidanceModeInput = process.env.CODEXGPT_GUIDANCE_MODE;
   const guidanceMode = guidanceModeInput === undefined && toolMode === 'minimal'
     ? 'legacy'
@@ -3157,13 +3602,12 @@ async function runDoctor(argv) {
   );
   if (guidanceMode === 'standard' && fs.existsSync(serverPath)) {
     try {
-      const [{ loadConfig }, { discoverInstructions }, { discoverTargetSkills }, { buildSkillCatalog }] = await Promise.all([
-        import(pathToFileURL(path.join(projectRoot, 'dist', 'config.js')).href),
+      const [{ discoverInstructions }, { discoverTargetSkills }, { buildSkillCatalog }] = await Promise.all([
         import(pathToFileURL(path.join(projectRoot, 'dist', 'guidance', 'instructions.js')).href),
         import(pathToFileURL(path.join(projectRoot, 'dist', 'guidance', 'skillDiscovery.js')).href),
         import(pathToFileURL(path.join(projectRoot, 'dist', 'guidance', 'skillCatalog.js')).href)
       ]);
-      const runtimeConfig = loadConfig(['--root', root, '--bash', String(bash), '--write', String(write), '--tool-mode', String(toolMode)]);
+      const runtimeConfig = runtimeConfigSnapshot.effective;
       const instructions = await discoverInstructions({
         root,
         targetPath: '.',
@@ -3201,14 +3645,6 @@ async function runDoctor(argv) {
       record('fail', 'Guidance scan', error instanceof Error ? error.message.split('\n')[0] : String(error));
     }
   }
-  const semanticProvider = optionValue(args, profile, 'semanticProvider', ['CODEXGPT_SEMANTIC_PROVIDER'], 'builtin');
-  const semanticMode = process.env.CODEXGPT_SEMANTIC_MODE === 'legacy'
-    ? 'legacy'
-    : process.env.CODEXGPT_SEMANTIC_MODE === 'standard'
-      ? 'standard'
-      : profile.semanticProvider && toolMode !== 'minimal'
-        ? 'standard'
-        : 'legacy';
   if (semanticMode === 'standard') {
     const typescriptPackage = path.join(projectRoot, 'node_modules', 'typescript', 'package.json');
     const semanticReady = semanticProvider === 'none' || fs.existsSync(typescriptPackage);
@@ -3225,11 +3661,18 @@ async function runDoctor(argv) {
   record(clipboard ? 'ok' : 'warn', 'Clipboard', clipboard || 'not found; URL will be printed for manual copy');
   record(browser ? 'ok' : 'warn', 'Browser open', browser || 'not found; open ChatGPT manually');
 
-  try {
-    await assertPortAvailable(host, port);
-    record('ok', 'Local port', `${host}:${port} available`);
-  } catch (error) {
-    record('fail', 'Local port', error instanceof Error ? error.message.split('\n')[0] : String(error));
+  const ownedRuntimeActive =
+    savedRuntime.configFingerprint === runtimeConfigSnapshot.publicFingerprint &&
+    runtimeOwnsEndpoint(savedRuntime, host, port);
+  if (ownedRuntimeActive) {
+    record('ok', 'Local port', `owned runtime active at ${host}:${port}`);
+  } else {
+    try {
+      await assertPortAvailable(host, port);
+      record('ok', 'Local port', `${host}:${port} available`);
+    } catch (error) {
+      record('fail', 'Local port', error instanceof Error ? error.message.split('\n')[0] : String(error));
+    }
   }
 
   if (tunnel === 'none') {
@@ -3325,8 +3768,53 @@ async function runDoctor(argv) {
     'unavailable; workspace mode must remain fail-closed until Phase 4B proves an offline filtered snapshot'
   );
 
-  const failures = checks.filter((status) => status === 'fail').length;
-  const warnings = checks.filter((status) => status === 'warn').length;
+  const configuration = createConfigExplanation(
+    runtimeConfigSnapshot,
+    buildConfigExplainInputs({
+        argv,
+        args,
+        profile,
+        root,
+        runtime: runtimeConfigSnapshot.effective,
+        authMode,
+        tunnel,
+        stableHostname,
+        mode,
+        localAdminPort,
+        bash,
+        bashTranscript,
+        codexSessions,
+        codexDir,
+        bashSession,
+        requireBashSession,
+        write,
+        toolMode,
+        widgetDomain,
+        toolCards,
+        semanticMode,
+        semanticProvider,
+        token: plannedToken
+    }),
+    { restartCommand }
+  );
+  for (const diagnostic of configuration.diagnostics) {
+    record('warn', 'Config compatibility', `${diagnostic.message} Next: ${diagnostic.remediation}`);
+  }
+  const failures = checks.filter((check) => check.status === 'fail').length;
+  const warnings = checks.filter((check) => check.status === 'warn').length;
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify({
+      schemaVersion: 1,
+      command: 'doctor',
+      ok: failures === 0,
+      summary: { failures, warnings },
+      configuration,
+      checks
+    }, null, 2)}\n`);
+    if (failures) process.exitCode = 1;
+    return;
+  }
+
   console.log('');
   if (failures) {
     statusLine('warn', `${failures} blocker${failures === 1 ? '' : 's'} and ${warnings} warning${warnings === 1 ? '' : 's'} found.`);
@@ -4419,11 +4907,19 @@ async function runLocalControlCli(family, argv) {
 async function main() {
   let argv = process.argv.slice(2);
   let connectionTest = false;
+  let explainConfig = false;
+  let explainConfigKey = '';
   if (argv[0] === '--version' || argv[0] === '-v' || argv[0] === 'version') {
     console.log(packageVersion());
     return;
   }
   let subcommand = argv[0];
+  if (subcommand === 'config' && argv[1] === 'explain') {
+    explainConfig = true;
+    explainConfigKey = argv[2] && !argv[2].startsWith('--') ? argv[2] : '';
+    argv = argv.slice(explainConfigKey ? 3 : 2);
+    subcommand = undefined;
+  }
   if (subcommand === 'inspect' || subcommand === 'review') {
     await runAnalysisCli(subcommand, argv.slice(1));
     return;
@@ -4442,7 +4938,7 @@ async function main() {
     argv = setupArgs;
     subcommand = argv[0];
   }
-  if (subcommand === 'settings' || subcommand === 'config') {
+  if (!explainConfig && (subcommand === 'settings' || subcommand === 'config')) {
     await runSettings(argv.slice(1));
     return;
   }
@@ -4522,15 +5018,16 @@ async function main() {
     return;
   }
 
-  const root = realDir(args.root ?? process.env.CODEXGPT_ROOT ?? process.cwd());
-  let profile = args.noProfile ? {} : loadWorkspaceProfile(root);
-  profile = await maybeConfigureFirstRun(root, args, profile);
+  const bootstrap = await resolveLauncherBootstrap(argv);
+  const root = realDir(bootstrap.effective.rootInput);
+  let profile = bootstrap.effective.noProfile ? {} : loadWorkspaceProfile(root);
+  if (!explainConfig) profile = await maybeConfigureFirstRun(root, args, profile);
   const effectiveArgs = { ...profile, ...args };
   const authMode = String(process.env.CODEXGPT_AUTH_MODE ?? profile.authMode ?? 'legacy').trim();
   if (authMode !== 'legacy' && authMode !== 'oauth') {
     throw new Error('Authentication mode must be exactly legacy or oauth.');
   }
-  if (profile.profilePath && !args.noProfile) {
+  if (!explainConfig && profile.profilePath && !args.noProfile) {
     statusLine('ok', `Using saved profile: ${profile.profilePath}`);
     const summary = profileSummary(profile);
     if (summary) statusLine('ok', `${summary}. Future launches from this folder only need: codexgpt start`);
@@ -4599,45 +5096,98 @@ async function main() {
       : optionValue(args, profile, 'token', ['CODEXGPT_HTTP_TOKEN', 'CODEBASE_BRIDGE_HTTP_TOKEN'], '');
   if (!token && !args.noAuth && authMode === 'legacy') token = stableToken();
 
-  const serverEnv = {
-    ...process.env,
-    CODEXGPT_ROOT: root,
-    CODEXGPT_ALLOWED_ROOTS: allowRoots.join(path.delimiter),
-    CODEXGPT_HOST: host,
-    CODEXGPT_PORT: port,
-    CODEXGPT_BASH_MODE: bash,
-    CODEXGPT_BASH_TRANSCRIPT: bashTranscript,
-    CODEXGPT_BASH_SESSION_ID: bashSession,
-    CODEXGPT_REQUIRE_BASH_SESSION: requireBashSession ? '1' : '0',
-    CODEXGPT_CODEX_SESSIONS: codexSessions,
-    CODEXGPT_WRITE_MODE: write,
-    CODEXGPT_TOOL_MODE: toolMode,
-    CODEXGPT_WIDGET_DOMAIN: widgetDomain,
-    CODEXGPT_TOOL_CARDS: toolCards ? '1' : '0',
-    CODEXGPT_SEMANTIC_MODE: process.env.CODEXGPT_SEMANTIC_MODE === 'legacy'
-      ? 'legacy'
-      : process.env.CODEXGPT_SEMANTIC_MODE === 'standard'
+  const semanticMode = process.env.CODEXGPT_SEMANTIC_MODE === 'legacy'
+    ? 'legacy'
+    : process.env.CODEXGPT_SEMANTIC_MODE === 'standard'
+      ? 'standard'
+      : profile.semanticProvider && toolMode !== 'minimal'
         ? 'standard'
-        : profile.semanticProvider && toolMode !== 'minimal'
-          ? 'standard'
-          : 'legacy',
-    CODEXGPT_SEMANTIC_PROVIDER: semanticProvider,
-    CODEXGPT_CONNECTION_TEST: connectionTest ? '1' : '0',
-    CODEXGPT_MODE: mode,
-    CODEXGPT_AUTH_MODE: authMode,
-    CODEXGPT_TUNNEL_MODE: tunnel === 'none' ? '0' : '1',
-    CODEXGPT_ALLOW_QUERY_TOKEN: authMode === 'oauth' ? '0' : process.env.CODEXGPT_ALLOW_QUERY_TOKEN,
-    CODEXGPT_ALLOW_NO_HTTP_TOKEN: authMode === 'oauth' ? '0' : args.noAuth ? '1' : '0'
-  };
+        : 'legacy';
+  const serverEnv = buildRuntimeServerEnvironment({
+    baseEnvironment: process.env,
+    root,
+    allowRoots,
+    host,
+    port,
+    bash,
+    bashTranscript,
+    bashSession,
+    requireBashSession,
+    codexSessions,
+    write,
+    toolMode,
+    widgetDomain,
+    toolCards,
+    semanticMode,
+    semanticProvider,
+    connectionTest,
+    mode,
+    authMode,
+    tunnel,
+    noAuth: Boolean(args.noAuth),
+    codexDir,
+    logRequests: Boolean(args.logRequests || process.env.CODEXGPT_LOG_REQUESTS === '1'),
+    allowHome: Boolean(args.allowHome),
+    token
+  });
+  const runtimeConfigSnapshot = await resolveRuntimeConfigSnapshot(root, serverEnv, {
+    noProfile: Boolean(args.noProfile),
+    argv
+  });
+  if (explainConfig) {
+    const explainedInputs = buildConfigExplainInputs({
+        argv,
+        args,
+        profile,
+        root,
+        runtime: runtimeConfigSnapshot.effective,
+        authMode,
+        tunnel,
+        stableHostname,
+        mode,
+        allowRoots,
+        host,
+        port,
+        localAdminPort,
+        bash,
+        bashTranscript,
+        codexSessions,
+        codexDir,
+        bashSession,
+        requireBashSession,
+        write,
+        toolMode,
+        widgetDomain,
+        toolCards,
+        semanticMode,
+        semanticProvider,
+        token
+      });
+    const selectedInputs = explainConfigKey
+      ? explainedInputs.filter((input) => input.key === explainConfigKey)
+      : explainedInputs;
+    if (explainConfigKey && selectedInputs.length === 0) {
+      throw new Error(
+        `Unknown configuration key: ${explainConfigKey}. Available public keys: ${explainedInputs.map((input) => input.key).join(', ')}`
+      );
+    }
+    const explanation = createConfigExplanation(
+      runtimeConfigSnapshot,
+      selectedInputs,
+      { restartCommand: restartCommandPreview(argv, root) }
+    );
+    process.stdout.write(args.json
+      ? `${JSON.stringify(explanation, null, 2)}\n`
+      : formatConfigExplanationText(explanation));
+    return;
+  }
+  serverEnv.CODEXGPT_EXPECTED_CONFIG_FINGERPRINT = runtimeConfigSnapshot.publicFingerprint;
+  const configIntegrityKey = randomBytes(32).toString('hex');
+  serverEnv.CODEXGPT_CONFIG_INTEGRITY_KEY = configIntegrityKey;
+  serverEnv.CODEXGPT_EXPECTED_CONFIG_INTEGRITY = runtimeConfigSnapshot.integrityProof(configIntegrityKey);
   if (serverEnv.CODEXGPT_SEMANTIC_MODE === 'standard') {
     statusLine('warn', 'Semantic V5 exposes 52 tools. In an existing 51-tool ChatGPT App, choose Scan Tools once or recreate the App.');
   }
-  if (codexDir) serverEnv.CODEXGPT_CODEX_DIR = codexDir;
-  if (args.logRequests || process.env.CODEXGPT_LOG_REQUESTS === '1') serverEnv.CODEXGPT_LOG_REQUESTS = '1';
-  if (args.allowHome) serverEnv.CODEXGPT_ALLOW_HOME = '1';
-  if (token) serverEnv.CODEXGPT_HTTP_TOKEN = token;
-  else delete serverEnv.CODEXGPT_HTTP_TOKEN;
-
   if (args.printEnv) {
     console.log(JSON.stringify(redactEnvObject(serverEnv), null, 2));
   }
@@ -4656,6 +5206,7 @@ async function main() {
     labelValue('Mode', `${mode}  tools=${toolMode}  write=${write}  bash=${bash}`),
     labelValue('Bash transcript', bashTranscript),
     labelValue('Codex sessions', codexSessions),
+    labelValue('Config fingerprint', runtimeConfigSnapshot.publicFingerprint),
     ...(bashSession ? [labelValue('Bash session', `${bashSession}${requireBashSession ? ' required' : ''}`)] : []),
     labelValue('Local URL', `http://${host}:${port}/mcp`),
     ...(authMode === 'oauth' ? [labelValue('Local admin', `http://127.0.0.1:${localAdminPort}/`)] : []),
@@ -4675,7 +5226,9 @@ async function main() {
 
   const verboseLogs = Boolean(args.logRequests || process.env.CODEXGPT_LOG_REQUESTS === '1');
   statusLine('wait', 'Starting local MCP server');
-  const server = spawnLogged('codexgpt', process.execPath, [httpPath, '--root', root], { cwd: projectRoot, env: serverEnv, verbose: verboseLogs });
+  const server = spawnLogged('codexgpt', process.execPath, [httpPath, '--root', root,
+    ...(args.noProfile ? ['--no-profile'] : [])
+  ], { cwd: projectRoot, env: serverEnv, verbose: verboseLogs });
   let cloudflared;
   let cleanupTunnelCredentials = () => {};
   const cleanup = () => {
@@ -4694,8 +5247,11 @@ async function main() {
       ...(authMode === 'oauth' ? [waitForHealth(`${localAdminBase}/healthz`, '', 15_000)] : [])
     ]);
   } catch (error) {
+    const serverTail = typeof server.codexgptLogTail === 'function' ? server.codexgptLogTail() : '';
     cleanup();
-    throw error;
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}${serverTail ? `\n${serverTail}` : ''}`
+    );
   }
   statusLine('ok', `Local MCP ready at ${localBase}/mcp`);
   const runtimeOptions = {
@@ -4712,7 +5268,8 @@ async function main() {
     bashSession,
     requireBashSession,
     toolCards,
-    connectionTest
+    connectionTest,
+    configFingerprint: runtimeConfigSnapshot.publicFingerprint
   };
 
   if (tunnel === 'none') {

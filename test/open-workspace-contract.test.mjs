@@ -373,7 +373,7 @@ test("open_workspace returns exact nested data with approved defaults and nullab
       assert.equal(parsed.ok, true);
       assert.equal(parsed.data.root, root);
       assert.equal(parsed.data.agents_path, null);
-      assert.equal(parsed.data.tree, ".\n└── package.json");
+      assert.equal(parsed.data.tree, null);
       assert.deepEqual(parsed.data.skills, []);
       assert.deepEqual(parsed.data.skill_inventory, []);
       assert.deepEqual(parsed.data.skill_counts, { total: 0, workspace: 0, user: 0, plugin: 0, other: 0 });
@@ -381,7 +381,7 @@ test("open_workspace returns exact nested data with approved defaults and nullab
       assert.equal(parsed.data.write_mode, "workspace");
       assert.equal(parsed.data.tool_mode, "standard");
       assert.deepEqual(seenOptions, {
-        includeTree: true,
+        includeTree: false,
         maxDepth: 3,
         maxEntries: 500,
         includeSkills: false,

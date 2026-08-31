@@ -131,6 +131,7 @@ export interface ProductionCodexGPTServerOptions {
   configuredRootWorkspaceRegistry?: WorkspaceCapabilityRegistry;
   workspaceCapabilityPrincipal?: () => Readonly<OAuthWorkspaceCapabilityPrincipalV1>;
   stateRootOptions?: TransactionStateRootOptions;
+  stateRoot?: string | null;
   observeRuntime?: (value: ProductionRuntimeObservation) => void;
   localApprovalRuntimeV3?: LocalApprovalRuntimeV3;
   rootAdmissionRuntimeV3?: RootAdmissionRuntimeV3;
@@ -341,7 +342,12 @@ function composeRuntime(
     throw new Error("Production Policy and atomic audit wiring require a stable session context source.");
   }
 
-  const stateRoot = resolveTransactionStateRoot(options.stateRootOptions);
+  const stateRoot = options.stateRoot === undefined
+    ? resolveTransactionStateRoot(options.stateRootOptions)
+    : options.stateRoot;
+  if (!stateRoot) {
+    throw new Error("This runtime configuration requires a transaction state root; set CODEXGPT_HOME or LOCALAPPDATA and restart.");
+  }
   const installation = loadOrCreateInstallationState({ stateRoot });
   const masterKey = installationMasterKey(installation);
   let ownerBindingKey: Buffer | null = null;
@@ -529,9 +535,9 @@ function composeRuntime(
         dependencies.v3ToolHandlers = {
           ...dependencies.v3ToolHandlers,
           start_process: async (args) => result(await manager.start(args)),
-          read_process_output: async (args) => {
+          read_process_output: async (args, extra) => {
             const processId = String(args.process_id ?? "");
-            if (manager.owns(processId)) return result(manager.read(processId, typeof args.cursor === "string" ? args.cursor : undefined, typeof args.max_bytes === "number" ? args.max_bytes : undefined));
+            if (manager.owns(processId)) return result(await manager.readResult(args, extra?.signal));
             return result(runCommandRuntime!.readProcessOutput(args));
           },
           write_process_input: async (args) => result(await manager.writeResult(args)),

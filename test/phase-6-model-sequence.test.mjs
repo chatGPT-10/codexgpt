@@ -39,6 +39,21 @@ test("legacy server instructions remain free of Phase 6 target-call requirements
   assert.doesNotMatch(text, /codex_context\(target_path\) before the first mutation/);
 });
 
+test("V5 model guidance states the finite and persistent process lifecycle contract", () => {
+  const base = {
+    guidanceMode: "standard", connectionTest: false, writeMode: "workspace", bashMode: "off",
+    toolMode: "standard", codexSessions: "off", authMode: "legacy"
+  };
+  const v5 = serverInstructions({ ...base, toolContractVersion: 5 });
+  assert.match(v5, /run_command only for a bounded command expected to exit/u);
+  assert.match(v5, /full-mode start_process for persistent or interactive work/u);
+  assert.match(v5, /non-null next_cursor back as cursor/u);
+  assert.match(v5, /terminate the owned process/u);
+  assert.match(v5, /state is canonical and status is its compatibility alias/u);
+  const v4 = serverInstructions({ ...base, toolContractVersion: 4 });
+  assert.doesNotMatch(v4, /state is canonical/u);
+});
+
 test("guidance diagnostics expose one action without leaking extra detail", () => {
   assert.deepEqual(summarizeGuidanceDiagnostics([]), {
     status: "ok", count: 0, first: null, action: "No guidance action is required."

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
+import { changeWorkflowStateSchema } from "./changeWorkflow.js";
 
 const workspaceIdSchema = z.string().min(1).max(160);
 const changeSetIdSchema = z.string().regex(/^cs_[a-f0-9]{32}$/);
@@ -35,7 +36,7 @@ export const undoChangeSetOperationSchema = z.discriminatedUnion("kind", [
   }).strict()
 ]);
 
-export const undoChangeSetDataSchema = z.object({
+const undoChangeSetDataBaseSchema = z.object({
   workspace_id: workspaceIdSchema,
   preview: z.boolean(),
   change_set_id: changeSetIdSchema.nullable(),
@@ -43,7 +44,9 @@ export const undoChangeSetDataSchema = z.object({
   operation_count: z.number().int().positive().max(64),
   operations: z.array(undoChangeSetOperationSchema).min(1).max(64),
   undo_supported: z.literal(false)
-}).strict().superRefine((value, context) => {
+}).strict();
+
+export const undoChangeSetDataSchema = undoChangeSetDataBaseSchema.superRefine((value, context) => {
   if (value.operation_count !== value.operations.length) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -139,6 +142,34 @@ export const undoChangeSetOutputSchema = undoChangeSetOutputBaseSchema.superRefi
 
 export type UndoChangeSetData = z.infer<typeof undoChangeSetDataSchema>;
 export type UndoChangeSetStructuredResult = z.infer<typeof undoChangeSetOutputBaseSchema>;
+
+const undoChangeSetDataBaseSchemaV5 = undoChangeSetDataBaseSchema.extend({
+  workflow: changeWorkflowStateSchema.optional()
+}).strict();
+
+export const undoChangeSetDataSchemaV5 = undoChangeSetDataBaseSchemaV5.superRefine((value, context) => {
+  const { workflow: _workflow, ...legacy } = value;
+  const parsed = undoChangeSetDataSchema.safeParse(legacy);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) context.addIssue(issue);
+  }
+});
+
+export const undoChangeSetOutputShapeV5 = {
+  ...undoChangeSetOutputShape,
+  data: undoChangeSetDataSchemaV5.nullable()
+};
+
+const undoChangeSetOutputBaseSchemaV5 = z.object(undoChangeSetOutputShapeV5).strict();
+
+export const undoChangeSetOutputSchemaV5 = undoChangeSetOutputBaseSchemaV5.superRefine((value, context) => {
+  if (value.ok && (value.data === null || value.error !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful V5 undo requires data and no error." });
+  }
+  if (!value.ok && (value.data !== null || value.error === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed V5 undo requires an error and no data." });
+  }
+});
 
 export function createUndoChangeSetSuccess(
   data: UndoChangeSetData,

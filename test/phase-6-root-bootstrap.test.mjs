@@ -27,7 +27,7 @@ function config(root) {
   };
 }
 
-test("standard workspace open returns root instruction bodies and bounded Skill metadata", async () => {
+test("standard workspace open preserves structured root guidance while bounding model text and Skill metadata", async () => {
   const created = await fs.mkdtemp(path.join(os.tmpdir(), "phase6-root-bootstrap-"));
   const root = await fs.realpath(created);
   await fs.writeFile(path.join(root, "AGENTS.md"), "ROOT GUIDANCE");
@@ -47,7 +47,7 @@ test("standard workspace open returns root instruction bodies and bounded Skill 
     assert.equal(result.structuredContent.data.instruction_chain[0].text, "ROOT GUIDANCE");
     assert.deepEqual(result.structuredContent.data.skill_catalog.map((item) => item.name), ["verify-build"]);
     const text = result.content.map((item) => item.text ?? "").join("\n");
-    assert.match(text, /ROOT GUIDANCE/);
+    assert.doesNotMatch(text, /ROOT GUIDANCE/);
     assert.match(text, /verify-build/);
     assert.doesNotMatch(text, /SECRET BODY MUST STAY LAZY/);
   } finally {

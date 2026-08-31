@@ -237,7 +237,7 @@ The no-mutation rule at step 5 is a new critical invariant. In a shared registry
 Authority:
 
 - caller must already have a verified OAuth request and `workspace:open` eligibility;
-- requested root is normalized, native-realpath resolved, and checked against `allowedRoots` exactly as today;
+- requested root is normalized, native-realpath resolved, and checked against the same current `allowedRoots` policy as the configured-root open flow;
 - `beforeWorkspaceUse` must succeed before issue/touch.
 
 Behavior:

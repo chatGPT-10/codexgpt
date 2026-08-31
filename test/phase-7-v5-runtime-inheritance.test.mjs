@@ -152,11 +152,18 @@ test("V5 server registers exact V4 inheritance plus semantic in standard/full on
 
   await connect(standardServer, async (client) => {
     const listedTools = (await client.listTools()).tools;
+    assert.equal(
+      listedTools.find((tool) => tool.name === "run_command")?.description,
+      "Run one finite full_access command with bounded retained output and optional exact-candidate verification. This is ambient authority, not a sandbox. Use when: A bounded command expected to terminate, such as tests, build, lint, or typecheck, must run. Do not use when: A persistent or interactive command must run; use start_process."
+    );
+    assert.equal(listedTools.some((tool) => tool.name === "start_process"), false);
     const descriptor = listedTools.find((tool) => tool.name === "semantic");
     assert.ok(descriptor);
     assert.equal(descriptor.inputSchema.type, "object");
     for (const property of [
       "operation",
+      "intent",
+      "query",
       "locator",
       "path",
       "severity",
@@ -168,6 +175,7 @@ test("V5 server registers exact V4 inheritance plus semantic in standard/full on
     ]) {
       assert.ok(descriptor.inputSchema.properties?.[property], `semantic descriptor must expose ${property}`);
     }
+    assert.equal(descriptor.inputSchema.properties.operation.enum.includes("navigate"), true);
     assert.equal(descriptor.inputSchema.properties.locator.type, "object");
     assert.equal("anyOf" in descriptor.inputSchema.properties.locator, false);
     assert.deepEqual(
@@ -206,6 +214,10 @@ test("V5 server registers exact V4 inheritance plus semantic in standard/full on
   const listed = await standard.codexgpt.handler({ action: "list_actions" });
   assert.equal(codexgptOutputSchemaV5.safeParse(listed.structuredContent).success, true);
   assert.equal(listed.structuredContent.data.actions.includes("semantic"), true);
+  assert.equal(listed.structuredContent.data.action_count, listed.structuredContent.data.actions.length);
+  assert.equal(listed.structuredContent.data.actions.includes("verify_change"), false);
+  assert.deepEqual(listed.structuredContent.data.workflow_actions, ["verify_change"]);
+  assert.equal(listed.structuredContent.data.workflow_action_count, 1);
   const serverConfig = await standard.server_config.handler({});
   assert.equal(serverConfig.structuredContent.data.toolContractVersion, 5);
   assert.equal(serverConfig.structuredContent.data.semanticProvider, "builtin");
@@ -214,6 +226,10 @@ test("V5 server registers exact V4 inheritance plus semantic in standard/full on
 
   const fullServer = createCodexGPTServer(v5Config("full"), dependencies());
   assert.ok(fullServer._registeredTools.semantic);
+  assert.equal(
+    fullServer._registeredTools.start_process.description,
+    "Start one owned full_access process with a bounded lifetime and optional exact-candidate verification. Use ConPTY for terminal-dependent Windows interaction, consume incremental output with next_cursor, and terminate the process when finished. This is ambient authority, not a sandbox. Use when: A persistent or interactive command such as a dev server, watcher, or REPL must run. Do not use when: A bounded command expected to terminate must run; use run_command."
+  );
   await fullServer.close();
 });
 

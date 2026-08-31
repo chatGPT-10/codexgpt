@@ -355,6 +355,8 @@ codexgpt settings delete --yes
 
 Saved tokens are redacted when profiles are displayed.
 
+For a read-only explanation of which launcher input won, run `codexgpt config explain --json`; for configuration plus environment and runtime checks, run `codexgpt doctor --json`. Both outputs keep secret values at `set` or `missing`. Selected `CODEBASE_BRIDGE_HTTP_TOKEN`, `CODEBASE_BRIDGE_REPO_ROOT`, and `CODEXGPT_HOSTNAME` compatibility inputs receive value-free PowerShell migration commands to their canonical `CODEXGPT_*` names. Selected `NGROK_DOMAIN` is preserved separately as mode-ambiguous because its ngrok-specific name remains effective across every tunnel mode; it has no scheduled migration warning.
+
 ## What are `legacy`, `shadow`, and `enforce` Policy Kernel modes?
 
 `legacy` is the migration-cycle default and preserves the existing execution path. `shadow` preserves that path while calculating only redacted comparison decisions. `enforce` makes the compiled Policy Kernel authoritative and fails closed when policy or required enforcement facts are unavailable.

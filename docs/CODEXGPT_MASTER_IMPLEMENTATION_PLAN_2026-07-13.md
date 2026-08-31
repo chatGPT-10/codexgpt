@@ -1,16 +1,16 @@
 # CodexGPT 总体实施计划
 
-> 版本：2.12
+> 版本：2.16
 > 生效日期：2026-07-13
-> 核对日期：2026-08-16
+> 核对日期：2026-08-31
 > 状态：当前权威实施路线
 > 工作区：`D:\Dev\codexgpt`
 > 当前 npm 版本：`codexgpt@1.0.4`
-> 当前阶段：历史 Phase 1–8 Core 与 `1.0.4` release closure 均已完成。post-`1.0.4` modernization 当前在 `codex/tool-execution-pipeline-slice1`：P1 slice 固定于 `8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e`，baseline 固定于 `c43ec8ecae9782598ebc9cf90d8df8cdde1035c1`。STEP-493/494 已关闭真实 ChatGPT Web A1 workspace-continuity blocker。STEP-495 现把 A2 onward 的公平对照固定为两个 base refs + 同一 exact `successor-overlay.json`；六个 workspace-successor runtime 文件在 baseline/candidate 上逐字节相同，两边 exact overlay/package identity/build 均通过。
+> 当前阶段：历史 Phase 1–8 Core 与 `1.0.4` release closure 均已完成。STEP-533/535/537 分别关闭 P1 unified tool pipeline、P2 bounded workspace bootstrap 与 P3 unified code navigation；STEP-538/539 关闭 P4 change verification/review。P5 long-task/process experience 已在现有 Windows process kernel 上完成本地实现：V5 以 `state` 统一 `starting|running|exited|failed|terminated`，保留值相等的 `status` 迁移别名；启动期间可真实观察 `starting`，而 `start_process` 只在进入 `running` 后成功；启动撤销与关闭会 join 并终止随后到达的 owned handle。既有 cursor/wait/quota/Job-tree/Policy/approval/audit 边界不变，V3/V4 wire 保持精确，V1–V5 直接工具数仍为 28/31/39/51/52。owner 未授权新的 P0/Web trace，因此没有新的 ChatGPT Web efficiency 结论。
 >
-> 下一动作：STEP-495 A2 pair 已完成。baseline-successor 与 candidate-successor 都满足 A2 success criteria，均为 `task_success=true`；两边都未提供完整 UI/tool trace，因此 wrong/redundant/total tool-call metrics 保持 `null`，A2 不支持 P1 efficiency 改善或回归结论。两个 exact A2 runtimes 均已停止。B1 是顺序上的下一 benchmark case，但尚未启动，也不由已完成的 A2 continuation scope 自动授权。
+> 下一动作：P1–P5 本地实现完成后不自动进入新的产品阶段；App refresh/runtime deployment、fresh ChatGPT Web trace 与 publication 均不自动授权。若以后单独授权 Web 验收，必须保存完整 UI/tool trace 后才评分 `wrong_tool_calls`、`redundant_tool_calls`、`total_tool_calls`，不得从回答文字反推。
 >
-> 授权状态：历史 Phase 1–8 Core、`1.0.0`–`1.0.4` 的已记录有界修复与发布均已完成；2026-08-16 额外授权 Phase 0 benchmark、STEP-492/493 successor work、STEP-494 A1 closure，以及 STEP-495 successor-adjusted A/B preparation/A2 continuation。进一步 P1 implementation、publication、凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
+> 授权状态：历史 Phase 1–8 Core、`1.0.0`–`1.0.4` 的已记录有界修复与发布、Phase 0 campaign，以及 owner 明确授权的完整 P1–P5 local implementation 均已完成或正在进行最终门禁。publication、commit/push、App refresh、runtime deployment、凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 

@@ -38,7 +38,7 @@ function expandHome(input) {
 }
 
 function canonicalRoot(argv, env = process.env) {
-  const input = optionValue(argv, "root") || env.CODEXGPT_ROOT || process.cwd();
+  const input = optionValue(argv, "root") || env.CODEXGPT_ROOT || env.CODEBASE_BRIDGE_REPO_ROOT || process.cwd();
   const resolved = path.resolve(expandHome(input));
   try {
     return fs.realpathSync(resolved);
@@ -74,6 +74,14 @@ function savedProfileHostname(argv, env = process.env) {
 }
 
 export function launchEnvironment(argv, env = process.env) {
+  const cliHostname = optionValue(argv, "hostname") || optionValue(argv, "url");
+  if (
+    !cliHostname &&
+    !env.CODEXGPT_PUBLIC_HOSTNAME &&
+    (env.CODEXGPT_HOSTNAME || env.NGROK_DOMAIN)
+  ) {
+    return env;
+  }
   const publicHostname = savedProfileHostname(argv, env);
   return publicHostname
     ? { ...env, CODEXGPT_PUBLIC_HOSTNAME: publicHostname }
@@ -209,7 +217,13 @@ async function main() {
   }
 
   if (subcommand === "doctor") {
-    exitFrom(runNodeScript("doctor.mjs", argv.slice(1)));
+    const doctorArgs = argv.slice(1);
+    const plannedStartArgs = ["start", ...doctorArgs];
+    const doctorEnv = connectorAuthOutputEnvironment(
+      plannedStartArgs,
+      launchEnvironment(plannedStartArgs)
+    );
+    exitFrom(runNodeScript("doctor.mjs", doctorArgs, doctorEnv));
     return;
   }
 

@@ -270,13 +270,20 @@ export async function revalidateSemanticProject(
     .sort((left, right) => left.localeCompare(right));
   if (!samePathInventory(currentSourcePaths, cachedSourcePaths)) return null;
   if (options.includeDependencies !== false) {
-    if (project.dependencyPartial) return null;
-    const dependencyInventory = await dependencyInventoryForSources(workspace.root, sourceSnapshots, maxFiles);
-    const currentDependencyPaths = [...dependencyInventory.paths].sort((left, right) => left.localeCompare(right));
-    const cachedDependencyPaths = dependencySnapshots
-      .map((snapshot) => snapshot.relativePath)
-      .sort((left, right) => left.localeCompare(right));
-    if (dependencyInventory.truncated || !samePathInventory(currentDependencyPaths, cachedDependencyPaths)) return null;
+    // A bounded dependency project can be intentionally partial because of
+    // file/byte ceilings. Re-resolving the same partial inventory on every
+    // semantic call cannot make it complete and makes Node 20 diagnostics
+    // repeatedly rebuild an otherwise valid project. Exact projects still
+    // require exact dependency inventory parity; partial projects revalidate
+    // every cached dependency snapshot below and remain explicitly partial.
+    if (!project.dependencyPartial) {
+      const dependencyInventory = await dependencyInventoryForSources(workspace.root, sourceSnapshots, maxFiles);
+      const currentDependencyPaths = [...dependencyInventory.paths].sort((left, right) => left.localeCompare(right));
+      const cachedDependencyPaths = dependencySnapshots
+        .map((snapshot) => snapshot.relativePath)
+        .sort((left, right) => left.localeCompare(right));
+      if (dependencyInventory.truncated || !samePathInventory(currentDependencyPaths, cachedDependencyPaths)) return null;
+    }
   }
 
   const sourceHashes = new Map(sourceSnapshots.map((snapshot) => [snapshot.relativePath, snapshot.sha256]));

@@ -17,7 +17,6 @@ import {
 import { createOAuthPolicySessionSource } from "../auth/policyIdentity.js";
 import type { OAuthDeploymentIdentity, OAuthScope } from "../auth/types.js";
 import { createProductionGitBootstrapV4 } from "../git/productionBootstrap.js";
-import { resolveTransactionStateRoot } from "../transactions/index.js";
 import { contractIncludesV3 } from "../tools/contracts/index.js";
 import type { PublicOAuthMcpRuntime } from "./publicApp.js";
 import type { SemanticPreviewStore } from "../semantic/previewStore.js";
@@ -267,12 +266,17 @@ export class OAuthReadOnlyMcpRuntime implements PublicOAuthMcpRuntime {
     const policySessionContextSource = createOAuthPolicySessionSource({
       transportSessionId: () => String((transport as { sessionId?: string }).sessionId ?? "pending")
     });
+    const stateRoot = this.#config.transactionStateRoot;
+    if (!stateRoot) {
+      throw new Error("OAuth requires a transaction state root; set CODEXGPT_HOME or LOCALAPPDATA and restart.");
+    }
     const gitBootstrapV4 = await createProductionGitBootstrapV4(this.#config, {
-      stateRoot: resolveTransactionStateRoot()
+      stateRoot
     });
     let server: ReturnType<typeof createProductionCodexGPTServer>;
     try {
       server = createProductionCodexGPTServer(this.#config, {
+        stateRoot,
         policySessionContextSource,
         oauthToolSecurity: {
           identity: this.#identity,
