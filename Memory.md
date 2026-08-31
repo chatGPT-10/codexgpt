@@ -6,12 +6,12 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-08-31; branch `codex/tool-execution-pipeline-slice1` remains at `c40964a31f1e641a969d38c2bc43581582063997`, 15 commits ahead of fetched `origin/main` `c43ec8ecae9782598ebc9cf90d8df8cdde1035c1`, with the reviewed STEP-516–541 working-tree delta. Public release remains `codexgpt@1.0.4`.
+- Date: 2026-08-31; branch `codex/tool-execution-pipeline-slice1` is at `731adb7b808b8bc7810a50f875f297674983eca3`, 16 commits ahead of fetched `origin/main` `c43ec8ecae9782598ebc9cf90d8df8cdde1035c1`, and is synchronized with `origin/codex/tool-execution-pipeline-slice1`. Public release remains `codexgpt@1.0.4`.
 - Historical Phase 1–8 Core/releases and roadmap P1–P5 are closed locally; exact implementation and verification history is archived.
 
 ## Approved execution boundary
 
-P1–P5 local closure authorizes no App refresh, deployment, publication, commit/push, or Web-efficiency claim. The `NGROK_DOMAIN` warning/retention decision remains open and must preserve STEP-531 value/fingerprint parity; other network, credential, service, sandbox/egress, deferred-phase, and external-state work remains separately gated.
+P1–P5 local closure was explicitly authorized for this GitHub handoff and is now committed and pushed to `origin/codex/tool-execution-pipeline-slice1`; no App refresh, deployment, package/release publication, or Web-efficiency claim was performed. The `NGROK_DOMAIN` warning/retention decision remains open and must preserve STEP-531 value/fingerprint parity; other network, credential, service, sandbox/egress, deferred-phase, and external-state work remains separately gated.
 
 ## Active decisions and constraints
 
@@ -45,6 +45,7 @@ P1–P5 local closure authorizes no App refresh, deployment, publication, commit
 - STEP-538/539 close P4 with strict workflow schemas/service, V5 mutation next-state, composite-only confirmed verification, and an exact five-item whole-diff review checklist while preserving all direct counts, older wire contracts, and execution gates. Final frozen-tree ordinary run `2026-08-31T12-19-26-448Z-p4-final-ordinary-r3-1146656d` passed Node 20/24 fast 1243/1244 (1 platform skip), safe 299/300 (1 platform skip), and isolated 68/68 on each; final smoke run `2026-08-31T12-42-59-759Z-p4-final-smoke-r2-b896f209` passed every smoke category on both majors with complete output, empty stderr, and cleaned temporary state.
 - STEP-540 reconciles P4 knowledge and rules without source changes: active guidance now distinguishes standard tool-mode visibility from the required `full_access` execution profile, `SECURITY.md` states the trusted-code boundary, `AGENTS.md` closes roadmap P1–P4 locally, one stale relative-time phrase was removed, and the authorized Codex-memory correction request is `D:\Codex\home\memories\extensions\ad_hoc\notes\20260831-153000-codexgpt-p4-closure.md`. Build, 45/45 focused knowledge/contracts, Policy, diff, UTF-8/link, credential, archive, staging, and size gates passed.
 - STEP-541 closes P5 with additive V5 process schemas, truthful `starting -> running` publication, startup join/termination, and model/user guidance while preserving V3/V4 and `28/31/39/51/52`. Managed focused passed 104/104 on each Node major; final ordinary run `2026-08-31T18-14-07-141Z-p5-final-ordinary-r1-ea022307` passed fast 1249/1250 (1 platform skip), safe 299/300 (1 platform skip), and isolated 68/68 on both; final smoke run `2026-08-31T18-35-08-867Z-p5-final-smoke-r2-2a73d195` passed all eight categories on both with empty stderr. Both builds, 117/117 broader focused, package, Policy, diff, credentials, and staging gates passed.
+- User-authorized GitHub handoff commit `731adb7b808b8bc7810a50f875f297674983eca3` was pushed by ordinary fast-forward to `origin/codex/tool-execution-pipeline-slice1`; post-push refs match and the working tree is clean. No force push, merge, App refresh, deployment, release publication, or Web-efficiency claim was performed.
 
 ## Known limitations
 
@@ -58,7 +59,7 @@ P1–P5 local closure authorizes no App refresh, deployment, publication, commit
 - Cached-App migration requires one explicit **Scan Tools** refresh or recreation; transparent refresh is not claimed. U6 proved this by creating a V4 51-tool App before switching the same endpoint to V5.
 - Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. `npm audit` has zero high/critical findings and two moderate transitive findings in the current MCP SDK compatibility line.
 - P4 verification/review state is server-local and does not survive restart; durable change sets remain the filesystem rollback authority. Failed checks make the workflow terminal but not ready, and invalid explicit review linkage leaves the diff result valid while reporting that the workflow was not updated.
-- The owner did not authorize a new P0/Web rerun for P1–P5. Historical matched task success did not regress, but the current working tree has no complete fresh UI/tool trace; `wrong_tool_calls`, `redundant_tool_calls`, and `total_tool_calls` therefore remain unscored and no efficiency reduction is claimed.
+- The owner did not authorize a new P0/Web rerun for P1–P5. Historical matched task success did not regress, but the published branch has no complete fresh UI/tool trace; `wrong_tool_calls`, `redundant_tool_calls`, and `total_tool_calls` therefore remain unscored and no efficiency reduction is claimed.
 
 ## Open items
 
@@ -70,6 +71,7 @@ P1–P5 local closure authorizes no App refresh, deployment, publication, commit
 
 - **STEP-540 — P4 knowledge and rule closure:** corrected the tool-mode/execution-profile distinction, added the missing security boundary, synchronized project and Codex memory, and re-audited every docs Markdown plus rules, links, credentials, archives, and sizes without changing product behavior.
 - **STEP-541 — P5 long-task/process experience:** V5 exposes one truthful process lifecycle, startup closure can no longer miss a late handle, incremental cursor/wait and owned-tree cleanup stay on the retained kernel, and the complete dual-Node ordinary/smoke/package/policy gates passed.
+- **P1–P5 GitHub handoff:** after the dual-Node P5 gates passed, the reviewed closure was committed as `731adb7` and pushed to the matching GitHub branch without force or merge.
 
 ## Archives
 

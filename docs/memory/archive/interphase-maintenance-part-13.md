@@ -103,3 +103,19 @@ This append-only continuation begins with STEP-538 after Part 12 crossed the 48 
 **Next approved action:** none. Roadmap P1–P5 are locally closed. App refresh, fresh ChatGPT Web evidence, runtime deployment, publication, staging/commit/push, credentials, network/services, background installation, and any new product stage remain separately gated.
 
 **Post-record verification:** after the STEP-541 project-memory and archive update, `npm run build` passed and the focused P5/knowledge/package/profile set passed 59/59. `npm run policy:check` passed. `git diff --check` reported no error beyond the existing informational LF-to-CRLF notices. The full repository Markdown audit found 176 files, 123 valid local links, zero invalid UTF-8 files, zero missing targets, and zero unindexed archive volumes across all 45 archives. The active guidance scan found zero relative-time matches; the scoped added-line credential scan found zero high-confidence credential literals; no file is staged or deleted.
+
+## 2026-08-31 — Post-STEP-541 GitHub handoff
+
+**Status:** completed after the owner's explicit request to push the P1–P5 closure to GitHub. This is a publication/handoff record; no new product behavior or authority was added.
+
+**Goal:** publish the already verified local P1–P5 closure on its existing branch while preserving the branch history and the project's no-force/no-merge boundary.
+
+**Files changed:** `Memory.md` and this archive entry only for this post-push record. The handoff published the previously reviewed 120-file closure commit; no unrelated workspace file was added to the handoff.
+
+**Implementation and user impact:** after refreshing `origin/codex/tool-execution-pipeline-slice1` and rerunning the P5 process regression, both managed Node builds, both managed smoke suites, `git diff --check`, the high-confidence credential scan, and `npm run policy:check`, the current staged closure was committed as `731adb7b808b8bc7810a50f875f297674983eca3` with message `feat: close P1-P5 local roadmap implementation`. The normal push updated GitHub from `8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e` to that commit. Users and collaborators can now retrieve the verified P1–P5 branch from GitHub; App refresh, runtime deployment, and release publication remain separate actions.
+
+**Verification:** `git push origin HEAD:codex/tool-execution-pipeline-slice1` exited 0; a subsequent ref check reported local `HEAD` and `origin/codex/tool-execution-pipeline-slice1` both at `731adb7b808b8bc7810a50f875f297674983eca3`; `git status --short --branch` reported a clean tracking branch. The post-record documentation checks must pass before this record is committed and pushed.
+
+**Decisions, risks, and rollback:** no force push, merge, tag, release, App mutation, deployment, credential/network/service change, or Web benchmark was performed. The remote branch now contains the reviewed closure and can be reverted only through an explicit new Git revert; history was not rewritten. The unscored Web-efficiency metrics and all separately gated roadmap items remain unchanged.
+
+**Next approved action:** none. Any App refresh, fresh ChatGPT Web evidence, runtime deployment, package/release publication, credentials, network/services, background installation, or new product stage requires separate authorization.
