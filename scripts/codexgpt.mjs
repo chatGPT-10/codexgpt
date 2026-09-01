@@ -1810,7 +1810,10 @@ function restartCommandPreview(argv, root) {
     }
     filtered.push(raw);
   }
-  return shellCommandPreview(['codexgpt', 'start', ...filtered, '--root', root]);
+  const rootPreview = process.platform === 'win32'
+    ? `'${String(root).replace(/'/g, "''")}'`
+    : `'${String(root).replace(/'/g, "'\\''")}'`;
+  return `${shellCommandPreview(['codexgpt', 'start', ...filtered, '--root'])} ${rootPreview}`;
 }
 
 function runtimeOwnsEndpoint(runtime, host, port) {
