@@ -5,12 +5,12 @@
 > 核对日期：2026-08-31
 > 状态：当前权威实施路线
 > 工作区：`D:\Dev\codexgpt`
-> 当前 npm 版本：`codexgpt@1.0.4`
-> 当前阶段：历史 Phase 1–8 Core 与 `1.0.4` release closure 均已完成。STEP-533/535/537 分别关闭 P1 unified tool pipeline、P2 bounded workspace bootstrap 与 P3 unified code navigation；STEP-538/539 关闭 P4 change verification/review。P5 long-task/process experience 已在现有 Windows process kernel 上完成本地实现：V5 以 `state` 统一 `starting|running|exited|failed|terminated`，保留值相等的 `status` 迁移别名；启动期间可真实观察 `starting`，而 `start_process` 只在进入 `running` 后成功；启动撤销与关闭会 join 并终止随后到达的 owned handle。既有 cursor/wait/quota/Job-tree/Policy/approval/audit 边界不变，V3/V4 wire 保持精确，V1–V5 直接工具数仍为 28/31/39/51/52。owner 未授权新的 P0/Web trace，因此没有新的 ChatGPT Web efficiency 结论。
+> 当前 npm 版本：`codexgpt@1.0.5`
+> 当前阶段：历史 Phase 1–8 Core 与 `1.0.5` release closure 均已完成。STEP-533/535/537 分别关闭 P1 unified tool pipeline、P2 bounded workspace bootstrap 与 P3 unified code navigation；STEP-538/539 关闭 P4 change verification/review。P5 long-task/process experience 已在现有 Windows process kernel 上完成本地实现：V5 以 `state` 统一 `starting|running|exited|failed|terminated`，保留值相等的 `status` 迁移别名；启动期间可真实观察 `starting`，而 `start_process` 只在进入 `running` 后成功；启动撤销与关闭会 join 并终止随后到达的 owned handle。既有 cursor/wait/quota/Job-tree/Policy/approval/audit 边界不变，V3/V4 wire 保持精确，V1–V5 直接工具数仍为 28/31/39/51/52。owner 未授权新的 P0/Web trace，因此没有新的 ChatGPT Web efficiency 结论。
 >
 > 下一动作：P1–P5 本地实现完成后不自动进入新的产品阶段；App refresh/runtime deployment、fresh ChatGPT Web trace 与 publication 均不自动授权。若以后单独授权 Web 验收，必须保存完整 UI/tool trace 后才评分 `wrong_tool_calls`、`redundant_tool_calls`、`total_tool_calls`，不得从回答文字反推。
 >
-> 授权状态：历史 Phase 1–8 Core、`1.0.0`–`1.0.4` 的已记录有界修复与发布、Phase 0 campaign，以及 owner 明确授权的完整 P1–P5 local implementation 均已完成或正在进行最终门禁。publication、commit/push、App refresh、runtime deployment、凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
+> 授权状态：历史 Phase 1–8 Core、`1.0.0`–`1.0.5` 的已记录有界修复与发布、Phase 0 campaign，以及 owner 明确授权的完整 P1–P5 local implementation 均已完成。publication、commit/push、App refresh、runtime deployment、凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 

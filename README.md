@@ -45,13 +45,13 @@ CodexGPT is not a hosted coding service, model proxy, quota bypass, account pool
 
 ## Current project status
 
-- The first stable release is `codexgpt@1.0.0`; the current npm patch release is `codexgpt@1.0.4`. Package metadata, runtime self-reporting, and npm `latest` must remain aligned; each release must also identify its exact source commit.
+- The first stable release is `codexgpt@1.0.0`; the current npm patch release is `codexgpt@1.0.5`. Package metadata, runtime self-reporting, and npm `latest` must remain aligned; each release must also identify its exact source commit.
 - Native Windows is a primary supported environment. WSL is not required. PowerShell is supported; Git Bash remains useful for Bash-oriented workflows.
 - The default public tool contract remains V1. Contracts V2, V3, V4, and the explicit-standard Phase 7 Core V5 surface are advanced opt-ins.
 - Phases 5, 6, and Phase 7 Core are closed on full Ubuntu/Windows Node 20/24 validation matrices. Phase 7 Core closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` with exact-head CI run `30171313296`; Contract V5 remains an explicit `standard` opt-in rather than the default public contract.
 - Phase 8 Tasks 8A1–8A9 are implemented and locally verified in the source checkout: Windows DPAPI CurrentUser state protection, separated public/local listeners, constrained DCR + PKCE S256, ES256 access tokens, rotating refresh families, durable revoke/replay, request-local policy identity, exact per-tool scopes, supported setup/administration/recovery, dedicated Tunnel ownership checks, migration/rollback documentation, package integration, synthetic end-to-end OAuth/MCP coverage, and completed-runtime adversarial repairs. Live Gate G8-U is accepted through Journeys U2–U7, and STEP-470 closed local G8-X with post-repair managed Node 20/24 ordinary and protected Smoke. U6 passed service/protocol rollback, a real recreated-Legacy-App read, exact no-argument OAuth restoration, and a real post-return OAuth App read; the deleted original Legacy App identity is explicitly not claimed as continuous. U7 proved fail-early byte-preserving refusal of shared/unowned Tunnel configs and the live public-loopback/local-admin boundary. Phase 8 exact-head closure passed at `55b2b5664aae322ec992968a41c87a289fb75282` in CI run `30274857996`; `1.0.0` packages this verified baseline.
 
-The npm badge and package metadata should both report `1.0.4`. Use a source checkout for development, verification of a specific commit or branch, or changes not included in the npm package; check its package version and commit before relying on it.
+The npm badge and package metadata should both report `1.0.5`. Use a source checkout for development, verification of a specific commit or branch, or changes not included in the npm package; check its package version and commit before relying on it.
 
 For an existing source checkout, keep the public entry layer by using the repository scripts:
 

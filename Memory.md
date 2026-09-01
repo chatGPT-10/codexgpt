@@ -6,7 +6,7 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-09-01; branch `codex/tool-execution-pipeline-slice1` is at `9ab6425`, synchronized with its matching remote, while the uncommitted Local Control Plane work is recorded below. Public release remains `codexgpt@1.0.4`.
+- Date: 2026-09-01; branch `codex/tool-execution-pipeline-slice1` is at `f9fe62d`, synchronized with its matching remote. The reviewed `1.0.5` release candidate is locally gated and awaits its release commit, exact-head CI, merge, npm publication, tag, and GitHub Release; public release remains `codexgpt@1.0.4` until those actions complete.
 - Historical Phase 1–8 Core/releases and roadmap P1–P5 are closed locally; exact implementation and verification history is archived.
 
 ## Approved execution boundary
@@ -47,6 +47,7 @@ The owner explicitly authorized an incremental browser-admin product: an indepen
 - STEP-527–532 reconcile active configuration/network documentation, preserve exact legacy-input provenance/value parity, and index all archive volumes. Detailed per-step counts and the unresolved `NGROK_DOMAIN` choice remain in Part 11/12.
 - P1–P5 and the authorized GitHub handoff are closed with managed dual-Node gates; exact run IDs, detailed implementation, and the Web read-only acceptance are retained in the linked archives.
 - STEP-543–550 Local Control Plane: build, Policy, diff, and focused local-admin/lifecycle/ownership/child tests pass; the latest ten-test set verifies session+CSRF lifecycle/settings requests, exact process identity, typed workspace admission, safe permission presets, serial action rejection, exit, and health-gated `owned_running`.
+- STEP-551 release-candidate repair: the Windows profile inventory now classifies every Local Control Plane regression and reserves persistent verification receipts for an exclusive shard. Focused checks, managed Node 20/24 ordinary regression, and managed Node 20/24 smoke pass; external release actions remain pending.
 
 ## Known limitations
 
@@ -76,6 +77,7 @@ The owner explicitly authorized an incremental browser-admin product: an indepen
 ## Recent summaries
 
 - **STEP-543–550 — Local Control Plane:** authenticated overview; independent loopback host; exact ownership journal/child manager; browser Start/Stop/Restart; reviewed additional workspace roots; and safe next-launch tool/write/Safe-Bash presets. OAuth-default-root changes and `full_access` remain unavailable.
+- **STEP-551 — 1.0.5 candidate gates:** test profile repairs make the full Windows layered suite deterministic; managed dual-Node regression and smoke evidence is retained in the detached runs. Public npm/GitHub release state is not yet changed.
 
 ## Archives
 
