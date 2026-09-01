@@ -12,7 +12,7 @@ import {
 import { createProductionGitBootstrapV4 } from "./git/productionBootstrap.js";
 import { resolveTransactionStateRoot } from "./transactions/stateRoot.js";
 
-const CODEXGPT_VERSION = "1.0.4";
+const CODEXGPT_VERSION = "1.0.5";
 
 function printHelp(): void {
   console.log(`CodexGPT MCP stdio server

@@ -6855,7 +6855,7 @@ export function createCodexGPTServer(
         })
       : undefined
   );
-  const server = new McpServer({ name: "CodexGPT", version: "1.0.4" }, { instructions: serverInstructions(config) });
+  const server = new McpServer({ name: "CodexGPT", version: "1.0.5" }, { instructions: serverInstructions(config) });
   toolDefinitionRegistryByServer.set(server as object, new ToolDefinitionRegistry());
   toolExecutionCoordinatorByServer.set(server as object, new ToolExecutionCoordinator());
   workspaceManagerByServer.set(server as object, workspaces);
