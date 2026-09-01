@@ -74,7 +74,7 @@ codexgpt auth setup `
 Source checkout (development or branch-specific build):
 
 ```powershell
-node D:\Dev\codexpro\scripts\codexgpt-entry.mjs auth setup `
+node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs auth setup `
   --root D:\Dev\target-repo `
   --hostname mcp.example.com `
   --tunnel-name codexgpt-target
@@ -150,7 +150,7 @@ An owner denial returns the standard OAuth `access_denied` result. An expired re
 
 ### 2.3 Normal restart
 
-`codexgpt start --root D:\Dev\target-repo` (or `node D:\Dev\codexpro\scripts\codexgpt-entry.mjs start --root D:\Dev\target-repo` from this source checkout) loads the protected key and durable grant state, starts the public and local listeners, validates the exact issuer/resource/hostname/profile tuple, and accepts ChatGPT's refreshed access token. No owner click is expected.
+`codexgpt start --root D:\Dev\target-repo` (or `node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs start --root D:\Dev\target-repo` from this source checkout) loads the protected key and durable grant state, starts the public and local listeners, validates the exact issuer/resource/hostname/profile tuple, and accepts ChatGPT's refreshed access token. No owner click is expected.
 
 If ChatGPT presents a consumed refresh token, the complete refresh family is revoked as replayed and the UI gives the relink action. It never silently issues a second token.
 
@@ -887,7 +887,7 @@ Returning from legacy to OAuth is the same idempotent setup journey, not an undo
 codexgpt auth setup --root D:\Dev\target-repo
 
 # This source checkout
-node D:\Dev\codexpro\scripts\codexgpt-entry.mjs auth setup --root D:\Dev\target-repo
+node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs auth setup --root D:\Dev\target-repo
 ```
 
 Setup infers the saved hostname and owner-marked dedicated tunnel, revalidates local state, starts/probes a candidate OAuth listener, and atomically commits `oauth` only after the real public probe succeeds. It then uses the separately retained OAuth App. A winning environment override produces `AUTH_MODE_ENV_OVERRIDE` and an exact PowerShell repair command rather than reporting a mode change.

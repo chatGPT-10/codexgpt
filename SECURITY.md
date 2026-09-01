@@ -42,7 +42,7 @@ Review changes against these failure modes before release:
 | Public tunnel reachable without a secret | Public/non-loopback HTTP fails closed unless a CodexGPT token is configured. |
 | Raw CodexGPT or Cloudflare token appears in UI, logs, docs, or package output | Tokens are redacted in profile/status output and tunnel tokens use local files for persistence. |
 | ChatGPT can edit outside the intended repo | Allowed roots are explicit; path resolution rejects escapes, blocked globs, and symlink traversal. |
-| A copied workspace handle is reused from another MCP session | Workspace handles are random, server-session scoped, checked against the issuing lifecycle domain, and invalidated by close, idle expiry, transport teardown, or policy-revision change. |
+| A copied workspace handle is reused across MCP transports | OAuth configured-root handles are random and may cross transport rotation only for the exact deployment incarnation + owner + client + grant/revision + resource + policy principal. Foreign lookup/close is a non-destructive unavailable result. Legacy/query-token and STDIO handles remain session/process-local. |
 | ChatGPT can run arbitrary shell by default | Bash defaults to safe mode, can be disabled, and full mode is a trusted-local-only choice. Safe mode can still run repo package scripts, so use `--no-bash` for untrusted repos. |
 | Contract V3 `full_access` is mistaken for a sandbox | It is opt-in, requires an explicit V3 Permission Profile and a fresh local one-use approval, and reports ambient current-user filesystem, credential, registry, broker, device, and network authority. |
 | A failed sandbox probe silently falls back to ambient execution | The reserved `workspace` profile remains unavailable and never falls back to `full_access`; retained Gate S evidence stays blocked and diagnostic only. |
@@ -194,6 +194,8 @@ V3 R3 actions create a bounded pending request but do not execute. A separate lo
 
 `run_command` and `start_process` under `full_access` run with the current Windows user's ambient authority. They may read, modify, delete, encode, or transmit anything that account can reach. The fixed clean child environment and known-pattern streaming redaction reduce accidental exposure but do not isolate account-readable files, keyrings, credentials, registry, devices, brokers, or network and do not provide DLP.
 
+V5 `codexgpt(action="verify_change")` never runs automatically and accepts only server-confirmed project check categories, not caller-selected command text. When explicitly invoked, it delegates each selected check to the same registered `run_command` `full_access` path and therefore inherits the ambient-authority limits above. Treat the repository's scripts, dependencies, compilers, and executables as trusted code; the required whole-workspace diff checklist is review guidance, not process isolation or semantic proof.
+
 Process IDs are random owner-bound handles. Lifetime, timeout, interrupt, resize, input, output, termination, and server-close guarantees apply only to processes that remain members of the exact native Job. Local emergency commands can list or terminate those recorded processes even when the remote transport is unavailable. They do not kill unrelated processes and do not claim control over WMI, COM, service, scheduler, or other broker-created escapes.
 
 `open_full_access_workspace` is a brokered confirmed-root admission path, not permission for an ambient child. It requires an exact local approval, stable Windows object identity, hard-link count 1 for ordinary confirmed-root files, fixed absolute lease expiry, PathGuard checks, atomic transactions for supported writes, and audit. It does not persistently widen global `allowedRoots`.
@@ -202,11 +204,11 @@ The reserved `CODEXGPT_EXECUTION_PROFILE=workspace` is not a reduced-security mo
 
 ## Workspace Lifecycle Boundaries
 
-A `workspace_id` is an opaque capability handle issued inside one MCP server lifecycle domain. It is not a stable repository identifier, path hash, bearer credential for other sessions, or proof of a human owner. Separate HTTP transport sessions and separate STDIO server processes receive separate handles even when they open the same canonical root.
+A `workspace_id` is a random opaque capability handle, not a stable repository identifier, path hash, standalone bearer credential, or proof of a human owner. In OAuth mode, configured-root capability state is owned by one running OAuth deployment runtime and may be resolved across MCP transport rotation only when the current verified request matches the exact deployment binding/incarnation, owner reference, client reference, resource, grant ID/revision, and current policy revision. Transport session ID and access-token ID/fingerprint are deliberately not continuity authority, so normal same-grant token refresh and ChatGPT Web transport rotation do not invalidate the handle.
 
-`close_workspace` invalidates a handle immediately. Active handles also expire after the bounded idle TTL, and successful use refreshes that deadline. Foreign, closed, expired, transport-stale, or policy-stale handles return the same bounded unavailable result without disclosing the root, internal workspace key, identity binding, policy revision, or revocation reason.
+A copied/guessed handle from a different OAuth principal returns the same bounded unavailable result and cannot touch, close, revoke, or extend the legitimate record. `close_workspace`, idle TTL expiry, policy revision invalidation, grant/client/owner revocation through the existing OAuth boundary, and deployment-incarnation reset all fail closed. Transport teardown alone does not revoke an OAuth configured-root capability, but CodexGPT OAuth runtime/service restart clears the in-memory registry. The public result does not reveal the internal workspace key, principal digest, policy revision, revocation reason, or whether a missing handle was ever issued. A stolen valid bearer token for the exact same grant plus its workspace handle remains inside the existing bearer-token threat model; this design does not claim DPoP/mTLS proof of possession.
 
-For one compatibility cycle, an omitted `workspace_id` can select only the current server session's configured default root. This compatibility boundary must not be generalized into process-global workspace sharing.
+`allowedRoots`, native realpath, blocked-path rules, PathGuard, and Policy Kernel remain authoritative after handle resolution; cross-transport continuity never widens root authority. The shared backend applies only to configured-root workspaces. Confirmed-root/task-worktree authority, Legacy/query-token HTTP, and STDIO retain their existing lifecycle boundaries. For one compatibility cycle an omitted `workspace_id` can still select only the current server session's configured default root, but an explicitly supplied stale/foreign ID never falls back to that default. `CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE=session_local` is the one-cycle OAuth rollback selector.
 
 ## Atomic Transaction Kernel Boundaries
 
@@ -235,7 +237,8 @@ The HMAC chain detects accidental damage and untrusted modification that does no
 ## Hard Rules
 
 - Do not run public tunnels with `--no-auth`.
-- Public tunnel mode and non-loopback binds fail closed if `CODEXGPT_HTTP_TOKEN` is missing.
+- Public tunnel mode and non-loopback binds fail closed unless `CODEXGPT_HTTP_TOKEN` or the retained `CODEBASE_BRIDGE_HTTP_TOKEN` compatibility input supplies the selected token.
+- `CODEBASE_BRIDGE_HTTP_TOKEN` is migration-only compatibility. Prefer `CODEXGPT_HTTP_TOKEN`; use `codexgpt config explain --json` or `codexgpt doctor --json` for a value-free migration command. Neither diagnostic prints the token.
 - Legacy mode uses the personal query-token compatibility flow when `CODEXGPT_ALLOW_QUERY_TOKEN` is unset. OAuth mode forces query-token acceptance off and exposes a token-free Server URL.
 - The copied Server URL contains `codexgpt_token`; select `Authentication: None / No Authentication` in ChatGPT for this personal compatibility flow.
 - Public startup logs keep the credential-bearing Server URL hidden by default. Display it only through an explicit local action such as pressing `u` or printing the Create App fields.

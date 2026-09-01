@@ -135,6 +135,11 @@ test("V4 standard registers inherited tools plus ten disabled V4 slots and super
   assert.equal(Boolean(tools.git_restore), false);
   assert.equal(Boolean(tools.git_stash), false);
   assert.equal(Boolean(tools.bash), false);
+  assert.equal(Boolean(tools.start_process), false);
+  assert.equal(
+    tools.run_command.description,
+    "Run one finite full_access command with bounded retained output and optional exact-candidate verification. This is ambient authority, not a sandbox. Use when: A bounded command expected to terminate, such as tests, build, lint, or typecheck, must run. Do not use when: A persistent or interactive command must run; use start_process."
+  );
 
   const direct = await tools.git_log.handler({ workspace_id: "ws_missing" });
   assert.equal(direct.isError, true);
@@ -145,6 +150,22 @@ test("V4 standard registers inherited tools plus ten disabled V4 slots and super
   assert.equal(codexgptOutputSchemaV4.safeParse(listed.structuredContent).success, true);
   const directNames = Object.keys(tools).filter((name) => name !== "codexgpt" && tools[name].enabled !== false).sort();
   assert.deepEqual(listed.structuredContent.data.actions, directNames);
+});
+
+test("V4 process descriptions preserve the finite versus persistent command boundary", () => {
+  const tools = createCodexGPTServer(v4Config("full"), dependencies())._registeredTools;
+  assert.equal(
+    tools.run_command.description,
+    "Run one finite full_access command with bounded retained output and optional exact-candidate verification. This is ambient authority, not a sandbox. Use when: A bounded command expected to terminate, such as tests, build, lint, or typecheck, must run. Do not use when: A persistent or interactive command must run; use start_process."
+  );
+  assert.equal(
+    tools.start_process.description,
+    "Start one owned full_access process with a bounded lifetime and optional exact-candidate verification. Use ConPTY for terminal-dependent Windows interaction, consume incremental output with next_cursor, and terminate the process when finished. This is ambient authority, not a sandbox. Use when: A persistent or interactive command such as a dev server, watcher, or REPL must run. Do not use when: A bounded command expected to terminate must run; use run_command."
+  );
+  assert.equal(
+    tools.read_process_output.description,
+    "Read one bounded incremental output page and V4 terminal verification evidence owned by this context. Pass the previous non-null next_cursor to avoid replay. With positive wait_ms and no unread output, an owned record whose output has not reached eof can hold the call for up to 30 seconds until output arrives, process state or lifecycle finalization changes, or the timeout expires. Persistent processes are created only by start_process in full tool mode; an exited, failed, or terminated record can remain eof=false while verification and audit finalize, while eof=true never waits."
+  );
 });
 
 test("V4 full adds restore, stash, and the V4 audit slot while minimal and connection-test add no V4 tools", async () => {

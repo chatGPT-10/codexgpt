@@ -25,10 +25,33 @@ export class DeploymentRegistry {
     readonly platform: NodeJS.Platform = process.platform
   ) {}
 
+  private compatible(
+    entry: DeploymentRegistryEntryV1,
+    configuration: OAuthDeploymentConfiguration
+  ): boolean {
+    return samePath(entry.canonicalRoot, configuration.canonicalRoot, this.platform) &&
+      entry.profileId === configuration.profileId &&
+      entry.hostname === configuration.hostname &&
+      entry.issuer === configuration.issuer &&
+      entry.resource === configuration.resource;
+  }
+
   resolve(identityKey: string): DeploymentRegistryEntryV1 | null {
     const registry = this.store.readRegistry();
     if (!registry) return null;
     return registry.entries.find((entry) => entry.identityKey === normalizedIdentityKey(identityKey)) ?? null;
+  }
+
+  assertCompatible(
+    configuration: OAuthDeploymentConfiguration,
+    entry: DeploymentRegistryEntryV1
+  ): void {
+    if (!this.compatible(entry, configuration)) {
+      throw authConfigurationError(
+        "OAUTH_STATE_CONFLICT",
+        "OAuth issuer/resource/hostname is already bound to a different canonical deployment."
+      );
+    }
   }
 
   async bind(input: {
@@ -39,14 +62,8 @@ export class DeploymentRegistry {
     const identityKey = normalizedIdentityKey(input.configuration.identityKey);
     const existing = current?.entries.find((entry) => entry.identityKey === identityKey);
     if (existing) {
-      const compatible =
-        samePath(existing.canonicalRoot, input.configuration.canonicalRoot, this.platform) &&
-        existing.profileId === input.configuration.profileId &&
-        existing.hostname === input.configuration.hostname &&
-        existing.issuer === input.configuration.issuer &&
-        existing.resource === input.configuration.resource &&
-        existing.bindingId === input.state.bindingId;
-      if (!compatible) {
+      this.assertCompatible(input.configuration, existing);
+      if (existing.bindingId !== input.state.bindingId) {
         throw authConfigurationError(
           "OAUTH_STATE_CONFLICT",
           "OAuth issuer/resource/hostname is already bound to a different canonical deployment."

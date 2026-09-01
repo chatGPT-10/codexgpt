@@ -6,6 +6,7 @@ import {
   standardSkillCatalogEntrySchema,
   standardSkillScanSchema
 } from "./guidance.js";
+import { workspaceContextSnapshotSchema } from "../../context/workspaceContext.js";
 
 export const OPEN_WORKSPACE_ERROR_MESSAGES = {
   ROOT_ALIAS_CONFLICT: "The root and path arguments identify different workspace roots.",
@@ -65,7 +66,8 @@ export const openWorkspaceStandardDataSchema = z.object({
   instruction_chain: z.array(guidanceInstructionFileSchema).max(256),
   instruction_diagnostics: z.array(guidanceDiagnosticSchema).max(256),
   skill_catalog: z.array(standardSkillCatalogEntrySchema).max(500),
-  skill_scan: standardSkillScanSchema
+  skill_scan: standardSkillScanSchema,
+  context_snapshot: workspaceContextSnapshotSchema
 }).strict();
 
 export const openWorkspaceDataSchema = z.union([

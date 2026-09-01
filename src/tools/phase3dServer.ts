@@ -34,7 +34,8 @@ import { TransactionError } from "../transactions/types.js";
 import {
   createMovePathsFailure,
   movePathsInputV1Schema,
-  movePathsOutputShape
+  movePathsOutputShape,
+  movePathsOutputShapeV5
 } from "./schemas/movePaths.js";
 import {
   createUndoChangeSetFailure,
@@ -365,7 +366,9 @@ export function createPhase3DServerIntegration(
       title: "Move Paths",
       description: "Preview or atomically move up to 64 ordinary files within one workspace using same-volume hard-link transactions.",
       inputSchema: movePathsInputV1Schema,
-      outputSchema: movePathsOutputShape,
+      outputSchema: contractIncludesV5(config.toolContractVersion)
+        ? movePathsOutputShapeV5
+        : movePathsOutputShape,
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,

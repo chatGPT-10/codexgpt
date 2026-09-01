@@ -1,6 +1,6 @@
 {
   "name": "codexgpt",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Windows-first, self-hosted MCP tools that connect ChatGPT to one local repository through a loopback server and an optional HTTPS tunnel.",
   "type": "module",
   "license": "MIT",
@@ -114,6 +114,12 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.0",
     "tsx": "^4.20.3"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.9",
+    "fast-uri": "3.1.5",
+    "hono": "4.12.34",
+    "ip-address": "10.3.1"
   },
   "allowScripts": {
     "esbuild@0.28.1": true

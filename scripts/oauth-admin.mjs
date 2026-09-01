@@ -182,6 +182,38 @@ function stableProfilePayload(profile, overrides = {}) {
   return { ...rest, ...overrides };
 }
 
+const REBIND_ALIAS_REQUIRED_FIELDS = [
+  "tunnel",
+  "hostname",
+  "tunnelName",
+  "tunnelOwner",
+  "port",
+  "localAdminPort",
+  "cloudflareConfig",
+  "oauthIssuer",
+  "oauthResource",
+  "oauthCredentialProvider",
+  "oauthStateRef"
+];
+
+const REBIND_ALIAS_OPTIONAL_FIELDS = ["cloudflareTokenFile", "noInstallCloudflared"];
+
+function profileOAuthSelector(profile, field) {
+  return profile?.authRoutes?.oauth?.[field] ?? profile?.[field];
+}
+
+export function isStaleOAuthRebindAlias(targetProfile, sourceProfile) {
+  if (targetProfile?.authMode !== "oauth") return false;
+  const requiredMatches = REBIND_ALIAS_REQUIRED_FIELDS.every((field) => {
+    const sourceValue = profileOAuthSelector(sourceProfile, field);
+    return sourceValue !== undefined && profileOAuthSelector(targetProfile, field) === sourceValue;
+  });
+  if (!requiredMatches) return false;
+  return REBIND_ALIAS_OPTIONAL_FIELDS.every((field) =>
+    profileOAuthSelector(targetProfile, field) === profileOAuthSelector(sourceProfile, field)
+  );
+}
+
 function writeJsonAtomic(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
   const temporary = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.tmp`);
@@ -1291,8 +1323,9 @@ async function commandRebind(root, invocation, modules) {
   if (hostname !== fromProfile.hostname) throw authError("OAUTH_STATE_CONFLICT", "Core rebind preserves the existing hostname/issuer/resource.");
   const targetProfile = modules.profile.readWorkspaceProfile(root);
   if (
-    targetProfile.authMode === "oauth" || targetProfile.oauthStateRef ||
-    targetProfile.oauthIssuer || targetProfile.oauthResource
+    (targetProfile.authMode === "oauth" || targetProfile.oauthStateRef ||
+      targetProfile.oauthIssuer || targetProfile.oauthResource) &&
+    !isStaleOAuthRebindAlias(targetProfile, fromProfile)
   ) {
     throw authError("OAUTH_STATE_CONFLICT", "Target workspace already has OAuth deployment selectors.");
   }

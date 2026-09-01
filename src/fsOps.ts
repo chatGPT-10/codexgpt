@@ -12,6 +12,7 @@ import {
   type FileMetadataV1,
   type TransactionRequestOperationV1
 } from "./transactions/index.js";
+import { toolExecutionPipelineForGuard } from "./tools/executionPipelineScope.js";
 
 export interface TreeOptions {
   path?: string;
@@ -512,7 +513,7 @@ function isHiddenName(name: string): boolean {
   return name.startsWith(".") && name !== "." && name !== "..";
 }
 
-export async function repoTree(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, options: TreeOptions): Promise<TreeResult> {
+async function repoTreeBody(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, options: TreeOptions): Promise<TreeResult> {
   const target = guard.resolve(workspace, options.path ?? ".");
   const stat = await fsp.stat(target.absPath);
   if (!stat.isDirectory()) {
@@ -561,6 +562,20 @@ export async function repoTree(config: CodexGPTConfig, guard: PathGuard, workspa
   return { text: lines.join("\n"), entries, truncated };
 }
 
+export async function repoTree(config: CodexGPTConfig, guard: PathGuard, workspace: Workspace, options: TreeOptions): Promise<TreeResult> {
+  return toolExecutionPipelineForGuard(guard).execute<TreeResult>({
+    toolName: "tree",
+    arguments: Object.freeze({
+      workspace_id: workspace.id,
+      path: options.path ?? ".",
+      max_depth: options.maxDepth,
+      include_hidden: options.includeHidden,
+      max_entries: options.maxEntries
+    }),
+    body: () => repoTreeBody(config, guard, workspace, options)
+  });
+}
+
 export async function listFiles(
   guard: PathGuard,
   workspace: Workspace,
@@ -603,7 +618,7 @@ export async function listFiles(
   return files;
 }
 
-export async function readTextFile(
+async function readTextFileBody(
   config: CodexGPTConfig,
   guard: PathGuard,
   workspace: Workspace,
@@ -639,6 +654,26 @@ export async function readTextFile(
     sha256: sha256(text),
     truncated
   };
+}
+
+export async function readTextFile(
+  config: CodexGPTConfig,
+  guard: PathGuard,
+  workspace: Workspace,
+  filePath: string,
+  options: { startLine?: number; endLine?: number; maxBytes?: number } = {}
+): Promise<ReadFileResult> {
+  return toolExecutionPipelineForGuard(guard).execute<ReadFileResult>({
+    toolName: "read",
+    arguments: Object.freeze({
+      workspace_id: workspace.id,
+      path: filePath,
+      ...(options.startLine !== undefined ? { start_line: options.startLine } : {}),
+      ...(options.endLine !== undefined ? { end_line: options.endLine } : {}),
+      ...(options.maxBytes !== undefined ? { max_bytes: options.maxBytes } : {})
+    }),
+    body: () => readTextFileBody(config, guard, workspace, filePath, options)
+  });
 }
 
 export async function writeTextFile(

@@ -1,16 +1,16 @@
 # CodexGPT 总体实施计划
 
-> 版本：2.7
+> 版本：2.16
 > 生效日期：2026-07-13
-> 核对日期：2026-07-29
+> 核对日期：2026-08-31
 > 状态：当前权威实施路线
-> 工作区：`D:\Dev\codexpro`
-> 当前 npm 版本：`codexgpt@1.0.4`
-> 当前阶段：Phase 1–8 Core 已关闭。Phase 8 关闭基线为 `55b2b5664aae322ec992968a41c87a289fb75282` / CI `30274857996`；`1.0.3` OAuth refresh 修复与 `1.0.4` user-Skill 修复已分别在 `a7435dba11a6cf187c0d3611d54510f746444359` / CI `30361606961` 和 `48fb3f5334cb286df2af7adf56ddddbbcfc41406` / CI `30373608845` 完成 npm 发布与 reviewed runtime replacement。PR 7 已通过 merge commit `b0b169d2f58eee3dc18cd82cb744f1a2f1c21c55` 保留全部 npm source commits 并合入 `main`，merge-head 完整矩阵 `30471674322` 通过；`v1.0.2`–`v1.0.4` annotated tags、GitHub Releases 与 npm `gitHead` 精确一致，GitHub Latest 为 `v1.0.4`。历史 `1.0.2` 明确标为 superseded，未补写为完整 closure。
+> 工作区：`D:\Dev\codexgpt`
+> 当前 npm 版本：`codexgpt@1.0.5`
+> 当前阶段：历史 Phase 1–8 Core 与 `1.0.5` release closure 均已完成。STEP-533/535/537 分别关闭 P1 unified tool pipeline、P2 bounded workspace bootstrap 与 P3 unified code navigation；STEP-538/539 关闭 P4 change verification/review。P5 long-task/process experience 已在现有 Windows process kernel 上完成本地实现：V5 以 `state` 统一 `starting|running|exited|failed|terminated`，保留值相等的 `status` 迁移别名；启动期间可真实观察 `starting`，而 `start_process` 只在进入 `running` 后成功；启动撤销与关闭会 join 并终止随后到达的 owned handle。既有 cursor/wait/quota/Job-tree/Policy/approval/audit 边界不变，V3/V4 wire 保持精确，V1–V5 直接工具数仍为 28/31/39/51/52。owner 未授权新的 P0/Web trace，因此没有新的 ChatGPT Web efficiency 结论。
 >
-> 下一动作：不自动进入下一实施阶段，由 owner 从已审阅的 post-Phase-8 backlog 中明确选择并授权下一个最小切片。U6 继续保留“重建 Legacy App 兼容性通过、被删除旧 App 身份连续性不宣称”的证据替代。
+> 下一动作：P1–P5 本地实现完成后不自动进入新的产品阶段；App refresh/runtime deployment、fresh ChatGPT Web trace 与 publication 均不自动授权。若以后单独授权 Web 验收，必须保存完整 UI/tool trace 后才评分 `wrong_tool_calls`、`redundant_tool_calls`、`total_tool_calls`，不得从回答文字反推。
 >
-> 授权状态：Phase 1 → Policy Kernel → Phase 2A–Phase 8 Core、`1.0.0`–`1.0.4` 的已记录有界修复与 npm/runtime 发布均已完成；这不构成进一步 post-`1.0.4` 实施或 deployment 授权。真实凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
+> 授权状态：历史 Phase 1–8 Core、`1.0.0`–`1.0.5` 的已记录有界修复与发布、Phase 0 campaign，以及 owner 明确授权的完整 P1–P5 local implementation 均已完成。publication、commit/push、App refresh、runtime deployment、凭据迁移、无关 Cloudflare/Tunnel/DNS 变更、Phase 7B/7C、force push 与破坏性历史操作仍单独受控。
 
 本文件取代下载目录中的 `codexgpt_audit_and_implementation_spec_2026-07-11.md`，成为后续架构顺序、阶段边界和验收门禁的默认依据。旧文件保留为 2026-07-11 的历史审计快照，不继续原地修改。
 
@@ -30,6 +30,7 @@
 | `Memory.md` | 当前真实状态、下一动作、活跃决策和最终证据索引 |
 | `docs/memory/archive/` | 逐 STEP 的完整、追加式实施记录 |
 | `docs/PROJECT_ARCHITECTURE_AND_ROADMAP.md` | 2026-07-11 审计基线和历史路线图，不再负责当前排序 |
+| `docs/benchmarks/chatgpt-web-e2e/` | post-`1.0.4` modernization 的真实 ChatGPT Web A/B 任务、指标、runtime/bootstrap 协议与 run evidence |
 
 ### 0.2 冲突处理
 
@@ -770,6 +771,12 @@ Phase 2B 已完成设计、TDD 实现、本地验收、`neat-freak` 对账和发
 - Build、完整回归、八段 Smoke、native-Windows Stress 和 197 文件 package dry-run 已通过；最终精确计数记录在 `Memory.md` 与 Phase 2B 归档。
 
 四个 CI 任务均完成 Build、Regression Tests、Smoke Test 和 Check Package Contents。Phase 2B 因此正式关闭；下一步进入 Phase 3 设计审查。任何回滚不得恢复进程全局 manager、路径派生公开 ID 或跨会话复用。
+
+### 9.7 2026-08-16 真实客户端兼容性发现
+
+STEP-490 的真实 ChatGPT Web baseline A1 证明了一个当年未覆盖的客户端行为：`open_workspace` 成功后，下一次 App tool call 可能已经位于新的 MCP transport/session，导致原 session-local `workspace_id` 返回 `WORKSPACE_NOT_FOUND`。这不推翻 Phase 2B 的 opaque handle、identity/policy、TTL/revocation 与 fail-closed 安全目标，但推翻了“连续工具调用会保持同一 transport lifecycle”这一兼容性假设。Phase 2B 继续作为已实现的历史合同；禁止用默认 workspace 或无绑定的跨 session 复用掩盖问题。真实证据固定在 `docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-baseline-a1.json`。
+
+STEP-492 的专项 [`design`](superpowers/specs/2026-08-16-oauth-cross-transport-workspace-capability-design.md) / [`TDD plan`](superpowers/plans/2026-08-16-oauth-cross-transport-workspace-capability.md) 已在 STEP-493 落地：OAuth configured-root capability 由 deployment runtime 共享，exact owner/client/grant/incarnation/resource/policy binding、随机 `ws_<32hex>`、TTL/close/revoke/PathGuard、restart fail-closed 与 legacy/STDIO isolation 保持不变；`session_local` 作为一周期 rollback。当前只缺真实 ChatGPT Web A1，合成 transport-rotation integration 不替代该 gate。
 
 ---
 

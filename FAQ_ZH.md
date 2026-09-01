@@ -123,11 +123,11 @@ Normal coding 模式下，ChatGPT 可以在配置的工作区内写入和精确�
 
 ## workspace_id 会在不同 ChatGPT 会话之间共享吗？
 
-不会。`workspace_id` 现在是随机、不可从路径推导的句柄，只属于一个 MCP Server 会话：HTTP 模式下属于一个 transport session，STDIO 模式下属于一个进程会话。同一活动会话重复打开同一 root 会复用本会话句柄；另一个会话会获得不同句柄，也不能使用或列出前一个会话的工作区。
+OAuth configured-root 句柄现在可以在**同一授权 principal**下跨 MCP transport/session rotation 继续使用，但不是全局共享。`workspace_id` 仍然是随机、不透明、不可从路径推导的 capability；解析时必须匹配同一个 deployment incarnation、owner、OAuth client、grant/revision、resource 和 policy revision。另一个 owner/client/grant 即使复制到句柄，也不能读取、关闭或破坏合法 capability。相同 grant 内正常刷新 access token 不会改变这项 authority。
 
-调用 `close_workspace` 可以立即使句柄失效；重新打开同一 root 会生成新句柄。空闲句柄按 `CODEXGPT_WORKSPACE_TTL_MS` 过期，默认跟随 HTTP session TTL，通常为 30 分钟；成功使用会刷新空闲期限。
+调用 `close_workspace` 可以立即使句柄失效；重新打开同一 root 会生成新句柄。空闲句柄按 `CODEXGPT_WORKSPACE_TTL_MS` 过期，默认跟随 HTTP session TTL，通常为 30 分钟；成功使用会刷新空闲期限。CodexGPT OAuth runtime/service 重启会清空 configured-root capability，因此重启后需要重新 `open_workspace` 一次。
 
-为保留一个兼容周期，省略 `workspace_id` 时仍会选择当前会话自己的默认 root，但不会恢复跨会话共享。
+Legacy/query-token HTTP 和 STDIO 继续保持原来的 session/process-local 行为。一个兼容周期内，省略 `workspace_id` 仍只会选择当前 server session 的默认 root。OAuth 模式下如果已经显式打开非默认 root，后续项目调用应继续显式传入返回的 `workspace_id`；显式句柄解析失败时绝不会回退到默认 workspace。需要临时恢复旧 OAuth 行为时可设置 `CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE=session_local`。
 
 ## CodexGPT 能把 bash 绑定到某个会话 id 吗？
 
@@ -303,6 +303,8 @@ codexgpt settings delete --yes
 ```
 
 显示设置时，保存的 token 会被打码。
+
+要只读查看哪个启动配置来源生效，运行 `codexgpt config explain --json`；要同时检查环境和运行条件，运行 `codexgpt doctor --json`。两者都只把秘密值显示为 `set` 或 `missing`。实际选中的 `CODEBASE_BRIDGE_HTTP_TOKEN`、`CODEBASE_BRIDGE_REPO_ROOT` 和 `CODEXGPT_HOSTNAME` 兼容输入都会得到不包含原值的 PowerShell 命令，用于迁移到对应的 canonical `CODEXGPT_*` 名称。实际选中的 `NGROK_DOMAIN` 会单独保留为 mode-ambiguous 来源：名称只指向 ngrok，但既有作用域覆盖所有 tunnel 模式；目前没有安排迁移警告。
 
 ## CodexGPT 能帮助 ChatGPT 维持上下文吗？
 

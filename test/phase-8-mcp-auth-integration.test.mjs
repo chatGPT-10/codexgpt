@@ -74,6 +74,21 @@ async function exchange(runtime, client, scopes) {
   return JSON.parse(response.text);
 }
 
+async function refresh(runtime, client, refreshToken) {
+  const response = await request(runtime, "/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: form({
+      grant_type: "refresh_token",
+      client_id: client.client_id,
+      refresh_token: refreshToken,
+      resource: runtime.identity.resource
+    })
+  });
+  assert.equal(response.status, 200, response.text);
+  return JSON.parse(response.text);
+}
+
 async function freeLoopbackPort() {
   const server = net.createServer();
   server.listen(0, "127.0.0.1");
@@ -151,6 +166,322 @@ function parseRpc(text) {
   if (data.length === 0) throw new Error(`No JSON-RPC data in response: ${text}`);
   return JSON.parse(data.at(-1));
 }
+
+async function initializeMcpSession(runtime, accessToken, name, idBase) {
+  const initialize = await request(runtime, "/mcp", {
+    method: "POST",
+    headers: rpcHeaders(accessToken),
+    body: rpcBody("initialize", idBase, {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name, version: "1.0.0" }
+    })
+  });
+  assert.equal(initialize.status, 200, initialize.text);
+  const sessionId = initialize.headers["mcp-session-id"];
+  assert.match(sessionId, /^[0-9a-f-]{36}$/i);
+  const initialized = await request(runtime, "/mcp", {
+    method: "POST",
+    headers: rpcHeaders(accessToken, sessionId),
+    body: rpcBody("notifications/initialized", undefined)
+  });
+  assert.ok([200, 202].includes(initialized.status), initialized.text);
+  return sessionId;
+}
+
+async function callMcpTool(runtime, accessToken, sessionId, id, name, args = {}) {
+  const response = await request(runtime, "/mcp", {
+    method: "POST",
+    headers: rpcHeaders(accessToken, sessionId),
+    body: rpcBody("tools/call", id, { name, arguments: args })
+  });
+  assert.equal(response.status, 200, response.text);
+  return parseRpc(response.text);
+}
+
+test("STEP-490 successor: same OAuth grant reuses one explicit workspace handle across MCP transport rotation", async () => {
+  const runtime = await setupTokenRuntime({
+    mcpFactory({ foundation, identity, enabledScopes }) {
+      return new OAuthReadOnlyMcpRuntime({
+        config: configFor(foundation.workspaceRoot, path.join(foundation.stateRoot, "mcp-cross-transport")),
+        identity,
+        enabledScopes
+      });
+    }
+  });
+  try {
+    const client = await registerApprovedClient(runtime);
+    const issued = await exchange(runtime, client, ["codexgpt:read"]);
+    const targetRoot = path.join(runtime.foundation.workspaceRoot, "step-490-target");
+    fs.mkdirSync(targetRoot, { recursive: true });
+    fs.writeFileSync(path.join(targetRoot, "package.json"), '{"name":"step-490-target"}\n', "utf8");
+    assert.equal(fs.existsSync(path.join(runtime.foundation.workspaceRoot, "package.json")), false);
+
+    const transportA = await initializeMcpSession(runtime, issued.access_token, "phase-8-cross-transport-a", 101);
+    const transportB = await initializeMcpSession(runtime, issued.access_token, "phase-8-cross-transport-b", 102);
+    assert.notEqual(transportA, transportB);
+
+    const opened = parseRpc((await request(runtime, "/mcp", {
+      method: "POST",
+      headers: rpcHeaders(issued.access_token, transportA),
+      body: rpcBody("tools/call", 103, {
+        name: "open_workspace",
+        arguments: { root: targetRoot, include_tree: false }
+      })
+    })).text);
+    assert.equal(opened.result.isError ?? false, false, JSON.stringify(opened));
+    const workspaceId = opened.result.structuredContent.data.workspace_id;
+    assert.match(workspaceId, /^ws_[0-9a-f]{32}$/);
+    const reopenedAcrossTransport = await callMcpTool(runtime, issued.access_token, transportB, 104, "open_workspace", {
+      root: targetRoot,
+      include_tree: false
+    });
+    assert.equal(reopenedAcrossTransport.result.structuredContent.data.workspace_id, workspaceId);
+
+    const read = parseRpc((await request(runtime, "/mcp", {
+      method: "POST",
+      headers: rpcHeaders(issued.access_token, transportB),
+      body: rpcBody("tools/call", 105, {
+        name: "read",
+        arguments: { workspace_id: workspaceId, path: "package.json" }
+      })
+    })).text);
+    assert.equal(read.result.isError ?? false, false, JSON.stringify(read));
+    assert.equal(read.result.structuredContent.ok, true, JSON.stringify(read));
+    assert.equal(read.result.structuredContent.data.workspace_id, workspaceId);
+    assert.equal(read.result.structuredContent.data.path, "package.json");
+    assert.equal(read.result.structuredContent.data.root, targetRoot);
+    assert.match(read.result.structuredContent.data.text, /\"name\"\s*:\s*\"step-490-target\"/);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("OAuth workspace capability survives same-grant refresh and issuing transport close", async () => {
+  const runtime = await setupTokenRuntime({
+    mcpFactory({ foundation, identity, enabledScopes }) {
+      return new OAuthReadOnlyMcpRuntime({
+        config: configFor(foundation.workspaceRoot, path.join(foundation.stateRoot, "mcp-refresh-continuity")),
+        identity,
+        enabledScopes
+      });
+    }
+  });
+  try {
+    const client = await registerApprovedClient(runtime);
+    const issued = await exchange(runtime, client, ["codexgpt:read"]);
+    const targetRoot = path.join(runtime.foundation.workspaceRoot, "refresh-target");
+    fs.mkdirSync(targetRoot, { recursive: true });
+    fs.writeFileSync(path.join(targetRoot, "package.json"), '{"name":"refresh-target"}\n', "utf8");
+
+    const transportA = await initializeMcpSession(runtime, issued.access_token, "phase-8-refresh-a", 111);
+    const opened = await callMcpTool(runtime, issued.access_token, transportA, 112, "open_workspace", {
+      root: targetRoot,
+      include_tree: false
+    });
+    const workspaceId = opened.result.structuredContent.data.workspace_id;
+
+    const refreshed = await refresh(runtime, client, issued.refresh_token);
+    const transportB = await initializeMcpSession(runtime, refreshed.access_token, "phase-8-refresh-b", 113);
+    const afterRefresh = await callMcpTool(runtime, refreshed.access_token, transportB, 114, "read", {
+      workspace_id: workspaceId,
+      path: "package.json"
+    });
+    assert.equal(afterRefresh.result.isError ?? false, false, JSON.stringify(afterRefresh));
+    assert.equal(afterRefresh.result.structuredContent.data.root, targetRoot);
+
+    const closeTransport = await request(runtime, "/mcp", {
+      method: "DELETE",
+      headers: rpcHeaders(refreshed.access_token, transportA)
+    });
+    assert.ok([200, 202].includes(closeTransport.status), closeTransport.text);
+    const afterTransportClose = await callMcpTool(runtime, refreshed.access_token, transportB, 115, "read", {
+      workspace_id: workspaceId,
+      path: "package.json"
+    });
+    assert.equal(afterTransportClose.result.isError ?? false, false, JSON.stringify(afterTransportClose));
+    assert.equal(afterTransportClose.result.structuredContent.data.workspace_id, workspaceId);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("copied OAuth workspace handle is non-oracular and non-destructive across client and grant boundaries", async () => {
+  const runtime = await setupTokenRuntime({
+    mcpFactory({ foundation, identity, enabledScopes }) {
+      return new OAuthReadOnlyMcpRuntime({
+        config: configFor(foundation.workspaceRoot, path.join(foundation.stateRoot, "mcp-principal-isolation")),
+        identity,
+        enabledScopes
+      });
+    }
+  });
+  try {
+    const client = await registerApprovedClient(runtime);
+    const otherClient = await registerApprovedClient(runtime, {
+      redirectUri: "https://chatgpt.com/connector/oauth/callback_24681357"
+    });
+    const issued = await exchange(runtime, client, ["codexgpt:read"]);
+    const targetRoot = path.join(runtime.foundation.workspaceRoot, "principal-target");
+    fs.mkdirSync(targetRoot, { recursive: true });
+    fs.writeFileSync(path.join(targetRoot, "package.json"), '{"name":"principal-target"}\n', "utf8");
+    const ownerTransport = await initializeMcpSession(runtime, issued.access_token, "phase-8-principal-owner", 121);
+    const opened = await callMcpTool(runtime, issued.access_token, ownerTransport, 122, "open_workspace", {
+      root: targetRoot,
+      include_tree: false
+    });
+    const workspaceId = opened.result.structuredContent.data.workspace_id;
+
+    const otherIssued = await exchange(runtime, otherClient, ["codexgpt:read"]);
+    const otherTransport = await initializeMcpSession(runtime, otherIssued.access_token, "phase-8-principal-client", 123);
+    const crossClientRead = await callMcpTool(runtime, otherIssued.access_token, otherTransport, 124, "read", {
+      workspace_id: workspaceId,
+      path: "package.json"
+    });
+    assert.equal(crossClientRead.result.structuredContent.error.code, "WORKSPACE_NOT_FOUND");
+    const crossClientClose = await callMcpTool(runtime, otherIssued.access_token, otherTransport, 125, "close_workspace", {
+      workspace_id: workspaceId
+    });
+    assert.equal(crossClientClose.result.structuredContent.error.code, "WORKSPACE_NOT_FOUND");
+
+    const guessed = await callMcpTool(runtime, otherIssued.access_token, otherTransport, 126, "read", {
+      workspace_id: `ws_${"f".repeat(32)}`,
+      path: "package.json"
+    });
+    assert.equal(guessed.result.structuredContent.error.code, crossClientRead.result.structuredContent.error.code);
+    assert.equal(guessed.result.structuredContent.error.message, crossClientRead.result.structuredContent.error.message);
+    assert.equal(guessed.result.structuredContent.error.retryable, crossClientRead.result.structuredContent.error.retryable);
+
+    const secondGrant = await exchange(runtime, client, ["codexgpt:read"]);
+    const secondGrantTransport = await initializeMcpSession(runtime, secondGrant.access_token, "phase-8-principal-grant", 127);
+    const crossGrantRead = await callMcpTool(runtime, secondGrant.access_token, secondGrantTransport, 128, "read", {
+      workspace_id: workspaceId,
+      path: "package.json"
+    });
+    assert.equal(crossGrantRead.result.structuredContent.error.code, "WORKSPACE_NOT_FOUND");
+
+    const legitimate = await callMcpTool(runtime, issued.access_token, ownerTransport, 129, "read", {
+      workspace_id: workspaceId,
+      path: "package.json"
+    });
+    assert.equal(legitimate.result.isError ?? false, false, JSON.stringify(legitimate));
+    assert.equal(legitimate.result.structuredContent.data.root, targetRoot);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("OAuth workspace capability migration selector can restore historical session-local behavior", async () => {
+  const runtime = await setupTokenRuntime({
+    mcpFactory({ foundation, identity, enabledScopes }) {
+      return new OAuthReadOnlyMcpRuntime({
+        config: {
+          ...configFor(foundation.workspaceRoot, path.join(foundation.stateRoot, "mcp-session-local-rollback")),
+          oauthWorkspaceCapabilityMode: "session_local"
+        },
+        identity,
+        enabledScopes
+      });
+    }
+  });
+  try {
+    const client = await registerApprovedClient(runtime);
+    const issued = await exchange(runtime, client, ["codexgpt:read"]);
+    const targetRoot = path.join(runtime.foundation.workspaceRoot, "rollback-target");
+    fs.mkdirSync(targetRoot, { recursive: true });
+    fs.writeFileSync(path.join(targetRoot, "package.json"), '{"name":"rollback-target"}\n', "utf8");
+    const transportA = await initializeMcpSession(runtime, issued.access_token, "phase-8-rollback-a", 131);
+    const transportB = await initializeMcpSession(runtime, issued.access_token, "phase-8-rollback-b", 132);
+    const opened = await callMcpTool(runtime, issued.access_token, transportA, 133, "open_workspace", {
+      root: targetRoot,
+      include_tree: false
+    });
+    const workspaceId = opened.result.structuredContent.data.workspace_id;
+    const foreignTransportRead = await callMcpTool(runtime, issued.access_token, transportB, 134, "read", {
+      workspace_id: workspaceId,
+      path: "package.json"
+    });
+    assert.equal(foreignTransportRead.result.structuredContent.error.code, "WORKSPACE_NOT_FOUND");
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("cross-transport close invalidates direct and supertool reads while PathGuard remains authoritative", async () => {
+  const runtime = await setupTokenRuntime({
+    mcpFactory({ foundation, identity, enabledScopes }) {
+      return new OAuthReadOnlyMcpRuntime({
+        config: configFor(foundation.workspaceRoot, path.join(foundation.stateRoot, "mcp-close-parity")),
+        identity,
+        enabledScopes
+      });
+    }
+  });
+  try {
+    const client = await registerApprovedClient(runtime);
+    const issued = await exchange(runtime, client, ["codexgpt:read"]);
+    const targetRoot = path.join(runtime.foundation.workspaceRoot, "parity-target");
+    const siblingRoot = path.join(runtime.foundation.workspaceRoot, "parity-sibling");
+    fs.mkdirSync(targetRoot, { recursive: true });
+    fs.mkdirSync(siblingRoot, { recursive: true });
+    fs.writeFileSync(path.join(targetRoot, "package.json"), '{"name":"parity-target"}\n', "utf8");
+    fs.writeFileSync(path.join(siblingRoot, "secret.txt"), "outside\n", "utf8");
+
+    const transportA = await initializeMcpSession(runtime, issued.access_token, "phase-8-parity-a", 141);
+    const transportB = await initializeMcpSession(runtime, issued.access_token, "phase-8-parity-b", 142);
+    const transportC = await initializeMcpSession(runtime, issued.access_token, "phase-8-parity-c", 143);
+    const opened = await callMcpTool(runtime, issued.access_token, transportA, 144, "open_workspace", {
+      root: targetRoot,
+      include_tree: false
+    });
+    const workspaceId = opened.result.structuredContent.data.workspace_id;
+
+    const direct = await callMcpTool(runtime, issued.access_token, transportB, 145, "read", {
+      workspace_id: workspaceId,
+      path: "package.json"
+    });
+    const wrapped = await callMcpTool(runtime, issued.access_token, transportC, 146, "codexgpt", {
+      action: "read",
+      args: { workspace_id: workspaceId, path: "package.json" }
+    });
+    assert.equal(direct.result.isError ?? false, false, JSON.stringify(direct));
+    assert.equal(wrapped.result.isError ?? false, false, JSON.stringify(wrapped));
+    assert.equal(wrapped.result.structuredContent.codexgpt_super_action, "read");
+    assert.equal(wrapped.result.structuredContent.wrapped_tool, "read");
+    assert.equal(wrapped.result.structuredContent.data.root, targetRoot);
+    assert.equal(wrapped.result.structuredContent.data.text, direct.result.structuredContent.data.text);
+
+    const outside = await callMcpTool(runtime, issued.access_token, transportB, 147, "read", {
+      workspace_id: workspaceId,
+      path: "../parity-sibling/secret.txt"
+    });
+    assert.equal(outside.result.structuredContent.error.code, "PATH_OUTSIDE_WORKSPACE");
+    assert.equal(JSON.stringify(outside).includes(siblingRoot), false);
+
+    const closed = await callMcpTool(runtime, issued.access_token, transportB, 148, "close_workspace", {
+      workspace_id: workspaceId
+    });
+    assert.equal(closed.result.structuredContent.ok, true, JSON.stringify(closed));
+    const afterCloseDirect = await callMcpTool(runtime, issued.access_token, transportC, 149, "read", {
+      workspace_id: workspaceId,
+      path: "package.json"
+    });
+    assert.equal(afterCloseDirect.result.structuredContent.error.code, "WORKSPACE_NOT_FOUND");
+    const afterCloseWrapped = await callMcpTool(runtime, issued.access_token, transportA, 150, "codexgpt", {
+      action: "read",
+      args: { workspace_id: workspaceId, path: "package.json" }
+    });
+    assert.equal(afterCloseWrapped.result.structuredContent.error.code, "WORKSPACE_NOT_FOUND");
+
+    const reopened = await callMcpTool(runtime, issued.access_token, transportC, 151, "open_workspace", {
+      root: targetRoot,
+      include_tree: false
+    });
+    assert.notEqual(reopened.result.structuredContent.data.workspace_id, workspaceId);
+  } finally {
+    await runtime.close();
+  }
+});
 
 test("authenticated OAuth MCP performs initialize and one read-only tool call with durable session binding", async () => {
   const runtime = await setupTokenRuntime({

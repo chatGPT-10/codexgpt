@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 import { transactionResultV2Schema } from "./transactionResult.js";
+import { changeWorkflowStateSchema } from "./changeWorkflow.js";
 
 const applyPatchExpectedFilesSchemaV5 = z.record(
   z.string().min(1).max(240),
@@ -399,8 +400,23 @@ export const applyPatchErrorSchemaV5 = z.union([
   semanticPreviewStaleErrorSchema
 ]);
 
+const applyPatchDataBaseSchemaV5 = applyPatchDataSchema.extend({
+  transaction: transactionResultV2Schema,
+  files: applyPatchFilesSchemaV2,
+  workflow: changeWorkflowStateSchema.optional()
+}).strict();
+
+export const applyPatchDataSchemaV5 = applyPatchDataBaseSchemaV5.superRefine((value, context) => {
+  const { workflow: _workflow, ...legacy } = value;
+  const parsed = applyPatchDataSchemaV2.safeParse(legacy);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) context.addIssue(issue);
+  }
+});
+
 export const applyPatchOutputShapeV5 = {
   ...applyPatchOutputShapeV2,
+  data: applyPatchDataSchemaV5.nullable(),
   error: applyPatchErrorSchemaV5.nullable()
 };
 

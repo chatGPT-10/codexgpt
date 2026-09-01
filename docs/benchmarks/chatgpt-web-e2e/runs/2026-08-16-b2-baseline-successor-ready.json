@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "evidence_kind": "successor_adjusted_ab_b2_baseline_ready",
+  "status": "ready_for_fresh_chatgpt_web",
+  "observed_at": "2026-08-16T20:42:00+02:00",
+  "formal_benchmark_scored": false,
+  "shared_server_overlay": {
+    "manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "label": "step493-oauth-cross-transport-workspace-successor",
+    "entries": 6,
+    "content_matches_step493_runtime": true
+  },
+  "server_variants": {
+    "baseline_successor": {
+      "base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+      "checkout_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-7ee3f966",
+      "overlay_exact": true,
+      "package_identity_matches": true,
+      "build_passed": true,
+      "node_toolchain": "C:\\Users\\Administrator\\AppData\\Local\\CodexPro\\toolchains\\node-v24.15.0-win-x64\\node.exe",
+      "dependency_root": "D:\\Dev\\codexgpt\\node_modules"
+    },
+    "candidate_successor": {
+      "base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+      "checkout_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-bfd1b56c",
+      "overlay_exact": true,
+      "package_identity_matches": true,
+      "build_passed": true,
+      "node_toolchain": "C:\\Users\\Administrator\\AppData\\Local\\CodexPro\\toolchains\\node-v24.15.0-win-x64\\node.exe",
+      "dependency_root": "D:\\Dev\\codexgpt\\node_modules",
+      "runtime_started": false
+    }
+  },
+  "fairness": {
+    "baseline_candidate_core_successor_overlay_identical": true,
+    "candidate_runtime_started": false,
+    "rule": "Both retained server refs were revalidated with the exact same six-path successor overlay and Node 24.15.0. B2 baseline uses a fresh clean target at the fixed target ref; no candidate B2 target or runtime has been started."
+  },
+  "case": {
+    "case_id": "B2",
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-7c41931a",
+    "target_clean": true,
+    "server_variant": "baseline_successor",
+    "server_run_id": "2026-08-16T18-42-03-280Z-step498-b2-baseline-successor-a96ffb31",
+    "runtime_mode": "oauth_cross_transport",
+    "runtime_mode_source": "Explicit process environment override was set before the owned runner start; the frozen successor config also defaults an unset value to oauth_cross_transport.",
+    "health": {
+      "runner_status": "running",
+      "runner_identity": "worker_lease_active",
+      "loopback_only_ports": [8789, 8790],
+      "local_admin_http_status": 200,
+      "local_public_unauthenticated_http_status": 403,
+      "public_health_http_status": 200,
+      "public_auth_mode": "oauth",
+      "public_mcp_available": true
+    },
+    "prompt": "定位显式 user Skill 加载的实现、入口和覆盖它的测试。说明从 selector 到实际读取 Skill 文件的调用链，只读必要范围。",
+    "workspace_bootstrap_message": "先调用 open_workspace 打开 C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-7c41931a。后续本任务所有项目工具调用都必须显式使用返回的 workspace_id，不要使用默认 workspace。完成 workspace 绑定后，再执行下面的 benchmark task：\n\n定位显式 user Skill 加载的实现、入口和覆盖它的测试。说明从 selector 到实际读取 Skill 文件的调用链，只读必要范围。",
+    "prompt_sent": false,
+    "workspace_bootstrap_completed": null,
+    "metrics": {
+      "task_success": null,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": null,
+      "mutation_retries": null,
+      "verification_completed": null
+    }
+  },
+  "superseded_pre_benchmark_start": {
+    "run_id": "2026-08-16T18-33-02-060Z-step498-b2-baseline-successor-3ff129f4",
+    "reason": "Adversarial review found that this unscored start used the separately retained CodexGPT toolchain root instead of the repository-frozen CodexPro toolchain root. Both binaries were Node 24.15.0 with matching SHA-256, but toolchain-root migration is gated. No B2 prompt was sent; the run was stopped by exact run ID and excluded before collection.",
+    "stopped_at": "2026-08-16T18:41:16.827Z",
+    "listener_cleanup_confirmed": true
+  },
+  "notes": "B2 baseline is prepared but not executed or scored. The target is detached, clean, and pinned to the fixed target ref. Both retained server worktrees passed exact HEAD, package identity, six-entry overlay, approved dependency junction, TypeScript build under the frozen CodexPro Node 24.15.0 root, required dist artifact, and post-build overlay checks. No npm install, candidate B2 target/runtime, credential migration, DNS/Tunnel mutation, staging, commit, push, publication, or source mutation occurred."
+}

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "blocked",
+  "observed_at": "2026-08-16T14:19+02:00",
+  "server_run_id": "2026-08-16T09-01-14-741Z-phase0-benchmark-baseline-a1-51562360",
+  "server_variant": "baseline",
+  "server_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-d6e52e6e",
+  "chatgpt_model_label": null,
+  "case_result": {
+    "case_id": "A1",
+    "workspace_id": "ws_6b83deb1e2630ad23de5e84551f3d0e1",
+    "workspace_bootstrap_completed": false,
+    "metrics": {
+      "task_success": false,
+      "wrong_tool_calls": 0,
+      "redundant_tool_calls": 1,
+      "total_tool_calls": 3,
+      "context_fetch_calls": 1,
+      "mutation_retries": 0,
+      "verification_completed": null
+    },
+    "tool_calls": [
+      {
+        "sequence": 1,
+        "tool": "open_workspace",
+        "intent": "workspace_context",
+        "outcome": "success",
+        "wrong": false,
+        "redundant": false,
+        "context_fetch": true
+      },
+      {
+        "sequence": 2,
+        "tool": "read",
+        "intent": "targeted_read",
+        "outcome": "WORKSPACE_NOT_FOUND",
+        "wrong": false,
+        "redundant": false,
+        "context_fetch": false
+      },
+      {
+        "sequence": 3,
+        "tool": "read",
+        "via": "codexgpt",
+        "intent": "targeted_read",
+        "outcome": "WORKSPACE_NOT_FOUND",
+        "wrong": false,
+        "redundant": true,
+        "context_fetch": false
+      }
+    ],
+    "failure_domain": "workspace_handle_persistence_transport_session_binding",
+    "notes": "open_workspace returned the exact requested target root and an opaque workspace_id. The first explicit reuse of that handle in read(package.json) returned WORKSPACE_NOT_FOUND. One closed-world codexgpt retry with the same explicit handle returned the same failure. No fallback to the default workspace and no unrelated plugin/tool was used. A1 therefore could not verify package.json scripts or the HTTP/stdio wiring and is scored unsuccessful."
+  },
+  "campaign_decision": "Do not continue to A2 or candidate scoring until the workspace lifecycle contract is reconciled with real ChatGPT Web MCP-session behavior. Baseline and candidate have no source diff in guard.ts, http/oauthMcpRuntime.ts, server.ts, or productionRuntime.ts, so this failure is not attributable to the P1 execution-pipeline slice."
+}

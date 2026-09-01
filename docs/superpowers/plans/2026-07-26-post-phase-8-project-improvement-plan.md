@@ -85,7 +85,7 @@ codexgpt auth setup --root D:\Dev\target-repo --hostname mcp.example.com --tunne
 未发布的源码 checkout 使用：
 
 ```powershell
-node D:\Dev\codexpro\scripts\codexgpt-entry.mjs auth setup --root D:\Dev\target-repo --hostname mcp.example.com --tunnel-name codexgpt-oauth
+node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs auth setup --root D:\Dev\target-repo --hostname mcp.example.com --tunnel-name codexgpt-oauth
 ```
 
 交互式成功后，`auth setup` 保持已验证候选为前台服务，因此不再要求第二条 `start`。只有显式 `--no-start` 或非交互模式才打印一条带精确 `--root` 的 source/global 启动命令。

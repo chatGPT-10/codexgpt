@@ -33,7 +33,7 @@
 
 ## 当前项目状态
 
-- 首个稳定版本为 `codexgpt@1.0.0`；当前 npm 补丁版本为 `codexgpt@1.0.4`。package metadata、runtime 自报版本与 npm `latest` 必须保持一致；每个发布版本还必须能对应到精确 source commit。
+- 首个稳定版本为 `codexgpt@1.0.0`；当前 npm 补丁版本为 `codexgpt@1.0.5`。package metadata、runtime 自报版本与 npm `latest` 必须保持一致；每个发布版本还必须能对应到精确 source commit。
 - Phase 5、Phase 6 和 Phase 7 Core 均已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。Phase 7 Core 的关闭提交为 `a0b9f46e2297297959527f7570c9cb7942cc8fb3`，exact-head CI run 为 `30171313296`；Contract V5 仍是显式 `standard` opt-in，不是默认公开契约。
 - Phase 8 Tasks 8A1–8A9 已在 source checkout 中实现并完成本地验证：Windows DPAPI CurrentUser 状态保护、物理分离的 public/local listener、受限 DCR + PKCE S256、ES256 access token、rotating refresh family、durable revoke/replay、request-local policy identity、精确 per-tool scope、受支持的 setup/本地管理/恢复、专用 Tunnel ownership 检查、迁移与回滚文档、package integration、合成端到端 OAuth/MCP 验证，以及完成态 runtime 对抗性修复。真实 Gate G8-U 已通过 Journeys U2–U7，STEP-470 也已通过修复后的 managed Node 20/24 ordinary 与 protected Smoke 完成本地 G8-X。U6 已通过 service/protocol 双路由回滚、重建 Legacy App 的真实读取、精确无参数 OAuth 恢复，以及恢复后现有 OAuth App 的真实读取；已删除的原 Legacy App 身份连续性不作宣称。U7 已证明 shared/unowned Tunnel config 在任何 mutation 前失败并保持字节不变，同时完成 live public-loopback/local-admin 边界验收。Phase 8 exact-head closure 已在 `55b2b5664aae322ec992968a41c87a289fb75282`、CI run `30274857996` 通过；`1.0.0` 打包这一已验证基线。
 
@@ -47,12 +47,12 @@ CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 
 npm install -g codexgpt
 ```
 
-npm badge 与 package metadata 均应显示 `1.0.4`。source checkout 用于开发、验证特定 commit/branch，或使用 npm package 尚未包含的改动；依赖它之前先核对 package version 与 commit。
+npm badge 与 package metadata 均应显示 `1.0.5`。source checkout 用于开发、验证特定 commit/branch，或使用 npm package 尚未包含的改动；依赖它之前先核对 package version 与 commit。
 
 已有 source checkout 时，使用仓库脚本以保留公开入口层：
 
 ```powershell
-Set-Location D:\Dev\codexpro
+Set-Location D:\Dev\codexgpt
 npm install
 npm run build
 npm run connect:setup -- --root D:\Dev\your-repo
@@ -80,7 +80,7 @@ codexgpt auth setup `
 源码检出（开发或分支版本）：
 
 ```powershell
-Set-Location D:\Dev\codexpro
+Set-Location D:\Dev\codexgpt
 npm install
 npm run build
 node .\scripts\codexgpt-entry.mjs auth setup `
@@ -220,13 +220,23 @@ ChatGPT Web 可以操作：
 
 默认 `CODEXGPT_TOOL_MODE=standard`，只暴露常用编码循环、`codexgpt_self_test`、`show_changes`、上下文导出和 handoff。演示时可以用 `--tool-mode minimal`，需要完整兼容工具时用 `--tool-mode full`。
 
-默认工具数量较少是故意的：ChatGPT 面对少量高信号工具时更稳定。Phase 6 项目指导现在默认启用，直接运行 `codexgpt start` 即可。首次 workspace open 会自动返回有界的根 `AGENTS.md` 正文和仅含 implicit-eligible workspace Skill 的 catalog；首次修改前，ChatGPT 必须调用 `codex_context(target_path)` 获取精确的 root-to-target 指令链和 target-scoped `.agents/skills`，再用返回的同一个 `target_path` 最多加载一个匹配 Skill。Skill 正文及 `references/`、`scripts/`、`assets/` 文本按需加载，任何脚本、依赖或 metadata 都不会自动执行。user/plugin Skills 默认不暴露，只有工具调用显式请求 global discovery（例如 `include_global_skills=true` 或 `source: "user"`）才扫描。要有意加载已配置的用户级 Skill，请在 `load_skill` 中传入 `source: "user"`，并提供其 `name` 或显示出来的 selector，例如 `$CODEX_DIR/skills/neat-freak/SKILL.md`；该读取只限于配置的用户 Skill root，不会增加 workspace root，也不会改变 `--allow-root`。
+默认工具数量较少是故意的：ChatGPT 面对少量高信号工具时更稳定。Phase 6 项目指导现在默认启用，直接运行 `codexgpt start` 即可。首次 workspace open 的模型侧 `context_snapshot` 只给出指令路径和 implicit-eligible workspace Skill 元数据，不重复正文；既有结构化兼容字段仍保留根指导。首次修改前，ChatGPT 必须调用 `codex_context(target_path)` 获取精确的 root-to-target 指令链和 target-scoped `.agents/skills`，再用返回的同一个 `target_path` 最多加载一个匹配 Skill。Skill 正文及 `references/`、`scripts/`、`assets/` 文本按需加载，任何脚本、依赖或 metadata 都不会自动执行。user/plugin Skills 默认不暴露，只有工具调用显式请求 global discovery（例如 `include_global_skills=true` 或 `source: "user"`）才扫描。要有意加载已配置的用户级 Skill，请在 `load_skill` 中传入 `source: "user"`，并提供其 `name` 或显示出来的 selector，例如 `$CODEX_DIR/skills/neat-freak/SKILL.md`；该读取只限于配置的用户 Skill root，不会增加 workspace root，也不会改变 `--allow-root`。
+
+普通代码定位统一使用 `semantic` 的 `operation: "navigate"`（或 V5 `codexgpt` 的 `action: "navigate_code"`；其 `args` 只需 intent/query 等导航字段）。服务端会按 `definition`、`references`、`implementation`、`text`、`file`、`diagnostics` 意图，在自有 semantic provider、有界 lexical search 与文件发现之间选择路径。只有明确需要原始目录层级时才直接用 `tree`，明确需要原始词法命中时才直接用 `search`。修改与进程边界保持独立：整文件替换用 `write`，单处精确替换用 `edit`，多位置协调修改用 `apply_patch`，有限验证用 `run_command`，持久或交互任务用仅 full mode 可用的 `start_process`。这些说明不会增加权限或绕过审批。
 
 Phase 6 更新前创建的 App 可能保留冻结的旧工具快照；此时需要执行一次 **Scan Tools** 或重建该 App，不宣称透明自动刷新。若旧快照中已有稳定的 `codexgpt` supertool，它仍可兼容调用 `open` 和 `codex_context`。同一二进制回滚只需设置 `$env:CODEXGPT_GUIDANCE_MODE = "legacy"` 并重启。`codexgpt doctor` 会报告 readiness、无效 metadata、命名冲突及 scan/catalog 截断。省略该变量时现在使用 `standard`；由于 `minimal` 不暴露 `codex_context`，省略 guidance 配置的 `--tool-mode minimal` 会使用精确的 legacy 兼容投影，显式 `standard + minimal` 则在启动时失败。
 
 ### Phase 7 Core 语义导航
 
 Phase 7 Core 新增显式 `standard` 的 Contract V5，并通过一个零配置 `semantic` 工具为 JavaScript/TypeScript 提供定义、引用、单文件诊断和重命名预览。只有符号唯一时才允许省略路径；名称有歧义时返回有界候选，不会猜测。结果只显示工作区相对路径，并明确返回 `actual_provider` 与 `result_quality`，因此 lexical fallback 不会伪装成语义结果。
+
+P3 在不增加第 53 个直接工具、且保持 V1–V5 精确数量 `28/31/39/51/52` 的前提下，增加兼容的高层 `navigate` 操作。标准化结果强制返回实际 `provider`、`quality`、`fallback` 和 `truncated`：TypeScript 定义/引用优先使用自有 semantic provider；Python、provider 不可用/崩溃或分析期间 source stale 时，重新执行有界 lexical search 并明确标记 `lexical_fallback`；文本与文件名直接走对应 lexical backend；诊断不存在可靠 lexical 等价物，因此不会伪造 fallback。既有 `definition`、`references`、`diagnostics`、`rename_preview` 调用保持不变。
+
+P4 在不增加直接工具的前提下闭合修改流程。V5 的 `write`、`edit`、`apply_patch`、`move_paths` 或 `undo_change_set` 提交成功后，会在 `data.workflow` 返回精确 change set、变更路径、当前已确认的项目检查和待完成的 diff 复核；系统不会自动执行命令。当 Contract V5、`codexgpt` wrapper 与可用的 `full_access` execution profile 同时就绪时，显式调用 `codexgpt(action="verify_change")`，且只能选择结果中返回的检查类别；服务端会重新确认 P2 命令，并复用原有受 Policy、审批和审计保护的 `run_command` 链路。这不要求 full tool mode：standard tool mode 已暴露有限 `run_command` 路径，但 execution profile 与本机审批仍决定命令能否执行。随后使用相同 `change_set_id` 调用 `show_changes`，并设置 `include_diff=true`、`mark_reviewed=true`。返回的清单要求在完整 diff 中检查 unexpected files、formatting、generated artifacts、dependency changes 与 accidental deletion，不会用路径启发式伪造自动批准。验证到达终态且完整 workspace diff 已检查时 `complete=true`，只有验证通过时才 `ready=true`。V1–V4 保持精确，V5 仍是 52 个直接工具。
+
+P5 在不增加工具或权限的前提下完成本地长任务/进程体验。V5 进程成功结果统一使用 `starting | running | exited | failed | terminated` 生命周期；`state` 是权威字段，保留的 `status` 只是值必须相等的迁移别名。后端启动和 required start audit 尚未完成时，`list_processes` 可以真实显示 `starting`，但 `start_process` 只有进入 `running` 后才会成功返回。启动期间撤销、workspace/transport 关闭、到期、显式终止与服务退出都会 join 现有进程生命周期和 Job 进程树清理。V3/V4 wire shape 保持精确。
+
+若现有 V5 App 已有开放 schema 的稳定 `codexgpt` wrapper，服务端更新后即可用 `action: "navigate_code"`。若要直接调用 `semantic(operation="navigate")`，ChatGPT 仍需一次单独授权的 **Scan Tools（扫描工具）** 或重建 App，以取得新增 descriptor 字段；本次仓库修改不会执行该刷新。
 
 为当前工作区启用 builtin engine 后重启；已有 51 工具快照的 ChatGPT App 需要执行一次 **Scan Tools（扫描工具）** 或重建 App：
 
@@ -445,7 +455,7 @@ codexgpt stable --hostname codexgpt.example.com --tunnel-name codexgpt
 CodexGPT 不读取 Codex 的隐藏运行时记忆。它给 ChatGPT 的是显式工作区上下文：
 
 ```text
-open_current_workspace  当前 root、安全模式、AGENTS 状态、git 状态
+open_current_workspace  bounded context_snapshot：项目/命令/Git/Guidance/能力元数据
 codex_context           AGENTS 链、.ai-bridge 文件、可选 git status/diff
 read_handoff            只读 .ai-bridge 文件
 workspace_snapshot      更大的项目快照和 handoff 上下文
@@ -477,14 +487,14 @@ git status
 推荐流程：
 
 ```text
-先调用 server_config 和 codexgpt_self_test
-如果 self-test 失败，先停下来报告失败项
-先调用 open_current_workspace，include_tree=false
-再调用 codex_context，target_path 指向要改的文件，include_diff=false
-然后只读取当前任务需要的文件
+正常任务先调用一次 open_current_workspace；切换到用户指定目录时才用 open_workspace
+直接使用 context_snapshot 里的项目、命令来源/置信度、Git、指令/Skill 路径和能力状态
+只有目标文件需要更深指导时才调用 codex_context(target_path)
+只有确实需要时才调用 load_skill、tree 或 git_diff
+server_config 和 codexgpt_self_test 留给连接/运行时诊断，不作为每个任务的固定前置调用
 ```
 
-这样 ChatGPT 会更接近 Codex 的指令模型，同时不会依赖隐藏状态或大范围重复扫描。
+`context_snapshot` 最多 12,000 个序列化字符，并明确报告省略的指令、Skill 或项目元数据。它只包含指令文件路径和 Skill 的 `name`、`description`、`source`、`applicability`，不包含正文；项目命令同时带精确 `source` 和 `confirmed|inferred`，不会把惯例猜测伪装成已确认配置。`open_workspace` 默认不再扫描 tree。这样 ChatGPT 在一次 open 后已经知道自己在哪里，同时仍以 lazy-load 保持上下文短而稳定。
 
 ## Policy Kernel 迁移
 
@@ -607,15 +617,24 @@ codexgpt processes list --server <server_id>
 codexgpt processes terminate <process_id> --server <server_id>
 ```
 
+V3–V5 的进程工具按任务生命周期选择：
+
+- `run_command` 只用于预期会退出的单个有限命令，例如 test、build、lint 或 typecheck。standard tool mode 提供这条有限执行路径；不要用它维持 server、watcher 或 REPL。
+- `start_process` 用于 dev server、watcher 或交互式 REPL，仅 full tool mode 可用。Windows 下需要终端交互时选择 ConPTY；每次把 `read_process_output` 返回的非空 `next_cursor` 传入下一次读取，并在不再需要时调用 `terminate_process`。
+
+两条路径都使用当前 Windows 用户的 `full_access` 环境权限，不是沙箱。`read_process_output.wait_ms` 为正时，最多等待输出或生命周期收尾 30 秒；`eof=true` 后立即返回。
+
+V5 结果以 `state` 为生命周期真相，`status` 仅保留为相同值的迁移别名。`list_processes` 可能短暂返回 `starting`，而 `start_process` 本身只会以 `running` 成功。把每次非空的 `output.next_cursor` 作为下一次调用的 `cursor`；`max_bytes` 限制单页大小，省略 cursor 才会从保留输出起点重新读取。
+
 `full_access` 只适用于你信任的代码。进程拥有当前 Windows 用户的环境权限，**不会**隔离文件、凭据、registry、设备、COM/WMI/service broker 或网络。Job Object 只控制实际加入 Job 的进程；ConPTY 只提供终端输入输出；输出脱敏只识别已知模式，不是 DLP。保留的 `workspace` execution profile 当前不可用，也绝不会自动回退到 `full_access`。
 
 ## 工作区会话
 
-`workspace_id` 是只属于一个 MCP Server 会话的随机不透明句柄，不再由仓库路径哈希推导。同一活动会话重复打开同一 root 会复用本会话句柄；另一个 HTTP transport session 或 STDIO Server 进程会获得不同句柄，也不能使用或列出前一个会话的工作区。
+`workspace_id` 是随机不透明 capability handle，不由仓库路径哈希推导。OAuth 模式默认使用 deployment-runtime-scoped 的 configured-root registry：同一个 deployment incarnation、owner、OAuth client、grant/revision、resource 和 policy revision 下，`open_workspace` 返回的句柄可以跨 ChatGPT Web 的 MCP transport rotation 继续显式复用；transport/session id 本身不再是 OAuth continuity authority。不同 owner/client/grant/incarnation/resource 复制同一个句柄仍会得到统一的 unavailable 结果，也不能借 lookup/close 破坏合法句柄。
 
-调用 `close_workspace` 可以立即使句柄失效。空闲句柄按 `CODEXGPT_WORKSPACE_TTL_MS` 过期；未设置时跟随 `CODEXGPT_HTTP_SESSION_TTL_MS`，通常为 30 分钟，成功使用会刷新空闲期限。
+调用 `close_workspace` 可以立即使句柄失效。空闲句柄按 `CODEXGPT_WORKSPACE_TTL_MS` 过期；未设置时跟随 `CODEXGPT_HTTP_SESSION_TTL_MS`，通常为 30 分钟，成功使用会刷新空闲期限。OAuth service/runtime restart 会清空这类 configured-root capability，重启后需要重新 `open_workspace` 一次；正常 access-token refresh 不会改变同一 grant 的句柄 authority。
 
-为保留一个兼容周期，省略 `workspace_id` 的工具仍只会解析当前会话自己的默认 root，不会恢复跨会话共享。
+Legacy/query-token 和 STDIO 仍保持原来的 session/process-local 行为。一个兼容周期内，省略 `workspace_id` 仍只会解析当前 server session 的默认 root；但 OAuth 下如果用户已经显式打开非默认 root，后续调用应继续显式传入返回的 `workspace_id`，不得用省略参数回退到默认 root。需要临时回滚 OAuth continuity 时可设置 `CODEXGPT_OAUTH_WORKSPACE_CAPABILITY_MODE=session_local`。
 
 ## 安全边界
 
@@ -679,15 +698,29 @@ codexgpt start --mode handoff --no-bash
 ```bash
 codexgpt setup
 codexgpt start
-codexgpt doctor
+codexgpt doctor [--json]
 codexgpt settings
 codexgpt settings list
 codexgpt settings set --tunnel ngrok --hostname your-name.ngrok-free.dev
 codexgpt settings delete --yes
+codexgpt config explain --root D:\Dev\your-repo
+codexgpt config explain auth.mode --root D:\Dev\your-repo --json
 codexgpt pro-bundle --copy
 codexgpt execute-handoff --agent opencode --model provider/model --dry-run
 codexgpt watch-handoff --agent opencode --model provider/model --yes
 ```
+
+`config explain` 只读复用真实启动配置规划，不会启动服务、探测端口或创建 profile。文本输出说明每个公共输入为什么生效，并给出安全的重启命令；`--json` 还会返回完整的有效运行时快照。秘密值及被覆盖的 token 来源始终只显示为 `set` 或 `missing`。
+
+`doctor --json` 返回机器可读的诊断结果，并在 `configuration` 中原样嵌入同一份脱敏 `config explain` 文档；唯一受支持的公共 CLI 还会加入 Bash、保存配置和 OAuth 包装层检查。任一结构化检查为 `fail` 时，`ok` 为 `false`，命令以非零状态退出。
+
+兼容变量 `CODEBASE_BRIDGE_HTTP_TOKEN` 在迁移期内仍可读取。仅当它实际成为 token 来源时，`config explain` 与 `doctor` 才会返回 `CONFIG_COMPATIBILITY_INPUT`，并给出迁移到 `CODEXGPT_HTTP_TOKEN` 的脱敏 PowerShell 命令；配置的 token 本身不会进入输出。canonical 来源已经生效时不会误报警告。
+
+兼容变量 `CODEBASE_BRIDGE_REPO_ROOT` 在迁移期内也仍可读取。只有没有 `--root` 和 `CODEXGPT_ROOT` 时，受支持的公共入口才用它选择 workspace 和保存的 profile。`config explain` 与 `doctor` 会保留这个来源，并返回不包含路径值的 PowerShell 迁移命令 `$env:CODEXGPT_ROOT = $env:CODEBASE_BRIDGE_REPO_ROOT; Remove-Item Env:CODEBASE_BRIDGE_REPO_ROOT`；CLI 或 canonical root 已生效时不会误报警告。
+
+`CODEXGPT_HOSTNAME` 仍是 `CODEXGPT_PUBLIC_HOSTNAME` 的值等价兼容输入。它实际生效时，公共入口会保留原始来源，同时保持有效 hostname 和公共配置指纹不变；`config explain` 与 `doctor` 返回不嵌入 hostname 值的命令 `$env:CODEXGPT_PUBLIC_HOSTNAME = $env:CODEXGPT_HOSTNAME; Remove-Item Env:CODEXGPT_HOSTNAME`。`--hostname`、`--url` 或 `CODEXGPT_PUBLIC_HOSTNAME` 生效时不会出现兼容警告。
+
+`NGROK_DOMAIN` 仍与 `CODEXGPT_PUBLIC_HOSTNAME` 值等价，即使 tunnel 模式不是 ngrok 也保持既有行为。公共入口现在会保留这个原始来源；`config explain` 以及 `doctor --json` 内的 configuration 会把它标为 mode-ambiguous：变量名指向 ngrok，实际生效范围却是所有 tunnel 模式。本步没有安排删除或迁移警告；新配置应使用 `CODEXGPT_PUBLIC_HOSTNAME`。CLI、canonical 和 `CODEXGPT_HOSTNAME` 的既有优先级不变。
 
 终端控制键：
 

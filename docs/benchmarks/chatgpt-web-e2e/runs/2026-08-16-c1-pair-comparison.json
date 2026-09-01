@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "pair_complete_partial_tool_traces",
+  "observed_at": "2026-08-16T22:02:00+02:00",
+  "case_id": "C1",
+  "controls": {
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "node_major": 24,
+    "oauth_mode": "oauth_cross_transport",
+    "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+    "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "fresh_target_per_variant": true,
+    "same_bootstrap_contract": true,
+    "same_case_prompt": true,
+    "same_seed": true
+  },
+  "baseline": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-c1-baseline-successor.json",
+    "server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-c5c3d33c",
+    "workspace_id": "ws_914feaa3a02dbc3b1c4e2eb4b262c5c4",
+    "tool_trace_provided": true,
+    "tool_trace_complete": false,
+    "task_success": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": 1,
+    "verification_completed": true,
+    "runtime_stopped": true
+  },
+  "candidate": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-c1-candidate-successor.json",
+    "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-0a61c1bf",
+    "workspace_id": "ws_d1d2dcc55f55f99be82eaf8150b813ae",
+    "tool_trace_provided": true,
+    "tool_trace_complete": false,
+    "task_success": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": 1,
+    "verification_completed": true,
+    "runtime_stopped": true
+  },
+  "comparison": {
+    "task_success": "tie_pass",
+    "workspace_bootstrap": "tie_pass",
+    "verification_completion": "tie_pass",
+    "tool_call_efficiency": "not_comparable_incomplete_tool_traces",
+    "wrong_tool_call_rate": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": "tie_1_each",
+    "mutation_retries": "tie_1_each",
+    "p1_effect_for_c1": "not_demonstrated"
+  },
+  "campaign_decision": "C1 is complete. Both successor-adjusted variants restore the seeded query-token redaction regression, pass the focused 4-test suite, and return the target to the exact normalized HEAD content. Both Web activity panels are incomplete, so exact wrong/redundant/total-call comparison is unsupported. The matched wrong DevSpace bootstrap and first exact-edit miss are qualitative observations only. Proceed to C2 under the owner's Phase 0 authorization."
+}

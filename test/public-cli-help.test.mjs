@@ -24,6 +24,8 @@ test("public help keeps source-checkout users on the supported entry layer", asy
     /node\s+["']?(?:\.?[\\/])?scripts[\\/]codexgpt\.mjs["']?(?:\s|$)/i,
     "public help must not recommend bypassing entry-layer protections"
   );
+  assert.match(output, /codexgpt config explain \[--json\]/i);
+  assert.match(output, /codexgpt config explain auth\.mode\b[^\r\n]*--json/i);
 
   const packageJson = JSON.parse(await readFile("package.json", "utf8"));
   assert.equal(

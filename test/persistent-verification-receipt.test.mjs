@@ -201,7 +201,8 @@ test("V4 persistent nonzero, timeout, termination, dirty candidate, and audit fa
         assert.equal(terminal.data.verification_receipt, null, JSON.stringify({ exitCode, reason, dirty, auditFailure, terminate }));
         if (!terminate) assert.equal(terminal.data.exit_code, exitCode);
       } finally {
-        await manager.close();
+        if (auditFailure) await assert.rejects(manager.close(), /audit unavailable/);
+        else await manager.close();
         if (dirty) await fs.writeFile(path.join(task.privateState.worktreePath, "tracked.txt"), "task-change\n");
       }
     };

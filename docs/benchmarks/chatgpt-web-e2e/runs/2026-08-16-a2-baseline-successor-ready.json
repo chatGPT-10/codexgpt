@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "evidence_kind": "successor_adjusted_ab_a2_baseline_ready",
+  "status": "ready_for_fresh_chatgpt_web",
+  "observed_at": "2026-08-16T17:31+02:00",
+  "formal_benchmark_scored": false,
+  "shared_server_overlay": {
+    "manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "label": "step493-oauth-cross-transport-workspace-successor",
+    "entries": 6,
+    "content_matches_step493_runtime": true
+  },
+  "server_variants": {
+    "baseline_successor": {
+      "base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+      "checkout_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-7ee3f966",
+      "overlay_exact": true,
+      "package_identity_matches": true,
+      "build_passed": true,
+      "dependency_root": "D:\\Dev\\codexgpt\\node_modules"
+    },
+    "candidate_successor": {
+      "base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+      "checkout_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-bfd1b56c",
+      "overlay_exact": true,
+      "package_identity_matches": true,
+      "build_passed": true,
+      "dependency_root": "D:\\Dev\\codexgpt\\node_modules"
+    }
+  },
+  "fairness": {
+    "core_successor_files_byte_identical": true,
+    "baseline_candidate_commit_level_diff_in_existing_successor_files": false,
+    "candidate_runtime_started": false,
+    "rule": "Both server base refs receive the same exact six-path workspace-successor overlay. Only the historical P1 candidate base-ref changes are intended to differ."
+  },
+  "case": {
+    "case_id": "A2",
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-e40a3780",
+    "target_clean": true,
+    "server_variant": "baseline_successor",
+    "server_run_id": "2026-08-16T15-31-21-669Z-step495-a2-baseline-successor-58af4222",
+    "runtime_mode": "oauth_cross_transport",
+    "health": {
+      "runner_status": "running",
+      "runner_identity": "worker_lease_active",
+      "oauth_runtime": "running",
+      "loopback_only_ports": [8789, 8790],
+      "local_admin_http_status": 200,
+      "local_public_unauthenticated_http_status": 403,
+      "public_auth_mode": "oauth",
+      "public_mcp_available": true
+    },
+    "prompt_sent": false,
+    "workspace_bootstrap_completed": null,
+    "metrics": {
+      "task_success": null,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": null,
+      "mutation_retries": null,
+      "verification_completed": null
+    }
+  },
+  "notes": "A2 has not been executed or scored. The baseline-successor runtime is intentionally left running only for one fresh ChatGPT Web A2 conversation. Candidate-successor is prepared but not running concurrently. Stop the baseline runtime only by its exact run id after the A2 trace is collected."
+}

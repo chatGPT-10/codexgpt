@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 import { transactionResultV2Schema } from "./transactionResult.js";
+import { changeWorkflowStateSchema } from "./changeWorkflow.js";
 
 export const EDIT_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not available. Open the workspace before retrying.",
@@ -357,6 +358,26 @@ export const editOutputSchemaV2 = editOutputBaseSchemaV2.superRefine((value, con
 export type EditDataV2 = z.infer<typeof editDataSchemaV2>;
 export type EditStructuredResultV2 = z.infer<typeof editOutputBaseSchemaV2>;
 export type EditTransactionErrorCode = z.infer<typeof editTransactionErrorCodeSchema>;
+
+export const editDataSchemaV5 = editDataSchemaV2.extend({
+  workflow: changeWorkflowStateSchema.optional()
+}).strict();
+
+export const editOutputShapeV5 = {
+  ...editOutputShapeV2,
+  data: editDataSchemaV5.nullable()
+};
+
+const editOutputBaseSchemaV5 = z.object(editOutputShapeV5).strict();
+
+export const editOutputSchemaV5 = editOutputBaseSchemaV5.superRefine((value, context) => {
+  if (value.ok && (value.data === null || value.error !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful V5 edit results require data and no error." });
+  }
+  if (!value.ok && (value.data !== null || value.error === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed V5 edit results require an error and no data." });
+  }
+});
 
 export function createEditSuccessV2(
   data: EditDataV2,

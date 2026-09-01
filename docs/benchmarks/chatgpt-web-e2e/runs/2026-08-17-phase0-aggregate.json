@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "phase0_complete_reviewed",
+  "completed_at": "2026-08-17T08:08:00+02:00",
+  "case_contract_coverage": {
+    "fixed_cases_completed": 18,
+    "fixed_cases_total": 18,
+    "shared_successor_gate": "A1",
+    "matched_successor_adjusted_pairs": 17,
+    "matched_pair_range": "A2-I2"
+  },
+  "controls": {
+    "baseline_server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "candidate_server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+    "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "successor_overlay_applies_to": "A2-I2",
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "node": "24.15.0",
+    "node_binary_version_fixed": true,
+    "node_path_boundary": "Early A2/B1 retained toolchain paths predate the later CodexPro-root freeze; path provenance varies historically but is matched within each pair. B2-I2 use the frozen CodexPro root.",
+    "auth_mode": "oauth",
+    "configured_root_mode": "oauth_cross_transport",
+    "fresh_target_per_variant": true,
+    "fresh_chat_per_variant": true,
+    "same_bootstrap_contract": true,
+    "same_case_prompt_per_pair": true
+  },
+  "review_coverage": {
+    "reviewed_pairs": 17,
+    "pairs": 17,
+    "heterogeneous_historical_status_schema": true,
+    "pair_evidence": [
+      {"case_id": "A2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-a2-pair-comparison.json", "historical_status": "pair_completed_partial_tool_trace", "closure_step": 495, "review_record": "docs/memory/archive/interphase-maintenance-part-8.md", "reviewed": true},
+      {"case_id": "B1", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-b1-pair-comparison.json", "historical_status": "pair_complete_partial_tool_trace", "closure_step": 497, "review_record": "docs/memory/archive/interphase-maintenance-part-8.md", "reviewed": true},
+      {"case_id": "B2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-b2-pair-comparison.json", "historical_status": "pair_complete_mixed_tool_trace", "closure_step": 498, "review_record": "docs/memory/archive/interphase-maintenance-part-9.md", "reviewed": true},
+      {"case_id": "C1", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-c1-pair-comparison.json", "historical_status": "pair_complete_partial_tool_traces", "closure_step": 499, "review_record": "docs/memory/archive/interphase-maintenance-part-9.md", "reviewed": true},
+      {"case_id": "C2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-c2-pair-comparison.json", "historical_status": "pair_complete_partial_tool_traces", "closure_step": 500, "review_record": "docs/memory/archive/interphase-maintenance-part-9.md", "reviewed": true},
+      {"case_id": "D1", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-d1-pair-comparison.json", "historical_status": "pair_complete_partial_tool_traces", "closure_step": 501, "review_record": "docs/memory/archive/interphase-maintenance-part-9.md", "reviewed": true},
+      {"case_id": "D2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-d2-pair-comparison.json", "historical_status": "pair_complete_both_task_failed_partial_tool_traces", "closure_step": 502, "review_record": "docs/memory/archive/interphase-maintenance-part-9.md", "reviewed": true},
+      {"case_id": "E1", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-e1-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 503, "review_record": "docs/memory/archive/interphase-maintenance-part-9.md", "reviewed": true},
+      {"case_id": "E2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-e2-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 504, "review_record": "docs/memory/archive/interphase-maintenance-part-9.md", "reviewed": true},
+      {"case_id": "F1", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-f1-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 505, "review_record": "docs/memory/archive/interphase-maintenance-part-9.md", "reviewed": true},
+      {"case_id": "F2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-f2-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 506, "review_record": "docs/memory/archive/interphase-maintenance-part-10.md", "reviewed": true},
+      {"case_id": "G1", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-17-g1-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 507, "review_record": "docs/memory/archive/interphase-maintenance-part-10.md", "reviewed": true},
+      {"case_id": "G2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-17-g2-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 508, "review_record": "docs/memory/archive/interphase-maintenance-part-10.md", "reviewed": true},
+      {"case_id": "H1", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-17-h1-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 509, "review_record": "docs/memory/archive/interphase-maintenance-part-10.md", "reviewed": true},
+      {"case_id": "H2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-17-h2-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 510, "review_record": "docs/memory/archive/interphase-maintenance-part-10.md", "reviewed": true},
+      {"case_id": "I1", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-17-i1-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 511, "review_record": "docs/memory/archive/interphase-maintenance-part-10.md", "reviewed": true},
+      {"case_id": "I2", "path": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-17-i2-pair-comparison.json", "historical_status": "completed_pair_reviewed", "closure_step": 512, "review_record": "docs/memory/archive/interphase-maintenance-part-10.md", "reviewed": true}
+    ]
+  },
+  "a1_handling": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-successor-a1.json",
+    "task_success": true,
+    "wrong_tool_calls": 0,
+    "redundant_tool_calls": 0,
+    "total_tool_calls": 4,
+    "context_fetch_calls": 1,
+    "mutation_retries": 0,
+    "verification_completed": null,
+    "comparison_boundary": "A1 is a shared STEP-493 successor continuity gate on the successor working tree, not a matched baseline/candidate P1 comparison. It is excluded from variant rate denominators."
+  },
+  "matched_cohort": {
+    "case_ids": ["A2", "B1", "B2", "C1", "C2", "D1", "D2", "E1", "E2", "F1", "F2", "G1", "G2", "H1", "H2", "I1", "I2"],
+    "baseline_successor": {
+      "completed_cases": 17,
+      "successful_cases": 11,
+      "task_success_rate": 0.647059,
+      "verification_required_cases": 12,
+      "verification_completed_cases": 12,
+      "verification_completion_rate": 1.0,
+      "wrong_tool_call_rate": null,
+      "mean_total_tool_calls": null,
+      "mean_context_fetch_calls": 1.235294,
+      "mean_mutation_retries": null,
+      "trace_coverage": {
+        "complete_tool_traces": 0,
+        "cases": 17,
+        "total_tool_call_metric_known": 0,
+        "mutation_retry_metric_known": 5
+      }
+    },
+    "candidate_successor": {
+      "completed_cases": 17,
+      "successful_cases": 12,
+      "task_success_rate": 0.705882,
+      "verification_required_cases": 12,
+      "verification_completed_cases": 12,
+      "verification_completion_rate": 1.0,
+      "wrong_tool_call_rate": null,
+      "mean_total_tool_calls": null,
+      "mean_context_fetch_calls": 1.235294,
+      "mean_mutation_retries": null,
+      "trace_coverage": {
+        "complete_tool_traces": 2,
+        "cases": 17,
+        "complete_trace_case_ids": ["B2", "F1"],
+        "total_tool_call_metric_known": 2,
+        "mutation_retry_metric_known": 6,
+        "observed_subset_wrong_tool_calls": 0,
+        "observed_subset_total_tool_calls": 8,
+        "observed_subset_wrong_tool_call_rate": 0.0
+      }
+    }
+  },
+  "pair_outcomes": {
+    "tie_pass": ["A2", "B1", "B2", "C1", "C2", "D1", "E1", "E2", "F1", "F2", "G1"],
+    "tie_fail": ["D2", "H1", "H2", "I1", "I2"],
+    "candidate_pass_baseline_fail": ["G2"],
+    "baseline_pass_candidate_fail": []
+  },
+  "evidence_boundary": {
+    "tool_efficiency": "insufficient_comparable_trace_evidence",
+    "wrong_tool_call_rate": "not_reported_for_the_matched_campaign_because_baseline_has_zero_complete_traces_and_candidate_has_only_two",
+    "total_tool_calls": "not_reported_for_the_matched_campaign",
+    "mutation_retries": "not_reported_for_the_matched_campaign_because exact values are missing for most cases",
+    "task_success_observation": "candidate is one success higher than baseline in the 17-case matched cohort, entirely from G2",
+    "causal_boundary": "This is one controlled run per variant, not a statistical estimate. It does not prove a general P1 improvement, and no P1 tool-efficiency effect is demonstrated."
+  },
+  "failure_domains": {
+    "matched_both_fail": {
+      "D2": "Both assistants reached RED verification but failed to complete the requested server description mutation.",
+      "H1": "The frozen active App exposed no persistent-process actions.",
+      "H2": "Both used a bounded full-duration wait and broadened inspection beyond the fixture.",
+      "I1": "The frozen active App exposed no returned change-set undo path.",
+      "I2": "The frozen active App exposed no returned change-set undo path."
+    },
+    "candidate_only_pass": {
+      "G2": "Candidate bounded LF, CRLF, and CR line endings; baseline's LF-only implementation violated the Windows newline bound."
+    }
+  },
+  "decision": {
+    "phase0_execution": "complete_reviewed",
+    "p1_task_success_signal": "single_run_candidate_advantage_1_of_17",
+    "p1_efficiency_signal": "not_demonstrated",
+    "recommended_next_action": "Phase 0 is stopped. Await a separate owner decision on recollecting complete matched tool traces, refreshing the frozen App tool surface, or authorizing any additional P1 slice.",
+    "later_phases": "not_authorized"
+  }
+}

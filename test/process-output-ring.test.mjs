@@ -28,6 +28,10 @@ test("max_bytes=1 resumes inside a chunk without loss or duplication", () => {
 
 test("waiters wake on output/exit and cancellation leaves no waiter", async () => {
   const ring = new OutputRing({ capacityBytes: 32 });
+  const alreadyCancelled = new AbortController();
+  alreadyCancelled.abort();
+  await assert.rejects(ring.waitForChange({ sequence: 0, signal: alreadyCancelled.signal }), /abort/i);
+  assert.equal(ring.waiterCount(), 0);
   const controller = new AbortController();
   const cancelled = ring.waitForChange({ sequence: 0, signal: controller.signal });
   controller.abort();
@@ -36,6 +40,13 @@ test("waiters wake on output/exit and cancellation leaves no waiter", async () =
   const waiting = ring.waitForChange({ sequence: 0 });
   ring.close();
   assert.equal((await waiting).eof, true);
+});
+
+test("waiter timeout returns the unchanged position and releases the waiter", async () => {
+  const ring = new OutputRing({ capacityBytes: 32 });
+  const result = await ring.waitForChange({ sequence: 0, timeoutMs: 5 });
+  assert.deepEqual(result, { sequence: 0, eof: false });
+  assert.equal(ring.waiterCount(), 0);
 });
 
 test("UTF-8 eviction and one-byte pages never retain or project split scalars", () => {

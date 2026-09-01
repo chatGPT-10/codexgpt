@@ -7,7 +7,13 @@ import cors from "cors";
 import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { expandHome, loadConfig, type CodexGPTConfig } from "./config.js";
+import {
+  assertExpectedConfigIntegrity,
+  assertExpectedConfigFingerprint,
+  expandHome,
+  loadResolvedConfig,
+  type CodexGPTConfig
+} from "./config.js";
 import { contractIncludesV4, contractIncludesV5 } from "./tools/contracts/index.js";
 import { createHttpPolicySessionSource, loadOrCreateIdentityKey } from "./policy/identity.js";
 import { policyIdentityScopes } from "./policy/runtime.js";
@@ -29,13 +35,11 @@ import {
   disposeProductionCodexGPTServer
 } from "./productionRuntime.js";
 import { createProductionGitBootstrapV4 } from "./git/productionBootstrap.js";
-import { resolveTransactionStateRoot } from "./transactions/stateRoot.js";
 import { ProcessInstanceRegistry } from "./transactions/workspaceLock.js";
 import { PersistentAuditStore } from "./audit/index.js";
 import { LocalApprovalRuntimeV3 } from "./control/runtime.js";
 import { SemanticPreviewStore } from "./semantic/previewStore.js";
 import { createSemanticWorkerHealthRegistry } from "./semantic/builtin/typescriptProvider.js";
-import { resolveOAuthDeploymentConfiguration } from "./auth/configuration.js";
 import { oauthScopesForDeployment } from "./auth/policyIdentity.js";
 import { createOAuthDeploymentIdentity } from "./auth/schemas.js";
 import {
@@ -66,6 +70,7 @@ import {
   createLocalAdminApp,
   createLocalControlOwnerAdminService
 } from "./http/localAdminApp.js";
+import { createLocalAdminSettingsService } from "./http/localAdminSettings.js";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -480,7 +485,7 @@ const LOCAL_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 6
   <rect x="8" y="8" width="48" height="48" rx="12" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".38"/>
   <path d="M38.4 40.3c-1.8 1.1-3.9 1.7-6.3 1.7-6.1 0-10.3-4.2-10.3-10s4.2-10 10.4-10c2.4 0 4.5.6 6.2 1.7l-2.1 4.1c-1.1-.7-2.3-1-3.8-1-2.9 0-4.9 2.1-4.9 5.2s2 5.2 4.9 5.2c1.5 0 2.8-.4 3.9-1.1l2 4.2Z" fill="#ffffff"/>
 </svg>`;
-const CODEXGPT_VERSION = "1.0.4";
+const CODEXGPT_VERSION = "1.0.5";
 
 function printHelp(): void {
   console.log(`CodexGPT MCP HTTP server
@@ -1511,7 +1516,21 @@ async function main(): Promise<void> {
     return;
   }
 
-  const config = loadConfig();
+  const configSnapshot = loadResolvedConfig();
+  assertExpectedConfigFingerprint(
+    configSnapshot,
+    process.env.CODEXGPT_EXPECTED_CONFIG_FINGERPRINT
+  );
+  assertExpectedConfigIntegrity(
+    configSnapshot,
+    process.env.CODEXGPT_EXPECTED_CONFIG_INTEGRITY,
+    process.env.CODEXGPT_CONFIG_INTEGRITY_KEY
+  );
+  const config = configSnapshot.effective;
+  const requireTransactionStateRoot = (): string => {
+    if (config.transactionStateRoot) return config.transactionStateRoot;
+    throw new Error("This HTTP configuration requires a transaction state root; set CODEXGPT_HOME or LOCALAPPDATA and restart.");
+  };
   if (config.authMode === "legacy" && config.requireHttpToken && !config.authToken) {
     throw new Error(
       "CODEXGPT_HTTP_TOKEN is required for this HTTP binding. " +
@@ -1532,22 +1551,9 @@ async function main(): Promise<void> {
     : undefined;
 
   if (config.authMode === "oauth") {
-    const profile = readWorkspaceProfile(config.defaultRoot);
-    const deployment = resolveOAuthDeploymentConfiguration({
-      canonicalRoot: config.defaultRoot,
-      profileId: profileIdForRoot(config.defaultRoot),
-      hostname: profile.hostname ?? "",
-      issuer: profile.oauthIssuer,
-      resource: profile.oauthResource,
-      tunnel: profile.tunnel ?? "",
-      tunnelName: profile.tunnelName ?? "",
-      tunnelOwner: profile.tunnelOwner ?? "",
-      publicHost: config.host,
-      publicPort: config.port,
-      localAdminHost: "127.0.0.1",
-      localAdminPort: Number(profile.localAdminPort ?? 8788)
-    });
-    const stateRoot = resolveTransactionStateRoot();
+    const deployment = config.oauthDeployment;
+    if (!deployment) throw new Error("OAuth effective configuration is missing its deployment snapshot.");
+    const stateRoot = requireTransactionStateRoot();
     const oauthStateRoot = path.join(stateRoot, "oauth");
     const auditRegistry = new ProcessInstanceRegistry(stateRoot);
     const auditStore = PersistentAuditStore.open({
@@ -1636,6 +1642,10 @@ async function main(): Promise<void> {
         localAdminSessions,
         localAdminOrigin
       );
+      const localAdminSettingsService = createLocalAdminSettingsService(
+        config.defaultRoot,
+        config.toolMode
+      );
       localApprovalRuntime.setOAuthAdminBootstrapControl({
         issue: () => ownerAdminService.issueBootstrap()
       });
@@ -1674,7 +1684,17 @@ async function main(): Promise<void> {
         ownerAdminService,
         sessions: localAdminSessions,
         origin: localAdminOrigin,
-        tokenDiagnostics: oauthTokenDiagnostics
+        tokenDiagnostics: oauthTokenDiagnostics,
+        controlSnapshot: {
+          defaultWorkspace: config.defaultRoot,
+          allowedRoots: config.allowedRoots,
+          toolMode: config.toolMode,
+          writeMode: config.writeMode,
+          executionProfile: config.executionProfile,
+          policyEngine: config.policyEngineMode,
+          authMode: config.authMode
+        },
+        settingsService: localAdminSettingsService
       });
       const listen = (
         app: express.Express,
@@ -1779,7 +1799,7 @@ async function main(): Promise<void> {
     config.auditMode !== "off" &&
     config.executionProfile === "off" &&
     config.localFileAccess !== "confirmed_roots"
-      ? resolveTransactionStateRoot()
+      ? requireTransactionStateRoot()
       : undefined;
   const sharedApprovalRegistryV5 = sharedApprovalStateRootV5
     ? new ProcessInstanceRegistry(sharedApprovalStateRootV5)
@@ -1796,7 +1816,7 @@ async function main(): Promise<void> {
     : undefined;
 
   const app = express();
-  const logRequests = process.env.CODEXGPT_LOG_REQUESTS === "1";
+  const logRequests = config.logRequests;
 
   function tokenMatches(value: unknown): boolean {
     if (!config.authToken || typeof value !== "string") return false;
@@ -2096,10 +2116,11 @@ async function main(): Promise<void> {
             })
           : undefined;
         const gitBootstrapV4 = await createProductionGitBootstrapV4(config, {
-          stateRoot: resolveTransactionStateRoot()
+          stateRoot: config.transactionStateRoot
         });
         try {
           sessionServer = createProductionCodexGPTServer(config, {
+            stateRoot: config.transactionStateRoot,
             policySessionContextSource,
             gitBootstrapV4: gitBootstrapV4 ?? undefined,
             semanticPreviewStoreV5,

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "case_id": "A2",
+  "comparison_status": "pair_completed_partial_tool_trace",
+  "compared_at": "2026-08-16T18:39:00+02:00",
+  "control": {
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+    "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "node_major": 24,
+    "auth_mode": "oauth",
+    "workspace_bootstrap_required": true
+  },
+  "baseline_successor": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-a2-baseline-successor.json",
+    "server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "server_run_id": "2026-08-16T15-31-21-669Z-step495-a2-baseline-successor-58af4222",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-e40a3780",
+    "metrics": {
+      "task_success": true,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": 1,
+      "mutation_retries": 0,
+      "verification_completed": null
+    }
+  },
+  "candidate_successor": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-a2-candidate-successor.json",
+    "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+    "server_run_id": "2026-08-16T16-21-06-335Z-step495-a2-candidate-successor-96433fbb",
+    "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-f4d7fabe",
+    "metrics": {
+      "task_success": true,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": 1,
+      "mutation_retries": 0,
+      "verification_completed": null
+    }
+  },
+  "comparison": {
+    "task_success": "tie_pass",
+    "tool_call_efficiency": "not_comparable_missing_tool_traces",
+    "verification": "not_applicable_read_only",
+    "p1_effect_for_a2": "not_demonstrated",
+    "interpretation": "Both successor-adjusted variants satisfy all A2 success criteria. Because neither returned trace includes the complete ChatGPT UI/tool-call sequence, wrong/redundant/total tool-call metrics are unobserved on both sides. Do not infer a ToolExecutionPipeline improvement or regression from response length, prose detail, or unsupported assumptions about hidden calls."
+  },
+  "campaign_decision": "A2 pair is complete. No A2 evidence supports a positive or negative P1 efficiency claim. B1 is the next benchmark case in sequence but is not started by this comparison record."
+}

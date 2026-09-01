@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createToolMeta, toolMetaSchema } from "./common.js";
 import { transactionResultV2Schema } from "./transactionResult.js";
+import { changeWorkflowStateSchema } from "./changeWorkflow.js";
 
 export const WRITE_ERROR_MESSAGES = {
   WORKSPACE_NOT_FOUND: "The requested workspace is not available. Open the workspace before retrying.",
@@ -312,6 +313,26 @@ export const writeOutputSchemaV2 = writeOutputBaseSchemaV2.superRefine((value, c
 export type WriteDataV2 = z.infer<typeof writeDataSchemaV2>;
 export type WriteStructuredResultV2 = z.infer<typeof writeOutputBaseSchemaV2>;
 export type WriteTransactionErrorCode = z.infer<typeof writeTransactionErrorCodeSchema>;
+
+export const writeDataSchemaV5 = writeDataSchemaV2.extend({
+  workflow: changeWorkflowStateSchema.optional()
+}).strict();
+
+export const writeOutputShapeV5 = {
+  ...writeOutputShapeV2,
+  data: writeDataSchemaV5.nullable()
+};
+
+const writeOutputBaseSchemaV5 = z.object(writeOutputShapeV5).strict();
+
+export const writeOutputSchemaV5 = writeOutputBaseSchemaV5.superRefine((value, context) => {
+  if (value.ok && (value.data === null || value.error !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Successful V5 write results require data and no error." });
+  }
+  if (!value.ok && (value.data !== null || value.error === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Failed V5 write results require an error and no data." });
+  }
+});
 
 export function createWriteSuccessV2(
   data: WriteDataV2,

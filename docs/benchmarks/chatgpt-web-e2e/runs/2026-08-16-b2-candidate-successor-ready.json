@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "ready_for_fresh_chatgpt_web",
+  "prepared_at": "2026-08-16T21:02:00+02:00",
+  "server_run_id": "2026-08-16T19-01-34-915Z-step498-b2-candidate-successor-644b0a63",
+  "server_variant": "candidate_successor",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-9e79d66d",
+  "target_clean": true,
+  "runtime_mode": "oauth_cross_transport",
+  "runtime_mode_source": "Explicit process environment override was set before the owned runner start; the frozen successor config also defaults an unset value to oauth_cross_transport.",
+  "node_toolchain": "C:\\Users\\Administrator\\AppData\\Local\\CodexPro\\toolchains\\node-v24.15.0-win-x64\\node.exe",
+  "preflight": {
+    "candidate_exact_head": true,
+    "package_identity_matches": true,
+    "exact_overlay_matches": true,
+    "shared_dependency_root_matches": true,
+    "typescript_build_passed": true,
+    "runtime_status": "running",
+    "worker_lease_active": true,
+    "active_benchmark_run_count": 1,
+    "public_health_status": 200,
+    "public_auth_mode": "oauth",
+    "public_mcp_available": true,
+    "listeners_loopback_only": true,
+    "local_admin_health_status": 200,
+    "local_public_unauthenticated_status": 403
+  },
+  "baseline_result": {
+    "evidence": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-b2-baseline-successor.json",
+    "task_success": true,
+    "tool_trace_provided": false,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "runtime_stopped_before_candidate_start": true
+  },
+  "case": {
+    "case_id": "B2",
+    "prompt": "定位显式 user Skill 加载的实现、入口和覆盖它的测试。说明从 selector 到实际读取 Skill 文件的调用链，只读必要范围。",
+    "workspace_bootstrap_required": true,
+    "require_explicit_workspace_id_for_followup": true,
+    "workspace_bootstrap_message": "先调用 open_workspace 打开 C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-9e79d66d。后续本任务所有项目工具调用都必须显式使用返回的 workspace_id，不要使用默认 workspace。完成 workspace 绑定后，再执行下面的 benchmark task：\n\n定位显式 user Skill 加载的实现、入口和覆盖它的测试。说明从 selector 到实际读取 Skill 文件的调用链，只读必要范围。",
+    "prompt_sent": false,
+    "workspace_bootstrap_completed": null,
+    "metrics": {
+      "task_success": null,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": null,
+      "mutation_retries": null,
+      "verification_completed": null
+    }
+  },
+  "notes": "The baseline B2 answer was scored for task success and its exact runtime was stopped with zero listener residue before this candidate target or runtime was created. Candidate uses the same fixed target ref, frozen CodexPro Node 24.15.0 root, OAuth profile/App, exact successor overlay, and unchanged bootstrap/prompt. No npm install, target seed, source mutation, credential migration, DNS/Tunnel mutation, staging, commit, push, or publication occurred."
+}

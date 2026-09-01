@@ -25,6 +25,404 @@ test("persistent manager hides handles across contexts and records natural exit"
   await manager.close(); assert.equal(terminateCalls, 0, "natural exit is not terminated again");
 });
 
+test("read_process_output wait_ms wakes on new output, times out cleanly, and returns terminal state immediately", async () => {
+  let callbacks;
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "wait-owner",
+    backend: { start: async (input) => {
+      callbacks = input;
+      return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} };
+    } }
+  });
+  const started = await manager.start({ command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" });
+  const processId = started.data.process_id;
+  const initial = manager.read(processId);
+
+  let settled = false;
+  const waiting = manager.readResult({ process_id: processId, cursor: initial.data.output.next_cursor, max_bytes: 1024, wait_ms: 1_000 }).then((value) => {
+    settled = true;
+    return value;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(settled, false, "an empty running process must keep the bounded read pending");
+  callbacks.onOutput("stdout", Buffer.from("ready\n"));
+  const output = await waiting;
+  assert.equal(output.data.output.chunks.map((chunk) => chunk.text).join(""), "ready\n");
+
+  let timeoutSettled = false;
+  const timeoutRead = manager.readResult({ process_id: processId, cursor: output.data.output.next_cursor, max_bytes: 1024, wait_ms: 10 }).then((value) => {
+    timeoutSettled = true;
+    return value;
+  });
+  await Promise.resolve();
+  assert.equal(timeoutSettled, false, "a positive wait must not resolve in the same microtask turn");
+  const timedOut = await timeoutRead;
+  assert.equal(timedOut.data.output.returned_bytes, 0);
+
+  callbacks.onExit(0, "natural_exit");
+  await new Promise((resolve) => setImmediate(resolve));
+  const terminalRead = manager.readResult({ process_id: processId, cursor: timedOut.data.output.next_cursor, wait_ms: 1_000 });
+  const terminalRace = await Promise.race([
+    terminalRead.then((value) => ({ kind: "result", value })),
+    new Promise((resolve) => setImmediate(() => resolve({ kind: "next-turn" })))
+  ]);
+  assert.equal(terminalRace.kind, "result", "terminal reads must not consume wait_ms");
+  const terminal = terminalRace.value;
+  assert.equal(terminal.data.status, "exited");
+  assert.equal(terminal.data.output.eof, true);
+  await manager.close();
+});
+
+test("read_process_output cancellation releases a pending wait", async () => {
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "wait-cancel-owner",
+    backend: { start: async () => ({ write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} }) }
+  });
+  const started = await manager.start({ command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" });
+  const processId = started.data.process_id;
+  const cursor = manager.read(processId).data.output.next_cursor;
+  const controller = new AbortController();
+  const waiting = manager.readResult({ process_id: processId, cursor, wait_ms: 30_000 }, controller.signal);
+  await new Promise((resolve) => setImmediate(resolve));
+  controller.abort();
+  await assert.rejects(waiting, /abort/i);
+  const followup = await manager.readResult({ process_id: processId, cursor, wait_ms: 0 });
+  assert.equal(followup.data.output.returned_bytes, 0);
+  await manager.close();
+});
+
+test("read_process_output wait_ms wakes when termination changes process state before host cleanup settles", async () => {
+  let releaseTermination;
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "wait-termination-owner",
+    backend: { start: async () => ({
+      write: async () => {},
+      interrupt: async () => "unsupported",
+      terminate: () => new Promise((resolve) => { releaseTermination = resolve; }),
+      resize: async () => {}
+    }) }
+  });
+  const started = await manager.start({ command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" });
+  const processId = started.data.process_id;
+  const cursor = manager.read(processId).data.output.next_cursor;
+  const waiting = manager.readResult({ process_id: processId, cursor, wait_ms: 1_000 });
+  await new Promise((resolve) => setImmediate(resolve));
+  const terminating = manager.terminate(processId);
+  try {
+    const result = await Promise.race([
+      waiting,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("state change did not wake output wait")), 100))
+    ]);
+    assert.equal(result.data.status, "terminated");
+    assert.equal(result.data.output.eof, false, "host cleanup may still have redactor tail output to close");
+  } finally {
+    releaseTermination();
+    await terminating;
+    await manager.close();
+  }
+});
+
+test("revoke and close join an in-flight natural exit and suppress post-revocation receipts", async () => {
+  for (const action of ["revoke", "close"]) {
+    let callbacks;
+    let releaseVerification;
+    let markVerificationStarted;
+    let issueCalls = 0;
+    const verificationStarted = new Promise((resolve) => { markVerificationStarted = resolve; });
+    const executionRuntime = {
+      toolContractVersion: 4,
+      preparePersistent: (args) => ({ cwd: args.cwd.path, verificationBinding: { exact: true }, resource: { exact: true } }),
+      beginPersistentVerification: async () => ({ clean: true }),
+      completePersistentVerification: () => {
+        markVerificationStarted();
+        return new Promise((resolve) => { releaseVerification = () => resolve({ clean: true }); });
+      },
+      issuePersistentVerificationReceipt: () => {
+        issueCalls += 1;
+        return `verify_${"a".repeat(32)}`;
+      }
+    };
+    const manager = new ProcessManagerV3({
+      contextFingerprint: () => `exit-${action}-owner`,
+      executionRuntime,
+      audit: new ProcessAuditCoordinatorV3({ sink: (event) => ({ eventId: event.eventId, timestamp: event.timestamp }) }),
+      backend: { start: async (input) => {
+        callbacks = input;
+        return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} };
+      } }
+    });
+    const started = await manager.start({
+      command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] },
+      cwd: { kind: "absolute_local", path: process.cwd() },
+      mode: "full_access",
+      verification: { merge_plan_id: `merge_${"1".repeat(32)}`, integration_workspace_id: `ws_${"2".repeat(32)}`, category: "test" }
+    });
+    callbacks.onExit(0, "natural_exit");
+    await verificationStarted;
+    let settled = false;
+    const lifecycle = (action === "revoke" ? manager.revokeAll("evidence_revoked") : manager.close("evidence_revoked")).then(() => { settled = true; });
+    await new Promise((resolve) => setImmediate(resolve));
+    const returnedBeforeExitSettled = settled;
+    releaseVerification();
+    await lifecycle;
+    const receipt = action === "revoke" ? manager.read(started.data.process_id).data.verification_receipt : null;
+    if (action === "revoke") await manager.close();
+    assert.equal(returnedBeforeExitSettled, false, `${action} must join natural-exit verification`);
+    assert.equal(issueCalls, 0, `${action} must invalidate receipt publication before joining exit cleanup`);
+    assert.equal(receipt, null);
+  }
+});
+
+test("root drain treats natural-exit verification as active until post-exit work settles", async () => {
+  let callbacks;
+  let releaseVerification;
+  let markVerificationStarted;
+  const verificationStarted = new Promise((resolve) => { markVerificationStarted = resolve; });
+  const executionRuntime = {
+    toolContractVersion: 4,
+    preparePersistent: (args) => ({ cwd: args.cwd.path, verificationBinding: { exact: true }, resource: { exact: true } }),
+    beginPersistentVerification: async () => ({ clean: true }),
+    completePersistentVerification: () => {
+      markVerificationStarted();
+      return new Promise((resolve) => { releaseVerification = () => resolve({ clean: true }); });
+    },
+    issuePersistentVerificationReceipt: () => `verify_${"b".repeat(32)}`
+  };
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "exit-drain-owner",
+    executionRuntime,
+    audit: new ProcessAuditCoordinatorV3({ sink: (event) => ({ eventId: event.eventId, timestamp: event.timestamp }) }),
+    backend: { start: async (input) => {
+      callbacks = input;
+      return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} };
+    } }
+  });
+  const started = await manager.start({
+    command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] },
+    cwd: { kind: "absolute_local", path: process.cwd() },
+    mode: "full_access",
+    verification: { merge_plan_id: `merge_${"3".repeat(32)}`, integration_workspace_id: `ws_${"4".repeat(32)}`, category: "test" }
+  });
+  callbacks.onExit(0, "natural_exit");
+  await verificationStarted;
+  const finalizing = manager.read(started.data.process_id);
+  assert.equal(finalizing.data.status, "exited");
+  assert.equal(finalizing.data.output.eof, false);
+  assert.equal(finalizing.data.exit_code, 0);
+  assert.equal(finalizing.data.verification_receipt, null);
+  assert.equal(manager.hasActiveProcessInRoot(process.cwd()), true);
+  let drained = false;
+  const drain = manager.drainActiveProcessesInRoot(process.cwd()).then(() => { drained = true; });
+  let finalizedReadSettled = false;
+  const finalizedRead = manager.readResult({ process_id: started.data.process_id, cursor: finalizing.data.output.next_cursor, wait_ms: 1_000 }).then((value) => {
+    finalizedReadSettled = true;
+    return value;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  const returnedBeforeExitSettled = drained;
+  assert.equal(finalizedReadSettled, false);
+  releaseVerification();
+  const [, terminal] = await Promise.all([drain, finalizedRead]);
+  assert.equal(returnedBeforeExitSettled, false);
+  assert.equal(terminal.data.output.eof, true);
+  assert.match(terminal.data.verification_receipt, /^verify_/u);
+  assert.equal(manager.hasActiveProcessInRoot(process.cwd()), false);
+  await manager.close();
+});
+
+test("revocation starts every running termination before joining natural-exit verification", async () => {
+  const callbacks = [];
+  let releaseVerification;
+  let markVerificationStarted;
+  let terminateCalls = 0;
+  const verificationStarted = new Promise((resolve) => { markVerificationStarted = resolve; });
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "parallel-revoke-owner",
+    executionRuntime: {
+      toolContractVersion: 4,
+      preparePersistent: (args) => ({ cwd: args.cwd.path, verificationBinding: { exact: true }, resource: { exact: true } }),
+      beginPersistentVerification: async () => ({ clean: true }),
+      completePersistentVerification: () => {
+        markVerificationStarted();
+        return new Promise((resolve) => { releaseVerification = () => resolve({ clean: true }); });
+      },
+      issuePersistentVerificationReceipt: () => `verify_${"c".repeat(32)}`
+    },
+    audit: new ProcessAuditCoordinatorV3({ sink: (event) => ({ eventId: event.eventId, timestamp: event.timestamp }) }),
+    backend: { start: async (input) => {
+      callbacks.push(input);
+      return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => { terminateCalls += 1; }, resize: async () => {} };
+    } }
+  });
+  const input = { command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access", verification: { merge_plan_id: `merge_${"5".repeat(32)}`, integration_workspace_id: `ws_${"6".repeat(32)}`, category: "test" } };
+  await manager.start(input);
+  await manager.start(input);
+  callbacks[0].onExit(0, "natural_exit");
+  await verificationStarted;
+  let revoked = false;
+  const revocation = manager.revokeAll("evidence_revoked").then(() => { revoked = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(terminateCalls, 1, "an unrelated running process must be terminated before verification joins");
+  assert.equal(revoked, false);
+  releaseVerification();
+  await revocation;
+  await manager.close();
+});
+
+test("close blocks verification-stage starts and remains closed", async () => {
+  let releaseBegin;
+  let markBeginStarted;
+  let backendStarts = 0;
+  const beginStarted = new Promise((resolve) => { markBeginStarted = resolve; });
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "close-admission-owner",
+    executionRuntime: {
+      toolContractVersion: 4,
+      preparePersistent: (args) => ({ cwd: args.cwd.path, verificationBinding: { exact: true }, resource: { exact: true } }),
+      beginPersistentVerification: () => {
+        markBeginStarted();
+        return new Promise((resolve) => { releaseBegin = () => resolve({ clean: true }); });
+      },
+      completePersistentVerification: async () => ({ clean: true }),
+      issuePersistentVerificationReceipt: () => `verify_${"d".repeat(32)}`
+    },
+    backend: { start: async () => {
+      backendStarts += 1;
+      return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} };
+    } }
+  });
+  const input = { command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access", verification: { merge_plan_id: `merge_${"7".repeat(32)}`, integration_workspace_id: `ws_${"8".repeat(32)}`, category: "test" } };
+  const rejectedStart = assert.rejects(manager.start(input), /PROCESS_MANAGER_UNAVAILABLE/);
+  await beginStarted;
+  let closed = false;
+  const closing = manager.close("evidence_revoked").then(() => { closed = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(closed, false, "close must join starts admitted before closing");
+  releaseBegin();
+  await rejectedStart;
+  await closing;
+  assert.equal(backendStarts, 0);
+  await assert.rejects(manager.start(input), /PROCESS_MANAGER_UNAVAILABLE/);
+});
+
+test("terminal quota never evicts cleanup that is still in flight", async () => {
+  const callbacks = [];
+  let blockedProcessId = null;
+  let releaseAudit;
+  let markAuditStarted;
+  const auditStarted = new Promise((resolve) => { markAuditStarted = resolve; });
+  const quota = new OutputQuotaManager({ maxServerRecords: 2, maxSessionRecords: 2 });
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "pending-quota-owner",
+    quota,
+    audit: new ProcessAuditCoordinatorV3({ sink: (event) => {
+      if (event.processId === blockedProcessId && event.transition === "user_terminated") {
+        markAuditStarted();
+        return new Promise((resolve) => { releaseAudit = () => resolve({ eventId: event.eventId, timestamp: event.timestamp }); });
+      }
+      return { eventId: event.eventId, timestamp: event.timestamp };
+    } }),
+    backend: { start: async (input) => {
+      callbacks.push(input);
+      return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} };
+    } }
+  });
+  const input = { command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" };
+  const completed = await manager.start(input);
+  callbacks[0].onExit(0, "natural_exit");
+  assert.equal((await manager.readResult({ process_id: completed.data.process_id, wait_ms: 1_000 })).data.output.eof, true);
+  const blocked = await manager.start(input);
+  const third = await manager.start(input);
+  blockedProcessId = blocked.data.process_id;
+  const terminating = manager.terminate(blockedProcessId);
+  await auditStarted;
+  callbacks[2].onExit(0, "natural_exit");
+  assert.equal((await manager.readResult({ process_id: third.data.process_id, wait_ms: 1_000 })).data.output.eof, true);
+  assert.equal(manager.owns(blockedProcessId), true, "pending cleanup must remain joinable");
+  assert.equal(manager.owns(completed.data.process_id), true, "pending cleanup must not consume terminal retention quota");
+  assert.equal(manager.owns(third.data.process_id), true);
+  releaseAudit();
+  await terminating;
+  assert.equal(manager.owns(completed.data.process_id), false, "finalized cleanup may evict the oldest settled terminal record");
+  await manager.close();
+});
+
+test("simultaneous natural exits share a one-record terminal quota without lifecycle failure", async () => {
+  const callbacks = [];
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "simultaneous-terminal-owner",
+    quota: new OutputQuotaManager({ maxServerRecords: 1, maxSessionRecords: 1 }),
+    backend: { start: async (input) => {
+      callbacks.push(input);
+      return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} };
+    } }
+  });
+  const input = { command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" };
+  const first = await manager.start(input);
+  const second = await manager.start(input);
+  callbacks[0].onExit(0, "natural_exit");
+  callbacks[1].onExit(0, "natural_exit");
+  await manager.revokeAll("evidence_revoked");
+  assert.equal(Number(manager.owns(first.data.process_id)) + Number(manager.owns(second.data.process_id)), 1);
+  await manager.close();
+});
+
+test("session terminal quota evicts only the same context", async () => {
+  let context = "quota-context-b";
+  const callbacks = [];
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => context,
+    quota: new OutputQuotaManager({ maxServerRecords: 10, maxSessionRecords: 1 }),
+    backend: { start: async (input) => {
+      callbacks.push(input);
+      return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} };
+    } }
+  });
+  const input = { command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" };
+  const foreign = await manager.start(input);
+  callbacks[0].onExit(0, "natural_exit");
+  assert.equal((await manager.readResult({ process_id: foreign.data.process_id, wait_ms: 1_000 })).data.output.eof, true);
+  context = "quota-context-a";
+  const firstOwned = await manager.start(input);
+  callbacks[1].onExit(0, "natural_exit");
+  assert.equal((await manager.readResult({ process_id: firstOwned.data.process_id, wait_ms: 1_000 })).data.output.eof, true);
+  const secondOwned = await manager.start(input);
+  callbacks[2].onExit(0, "natural_exit");
+  assert.equal((await manager.readResult({ process_id: secondOwned.data.process_id, wait_ms: 1_000 })).data.output.eof, true);
+  assert.equal(manager.owns(firstOwned.data.process_id), false);
+  assert.equal(manager.owns(secondOwned.data.process_id), true);
+  context = "quota-context-b";
+  assert.equal(manager.owns(foreign.data.process_id), true, "one context must not evict another context's retained evidence");
+  await manager.close();
+});
+
+test("lifecycle audit failure is visible to revoke and close joiners", async () => {
+  let callbacks;
+  const manager = new ProcessManagerV3({
+    contextFingerprint: () => "lifecycle-error-owner",
+    audit: new ProcessAuditCoordinatorV3({ sink: (event) => {
+      if (event.transition === "exited") throw new Error("terminal audit unavailable");
+      return { eventId: event.eventId, timestamp: event.timestamp };
+    } }),
+    backend: { start: async (input) => {
+      callbacks = input;
+      return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => {}, resize: async () => {} };
+    } }
+  });
+  const started = await manager.start({ command: { kind: "argv", executable: "C:\\bound\\tool.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" });
+  const cursor = manager.read(started.data.process_id).data.output.next_cursor;
+  const stateChange = manager.readResult({ process_id: started.data.process_id, cursor, wait_ms: 1_000 });
+  callbacks.onExit(0, "natural_exit");
+  const exited = await stateChange;
+  assert.equal(exited.data.status, "exited");
+  assert.equal(exited.data.output.eof, false, "host exit is visible before lifecycle finalization");
+  const finalized = await manager.readResult({ process_id: started.data.process_id, cursor: exited.data.output.next_cursor, wait_ms: 1_000 });
+  assert.equal(finalized.data.status, "failed");
+  assert.equal(finalized.data.output.eof, true, "lifecycle failure must be final before EOF");
+  await assert.rejects(manager.revokeAll("evidence_revoked"), /terminal audit unavailable/);
+  await assert.rejects(manager.close("evidence_revoked"), /terminal audit unavailable/);
+});
+
 test("persistent terminate is idempotent and emits terminal plus cleanup lifecycle", async () => {
   const events = []; let terminateCalls = 0; let callbacks;
   const manager = new ProcessManagerV3({ contextFingerprint: () => "owner", audit: new ProcessAuditCoordinatorV3({ sink: (event) => events.push(event) }), backend: { start: async (input) => { callbacks = input; return { write: async () => {}, interrupt: async () => "unsupported", terminate: async () => { terminateCalls += 1; }, resize: async () => {} }; } } });
@@ -283,10 +681,10 @@ test("revocation terminates every owned running process and terminal retention e
   });
   const one = await manager.start({ command: { kind: "argv", executable: "C:\\bound\\one.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" });
   callbacks[0].onExit(0, "natural_exit");
-  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((await manager.readResult({ process_id: one.data.process_id, wait_ms: 1_000 })).data.output.eof, true);
   const two = await manager.start({ command: { kind: "argv", executable: "C:\\bound\\two.exe", args: [] }, cwd: { kind: "absolute_local", path: process.cwd() }, mode: "full_access" });
   callbacks[1].onExit(0, "natural_exit");
-  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((await manager.readResult({ process_id: two.data.process_id, wait_ms: 1_000 })).data.output.eof, true);
   assert.throws(() => manager.read(one.data.process_id), /PROCESS_NOT_FOUND/, "oldest terminal record is evicted at the cap");
   assert.equal(manager.read(two.data.process_id).data.status, "exited");
 

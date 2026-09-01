@@ -107,6 +107,39 @@ test("rebind is a security reset that preserves issuer and binding but moves can
   }
 });
 
+test("initialize rejects an existing hostname bound to another canonical deployment", async () => {
+  const fixture = createFoundation();
+  const targetRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "codexgpt-phase8-conflict-target-")));
+  try {
+    const initialized = await fixture.coordinator.initialize(fixture.configuration);
+    const targetConfiguration = fixture.auth.resolveOAuthDeploymentConfiguration({
+      canonicalRoot: targetRoot,
+      profileId: "b".repeat(24),
+      hostname: fixture.configuration.hostname,
+      platform: "win32",
+      tunnel: "cloudflare-named",
+      tunnelName: fixture.configuration.tunnelName,
+      tunnelOwner: "codexgpt",
+      publicHost: "127.0.0.1",
+      publicPort: 8787,
+      localAdminHost: "127.0.0.1",
+      localAdminPort: 8788
+    });
+
+    await assert.rejects(
+      () => fixture.coordinator.initialize(targetConfiguration),
+      (error) => error?.code === "OAUTH_STATE_CONFLICT"
+    );
+    const current = fixture.registry.readCurrentState(fixture.configuration.identityKey);
+    assert.equal(current.bindingId, initialized.state.bindingId);
+    assert.equal(current.canonicalRoot, fixture.workspaceRoot);
+    assert.equal(current.profileId, fixture.configuration.profileId);
+  } finally {
+    fixture.cleanup();
+    fs.rmSync(targetRoot, { recursive: true, force: true });
+  }
+});
+
 test("tampered recovery backup is rejected before creating a new incarnation", async () => {
   const fixture = createFoundation();
   try {

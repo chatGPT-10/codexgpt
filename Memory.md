@@ -6,16 +6,14 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-07-29; current npm and GitHub release `codexgpt@1.0.4` is published at `48fb3f5334cb286df2af7adf56ddddbbcfc41406`. npm `latest`/`gitHead`, GitHub annotated tag/Release/Latest, and the `1.0.4` runtime/README surfaces on merged `main` now agree. PR 7 merged with ancestry-preserving merge commit `b0b169d2f58eee3dc18cd82cb744f1a2f1c21c55`, whose complete Ubuntu/Windows Node 20/24 CI run `30471674322` passed. Exact tags and public Releases now exist for `v1.0.2`–`v1.0.4`; historical `1.0.2` remains explicitly superseded because its original CI failed and its runtime version surfaces were incomplete. Repository `chatGPT-10/codexgpt`; native Windows remains primary and WSL optional.
-- Phases 0–8 Core are closed. Phase 7 closed at `a0b9f46e2297297959527f7570c9cb7942cc8fb3` / `30171313296`; Phase 8 closed at `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`.
-- STEP-437–472 completed Phase 8 Core, real G8-U Journeys U2–U7, local G8-X, portability repairs, and exact-head Ubuntu/Windows Node 20/24 CI. U6 retains the deleted-App evidence substitution; U7 preserves the public-loopback/local-admin boundary.
-- STEP-473 prepared and locally verified the bounded `1.0.0` package. STEP-474 closed publication: PR 6 merged to `main` at `9131c393da3a1eb3c9514710b0b1569f55dd5acb`, and npm `latest`, annotated tag `v1.0.0`, and the GitHub Release align to that commit.
-- STEP-480 published and deployed `1.0.3` for the recurring OAuth refresh disconnect without changing token lifetime or rotation: token limits are 120/client and 240/deployment per 15 minutes, and authenticated local diagnostics distinguish token/client/deployment/public-admission outcomes.
-- STEP-481 published and deployed `1.0.4` for explicit user-Skill loading: `$CODEX_DIR/skills` remains its own opt-in canonical root, oversized public descriptions no longer cause `INTERNAL_ERROR`, and non-Skill plugin-cache entries no longer consume the Skill-candidate limit. Focused regressions, managed Node 20/24 build, policy, exact-head CI, npm publication, and OAuth runtime replacement passed.
+- Date: 2026-09-01; branch `codex/tool-execution-pipeline-slice1` is at `f9fe62d`, synchronized with its matching remote. The reviewed `1.0.5` release candidate is locally gated and awaits its release commit, exact-head CI, merge, npm publication, tag, and GitHub Release; public release remains `codexgpt@1.0.4` until those actions complete.
+- Historical Phase 1–8 Core/releases and roadmap P1–P5 are closed locally; exact implementation and verification history is archived.
 
 ## Approved execution boundary
 
-The owner explicitly authorized and completed the bounded `1.0.1` launcher correction, the STEP-480 `1.0.3` OAuth refresh repair, and the STEP-481 `1.0.4` user-Skill repair, including publication and reviewed runtime replacement. STEP-476 repaired the OAuth listener collision; STEP-477 authorized consolidation onto `codexgpt.drliang.uk`. Further implementation, deployment changes, credential migration, Task Scheduler/service installation, sandbox/egress, destructive history, Phase 7B/7C installs, Tasks 4B1–4B6, `workspace`, and unrelated scope remain separately gated.
+P1–P5 local closure was explicitly authorized for this GitHub handoff and is now committed and pushed to `origin/codex/tool-execution-pipeline-slice1`. The separately authorized OAuth security reset and ChatGPT App relink are now complete: the published `codexgpt-Windows-v2` App made a real, read-only `open_current_workspace` then `git_status` call against `D:\Dev\codexgpt`. No Web-efficiency metric, package/release publication, commit, or push is implied. The `NGROK_DOMAIN` warning/retention decision remains open and must preserve STEP-531 value/fingerprint parity; other network, credential, service, sandbox/egress, deferred-phase, and external-state work remains separately gated.
+
+The owner explicitly authorized an incremental browser-admin product: an independent loopback Local Control Plane may manage exact additional workspace roots with path review and typed confirmation, persist safe next-launch permission presets, and start/stop/restart an exact controller-owned Runtime after identity/health checks. OAuth default-root rebinding and `full_access` privilege escalation remain separately bounded.
 
 ## Active decisions and constraints
 
@@ -23,91 +21,69 @@ The owner explicitly authorized and completed the bounded `1.0.1` launcher corre
 - CodexGPT remains self-hosted: Cloudflare supplies only DNS/TLS/Tunnel while authentication, Host/Origin, path enforcement, and secrets stay local. Native Windows is primary; Git Bash is temporary, and PowerShell support is required.
 - The supported public entry is `scripts/codexgpt-entry.mjs`. Legacy mode retains the secret query-token compatibility App; OAuth mode uses a separate App with a token-free URL and forces query-token acceptance off. Manual static-Bearer setup for ChatGPT Web is not claimed.
 - V1/V2/V3/V4/V5 remain exactly 28/31/39/51/52. `full_access` is ambient authority, never isolation; `workspace`, Gate S, and Tasks 4B0–4B6 remain unavailable/deferred.
-- Workspace handles are opaque session-local values and stale/foreign handles fail closed. Atomic and semantic mutations retain Policy, lock-held identity/hash, transaction, audit, and mutation-inventory gates; Gate X stays limited to four typed local Git operations.
+- Configured-root `workspace_id` values are random opaque, owner/grant/policy-bound capabilities shared only inside one deployment runtime. Rotation/refresh continuity and fail-closed invalidation remain as documented; restart clears them, explicit misses never default, and `session_local` remains rollback.
 - Use the retained managed Node `v20.20.2`/`v24.15.0` root `%LOCALAPPDATA%\CodexPro\toolchains\`. `test-domains` is authoritative; ordinary runs are detached, control/all need CI or an independent terminal, and cleanup stops/deletes only exact owned evidence.
 - `inheritEnv=false` keeps only bounded Windows paths; arbitrary tokens stay out of children. Runtime-relevant publication requires the exact-head Ubuntu/Windows Node 20/24 matrix and `npm run policy:check` before staging.
 - Phase 6 guidance grants no authority. Phase 7 Core is the owned JS/TS semantic provider with same-handle reads, honest fallback, server-owned rename plans, and no sandbox claim; Serena/LSP remain separately authorized extensions.
-- Phase 8 design/TDD remains the runtime contract: one colocated OAuth authorization/resource server, strict public-client DCR, PKCE S256, RFC 8707/9207, DPAPI CurrentUser, separated public/local-admin listeners, bounded work, and no new tool/execution authority. Tasks 8A1–8A9, G8-U Journeys U2–U7, local G8-X, and exact-head CI are complete. U6's replacement Legacy App proves current rollback compatibility, not continuity of the deleted original App identity; U7 proves the owned public-loopback Tunnel boundary and fail-early shared/unowned refusal.
-- Phase 8 setup is canonical-root, dedicated-Tunnel, candidate-probe-before-commit, credential-free `authRoutes.legacy|oauth`, full-route two-App rollback, and idempotent return to OAuth. Stable binding plus rotating incarnation, fixed-order refresh-family mutations, crash-safe code exchange, and durable installation audit are mandatory.
-- After OAuth, prioritize configuration provenance, offline diagnostics, current-user Windows background lifecycle, incremental server/CLI/tool-manifest modularization, then full diagnostics. Native isolation is conditional P2 work after a concrete untrusted-code need and a read-only feasibility go decision.
+- Phase 8 retains strict colocated OAuth, DPAPI CurrentUser, separated public/local listeners, dedicated-Tunnel setup, two-App rollback/recovery, and no new execution authority. Its exact setup, protocol, security, and acceptance boundaries remain in the paired Phase 8 spec/plan and archives.
+- After OAuth, prioritize configuration provenance, offline diagnostics, current-user Windows background lifecycle, incremental server/CLI/tool-manifest modularization, then full diagnostics. Native isolation remains a separately gated conditional follow-up after a concrete untrusted-code need and a read-only feasibility go decision.
+- ChatGPT Web claims use `docs/benchmarks/chatgpt-web-e2e/`; both refs require the exact successor overlay, and incomplete UI/tool traces remain unscored.
+- P1 owns one immutable definition per direct tool and one server-scoped execution coordinator. Every registered call traverses authorization, workspace resolution, Policy/approval, execution, audit, and one renderer; the retained PathGuard pipeline is a lower-level read/tree/search compatibility hook, not an alternate MCP registration or Policy path.
+- P2 owns one deterministic `WorkspaceContextSnapshot` assembled from root manifests, script/lock evidence, existing Git/Guidance state, and current tool capabilities. Every detected command carries `source` plus `confirmed|inferred`; the model-facing snapshot is capped at 12,000 serialized characters, omits instruction/Skill bodies, and keeps `codex_context`, `load_skill`, `tree`, and `git_diff` lazy. Standard open results add this field; explicit `guidanceMode=legacy` remains the wire rollback.
+- P3 keeps 52 direct V5 tools by adding `semantic(operation=navigate)` and a V5-only `navigate_code -> semantic` supertool alias. Definition/reference/implementation prefer the owned TypeScript provider and use fresh labelled lexical fallback when needed; text/file route directly to bounded lexical discovery; diagnostics never invent a lexical substitute. Every normalized result exposes actual provider, detailed quality, fallback, and truncation.
+- P4 keeps the exact direct-tool universe by adding V5 `verify_change` only as a wrapper-owned composite action. Committed V5 mutations return owner-bound workflow next-state without executing commands; explicit verification accepts only confirmed P2 check categories and reuses the registered `full_access` `run_command` Policy/approval/audit path. Standard tool mode can expose this finite path, but execution profile and local approval remain authoritative; a linked whole-workspace `show_changes` review is required for completion, and readiness additionally requires passing checks.
+- P5 keeps the existing process kernel and exact tool universe. V5 process successes use canonical `state=starting|running|exited|failed|terminated` plus a value-equal `status` migration alias; V3/V4 payloads remain exact. A persistent record stays `starting` until backend handle acquisition and required start audit complete, and startup revoke/close joins and terminates any subsequently acquired owned handle. Existing cursor/wait/quota/Job-tree/Policy/approval/audit and ambient-authority boundaries remain unchanged.
+- The Local Control Plane's admin UI remains exact-loopback, bootstrap-session, HttpOnly/SameSite, Origin/CSRF protected. Its first overview shows only sanitized effective configuration; it does not treat display as a policy override or expose a public/Tunnel management route.
+- The Local Control Plane may mutate only a narrow next-launch `toolMode` profile selector at this stage. It preserves the complete OAuth profile by construction and labels the saved/current distinction; changing allowed roots, default OAuth root, execution profiles, or lifecycle state is not inferred from that capability.
+- `codexgpt control --root <workspace>` starts a separate `127.0.0.1:8791` host with an ephemeral bootstrap session. Status never adopts an external Runtime; its authenticated Start action launches only a child it owns, verifies PID creation time, and waits for local `/healthz` before `owned_running`.
+- The lifecycle journal binds a Runtime record to one random controller ID plus exact PID creation time. Different controller instances and PID-reuse/stale observations fail closed as `foreign_or_stale`; no control endpoint can adopt or terminate such a record.
+- A controller-owned child begins as `owned_starting`, never falsely `owned_running`; health failure remains starting and a child exit converts its exact journal to `exited`. Stop verifies exact current ownership before tree termination; restart serializes stop-confirmation, fresh spawn, and health promotion.
+- Browser workspace settings persist separately from OAuth profiles: only existing local directories may be added after canonical review plus exact typed confirmation; the configured OAuth root is immutable. `read_only|edit|run_safe` map to next-launch tool/write/Safe-Bash selectors while retaining `executionProfile=off`.
 
 ## Verification evidence
 
-- Phase 3–7 closures and Phase 8 Core/U2–U7/G8-X evidence are archived; Phase 8 exact-head closure is `55b2b5664aae322ec992968a41c87a289fb75282` / `30274857996`. The published `1.0.0` baseline, `1.0.1` launcher correction, and their release evidence are likewise archived.
-- STEP-476–478 resolved the listener collision, consolidated the surviving profile at `codexgpt.drliang.uk` with access to `D:\Dev\codexpro`, removed the redundant deployment, and retained only the separately authorized DNS cleanup.
-- STEP-479 prevents a truncated oversized ripgrep JSON record from terminating HTTP. STEP-480 passed focused and managed Node 20/24 checks, full ordinary/Smoke, exact-head CI `30361606961`, npm publication, and reviewed `1.0.3` runtime replacement. STEP-481 exact-head CI `30373608845` passed; its active owned `1.0.4` run is `2026-07-28T16-16-24-285Z-codexgpt-step481-user-skill-1-0-4-ba0b359d`.
+- Historical Phase 3–8 and release/runtime evidence is archived; `1.0.4` exact-head CI `30373608845` and release-alignment CI `30471674322` passed. The STEP-490–494 benchmark archive keeps incomplete Web efficiency fields unscored.
+- STEP-516–526 close persistent-process hardening and explainable configuration/profile provenance. Their focused, managed Node 20/24, build, smoke, policy, and security gates passed without changing authority or tool counts.
+- STEP-527–532 reconcile active configuration/network documentation, preserve exact legacy-input provenance/value parity, and index all archive volumes. Detailed per-step counts and the unresolved `NGROK_DOMAIN` choice remain in Part 11/12.
+- P1–P5 and the authorized GitHub handoff are closed with managed dual-Node gates; exact run IDs, detailed implementation, and the Web read-only acceptance are retained in the linked archives.
+- STEP-543–550 Local Control Plane: build, Policy, diff, and focused local-admin/lifecycle/ownership/child tests pass; the latest ten-test set verifies session+CSRF lifecycle/settings requests, exact process identity, typed workspace admission, safe permission presets, serial action rejection, exit, and health-gated `owned_running`.
+- STEP-551 release-candidate repair: the Windows profile inventory now classifies every Local Control Plane regression and reserves persistent verification receipts for an exclusive shard. Focused checks, managed Node 20/24 ordinary regression, and managed Node 20/24 smoke pass; external release actions remain pending.
 
 ## Known limitations
 
-- Phase 8 Core through Task 8A9, Gate G8-U Journeys U2–U7, local G8-X, and exact-head CI are implemented and accepted. U6 retains a documented test deviation because the original Legacy App was deleted; replacement-App compatibility and exact OAuth return continuity passed, but same-App Legacy identity continuity is not claimed. U5's security reset correctly made the old OAuth client invalid; no prior client/grant/token authority survived.
-- DPAPI production protection is intentionally Windows CurrentUser-only. Loss of that user profile or its DPAPI material requires explicit security-reset recovery; there is no plaintext, memory, or non-Windows production fallback.
-- Phase 2A has no user-facing approval issuance surface. Phase 4A local approval is not OS isolation.
-- Workspace lifecycle state remains process-local. OAuth installation owner, deployment, grant/family, signing/refresh authority, and client state persist; pending browser authorization/code state remains intentionally process-ephemeral and restart requires a fresh authorization attempt.
-- External processes remain outside the workspace lock. Open-handle checks reduce replacement races but do not provide an OS-wide lock or absolute power-loss durability.
-- Environment narrowing is defense in depth, not credential isolation; same-user children may access account-readable files and system keyrings.
-- Safe Bash timeout does not reliably terminate every Windows descendant process.
-- `full_access`, confirmed roots, ConPTY, managed worktrees, and external Providers remain ambient-authority mechanisms, not sandboxes.
-- Atomic `apply_patch` supports bounded UTF-8 create/replace/delete only and rejects binary, symlink, rename/copy, and mode changes.
-- Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
+- Phase 8's documented U6 substitution proves current rollback, not deleted-App identity continuity. DPAPI remains Windows CurrentUser-only; recovery requires security reset and has no plaintext/non-Windows fallback.
+- Phase 2A has no user-facing approval issuance surface. OAuth configured-root capabilities can cross transport rotation only inside one deployment runtime and do not survive restart; pending browser authorization stays process-ephemeral.
+- External processes remain outside the workspace lock, and profile replacement has no OS-wide writer lock or absolute power-loss durability despite identity/backup/recovery preconditions.
+- `config explain --json` covers effective runtime keys and public launcher-input provenance only; internal unmigrated fields do not claim invented origins.
+- C5 covers selected legacy HTTP token, root, and hostname inputs. `NGROK_DOMAIN` provenance is preserved as mode-ambiguous but its warning/retention policy is undecided; generic `HOST`/`PORT` remain direct-runtime-only and Tailscale remains setup-only.
+- Environment narrowing is defense in depth, not credential isolation; Safe Bash timeout may leave Windows descendants. `full_access`, confirmed roots, ConPTY, managed worktrees, and external Providers remain ambient-authority mechanisms, not sandboxes.
+- Atomic `apply_patch` supports bounded UTF-8 create/replace/delete only; Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - Cached-App migration requires one explicit **Scan Tools** refresh or recreation; transparent refresh is not claimed. U6 proved this by creating a V4 51-tool App before switching the same endpoint to V5.
-- Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. `npm audit` has zero high/critical findings and two moderate transitive findings in the current MCP SDK compatibility line.
+- Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. The STEP-542 root overrides pin the four vulnerable production transitive packages to patched versions; `npm audit --omit=dev` is now zero vulnerabilities.
+- P4 verification/review state is server-local and does not survive restart; durable change sets remain the filesystem rollback authority. Failed checks make the workflow terminal but not ready, and invalid explicit review linkage leaves the diff result valid while reporting that the workflow was not updated.
+- The Web trace proves connectivity and a representative read-only workspace call, but it is not the benchmark protocol: `wrong_tool_calls`, `redundant_tool_calls`, and `total_tool_calls` remain unscored and no efficiency reduction is claimed.
+- The legacy cached `codexgpt-Windows-233` draft remains untouched. The active published replacement is `codexgpt-Windows-v2`; renaming it or deleting the legacy draft would be a separate destructive App-management decision.
+- The registry rejects cross-root reuse. The authorized rebind moved `codexgpt.drliang.uk` to `D:\Dev\codexgpt`, revoked old authority, and left Cloudflare unchanged; the replacement App then reauthorized successfully.
+- The independent control host can start/stop/restart only its exact owned child after local health/identity checks. A visual browser check still requires a deliberately launched local host and is not claimed by focused HTTP/UI tests.
+- The browser can add/remove reviewed additional roots only for the next control-host launch; it cannot silently alter the OAuth default root, `full_access` execution profile, or Policy. ChatGPT opens an added project with `open_workspace` and a fresh capability after restart.
 
 ## Open items
 
-1. Delete the remaining Cloudflare DNS record `codexpro-oauth.drliang.uk`; its runtime, Tunnel, profile, setup journal, and tunnel credential are already gone. The single active service is `codexgpt.drliang.uk` on `8789/8790`, managed by detached run `2026-07-28T16-16-24-285Z-codexgpt-step481-user-skill-1-0-4-ba0b359d`, with `D:\Dev\codexpro` explicitly allowed for workspace switching. A reviewed current-user Windows background lifecycle, native isolation, Serena/LSP, Tasks 4B1–4B6, credential migration, and toolchain-root migration remain separately gated.
-2. Use the published `1.0.4` ChatGPT App normally for at least 20 minutes. The repaired user Skill can be invoked by exact `$CODEX_DIR/skills/neat-freak/SKILL.md` selector or by `neat-freak`; this behavior-only patch does not itself require Scan Tools. If a disconnect recurs, inspect authenticated local diagnostics for `token_client_limit`, `token_deployment_limit`, or `public_admission_limit` before changing any ceiling.
+1. Decide whether `NGROK_DOMAIN` receives a value-free migration warning to `CODEXGPT_PUBLIC_HOSTNAME` or remains indefinitely supported; preserve its cross-mode value/fingerprint contract either way. Any benchmark-grade App/Web efficiency run requires separate authorization.
+2. Delete the remaining Cloudflare DNS record `codexpro-oauth.drliang.uk` only under its separate approval; reviewed background lifecycle, native isolation, Serena/LSP, Tasks 4B1–4B6, credential migration, and toolchain-root migration also remain gated.
+3. The earlier 20-minute `1.0.4` normal-use acceptance remains separate from benchmark scoring; if disconnects recur, inspect authenticated local diagnostics before changing any ceiling.
+4. If a second project's own OAuth default root is required, create a separately reviewed profile/App/hostname; do not repurpose the existing OAuth deployment. Preserve the effective-capability intersection.
 
 ## Recent summaries
 
-- **STEP-484 — GitHub `1.0.4` release closure:** merge PR 7 without rewriting the npm source commits, pass the merge-head Ubuntu/Windows Node 20/24 matrix, publish annotated exact `v1.0.2`–`v1.0.4` tags and Releases, disclose `1.0.2` as superseded, and set GitHub Latest to `v1.0.4`.
-- **STEP-483 — Public-release alignment audit:** npm `latest` and per-version `gitHead` values are correct through `1.0.4`, but GitHub `main` and public tag/Release objects stop earlier; update the authority docs and require source/tag/Release alignment before calling future npm publications complete.
-- **STEP-481 — `1.0.4` User Skill loader release:** preserve the isolated global-Skill boundary while making exact and name-based user Skill loading resilient to long frontmatter descriptions and noisy plugin caches; exact-head CI, npm publication, and the replacement OAuth runtime are complete.
-- **STEP-482 — User-Skill documentation reconciliation:** document the bounded explicit `source: "user"` loading path in the bilingual README/FAQ, correct the unnecessary Scan Tools suggestion for a behavior-only patch, and retain the outstanding 20-minute OAuth acceptance check.
-- **STEP-480 — `1.0.3` OAuth refresh-limit release:** raise the measured-safe client/deployment token ceilings to `120/240` per 15 minutes, retain rotating refresh/replay semantics, and expose bounded credential-free counters only to an authenticated loopback admin session. Exact-head CI, npm publication, and reviewed runtime replacement are complete; real 20-minute ChatGPT acceptance remains pending.
-- **STEP-477 — Single-domain consolidation:** restart `codexgpt.drliang.uk` with explicit access to `D:\Dev\codexpro`, verify real workspace switching, stop and remove the redundant runtime/Tunnel/profile, and isolate the remaining DNS-record deletion.
-- **STEP-478 — Stale runtime cleanup:** remove the retired `D:\Dev\codexpro` runtime record only; preserve the shared Tunnel configuration used by the active primary service and revalidate the complete OAuth path.
+- **STEP-543–550 — Local Control Plane:** authenticated overview; independent loopback host; exact ownership journal/child manager; browser Start/Stop/Restart; reviewed additional workspace roots; and safe next-launch tool/write/Safe-Bash presets. OAuth-default-root changes and `full_access` remain unavailable.
+- **STEP-551 — 1.0.5 candidate gates:** test profile repairs make the full Windows layered suite deterministic; managed dual-Node regression and smoke evidence is retained in the detached runs. Public npm/GitHub release state is not yet changed.
 
 ## Archives
 
-- [Closed Phase 0 and Phase 0.5 — STEP-000 through STEP-065](docs/memory/archive/phase-0-and-0.5.md)
-- [Closed interphase maintenance — STEP-066 through STEP-072](docs/memory/archive/interphase-maintenance.md)
-- [Closed interphase maintenance Part 2 — STEP-363 through STEP-367](docs/memory/archive/interphase-maintenance-part-2.md)
-- [Closed interphase maintenance Part 3 — STEP-368 through STEP-375](docs/memory/archive/interphase-maintenance-part-3.md)
-- [Closed interphase maintenance Part 4 — STEP-376 through STEP-384](docs/memory/archive/interphase-maintenance-part-4.md)
-- [Closed interphase maintenance Part 5 — STEP-385 through STEP-435](docs/memory/archive/interphase-maintenance-part-5.md)
-- [Closed interphase maintenance Part 6 — STEP-436 and STEP-475–482](docs/memory/archive/interphase-maintenance-part-6.md)
-- [Interphase maintenance Part 7 — STEP-483 through STEP-484](docs/memory/archive/interphase-maintenance-part-7.md)
-- [Phase 1 Volume 1 — STEP-073 through STEP-139](docs/memory/archive/phase-1.md)
-- [Closed Phase 1 Volume 2 — STEP-140 through STEP-151](docs/memory/archive/phase-1-part-2.md)
-- [Closed Phase 1 Volume 3 — STEP-152 through STEP-165](docs/memory/archive/phase-1-part-3.md)
-- [Closed Phase 1 Volume 4 — STEP-166 through STEP-179](docs/memory/archive/phase-1-part-4.md)
-- [Closed Phase 1 Volume 5 — STEP-180 through STEP-193](docs/memory/archive/phase-1-part-5.md)
-- [Closed Phase 1 Volume 6 — STEP-194 through STEP-205](docs/memory/archive/phase-1-part-6.md)
-- [Closed Phase 1 Volume 7 — STEP-206 through STEP-219](docs/memory/archive/phase-1-part-7.md)
-- [Closed Phase 1 Volume 8 — STEP-220 through STEP-236](docs/memory/archive/phase-1-part-8.md)
-- [Closed Phase 1 Volume 9 — STEP-237 through STEP-247](docs/memory/archive/phase-1-part-9.md)
-- [Policy Kernel Gate — STEP-248 through STEP-253](docs/memory/archive/policy-kernel-gate.md)
-- [Closed Phase 2B Workspace Lifecycle — STEP-254 through STEP-262](docs/memory/archive/phase-2b-workspace-lifecycle.md)
-- [Closed Phase 3 Volume 1 — STEP-263 through STEP-277](docs/memory/archive/phase-3.md)
-- [Closed Phase 3 Volume 2 — STEP-278 through STEP-285](docs/memory/archive/phase-3-part-2.md)
-- [Closed Phase 3 Volume 3 — STEP-286 through STEP-291](docs/memory/archive/phase-3-part-3.md)
-- [Closed Phase 3 Volume 4 — STEP-292 through STEP-306](docs/memory/archive/phase-3-part-4.md)
-- [Post-Phase 3 operational hardening — STEP-307 through STEP-308](docs/memory/archive/post-phase-3-operational-hardening.md)
-- [Closed Phase 4 Volume 1 — STEP-309 through STEP-318](docs/memory/archive/phase-4.md)
-- [Closed Phase 4 Volume 2 — STEP-319 through STEP-325](docs/memory/archive/phase-4-part-2.md)
-- [Closed Phase 4 Volume 3 — STEP-326 through STEP-343](docs/memory/archive/phase-4-part-3.md)
-- [Closed Phase 5 Volume 1 — STEP-344 through STEP-355](docs/memory/archive/phase-5.md)
-- [Closed Phase 5 Volume 2 — STEP-356 through STEP-362](docs/memory/archive/phase-5-part-2.md)
-- [Closed Phase 6 Volume 1 — STEP-386 through STEP-400](docs/memory/archive/phase-6.md)
-- [Closed Phase 6 Volume 2 — STEP-401](docs/memory/archive/phase-6-part-2.md)
-- [Closed Phase 7 Volume 1 — STEP-399 through STEP-414](docs/memory/archive/phase-7.md)
-- [Closed Phase 7 Volume 2 — STEP-415 through STEP-425](docs/memory/archive/phase-7-part-2.md)
-- [Closed Phase 7 Volume 3 — STEP-426 through STEP-433](docs/memory/archive/phase-7-part-3.md)
-- [Closed Phase 8 Volume 1 — STEP-437 through STEP-446](docs/memory/archive/phase-8.md)
-- [Closed Phase 8 Volume 2 — STEP-447 through STEP-451](docs/memory/archive/phase-8-part-2.md)
-- [Closed Phase 8 Volume 3 — STEP-452 through STEP-460](docs/memory/archive/phase-8-part-3.md)
-- [Closed Phase 8 Volume 4 — STEP-461 through STEP-469](docs/memory/archive/phase-8-part-4.md)
-- [Closed Phase 8 Volume 5 — STEP-470 through STEP-474](docs/memory/archive/phase-8-part-5.md)
+- [Complete archive volume index](docs/memory/archive/README.md)
+- [Closed interphase maintenance Part 13 — STEP-538 through STEP-543](docs/memory/archive/interphase-maintenance-part-13.md)
+- [Active interphase maintenance Part 14 — next maintenance step](docs/memory/archive/interphase-maintenance-part-14.md)
 
 ## Memory maintenance protocol
 

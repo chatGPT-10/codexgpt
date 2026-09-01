@@ -52,6 +52,7 @@ function response(overrides = {}) {
 test("local admin UI requires fragment bootstrap, cookie, Origin, and CSRF", async (t) => {
   const sessions = new LocalAdminSessionManager();
   let approved = "";
+  let savedToolMode = "standard";
   const service = {
     kind: "local-control-cli",
     isAvailable: () => true,
@@ -102,7 +103,31 @@ test("local admin UI requires fragment bootstrap, cookie, Origin, and CSRF", asy
     ownerAdminService: service,
     sessions,
     origin,
-    tokenDiagnostics
+    tokenDiagnostics,
+    controlSnapshot: {
+      defaultWorkspace: "D:\\Dev\\target",
+      allowedRoots: ["D:\\Dev\\target"],
+      toolMode: "standard",
+      writeMode: "workspace",
+      executionProfile: "full_access",
+      policyEngine: "enforce",
+      authMode: "oauth"
+    },
+    settingsService: {
+      snapshot: async () => ({
+        toolMode: savedToolMode,
+        profilePath: "D:\\CodexGPT\\profiles\\target.json",
+        appliesAfterRestart: savedToolMode !== "standard"
+      }),
+      setToolMode: async (toolMode) => {
+        savedToolMode = toolMode;
+        return {
+          toolMode,
+          profilePath: "D:\\CodexGPT\\profiles\\target.json",
+          appliesAfterRestart: toolMode !== "standard"
+        };
+      }
+    }
   }));
   t.after(() => new Promise((resolve) => server.close(resolve)));
 
@@ -143,6 +168,43 @@ test("local admin UI requires fragment bootstrap, cookie, Origin, and CSRF", asy
     JSON.parse(status.text).oauthTokenDiagnostics,
     tokenDiagnostics.snapshot()
   );
+  assert.deepEqual(JSON.parse(status.text).control, {
+    defaultWorkspace: "D:\\Dev\\target",
+    allowedRoots: ["D:\\Dev\\target"],
+    toolMode: "standard",
+    writeMode: "workspace",
+    executionProfile: "full_access",
+    policyEngine: "enforce",
+    authMode: "oauth"
+  });
+  assert.deepEqual(JSON.parse(status.text).settings, {
+    toolMode: "standard",
+    profilePath: "D:\\CodexGPT\\profiles\\target.json",
+    appliesAfterRestart: false
+  });
+  assert.match(root.text, /Current safe boundary/);
+  assert.match(adminScript.text, /renderControl/);
+  assert.match(adminScript.text, /saveToolMode/);
+
+  const saveToolMode = await request(port, "/api/settings/tool-mode", {
+    method: "POST",
+    body: JSON.stringify({ toolMode: "full" }),
+    headers: { Cookie: cookie, Origin: origin, "x-codexgpt-csrf": csrf }
+  });
+  assert.equal(saveToolMode.status, 200, saveToolMode.text);
+  assert.deepEqual(JSON.parse(saveToolMode.text), {
+    toolMode: "full",
+    profilePath: "D:\\CodexGPT\\profiles\\target.json",
+    appliesAfterRestart: true
+  });
+  assert.equal(savedToolMode, "full");
+
+  const invalidToolMode = await request(port, "/api/settings/tool-mode", {
+    method: "POST",
+    body: JSON.stringify({ toolMode: "unbounded" }),
+    headers: { Cookie: cookie, Origin: origin, "x-codexgpt-csrf": csrf }
+  });
+  assert.equal(invalidToolMode.status, 400);
 
   const pendingId = `pending_${"A".repeat(22)}`;
   const noCsrf = await request(port, `/api/authorizations/${pendingId}/approve`, {

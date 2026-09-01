@@ -106,6 +106,12 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "appendFile:bbcb885992d0"
     ])
   }),
+  "scripts/chatgpt-web-benchmark-runtime.mjs": Object.freeze({
+    purpose: "Benchmark-only dependency junction from an exact clean isolated checkout to the already-validated source node_modules root; existing mismatches fail closed and post-link realpath must equal the approved dependency root.",
+    occurrences: Object.freeze([
+      "symlink:9bafd30f0a24"
+    ])
+  }),
   "scripts/exact-head-ci.mjs": Object.freeze({
     purpose: "Ignored .ai-bridge exact-head CI evidence outside tracked repository state.",
     occurrences: Object.freeze([
@@ -385,7 +391,6 @@ const REVIEWED_ALLOWLIST = Object.freeze({
     purpose: "CLI profile, managed binary, runtime marker, and ephemeral tunnel state outside authorized workspaces.",
     occurrences: Object.freeze([
       "663:3:rmSync:67965deb6791",
-      "670:3:mkdirSync:34a6fc7c372e",
       "677:3:writeFileSync:bb74df9726e3",
       "679:5:chmodSync:aa6e7b8892f6",
       "686:3:mkdirSync:744d9beff523",
@@ -399,6 +404,21 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "915:7:copyFileSync:43e2f89e1c4b",
       "918:39:chmodSync:664326fc63fc",
       "1229:3:writeFileSync:8d3a7e6f2eb6"
+    ])
+  }),
+  "scripts/workspace-profile-persistence.mjs": Object.freeze({
+    purpose: "Version-aware atomic workspace-profile replacement, exact migration backup retention, and explicit settings deletion under the private CodexGPT profile root.",
+    occurrences: Object.freeze([
+      "mkdirSync:4ccb0b7ce26c",
+      "copyFileSync:29d80f309f8f",
+      "openSync:5e7516e553ec",
+      "rmSync:8147e0878844",
+      "chmodSync:d986f2f7c293",
+      "mkdirSync:e54e33502f7f",
+      "chmodSync:c8bd466ebce4",
+      "rmSync:f6d455c9781c",
+      "rmdirSync:c0083309351e",
+      "rmSync:a7e31ddf10ad"
     ])
   }),
   "scripts/oauth-admin.mjs": Object.freeze({
@@ -553,14 +573,6 @@ const REVIEWED_ALLOWLIST = Object.freeze({
       "53:3:mkdirSync:744d9beff523",
       "59:5:writeFileSync:91cd5401b478",
       "61:7:chmodSync:aa6e7b8892f6"
-    ])
-  }),
-  "src/profileStore.ts": Object.freeze({
-    purpose: "CLI application profile state outside authorized workspaces.",
-    occurrences: Object.freeze([
-      "112:3:mkdirSync:34a6fc7c372e",
-      "119:3:writeFileSync:bb74df9726e3",
-      "121:5:chmodSync:aa6e7b8892f6"
     ])
   }),
   "src/transactions/atomicFs.ts": Object.freeze({

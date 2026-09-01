@@ -14,7 +14,7 @@ export interface ProductionGitBootstrapV4 {
 export async function createProductionGitBootstrapV4(
   config: CodexGPTConfig,
   options: {
-    stateRoot: string;
+    stateRoot: string | null;
     explicitGitPath?: string;
   }
 ): Promise<ProductionGitBootstrapV4 | null> {
@@ -23,6 +23,9 @@ export async function createProductionGitBootstrapV4(
     config.toolMode === "minimal" ||
     config.connectionTest
   ) return null;
+  if (!options.stateRoot) {
+    throw new Error("Git V4 requires a transaction state root; set CODEXGPT_HOME or LOCALAPPDATA and restart.");
+  }
   const hostRuntime = new WindowsProcessHostRuntime();
   let executor: WindowsHostGitExecutor | null = null;
   try {

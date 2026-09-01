@@ -9,6 +9,11 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { tsImport } from "tsx/esm/api";
 
 const { createCodexGPTServer } = await tsImport("../src/server.ts", import.meta.url);
+const { searchWorkspace } = await tsImport("../src/searchOps.ts", import.meta.url);
+const { toolExecutionPipelineForGuard } = await tsImport(
+  "../src/tools/executionPipelineScope.ts",
+  import.meta.url
+);
 const { toolCardWidgetHtml } = await tsImport("../src/toolCardWidget.ts", import.meta.url);
 const {
   SEARCH_ANALYSIS_DISABLED_WARNING,
@@ -230,6 +235,10 @@ test("search advertises exact outputSchema and returns nested real lexical resul
   await withInMemoryClient({}, async (client) => {
     const listed = await client.listTools();
     const descriptor = listed.tools.find((tool) => tool.name === "search");
+    assert.equal(
+      descriptor?.description,
+      "Return bounded lexical workspace matches. Lexical matches are evidence, not semantic certainty; prefer one targeted query over repeated broad queries. Use when: Exact text, strings, error messages, configuration keys, or lexical symbol occurrences are needed. Do not use when: An unknown filename or directory must be discovered; use tree. Semantic definitions or references are needed and semantic is available."
+    );
     assert.ok(descriptor?.outputSchema);
     assert.deepEqual(new Set(descriptor.outputSchema.required), new Set(["codexgpt_tool", "codexgpt_title", "ok", "data", "error", "meta"]));
 
@@ -244,6 +253,67 @@ test("search advertises exact outputSchema and returns nested real lexical resul
     assert.equal("text" in parsed.data, false);
     assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("registerCodexTool")));
   });
+});
+
+test("search filesystem execution traverses the PathGuard-scoped pipeline without changing its public contract", async () => {
+  const seen = [];
+  let disposePipelineHook;
+
+  try {
+    await withInMemoryClient(
+      {
+        searchResultProvider: async (context) => {
+          if (disposePipelineHook === undefined) {
+            disposePipelineHook = toolExecutionPipelineForGuard(context.guard).usePre((execution) => {
+              seen.push({
+                toolName: execution.toolName,
+                arguments: execution.arguments
+              });
+              return { kind: "allow" };
+            });
+          }
+          return searchWorkspace(context.config, context.guard, context.workspace, context.options);
+        }
+      },
+      async (client) => {
+        const result = await client.callTool({
+          name: "search",
+          arguments: { query: "registerCodexTool", path: "src/server.ts", max_results: 5 }
+        });
+        const parsed = parseSearchResult(result);
+
+        assert.equal(result.isError, undefined);
+        assert.equal(parsed.ok, true);
+        assert.equal(parsed.error, null);
+        assert.equal(parsed.data.root, process.cwd());
+        assert.ok(parsed.data.matches.length >= 1);
+        assert.equal(parsed.data.analysis, null);
+        assert.ok(["node", "ripgrep"].includes(parsed.data.used));
+      }
+    );
+  } finally {
+    disposePipelineHook?.();
+  }
+
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].toolName, "search");
+  assert.match(seen[0].arguments.workspace_id, /^ws_/);
+  assert.deepEqual(
+    {
+      query: seen[0].arguments.query,
+      regex: seen[0].arguments.regex,
+      path: seen[0].arguments.path,
+      include_hidden: seen[0].arguments.include_hidden,
+      max_results: seen[0].arguments.max_results
+    },
+    {
+      query: "registerCodexTool",
+      regex: false,
+      path: "src/server.ts",
+      include_hidden: false,
+      max_results: 5
+    }
+  );
 });
 
 const ripgrepAvailable = process.platform === "win32"

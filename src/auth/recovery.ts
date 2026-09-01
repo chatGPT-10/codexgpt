@@ -58,6 +58,7 @@ export class AuthDeploymentCoordinator {
       registryLock = this.locks.acquire("registry");
       const existing = this.registry.resolve(configuration.identityKey);
       if (existing) {
+        this.registry.assertCompatible(configuration, existing);
         deploymentLock = this.locks.acquire(deploymentLockName(existing.bindingId));
         const state = this.registry.readCurrentState(configuration.identityKey);
         return { ownerSubject: owner.subject, state, created: false };

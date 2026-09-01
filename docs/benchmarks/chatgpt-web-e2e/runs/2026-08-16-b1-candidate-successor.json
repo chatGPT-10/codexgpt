@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "completed_partial_tool_trace",
+  "observed_at": "2026-08-16T20:08:00+02:00",
+  "server_run_id": "2026-08-16T17-46-16-613Z-step497-b1-candidate-successor-b9e1c3de",
+  "server_variant": "candidate_successor",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-b30ce20b",
+  "chatgpt_surface": "fresh ChatGPT Web conversation using the configured CodexGPT App",
+  "tool_trace_provided": false,
+  "case_result": {
+    "case_id": "B1",
+    "workspace_id": "ws_def18a98be71260263329a6bf825b197",
+    "workspace_bootstrap_completed": true,
+    "metrics": {
+      "task_success": true,
+      "wrong_tool_calls": null,
+      "redundant_tool_calls": null,
+      "total_tool_calls": null,
+      "context_fetch_calls": 1,
+      "mutation_retries": 0,
+      "verification_completed": null
+    },
+    "success_criteria": {
+      "finds_authoritative_workspace_lifecycle_implementation": true,
+      "finds_main_server_or_domain_call_sites_without_claiming_lexical_completeness": true,
+      "uses_narrow_reads_after_navigation": true
+    },
+    "observed_answer_summary": [
+      "Identified src/guard.ts as the authoritative WorkspaceManager implementation, including Workspace capability shape, canonical root keying, lifecycle APIs, TTL, binding validation, revocation, and authority/binding digests.",
+      "Identified src/server.ts as the primary composition root and lifecycle-tool wiring surface, plus the V4 Git/task-worktree handlers that resolve workspace capability before domain operations.",
+      "Identified RootAdmissionRuntimeV3 and TaskWorktreeWorkspaceAuthorityV4 as delegated confirmed-root and task-worktree capability providers, including their production wiring and issue/open call sites.",
+      "Identified src/policy/runtime.ts, src/semantic/manager.ts, and src/tools/phase3dServer.ts as major cross-module consumers that validate or bind downstream state to WorkspaceManager authority.",
+      "The answer explicitly described broader locations as a method-level reference scan rather than claiming complete semantic-reference coverage, reported search/read-only execution, explicit workspace_id reuse, no default-workspace use, and no mutation."
+    ],
+    "notes": "The user supplied the final fresh-conversation assistant answer, not the ChatGPT UI/tool-call trace. The answer satisfies all B1 success criteria and reports that only search/read were used after explicit workspace bootstrap. Per benchmark rules, wrong_tool_calls, redundant_tool_calls, and total_tool_calls remain null rather than being inferred from prose. The mandatory bootstrap establishes context_fetch_calls=1; this read-only case has mutation_retries=0 and verification_completed=null."
+  },
+  "runtime_cleanup": {
+    "stop_requested": true,
+    "final_status": "stopped",
+    "stopped_at": "2026-08-16T18:09:09.190Z"
+  },
+  "campaign_decision": "Candidate-successor B1 task success is established. Compare it with the matched baseline-successor B1 only on evidence supported by both runs: task success is comparable, while tool-call efficiency remains unscored because neither run includes the complete UI/tool trace."
+}

@@ -14,6 +14,10 @@ import type {
 import { normalizeOAuthHostname } from "./auth/configuration.js";
 import { authConfigurationError } from "./auth/errors.js";
 import type { HttpAuthMode, OAuthCredentialProvider } from "./auth/types.js";
+import {
+  parseWorkspaceProfileJson
+} from "../scripts/workspace-profile-schema.mjs";
+import { saveWorkspaceProfileFileSync } from "../scripts/workspace-profile-persistence.mjs";
 
 export type TunnelMode = "none" | "cloudflare" | "cloudflare-named" | "ngrok" | "tailscale";
 export type ConnectorMode = "agent" | "handoff" | "pro";
@@ -95,6 +99,7 @@ export interface RuntimeConnection {
   policyEngine?: PolicyEngineMode | string;
   permissionProfile?: string;
   semanticProvider?: SemanticProviderSelection | string;
+  configFingerprint?: string;
 }
 
 // Runtime connection records keep only safe policy selectors, never policy bodies or credentials.
@@ -105,21 +110,31 @@ function expandProfileHome(input: string): string {
   return input;
 }
 
-export function CodexGPTHome(): string {
-  const customHome = process.env.CODEXGPT_HOME;
-  return customHome ? path.resolve(expandProfileHome(customHome)) : path.join(os.homedir(), ".codexgpt");
+export function CodexGPTHome(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+  cwd = process.cwd()
+): string {
+  const customHome = environment.CODEXGPT_HOME;
+  return customHome ? path.resolve(cwd, expandProfileHome(customHome)) : path.join(os.homedir(), ".codexgpt");
 }
 
-export function profileDir(): string {
-  return path.join(CodexGPTHome(), "profiles");
+export function profileDir(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+  cwd = process.cwd()
+): string {
+  return path.join(CodexGPTHome(environment, cwd), "profiles");
 }
 
 export function profileIdForRoot(root: string): string {
   return createHash("sha256").update(root).digest("hex").slice(0, 24);
 }
 
-export function profilePathForRoot(root: string): string {
-  return path.join(profileDir(), `${profileIdForRoot(root)}.json`);
+export function profilePathForRoot(
+  root: string,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+  cwd = process.cwd()
+): string {
+  return path.join(profileDir(environment, cwd), `${profileIdForRoot(root)}.json`);
 }
 
 export function runtimeDir(): string {
@@ -139,13 +154,17 @@ function readJsonFile(filePath: string): unknown {
   }
 }
 
-export function readWorkspaceProfile(root: string): WorkspaceProfile {
-  const profilePath = profilePathForRoot(root);
+export function readWorkspaceProfile(
+  root: string,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+  cwd = process.cwd()
+): WorkspaceProfile {
+  const profilePath = profilePathForRoot(root, environment, cwd);
   if (!fs.existsSync(profilePath)) return {};
-  const profile = readJsonFile(profilePath);
-  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return {};
-  const typed = profile as WorkspaceProfile;
-  if (typed.root && typed.root !== root) return {};
+  const typed = parseWorkspaceProfileJson(fs.readFileSync(profilePath, "utf8"), {
+    expectedRoot: root,
+    profilePath
+  }) as WorkspaceProfile;
   validateWorkspaceProfileAuthSelectors(typed);
   return { ...typed, profilePath };
 }
@@ -298,24 +317,10 @@ function validateWorkspaceProfileAuthSelectors(profile: WorkspaceProfile): void 
 }
 
 export function saveWorkspaceProfile(root: string, profile: WorkspaceProfile): string {
-  validateWorkspaceProfileAuthSelectors(profile);
-  const dir = profileDir();
   const filePath = profilePathForRoot(root);
-  const { profilePath: _profilePath, ...rest } = profile;
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const payload: WorkspaceProfile = {
-    version: 2,
-    updatedAt: new Date().toISOString(),
-    ...rest,
-    root
-  };
-  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
-  try {
-    fs.chmodSync(filePath, 0o600);
-  } catch {
-    // Best-effort permission repair for filesystems that support chmod.
-  }
-  return filePath;
+  return saveWorkspaceProfileFileSync(filePath, root, profile as Record<string, unknown>, {
+    validatePayload: (payload) => validateWorkspaceProfileAuthSelectors(payload as WorkspaceProfile)
+  }).profilePath;
 }
 
 export function sanitizeWorkspaceProfile(profile: WorkspaceProfile): WorkspaceProfile {

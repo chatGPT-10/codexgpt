@@ -86,7 +86,7 @@ test("doctor inherits Bash off from the saved workspace profile", async () => {
     });
     const output = `${result.stdout}\n${result.stderr}`;
 
-    assert.equal(result.status, 0);
+    assert.equal(result.status, 0, output);
     assert.match(output, /not required because Bash mode is off/);
     assert.doesNotMatch(output, /FAIL Bash executable/);
   } finally {
@@ -124,7 +124,7 @@ test("full doctor --no-profile skips saved profile validation", async () => {
     });
     const output = `${result.stdout}\n${result.stderr}`;
 
-    assert.equal(result.status, 0);
+    assert.equal(result.status, 0, output);
     assert.doesNotMatch(output, /invalid saved value/);
     assert.doesNotMatch(output, /FAIL Saved profile/);
   } finally {

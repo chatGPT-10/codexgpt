@@ -5,6 +5,15 @@ import { createToolMeta, toolMetaSchema } from "./common.js";
 const safeOpaqueIdSchema = z.string().min(1).max(160).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/);
 export const processIdV1Schema = z.string().regex(/^process_[a-f0-9]{32}$/);
 export const outputCursorV1Schema = z.string().min(16).max(2048);
+export const PROCESS_STATES_V5 = [
+  "starting",
+  "running",
+  "exited",
+  "failed",
+  "terminated"
+] as const;
+export const processStateV5Schema = z.enum(PROCESS_STATES_V5);
+export type ProcessState = z.infer<typeof processStateV5Schema>;
 
 const argumentSchema = z.string().max(8 * 1024);
 const argumentListSchema = z.array(argumentSchema).max(512).superRefine((values, context) => {
@@ -213,6 +222,30 @@ export const runCommandDataV4Schema = runCommandDataV1Schema.extend({
   verification_receipt: z.string().regex(/^verify_[A-Za-z0-9_-]+$/u).nullable()
 }).strict();
 
+function requireEqualProcessStateAliases<T extends z.ZodTypeAny>(schema: T) {
+  return schema.superRefine((value: { state?: unknown; status?: unknown }, context) => {
+    if (value.state !== value.status) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["state"],
+        message: "V5 process state must equal the status compatibility alias."
+      });
+    }
+  });
+}
+
+export const runCommandDataV5Schema = requireEqualProcessStateAliases(
+  runCommandDataV4Schema.extend({ state: processStateV5Schema }).strict()
+).superRefine((value, context) => {
+  if (value.state === "starting" || value.state === "running") {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["state"],
+      message: "A bounded command result must be terminal."
+    });
+  }
+});
+
 export const startProcessDataV1Schema = z.object({
   process_id: processIdV1Schema,
   status: z.enum(["running", "exited", "failed"]),
@@ -221,6 +254,13 @@ export const startProcessDataV1Schema = z.object({
   started_at: z.string().datetime({ offset: true }),
   absolute_expires_at: z.string().datetime({ offset: true })
 }).strict();
+
+export const startProcessDataV5Schema = requireEqualProcessStateAliases(
+  startProcessDataV1Schema.extend({
+    state: z.literal("running"),
+    status: z.literal("running")
+  }).strict()
+);
 
 const processStateDataV1Schema = z.object({
   process_id: processIdV1Schema,
@@ -236,6 +276,14 @@ export const readProcessOutputDataV4Schema = readProcessOutputDataV1Schema.exten
   verification_receipt: z.string().regex(/^verify_[A-Za-z0-9_-]+$/u).nullable()
 }).strict();
 
+export const readProcessOutputDataV5Schema = requireEqualProcessStateAliases(
+  readProcessOutputDataV4Schema.extend({ state: processStateV5Schema }).strict()
+);
+
+export const processActionDataV5Schema = requireEqualProcessStateAliases(
+  processStateDataV1Schema.extend({ state: processStateV5Schema }).strict()
+);
+
 export const listProcessesDataV1Schema = z.object({
   processes: z.array(z.object({
     process_id: processIdV1Schema,
@@ -245,6 +293,25 @@ export const listProcessesDataV1Schema = z.object({
     started_at: z.string().datetime({ offset: true }),
     absolute_expires_at: z.string().datetime({ offset: true }).nullable()
   }).strict()).max(32),
+  process_count: z.number().int().nonnegative().max(32)
+}).strict().superRefine((value, context) => {
+  if (value.process_count !== value.processes.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["process_count"], message: "Process count is inconsistent." });
+  }
+});
+
+const listProcessItemV5Schema = requireEqualProcessStateAliases(z.object({
+  process_id: processIdV1Schema,
+  state: processStateV5Schema,
+  status: processStateV5Schema,
+  mode: authorityModeSchema,
+  terminal: z.enum(["pipes", "conpty", "none"]),
+  started_at: z.string().datetime({ offset: true }),
+  absolute_expires_at: z.string().datetime({ offset: true }).nullable()
+}).strict());
+
+export const listProcessesDataV5Schema = z.object({
+  processes: z.array(listProcessItemV5Schema).max(32),
   process_count: z.number().int().nonnegative().max(32)
 }).strict().superRefine((value, context) => {
   if (value.process_count !== value.processes.length) {
@@ -341,6 +408,14 @@ export const interruptProcessOutputShape = executionOutputShape("interrupt_proce
 export const terminateProcessOutputShape = executionOutputShape("terminate_process", processStateDataV1Schema);
 export const resizeProcessTerminalOutputShape = executionOutputShape("resize_process_terminal", processStateDataV1Schema);
 export const listProcessesOutputShape = executionOutputShape("list_processes", listProcessesDataV1Schema);
+export const runCommandOutputShapeV5 = executionOutputShape("run_command", runCommandDataV5Schema);
+export const startProcessOutputShapeV5 = executionOutputShape("start_process", startProcessDataV5Schema);
+export const readProcessOutputOutputShapeV5 = executionOutputShape("read_process_output", readProcessOutputDataV5Schema);
+export const writeProcessInputOutputShapeV5 = executionOutputShape("write_process_input", processActionDataV5Schema);
+export const interruptProcessOutputShapeV5 = executionOutputShape("interrupt_process", processActionDataV5Schema);
+export const terminateProcessOutputShapeV5 = executionOutputShape("terminate_process", processActionDataV5Schema);
+export const resizeProcessTerminalOutputShapeV5 = executionOutputShape("resize_process_terminal", processActionDataV5Schema);
+export const listProcessesOutputShapeV5 = executionOutputShape("list_processes", listProcessesDataV5Schema);
 
 export const runCommandOutputSchema = outputSchema(runCommandOutputShape);
 export const runCommandOutputSchemaV4 = outputSchema(runCommandOutputShapeV4);
@@ -352,6 +427,14 @@ export const interruptProcessOutputSchema = outputSchema(interruptProcessOutputS
 export const terminateProcessOutputSchema = outputSchema(terminateProcessOutputShape);
 export const resizeProcessTerminalOutputSchema = outputSchema(resizeProcessTerminalOutputShape);
 export const listProcessesOutputSchema = outputSchema(listProcessesOutputShape);
+export const runCommandOutputSchemaV5 = outputSchema(runCommandOutputShapeV5);
+export const startProcessOutputSchemaV5 = outputSchema(startProcessOutputShapeV5);
+export const readProcessOutputOutputSchemaV5 = outputSchema(readProcessOutputOutputShapeV5);
+export const writeProcessInputOutputSchemaV5 = outputSchema(writeProcessInputOutputShapeV5);
+export const interruptProcessOutputSchemaV5 = outputSchema(interruptProcessOutputShapeV5);
+export const terminateProcessOutputSchemaV5 = outputSchema(terminateProcessOutputShapeV5);
+export const resizeProcessTerminalOutputSchemaV5 = outputSchema(resizeProcessTerminalOutputShapeV5);
+export const listProcessesOutputSchemaV5 = outputSchema(listProcessesOutputShapeV5);
 
 export const EXECUTION_OUTPUT_SCHEMAS = Object.freeze({
   run_command: runCommandOutputSchema,
@@ -368,6 +451,18 @@ export const EXECUTION_OUTPUT_SCHEMAS_V4 = Object.freeze({
   ...EXECUTION_OUTPUT_SCHEMAS,
   run_command: runCommandOutputSchemaV4,
   read_process_output: readProcessOutputOutputSchemaV4
+});
+
+export const EXECUTION_OUTPUT_SCHEMAS_V5 = Object.freeze({
+  ...EXECUTION_OUTPUT_SCHEMAS_V4,
+  run_command: runCommandOutputSchemaV5,
+  start_process: startProcessOutputSchemaV5,
+  read_process_output: readProcessOutputOutputSchemaV5,
+  write_process_input: writeProcessInputOutputSchemaV5,
+  interrupt_process: interruptProcessOutputSchemaV5,
+  terminate_process: terminateProcessOutputSchemaV5,
+  resize_process_terminal: resizeProcessTerminalOutputSchemaV5,
+  list_processes: listProcessesOutputSchemaV5
 });
 
 export function createExecutionFailure(

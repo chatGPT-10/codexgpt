@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "case_id": "E1",
+  "status": "completed_pair_reviewed",
+  "controls": {
+    "baseline_server_base_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "candidate_server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+    "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+    "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+    "node": "24.15.0",
+    "auth_mode": "oauth",
+    "configured_root_mode": "oauth_cross_transport",
+    "fresh_target_per_variant": true,
+    "fresh_chat_per_variant": true
+  },
+  "baseline": {
+    "result_file": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-e1-baseline-successor.json",
+    "task_success": true,
+    "verification_completed": true,
+    "tool_trace_provided": true,
+    "tool_trace_complete": false,
+    "mutation_attempt_trace_complete": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": 2
+  },
+  "candidate": {
+    "result_file": "docs/benchmarks/chatgpt-web-e2e/runs/2026-08-16-e1-candidate-successor.json",
+    "task_success": true,
+    "verification_completed": true,
+    "tool_trace_provided": true,
+    "tool_trace_complete": false,
+    "mutation_attempt_trace_complete": true,
+    "wrong_tool_calls": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": 1,
+    "mutation_retries": 2
+  },
+  "comparison": {
+    "task_success": "tie_pass",
+    "verification_completion": "tie_pass",
+    "tool_call_efficiency": "not_comparable_incomplete_tool_traces",
+    "wrong_tool_call_rate": null,
+    "redundant_tool_calls": null,
+    "total_tool_calls": null,
+    "context_fetch_calls": "tie_1_each",
+    "mutation_retries": "tie_2_each",
+    "p1_effect_for_e1": "not_demonstrated"
+  },
+  "notes": "Both variants produced the same two-file API rename shape, passed 6/6 under independent frozen-Node verification, had zero current old-symbol hits, and stopped cleanly. The incomplete and differently rendered overall UI traces do not support a tool-efficiency comparison, while each ordered modal independently closes the contiguous initial-edit/retry-edit/retry-write mutation segment and therefore supports exactly two retries."
+}

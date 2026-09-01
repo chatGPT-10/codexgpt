@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "benchmark": "CodexGPT ChatGPT Web E2E benchmark",
+  "status": "ready",
+  "prepared_at": "2026-08-16T19:47:00+02:00",
+  "server_run_id": "2026-08-16T17-46-16-613Z-step497-b1-candidate-successor-b9e1c3de",
+  "server_variant": "candidate_successor",
+  "server_base_ref": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "successor_overlay": "step493-oauth-cross-transport-workspace-successor",
+  "successor_overlay_manifest": "docs/benchmarks/chatgpt-web-e2e/successor-overlay.json",
+  "target_workspace_ref": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "target_workspace_root": "C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-b30ce20b",
+  "target_clean": true,
+  "runtime_mode": "oauth_cross_transport",
+  "runtime_mode_source": "Frozen successor overlay default in src/config.ts; no environment override is required for this effective mode.",
+  "preflight": {
+    "candidate_exact_head": true,
+    "package_identity_matches": true,
+    "exact_overlay_matches": true,
+    "shared_dependency_root_matches": true,
+    "typescript_build_passed": true,
+    "runtime_status": "running",
+    "worker_lease_active": true,
+    "public_health_status": 200,
+    "public_auth_mode": "oauth",
+    "public_mcp_available": true,
+    "listeners_loopback_only": true,
+    "local_health_probe_scored": false
+  },
+  "case": {
+    "case_id": "B1",
+    "prompt": "找到 WorkspaceManager / workspace capability 的核心实现位置和所有主要调用点。先定位 definition/references，再只读取解释调用关系所需的范围。",
+    "workspace_bootstrap_required": true,
+    "require_explicit_workspace_id_for_followup": true,
+    "workspace_bootstrap_message": "先调用 open_workspace 打开 C:\\Users\\Administrator\\.devspace\\worktrees\\codexgpt-b30ce20b。后续本任务所有项目工具调用都必须显式使用返回的 workspace_id，不要使用默认 workspace。完成 workspace 绑定后，再执行下面的 benchmark task：\n\n找到 WorkspaceManager / workspace capability 的核心实现位置和所有主要调用点。先定位 definition/references，再只读取解释调用关系所需的范围。"
+  },
+  "abandoned_start": {
+    "run_id": "2026-08-16T17-45-40-302Z-step497-b1-candidate-successor-4b69a992",
+    "reason": "The outer shell consumed the PowerShell $env prefix, so the requested environment override was not explicitly applied. The run was stopped immediately by exact run ID before any ChatGPT B1 trace. The frozen successor config independently defaults to oauth_cross_transport, but the abandoned run is excluded to keep setup evidence unambiguous.",
+    "stopped_at": "2026-08-16T17:45:50.177Z"
+  },
+  "notes": "The matched baseline-successor B1 runtime was scored for task success and stopped by exact run ID before candidate startup. The candidate uses the same target ref, Node 24.15.0, OAuth profile, bootstrap contract, and exact STEP-493 successor overlay. Public health returns OAuth with MCP available; both service listeners are bound only to 127.0.0.1. Local direct /healthz probes returned Host/Forbidden responses and therefore are not scored as admin-health evidence for this ready record. Only the historical baseline-vs-P1 server base ref is intended to differ."
+}

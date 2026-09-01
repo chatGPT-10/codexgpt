@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "label": "step493-oauth-cross-transport-workspace-successor",
+  "baselineRef": "c43ec8ecae9782598ebc9cf90d8df8cdde1035c1",
+  "candidateRef": "8a3d5dd3012c7c152fb7eea2fdb3fb91465ebc7e",
+  "entries": [
+    {
+      "path": "src/config.ts",
+      "status": "modified",
+      "sha256": "821f167369113b9ac7dba815ccb889b84228f843ea98f1feed914dca9c5951bb"
+    },
+    {
+      "path": "src/guard.ts",
+      "status": "modified",
+      "sha256": "71cccef9eed7893ae41f63763fe7266f13bc0d620159bb7be5709701fd6c7f04"
+    },
+    {
+      "path": "src/http/oauthMcpRuntime.ts",
+      "status": "modified",
+      "sha256": "5ed86066b5834241e29ade6ac61cef010b905dd4bfa813ca5f2ea21a8ea8e32d"
+    },
+    {
+      "path": "src/productionRuntime.ts",
+      "status": "modified",
+      "sha256": "3982c7e64dcfdb60593cbb20b704b2d3333eb44185fec3f1de70f01e3cf38c17"
+    },
+    {
+      "path": "src/server.ts",
+      "status": "modified",
+      "sha256": "d8767ed43d6a8f5e5774b25110a4ad40d5782ae6c9a46ec8be06aaeaaa49e746"
+    },
+    {
+      "path": "src/workspace/capabilityRegistry.ts",
+      "status": "untracked",
+      "sha256": "92c43e7741a63582fd3f24d968ef0c9fb64d52dfdb41c24a0cec0703e3ef617f"
+    }
+  ]
+}

@@ -134,7 +134,7 @@ test("protected smoke sources and the canonical public tool count remain exact",
   const smoke = canonicalSource(await read("scripts/smoke.mjs"));
   const httpSmoke = canonicalSource(await read("scripts/http-smoke.mjs"));
   assert.equal(createHash("sha256").update(smoke).digest("hex"), "56d1abb61b259572b9dfaf700baf6c59b8ce0cff8c6ff94f336324982c573bad");
-  assert.equal(createHash("sha256").update(httpSmoke).digest("hex"), "c384f36ffcb95ee93a0b356a984c8f70f3e0a3be7cdb68526033c31ab0d7978e");
+  assert.equal(createHash("sha256").update(httpSmoke).digest("hex"), "5fdb0d714eeb8efb4a6e367bbd7c390404d7061e16e66bcf907e1c55d1eee184");
   assert.equal(CANONICAL_CODEXGPT_CHILD_TOOLS.length, 28);
   assert.equal(new Set(CANONICAL_CODEXGPT_CHILD_TOOLS).size, 28);
 });
