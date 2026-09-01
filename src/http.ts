@@ -70,6 +70,7 @@ import {
   createLocalAdminApp,
   createLocalControlOwnerAdminService
 } from "./http/localAdminApp.js";
+import { createLocalAdminSettingsService } from "./http/localAdminSettings.js";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -1641,6 +1642,10 @@ async function main(): Promise<void> {
         localAdminSessions,
         localAdminOrigin
       );
+      const localAdminSettingsService = createLocalAdminSettingsService(
+        config.defaultRoot,
+        config.toolMode
+      );
       localApprovalRuntime.setOAuthAdminBootstrapControl({
         issue: () => ownerAdminService.issueBootstrap()
       });
@@ -1679,7 +1684,17 @@ async function main(): Promise<void> {
         ownerAdminService,
         sessions: localAdminSessions,
         origin: localAdminOrigin,
-        tokenDiagnostics: oauthTokenDiagnostics
+        tokenDiagnostics: oauthTokenDiagnostics,
+        controlSnapshot: {
+          defaultWorkspace: config.defaultRoot,
+          allowedRoots: config.allowedRoots,
+          toolMode: config.toolMode,
+          writeMode: config.writeMode,
+          executionProfile: config.executionProfile,
+          policyEngine: config.policyEngineMode,
+          authMode: config.authMode
+        },
+        settingsService: localAdminSettingsService
       });
       const listen = (
         app: express.Express,

@@ -216,6 +216,19 @@ async function main() {
     return;
   }
 
+  if (subcommand === "control") {
+    const host = path.join(process.cwd(), "dist", "controlHost.js");
+    if (!fs.existsSync(host)) throw new Error(`Missing ${host}. Run npm run build first.`);
+    const result = spawnSync(process.execPath, [host, ...argv.slice(1)], {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: "inherit",
+      windowsHide: true
+    });
+    exitFrom(result);
+    return;
+  }
+
   if (subcommand === "doctor") {
     const doctorArgs = argv.slice(1);
     const plannedStartArgs = ["start", ...doctorArgs];

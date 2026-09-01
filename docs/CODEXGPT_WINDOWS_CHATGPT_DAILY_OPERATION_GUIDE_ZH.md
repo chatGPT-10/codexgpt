@@ -5,28 +5,33 @@
 
 ## 先给结论
 
-是的，**每次重启 Windows 后都要重新启动 CodexGPT**。它目前是一个前台运行的本地进程：电脑重启、退出其 PowerShell 窗口，或在窗口中按 `q` / `Ctrl+C`，都会停止本地 MCP 服务和 Cloudflare Tunnel。
+是的，**每次重启 Windows 后都要重新启动 CodexGPT**。浏览器控制方式下，Control Plane 是一个前台本地进程：电脑重启或关闭它的 PowerShell 窗口，会停止它所拥有的 MCP Runtime 和 Cloudflare Tunnel。
 
 通常**不需要**每次重新创建 ChatGPT App、重新扫描工具或重新授权。正常启动会保留 OAuth 的 issuer、稳定 hostname、Tunnel、已批准客户端和 refresh-token family。只有授权被撤销、服务绑定发生安全重置、App 被重建，或 ChatGPT 明确再次要求连接时，才需要重新授权。
 
 ## 每次开机后的标准流程
 
-### 1. 在 PowerShell 启动服务
+### 1. 打开本地控制页，再由浏览器启动 Runtime
 
-打开一个专门留给 CodexGPT 的 PowerShell 窗口，运行：
+打开一个专门留给 CodexGPT 的 PowerShell 窗口，运行控制页：
 
 ```powershell
 Set-Location D:\Dev\codexgpt
-node .\scripts\codexgpt-entry.mjs start --root D:\Dev\codexgpt
+node .\scripts\codexgpt-entry.mjs control --root D:\Dev\codexgpt
 ```
 
-如果已全局安装了 `codexgpt`，下面的短命令等价：
+该窗口会打印一次性本地打开地址。只在本机浏览器中打开它，且不要复制、分享或截图其中的完整地址；其中的短期 bootstrap 值等同于本地控制页面的登录凭据。控制页默认监听 `127.0.0.1:8791`，不经过 Cloudflare Tunnel。
 
-```powershell
-codexgpt start --root D:\Dev\codexgpt
-```
+页面显示 “Authenticated local owner session.” 后，可先在 **Workspace access** 中管理目录和下次启动的工具权限，再点击 **Start Runtime**。按钮会启动该工作区的 Runtime，最多等待 15 秒本机 `/healthz`；只有收到 HTTP 200 才显示 `owned_running`。超时或启动失败会保留 `owned_starting`/错误信息，不会假装服务可用。保持控制页的 PowerShell 窗口打开；关闭它会尝试停止它所拥有的 Runtime。它不是 Windows 服务，也没有配置为随开机自动启动；不要为了省一步而未经评审安装任务计划或系统服务。
 
-看到服务正常运行后，**保持这个窗口打开**。它不是 Windows 服务，也没有配置为随开机自动启动；不要为了省一步而未经评审安装任务计划或系统服务。
+点击 **Stop Runtime** 会终止本控制宿主亲自启动、且 PID 创建时间仍完全匹配的 Runtime 进程树；不匹配、过期或外部启动的进程会被拒绝，绝不会作为 Stop 目标。**Restart Runtime** 是同一个受控事务：先确认停止完成，再启动新子进程并再次等待本机健康检查。动作进行时，其他生命周期按钮会被锁定。不要用任务管理器猜测并结束未知 Node、cloudflared 或 PowerShell 进程。
+
+### 控制页中的工作空间与权限
+
+- **添加工作空间**：输入一个精确本地项目目录，先点 **Review path**，再把页面显示的规范路径完整输入确认框并点 **Add allowed root**。目录必须存在、是本地目录，且不能是盘符根目录、UNC/网络路径、设备路径或含有歧义尾随字符的路径。
+- **移除工作空间**：仅可移除额外允许目录；OAuth 默认根 `D:\Dev\codexgpt` 不会被网页改写。变更会在下一次 Start/Restart 生效，不会中途扩大正在运行 Runtime 的可访问范围。
+- **切换项目**：Runtime 重启后，ChatGPT 仍以 OAuth 默认根启动；对于额外允许的项目，在对话中让它调用 `open_workspace` 并使用返回的 `workspace_id`。这是刻意的边界：网页不能把同一个 OAuth App 的默认根悄悄换成另一个项目。
+- **工具权限**：Read-only = 最小工具面、禁写入、禁 shell；Edit workspace = 标准工具面和工作区写入、禁 shell；Run safe commands = 完整工具面、工作区写入和 Safe Bash。三个预设都不会启用 `full_access`；它不是沙箱，也不能被普通网页下拉框静默开启。
 
 ### 2. 确认本地服务与授权状态
 
@@ -156,12 +161,15 @@ node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs connection-test --root D:\Dev\co
 ## 一页命令清单
 
 ```powershell
-# 启动当前 CodexGPT 项目（开机后必做）
+# 启动独立本地控制页（开机后必做；在页面点 Start Runtime）
 Set-Location D:\Dev\codexgpt
-node .\scripts\codexgpt-entry.mjs start --root D:\Dev\codexgpt
+node .\scripts\codexgpt-entry.mjs control --root D:\Dev\codexgpt
 
 # 查看运行与 OAuth 状态（另开终端）
 node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs auth status --root D:\Dev\codexgpt --json
+
+# 备用：直接在 PowerShell 启动 Runtime
+node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs start --root D:\Dev\codexgpt
 
 # 查看待本机批准的浏览器授权，并批准它
 node D:\Dev\codexgpt\scripts\codexgpt-entry.mjs auth pending --root D:\Dev\codexgpt
