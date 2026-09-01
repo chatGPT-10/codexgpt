@@ -119,3 +119,95 @@ This append-only continuation begins with STEP-538 after Part 12 crossed the 48 
 **Decisions, risks, and rollback:** no force push, merge, tag, release, App mutation, deployment, credential/network/service change, or Web benchmark was performed. The remote branch now contains the reviewed closure and can be reverted only through an explicit new Git revert; history was not rewritten. The unscored Web-efficiency metrics and all separately gated roadmap items remain unchanged.
 
 **Next approved action:** none. Any App refresh, fresh ChatGPT Web evidence, runtime deployment, package/release publication, credentials, network/services, background installation, or new product stage requires separate authorization.
+
+## 2026-09-01 — STEP-542: whole-project verification and dependency remediation
+
+**Status:** local project verification completed; ChatGPT App metadata refresh remains pending one manual UI action. This record documents a user-requested whole-project validation after the P1–P5 handoff, not a new roadmap phase.
+
+**Goal:** validate the already-built project as a whole, identify real failures, repair bounded defects, and verify the repaired runtime without confusing cached ChatGPT App metadata with server behavior.
+
+**Files changed:** `package.json`; `package-lock.json`; `Memory.md`; and this archive entry. No product source, saved OAuth profile, branch ref, credential, deployment, or GitHub remote was changed.
+
+**Defect and bounded fix:** the first production dependency audit found four transitive vulnerabilities: high `brace-expansion`, `fast-uri`, and `ip-address`, plus moderate `hono`. Root `overrides` now pin `brace-expansion@5.0.9`, `fast-uri@3.1.5`, `hono@4.12.34`, and `ip-address@10.3.1`; the lockfile was regenerated. A lock-only install initially left the physical `node_modules` tree on old versions, so the verification correction was `npm ci --ignore-scripts --no-audit`. Actual installed versions then matched the patched lock and `npm audit --omit=dev` reported zero vulnerabilities.
+
+**Verification:** `npm run build` passed. The focused V5 process/cache/runtime set passed 9/9. After the actual dependency reinstall, detached ordinary runs `2026-09-01T06-15-36-357Z-full-regression-installed-node24-cee884d8` and `2026-09-01T06-16-34-668Z-full-regression-installed-node20-1ee65f30` both exited 0 with complete output, empty stderr, cleaned temporary state, and 264/264 ordinary tests. Direct independent-native control runs on Node 24 and Node 20 each passed 113/113. Detached smoke runs `2026-09-01T06-30-20-782Z-full-smoke-installed-node24-97f451c3` and `2026-09-01T06-31-16-231Z-full-smoke-installed-node20-77523d9f` both exited 0 with all eight smoke categories, empty stderr, and cleaned temporary state. `npm pack --dry-run --json --ignore-scripts` retained `codexgpt@1.0.4`, 694 files, and a 1.5 MB package; `npm run policy:check`, `git diff --check`, and the scoped secret-looking diff scan passed.
+
+**Runtime and App evidence:** the saved configured stable launcher was started with process-scoped `CODEXGPT_SEMANTIC_MODE=standard` and `CODEXGPT_TOOL_CONTRACT_VERSION=5`, leaving the saved profile unchanged. Local listeners on 8789/8790 were present; `https://codexgpt.drliang.uk/healthz` returned 200 with `mcpAvailable:true`; exact-host `/mcp` and public `/mcp` without OAuth returned 401; an invalid Host returned 403; and local admin returned 200. The existing cached `codexgpt-Windows-233` App returned `-32603 Internal error` for `server_config` and `list_workspaces` both before and after the healthy V5 restart. The server truthfully warned that a pre-existing 51-tool App needs one **Scan Tools** refresh or recreation. This task has no browser-click capability, so no UI refresh or fresh ChatGPT Web/tool trace was claimed.
+
+**Failed attempts retained:** running detached `npm run smoke` once produced runner-level `spawn npm ENOENT`; invoking the repository smoke script directly with the managed Node executable passed. The first control detached-runner handshake did not create a run directory and was terminated as an owned startup attempt; direct independent-native control execution then passed. A temporary PowerShell quoting error in a version probe was corrected with a native PowerShell manifest read and did not affect the repository.
+
+**Compatibility, authority, and external state:** V1/V2/V3/V4/V5 direct counts remain `28/31/39/51/52`. No App refresh, Web-efficiency metric, deployment, release publication, service installation, credential migration, DNS mutation, commit, or push was performed after the already-pushed `9ab6425` handoff record. The two dependency files are intentionally uncommitted pending review/authorization for the next Git operation; the running V5 service is an explicitly started local/tunnel process and can be stopped with its owned terminal.
+
+**Rollback:** remove the four root overrides and corresponding lockfile resolutions, run `npm ci`, and repeat audit/tests; restore the previous process-scoped service state by stopping the owned terminal. Do not revert unrelated P1–P5 history or the saved OAuth profile.
+
+**Next action:** click **Refresh/Scan Tools** for the existing ChatGPT App on the opened Plugins page, then rerun `server_config`, `list_workspaces`, and `self_test`. Only after that external UI step can App success be confirmed; any commit/push of the dependency fix remains a separate Git authorization boundary.
+
+## 2026-09-01 — Post-STEP-542: App refresh diagnosis and OAuth deployment guard
+
+**Status:** the whole-project local gates remain passed, but App validation is blocked by an OAuth deployment binding conflict that requires explicit external-state authorization. No rebind, App mutation, DNS/tunnel change, commit, or push was performed.
+
+**Goal:** explain the persistent ChatGPT App `-32603 Internal error` and prevent the launcher from silently serving a different canonical workspace than the requested project.
+
+**Evidence and diagnosis:** after the user manually selected Refresh, the cached App still returned `-32603` for `server_config`, `list_workspaces`, and `codexgpt_self_test`. Public `/healthz` was healthy, but the OAuth registry showed `codexgpt.drliang.uk` bound to `D:\Codex\chatgpt上下文插件`, while the intended project and profile are `D:\Dev\codexgpt`. The prior coordinator reused state by identity without validating the canonical root/profile and related public binding fields, so health could be green while the public OAuth runtime served the wrong project.
+
+**Files changed:** `src/auth/deploymentRegistry.ts`; `src/auth/recovery.ts`; `test/phase-8-auth-recovery.test.mjs`; `Memory.md`; and this archive. The earlier STEP-542 `package.json`/`package-lock.json` dependency remediation remains uncommitted and unchanged.
+
+**Implementation and user impact:** added `DeploymentRegistry.assertCompatible` for case-insensitive canonical-root, profile, hostname, issuer, and resource checks; `AuthDeploymentCoordinator.initialize` now invokes it before reusing an existing deployment. The new recovery regression proves a hostname bound to another canonical deployment fails with `OAUTH_STATE_CONFLICT` and leaves the original state unchanged. This prevents cross-project OAuth state reuse, but the intended project cannot start on the currently occupied hostname until the old deployment is explicitly rebound or a new authorized hostname is used.
+
+**Verification:** `npm run test:focused -- test/phase-8-auth-recovery.test.mjs` passed 6/6. `npm run build` passed. The corrected D:\Dev launcher started with V5 environment settings and failed closed with `OAUTH_STATE_CONFLICT`, as designed, instead of serving the other root. The task-owned prior service was stopped after diagnosis; no saved OAuth profile or runtime registry state was modified.
+
+**Decisions, risks, and rollback:** OAuth rebind is a security reset that revokes the old deployment's grants/clients and requires the ChatGPT App to authorize again; a new hostname requires separate tunnel/DNS and App reconnection work. Neither is inferred from a Refresh click. Rollback is to revert only the three source/test files and retain the prior saved deployment state; do not weaken the compatibility check or silently rebind.
+
+**Next action:** obtain explicit authorization for either (A) rebinding `codexgpt.drliang.uk` from the old canonical root to `D:\Dev\codexgpt`, with grant revocation and App reauthorization, or (B) using a separately authorized hostname/tunnel for `D:\Dev\codexgpt`. Only after that can the service restart and the complete App/project validation continue.
+
+## 2026-09-01 — Authorized OAuth rebind and target runtime restart
+
+**Status:** the user authorized option A. The stable hostname was rebound to `D:\Dev\codexgpt` as a security reset, the target V5 runtime is healthy, and final ChatGPT App validation is pending relink/reauthorization in the user session.
+
+**Goal:** make the existing `codexgpt-Windows-233` App address the intended project after the cross-root OAuth binding diagnosis, while preserving the stable hostname and Cloudflare route.
+
+**Preflight and bounded CLI correction:** the first authorized rebind attempt failed before mutation because the target profile contained an exact stale copy of the source OAuth selectors left by the earlier cross-root reuse. `scripts/oauth-admin.mjs` now recognizes that case only when all required tunnel, hostname, port, OAuth issuer/resource, credential-provider, and state-reference selectors match the source exactly; a different or partially matching configured target still fails closed. The CLI test covers positive and negative alias cases.
+
+**External state change and user impact:** `codexgpt auth rebind --from-root D:\\Codex\\chatgpt上下文插件 --root D:\\Dev\\codexgpt --hostname codexgpt.drliang.uk --revoke-all` completed successfully. The registry and profiles now assign the hostname to `D:\Dev\codexgpt`; the old deployment's clients, grants, and tokens were revoked; the Cloudflare route was not changed. The target profile is OAuth-enabled and the source profile is retained as Legacy. The ChatGPT App must relink/reauthorize because the security reset intentionally leaves no active client or grant.
+
+**Runtime evidence:** the saved target launcher restarted with process-scoped V5 settings and reported the intended workspace. `auth status --root D:\Dev\codexgpt --json` showed the target runtime active with no clients or grants. Public `/healthz`, protected-resource metadata, and authorization-server metadata returned 200; public `/mcp` without a bearer returned 401; an invalid Host returned 403. App calls made before relink still returned ChatGPT's generic `-32603 Internal error`, which is expected while the old App authority is absent and is not evidence of a target server failure.
+
+**Verification:** managed Node 20 and Node 24 focused CLI/recovery tests passed 28/28 on each. `npm run build`, `npm run policy:check`, and `git diff --check` passed. Earlier whole-project STEP-542 ordinary/control/smoke, package, audit, and runtime gates remain passed; this step added the stale-alias CLI guard and revalidated its affected dual-Node tests.
+
+**Decisions, risks, and rollback:** this was the explicitly selected OAuth security reset. It changes local protected OAuth registry/profile state and invalidates the old App authority, but does not change DNS, Tunnel ingress, release data, Git refs, or remote state. Rollback requires a separately reviewed rebind back to the old canonical root and another forced relink; do not restore old grants or weaken the exact-alias guard.
+
+**Next action:** in the open ChatGPT App page, select **Refresh/Scan Tools**. If the old client remains invalid, remove and recreate the development App using the unchanged URL `https://codexgpt.drliang.uk/mcp`, then authorize it again. After that, rerun a new conversation's representative read, context, and bounded write/execute confirmation tests. No commit or push has been performed for the current working-tree changes.
+
+## 2026-09-01 — Post-rebind ChatGPT App relink and read-only acceptance
+
+**Status:** completed for OAuth reconnection and representative Web read-only acceptance. This is not a benchmark run and does not score Web-efficiency metrics.
+
+**Goal:** replace the stale ChatGPT OAuth client left invalid by the authorized root rebind, prove the newly bound `D:\Dev\codexgpt` service can be authorized by ChatGPT Web, and capture a real workspace tool result without changing the workspace.
+
+**Files changed:** `Memory.md` and this append-only archive entry. The user created/published the external ChatGPT App `codexgpt-Windows-v2`; no source, saved profile, Cloudflare route, DNS record, package, Git ref, commit, or push changed in this acceptance step.
+
+**Implementation and user impact:** the first same-name App creation was rejected because `codexgpt-Windows` was already occupied. A non-destructive replacement named `codexgpt-Windows-v2` was created with the token-free public MCP URL and OAuth discovery. ChatGPT dynamically registered a new public client, the user published and connected that replacement, and local owner approval completed its PKCE authorization. The user then sent the requested read-only workspace test. The visible ChatGPT tool trace showed one earlier `open_current_workspace` call and a succeeding `git_status` call with `ok: true`, the intended `D:\Dev\codexgpt` root, the current branch, and the current dirty-file inventory. No workspace mutation was requested or observed.
+
+**Verification:** after restarting the existing saved local/tunnel runtime, `auth status --json` reported the runtime active. Local `auth pending` exposed one ChatGPT request with read/write/execute scopes; `auth approve` completed it. A subsequent status reported the client `approved`, one active grant, and a completed token exchange/refresh rotation. The append-only OAuth audit recorded client registration, authorization request, client/authorization approval, authorization-code creation, exchange, and refresh rotation. The attached ChatGPT Web screenshot supplies the authoritative UI/tool trace for `open_current_workspace` plus `git_status`; it is more direct evidence of tool invocation than token-exchange status alone. `git diff --check` reported no error, only pre-existing LF-to-CRLF notices.
+
+**Decisions, risks, and rollback:** the legacy `codexgpt-Windows-233` draft was deliberately not published, deleted, or renamed. The new App remains `codexgpt-Windows-v2` because that preserves the old draft and avoids another credential reset. The grant has read/write/execute scopes, but this acceptance used only reads; every later write or process execution remains subject to the existing Policy/approval boundaries. Rollback is to revoke the replacement grant/client locally and disable or delete the replacement App only with explicit approval; do not restore the stale client or weaken root compatibility checks.
+
+**Next action:** none for OAuth/relink acceptance. A separate authorization is required to clean up/rename legacy Apps, to run a benchmark-grade Web trace, or to perform a P5 `start_process` execution through ChatGPT Web. No commit or push is authorized for the uncommitted STEP-542/rebind/documents worktree.
+
+## 2026-09-01 — Windows + ChatGPT daily-operation guide
+
+**Status:** completed documentation-only operational handoff. No source, OAuth profile, client/grant, Tunnel, DNS, App, process, Git ref, commit, or push was changed.
+
+**Goal:** give the user a repeatable, credential-safe Chinese Markdown procedure for normal Windows reboot recovery, safe workspace use, OAuth reapproval, and first-line troubleshooting after the successful `codexgpt-Windows-v2` read-only Web acceptance.
+
+**Files changed:** `docs/CODEXGPT_WINDOWS_CHATGPT_DAILY_OPERATION_GUIDE_ZH.md`; `Memory.md`; and this append-only archive entry.
+
+**Implementation and user impact:** the guide makes the operational fact explicit: restart of Windows or closure of the foreground terminal stops the local MCP runtime and named Tunnel, so the user restarts the supported entry with the exact `D:\Dev\codexgpt` root. It records that normal foreground restart retains OAuth issuer/binding/Tunnel/client/refresh-family state, while the runtime-scoped workspace capability itself is renewed after restart. It separates temporary, exact `--allow-root` plus explicit `open_workspace` usage from cross-root default deployment rebind, which remains a security-sensitive external decision. It also provides an owner-approval path, non-destructive health/status/doctor diagnostics, the v2 App identity, and explicit no-go actions for credentials, broad roots, unknown processes, automatic background installation, and legacy-App cleanup.
+
+**Verification:** live `auth status --root D:\Dev\codexgpt --json` reported the expected OAuth profile, public hostname, active runtime, approved ChatGPT client, and active grant. The command and workspace semantics were cross-checked against `README_ZH.md`: normal foreground restart, exact-root Scan Tools condition, process shutdown hotkey, configured-root workspace capability/restart expiry, `open_workspace` pattern, and full-access process boundary. `npm run policy:check` and documentation/diff checks remain required after this record.
+
+**Decisions, risks, and rollback:** the guide intentionally does not present `--allow-root` as a permanent default-root change and does not claim a successful Web write, long-process, or efficiency test. It does not include token material or authorization URLs. Revert only the three documentation/index additions if the guide wording needs replacement; do not alter live OAuth state or remove legacy App data.
+
+**Next action:** use the guide after the next reboot. Automatic startup, separate long-lived project deployments, App cleanup, hostname rebind, and benchmark-grade Web testing remain separately authorized decisions.
+
+**Verification correction:** after the guide and index update, `npm run policy:check` passed (`Repository operational policy: PASS`); `git diff --check` found no whitespace error (only existing LF-to-CRLF notices); a structural check found 20 balanced Markdown fences, all required operational topics present, and zero matches for token, bearer, client-secret, refresh-token, or private-key patterns in the new guide.

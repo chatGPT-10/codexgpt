@@ -10,6 +10,7 @@ import {
   authUsage,
   cloudflaredSuccessOutput,
   createFixedAddressLookup,
+  isStaleOAuthRebindAlias,
   parseAuthInvocation,
   preflightExistingTunnelConfig,
   resolvePublicProbeAddress,
@@ -76,6 +77,24 @@ test("auth command parser keeps nested operations and exact targets", () => {
   assert.match(authUsage(), /auth setup/);
   assert.match(authUsage(), /--no-tunnel-changes/);
   assert.match(authUsage(), /--confirm-forced-relink/);
+});
+
+test("rebind recognizes only an exact stale OAuth selector alias", () => {
+  const source = profile("D:\\old", { cloudflareConfig: "C:\\oauth\\tunnel.yml" });
+  const target = profile("D:\\new", { cloudflareConfig: "C:\\oauth\\tunnel.yml" });
+  assert.equal(isStaleOAuthRebindAlias(target, source), true);
+  assert.equal(
+    isStaleOAuthRebindAlias({ ...target, oauthStateRef: "state_different_binding_reference" }, source),
+    false
+  );
+  assert.equal(
+    isStaleOAuthRebindAlias({ ...target, hostname: "other.example.com" }, source),
+    false
+  );
+  assert.equal(
+    isStaleOAuthRebindAlias({ ...target, authMode: "legacy" }, source),
+    false
+  );
 });
 
 test("global launcher passes the explicit canonical root to the OAuth HTTP child", () => {
