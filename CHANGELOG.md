@@ -8,6 +8,7 @@
 - Added strict C2C protocol/session persistence, plan hash and byte verification, same-conversation browser observation, at-most-once INIT/EXECUTED reservations, baseline-relative execution evidence, passed/skipped DONE gates, and fail-closed terminal handling. Phase 5 deliberately excludes automatic recovery, replay, a second PLAN, spawned executors, commits, deployment, and permission expansion.
 - Included the C2C orchestration Skill, its lazy references, and the independent ChatGPT-side prompt in the npm package, with public English/Chinese usage and security documentation plus package-content regression coverage.
 - Preserved the completed Windows Local Control Plane behavior and synchronized its post-`1.0.5` operating documentation; also canonicalized source-checkout roots with native realpath on Windows.
+- Hardened the Windows native process host against asynchronous stdin pipe closure so an early host exit rejects pending work as `HOST_CLOSED` instead of raising an uncaught `EPIPE`; Windows full-matrix CI now has a 45-minute job ceiling, while the explicit one-second semantic latency gate remains unchanged.
 
 ## 1.0.5 - 2026-09-01
 
