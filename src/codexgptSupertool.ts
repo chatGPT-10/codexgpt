@@ -239,6 +239,7 @@ function workflowActionNames(structuredContent: Record<string, unknown>): string
 }
 
 export interface CodexGPTSupertoolOptions {
+  disableWorkflowActions?: boolean;
   verifyChange?: (
     args: Record<string, unknown>,
     extra?: unknown
@@ -266,7 +267,7 @@ export function upgradeCodexGPTSupertool(
   supertool.description = contractVersion === 5
     ? "Stable closed-world wrapper for already-registered CodexGPT tools. " +
       "Call list_actions first; in V5, navigate_code routes to semantic operation=navigate for one bounded semantic/lexical/file lookup. " +
-      "The V5 verify_change workflow action runs only server-confirmed project checks when explicitly requested. " +
+      (options.disableWorkflowActions ? "C2C workflow execution is unavailable. " : "The V5 verify_change workflow action runs only server-confirmed project checks when explicitly requested. ") +
       "Aliases cannot bypass the current tool, write, Bash, analysis, or Codex Session gates."
     : "Stable closed-world wrapper for already-registered CodexGPT tools. " +
       "Call list_actions first; aliases cannot bypass the current tool, write, Bash, analysis, or Codex Session gates.";
@@ -292,7 +293,9 @@ export function upgradeCodexGPTSupertool(
 
     if (action === "list_actions") {
       try {
-        const structuredContent = contract.createList(
+        const structuredContent = contractVersion === 5 && options.disableWorkflowActions
+          ? createCodexGPTListActionsSuccessV5(registeredCanonicalTools(tools, contract.canonicalTools), elapsedMs(startedAt), false)
+          : contract.createList(
           registeredCanonicalTools(tools, contract.canonicalTools),
           elapsedMs(startedAt)
         );
@@ -316,7 +319,7 @@ export function upgradeCodexGPTSupertool(
       ? input.args as Record<string, unknown>
       : {};
     if (action === "verify_change") {
-      if (contractVersion !== 5 || !options.verifyChange) {
+      if (contractVersion !== 5 || options.disableWorkflowActions || !options.verifyChange) {
         return wrapperFailureResult(contract, {
           code: "ACTION_NOT_AVAILABLE",
           details: { action }

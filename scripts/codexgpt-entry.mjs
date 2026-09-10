@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { prepareC2CLaunch } from "./c2c-runtime-profile.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -203,7 +204,19 @@ function exitFrom(result) {
 }
 
 async function main() {
-  const argv = process.argv.slice(2);
+  if (process.argv[2] === "c2c" && process.argv[3] === "session") {
+    try {
+      const { runSessionCli } = await import("../dist/c2c/cli.js");
+      await runSessionCli(process.argv.slice(4));
+    } catch {
+      process.stdout.write('{"ok":false,"error":"SESSION_CLI_UNAVAILABLE"}\n');
+      process.exitCode = 1;
+    }
+    return;
+  }
+  const prepared = prepareC2CLaunch(process.argv.slice(2));
+  const argv = prepared.argv;
+  const entryEnvironment = prepared.environment;
   const subcommand = argv[0] && !argv[0].startsWith("-") ? argv[0] : "start";
 
   if (subcommand === "install-cloudflared" || argv.includes("--install-cloudflared")) {
@@ -241,16 +254,16 @@ async function main() {
   }
 
   let forwarded = [...argv];
-  if (requiresVerifiedCloudflared(argv)) {
-    const ensured = runNodeScript("cloudflared-installer.mjs", ["ensure"]);
+  if (requiresVerifiedCloudflared(argv, entryEnvironment)) {
+    const ensured = runNodeScript("cloudflared-installer.mjs", ["ensure"], entryEnvironment);
     if (ensured.error || ensured.status !== 0) {
       exitFrom(ensured);
       return;
     }
-    forwarded = withVerifiedCloudflaredArgs(forwarded);
+    forwarded = withVerifiedCloudflaredArgs(forwarded, entryEnvironment);
   }
 
-  const launchEnv = launchEnvironment(forwarded);
+  const launchEnv = launchEnvironment(forwarded, entryEnvironment);
   exitFrom(runNodeScript("codexgpt.mjs", forwarded, connectorAuthOutputEnvironment(forwarded, launchEnv)));
 }
 

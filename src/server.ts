@@ -1,4 +1,5 @@
 import fsp from "node:fs/promises";
+import { assertC2CRuntime, c2cToolAllowed } from "./c2c/runtimeProfile.js";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -5153,6 +5154,9 @@ function codexSessionToolNames(config: CodexGPTConfig): string[] {
 }
 
 function toolNamesForMode(config: CodexGPTConfig): string[] {
+  if (config.c2cRuntime) {
+    return toolNamesForMode({ ...config, c2cRuntime: false, toolMode: "full" }).filter(c2cToolAllowed);
+  }
   const names: string[] =
     config.toolMode === "full"
       ? [...FULL_TOOL_NAMES]
@@ -5234,6 +5238,9 @@ function registeredToolNames(server: McpServer): string[] {
 }
 
 function shouldRegisterTool(config: CodexGPTConfig, name: string): boolean {
+  if (config.c2cRuntime) {
+    return c2cToolAllowed(name) && shouldRegisterTool({ ...config, c2cRuntime: false, toolMode: "full" }, name);
+  }
   if (
     config.connectionTest &&
     CONNECTION_TEST_HIDDEN_TOOLS.has(name) &&
@@ -6099,7 +6106,9 @@ function registerV4ContractTools(
 
 export function serverInstructions(config: CodexGPTConfig): string {
   const editInstruction =
-    config.connectionTest
+    config.c2cRuntime && !config.connectionTest
+      ? "4. C2C planning and review only: use handoff_to_codex to write the bounded .ai-bridge plan. Generic writes, execution and Git mutations are unavailable. The current local Codex executes the verified plan."
+      : config.connectionTest
       ? "4. Connection test mode is read-only. Write, patch, export, and handoff-writing tools are unavailable."
       : config.writeMode === "workspace"
       ? "4. Edit source files with write/edit/apply_patch. After edits, call show_changes once for git status, diff stats, and review diff."
@@ -6107,7 +6116,9 @@ export function serverInstructions(config: CodexGPTConfig): string {
         ? "4. Source writes are disabled and generic write/edit/apply_patch tools are unavailable. Use handoff_to_agent/handoff_to_codex for plans."
         : "4. Write/edit/apply_patch tools are disabled. Do not attempt direct file writes; use handoff or context export workflows instead.";
   const bashInstruction =
-    contractIncludesV3(config.toolContractVersion)
+    config.c2cRuntime
+      ? "5. C2C cannot run commands or start processes. Review the actual workspace and git diff using read-only tools."
+      : contractIncludesV3(config.toolContractVersion)
       ? `5. Contract V${config.toolContractVersion} does not expose the legacy bash tool. Use structured run_command only when the selected execution profile permits it.`
       : config.bashMode === "off"
       ? "5. Bash is disabled and the bash tool is unavailable. Do not attempt shell commands."
@@ -6133,10 +6144,10 @@ export function serverInstructions(config: CodexGPTConfig): string {
       : "3. Inspect with tree, search, and read. Do not use bash for git status, git diff, cat, sed, grep, rg, find, ls, or file reading.",
     editInstruction,
     bashInstruction,
-    contractIncludesV5(config.toolContractVersion)
+    contractIncludesV5(config.toolContractVersion) && !config.c2cRuntime
       ? "5a. For a request to inspect rename impact, call semantic(rename_preview) and stop without applying. For an explicit request to complete the rename, obtain a fresh preview and pass its opaque preview_id directly to apply_patch; never quote, narrate, or expose that token in natural-language output. After apply, verify with diagnostics/show_changes and use undo_change_set if rollback is requested."
       : "",
-    contractIncludesV5(config.toolContractVersion)
+    contractIncludesV5(config.toolContractVersion) && !config.c2cRuntime
       ? "5b. Use run_command only for a bounded command expected to exit. Use full-mode start_process for persistent or interactive work, pass each non-null next_cursor back as cursor, and terminate the owned process when finished. In V5 process results, state is canonical and status is its compatibility alias."
       : "",
     "6. Keep tool calls minimal. Prefer one targeted search plus show_changes instead of repeated broad inspection calls.",
@@ -6639,6 +6650,7 @@ export function createCodexGPTServer(
   config: CodexGPTConfig,
   dependencies: CodexGPTServerDependencies = {}
 ): McpServer {
+  assertC2CRuntime(config);
   const sharedWorkspaceRegistryConfigured = Boolean(dependencies.configuredRootWorkspaceRegistry);
   const sharedWorkspacePrincipalConfigured = Boolean(dependencies.workspaceCapabilityPrincipal);
   if (sharedWorkspaceRegistryConfigured !== sharedWorkspacePrincipalConfigured) {
@@ -6855,7 +6867,7 @@ export function createCodexGPTServer(
         })
       : undefined
   );
-  const server = new McpServer({ name: "CodexGPT", version: "1.0.5" }, { instructions: serverInstructions(config) });
+  const server = new McpServer({ name: "CodexGPT", version: "1.1.0" }, { instructions: serverInstructions(config) });
   toolDefinitionRegistryByServer.set(server as object, new ToolDefinitionRegistry());
   toolExecutionCoordinatorByServer.set(server as object, new ToolExecutionCoordinator());
   workspaceManagerByServer.set(server as object, workspaces);
@@ -11686,7 +11698,7 @@ export function createCodexGPTServer(
     }
   };
 
-  upgradeCodexGPTSupertool(server, config.toolContractVersion, {
+  upgradeCodexGPTSupertool(server, config.toolContractVersion, config.c2cRuntime ? { disableWorkflowActions: true } : {
     verifyChange: verifyChangeHandler
   });
   if ((policyEngineMode !== "legacy" || requiresAtomicAuditWrapper) && !effectivePolicyRuntime) {

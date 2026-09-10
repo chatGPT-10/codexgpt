@@ -287,7 +287,7 @@ test("handoff_to_codex schema derives one warning and all fifteen safe failures"
 test("handoff_to_codex schema rejects target, mode, path, count, byte, and diff drift", () => {
   assert.equal(typeof createHandoffToCodexSuccess, "function");
   const mutations = [
-    (data) => { data.tool_mode = "standard"; },
+    (data) => { data.tool_mode = "minimal"; },
     (data) => { data.agent = "opencode"; },
     (data) => { data.agent_name = "OpenCode"; },
     (data) => { data.model = "provider/model"; },
@@ -333,7 +333,7 @@ test("handoff_to_codex remains full-only and advertises only the exact direct co
             const advertisedData = descriptor.outputSchema.properties.data.anyOf.find(
               (candidate) => candidate.type === "object"
             );
-            assert.deepEqual(advertisedData.properties.tool_mode, { type: "string", const: "full" });
+            assert.deepEqual(advertisedData.properties.tool_mode, { type: "string", enum: ["standard", "full"] });
             assert.deepEqual(advertisedData.properties.agent, { type: "string", const: "codex" });
             assert.deepEqual(advertisedData.properties.agent_name, { type: "string", const: "Codex" });
             assert.deepEqual(advertisedData.properties.model, { type: "null" });

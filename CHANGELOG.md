@@ -1,11 +1,17 @@
 # Changelog
 
-- Added the P4 owner-bound change workflow for committed V5 mutations. Mutation results now return confirmed next checks without running them; the composite-only `codexgpt(action=verify_change)` action reuses the existing `full_access` `run_command` Policy/approval/audit path and accepts no caller command text. Standard tool mode can expose this finite path; the execution profile and local approval, not full tool mode, govern whether it runs. `show_changes(change_set_id=...)` links the required whole-workspace diff review for unexpected files, formatting, generated artifacts, dependency changes, and accidental deletion. V1-V4 remain exact and direct-tool counts stay `28/31/39/51/52`.
-
 ## Unreleased
+
+## 1.1.0 - 2026-09-10
+
+- Added the public `codexgpt c2c start` workflow for one revision-bound ChatGPT PLAN, current-Codex local implementation, evidence-bearing EXECUTED send, and independent ChatGPT review. The transient runtime uses a closed tool ceiling with handoff-only writes, Bash/process execution off, read-only Git, and no execution dependencies or integrations; existing workspace, Policy, approval, transaction, audit, redaction, and path controls remain authoritative.
+- Added strict C2C protocol/session persistence, plan hash and byte verification, same-conversation browser observation, at-most-once INIT/EXECUTED reservations, baseline-relative execution evidence, passed/skipped DONE gates, and fail-closed terminal handling. Phase 5 deliberately excludes automatic recovery, replay, a second PLAN, spawned executors, commits, deployment, and permission expansion.
+- Included the C2C orchestration Skill, its lazy references, and the independent ChatGPT-side prompt in the npm package, with public English/Chinese usage and security documentation plus package-content regression coverage.
+- Preserved the completed Windows Local Control Plane behavior and synchronized its post-`1.0.5` operating documentation; also canonicalized source-checkout roots with native realpath on Windows.
 
 ## 1.0.5 - 2026-09-01
 
+- Added the P4 owner-bound change workflow for committed V5 mutations. Mutation results now return confirmed next checks without running them; the composite-only `codexgpt(action=verify_change)` action reuses the existing `full_access` `run_command` Policy/approval/audit path and accepts no caller command text. Standard tool mode can expose this finite path; the execution profile and local approval, not full tool mode, govern whether it runs. `show_changes(change_set_id=...)` links the required whole-workspace diff review for unexpected files, formatting, generated artifacts, dependency changes, and accidental deletion. V1-V4 remain exact and direct-tool counts stay `28/31/39/51/52`.
 - Added the Windows browser Local Control Plane: an independently available loopback page can safely Start, Stop, and Restart only the Runtime child it owns after exact process-identity and local-health checks. It can add reviewed additional workspace roots with an exact typed confirmation and select safe next-launch permission presets; it never silently rebinds the OAuth default root or enables `full_access`.
 - Completed the P1-P5 local workflow improvements: unified tool execution, bounded workspace context, code navigation, owner-bound change verification/review, and truthful long-running process state while preserving the exact V1-V5 tool and authorization contracts.
 - Fixed the Windows test execution inventory so every Local Control Plane regression is classified, and moved the managed-worktree verification receipt regression to its required exclusive shard. The full Node 20/24 ordinary suite now runs without cross-test repository interference.

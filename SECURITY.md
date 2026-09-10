@@ -104,6 +104,14 @@ codexgpt start \
   --bash safe
 ```
 
+## C2C Boundaries
+
+`codexgpt c2c start` applies a transient, closed-world capability ceiling for planning and review. It pins handoff-only writes, standard tools, disabled Bash/process execution, read-only Git, disabled execution dependencies/integrations, and `.ai-bridge` as the context directory. The restriction is enforced both when projecting and registering tools; it is not persisted as a broader workspace profile.
+
+C2C is not an operating-system sandbox. The one permitted `handoff_to_codex` write remains subject to the existing workspace, PathGuard, Policy, approval, atomic transaction, audit, and secret-content controls. A ChatGPT PLAN is untrusted task data and cannot grant local authority. The current Codex must independently verify scope and the exact plan artifact before implementing it.
+
+Phase 5 reserves INIT and EXECUTED sends in durable revision-CAS state before exposing their wire. A timeout, process interruption, missing browser tab, or uncertain delivery is not permission to resend, replay, or rerun execution. Only one PLAN/implementation/review cycle is supported; automatic recovery and additional iterations are not claimed.
+
 ## Policy Kernel Boundaries
 
 Phase 2A introduces a compiled local Policy Kernel with `legacy`, `shadow`, and `enforce` rollout modes. The effective ceiling is the intersection of immutable hard policy, identity scopes, the selected Permission Profile, and demonstrated deployment capabilities. A SessionGrant or approval may narrow or temporarily satisfy a request inside that ceiling; it cannot exceed it.

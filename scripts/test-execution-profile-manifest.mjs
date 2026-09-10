@@ -22,6 +22,10 @@ audit-transaction-participant.test.mjs
 auth-documentation.test.mjs
 backend-discovery.test.mjs
 bash-contract.test.mjs
+c2c-browser-exchange.test.mjs
+c2c-protocol.test.mjs
+c2c-plan-integrity.test.mjs
+c2c-state-machine.test.mjs
 chatgpt-web-benchmark-contract.test.mjs
 chatgpt-web-benchmark-runtime.test.mjs
 bridge-writer-transaction.test.mjs
@@ -199,6 +203,13 @@ write-contract.test.mjs
 write-edit-transaction.test.mjs
   `),
   safe: freezeNames(`
+c2c-cli.test.mjs
+c2c-execution-evidence.test.mjs
+c2c-iteration.test.mjs
+c2c-production-runtime.test.mjs
+c2c-runtime-profile.test.mjs
+c2c-runtime-safety.test.mjs
+c2c-session-store.test.mjs
 git-branch-v4.test.mjs
 git-commit-v4.test.mjs
 git-diff-contract.test.mjs

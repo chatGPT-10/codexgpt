@@ -340,7 +340,7 @@ test("codex_context schema rejects flat fields and cross-field drift", () => {
   assert.throws(() => codexContextOutputSchema.parse({ ...failure, data: success.data }));
   expectDataFailure((data) => { data.extra = true; });
   expectDataFailure((data) => { data.target_path = "../private"; });
-  expectDataFailure((data) => { data.tool_mode = "standard"; });
+  expectDataFailure((data) => { data.tool_mode = "minimal"; });
   expectDataFailure((data) => { data.agents_files = ["AGENTS.md", "AGENTS.md"]; data.agents_count = 2; });
   expectDataFailure((data) => { data.agents_count = 1; });
   expectDataFailure((data) => { data.ai_context_exists = false; data.ai_context_files = [".ai-bridge/current-plan.md"]; data.ai_context_count = 1; });
