@@ -45,7 +45,7 @@ const safeWorkspaceIdSchema = z.string()
   .refine((value) => !/[\r\n\u0000-\u001f\u007f]/.test(value), "Workspace id must be one line.");
 
 export const handoffToCodexDataSchema = handoffDataBaseSchema.extend({
-  tool_mode: z.literal("full"),
+  tool_mode: z.enum(["standard", "full"]),
   agent: z.literal("codex"),
   agent_name: z.literal("Codex"),
   model: z.null()

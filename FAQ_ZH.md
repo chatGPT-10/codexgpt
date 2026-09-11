@@ -48,7 +48,7 @@ Server URL: 粘贴 CodexGPT 复制的完整地址，包括 codexgpt_token
 Authentication: No Authentication / None（若显示该字段）
 ```
 
-完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。已发布的 Phase 8 baseline 完成了 Tasks 8A1–8A9、真实 Gate G8-U Journeys U2–U7、本地 G8-X 与 exact-head CI；当前 npm 版本为 `1.0.4`。OAuth 使用独立 App 与 token-free URL。本节只说明保留的 Legacy 兼容 App。不要混用两个 App，也不要把任一路径改成手动 static Bearer。
+完整 Server URL 包含 query-token 凭据。请把它当成等同密码的秘密，因为它可能泄露到浏览器历史、剪贴板、截图、日志和复制的链接中。不要分享、发布或提交它。已发布的 Phase 8 baseline 完成了 Tasks 8A1–8A9、真实 Gate G8-U Journeys U2–U7、本地 G8-X 与 exact-head CI；当前 npm 版本为 `1.1.0`。OAuth 使用独立 App 与 token-free URL。本节只说明保留的 Legacy 兼容 App。不要混用两个 App，也不要把任一路径改成手动 static Bearer。
 
 ## CSP 要保持开启吗？
 
@@ -85,6 +85,12 @@ codexgpt pro-bundle --root /path/to/repo --copy
 匹配 Skill 只会按需读取，并且始终只是指令文本。Skill 脚本不会自动执行，声明的依赖不会自动安装或视为已验证；AGENTS 和 Skills 都不能启用工具、扩大 root、批准修改，也不能绕过 Policy、Approval、Audit、blocked path 或执行模式。user/plugin Skills 只有显式请求全局发现时才会出现。若要有意读取用户级 Skill，请在 `load_skill` 中传入 `source: "user"`，并提供其 `name` 或显示出来的 selector，例如 `$CODEX_DIR/skills/neat-freak/SKILL.md`；这只是对配置用户 Skill root 的有界读取，不会扩大 workspace 访问范围。
 
 `--tool-mode minimal` 不暴露 `codex_context`。因此省略 guidance 配置时，minimal 模式使用精确的 `legacy` 兼容投影；若显式组合 `CODEXGPT_GUIDANCE_MODE=standard` 与 minimal，启动会失败。Phase 6 工具更新前创建的 App 可能需要执行一次 **Scan Tools** 或重建。
+
+## C2C 与普通 coding 或 handoff 有什么区别？
+
+Normal coding 允许 ChatGPT 直接使用当前配置的仓库工具；handoff 让 ChatGPT 写计划，再交给另行选择的本地执行器。C2C 则把一个专用 ChatGPT 对话绑定到持久会话：ChatGPT 只写一份有界计划，当前 Codex 在本地验证并实施，之后 ChatGPT 再读取实际变更和记录证据做独立复核。
+
+使用 `codexgpt c2c start --root <绝对项目路径>` 启动，在专用 ChatGPT 对话中加载 `C2C_CHATGPT_PROMPT.md`，并让 Codex 读取 `skill/SKILL.md`。Phase 5 刻意只支持单轮；`BLOCKED`、`ERROR`、`RECOVERY_REQUIRED`、执行中断或发送状态不确定，都不构成重发或重跑授权。自动恢复和更多迭代仍属于未来的 C2C Phase 6。
 
 ## 为什么 Pro 账号也可能连不上某个模型？
 

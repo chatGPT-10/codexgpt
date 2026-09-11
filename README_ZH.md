@@ -33,7 +33,7 @@
 
 ## 当前项目状态
 
-- 首个稳定版本为 `codexgpt@1.0.0`；当前 npm 补丁版本为 `codexgpt@1.0.5`。package metadata、runtime 自报版本与 npm `latest` 必须保持一致；每个发布版本还必须能对应到精确 source commit。
+- 首个稳定版本为 `codexgpt@1.0.0`；当前版本为 `codexgpt@1.1.0`。package metadata、runtime 自报版本与 npm `latest` 必须保持一致；每个发布版本还必须能对应到精确 source commit。
 - Phase 5、Phase 6 和 Phase 7 Core 均已通过完整 Ubuntu/Windows Node 20/24 验证矩阵并正式关闭。Phase 7 Core 的关闭提交为 `a0b9f46e2297297959527f7570c9cb7942cc8fb3`，exact-head CI run 为 `30171313296`；Contract V5 仍是显式 `standard` opt-in，不是默认公开契约。
 - Phase 8 Tasks 8A1–8A9 已在 source checkout 中实现并完成本地验证：Windows DPAPI CurrentUser 状态保护、物理分离的 public/local listener、受限 DCR + PKCE S256、ES256 access token、rotating refresh family、durable revoke/replay、request-local policy identity、精确 per-tool scope、受支持的 setup/本地管理/恢复、专用 Tunnel ownership 检查、迁移与回滚文档、package integration、合成端到端 OAuth/MCP 验证，以及完成态 runtime 对抗性修复。真实 Gate G8-U 已通过 Journeys U2–U7，STEP-470 也已通过修复后的 managed Node 20/24 ordinary 与 protected Smoke 完成本地 G8-X。U6 已通过 service/protocol 双路由回滚、重建 Legacy App 的真实读取、精确无参数 OAuth 恢复，以及恢复后现有 OAuth App 的真实读取；已删除的原 Legacy App 身份连续性不作宣称。U7 已证明 shared/unowned Tunnel config 在任何 mutation 前失败并保持字节不变，同时完成 live public-loopback/local-admin 边界验收。Phase 8 exact-head closure 已在 `55b2b5664aae322ec992968a41c87a289fb75282`、CI run `30274857996` 通过；`1.0.0` 打包这一已验证基线。
 
@@ -47,7 +47,7 @@ CodexGPT 需要 Node.js 20+，以及能使用 Apps / Developer Mode 的 ChatGPT 
 npm install -g codexgpt
 ```
 
-npm badge 与 package metadata 均应显示 `1.0.5`。source checkout 用于开发、验证特定 commit/branch，或使用 npm package 尚未包含的改动；依赖它之前先核对 package version 与 commit。
+npm badge 与 package metadata 均应显示 `1.1.0`。source checkout 用于开发、验证特定 commit/branch，或使用 npm package 尚未包含的改动；依赖它之前先核对 package version 与 commit。
 
 已有 source checkout 时，使用仓库脚本以保留公开入口层：
 
@@ -357,6 +357,18 @@ codexgpt watch-handoff --agent opencode --model provider/model --yes
 ```
 
 然后让 ChatGPT 通过 `read_handoff` 或 `codex_context` 审查结果。
+
+### C2C 单轮实施与复核
+
+C2C 是更严格的 handoff：ChatGPT 负责规划和独立复核，当前 Codex 只执行一次已经授权的本地实现。在目标项目中启动临时受限 Runtime：
+
+```powershell
+codexgpt c2c start --root D:\Dev\your-repo
+```
+
+使用专用 ChatGPT 对话并加载已安装的 `C2C_CHATGPT_PROMPT.md`，选择目标 CodexGPT connector；当前 Codex 则读取已安装包中的 `skill/SKILL.md`。全局 npm 安装时，两者都在 `$(npm root -g)\codexgpt` 下。控制器把 revision 绑定的 `INIT -> PLAN -> EXECUTED -> DONE|BLOCKED|ERROR` 会话保存在工作区外，执行前验证精确 plan 文件，并把相对执行基线的证据写入 `.ai-bridge/agent-status.md`；每次浏览器发送都先持久化预留。
+
+Phase 5 只支持一份计划、一次本地实施和一次独立复核。它不会生成另一个执行 Agent、自动重发不确定消息、重跑中断执行、开始第二轮 PLAN、提交、发布、部署或扩大权限。PLAN 始终是不可信任务数据；项目规则、Policy、审批、审计、路径和 Runtime 边界继续有效。操作入口见 [`skill/SKILL.md`](skill/SKILL.md)，ChatGPT 端契约见 [`C2C_CHATGPT_PROMPT.md`](C2C_CHATGPT_PROMPT.md)。
 
 ### 3. Pro context fallback
 

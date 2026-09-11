@@ -237,6 +237,7 @@ test("ConPTY probe uses one manifest-bound Node child and retains bounded failur
   ]);
   assert.match(client, /const DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS = 60_000;/);
   assert.match(client, /options\.startupTimeoutMs \?\? DEFAULT_WINDOWS_HOST_STARTUP_TIMEOUT_MS/);
+  assert.match(client, /input\.child\.stdin\.on\("error", \(\) => \{\s*this\.#fail\(processHostError\("HOST_CLOSED", this\.#safeStderrCode\(\)\)\);\s*\}\);/);
   assert.match(spike, /const DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS = 60_000;/);
   assert.match(spike, /const CONPTY_CONTROL_REQUEST_TIMEOUT_MS = 85_000;/);
   assert.match(spike, /HELLO_TIMEOUT"\)\);\s*}, DEFAULT_WINDOWS_HOST_SPIKE_STARTUP_TIMEOUT_MS/);

@@ -50,6 +50,7 @@ Usage:
   codexgpt start --root /path/to/repo
   codexgpt settings
   codexgpt config explain [--json]
+  codexgpt c2c start [--root <workspace>] [--tunnel <tunnel>]
   codexgpt semantic status [--verbose]
   codexgpt semantic use builtin|none
   codexgpt semantic disable
@@ -552,7 +553,7 @@ function realDir(input) {
   if (!fs.existsSync(resolved)) throw new Error(`Directory does not exist: ${resolved}`);
   const stat = fs.statSync(resolved);
   if (!stat.isDirectory()) throw new Error(`Not a directory: ${resolved}`);
-  return fs.realpathSync(resolved);
+  return fs.realpathSync.native(resolved);
 }
 
 function resolveCodexDir(root, input) {
@@ -3966,6 +3967,7 @@ function profileFromPreference(root, args, profile, preference) {
 }
 
 async function maybeConfigureFirstRun(root, args, profile) {
+  if (process.env.CODEXGPT_C2C_RUNTIME === '1') return profile;
   if (profile.profilePath || !process.stdin.isTTY || !process.stdout.isTTY || process.env.CI || hasExplicitTunnelInput(args)) {
     return profile;
   }

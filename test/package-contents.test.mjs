@@ -61,6 +61,18 @@ test("published package keeps website assets but excludes internal memory archiv
   const files = report[0].files.map((entry) => entry.path.replaceAll("\\", "/"));
 
   assert.ok(files.includes("docs/index.html"), "Published package must retain the documentation website");
+  for (const requiredC2CFile of [
+    "C2C_CHATGPT_PROMPT.md",
+    "skill/SKILL.md",
+    "skill/references/browser-workflow.md",
+    "skill/references/execution-workflow.md",
+    "skill/references/project-instructions.md",
+    "skill/references/protocol.md",
+    "scripts/c2c-runtime-profile.mjs",
+    "dist/c2c/cli.js"
+  ]) {
+    assert.ok(files.includes(requiredC2CFile), `Published package must retain ${requiredC2CFile}`);
+  }
   for (const requiredGateRFile of [
     "dist/git/durableState.js",
     "dist/git/locks.js",

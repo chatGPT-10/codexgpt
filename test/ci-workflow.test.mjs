@@ -99,6 +99,7 @@ test("CI classifies changes, always enforces policy, and bounds full-matrix logs
       assert.match(performance, /retention-days:\s*14/);
     }
     if (name === "Windows") {
+      assert.match(block, /timeout-minutes:\s*45/, "Windows full-matrix jobs must not retain a hung native-process test indefinitely");
       assert.match(block, /CODEXGPT_TEST_TOPOLOGY:\s*\$\{\{ vars\.CODEXGPT_TEST_TOPOLOGY \|\| 'layered' \}\}/);
       const reportVerification = stepBlock(block, "Verify Windows performance reports");
       assert.match(reportVerification, /id:\s*performance_reports/);

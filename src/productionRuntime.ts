@@ -1055,7 +1055,7 @@ export function createProductionCodexGPTServer(
   try {
     options.observeRuntime?.(runtime.observation);
     const server = createCodexGPTServer(config, runtime.dependencies);
-    upgradeCodexGPTSupertool(server, config.toolContractVersion);
+    upgradeCodexGPTSupertool(server, config.toolContractVersion, config.c2cRuntime ? { disableWorkflowActions: true } : {});
     installServerMutationLifecycle(server, runtime.lifecycle);
     installRuntimeDisposal(server, runtime);
     return server;

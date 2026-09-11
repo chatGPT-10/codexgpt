@@ -233,6 +233,9 @@ export class WindowsProcessHostClient {
       const combined = Buffer.concat([this.#stderr, incoming]);
       this.#stderr = combined.subarray(Math.max(0, combined.length - 16_384));
     });
+    input.child.stdin.on("error", () => {
+      this.#fail(processHostError("HOST_CLOSED", this.#safeStderrCode()));
+    });
     input.child.once("close", () => this.#fail(processHostError("HOST_CLOSED", this.#safeStderrCode())));
   }
 

@@ -1174,9 +1174,12 @@ const codexgptErrorSchemaV5 = z.union([
 const codexgptListActionsDataSchemaV5 = z.object({
   actions: z.array(canonicalToolSchemaV5),
   action_count: z.number().int().nonnegative(),
-  workflow_actions: z.tuple([z.literal("verify_change")]),
-  workflow_action_count: z.literal(1)
+  workflow_actions: z.union([z.tuple([]), z.tuple([z.literal("verify_change")])]),
+  workflow_action_count: z.union([z.literal(0), z.literal(1)])
 }).strict().superRefine((value, context) => {
+  if (value.workflow_action_count !== value.workflow_actions.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["workflow_action_count"], message: "workflow_action_count must equal workflow_actions.length." });
+  }
   if (value.action_count !== value.actions.length) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["action_count"], message: "action_count must equal actions.length." });
   }
@@ -1250,7 +1253,8 @@ export type CodexGPTStructuredResultV5 = z.infer<typeof codexgptOutputBaseSchema
 
 export function createCodexGPTListActionsSuccessV5(
   actions: readonly string[],
-  durationMs = 0
+  durationMs = 0,
+  workflowEnabled = true
 ): CodexGPTStructuredResultV5 {
   const uniqueActions = [...new Set(actions)];
   for (const action of uniqueActions) {
@@ -1264,8 +1268,8 @@ export function createCodexGPTListActionsSuccessV5(
     data: {
       actions: uniqueActions,
       action_count: uniqueActions.length,
-      workflow_actions: ["verify_change"],
-      workflow_action_count: 1
+      workflow_actions: workflowEnabled ? ["verify_change"] : [],
+      workflow_action_count: workflowEnabled ? 1 : 0
     },
     error: null,
     meta: createToolMeta(durationMs)

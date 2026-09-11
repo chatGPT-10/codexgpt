@@ -89,6 +89,21 @@ const FILESYSTEM_MODULES = new Set(["fs", "fs/promises", "node:fs", "node:fs/pro
 // Legacy entries retain line/column for review history, but identity comparison uses syscall + semantic call digest only.
 // Keep empty until the RED inventory has exposed every current direct writer.
 const REVIEWED_ALLOWLIST = Object.freeze({
+  "src/c2c/sessionStore.ts": Object.freeze({
+    purpose: "C2C application-state CAS outside the workspace: exclusive per-session lock, exact-owner release and validated atomic JSON replacement using the retained state writer.",
+    occurrences: Object.freeze([
+      "75:16:openSync:929d10b36b88",
+      "80:7:writeFileSync:07eaca391436",
+      "85:32:unlinkSync:6e9d0fb0d1b1",
+      "132:26:write:89c27f98c829"
+    ])
+  }),
+  "src/c2c/storagePaths.ts": Object.freeze({
+    purpose: "Create only missing C2C application-state ancestors outside the bound workspace, checking each directory for symlink or reparse redirection.",
+    occurrences: Object.freeze([
+      "25:13:mkdirSync:336907809b7f"
+    ])
+  }),
   "scripts/atomic-file.mjs": Object.freeze({
     purpose: "Atomic JSON replacement for exact CodexGPT-owned runner evidence and managed toolchain manifests outside authorized workspaces.",
     occurrences: Object.freeze([

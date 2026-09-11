@@ -2,6 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { assertC2CRuntime, parseC2CRuntime } from "./c2c/runtimeProfile.js";
 import { inspect } from "node:util";
 import { DEFAULT_ANALYSIS_LIMITS, type AnalysisLimits } from "./analysis/types.js";
 import type { RiskClass } from "./policy/types.js";
@@ -88,6 +89,7 @@ export interface CodexGPTConfig {
   fileTransactions: FileTransactionMode;
   toolContractVersion: ToolContractVersion;
   toolMode: ToolMode;
+  c2cRuntime?: boolean;
   policyEngineMode: PolicyEngineMode;
   auditMode: AuditMode;
   auditRetention: AuditRetentionConfig;
@@ -932,6 +934,7 @@ export function loadConfig(
       semanticMode === "standard" ? "5" : explicitToolContractVersion
     ),
     toolMode,
+    c2cRuntime: parseC2CRuntime(environment.CODEXGPT_C2C_RUNTIME),
     policyEngineMode: policyEngineModeFrom(policyEngineArg ?? environment.CODEXGPT_POLICY_ENGINE),
     auditMode: auditModeFrom(auditModeArg ?? environment.CODEXGPT_AUDIT_MODE),
     auditRetention: {
@@ -1077,6 +1080,7 @@ export function loadConfig(
       environment.CODEXGPT_LOG_REQUESTS === "1",
     oauthDeployment
   };
+  assertC2CRuntime(config);
   if (
     config.toolContractVersion !== 3 &&
     config.toolContractVersion !== 4 &&

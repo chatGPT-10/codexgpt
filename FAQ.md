@@ -74,6 +74,12 @@ A matching Skill is loaded lazily and remains instruction text only. Skill scrip
 
 `--tool-mode minimal` does not expose `codex_context`. When guidance mode is omitted, minimal mode therefore uses the exact `legacy` compatibility projection; explicitly requesting `CODEXGPT_GUIDANCE_MODE=standard` with minimal mode fails at startup. Apps created before the Phase 6 tool update may need one **Scan Tools** refresh or recreation.
 
+## How is C2C different from normal coding or handoff mode?
+
+Normal coding lets ChatGPT use the configured repository tools directly. Handoff mode lets ChatGPT write a plan for a separately selected local executor. C2C binds one dedicated ChatGPT conversation to a persisted session: ChatGPT writes one bounded plan, the current Codex verifies and implements it locally, and ChatGPT then reviews the actual changed files and recorded evidence.
+
+Start it with `codexgpt c2c start --root <absolute-repo>`, use `C2C_CHATGPT_PROMPT.md` in the dedicated ChatGPT conversation, and have Codex load `skill/SKILL.md`. Phase 5 is deliberately single-iteration. `BLOCKED`, `ERROR`, `RECOVERY_REQUIRED`, an interrupted execution, or uncertain delivery is not permission to resend or rerun; automatic recovery and additional iterations remain future C2C Phase 6 work.
+
 ## What is the recommended install path?
 
 Install globally once:
@@ -114,7 +120,7 @@ Server URL: paste the complete URL copied by CodexGPT, including codexgpt_token
 Authentication: No Authentication / None (if shown)
 ```
 
-The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. The published Phase 8 baseline completed Tasks 8A1–8A9, live Gate G8-U Journeys U2–U7, local G8-X, and exact-head CI; the current npm release is `1.0.4`. OAuth uses a separate App and token-free URL. This section documents only the retained Legacy compatibility App. Do not mix the two Apps or replace either flow with manual static-Bearer configuration.
+The complete Server URL contains the query-token credential. Treat it as a password-equivalent secret because it can leak through browser history, clipboard contents, screenshots, logs, and copied links. Do not share, publish, or commit it. The published Phase 8 baseline completed Tasks 8A1–8A9, live Gate G8-U Journeys U2–U7, local G8-X, and exact-head CI; the current npm release is `1.1.0`. OAuth uses a separate App and token-free URL. This section documents only the retained Legacy compatibility App. Do not mix the two Apps or replace either flow with manual static-Bearer configuration.
 
 ## Should CSP stay enabled?
 

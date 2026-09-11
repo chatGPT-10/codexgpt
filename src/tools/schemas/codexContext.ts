@@ -142,7 +142,7 @@ export const codexContextLegacyDataSchema = z.object({
   root: z.string().min(1),
   target_path: codexContextTargetPathSchema,
   target_kind: z.enum(["file", "directory", "missing"]),
-  tool_mode: z.literal("full"),
+  tool_mode: z.enum(["standard", "full"]),
   write_mode: z.enum(["off", "handoff", "workspace"]),
   bash_mode: z.enum(["off", "safe", "full"]),
   include_ai_bridge: z.boolean(),

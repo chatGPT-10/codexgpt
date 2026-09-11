@@ -119,6 +119,7 @@ jobs:
     needs: classify
     if: needs.classify.outputs.runtime == 'true'
     runs-on: windows-latest
+    timeout-minutes: 45
     env:
       CODEXGPT_TEST_TOPOLOGY: ${{ vars.CODEXGPT_TEST_TOPOLOGY || 'layered' }}
     strategy:

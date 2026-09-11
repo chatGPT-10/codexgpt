@@ -661,7 +661,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "export_pro_context", "codex_sessions", "read_codex_session",
         "handoff_to_agent", "handoff_to_codex"
       ],
-        descriptorHash: "5bf6b9befdd1d8964a58601f24d2417398566b4e2b7407f41fd17ffe2f7180d0"
+        descriptorHash: "e5bce194b089490e94cbbcf71808336f158b5cae5c77a52ce1a831bcb3b53ac5"
     },
     connection: {
       names: [
@@ -671,7 +671,7 @@ test("contract V1 wire snapshots freeze exact mode projections and direct/supert
         "show_changes", "read_handoff", "wait_for_handoff", "codex_context",
         "codex_sessions", "read_codex_session"
       ],
-        descriptorHash: "446f8a8bdda2ff64f56a5cfc9708ee9d4f6d25b308af65f7698e3e551acf39fa"
+        descriptorHash: "8435080c798a73da9ea258b390ecf05ebb8406bdc74ac9061518efdf8a65b4ba"
     }
   });
   assert.deepEqual(

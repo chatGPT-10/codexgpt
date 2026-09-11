@@ -6,12 +6,16 @@ Do not store secrets, complete tokens, private keys, or sensitive source content
 
 ## Current state
 
-- Date: 2026-09-01; branch `codex/tool-execution-pipeline-slice1` is at `f9fe62d`, synchronized with its matching remote. The reviewed `1.0.5` release candidate is locally gated and awaits its release commit, exact-head CI, merge, npm publication, tag, and GitHub Release; public release remains `codexgpt@1.0.4` until those actions complete.
-- Historical Phase 1–8 Core/releases and roadmap P1–P5 are closed locally; exact implementation and verification history is archived.
+- Date: 2026-09-10. `codexgpt@1.0.5` remains the latest published release at source `877aebe`, exact-head CI `33560199028`, merged `origin/main` `9f629bf`. The reviewed `1.1.0` candidate on `codex/c2c-phase5-release` combines the completed C2C Phase 0–5 work with the authorized post-1.0.5 Local Control Plane/native-realpath maintenance; commit, exact-head CI and publication are still pending in this record.
+- Historical Phase 1–8 Core/releases, roadmap P1–P5 and C2C [Phase 0 / STEP-555](docs/reviews/2026-09-05-c2c-phase-0-acceptance.md) through [Phase 3 / STEP-558](docs/reviews/2026-09-06-c2c-phase-3-acceptance.md) are locally complete; exact gates and limitations are archived.
 
 ## Approved execution boundary
 
-P1–P5 local closure was explicitly authorized for this GitHub handoff and is now committed and pushed to `origin/codex/tool-execution-pipeline-slice1`. The separately authorized OAuth security reset and ChatGPT App relink are now complete: the published `codexgpt-Windows-v2` App made a real, read-only `open_current_workspace` then `git_status` call against `D:\Dev\codexgpt`. No Web-efficiency metric, package/release publication, commit, or push is implied. The `NGROK_DOMAIN` warning/retention decision remains open and must preserve STEP-531 value/fingerprint parity; other network, credential, service, sandbox/egress, deferred-phase, and external-state work remains separately gated.
+C2C STEP-560 (2026-09-08): [Phase 5 local and real Web Gate 5 acceptance PASS](docs/reviews/2026-09-08-c2c-phase-5-acceptance.md). User-directed retry preserved the first BLOCKED attempt; one fresh INIT/PLAN, verified 5,024-byte plan, current-Codex one-file documentation edit, five passed checks, one EXECUTED and independent connector review reached revision 15/DONE. Runtime run `2026-09-08T16-33-26-407Z-c2c-phase5-retry-runtime-7cfcd621` passed health and actual reads. The 1.1.0 review subsequently added package-content coverage, installed-entry guidance, mode-only worktree-diff evidence, and an explicit evidence-recording API. Phase 6 remains unapproved and unimplemented.
+
+C2C STEP-559 (2026-09-07): [Phase 4 acceptance](docs/reviews/2026-09-07-c2c-phase-4-acceptance.md) PASS: local dual-Node gates and real IAB INIT-to-PLAN, session revision 3/PLAN_RECEIVED, actual 3,205-byte plan SHA verified, duplicate observation refused. Owner-authorized C2C runtime uses existing OAuth/Tunnel on port 8789, detached run `2026-09-07T19-24-19-377Z-c2c-phase4-runtime-2d3aed0b`. Plan is not executed; Phase 5 remains separately scoped. Earlier port-8787-only diagnosis was insufficient and is corrected in acceptance.
+
+P1–P5 local closure was explicitly authorized for this GitHub handoff and is now committed and pushed to `origin/codex/tool-execution-pipeline-slice1`. The separately authorized OAuth security reset and ChatGPT App relink are now complete: the published `codexgpt-Windows-v2` App made a real, read-only `open_current_workspace` then `git_status` call against `D:\Dev\codexgpt`. The later `1.0.5` package/tag/Release closure does not imply a Web-efficiency metric, Runtime/Tunnel/DNS change, service install, or ChatGPT Web deployment. The `NGROK_DOMAIN` warning/retention decision remains open and must preserve STEP-531 value/fingerprint parity; other network, credential, service, sandbox/egress, deferred-phase, and external-state work remains separately gated.
 
 The owner explicitly authorized an incremental browser-admin product: an independent loopback Local Control Plane may manage exact additional workspace roots with path review and typed confirmation, persist safe next-launch permission presets, and start/stop/restart an exact controller-owned Runtime after identity/health checks. OAuth default-root rebinding and `full_access` privilege escalation remain separately bounded.
 
@@ -47,7 +51,7 @@ The owner explicitly authorized an incremental browser-admin product: an indepen
 - STEP-527–532 reconcile active configuration/network documentation, preserve exact legacy-input provenance/value parity, and index all archive volumes. Detailed per-step counts and the unresolved `NGROK_DOMAIN` choice remain in Part 11/12.
 - P1–P5 and the authorized GitHub handoff are closed with managed dual-Node gates; exact run IDs, detailed implementation, and the Web read-only acceptance are retained in the linked archives.
 - STEP-543–550 Local Control Plane: build, Policy, diff, and focused local-admin/lifecycle/ownership/child tests pass; the latest ten-test set verifies session+CSRF lifecycle/settings requests, exact process identity, typed workspace admission, safe permission presets, serial action rejection, exit, and health-gated `owned_running`.
-- STEP-551 release-candidate repair: the Windows profile inventory now classifies every Local Control Plane regression and reserves persistent verification receipts for an exclusive shard. Focused checks, managed Node 20/24 ordinary regression, and managed Node 20/24 smoke pass; external release actions remain pending.
+- STEP-551 release-candidate repair and publication: the Windows profile inventory now classifies every Local Control Plane regression and reserves persistent verification receipts for an exclusive shard. Focused checks, managed Node 20/24 ordinary regression, managed Node 20/24 smoke, and exact-head CI `33560199028` passed. `codexgpt@1.0.5` is npm `latest`, with `gitHead` `877aebe`; its annotated tag and GitHub Latest Release are published.
 
 ## Known limitations
 
@@ -59,31 +63,36 @@ The owner explicitly authorized an incremental browser-admin product: an indepen
 - Environment narrowing is defense in depth, not credential isolation; Safe Bash timeout may leave Windows descendants. `full_access`, confirmed roots, ConPTY, managed worktrees, and external Providers remain ambient-authority mechanisms, not sandboxes.
 - Atomic `apply_patch` supports bounded UTF-8 create/replace/delete only; Native-Windows Stress retains the established POSIX-only multi-colon filename skip.
 - Cached-App migration requires one explicit **Scan Tools** refresh or recreation; transparent refresh is not claimed. U6 proved this by creating a V4 51-tool App before switching the same endpoint to V5.
-- Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. The STEP-542 root overrides pin the four vulnerable production transitive packages to patched versions; `npm audit --omit=dev` is now zero vulnerabilities.
+- Large partial dependency graphs remain read-only/quality-labeled and rename fails closed. STEP-542's zero-vulnerability audit is historical; the 2026-09-05 audit reports `fast-uri`/`ajv` high and `qs` moderate. See the C2C Phase 0 report; no dependency update is included.
 - P4 verification/review state is server-local and does not survive restart; durable change sets remain the filesystem rollback authority. Failed checks make the workflow terminal but not ready, and invalid explicit review linkage leaves the diff result valid while reporting that the workflow was not updated.
 - The Web trace proves connectivity and a representative read-only workspace call, but it is not the benchmark protocol: `wrong_tool_calls`, `redundant_tool_calls`, and `total_tool_calls` remain unscored and no efficiency reduction is claimed.
 - The legacy cached `codexgpt-Windows-233` draft remains untouched. The active published replacement is `codexgpt-Windows-v2`; renaming it or deleting the legacy draft would be a separate destructive App-management decision.
 - The registry rejects cross-root reuse. The authorized rebind moved `codexgpt.drliang.uk` to `D:\Dev\codexgpt`, revoked old authority, and left Cloudflare unchanged; the replacement App then reauthorized successfully.
 - The independent control host can start/stop/restart only its exact owned child after local health/identity checks. A visual browser check still requires a deliberately launched local host and is not claimed by focused HTTP/UI tests.
 - The browser can add/remove reviewed additional roots only for the next control-host launch; it cannot silently alter the OAuth default root, `full_access` execution profile, or Policy. ChatGPT opens an added project with `open_workspace` and a fresh capability after restart.
+- Moving the OAuth default root is deliberately outside the browser Control Plane: use the separately authorized `auth rebind --from-root <old> --root <new> --hostname <same-host> --revoke-all` path only after stopping both Runtimes, proving the target is a distinct clean root, and accepting security-reset revocation/relink. It preserves the owned hostname/Tunnel but never silently preserves old grants.
 
 ## Open items
 
 1. Decide whether `NGROK_DOMAIN` receives a value-free migration warning to `CODEXGPT_PUBLIC_HOSTNAME` or remains indefinitely supported; preserve its cross-mode value/fingerprint contract either way. Any benchmark-grade App/Web efficiency run requires separate authorization.
 2. Delete the remaining Cloudflare DNS record `codexpro-oauth.drliang.uk` only under its separate approval; reviewed background lifecycle, native isolation, Serena/LSP, Tasks 4B1–4B6, credential migration, and toolchain-root migration also remain gated.
 3. The earlier 20-minute `1.0.4` normal-use acceptance remains separate from benchmark scoring; if disconnects recur, inspect authenticated local diagnostics before changing any ceiling.
-4. If a second project's own OAuth default root is required, create a separately reviewed profile/App/hostname; do not repurpose the existing OAuth deployment. Preserve the effective-capability intersection.
+4. To migrate the existing OAuth default root, use the reviewed `auth rebind` tutorial and accept security-reset revocation/relink. For concurrent independent project deployments, use a separately reviewed profile/App/hostname. Preserve the effective-capability intersection.
 
 ## Recent summaries
 
 - **STEP-543–550 — Local Control Plane:** authenticated overview; independent loopback host; exact ownership journal/child manager; browser Start/Stop/Restart; reviewed additional workspace roots; and safe next-launch tool/write/Safe-Bash presets. OAuth-default-root changes and `full_access` remain unavailable.
-- **STEP-551 — 1.0.5 candidate gates:** test profile repairs make the full Windows layered suite deterministic; managed dual-Node regression and smoke evidence is retained in the detached runs. Public npm/GitHub release state is not yet changed.
+- **STEP-551 — 1.0.5 release:** test profile repairs make the full Windows layered suite deterministic; managed dual-Node regression/smoke and exact-head CI evidence passed. npm `latest`, annotated tag, and GitHub Latest Release now align on source `877aebe`; the daily guide documents the interactive browser-confirmed publish sequence without preserving credentials or temporary URLs.
+- **STEP-553 — Default-root migration tutorial:** the daily guide now gives a beginner-facing, fail-closed rebind path from decision through stop/preflight/rebind/start/relink/verification/rollback. It distinguishes a temporary allowed root from a security-reset default-root change and records no OAuth credential or temporary URL.
+- **STEP-554 — Documentation hygiene:** active FAQ, website, roadmap, and rule text now report the verified `1.0.5` release; historical archives remain dated evidence rather than rewritten current state.
+- **STEP-561 — 1.1.0 release review:** C2C Phase 0–5 plus the authorized Local Control Plane/native-realpath maintenance passed review corrections and local gates. Initial candidate `d016245` is in PR #10; exact-head CI exposed and now has locally verified fixes for Windows Host stdin `EPIPE`, bounded Windows CI duration, and recoverable semantic timing pressure. Replacement commit, exact-head CI, merge and external publication remain pending.
 
 ## Archives
 
 - [Complete archive volume index](docs/memory/archive/README.md)
 - [Closed interphase maintenance Part 13 — STEP-538 through STEP-543](docs/memory/archive/interphase-maintenance-part-13.md)
-- [Active interphase maintenance Part 14 — next maintenance step](docs/memory/archive/interphase-maintenance-part-14.md)
+- [Closed interphase maintenance Part 14 — through STEP-558](docs/memory/archive/interphase-maintenance-part-14.md)
+- [Active interphase maintenance Part 15 — STEP-559 onward](docs/memory/archive/interphase-maintenance-part-15.md)
 
 ## Memory maintenance protocol
 
